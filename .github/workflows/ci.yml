@@ -19,6 +19,8 @@ jobs:
         run: python -m pytest -q
       - name: Check shell syntax
         run: bash -n ./*.sh scripts/*.sh
+      - name: Check pinned installer plan
+        run: ./install_isaaclab_stable.sh --dry-run
       - name: Verify no GitHub-size-limit files
         run: |
           find . -type f -not -path './.git/*' -size +99M -print -quit | tee /tmp/oversized.txt

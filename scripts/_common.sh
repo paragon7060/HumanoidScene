@@ -21,14 +21,20 @@ resolve_isaaclab_python() {
     candidates+=("$(command -v python)")
   fi
   candidates+=(
+    "${HOME}/anaconda3/envs/env_isaaclab_232/bin/python"
+    "${HOME}/miniconda3/envs/env_isaaclab_232/bin/python"
+    "${HOME}/miniforge3/envs/env_isaaclab_232/bin/python"
     "${HOME}/anaconda3/envs/env_isaaclab/bin/python"
     "${HOME}/miniconda3/envs/env_isaaclab/bin/python"
     "${HOME}/miniforge3/envs/env_isaaclab/bin/python"
   )
 
   for candidate in "${candidates[@]}"; do
+    # Do not import AppLauncher here: the first Isaac Sim import displays the
+    # NVIDIA EULA prompt. Runtime discovery and doctor checks must remain
+    # non-interactive, so distribution metadata is sufficient at this stage.
     if [[ -x "${candidate}" ]] && "${candidate}" -c \
-      'from isaaclab.app import AppLauncher' >/dev/null 2>&1; then
+      'from importlib.metadata import version; version("isaaclab")' >/dev/null 2>&1; then
       printf '%s\n' "${candidate}"
       return 0
     fi
@@ -39,6 +45,25 @@ resolve_isaaclab_python() {
     "Activate the Isaac Lab conda environment or set:" \
     "  export ISAACLAB_PYTHON=/absolute/path/to/python" >&2
   return 1
+}
+
+require_supported_runtime() {
+  local python_exe="$1"
+  local package_path="${KUAVO_PROJECT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}"
+  local args=(--quiet)
+
+  if [[ "${KUAVO_ALLOW_UNSUPPORTED_RUNTIME:-0}" == "1" ]]; then
+    args+=(--allow-unsupported)
+  fi
+  if ! env PYTHONPATH="${package_path}" "${python_exe}" \
+    -m kuavo_isaaclab_scene.runtime_compat "${args[@]}"; then
+    printf '%s\n' \
+      'Install the pinned stable stack with:' \
+      '  ./install_isaaclab_stable.sh' \
+      'For a deliberate temporary override only:' \
+      '  export KUAVO_ALLOW_UNSUPPORTED_RUNTIME=1' >&2
+    return 1
+  fi
 }
 
 resolve_lerobot_python() {

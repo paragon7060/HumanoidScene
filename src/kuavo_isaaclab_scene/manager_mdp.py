@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING
 
 import torch
 
-import isaacsim.core.utils.stage as stage_utils
-
 from isaaclab.assets import Articulation, RigidObjectCollection
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.sim.utils import stage as stage_utils
 from isaaclab.utils import math as math_utils
 from .workcell_layout import (
     position as layout_position,

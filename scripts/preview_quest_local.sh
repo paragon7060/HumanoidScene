@@ -4,6 +4,7 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${PROJECT_DIR}/scripts/_common.sh"
 ISAACLAB_PYTHON="$(resolve_isaaclab_python)"
+require_supported_runtime "${ISAACLAB_PYTHON}"
 PACKAGE_PATH="${PROJECT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}"
 RUNTIME_CONFIG_DIR="${KUAVO_CONFIG_DIR:-${PROJECT_DIR}/configs}"
 

@@ -45,10 +45,9 @@ parser = argparse.ArgumentParser(
         "from a saved Isaac Sim stage."
     )
 )
-# ``nargs='?'`` avoids an Isaac Lab 0.45 AppLauncher pre-parse bug: it parses
-# known arguments before restoring argparse's help action. We enforce the
-# positional after the final parse so both ``--help`` and missing-stage errors
-# behave normally.
+# Keep this optional during AppLauncher's preliminary parse, then validate it
+# after the complete Isaac Lab v2.3 parse so both ``--help`` and missing-stage
+# errors behave normally.
 parser.add_argument(
     "stage",
     type=Path,

@@ -196,8 +196,6 @@ simulation_app = app_launcher.app
 
 import torch
 
-import isaacsim.core.utils.stage as stage_utils
-
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import (
@@ -210,6 +208,7 @@ from isaaclab.assets import (
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.sensors import CameraCfg
 from isaaclab.sim import SimulationContext
+from isaaclab.sim.utils import stage as stage_utils
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import NUCLEUS_ASSET_ROOT_DIR
 from pxr import Gf, PhysxSchema

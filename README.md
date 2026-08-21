@@ -13,7 +13,8 @@ layout JSON이 포함된다. Isaac Sim/Isaac Lab, CloudXR, LeRobot, policy weigh
 ```bash
 git clone git@github.com:paragon7060/HumanoidScene.git
 cd HumanoidScene
-conda activate env_isaaclab
+./install_isaaclab_stable.sh
+conda activate env_isaaclab_232
 export ISAACLAB_PYTHON="$(command -v python)"
 ./setup.sh
 ./run_scene.sh --prefill 2
@@ -40,10 +41,11 @@ default legacy six-tote layout, the complete task is:
 4. press the green fence button after all six task totes are confirmed;
 5. start the conveyor only after the valid button press.
 
-The scene uses the local Isaac Lab 0.45.7 / Isaac Sim 5.0 installation, the
-user-supplied rack/box USDs, and NVIDIA's warehouse and Digital Twin conveyor
-assets. The authoritative execution, Isaac Sim editing, pose/rotation/scale
-capture, and respawn workflow is maintained in
+The supported GA stack is Isaac Lab v2.3.2 (Python package 0.54.2) on Isaac
+Sim 5.1.0 and Python 3.11. Isaac Lab 3.0 is not selected while NVIDIA labels
+it beta. The scene uses the user-supplied rack/box USDs and NVIDIA's warehouse
+and Digital Twin conveyor assets. The authoritative execution, Isaac Sim
+editing, pose/rotation/scale capture, and respawn workflow is maintained in
 [`docs/ISAACSIM_WORKCELL_GUIDE.md`](docs/ISAACSIM_WORKCELL_GUIDE.md).
 
 ## Complete operating guide
@@ -84,6 +86,7 @@ for normal use. For development or deployment into an Isaac Lab environment:
 ```bash
 export ISAACLAB_PYTHON=/absolute/path/to/isaaclab-environment/bin/python
 ./setup.sh
+./doctor.sh
 ```
 
 Build a distributable wheel with all USD/URDF/mesh assets and a synchronized

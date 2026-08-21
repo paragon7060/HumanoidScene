@@ -4,51 +4,141 @@ This repository is self-contained for the Kuavo workcell code, JSON layouts,
 URDF, meshes, and USD assets. Isaac Sim, Isaac Lab, NVIDIA CloudXR, policy
 weights, and LeRobot are external runtime dependencies and are not vendored.
 
-## 1. Tested stack
+## 1. Supported stable stack
 
-- Linux workstation with an NVIDIA RTX GPU and a driver supported by Isaac Sim
-- Python 3.11.13
-- Isaac Sim 5.0.0
-- Isaac Lab 0.45.7
-- PyTorch 2.7.0 + CUDA 12.8
-- optional LeRobot 0.6.0 / Dataset format v3.0 in a separate Python 3.12 environment
-- optional Meta Quest 3/3S plus NVIDIA CloudXR Runtime and Quest client
+This repository pins the current NVIDIA GA stack rather than following a moving
+branch:
 
-Other compatible Isaac Lab releases may work, but the versions above are the
-reproducible reference. The launch scripts never assume a particular username,
-home directory, conda installation, or checkout path.
+- Ubuntu 22.04 Linux x86_64, GLIBC 2.35 or newer;
+- NVIDIA RTX GPU, 32 GB or more system RAM, and 16 GB or more VRAM recommended;
+- current NVIDIA production driver (580.65.06 or newer is NVIDIA's Linux
+  recommendation for the 5.1 generation);
+- Python 3.11;
+- Isaac Sim 5.1.0 from NVIDIA's Python package index;
+- Isaac Lab tag `v2.3.2` / package `isaaclab==0.54.2`;
+- PyTorch 2.7.0 and torchvision 0.22.0 from the CUDA 12.8 wheel index;
+- Gymnasium 1.2.1 and NumPy 1.x;
+- optional LeRobot 0.6.0 / Dataset format v3.0 in a separate Python 3.12 environment;
+- optional Meta Quest 3/3S plus NVIDIA CloudXR Runtime and Quest client.
 
-## 2. Clone and configure Isaac Lab
+NVIDIA currently publishes Isaac Lab 3.0 as a beta tied to Isaac Sim 6.0.x.
+It is intentionally not the default for a stable deployment. The exact pins
+used by scripts live in `versions/stable.env`; future upgrades should change
+that file and the compatibility tests together.
+
+The Quest/OpenXR path targets x86_64. NVIDIA documents OpenXR as unsupported on
+DGX Spark/aarch64, so the automated installer rejects that architecture instead
+of producing a partially working Quest setup.
+
+## 2. One-command conda, Isaac Sim, and Isaac Lab installation
+
+Install Miniconda or Anaconda first, then clone this repository. The installer
+creates a new `env_isaaclab_232` environment and leaves every existing conda
+environment untouched:
 
 ```bash
 git clone git@github.com:paragon7060/HumanoidScene.git
 cd HumanoidScene
 
-conda activate env_isaaclab
-export ISAACLAB_PYTHON="$(command -v python)"
-./setup.sh
+./install_isaaclab_stable.sh --dry-run
+./install_isaaclab_stable.sh
 ```
 
-If Isaac Lab is already importable from the active conda environment,
-`ISAACLAB_PYTHON` can be omitted. The launcher searches the active environment,
-`python3`, `python`, and common conda locations. To validate without installing
-the package again:
+The script performs these pinned operations:
+
+1. checks Linux x86_64 and GLIBC 2.35+;
+2. creates a Python 3.11 conda environment;
+3. installs `isaacsim[all,extscache]==5.1.0` from NVIDIA's package index;
+4. installs the official PyTorch 2.7.0 CUDA 12.8 wheels;
+5. clones the exact Isaac Lab `v2.3.2` tag under `.external/`;
+6. installs the `isaaclab` core extension from the exact source tag;
+7. installs this repository editable and runs the runtime doctor.
+
+The first Isaac Sim invocation displays NVIDIA's EULA prompt and may spend more
+than ten minutes downloading/caching extensions. Review and answer that prompt
+yourself. The installer does not silently set `OMNI_KIT_ACCEPT_EULA`.
+
+To choose another non-existing environment name or source checkout:
 
 ```bash
+./install_isaaclab_stable.sh \
+  --env-name kuavo_sim_51 \
+  --isaaclab-dir /data/tools/IsaacLab-v2.3.2
+```
+
+If a named environment already exists, the installer stops without modifying
+it. `--reuse-env` must be given explicitly to reuse it; its final versions must
+still pass the runtime doctor.
+
+Activate and validate the finished installation:
+
+```bash
+conda activate env_isaaclab_232
+export ISAACLAB_PYTHON="$(command -v python)"
+export ISAACLAB_DIR="$PWD/.external/IsaacLab-v2.3.2"
+
+./doctor.sh
 ./setup.sh --check-only
 ```
 
-For URDF-to-USD regeneration only, also point to the Isaac Lab source checkout:
+`doctor.sh` reports the interpreter, GLIBC, GPU/driver, and package versions
+without starting the Isaac Sim GUI. Every simulator launcher also fails early
+on an old/mixed runtime. `KUAVO_ALLOW_UNSUPPORTED_RUNTIME=1` is available only
+as a temporary diagnostic escape hatch; it is not a supported deployment.
+
+## 3. Manual installation (equivalent commands)
+
+Use this path when you want to inspect each NVIDIA installation step:
 
 ```bash
-export ISAACLAB_DIR=/absolute/path/to/IsaacLab
-./convert_kuavo.sh
+conda create -y -n env_isaaclab_232 python=3.11 pip
+conda activate env_isaaclab_232
+python -m pip install --upgrade pip setuptools "wheel==0.45.1"
+
+python -m pip install "isaacsim[all,extscache]==5.1.0" \
+  --extra-index-url https://pypi.nvidia.com
+python -m pip install --upgrade torch==2.7.0 torchvision==0.22.0 \
+  --index-url https://download.pytorch.org/whl/cu128
+
+mkdir -p .external
+git clone --depth 1 --branch v2.3.2 \
+  https://github.com/isaac-sim/IsaacLab.git .external/IsaacLab-v2.3.2
+cd .external/IsaacLab-v2.3.2
+python -m pip install --editable source/isaaclab
+cd ../..
+
+python -m pip install onnx==1.18.0 typing_extensions==4.12.2 psutil==5.9.8
+python -m pip install --no-build-isolation -e .
+export ISAACLAB_PYTHON="$(command -v python)"
+export ISAACLAB_DIR="$PWD/.external/IsaacLab-v2.3.2"
+./doctor.sh
 ```
 
-The generated Kuavo USD is already committed, so conversion is not required for
-a normal clone.
+Verify Isaac Lab itself before launching this workcell:
 
-## 3. First scene and manager environment
+```bash
+"${ISAACLAB_DIR}/isaaclab.sh" -p \
+  "${ISAACLAB_DIR}/scripts/tutorials/00_sim/create_empty.py" --headless
+```
+
+For URDF-to-USD regeneration only, keep `ISAACLAB_DIR` exported and run
+`./convert_kuavo.sh`. The generated Kuavo USD is already committed, so
+conversion is not required for a normal clone.
+
+The installer intentionally installs Isaac Lab core rather than executing the
+upstream `--install none` wrapper. In v2.3.2 that wrapper also installs
+Mimic/RL/Jupyter packages, then launches VS Code settings bootstrap and an EULA
+prompt. This workcell only imports Isaac Lab core (including manager-based
+environments, cameras, OpenXR devices, and retargeters), so the smaller install
+avoids unrelated dependency drift. NVIDIA's EULA is still shown on the first
+actual Isaac Sim run and must be accepted by the operator.
+
+`pip check` may report one upstream metadata conflict: Isaac Lab v2.3.2 pins
+`starlette==0.49.1`, while the Isaac Sim 5.1 FastAPI wheel declares
+`starlette<0.46`. The workcell does not use Isaac Sim's FastAPI service; retain
+Isaac Lab's pin for its device/livestream code rather than manually changing it.
+
+## 4. First scene and manager environment
 
 Open the editable standalone scene:
 
@@ -73,7 +163,7 @@ Shelf numbers are `1=bottom`, `2=middle`, and `3=top`. Each box size has two
 instances. See [the workcell guide](ISAACSIM_WORKCELL_GUIDE.md) for editing,
 rotation/scale capture, and respawn.
 
-## 4. Meta Quest hand tracking and data collection
+## 5. Meta Quest hand tracking and data collection
 
 Install NVIDIA CloudXR Runtime on the Isaac workstation and the matching CloudXR
 client on the Quest. Locate the runtime's `openxr_cloudxr.json`, then launch the
@@ -106,7 +196,7 @@ Network pairing, controller bindings, browser/IWER preview, recentering, and
 troubleshooting are documented in the
 [Quest teleoperation guide](QUEST3_KUAVO_TELEOP_GUIDE.md).
 
-## 5. LeRobot Dataset v3 and GR00T
+## 6. LeRobot Dataset v3 and GR00T
 
 Keep LeRobot in a separate environment and export its interpreter:
 
@@ -116,7 +206,7 @@ export LEROBOT_PYTHON="$(command -v python)"
 "${LEROBOT_PYTHON}" -c \
   'from lerobot.datasets import CODEBASE_VERSION; assert str(CODEBASE_VERSION) == "v3.0"'
 
-conda activate env_isaaclab
+conda activate env_isaaclab_232
 export ISAACLAB_PYTHON="$(command -v python)"
 ./collect_quest_teleop.sh --dataset-format both
 ```
@@ -131,7 +221,7 @@ by Git. Evaluate a manager-compatible GR00T output with:
 Then follow the [GR00T N1.7 evaluation guide](GROOT_N1_7_EVAL_GUIDE.md) to load
 real policy weights and select the action convention.
 
-## 6. Layout portability
+## 7. Layout portability
 
 Runtime layout files live in `configs/`. A clone can use them directly. To keep
 site-specific layouts outside Git, set:
@@ -145,13 +235,14 @@ export KUAVO_RACK_BOX_POSES=/absolute/path/to/rack_box_poses.json
 Copy `.env.example` as a reference for all supported environment variables. The
 scripts read exported shell variables; they do not automatically execute `.env`.
 
-## 7. Verification and packaging
+## 8. Verification and packaging
 
 Simulator-independent tests:
 
 ```bash
 "${ISAACLAB_PYTHON}" -m pytest -q
 bash -n ./*.sh scripts/*.sh
+./install_isaaclab_stable.sh --dry-run
 ```
 
 Build a wheel containing every committed USD/URDF/mesh and fallback config:
@@ -163,3 +254,9 @@ Build a wheel containing every committed USD/URDF/mesh and fallback config:
 The largest committed file is below GitHub's 100 MB per-file limit, so Git LFS
 is not required. Runtime outputs are excluded; the source assets remain regular
 Git files and are available immediately after cloning.
+
+## Official version references
+
+- [Isaac Lab releases](https://github.com/isaac-sim/IsaacLab/releases)
+- [Isaac Lab v2.3 pip installation](https://isaac-sim.github.io/IsaacLab/v2.3.0/source/setup/installation/pip_installation.html)
+- [Isaac Sim 5.1 Python installation](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/install_python.html)

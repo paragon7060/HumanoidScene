@@ -23,7 +23,7 @@ from .paths import CONFIG_DIR
 parser = argparse.ArgumentParser(description="Capture Kuavo workcell anchors from a saved USD stage.")
 # Optional during AppLauncher's internal preliminary parse, then required
 # immediately after the real parse. This preserves working ``--help`` output
-# with Isaac Lab 0.45 while retaining the same runtime contract.
+# during AppLauncher's preliminary parse while retaining the same runtime contract.
 parser.add_argument(
     "stage",
     type=Path,

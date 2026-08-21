@@ -15,6 +15,7 @@ fi
 ISAACLAB_PYTHON="$(resolve_isaaclab_python)"
 PACKAGE_PATH="${PROJECT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}"
 printf 'Isaac Lab Python: %s\n' "${ISAACLAB_PYTHON}"
+require_supported_runtime "${ISAACLAB_PYTHON}"
 
 if [[ ${CHECK_ONLY} -eq 0 ]]; then
   "${ISAACLAB_PYTHON}" -m pip install --no-build-isolation -e "${PROJECT_DIR}"
