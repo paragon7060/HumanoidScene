@@ -1,0 +1,169 @@
+diff --git a/simple/index.html b/simple/index.html
+index a119040..2aef29b 100644
+--- a/simple/index.html
++++ b/simple/index.html
+@@ -540,6 +540,7 @@ limitations under the License.
+             <form id="settingsForm">
+                 <label for="serverType" class="input-label">Select Server Backend</label>
+                 <select id="serverType" class="ui-input">
++                    <option value="local-isaaclab">Local Kuavo IsaacLab (IWER/Quest)</option>
+                     <option value="manual">Manual Input IP:Port</option>
+                     <option value="nvcf" disabled>NVCF</option>
+                 </select>
+diff --git a/simple/src/main.ts b/simple/src/main.ts
+index d7ed1b6..1cbcdcd 100644
+--- a/simple/src/main.ts
++++ b/simple/src/main.ts
+@@ -65,6 +65,7 @@ import {
+   validatePerEyeResolution,
+ } from '@nvidia/cloudxr';
+ import type { XRDevice } from 'iwer';
++import { LocalIsaacLabBridge } from './LocalIsaacLabBridge';
+ 
+ // Override PressureObserver early to catch errors from buggy browser implementations
+ overridePressureObserver();
+@@ -120,6 +121,7 @@ class CloudXRClient {
+   private mediaAddressInput: HTMLInputElement;
+   private mediaPortInput: HTMLInputElement;
+   private codecSelect: HTMLSelectElement;
++  private serverTypeSelect: HTMLSelectElement;
+ 
+   private deviceProfileId: DeviceProfileId = 'custom';
+   private deviceProfile: DeviceProfile = getDeviceProfile('custom');
+@@ -127,6 +129,7 @@ class CloudXRClient {
+   // Core Session Components
+   private xrSession: XRSession | null = null; // WebXR session (hardware access)
+   private cloudxrSession: Session | null = null; // CloudXR session (streaming)
++  private localIsaacLabBridge: LocalIsaacLabBridge | null = null;
+ 
+   private gl: WebGL2RenderingContext | null = null; // WebGL context (rendering)
+   private baseLayer: XRWebGLLayer | null = null; // Bridge between WebXR and WebGL
+@@ -241,6 +244,19 @@ class CloudXRClient {
+     this.mediaAddressInput = document.getElementById('mediaAddress') as HTMLInputElement;
+     this.mediaPortInput = document.getElementById('mediaPort') as HTMLInputElement;
+     this.codecSelect = document.getElementById('codec') as HTMLSelectElement;
++    this.serverTypeSelect = document.getElementById('serverType') as HTMLSelectElement;
++
++    this.serverTypeSelect.addEventListener('change', () => {
++      if (this.serverTypeSelect.value === 'local-isaaclab') {
++        this.serverIpInput.value = '127.0.0.1';
++        this.portInput.value = '8765';
++        this.startButton.innerHTML = 'CONNECT LOCAL ISAACLAB';
++      } else {
++        this.portInput.value = '49100';
++        this.startButton.innerHTML = 'CONNECT';
++      }
++      this.updateConnectButtonState();
++    });
+ 
+     // Enable localStorage to persist user settings
+     enableLocalStorage(this.serverIpInput, 'serverIp');
+@@ -268,6 +284,10 @@ class CloudXRClient {
+     enableLocalStorage(this.mediaAddressInput, 'mediaAddress');
+     enableLocalStorage(this.mediaPortInput, 'mediaPort');
+     enableLocalStorage(this.codecSelect, 'codec');
++    if (this.serverTypeSelect.value === 'local-isaaclab') {
++      this.serverIpInput.value = '127.0.0.1';
++      this.portInput.value = '8765';
++    }
+ 
+     // Update slider value display when it changes
+     this.posePredictionFactorInput.addEventListener('input', () => {
+@@ -341,7 +361,12 @@ class CloudXRClient {
+ 
+     this.startButton.addEventListener('click', async () => {
+       this.updateConnectButtonState();
+-      if (this.certStatus.required && !this.certStatus.accepted && this.certLinkController) {
++      if (
++        this.serverTypeSelect.value !== 'local-isaaclab' &&
++        this.certStatus.required &&
++        !this.certStatus.accepted &&
++        this.certLinkController
++      ) {
+         this.startButton.disabled = true;
+         this.startButton.textContent = 'CONNECT (waiting for certificate check...)';
+         let certWaitTimeoutId: ReturnType<typeof setTimeout> | null = null;
+@@ -483,6 +508,13 @@ class CloudXRClient {
+ 
+   /** Disable Connect button when resolution invalid; show validation in its own box. */
+   private updateConnectButtonState(): void {
++    if (this.serverTypeSelect.value === 'local-isaaclab') {
++      this.validationMessageText.textContent = '';
++      this.validationMessageBox.className = 'validation-message-box';
++      this.startButton.disabled = !this.capabilitiesValid;
++      if (this.capabilitiesValid) this.startButton.innerHTML = 'CONNECT LOCAL ISAACLAB';
++      return;
++    }
+     const { w, h } = getResolutionFromInputs(this.perEyeWidthInput, this.perEyeHeightInput);
+     const { reprojectionGridCols, reprojectionGridRows } = getGridFromInputs(
+       this.reprojectionGridColsInput,
+@@ -525,6 +557,11 @@ class CloudXRClient {
+     // Read configuration from UI form
+     const serverIp = this.serverIpInput.value.trim() || window.location.hostname || '127.0.0.1';
+ 
++    if (this.serverTypeSelect.value === 'local-isaaclab') {
++      await this.connectToLocalIsaacLab(serverIp);
++      return;
++    }
++
+     // Determine default port based on connection type and proxy usage
+     const useSecureConnection = window.location.protocol === 'https:';
+     const portValue = parseInt(this.portInput.value, 10);
+@@ -630,6 +667,34 @@ class CloudXRClient {
+     }
+   }
+ 
++  private async connectToLocalIsaacLab(serverIp: string): Promise<void> {
++    const port = parseInt(this.portInput.value, 10) || 8765;
++    const immersiveMode = this.immersiveSelect.value as 'ar' | 'vr';
++    const deviceFrameRate = parseInt(this.deviceFrameRateSelect.value, 10);
++    try {
++      this.startButton.disabled = true;
++      this.startButton.innerHTML = 'CONNECT LOCAL (connecting)';
++      this.showStatus(`Connecting browser tracking to IsaacLab ${serverIp}:${port}...`, 'info');
++      await this.initializeWebGL();
++      await this.createXRSession(immersiveMode, deviceFrameRate);
++      const referenceSpaceType = this.referenceSpaceSelect.value as XRReferenceSpaceType;
++      const referenceSpace = await this.getReferenceSpace(referenceSpaceType);
++      this.localIsaacLabBridge = new LocalIsaacLabBridge(this.gl!, referenceSpace);
++      await this.localIsaacLabBridge.connect(`ws://${serverIp}:${port}`);
++      this.startButton.innerHTML = 'LOCAL ISAACLAB (streaming)';
++      this.exitButton.style.display = 'block';
++      this.showStatus('IsaacLab camera and WebXR tracking bridge connected.', 'success');
++    } catch (error) {
++      this.localIsaacLabBridge?.close();
++      this.localIsaacLabBridge = null;
++      this.showStatus(`Local IsaacLab connection failed: ${error}`, 'error');
++      this.startButton.disabled = false;
++      this.startButton.innerHTML = 'CONNECT LOCAL ISAACLAB';
++      if (this.xrSession) await this.xrSession.end().catch(() => this.clearSessionReferences());
++      else this.clearSessionReferences();
++    }
++  }
++
+   /**
+    * Initialize WebGL2 context for rendering (high-performance, XR-compatible)
+    */
+@@ -864,6 +929,11 @@ class CloudXRClient {
+       }
+     }
+ 
++    if (this.localIsaacLabBridge && this.baseLayer) {
++      this.localIsaacLabBridge.onXRFrame(timestamp, frame, this.baseLayer);
++      return;
++    }
++
+     if (!this.cloudxrSession) {
+       console.debug('Skipping frame, CloudXR session not created yet');
+       return;
+@@ -894,6 +964,10 @@ class CloudXRClient {
+    */
+   private handleXRSessionEnd(): void {
+     try {
++      if (this.localIsaacLabBridge) {
++        this.localIsaacLabBridge.close();
++        this.localIsaacLabBridge = null;
++      }
+       if (this.cloudxrSession) {
+         this.cloudxrSession.disconnect();
+         this.cloudxrSession = null;

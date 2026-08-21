@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kuavo-isaaclab-scene"
+version = "0.1.0"
+description = "Kuavo 5 rack-to-conveyor workcell for Isaac Lab"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["gymnasium>=0.29", "h5py>=3.8", "numpy>=1.24", "websockets>=12"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+groot = ["lerobot[groot]"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+kuavo_isaaclab_scene = [
+  "configs/*.json",
+  "assets/**/*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"

@@ -1,0 +1,119 @@
+#usda 1.0
+(
+    defaultPrim = "OpenTote"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "OpenTote" (
+    prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+)
+{
+    float physics:mass = 0.65
+    float physxRigidBody:angularDamping = 0.08
+    float physxRigidBody:linearDamping = 0.04
+    float physxRigidBody:maxDepenetrationVelocity = 1
+
+    def Scope "Looks"
+    {
+        def Material "Cardboard"
+        {
+            token outputs:surface.connect = </OpenTote/Looks/Cardboard/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.69, 0.43, 0.20)
+                color3f inputs:emissiveColor = (0, 0, 0)
+                float inputs:metallic = 0
+                float inputs:opacity = 1
+                float inputs:roughness = 0.88
+                token outputs:surface
+            }
+        }
+
+        def Material "Contact" (
+            prepend apiSchemas = ["PhysicsMaterialAPI", "PhysxMaterialAPI"]
+        )
+        {
+            float physics:dynamicFriction = 0.24
+            float physics:restitution = 0.01
+            float physics:staticFriction = 0.30
+            uniform token physxMaterial:frictionCombineMode = "min"
+            uniform token physxMaterial:restitutionCombineMode = "average"
+        }
+    }
+
+    def Xform "Geometry"
+    {
+        def Cube "Bottom" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding = </OpenTote/Looks/Cardboard>
+            rel material:binding:physics = </OpenTote/Looks/Contact>
+            float physxCollision:contactOffset = 0.003
+            float physxCollision:restOffset = 0
+            double size = 1
+            double3 xformOp:scale = (0.24, 0.28, 0.014)
+            double3 xformOp:translate = (0, 0, 0.007)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+
+        def Cube "FrontWall" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding = </OpenTote/Looks/Cardboard>
+            rel material:binding:physics = </OpenTote/Looks/Contact>
+            float physxCollision:contactOffset = 0.003
+            float physxCollision:restOffset = 0
+            double size = 1
+            double3 xformOp:scale = (0.012, 0.28, 0.20)
+            double3 xformOp:translate = (-0.114, 0, 0.10)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+
+        def Cube "RearWall" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding = </OpenTote/Looks/Cardboard>
+            rel material:binding:physics = </OpenTote/Looks/Contact>
+            float physxCollision:contactOffset = 0.003
+            float physxCollision:restOffset = 0
+            double size = 1
+            double3 xformOp:scale = (0.012, 0.28, 0.20)
+            double3 xformOp:translate = (0.114, 0, 0.10)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+
+        def Cube "LeftWall" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding = </OpenTote/Looks/Cardboard>
+            rel material:binding:physics = </OpenTote/Looks/Contact>
+            float physxCollision:contactOffset = 0.003
+            float physxCollision:restOffset = 0
+            double size = 1
+            double3 xformOp:scale = (0.216, 0.012, 0.20)
+            double3 xformOp:translate = (0, -0.134, 0.10)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+
+        def Cube "RightWall" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            rel material:binding = </OpenTote/Looks/Cardboard>
+            rel material:binding:physics = </OpenTote/Looks/Contact>
+            float physxCollision:contactOffset = 0.003
+            float physxCollision:restOffset = 0
+            double size = 1
+            double3 xformOp:scale = (0.216, 0.012, 0.20)
+            double3 xformOp:translate = (0, 0.134, 0.10)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        }
+    }
+}

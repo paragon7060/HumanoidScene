@@ -1,0 +1,150 @@
+#usda 1.0
+(
+    defaultPrim = "SafetyWorker"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "SafetyWorker" (
+    prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+)
+{
+    float physics:mass = 75
+    bool physics:kinematicEnabled = 1
+
+    def Scope "Looks"
+    {
+        def Material "Vest"
+        {
+            token outputs:surface.connect = </SafetyWorker/Looks/Vest/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (1.0, 0.34, 0.015)
+                color3f inputs:emissiveColor = (0.08, 0.012, 0)
+                float inputs:roughness = 0.62
+                token outputs:surface
+            }
+        }
+        def Material "Dark"
+        {
+            token outputs:surface.connect = </SafetyWorker/Looks/Dark/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.035, 0.05, 0.08)
+                float inputs:roughness = 0.76
+                token outputs:surface
+            }
+        }
+        def Material "Skin"
+        {
+            token outputs:surface.connect = </SafetyWorker/Looks/Skin/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.49, 0.25, 0.13)
+                float inputs:roughness = 0.72
+                token outputs:surface
+            }
+        }
+        def Material "Helmet"
+        {
+            token outputs:surface.connect = </SafetyWorker/Looks/Helmet/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.96, 0.78, 0.02)
+                float inputs:roughness = 0.40
+                token outputs:surface
+            }
+        }
+    }
+
+    def Capsule "Collider" (
+        prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI"]
+    )
+    {
+        uniform token axis = "Z"
+        double height = 1.35
+        double radius = 0.22
+        double3 xformOp:translate = (0, 0, 0.90)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        token visibility = "invisible"
+    }
+
+    def Cube "Torso" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </SafetyWorker/Looks/Vest>
+        double size = 1
+        double3 xformOp:scale = (0.42, 0.24, 0.54)
+        double3 xformOp:translate = (0, 0, 1.15)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+    }
+    def Sphere "Head" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </SafetyWorker/Looks/Skin>
+        double radius = 0.115
+        double3 xformOp:translate = (0, 0, 1.58)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def Cylinder "Helmet" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </SafetyWorker/Looks/Helmet>
+        uniform token axis = "Z"
+        double height = 0.075
+        double radius = 0.14
+        double3 xformOp:translate = (0, 0, 1.69)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def Capsule "LeftArm" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </SafetyWorker/Looks/Vest>
+        uniform token axis = "Z"
+        double height = 0.50
+        double radius = 0.055
+        double3 xformOp:translate = (0, 0.275, 1.12)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def Capsule "RightArm" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </SafetyWorker/Looks/Vest>
+        uniform token axis = "Z"
+        double height = 0.50
+        double radius = 0.055
+        double3 xformOp:translate = (0, -0.275, 1.12)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def Capsule "LeftLeg" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </SafetyWorker/Looks/Dark>
+        uniform token axis = "Z"
+        double height = 0.68
+        double radius = 0.075
+        double3 xformOp:translate = (0, 0.115, 0.45)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def Capsule "RightLeg" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </SafetyWorker/Looks/Dark>
+        uniform token axis = "Z"
+        double height = 0.68
+        double radius = 0.075
+        double3 xformOp:translate = (0, -0.115, 0.45)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}

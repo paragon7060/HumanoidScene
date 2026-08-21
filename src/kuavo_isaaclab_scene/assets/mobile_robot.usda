@@ -1,0 +1,126 @@
+#usda 1.0
+(
+    defaultPrim = "MobileRobot"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "MobileRobot" (
+    prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+)
+{
+    float physics:mass = 42
+    bool physics:kinematicEnabled = 1
+
+    def Scope "Looks"
+    {
+        def Material "Body"
+        {
+            token outputs:surface.connect = </MobileRobot/Looks/Body/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.06, 0.24, 0.42)
+                float inputs:metallic = 0.35
+                float inputs:roughness = 0.35
+                token outputs:surface
+            }
+        }
+        def Material "Bumper"
+        {
+            token outputs:surface.connect = </MobileRobot/Looks/Bumper/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.025, 0.03, 0.04)
+                float inputs:roughness = 0.70
+                token outputs:surface
+            }
+        }
+        def Material "Signal"
+        {
+            token outputs:surface.connect = </MobileRobot/Looks/Signal/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.02, 0.95, 0.12)
+                color3f inputs:emissiveColor = (0.01, 0.35, 0.03)
+                float inputs:roughness = 0.28
+                token outputs:surface
+            }
+        }
+    }
+
+    def Cube "Collider" (
+        prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI"]
+    )
+    {
+        double size = 1
+        double3 xformOp:scale = (0.52, 0.42, 0.28)
+        double3 xformOp:translate = (0, 0, 0.19)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        token visibility = "invisible"
+    }
+    def Cube "Base" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </MobileRobot/Looks/Body>
+        double size = 1
+        double3 xformOp:scale = (0.50, 0.40, 0.25)
+        double3 xformOp:translate = (0, 0, 0.19)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+    }
+    def Cube "BumperFront" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </MobileRobot/Looks/Bumper>
+        double size = 1
+        double3 xformOp:scale = (0.055, 0.43, 0.12)
+        double3 xformOp:translate = (0.275, 0, 0.15)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+    }
+    def Cylinder "Lidar" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </MobileRobot/Looks/Bumper>
+        uniform token axis = "Z"
+        double height = 0.10
+        double radius = 0.075
+        double3 xformOp:translate = (0.08, 0, 0.39)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def Sphere "Signal" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </MobileRobot/Looks/Signal>
+        double radius = 0.035
+        double3 xformOp:translate = (-0.13, 0, 0.37)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def Cylinder "LeftWheel" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </MobileRobot/Looks/Bumper>
+        uniform token axis = "Y"
+        double height = 0.055
+        double radius = 0.085
+        double3 xformOp:translate = (0, 0.235, 0.11)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def Cylinder "RightWheel" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </MobileRobot/Looks/Bumper>
+        uniform token axis = "Y"
+        double height = 0.055
+        double radius = 0.085
+        double3 xformOp:translate = (0, -0.235, 0.11)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}

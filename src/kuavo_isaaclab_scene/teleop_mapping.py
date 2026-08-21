@@ -1,0 +1,245 @@
+"""Simulator-independent Quest hand/head tracking retargeting for Kuavo teleoperation."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import math
+
+import numpy as np
+
+
+Pose = np.ndarray  # [x, y, z, qw, qx, qy, qz]
+
+
+@dataclass(frozen=True)
+class TeleopMappingCfg:
+    """Safety and response settings for the relative bimanual mapping."""
+
+    position_gain: float = 1.5
+    rotation_gain: float = 1.0
+    position_smoothing: float = 0.45
+    rotation_smoothing: float = 0.40
+    head_smoothing: float = 0.25
+    position_deadband_m: float = 0.0005
+    rotation_deadband_rad: float = 0.004
+    max_position_step_m: float = 0.025
+    max_rotation_step_rad: float = 0.12
+    head_yaw_limit_rad: float = 1.40
+    head_pitch_limit_rad: float = 0.48
+
+
+@dataclass(frozen=True)
+class TeleopMappingOutput:
+    """One control sample and its tracking metadata."""
+
+    action: np.ndarray
+    left_valid: bool
+    right_valid: bool
+    head_valid: bool
+    left_pinch_m: float
+    right_pinch_m: float
+
+    @property
+    def bimanual_valid(self) -> bool:
+        return self.left_valid and self.right_valid
+
+
+def _normalized_quat(quat: np.ndarray) -> np.ndarray:
+    norm = float(np.linalg.norm(quat))
+    if norm < 1.0e-8:
+        return np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
+    return np.asarray(quat, dtype=np.float64) / norm
+
+
+def _quat_conjugate(quat: np.ndarray) -> np.ndarray:
+    quat = np.asarray(quat, dtype=np.float64)
+    return np.array([quat[0], -quat[1], -quat[2], -quat[3]], dtype=np.float64)
+
+
+def _quat_multiply(left: np.ndarray, right: np.ndarray) -> np.ndarray:
+    lw, lx, ly, lz = left
+    rw, rx, ry, rz = right
+    return np.array(
+        [
+            lw * rw - lx * rx - ly * ry - lz * rz,
+            lw * rx + lx * rw + ly * rz - lz * ry,
+            lw * ry - lx * rz + ly * rw + lz * rx,
+            lw * rz + lx * ry - ly * rx + lz * rw,
+        ],
+        dtype=np.float64,
+    )
+
+
+def _quat_rotate(quat: np.ndarray, vector: np.ndarray) -> np.ndarray:
+    quat = _normalized_quat(quat)
+    vector_quat = np.array([0.0, *np.asarray(vector, dtype=np.float64)])
+    return _quat_multiply(_quat_multiply(quat, vector_quat), _quat_conjugate(quat))[1:]
+
+
+def _quat_to_rotvec(quat: np.ndarray) -> np.ndarray:
+    quat = _normalized_quat(quat)
+    if quat[0] < 0.0:
+        quat = -quat
+    vector_norm = float(np.linalg.norm(quat[1:]))
+    if vector_norm < 1.0e-8:
+        return np.zeros(3, dtype=np.float64)
+    angle = 2.0 * math.atan2(vector_norm, float(np.clip(quat[0], -1.0, 1.0)))
+    return quat[1:] * (angle / vector_norm)
+
+
+def _quat_to_pitch_yaw(quat: np.ndarray) -> tuple[float, float]:
+    w, x, y, z = _normalized_quat(quat)
+    sin_pitch = 2.0 * (w * y - z * x)
+    pitch = math.asin(float(np.clip(sin_pitch, -1.0, 1.0)))
+    yaw = math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+    return pitch, yaw
+
+
+def _limit_norm(vector: np.ndarray, maximum: float) -> np.ndarray:
+    norm = float(np.linalg.norm(vector))
+    if norm <= maximum or norm < 1.0e-9:
+        return vector
+    return vector * (maximum / norm)
+
+
+def _valid_pose(pose: Pose | None) -> bool:
+    if pose is None:
+        return False
+    pose = np.asarray(pose)
+    return (
+        pose.shape == (7,)
+        and bool(np.all(np.isfinite(pose)))
+        and float(np.linalg.norm(pose[:3])) > 0.05
+        and float(np.linalg.norm(pose[3:])) > 0.5
+    )
+
+
+def _pinch_distance(hand: dict[str, Pose] | None) -> float:
+    if not hand:
+        return float("nan")
+    thumb = hand.get("thumb_tip")
+    index = hand.get("index_tip")
+    if not _valid_pose(thumb) or not _valid_pose(index):
+        return float("nan")
+    return float(np.linalg.norm(np.asarray(thumb)[:3] - np.asarray(index)[:3]))
+
+
+class BimanualTeleopMapper:
+    """Map OpenXR wrist deltas and HMD orientation to a 14-D Kuavo action.
+
+    The action order is left arm pose delta (6), right arm pose delta (6),
+    then absolute head yaw/pitch offsets (2). A newly acquired hand is first
+    calibrated and emits zero motion, preventing the common first-frame jump.
+    """
+
+    def __init__(self, cfg: TeleopMappingCfg | None = None):
+        self.cfg = cfg or TeleopMappingCfg()
+        self.reset()
+
+    def reset(self) -> None:
+        self._previous_wrist: dict[str, Pose | None] = {"left": None, "right": None}
+        self._filtered_position = {"left": np.zeros(3), "right": np.zeros(3)}
+        self._filtered_rotation = {"left": np.zeros(3), "right": np.zeros(3)}
+        self._head_neutral: Pose | None = None
+        self._filtered_head = np.zeros(2)
+
+    def _hand_delta(
+        self,
+        side: str,
+        hand: dict[str, Pose] | None,
+        root_quat_w: np.ndarray,
+    ) -> tuple[np.ndarray, bool]:
+        command = np.zeros(6, dtype=np.float64)
+        wrist = hand.get("wrist") if hand else None
+        if not _valid_pose(wrist):
+            self._previous_wrist[side] = None
+            self._filtered_position[side].fill(0.0)
+            self._filtered_rotation[side].fill(0.0)
+            return command, False
+
+        wrist = np.asarray(wrist, dtype=np.float64)
+        previous = self._previous_wrist[side]
+        self._previous_wrist[side] = wrist.copy()
+        if previous is None:
+            return command, True
+
+        root_inverse = _quat_conjugate(_normalized_quat(root_quat_w))
+        delta_position_w = wrist[:3] - previous[:3]
+        delta_position_b = _quat_rotate(root_inverse, delta_position_w)
+
+        delta_quat_w = _quat_multiply(
+            _normalized_quat(wrist[3:]),
+            _quat_conjugate(_normalized_quat(previous[3:])),
+        )
+        delta_rotvec_w = _quat_to_rotvec(delta_quat_w)
+        delta_rotvec_b = _quat_rotate(root_inverse, delta_rotvec_w)
+
+        if np.linalg.norm(delta_position_b) < self.cfg.position_deadband_m:
+            delta_position_b.fill(0.0)
+        if np.linalg.norm(delta_rotvec_b) < self.cfg.rotation_deadband_rad:
+            delta_rotvec_b.fill(0.0)
+
+        alpha_pos = self.cfg.position_smoothing
+        alpha_rot = self.cfg.rotation_smoothing
+        self._filtered_position[side] = (
+            alpha_pos * delta_position_b + (1.0 - alpha_pos) * self._filtered_position[side]
+        )
+        self._filtered_rotation[side] = (
+            alpha_rot * delta_rotvec_b + (1.0 - alpha_rot) * self._filtered_rotation[side]
+        )
+        command[:3] = _limit_norm(
+            self._filtered_position[side] * self.cfg.position_gain,
+            self.cfg.max_position_step_m,
+        )
+        command[3:] = _limit_norm(
+            self._filtered_rotation[side] * self.cfg.rotation_gain,
+            self.cfg.max_rotation_step_rad,
+        )
+        return command, True
+
+    def _head_target(self, head_pose: Pose | None, root_quat_w: np.ndarray) -> tuple[np.ndarray, bool]:
+        if not _valid_pose(head_pose):
+            return self._filtered_head.copy(), False
+        head_pose = np.asarray(head_pose, dtype=np.float64)
+        if self._head_neutral is None:
+            self._head_neutral = head_pose.copy()
+            return self._filtered_head.copy(), True
+
+        delta_world = _quat_multiply(
+            _normalized_quat(head_pose[3:]),
+            _quat_conjugate(_normalized_quat(self._head_neutral[3:])),
+        )
+        root = _normalized_quat(root_quat_w)
+        delta_base = _quat_multiply(_quat_multiply(_quat_conjugate(root), delta_world), root)
+        pitch, yaw = _quat_to_pitch_yaw(delta_base)
+        target = np.array(
+            [
+                np.clip(yaw, -self.cfg.head_yaw_limit_rad, self.cfg.head_yaw_limit_rad),
+                np.clip(pitch, -self.cfg.head_pitch_limit_rad, self.cfg.head_pitch_limit_rad),
+            ],
+            dtype=np.float64,
+        )
+        alpha = self.cfg.head_smoothing
+        self._filtered_head = alpha * target + (1.0 - alpha) * self._filtered_head
+        return self._filtered_head.copy(), True
+
+    def advance(
+        self,
+        left_hand: dict[str, Pose] | None,
+        right_hand: dict[str, Pose] | None,
+        head_pose: Pose | None,
+        root_quat_w: np.ndarray,
+    ) -> TeleopMappingOutput:
+        left_action, left_valid = self._hand_delta("left", left_hand, root_quat_w)
+        right_action, right_valid = self._hand_delta("right", right_hand, root_quat_w)
+        head_action, head_valid = self._head_target(head_pose, root_quat_w)
+        action = np.concatenate([left_action, right_action, head_action]).astype(np.float32)
+        return TeleopMappingOutput(
+            action=action,
+            left_valid=left_valid,
+            right_valid=right_valid,
+            head_valid=head_valid,
+            left_pinch_m=_pinch_distance(left_hand),
+            right_pinch_m=_pinch_distance(right_hand),
+        )
+

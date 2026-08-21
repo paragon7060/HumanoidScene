@@ -1,0 +1,126 @@
+#usda 1.0
+(
+    defaultPrim = "ButtonStation"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "ButtonStation" (
+    prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+)
+{
+    def Scope "Looks"
+    {
+        def Material "PostYellow"
+        {
+            token outputs:surface.connect = </ButtonStation/Looks/PostYellow/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.95, 0.72, 0.02)
+                float inputs:metallic = 0.55
+                float inputs:roughness = 0.42
+                token outputs:surface
+            }
+        }
+        def Material "BezelDark"
+        {
+            token outputs:surface.connect = </ButtonStation/Looks/BezelDark/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.035, 0.045, 0.05)
+                float inputs:metallic = 0.85
+                float inputs:roughness = 0.30
+                token outputs:surface
+            }
+        }
+        def Material "ButtonGreen"
+        {
+            token outputs:surface.connect = </ButtonStation/Looks/ButtonGreen/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.02, 0.34, 0.055)
+                color3f inputs:emissiveColor = (0.0, 0.025, 0.002)
+                float inputs:metallic = 0.10
+                float inputs:roughness = 0.25
+                token outputs:surface
+            }
+        }
+    }
+
+    def Xform "Base" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 18
+
+        def Cube "Post" (
+            prepend apiSchemas = ["MaterialBindingAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            rel material:binding = </ButtonStation/Looks/PostYellow>
+            double size = 1
+            double3 xformOp:scale = (0.075, 0.075, 1.78)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+
+        def Cylinder "Bezel" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            rel material:binding = </ButtonStation/Looks/BezelDark>
+            uniform token axis = "Y"
+            double height = 0.025
+            double radius = 0.072
+            double3 xformOp:translate = (0, -0.051, 0.26)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+    }
+
+    def Xform "Plunger" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 0.16
+
+        def Cylinder "ButtonHead" (
+            prepend apiSchemas = ["MaterialBindingAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            rel material:binding = </ButtonStation/Looks/ButtonGreen>
+            uniform token axis = "Y"
+            double height = 0.040
+            double radius = 0.052
+        }
+    }
+
+    def PhysicsFixedJoint "BaseFixedJoint"
+    {
+        rel physics:body1 = </ButtonStation/Base>
+        point3f physics:localPos1 = (0, 0, 0)
+        quatf physics:localRot1 = (1, 0, 0, 0)
+    }
+
+    def PhysicsPrismaticJoint "ButtonJoint" (
+        prepend apiSchemas = ["PhysicsDriveAPI:linear"]
+    )
+    {
+        uniform token physics:axis = "Y"
+        rel physics:body0 = </ButtonStation/Base>
+        rel physics:body1 = </ButtonStation/Plunger>
+        float physics:lowerLimit = 0
+        float physics:upperLimit = 0.018
+        point3f physics:localPos0 = (0, -0.075, 0.26)
+        point3f physics:localPos1 = (0, 0, 0)
+        quatf physics:localRot0 = (1, 0, 0, 0)
+        quatf physics:localRot1 = (1, 0, 0, 0)
+        uniform token physics:drive:linear:type = "force"
+        float physics:drive:linear:stiffness = 420
+        float physics:drive:linear:damping = 18
+        float physics:drive:linear:maxForce = 120
+        float physics:drive:linear:targetPosition = 0
+        float physics:drive:linear:targetVelocity = 0
+    }
+}
