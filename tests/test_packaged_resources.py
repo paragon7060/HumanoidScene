@@ -22,14 +22,16 @@ def test_default_runtime_configs_are_packaged() -> None:
     assert (CONFIG_DIR / "workcell_layout.json").is_file()
     assert (CONFIG_DIR / "rack_box_poses.json").is_file()
     assert (CONFIG_DIR / "grippers.json").is_file()
+    assert (CONFIG_DIR / "robot_materials.json").is_file()
     assert (PACKAGE_CONFIG_DIR / "workcell_layout.json").is_file()
     assert (PACKAGE_CONFIG_DIR / "rack_box_poses.json").is_file()
     assert (PACKAGE_CONFIG_DIR / "grippers.json").is_file()
+    assert (PACKAGE_CONFIG_DIR / "robot_materials.json").is_file()
 
 
 def test_deployment_and_wheel_fallback_configs_are_synchronized() -> None:
     repository_configs = Path(__file__).resolve().parents[1] / "configs"
-    for name in ("workcell_layout.json", "rack_box_poses.json", "grippers.json"):
+    for name in ("workcell_layout.json", "rack_box_poses.json", "grippers.json", "robot_materials.json"):
         assert (repository_configs / name).read_bytes() == (
             PACKAGE_CONFIG_DIR / name
         ).read_bytes()

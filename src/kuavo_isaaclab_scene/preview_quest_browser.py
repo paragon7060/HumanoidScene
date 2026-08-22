@@ -15,6 +15,11 @@ from .gripper_config import (
     gripper_teleop_action,
     resolve_gripper_settings,
 )
+from .robot_material_config import (
+    add_robot_material_cli_args,
+    export_robot_material_cli,
+    resolve_robot_material_settings,
+)
 
 
 parser = argparse.ArgumentParser(description="Preview Kuavo Quest interaction through a local browser/IWER.")
@@ -36,11 +41,14 @@ parser.add_argument("--rack-box-layout", type=Path, default=None, metavar="JSON"
 parser.add_argument("--rack-box-poses", type=Path, default=None, metavar="JSON")
 parser.add_argument("--ignore-captured-box-poses", action="store_true")
 add_gripper_cli_args(parser)
+add_robot_material_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 export_gripper_cli(args_cli)
+export_robot_material_cli(args_cli)
 try:
     GRIPPER_SETTINGS = resolve_gripper_settings()
+    ROBOT_MATERIAL_SETTINGS = resolve_robot_material_settings()
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
 

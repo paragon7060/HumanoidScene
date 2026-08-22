@@ -146,6 +146,10 @@ Open the editable standalone scene:
 ./run_scene.sh --prefill 2
 ```
 
+The default `industrial_blue` Kuavo visual palette is applied at runtime. Use
+`--robot-material original` to compare against the mostly white source URDF,
+or see [ROBOT_MATERIALS.md](ROBOT_MATERIALS.md) for custom colors.
+
 Run the manager-based environment:
 
 ```bash

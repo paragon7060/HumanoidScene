@@ -16,6 +16,11 @@ from isaaclab.app import AppLauncher
 
 from .gripper_config import add_gripper_cli_args, export_gripper_cli, resolve_gripper_settings
 from .rack_box_layout import resolve_rack_box_pose_path
+from .robot_material_config import (
+    add_robot_material_cli_args,
+    export_robot_material_cli,
+    resolve_robot_material_settings,
+)
 
 
 parser = argparse.ArgumentParser(
@@ -123,9 +128,11 @@ pose_group.add_argument("--rack-box-poses", type=Path, default=None, metavar="JS
 pose_group.add_argument("--ignore-captured-box-poses", action="store_true")
 
 add_gripper_cli_args(parser)
+add_robot_material_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 export_gripper_cli(args_cli)
+export_robot_material_cli(args_cli)
 
 if not args_cli.mock_policy and not args_cli.checkpoint:
     parser.error("--checkpoint is required unless --mock-policy is selected.")
@@ -159,6 +166,7 @@ try:
         ignore=args_cli.ignore_captured_box_poses,
     )
     GRIPPER_SETTINGS = resolve_gripper_settings()
+    ROBOT_MATERIAL_SETTINGS = resolve_robot_material_settings()
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
 if captured_pose_path is not None:

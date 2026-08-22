@@ -1,0 +1,112 @@
+{
+  "default": "industrial_blue",
+  "presets": {
+    "industrial_blue": {
+      "enabled": true,
+      "materials": {
+        "shell": {
+          "diffuse_color": [0.52, 0.58, 0.65],
+          "roughness": 0.32,
+          "metallic": 0.18
+        },
+        "graphite": {
+          "diffuse_color": [0.025, 0.035, 0.05],
+          "roughness": 0.24,
+          "metallic": 0.32
+        },
+        "accent_blue": {
+          "diffuse_color": [0.015, 0.18, 0.62],
+          "roughness": 0.28,
+          "metallic": 0.2
+        },
+        "joint_metal": {
+          "diffuse_color": [0.14, 0.17, 0.21],
+          "roughness": 0.2,
+          "metallic": 0.72
+        },
+        "sensor": {
+          "diffuse_color": [0.004, 0.007, 0.012],
+          "roughness": 0.12,
+          "metallic": 0.08
+        }
+      },
+      "link_rules": [
+        {
+          "pattern": "(?:base_link|leg_[lr][35]_link|zarm_[lr][346]_link)",
+          "material": "shell"
+        },
+        {
+          "pattern": "(?:zhead_2_link|leg_[lr]4_link|zarm_[lr]1_link)",
+          "material": "accent_blue"
+        },
+        {
+          "pattern": "(?:waist_yaw_link|zhead_1_link|leg_[lr][126]_link|zarm_[lr][257]_link)",
+          "material": "graphite"
+        },
+        {
+          "pattern": "(?:head_camera_base|waist_camera_base)",
+          "material": "joint_metal"
+        },
+        {
+          "pattern": "(?:head_camera_depth|head_radar|waist_camera)",
+          "material": "sensor"
+        }
+      ]
+    },
+    "high_visibility": {
+      "enabled": true,
+      "materials": {
+        "shell": {
+          "diffuse_color": [0.56, 0.61, 0.67],
+          "roughness": 0.35,
+          "metallic": 0.14
+        },
+        "graphite": {
+          "diffuse_color": [0.02, 0.027, 0.038],
+          "roughness": 0.26,
+          "metallic": 0.3
+        },
+        "accent_blue": {
+          "diffuse_color": [0.95, 0.27, 0.025],
+          "roughness": 0.3,
+          "metallic": 0.08
+        },
+        "joint_metal": {
+          "diffuse_color": [0.16, 0.19, 0.23],
+          "roughness": 0.21,
+          "metallic": 0.7
+        },
+        "sensor": {
+          "diffuse_color": [0.003, 0.006, 0.01],
+          "roughness": 0.1,
+          "metallic": 0.06
+        }
+      },
+      "link_rules": [
+        {
+          "pattern": "(?:base_link|leg_[lr][35]_link|zarm_[lr][346]_link)",
+          "material": "shell"
+        },
+        {
+          "pattern": "(?:zhead_2_link|leg_[lr]4_link|zarm_[lr]1_link)",
+          "material": "accent_blue"
+        },
+        {
+          "pattern": "(?:waist_yaw_link|zhead_1_link|leg_[lr][126]_link|zarm_[lr][257]_link)",
+          "material": "graphite"
+        },
+        {
+          "pattern": "(?:head_camera_base|waist_camera_base)",
+          "material": "joint_metal"
+        },
+        {
+          "pattern": "(?:head_camera_depth|head_radar|waist_camera)",
+          "material": "sensor"
+        }
+      ]
+    },
+    "original": {
+      "enabled": false
+    }
+  }
+}
