@@ -28,11 +28,6 @@ from .gripper_config import (
     export_gripper_cli,
     resolve_gripper_settings,
 )
-from .robot_material_config import (
-    add_robot_material_cli_args,
-    export_robot_material_cli,
-    resolve_robot_material_settings,
-)
 from .rack_box_layout import (
     RACK_BACK_ROW_DEPTH_RAW,
     RACK_FRONT_ROW_DEPTH_RAW,
@@ -158,11 +153,9 @@ parser.add_argument(
     metavar=("MIN", "MAX"),
 )
 add_gripper_cli_args(parser)
-add_robot_material_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 export_gripper_cli(args_cli)
-export_robot_material_cli(args_cli)
 try:
     RACK_BOX_LAYOUT = resolve_rack_box_layout(args_cli.rack_boxes, args_cli.rack_box_layout)
     CAPTURED_RACK_BOX_POSE_PATH = resolve_rack_box_pose_path(
@@ -183,7 +176,6 @@ try:
         randomize_default=False,
     )
     GRIPPER_SETTINGS = resolve_gripper_settings()
-    ROBOT_MATERIAL_SETTINGS = resolve_robot_material_settings()
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
 CONFIGURED_RACK_BOX_COUNT = rack_box_count(RACK_BOX_LAYOUT)
@@ -252,7 +244,6 @@ from .gripper_runtime import (
     build_gripper_articulation_cfg,
     build_gripper_attachment_cfg,
 )
-from .robot_material_runtime import build_robot_visual_material_cfg
 from .paths import ASSET_DIR
 
 
@@ -728,10 +719,6 @@ class RackToConveyorSceneCfg(InteractiveSceneCfg):
     )
 
     robot: ArticulationCfg = KUAVO5_CFG
-    # Authored on link Xforms after the instanceable robot USD is spawned.
-    robot_visual_materials: AssetBaseCfg | None = build_robot_visual_material_cfg(
-        ROBOT_MATERIAL_SETTINGS
-    )
     left_gripper: ArticulationCfg | None = build_gripper_articulation_cfg(
         GRIPPER_SETTINGS, "left"
     )

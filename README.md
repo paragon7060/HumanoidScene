@@ -26,7 +26,6 @@ export ISAACLAB_PYTHON="$(command -v python)"
 - [Isaac Sim 배치 편집·위치/회전/크기 캡처](docs/ISAACSIM_WORKCELL_GUIDE.md)
 - [Meta Quest 3/3S teleoperation과 LeRobot 수집](docs/QUEST3_KUAVO_TELEOP_GUIDE.md)
 - [Allegro hand와 교체 가능한 gripper 설정](docs/GRIPPER_CONFIGURATION.md)
-- [Kuavo visual material과 색상 preset](docs/ROBOT_MATERIALS.md)
 - [GR00T N1.7 evaluation](docs/GROOT_N1_7_EVAL_GUIDE.md)
 - [외부 asset과 runtime 안내](THIRD_PARTY_ASSETS.md)
 
@@ -105,7 +104,10 @@ environment variable; without it, the wheel uses its packaged fallback JSON.
 
 ## Implemented workcell
 
-- fixed-base Kuavo 5.5 at the center of the rack/conveyor work area;
+- fixed-base Kuavo 5.5 at the center of the rack/conveyor work area. Its
+  checked-in USD is converted from Leju Robotics' official `biped_s55` URDF
+  and STL meshes and preserves the source-authored colors without a runtime
+  visual-material override;
 - one packaged `src/kuavo_isaaclab_scene/assets/Rack.usd` steel rack bay
   (replaces the earlier official
   Nucleus `RackLongEmpty_A2`), already authored in real meters at
@@ -135,10 +137,6 @@ environment variable; without it, the wheel uses its packaged fallback JSON.
   two independently controlled official Allegro Hand articulations; use
   `--gripper none` for the legacy handless schema or a custom
   `--gripper-config` JSON for another end effector.
-- link-level Kuavo PreviewSurface overrides because the source URDF explicitly
-  colors most STL visuals white. `industrial_blue` is enabled by default;
-  select `--robot-material high_visibility`, restore the source look with
-  `--robot-material original`, or supply a custom `--robot-material-config`.
 
 The button is not a wrist-distance proxy. The packaged `button_station.usda` contains
 a fixed post link and an 18 mm prismatic plunger with a return spring. A press

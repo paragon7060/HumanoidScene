@@ -13,11 +13,6 @@ from .box_flap_friction import (
     resolve_flap_friction_settings,
 )
 from .gripper_config import add_gripper_cli_args, export_gripper_cli, resolve_gripper_settings
-from .robot_material_config import (
-    add_robot_material_cli_args,
-    export_robot_material_cli,
-    resolve_robot_material_settings,
-)
 from .rack_box_layout import (
     format_rack_box_layout,
     resolve_rack_box_layout,
@@ -86,11 +81,9 @@ parser.add_argument(
     metavar=("MIN", "MAX"),
 )
 add_gripper_cli_args(parser)
-add_robot_material_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 export_gripper_cli(args_cli)
-export_robot_material_cli(args_cli)
 if args_cli.rack_boxes is not None:
     os.environ["KUAVO_RACK_BOXES"] = args_cli.rack_boxes
     os.environ.pop("KUAVO_RACK_BOX_LAYOUT", None)
@@ -118,7 +111,6 @@ try:
         randomize_default=True,
     )
     GRIPPER_SETTINGS = resolve_gripper_settings()
-    ROBOT_MATERIAL_SETTINGS = resolve_robot_material_settings()
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
 export_flap_friction_environment(FLAP_FRICTION)

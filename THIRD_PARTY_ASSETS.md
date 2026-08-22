@@ -1,9 +1,16 @@
 # Third-party assets and runtime dependencies
 
-This repository intentionally includes the Kuavo 5 URDF/USD/mesh files and the
-provided rack and box USD files required to reproduce the workcell. Those files
-remain subject to the rights and terms of their original owners; this repository
-does not grant additional rights to them.
+This repository intentionally includes the Kuavo 5.5 URDF/STL files from Leju
+Robotics' official
+[`biped_s55`](https://github.com/LejuRobotics/kuavo-ros-opensource/tree/main/src/kuavo_assets/models/biped_s55)
+asset and the USD generated from that URDF for Isaac Lab. The checked-in URDF
+changes only the ROS `package://` mesh prefix to repository-relative paths so
+the converter works without a ROS workspace. The scene does not author a
+separate robot appearance or runtime visual-material override; it preserves
+the colors embedded in the official URDF. The provided rack and box USD files
+are also included to reproduce the workcell. These files remain subject to the
+rights and terms of their original owners; this repository does not grant
+additional rights to them.
 
 The scene can also reference NVIDIA Isaac Sim/Nucleus assets at runtime. Isaac
 Sim, Isaac Lab, Omniverse content, NVIDIA CloudXR Runtime, the CloudXR Quest

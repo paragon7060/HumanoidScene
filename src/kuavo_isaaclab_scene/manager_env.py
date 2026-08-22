@@ -38,8 +38,6 @@ from .gripper_runtime import (
     build_gripper_articulation_cfg,
     build_gripper_attachment_cfg,
 )
-from .robot_material_config import resolve_robot_material_settings
-from .robot_material_runtime import build_robot_visual_material_cfg
 from .paths import ASSET_DIR
 from .rack_box_layout import (
     RACK_BACK_ROW_DEPTH_RAW,
@@ -107,7 +105,6 @@ CUSTOM_RACK_BOXES_ACTIVE = bool(
 )
 FLAP_FRICTION = resolve_flap_friction_settings(randomize_default=True)
 GRIPPER_SETTINGS = resolve_gripper_settings()
-ROBOT_MATERIAL_SETTINGS = resolve_robot_material_settings()
 FLAP_STATIC_RESET_RANGE = (
     FLAP_FRICTION.static_range
     if FLAP_FRICTION.randomize
@@ -546,9 +543,6 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
     )
 
     robot: ArticulationCfg = KUAVO5_CFG
-    robot_visual_materials: AssetBaseCfg | None = build_robot_visual_material_cfg(
-        ROBOT_MATERIAL_SETTINGS
-    )
     left_gripper: ArticulationCfg | None = build_gripper_articulation_cfg(
         GRIPPER_SETTINGS, "left"
     )
