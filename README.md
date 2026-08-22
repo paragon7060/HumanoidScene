@@ -29,8 +29,9 @@ export ISAACLAB_PYTHON="$(command -v python)"
 - [외부 asset과 runtime 안내](THIRD_PARTY_ASSETS.md)
 
 Meta Quest 없이 PC Chrome/IWER 연결 경로를 먼저 확인하려면
+`./quest_doctor.sh`로 OpenXR 구성요소를 점검한 뒤
 `./preview_quest_browser.sh`를 실행한다. 실제 Quest/OpenXR 수집은
-`./collect_quest_teleop.sh`를 사용한다.
+`./quest_doctor.sh --require-runtime`과 `./collect_quest_teleop.sh`를 사용한다.
 
 Isaac Lab workcell based on the supplied factory reference image. With the
 default legacy six-tote layout, the complete task is:

@@ -165,12 +165,27 @@ rotation/scale capture, and respawn.
 
 ## 5. Meta Quest hand tracking and data collection
 
+Meta Quest 코드도 위에서 설치한 동일한 `env_isaaclab_232` 환경을 사용한다.
+Quest 전용으로 Isaac Sim 또는 Isaac Lab을 다시 설치하거나, 구버전
+`env_isaaclab` 환경을 활성화하면 안 된다. 먼저 OpenXR experience와 extension
+cache가 Isaac Sim 5.1.0 / Isaac Lab v2.3.2 구성에 포함됐는지 확인한다:
+
+```bash
+conda activate env_isaaclab_232
+export ISAACLAB_PYTHON="$(command -v python)"
+./quest_doctor.sh
+```
+
+이 명령은 GUI를 열지 않는다. CloudXR Runtime 없이도 PC browser/IWER preview에
+필요한 repository/Isaac 구성은 검사할 수 있다.
+
 Install NVIDIA CloudXR Runtime on the Isaac workstation and the matching CloudXR
 client on the Quest. Locate the runtime's `openxr_cloudxr.json`, then launch the
 collector from the workstation:
 
 ```bash
 export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
+./quest_doctor.sh --require-runtime
 ./collect_quest_teleop.sh \
   --dataset-format hdf5 \
   --dataset datasets/kuavo_quest_teleop.hdf5 \
@@ -181,6 +196,10 @@ The collector enables Isaac Lab OpenXR, maps both tracked hands to Kuavo arm
 targets, records head/wrist cameras, and shows the head camera with wrist-camera
 overlays in the headset. The desktop Isaac Sim UI can also display the camera
 feeds in small viewport windows.
+
+`RawQuestOpenXRDevice` compatibility adapter explicitly enables raw hand/head
+tracking in Isaac Lab v2.3.2 while leaving Kuavo's existing calibration,
+smoothing, safety clamp, and differential-IK mapper in control of the action.
 
 CloudXR Runtime, the Quest client, and the proprietary CloudXR npm package are
 not committed to this repository. The reproducible local browser integration is

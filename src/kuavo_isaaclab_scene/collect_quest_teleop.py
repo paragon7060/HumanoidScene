@@ -186,12 +186,13 @@ import time
 import numpy as np
 import torch
 
-from isaaclab.devices import OpenXRDevice, Se3Keyboard, Se3KeyboardCfg
+from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.devices.openxr.common import HAND_JOINT_NAMES
 
 from .camera_viewports import open_camera_viewports
 from .manager_env import LOCAL_BOX_SCENE_KEYS
+from .quest_openxr import RawQuestOpenXRDevice
 from .teleop_env import (
     HEAD_JOINTS,
     LEFT_ARM_JOINTS,
@@ -277,7 +278,10 @@ def main() -> None:
     button_joint_count = int(button.data.joint_pos.shape[-1]) if button is not None else 0
 
     device_cfg = cfg.teleop_devices.devices["quest_handtracking"]
-    xr_device = OpenXRDevice(device_cfg)
+    # Isaac Lab v2.3 feature-gates raw OpenXR queries by retargeter
+    # requirements. Kuavo uses its own safety mapper, so the adapter requests
+    # hand/head tracking while retaining the raw upstream dictionary format.
+    xr_device = RawQuestOpenXRDevice(device_cfg)
     keyboard = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.0, rot_sensitivity=0.0, sim_device=env.device))
     mapper = BimanualTeleopMapper(
         TeleopMappingCfg(
@@ -384,9 +388,9 @@ def main() -> None:
                 break
 
             raw = xr_device.advance()
-            left_hand = raw.get(OpenXRDevice.TrackingTarget.HAND_LEFT)
-            right_hand = raw.get(OpenXRDevice.TrackingTarget.HAND_RIGHT)
-            head_pose = raw.get(OpenXRDevice.TrackingTarget.HEAD)
+            left_hand = raw.get(RawQuestOpenXRDevice.TrackingTarget.HAND_LEFT)
+            right_hand = raw.get(RawQuestOpenXRDevice.TrackingTarget.HAND_RIGHT)
+            head_pose = raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD)
             root_quat = _to_numpy(robot.data.root_quat_w[0])
             mapped = mapper.advance(left_hand, right_hand, head_pose, root_quat)
             tracking_state = (mapped.left_valid, mapped.right_valid, mapped.head_valid)

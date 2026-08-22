@@ -23,6 +23,8 @@ HDF5 recorder / isolated LeRobot Dataset v3 writer
 관련 파일:
 
 - `src/kuavo_isaaclab_scene/teleop_env.py`: manager-based 양팔 IK/head action 환경
+- `src/kuavo_isaaclab_scene/quest_openxr.py`: Isaac Lab v2.3.2 raw hand/head tracking 호환 어댑터
+- `src/kuavo_isaaclab_scene/quest_runtime.py`: GUI를 열지 않는 OpenXR/CloudXR 사전 점검
 - `src/kuavo_isaaclab_scene/teleop_mapping.py`: tracking 유효성, calibration, smoothing, safety clamp
 - `src/kuavo_isaaclab_scene/teleop_recorder.py`: RAM에 누적하지 않는 HDF5 writer
 - `src/kuavo_isaaclab_scene/teleop_lerobot_recorder.py`: Isaac Lab과 별도 v3 writer process 사이의 recorder client
@@ -35,9 +37,13 @@ HDF5 recorder / isolated LeRobot Dataset v3 writer
 
 ## 2. 중요한 전제
 
+Meta Quest 경로도 scene과 동일한 안정 버전 조합인 **Isaac Sim 5.1.0 + Isaac Lab v2.3.2 + Python 3.11**을 사용한다. 별도의 구버전 Isaac 환경은 필요하지 않다.
+
 `nvidia-cloudxr-6.2.0.tgz`는 CloudXR.js 웹 클라이언트용 npm 패키지다. Isaac Lab 프로세스에 OpenXR tracking을 공급하는 **CloudXR Runtime 패키지 및 `openxr_cloudxr.json`**은 별도로 필요하다.
 
-이전에 USD를 확인한 Spatial/Kit 109 프로세스 내부의 CloudXR extension을 Isaac Lab 5.0/Kit 107 프로세스에 그대로 섞어 로드하면 안 된다. Isaac Lab은 자체 OpenXR experience를 실행하고 외부 CloudXR Runtime을 `XR_RUNTIME_JSON`으로 선택한다.
+이전에 USD를 확인한 Spatial/Kit 109 프로세스 내부의 CloudXR extension을 Isaac Sim 5.1/Kit 107.3 프로세스에 그대로 섞어 로드하면 안 된다. Isaac Lab은 v2.3.2에 포함된 `isaaclab.python.xr.openxr.kit` experience를 실행하고 외부 CloudXR Runtime을 `XR_RUNTIME_JSON`으로 선택한다.
+
+Isaac Lab v2.3.2의 `OpenXRDevice`는 retargeter requirement에 따라 조회할 tracking feature를 선택한다. Kuavo는 자체 mapper를 사용하므로 `RawQuestOpenXRDevice`가 hand/head requirement를 명시적으로 활성화하고 upstream raw dict를 그대로 반환한다. 이 어댑터가 없으면 retargeter 없는 직접 생성 경로에서 tracking dict가 비어 있을 수 있다.
 
 현재 Kuavo USD에는 `zarm_l1..l7`, `zarm_r1..r7`만 있고 actuated finger/gripper joint가 없다. 따라서 현재 구현은:
 
@@ -48,6 +54,19 @@ HDF5 recorder / isolated LeRobot Dataset v3 writer
 향후 dexterous hand 또는 gripper USD를 추가하면 기록된 pinch 및 hand-joint 데이터를 gripper action term에 연결할 수 있다.
 
 ## 3. 첫 실행
+
+새 conda 환경을 활성화하고 GUI 없이 Quest stack부터 확인한다.
+
+```bash
+cd HumanoidScene
+conda activate env_isaaclab_232
+export ISAACLAB_PYTHON="$(command -v python)"
+./quest_doctor.sh
+```
+
+`Quest compatibility: OK`가 나오면 OpenXR experience, `omni.kit.xr.*`,
+`isaacsim.xr.openxr` extension이 모두 발견된 것이다. 이 단계에서는 CloudXR
+Runtime이 없어도 정상이다.
 
 ### 3.0 Quest 연결 전 로컬 화면 확인
 
@@ -78,7 +97,7 @@ Kuavo 머리가 움직일 때 head camera 영상도 함께 변하는지 보려�
 
 ### 3.0.1 PC 브라우저에서 Quest 상호작용 검증
 
-`preview_quest_local.sh`보다 한 단계 더 나아가, 데스크톱 Chrome의 IWER(가상 Quest 3) 입력이 실제 manager-based IsaacLab 환경을 움직이는지 확인할 수 있다. 이 경로는 현재 Isaac Sim/Kit 107에 없는 CloudXR extension을 사용하지 않는다. WebSocket으로 WebXR tracking을 전달하고 Kuavo camera를 JPEG로 되돌려 보내므로 다음 항목을 한꺼번에 검증한다.
+`preview_quest_local.sh`보다 한 단계 더 나아가, 데스크톱 Chrome의 IWER(가상 Quest 3) 입력이 실제 manager-based IsaacLab 환경을 움직이는지 확인할 수 있다. 이 경로는 외부 CloudXR Runtime/codec을 사용하지 않는다. WebSocket으로 WebXR tracking을 전달하고 Kuavo camera를 JPEG로 되돌려 보내므로 다음 항목을 한꺼번에 검증한다.
 
 - IWER HMD 회전 → Kuavo head yaw/pitch
 - IWER 좌우 controller 이동/회전 → Kuavo 양팔 differential IK
@@ -141,6 +160,14 @@ find /path/to/cloudxr-runtime -name openxr_cloudxr.json -print
 ```
 
 Runtime은 해당 배포 패키지의 management/launch 절차대로 먼저 실행한다. Quest에서 사용 중인 CloudXR.js simple client는 Isaac Lab PC의 CloudXR Runtime(WebRTC 기본 포트 49100)에 연결한다.
+
+실행 전에 manifest JSON 형식과 `runtime.library_path`까지 검사한다.
+
+```bash
+./quest_doctor.sh \
+  --xr-runtime-json /absolute/path/to/openxr_cloudxr.json \
+  --require-runtime
+```
 
 ### 3.2 Isaac Lab collector 실행
 

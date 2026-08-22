@@ -1,6 +1,7 @@
 """Head-locked XR camera compositor for Kuavo teleoperation.
 
-The compositor uses Kit 107's XRSceneView and ByteImageProvider APIs.  A
+The compositor uses Isaac Sim 5.1 / Kit 107.3 XRSceneView and
+ByteImageProvider APIs.  A
 single opaque UI plane follows ``/user/head``: the Kuavo head camera fills the
 plane and the two wrist cameras are overlaid at its left and right edges.
 """
