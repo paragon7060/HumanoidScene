@@ -14,6 +14,7 @@ import sys
 
 from isaaclab.app import AppLauncher
 
+from .gripper_config import add_gripper_cli_args, export_gripper_cli, resolve_gripper_settings
 from .rack_box_layout import resolve_rack_box_pose_path
 
 
@@ -121,8 +122,10 @@ pose_group = parser.add_mutually_exclusive_group()
 pose_group.add_argument("--rack-box-poses", type=Path, default=None, metavar="JSON")
 pose_group.add_argument("--ignore-captured-box-poses", action="store_true")
 
+add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+export_gripper_cli(args_cli)
 
 if not args_cli.mock_policy and not args_cli.checkpoint:
     parser.error("--checkpoint is required unless --mock-policy is selected.")
@@ -155,6 +158,7 @@ try:
         args_cli.rack_box_poses,
         ignore=args_cli.ignore_captured_box_poses,
     )
+    GRIPPER_SETTINGS = resolve_gripper_settings()
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
 if captured_pose_path is not None:
@@ -191,6 +195,10 @@ def _disable_domain_randomization(cfg: KuavoRobustWorkcellEnvCfg) -> None:
         "robot_material",
         "robot_arm_mass",
         "actuator_gains",
+        "left_gripper_material",
+        "right_gripper_material",
+        "left_gripper_gains",
+        "right_gripper_gains",
         "tote_physics",
         "cargo_physics",
         "gravity",
@@ -273,7 +281,7 @@ def main() -> None:
 
     policy_device = args_cli.policy_device or args_cli.device
     if args_cli.mock_policy:
-        runner = ZeroLeRobotPolicyRunner()
+        runner = ZeroLeRobotPolicyRunner(action_dim=bridge.action_dim)
         checkpoint_label = "mock:zero"
     else:
         print(f"[INFO] Loading GR00T N1.7 checkpoint {args_cli.checkpoint!r} on {policy_device}.")
@@ -282,20 +290,19 @@ def main() -> None:
             device=policy_device,
             actions_per_inference=args_cli.actions_per_inference,
             local_files_only=args_cli.local_files_only,
+            expected_action_dim=bridge.action_dim,
         )
         checkpoint_label = args_cli.checkpoint
 
-    if env.action_manager.total_action_dim != len(CONTROLLED_JOINT_NAMES):
-        raise RuntimeError(
-            f"Environment action dimension is {env.action_manager.total_action_dim}; expected "
-            f"{len(CONTROLLED_JOINT_NAMES)}."
-        )
     max_steps = args_cli.max_steps or math.ceil(cfg.episode_length_s / env.step_dt)
     print(
         f"[INFO] Eval ready: episodes={args_cli.episodes}, max_steps={max_steps}, "
         f"control_hz={1.0 / env.step_dt:.1f}, task_boxes={ACTIVE_RACK_BOX_SCENE_KEYS or 'legacy_totes'}"
     )
-    print(f"[INFO] Joint schema ({bridge.action_dim}): {', '.join(CONTROLLED_JOINT_NAMES)}")
+    manager_action_names = (*CONTROLLED_JOINT_NAMES, *(f"{side}_gripper" for side in GRIPPER_SETTINGS.active_sides))
+    print(f"[INFO] State schema ({len(bridge.state_names)}): {', '.join(bridge.state_names)}")
+    print(f"[INFO] Policy action schema ({bridge.action_dim}): {', '.join(manager_action_names[:bridge.action_dim])}")
+    print(f"[INFO] Gripper preset: {GRIPPER_SETTINGS.name}")
     print(f"[INFO] Camera map: {camera_map}")
 
     episode_results: list[dict[str, object]] = []
@@ -395,6 +402,9 @@ def main() -> None:
         "action_mode": args_cli.action_mode,
         "action_clip": None if args_cli.action_clip == 0 else args_cli.action_clip,
         "controlled_joint_names": list(CONTROLLED_JOINT_NAMES),
+        "state_names": list(bridge.state_names),
+        "gripper_preset": GRIPPER_SETTINGS.name,
+        "gripper_sides": list(GRIPPER_SETTINGS.active_sides),
         "camera_map": camera_map,
         "domain_randomization": bool(args_cli.domain_randomization),
         "summary": summary,

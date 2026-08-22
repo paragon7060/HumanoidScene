@@ -23,6 +23,11 @@ from pathlib import Path
 import sys
 
 from .box_flap_friction import resolve_flap_friction_settings
+from .gripper_config import (
+    add_gripper_cli_args,
+    export_gripper_cli,
+    resolve_gripper_settings,
+)
 from .rack_box_layout import (
     RACK_BACK_ROW_DEPTH_RAW,
     RACK_FRONT_ROW_DEPTH_RAW,
@@ -147,8 +152,10 @@ parser.add_argument(
     default=None,
     metavar=("MIN", "MAX"),
 )
+add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+export_gripper_cli(args_cli)
 try:
     RACK_BOX_LAYOUT = resolve_rack_box_layout(args_cli.rack_boxes, args_cli.rack_box_layout)
     CAPTURED_RACK_BOX_POSE_PATH = resolve_rack_box_pose_path(
@@ -168,6 +175,7 @@ try:
         dynamic_range=args_cli.flap_dynamic_friction_range,
         randomize_default=False,
     )
+    GRIPPER_SETTINGS = resolve_gripper_settings()
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
 CONFIGURED_RACK_BOX_COUNT = rack_box_count(RACK_BOX_LAYOUT)
@@ -232,6 +240,10 @@ from .workcell_layout import (
     scale as layout_scale,
 )
 from .camera_viewports import open_camera_viewports
+from .gripper_runtime import (
+    build_gripper_articulation_cfg,
+    build_gripper_attachment_cfg,
+)
 from .paths import ASSET_DIR
 
 
@@ -707,6 +719,15 @@ class RackToConveyorSceneCfg(InteractiveSceneCfg):
     )
 
     robot: ArticulationCfg = KUAVO5_CFG
+    left_gripper: ArticulationCfg | None = build_gripper_articulation_cfg(
+        GRIPPER_SETTINGS, "left"
+    )
+    right_gripper: ArticulationCfg | None = build_gripper_articulation_cfg(
+        GRIPPER_SETTINGS, "right"
+    )
+    gripper_attachments: AssetBaseCfg | None = build_gripper_attachment_cfg(
+        GRIPPER_SETTINGS
+    )
     button_station: ArticulationCfg = BUTTON_STATION_CFG
 
     # Two instances of every local box USD are always present. The shared
@@ -1358,6 +1379,10 @@ def main() -> None:
     setup_conveyor_belt()
     setup_workcell_details()
     sim.reset()
+    print(
+        f"[INFO] Gripper preset: {GRIPPER_SETTINGS.name} "
+        f"(active sides: {GRIPPER_SETTINGS.active_sides or 'none'})."
+    )
     if FLAP_FRICTION.randomize:
         randomize_box_flap_joint_friction(scene)
     set_button_visual(TaskPhase.TRANSFERRING)

@@ -65,3 +65,20 @@ def test_lerobot_v3_feature_mapping_uses_policy_and_camera_keys():
     assert frame["observation.box_root_pose"].shape == (7,)
     assert features["observation.images.head"]["dtype"] == "video"
     assert frame["next.done"].item() == 0.0
+
+
+def test_lerobot_action_schema_accepts_gripper_channels():
+    action_names = ["left_dx", "right_dx", "left_gripper", "right_gripper"]
+    features = build_lerobot_features(
+        joint_names=["joint"],
+        hand_joint_names=["wrist"],
+        head_resolution=(12, 8),
+        wrist_resolution=(6, 4),
+        box_count=0,
+        button_joint_count=0,
+        record_wrist_cameras=False,
+        use_videos=False,
+        action_names=action_names,
+    )
+    assert features["action"]["shape"] == (4,)
+    assert features["action"]["names"] == action_names

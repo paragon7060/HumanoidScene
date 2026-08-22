@@ -9,6 +9,13 @@ from pathlib import Path
 import sys
 
 from isaaclab.app import AppLauncher
+from .gripper_config import (
+    add_gripper_cli_args,
+    export_gripper_cli,
+    gripper_teleop_action,
+    resolve_gripper_settings,
+    teleop_action_names,
+)
 
 
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
@@ -132,8 +139,14 @@ parser.add_argument(
 parser.add_argument("--rack-box-layout", type=Path, default=None, metavar="JSON")
 parser.add_argument("--rack-box-poses", type=Path, default=None, metavar="JSON")
 parser.add_argument("--ignore-captured-box-poses", action="store_true")
+add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+export_gripper_cli(args_cli)
+try:
+    GRIPPER_SETTINGS = resolve_gripper_settings()
+except (OSError, ValueError) as exc:
+    parser.error(str(exc))
 
 if min(
     args_cli.head_camera_width,
@@ -269,6 +282,16 @@ def main() -> None:
 
     robot = env.scene["robot"]
     arm_joint_ids, arm_joint_names = robot.find_joints(LEFT_ARM_JOINTS + RIGHT_ARM_JOINTS + HEAD_JOINTS)
+    state_names = list(arm_joint_names)
+    gripper_state_sources = []
+    for side in GRIPPER_SETTINGS.active_sides:
+        gripper = env.scene[f"{side}_gripper"]
+        gripper_joint_ids, gripper_joint_names = gripper.find_joints(
+            list(GRIPPER_SETTINGS.joint_names)
+        )
+        gripper_state_sources.append((side, gripper, gripper_joint_ids))
+        state_names.extend(f"{side}_{name}" for name in gripper_joint_names)
+    action_names = teleop_action_names(GRIPPER_SETTINGS)
     left_body_ids, _ = robot.find_bodies("zarm_l7_end_effector")
     right_body_ids, _ = robot.find_bodies("zarm_r7_end_effector")
     if len(left_body_ids) != 1 or len(right_body_ids) != 1:
@@ -333,7 +356,7 @@ def main() -> None:
             repo_id=args_cli.lerobot_repo_id,
             fps=lerobot_fps,
             task=args_cli.lerobot_task,
-            joint_names=arm_joint_names,
+            joint_names=state_names,
             hand_joint_names=HAND_JOINT_NAMES,
             head_resolution=(args_cli.head_camera_width, args_cli.head_camera_height),
             wrist_resolution=(args_cli.wrist_camera_width, args_cli.wrist_camera_height),
@@ -343,6 +366,7 @@ def main() -> None:
             use_videos=args_cli.lerobot_use_videos,
             save_failed=args_cli.lerobot_save_failed,
             writer_python=args_cli.lerobot_python,
+            action_names=action_names,
         )
         lerobot_recorder = recorders["lerobot"]
         dataset_descriptions.append(
@@ -380,7 +404,10 @@ def main() -> None:
         print("[INFO] Quest view: opaque Kuavo head camera with left/right wrist camera overlays.")
     print("[CONTROL] Quest START/STOP/RESET or desktop P=start/stop, R=reset, M=finish as success.")
     print("[CONTROL] Hold both tracked hands in view; the first valid frame only calibrates and never moves the arms.")
-    print("[NOTE] Pinch and all 26 joints/hand are recorded, but the current Kuavo USD has no actuated finger joints.")
+    print(
+        f"[GRIPPER] preset={GRIPPER_SETTINGS.name}, sides={GRIPPER_SETTINGS.active_sides or 'none'}, "
+        f"pinch close threshold={GRIPPER_SETTINGS.pinch_close_threshold_m:.3f} m."
+    )
 
     try:
         while simulation_app.is_running():
@@ -442,8 +469,8 @@ def main() -> None:
                     {
                         "seed": args_cli.seed,
                         "control_dt": float(env.step_dt),
-                        "action_layout": "left_delta_pose_6,right_delta_pose_6,head_yaw_pitch_2",
-                        "joint_names": arm_joint_names,
+                        "action_layout": ",".join(action_names),
+                        "joint_names": state_names,
                         "hand_joint_names": HAND_JOINT_NAMES,
                         "box_scene_keys": box_names,
                         "domain_randomization": bool(args_cli.domain_randomization),
@@ -455,7 +482,19 @@ def main() -> None:
                 pending_start = False
                 episode_steps = 0
 
-            action_np = mapped.action.copy()
+            action_np = np.concatenate(
+                (
+                    mapped.action,
+                    np.asarray(
+                        gripper_teleop_action(
+                            GRIPPER_SETTINGS,
+                            mapped.left_pinch_m,
+                            mapped.right_pinch_m,
+                        ),
+                        dtype=np.float32,
+                    ),
+                )
+            )
             if not recorder.recording:
                 action_np[:12] = 0.0
             action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
@@ -489,12 +528,17 @@ def main() -> None:
                 right_ee_pose = np.concatenate(
                     [_to_numpy(robot.data.body_pos_w[0, right_body_ids[0]]), _to_numpy(robot.data.body_quat_w[0, right_body_ids[0]])]
                 )
+                joint_positions = [_to_numpy(robot.data.joint_pos[0, arm_joint_ids])]
+                joint_velocities = [_to_numpy(robot.data.joint_vel[0, arm_joint_ids])]
+                for _, gripper, gripper_joint_ids in gripper_state_sources:
+                    joint_positions.append(_to_numpy(gripper.data.joint_pos[0, gripper_joint_ids]))
+                    joint_velocities.append(_to_numpy(gripper.data.joint_vel[0, gripper_joint_ids]))
                 sample = {
                     "sim_time_s": np.float64(env.common_step_counter * env.step_dt),
                     "wall_time_s": np.float64(time.perf_counter() - start_wall_time),
                     "action": action_np,
-                    "robot_joint_position": _to_numpy(robot.data.joint_pos[0, arm_joint_ids]).astype(np.float32),
-                    "robot_joint_velocity": _to_numpy(robot.data.joint_vel[0, arm_joint_ids]).astype(np.float32),
+                    "robot_joint_position": np.concatenate(joint_positions).astype(np.float32),
+                    "robot_joint_velocity": np.concatenate(joint_velocities).astype(np.float32),
                     "left_end_effector_pose_w": left_ee_pose.astype(np.float32),
                     "right_end_effector_pose_w": right_ee_pose.astype(np.float32),
                     "openxr_left_hand": _hand_array(left_hand),

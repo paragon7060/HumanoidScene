@@ -1,0 +1,51 @@
+{
+  "default": "allegro",
+  "presets": {
+    "none": {
+      "enabled": false
+    },
+    "allegro": {
+      "enabled": true,
+      "usd_path": "${ISAAC_NUCLEUS_DIR}/Robots/WonikRobotics/AllegroHand/allegro_hand_instanceable.usd",
+      "attachment_mount_body": "allegro_mount",
+      "joint_names": [".*"],
+      "default_joint_pos": {
+        "^(?!thumb_joint_0$).*$": 0.0,
+        "^thumb_joint_0$": 0.28
+      },
+      "open_command": {
+        "^(?!thumb_joint_0$).*$": 0.0,
+        "^thumb_joint_0$": 0.28
+      },
+      "close_command": {
+        "^(index|middle|ring)_joint_0$": 0.0,
+        "^(index|middle|ring)_joint_[1-3]$": 1.1,
+        "^thumb_joint_0$": 1.2,
+        "^thumb_joint_1$": 0.8,
+        "^thumb_joint_2$": 0.6,
+        "^thumb_joint_3$": 0.8
+      },
+      "pinch_close_threshold_m": 0.035,
+      "actuator": {
+        "effort_limit_sim": 0.5,
+        "stiffness": 3.0,
+        "damping": 0.1,
+        "friction": 0.01
+      },
+      "sides": {
+        "left": {
+          "enabled": true,
+          "robot_mount_body": "zarm_l7_end_effector",
+          "robot_mount_pos": [0.0, 0.0, 0.0],
+          "robot_mount_rot": [0.5, 0.5, -0.5, -0.5]
+        },
+        "right": {
+          "enabled": true,
+          "robot_mount_body": "zarm_r7_end_effector",
+          "robot_mount_pos": [0.0, 0.0, 0.0],
+          "robot_mount_rot": [0.5, 0.5, -0.5, -0.5]
+        }
+      }
+    }
+  }
+}

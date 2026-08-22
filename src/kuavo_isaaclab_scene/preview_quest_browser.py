@@ -9,6 +9,12 @@ from pathlib import Path
 import sys
 
 from isaaclab.app import AppLauncher
+from .gripper_config import (
+    add_gripper_cli_args,
+    export_gripper_cli,
+    gripper_teleop_action,
+    resolve_gripper_settings,
+)
 
 
 parser = argparse.ArgumentParser(description="Preview Kuavo Quest interaction through a local browser/IWER.")
@@ -29,8 +35,14 @@ parser.add_argument("--rack-boxes", type=str, default=None, metavar="SPEC")
 parser.add_argument("--rack-box-layout", type=Path, default=None, metavar="JSON")
 parser.add_argument("--rack-box-poses", type=Path, default=None, metavar="JSON")
 parser.add_argument("--ignore-captured-box-poses", action="store_true")
+add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+export_gripper_cli(args_cli)
+try:
+    GRIPPER_SETTINGS = resolve_gripper_settings()
+except (OSError, ValueError) as exc:
+    parser.error(str(exc))
 
 if args_cli.headless:
     parser.error("Browser interaction preview requires the Isaac Sim GUI; do not pass --headless.")
@@ -186,6 +198,7 @@ def main() -> None:
     print("[CONTROL] In Chrome/IWER, move the HMD and left/right controllers.")
     print("[CONTROL] The first tracked frame calibrates; subsequent motion drives Kuavo head and arms.")
     print("[VIEW] Browser XR: Kuavo head camera with left/right wrist camera insets.")
+    print(f"[GRIPPER] preset={GRIPPER_SETTINGS.name}; controller pinch drives open/close.")
 
     step = 0
     try:
@@ -200,7 +213,20 @@ def main() -> None:
                 print(f"[TRACKING] left={tracking[0]}, right={tracking[1]}, head={tracking[2]}")
                 previous_tracking = tracking
 
-            action = torch.from_numpy(mapped.action).to(device=env.device).unsqueeze(0)
+            action_np = np.concatenate(
+                (
+                    mapped.action,
+                    np.asarray(
+                        gripper_teleop_action(
+                            GRIPPER_SETTINGS,
+                            mapped.left_pinch_m,
+                            mapped.right_pinch_m,
+                        ),
+                        dtype=np.float32,
+                    ),
+                )
+            )
+            action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
             env.step(action)
 
             clients = bridge.client_count

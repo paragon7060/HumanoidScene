@@ -49,6 +49,7 @@ def build_lerobot_features(
     button_joint_count: int,
     record_wrist_cameras: bool,
     use_videos: bool,
+    action_names: Sequence[str] = ACTION_NAMES,
 ) -> dict[str, dict]:
     """Return the fixed schema used for every episode in one dataset."""
     image_dtype = "video" if use_videos else "image"
@@ -76,7 +77,7 @@ def build_lerobot_features(
             "shape": (head_height, head_width, 3),
             "names": ["height", "width", "channels"],
         },
-        "action": _vector_feature(14, ACTION_NAMES),
+        "action": _vector_feature(len(action_names), action_names),
         "next.done": _vector_feature(1, ["done"]),
         "next.success": _vector_feature(1, ["success"]),
     }
@@ -152,6 +153,7 @@ class LeRobotTeleopRecorder:
         use_videos: bool = True,
         save_failed: bool = False,
         writer_python: str | Path | None = None,
+        action_names: Sequence[str] = ACTION_NAMES,
     ):
         if fps <= 0:
             raise ValueError("LeRobot fps must be positive.")
@@ -176,6 +178,7 @@ class LeRobotTeleopRecorder:
             button_joint_count=button_joint_count,
             record_wrist_cameras=record_wrist_cameras,
             use_videos=use_videos,
+            action_names=action_names,
         )
         self.root.parent.mkdir(parents=True, exist_ok=True)
         self._process, self._commands, self._responses = self._start_worker()

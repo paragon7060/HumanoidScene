@@ -152,6 +152,11 @@ Run the manager-based environment:
 ./run_manager_env.sh --num-envs 1 --steps 100000
 ```
 
+The official Allegro hands are enabled by default and are fetched from the
+Isaac asset library on first use. Use `--gripper none` for an offline/legacy
+15-D smoke test, or see [Gripper configuration](GRIPPER_CONFIGURATION.md) for
+custom local USDs and mount calibration.
+
 Choose different rack contents per launch:
 
 ```bash

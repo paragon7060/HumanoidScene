@@ -12,6 +12,7 @@ from .box_flap_friction import (
     export_flap_friction_environment,
     resolve_flap_friction_settings,
 )
+from .gripper_config import add_gripper_cli_args, export_gripper_cli, resolve_gripper_settings
 from .rack_box_layout import (
     format_rack_box_layout,
     resolve_rack_box_layout,
@@ -79,8 +80,10 @@ parser.add_argument(
     default=None,
     metavar=("MIN", "MAX"),
 )
+add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+export_gripper_cli(args_cli)
 if args_cli.rack_boxes is not None:
     os.environ["KUAVO_RACK_BOXES"] = args_cli.rack_boxes
     os.environ.pop("KUAVO_RACK_BOX_LAYOUT", None)
@@ -107,6 +110,7 @@ try:
         dynamic_range=args_cli.flap_dynamic_friction_range,
         randomize_default=True,
     )
+    GRIPPER_SETTINGS = resolve_gripper_settings()
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
 export_flap_friction_environment(FLAP_FRICTION)
@@ -141,6 +145,10 @@ def main() -> None:
 
     print(f"[INFO] ManagerBasedRLEnv initialized with {env.num_envs} environments.")
     print(f"[INFO] Action dimension: {env.action_manager.total_action_dim}.")
+    print(
+        f"[INFO] Gripper preset: {GRIPPER_SETTINGS.name} "
+        f"(active sides: {GRIPPER_SETTINGS.active_sides or 'none'})."
+    )
     print(f"[INFO] Observation groups: {list(observations.keys())}.")
     print(f"[INFO] Event modes: {env.event_manager.available_modes}.")
     print(f"[INFO] Rack-box layout: {format_rack_box_layout(RACK_BOX_LAYOUT)}")

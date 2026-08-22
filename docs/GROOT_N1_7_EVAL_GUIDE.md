@@ -13,15 +13,15 @@ and order. The recommended schema is:
 
 | LeRobot key | Shape | Representation |
 |---|---:|---|
-| `observation.state` | `(15,)` | manager-coordinate joint state |
+| `observation.state` | `(47,)` | 15 Kuavo manager-coordinate joints + 32 Allegro joint offsets |
 | `observation.images.head` | `(3,H,W)` | RGB float after LeRobot conversion |
 | `observation.images.waist` | `(3,H,W)` | RGB float after LeRobot conversion |
 | `observation.images.left_wrist` | `(3,H,W)` | RGB float after LeRobot conversion |
 | `observation.images.right_wrist` | `(3,H,W)` | RGB float after LeRobot conversion |
 | `task` | text | natural-language instruction |
-| `action` | `(15,)` | Isaac manager action |
+| `action` | `(17,)` | 15 Kuavo manager actions + left/right binary gripper |
 
-The exact 15-axis order is:
+The first 15 axes are:
 
 ```text
 waist_yaw_joint,
@@ -38,16 +38,21 @@ joint_target_rad = default_joint_position + action_scale * action
 action_scale = [1.0 for waist, 0.45 for each arm joint]
 ```
 
+The default action then appends `left_gripper, right_gripper`; positive opens
+and negative closes. `--gripper none` restores the legacy 15-D action and
+15-D state. Collection, training, and evaluation must use the same preset.
+
 This makes state and action share one coordinate system, which is also the
 safest representation if GR00T is trained with relative actions. If a dataset
 instead stores absolute joint targets in radians, evaluate with
 `--state-mode joint_position --action-mode joint_position`. For delta-radian
 actions use `--action-mode joint_delta`.
 
-The existing Quest HDF5 collector records a 14-D Cartesian differential-IK
-teleoperation command. That command is not interchangeable with this 15-D
-joint policy schema. Retarget/export those demonstrations into the schema
-above before GR00T training; do not point a 14-D checkpoint at this evaluator.
+The Quest collector records a 16-D command: 14-D Cartesian differential IK/head
+plus two binary grippers. That representation is not interchangeable with this
+17-D joint-manager policy schema. Retarget/export demonstrations into the
+schema above before GR00T training; do not point an IK-action checkpoint at
+this evaluator.
 
 ## LeRobot version and installation
 
@@ -107,7 +112,7 @@ decode GR00T output into dataset action units.
 
 ## Smoke test without GR00T
 
-This exercises camera acquisition, the LeRobot-shaped observation, 15-D action
+This exercises camera acquisition, the LeRobot-shaped observation, 17-D action
 application, termination lookup, and metrics writing without loading the 3B
 model:
 
@@ -194,8 +199,7 @@ GR00T relative-action checkpoints are executed with
 queueing. This is required because N1.7's single-step `select_action()` path
 does not decode cached relative chunks against a stable observation.
 
-The current Kuavo USD has arm end-effectors and wrist cameras but no actuated
-finger/gripper joints. The evaluator faithfully applies the available 15 axes,
-but a learned policy cannot command finger closure until a hand asset and its
-action dimensions are added consistently to the simulator, dataset, and
-checkpoint.
+The base Kuavo USD has no fingers, but the default runtime preset adds two
+16-joint Allegro articulations. The evaluator validates the configured policy
+action dimension (17 by default, 15 with `--gripper none`) before execution.
+Use the same preset and state/action schema for collection, training, and eval.

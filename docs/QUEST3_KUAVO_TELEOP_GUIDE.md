@@ -45,13 +45,17 @@ Meta Quest 경로도 scene과 동일한 안정 버전 조합인 **Isaac Sim 5.1.
 
 Isaac Lab v2.3.2의 `OpenXRDevice`는 retargeter requirement에 따라 조회할 tracking feature를 선택한다. Kuavo는 자체 mapper를 사용하므로 `RawQuestOpenXRDevice`가 hand/head requirement를 명시적으로 활성화하고 upstream raw dict를 그대로 반환한다. 이 어댑터가 없으면 retargeter 없는 직접 생성 경로에서 tracking dict가 비어 있을 수 있다.
 
-현재 Kuavo USD에는 `zarm_l1..l7`, `zarm_r1..r7`만 있고 actuated finger/gripper joint가 없다. 따라서 현재 구현은:
+base Kuavo USD 자체에는 finger joint가 없지만 기본 `allegro` preset이 양쪽
+손목에 각각 16-joint Allegro articulation을 연결한다. 따라서 현재 구현은:
 
 - Quest 손목 위치/회전으로 양팔을 제어한다.
 - thumb-index pinch 거리와 양손 26개 관절은 데이터에 저장한다.
-- 실제 손가락 닫기 명령은 생성하지 않는다.
+- thumb-index 거리가 0.035 m 이하이면 같은 쪽 Allegro를 닫고, 그보다 크거나
+  tracking이 유효하지 않으면 연다.
+- `--gripper none`으로 기존 14-D handless teleop action도 재현할 수 있다.
 
-향후 dexterous hand 또는 gripper USD를 추가하면 기록된 pinch 및 hand-joint 데이터를 gripper action term에 연결할 수 있다.
+다른 hand USD와 mount pose는 [Gripper configuration](GRIPPER_CONFIGURATION.md)의
+JSON preset으로 교체한다.
 
 ## 3. 첫 실행
 
@@ -376,8 +380,8 @@ HDF5도 동시에 남기려면:
 v3 주요 feature:
 
 ```text
-observation.state                    [T, 16]
-observation.velocity                 [T, 16]
+observation.state                    [T, 48] (16 Kuavo upper-body + 32 Allegro joints)
+observation.velocity                 [T, 48]
 observation.ee_pose                  [T, 14]
 observation.images.head              head camera MP4/image
 observation.images.left_wrist        left wrist MP4/image
@@ -389,7 +393,7 @@ observation.pinch_distance            [T, 2]
 observation.tracking_valid            [T, 3]
 observation.box_root_pose             [T, number_of_boxes * 7]
 observation.button_joint_position     [T, number_of_button_joints]
-action                                [T, 14]
+action                                [T, 16] (14 IK/head + left/right gripper)
 next.done / next.success              [T, 1]
 task                                  natural-language task
 ```
@@ -417,9 +421,9 @@ PY
 /data/demo_00000
   attrs: success, end_reason, num_samples, joint_names, ...
   /samples
-    action                         [T, 14]
-    robot_joint_position           [T, 16]
-    robot_joint_velocity           [T, 16]
+    action                         [T, 16]
+    robot_joint_position           [T, 48]
+    robot_joint_velocity           [T, 48]
     left_end_effector_pose_w       [T, 7]
     right_end_effector_pose_w      [T, 7]
     openxr_left_hand               [T, 26, 7]
@@ -478,6 +482,9 @@ XR render와 head/wrist RTX camera 3개를 동시에 쓰므로 GPU VRAM 압력�
   --no-record-depth --no-camera-preview
 ```
 
-### 팔은 움직이지만 상자를 잡을 수 없음
+### 손 형상이 반대이거나 forearm과 겹침
 
-현재 Kuavo asset에는 손가락 또는 gripper actuator가 없기 때문이다. 손목/팔 IK와 hand tracking 자체의 문제가 아니다. 실제 grasp data를 만들려면 Kuavo hand/gripper articulation을 USD에 추가하고 pinch-to-gripper action을 연결해야 한다.
+Isaac Lab 공식 asset은 오른손 Allegro 형상만 제공하므로 기본 preset은 이를 양쪽에
+사용한다. `preview_quest_local.sh --gripper allegro`에서 확인한 뒤
+`configs/grippers.json`의 해당 side `robot_mount_pos`/`robot_mount_rot`를 조정한다.
+왼손 전용 USD가 있으면 `sides.left.usd_path`로 지정한다.

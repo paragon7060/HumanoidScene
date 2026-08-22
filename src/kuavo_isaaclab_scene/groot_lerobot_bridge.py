@@ -165,6 +165,33 @@ def adapt_policy_action(
     return ActionAdaptation(manager_action, unclipped, saturation_fraction)
 
 
+def adapt_manager_action(
+    policy_action: Any,
+    *,
+    expected_dim: int,
+    device: torch.device | str,
+    clip: float | None = 1.0,
+) -> ActionAdaptation:
+    """Validate and clip an action already expressed in manager coordinates."""
+    action = _as_batched_action(policy_action, device=device)
+    if action.ndim != 2:
+        raise ValueError("Manager action expects one action step with shape (B, A).")
+    if action.shape[-1] != expected_dim:
+        raise ValueError(
+            f"GR00T action dimension is {action.shape[-1]}, but this configured manager requires "
+            f"{expected_dim}. Use the same gripper preset used while collecting/training."
+        )
+    unclipped = action.clone()
+    saturation_fraction = 0.0
+    if clip is not None:
+        if clip <= 0.0:
+            raise ValueError("Action clip must be positive or None.")
+        saturated = torch.abs(action) > clip
+        saturation_fraction = float(saturated.float().mean().item())
+        action = action.clamp(-clip, clip)
+    return ActionAdaptation(action, unclipped, saturation_fraction)
+
+
 class KuavoLeRobotBridge:
     """Build LeRobot observations and apply its decoded action convention."""
 
@@ -183,6 +210,10 @@ class KuavoLeRobotBridge:
             raise ValueError(f"Unknown action mode {action_mode!r}; choose one of {ACTION_MODES}.")
         self.env = env
         self.robot = env.scene["robot"]
+        action_manager = getattr(env, "action_manager", None)
+        self.manager_action_dim = int(
+            getattr(action_manager, "total_action_dim", len(CONTROLLED_JOINT_NAMES))
+        )
         try:
             joint_ids, joint_names = self.robot.find_joints(
                 list(CONTROLLED_JOINT_NAMES), preserve_order=True
@@ -217,10 +248,28 @@ class KuavoLeRobotBridge:
             device=self.robot.device,
             dtype=self.robot.data.joint_pos.dtype,
         )
+        self.gripper_state_sources: list[tuple[str, Any, list[int], tuple[str, ...]]] = []
+        for side in ("left", "right"):
+            try:
+                gripper = env.scene[f"{side}_gripper"]
+            except KeyError:
+                continue
+            try:
+                ids, names = gripper.find_joints([".*"], preserve_order=True)
+            except TypeError:
+                ids, names = gripper.find_joints([".*"])
+            self.gripper_state_sources.append((side, gripper, list(ids), tuple(names)))
 
     @property
     def action_dim(self) -> int:
-        return len(self.joint_ids)
+        return self.manager_action_dim if self.action_mode == "manager" else len(self.joint_ids)
+
+    @property
+    def state_names(self) -> tuple[str, ...]:
+        names = list(CONTROLLED_JOINT_NAMES)
+        for side, _, _, joint_names in self.gripper_state_sources:
+            names.extend(f"{side}_{name}" for name in joint_names)
+        return tuple(names)
 
     def _joint_tensors(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         current = self.robot.data.joint_pos[:, self.joint_ids]
@@ -234,6 +283,14 @@ class KuavoLeRobotBridge:
             state = (current - defaults) / scales
         else:
             state = current
+        gripper_states = []
+        for _, gripper, joint_ids, _ in self.gripper_state_sources:
+            values = gripper.data.joint_pos[:, joint_ids]
+            if self.state_mode == "manager":
+                values = values - gripper.data.default_joint_pos[:, joint_ids]
+            gripper_states.append(values)
+        if gripper_states:
+            state = torch.cat((state, *gripper_states), dim=-1)
         observation: dict[str, Any] = {STATE_KEY: state.clone(), "task": [task] * state.shape[0]}
         for policy_key, scene_key in self.camera_map.items():
             camera = self.env.scene[scene_key]
@@ -241,14 +298,41 @@ class KuavoLeRobotBridge:
         return observation
 
     def action(self, policy_action: Any) -> ActionAdaptation:
+        if self.action_mode == "manager":
+            return adapt_manager_action(
+                policy_action,
+                expected_dim=self.manager_action_dim,
+                device=self.robot.device,
+                clip=self.action_clip,
+            )
         current, defaults, scales = self._joint_tensors()
-        return adapt_policy_action(
+        converted = adapt_policy_action(
             policy_action,
             current_joint_pos=current,
             default_joint_pos=defaults,
             action_scales=scales,
             mode=self.action_mode,
             clip=self.action_clip,
+        )
+        extra_dim = self.manager_action_dim - len(self.joint_ids)
+        if extra_dim < 0:
+            raise RuntimeError(
+                f"Manager exposes {self.manager_action_dim} actions, fewer than the required "
+                f"{len(self.joint_ids)} Kuavo joints."
+            )
+        if extra_dim == 0:
+            return converted
+        # Absolute/delta legacy policies do not predict binary grippers. Hold
+        # every added gripper open (positive convention) in that mode.
+        extra = torch.ones(
+            (converted.action.shape[0], extra_dim),
+            device=converted.action.device,
+            dtype=converted.action.dtype,
+        )
+        return ActionAdaptation(
+            torch.cat((converted.action, extra), dim=-1),
+            torch.cat((converted.unclipped_action, extra), dim=-1),
+            converted.saturation_fraction,
         )
 
 
@@ -262,6 +346,7 @@ class LeRobotGrootRunner:
         postprocessor: Any,
         *,
         actions_per_inference: int | None = None,
+        expected_action_dim: int | None = None,
     ) -> None:
         self.policy = policy
         self.preprocessor = preprocessor
@@ -277,6 +362,7 @@ class LeRobotGrootRunner:
         self.output_action_dim = (
             int(action_feature.shape[0]) if action_feature is not None else None
         )
+        self.expected_action_dim = expected_action_dim
         self._queue: deque[torch.Tensor] = deque()
 
     @classmethod
@@ -287,6 +373,7 @@ class LeRobotGrootRunner:
         device: str,
         actions_per_inference: int | None = None,
         local_files_only: bool = False,
+        expected_action_dim: int | None = None,
     ) -> "LeRobotGrootRunner":
         try:
             from lerobot.configs import PreTrainedConfig
@@ -332,6 +419,7 @@ class LeRobotGrootRunner:
             preprocessor,
             postprocessor,
             actions_per_inference=actions_per_inference,
+            expected_action_dim=expected_action_dim,
         )
 
     def reset(self) -> None:
@@ -346,10 +434,13 @@ class LeRobotGrootRunner:
                 f"{missing}. Match training camera names with repeated "
                 "`--camera-map POLICY_KEY=SCENE_CAMERA` arguments."
             )
-        if self.output_action_dim not in (None, len(CONTROLLED_JOINT_NAMES)):
+        if self.expected_action_dim is not None and self.output_action_dim not in (
+            None,
+            self.expected_action_dim,
+        ):
             raise ValueError(
                 f"Checkpoint action dimension is {self.output_action_dim}; this environment requires "
-                f"{len(CONTROLLED_JOINT_NAMES)}. Train/export with the documented joint schema."
+                f"{self.expected_action_dim}. Use the same gripper preset used for training."
             )
 
     def select_action(self, observation: Mapping[str, Any]) -> InferenceSample:
@@ -379,10 +470,9 @@ class ZeroLeRobotPolicyRunner:
     """Dependency-free policy used to smoke-test the complete simulator loop."""
 
     expected_input_keys = (STATE_KEY, *DEFAULT_CAMERA_MAP)
-    output_action_dim = len(CONTROLLED_JOINT_NAMES)
-
     def __init__(self, *, action_dim: int = len(CONTROLLED_JOINT_NAMES)) -> None:
         self.action_dim = action_dim
+        self.output_action_dim = action_dim
 
     def reset(self) -> None:
         return None

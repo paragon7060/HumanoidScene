@@ -32,6 +32,12 @@ from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 from . import manager_mdp as workcell_mdp
 from .box_flap_friction import resolve_flap_friction_settings
 from .groot_lerobot_bridge import CONTROLLED_JOINT_NAMES
+from .gripper_config import resolve_gripper_settings
+from .gripper_runtime import (
+    build_gripper_action_cfg,
+    build_gripper_articulation_cfg,
+    build_gripper_attachment_cfg,
+)
 from .paths import ASSET_DIR
 from .rack_box_layout import (
     RACK_BACK_ROW_DEPTH_RAW,
@@ -98,6 +104,7 @@ CUSTOM_RACK_BOXES_ACTIVE = bool(
     CONFIGURED_RACK_BOX_COUNT or CAPTURED_RACK_BOX_POSE_PATH is not None
 )
 FLAP_FRICTION = resolve_flap_friction_settings(randomize_default=True)
+GRIPPER_SETTINGS = resolve_gripper_settings()
 FLAP_STATIC_RESET_RANGE = (
     FLAP_FRICTION.static_range
     if FLAP_FRICTION.randomize
@@ -536,6 +543,17 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
     )
 
     robot: ArticulationCfg = KUAVO5_CFG
+    left_gripper: ArticulationCfg | None = build_gripper_articulation_cfg(
+        GRIPPER_SETTINGS, "left"
+    )
+    right_gripper: ArticulationCfg | None = build_gripper_articulation_cfg(
+        GRIPPER_SETTINGS, "right"
+    )
+    # Must be declared after both hands: its spawner aligns the mount frames
+    # and authors the external fixed joints before physics initialization.
+    gripper_attachments: AssetBaseCfg | None = build_gripper_attachment_cfg(
+        GRIPPER_SETTINGS
+    )
     button_station: ArticulationCfg = BUTTON_STATION_CFG
 
     # New local box assets (assets/{Small,Medium,Large,XLarge}Box.usd):
@@ -739,6 +757,8 @@ class ActionsCfg:
         use_default_offset=True,
         preserve_order=True,
     )
+    left_gripper = build_gripper_action_cfg(GRIPPER_SETTINGS, "left")
+    right_gripper = build_gripper_action_cfg(GRIPPER_SETTINGS, "right")
 
 
 @configclass
@@ -765,6 +785,24 @@ class ObservationsCfg:
             },
             scale=0.1,
             noise=Unoise(n_min=-0.012, n_max=0.012),
+        )
+        left_gripper_joint_pos = (
+            ObsTerm(
+                func=base_mdp.joint_pos_rel,
+                params={"asset_cfg": SceneEntityCfg("left_gripper", joint_names=list(GRIPPER_SETTINGS.joint_names))},
+                noise=Unoise(n_min=-0.004, n_max=0.004),
+            )
+            if "left" in GRIPPER_SETTINGS.active_sides
+            else None
+        )
+        right_gripper_joint_pos = (
+            ObsTerm(
+                func=base_mdp.joint_pos_rel,
+                params={"asset_cfg": SceneEntityCfg("right_gripper", joint_names=list(GRIPPER_SETTINGS.joint_names))},
+                noise=Unoise(n_min=-0.004, n_max=0.004),
+            )
+            if "right" in GRIPPER_SETTINGS.active_sides
+            else None
         )
         tote_poses = ObsTerm(
             func=workcell_mdp.tote_poses,
@@ -890,6 +928,66 @@ class EventsCfg:
             "damping_distribution_params": (0.86, 1.14),
             "operation": "scale",
         },
+    )
+    left_gripper_material = (
+        EventTerm(
+            func=base_mdp.randomize_rigid_body_material,
+            mode="startup",
+            params={
+                "asset_cfg": SceneEntityCfg("left_gripper", body_names=".*"),
+                "static_friction_range": (0.65, 1.35),
+                "dynamic_friction_range": (0.50, 1.10),
+                "restitution_range": (0.0, 0.03),
+                "num_buckets": 48,
+                "make_consistent": True,
+            },
+        )
+        if "left" in GRIPPER_SETTINGS.active_sides
+        else None
+    )
+    right_gripper_material = (
+        EventTerm(
+            func=base_mdp.randomize_rigid_body_material,
+            mode="startup",
+            params={
+                "asset_cfg": SceneEntityCfg("right_gripper", body_names=".*"),
+                "static_friction_range": (0.65, 1.35),
+                "dynamic_friction_range": (0.50, 1.10),
+                "restitution_range": (0.0, 0.03),
+                "num_buckets": 48,
+                "make_consistent": True,
+            },
+        )
+        if "right" in GRIPPER_SETTINGS.active_sides
+        else None
+    )
+    left_gripper_gains = (
+        EventTerm(
+            func=base_mdp.randomize_actuator_gains,
+            mode="startup",
+            params={
+                "asset_cfg": SceneEntityCfg("left_gripper", joint_names=list(GRIPPER_SETTINGS.joint_names)),
+                "stiffness_distribution_params": (0.90, 1.10),
+                "damping_distribution_params": (0.88, 1.12),
+                "operation": "scale",
+            },
+        )
+        if "left" in GRIPPER_SETTINGS.active_sides
+        else None
+    )
+    right_gripper_gains = (
+        EventTerm(
+            func=base_mdp.randomize_actuator_gains,
+            mode="startup",
+            params={
+                "asset_cfg": SceneEntityCfg("right_gripper", joint_names=list(GRIPPER_SETTINGS.joint_names)),
+                "stiffness_distribution_params": (0.90, 1.10),
+                "damping_distribution_params": (0.88, 1.12),
+                "operation": "scale",
+            },
+        )
+        if "right" in GRIPPER_SETTINGS.active_sides
+        else None
     )
     tote_physics = EventTerm(
         func=workcell_mdp.randomize_collection_physics,

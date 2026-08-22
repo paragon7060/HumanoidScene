@@ -13,6 +13,11 @@ contains only the local IsaacLab bridge source and a patch for the upstream
 Apache-2.0 CloudXR JavaScript sample; its setup script obtains the upstream
 source and user-provided package separately.
 
+The default `allegro` gripper preset references NVIDIA's official Wonik
+Robotics Allegro Hand USD through `${ISAAC_NUCLEUS_DIR}`. That hand asset is an
+external runtime dependency and is not committed to this repository. A custom
+authorized local hand USD can be selected through `configs/grippers.json`.
+
 Before making a public fork or redistributing a wheel, verify that you have the
 right to redistribute every USD, URDF, mesh, texture, robot model, and NVIDIA
 runtime component. Generated datasets, videos, checkpoints, and local captured

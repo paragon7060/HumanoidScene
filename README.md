@@ -25,6 +25,7 @@ export ISAACLAB_PYTHON="$(command -v python)"
 - [설치, 의존성, 첫 실행](docs/INSTALL.md)
 - [Isaac Sim 배치 편집·위치/회전/크기 캡처](docs/ISAACSIM_WORKCELL_GUIDE.md)
 - [Meta Quest 3/3S teleoperation과 LeRobot 수집](docs/QUEST3_KUAVO_TELEOP_GUIDE.md)
+- [Allegro hand와 교체 가능한 gripper 설정](docs/GRIPPER_CONFIGURATION.md)
 - [GR00T N1.7 evaluation](docs/GROOT_N1_7_EVAL_GUIDE.md)
 - [외부 asset과 runtime 안내](THIRD_PARTY_ASSETS.md)
 
@@ -129,6 +130,10 @@ environment variable; without it, the wheel uses its packaged fallback JSON.
 - head-mounted and chest/waist-mounted cameras matching real Kuavo5
   hardware, plus two wrist-mounted cameras (not present on the real robot)
   added for close-range manipulation visibility.
+- configurable left/right wrist grippers. The default `allegro` preset uses
+  two independently controlled official Allegro Hand articulations; use
+  `--gripper none` for the legacy handless schema or a custom
+  `--gripper-config` JSON for another end effector.
 
 The button is not a wrist-distance proxy. The packaged `button_station.usda` contains
 a fixed post link and an 18 mm prismatic plunger with a return spring. A press
@@ -439,10 +444,11 @@ A robot controller should reserve a plan, execute its IK/grasp/push/release
 motion, verify the final tote pose, and then commit the reservation. Two workers
 cannot reserve the infeed simultaneously.
 
-The current Kuavo asset has no actuated finger joints. `--auto-demo` therefore
-does not claim physical robot manipulation. A production controller still needs
-surface-gripper prototypes or a proper parallel-gripper/hand USD attached to
-`zarm_l7_end_effector` and `zarm_r7_end_effector`.
+The base Kuavo USD has no finger joints, so the default configuration attaches
+two independently actuated Allegro articulations at runtime. `--auto-demo`
+still does not claim physical robot manipulation: it validates task logic with
+scripted box motion, while learned/teleoperated control uses the configured
+hands.
 
 ## Manager-based robustness environment
 
@@ -455,8 +461,10 @@ There are now two runtime layers:
 
 The manager-based environment contains:
 
-- a 15-dimensional waist and dual-arm joint-position action;
-- a 213-dimensional state/policy observation, including physical button travel;
+- a 17-dimensional default manager action: 15 waist/dual-arm targets plus two
+  binary Allegro commands (`--gripper none` restores the previous 15-D schema);
+- a dynamically sized state/policy observation including both 16-joint hands
+  and physical button travel;
 - head-mounted 120x160 RGB and depth observations (`robustness_camera`,
   the ``policy``-group vision term);
 - chest/waist-mounted, left-wrist, and right-wrist 120x160 RGB observations

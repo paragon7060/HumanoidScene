@@ -9,6 +9,7 @@ from kuavo_isaaclab_scene.groot_lerobot_bridge import (
     MANAGER_ACTION_SCALES,
     KuavoLeRobotBridge,
     LeRobotGrootRunner,
+    adapt_manager_action,
     adapt_policy_action,
     camera_rgb_to_lerobot,
     parse_camera_map,
@@ -79,6 +80,18 @@ def test_adapt_rejects_wrong_action_dimension() -> None:
             default_joint_pos=torch.zeros((1, 15)),
             action_scales=torch.ones((1, 15)),
         )
+
+
+def test_manager_action_supports_configured_gripper_dimensions() -> None:
+    result = adapt_manager_action(
+        torch.tensor([[0.0] * 15 + [-1.2, 1.2]]),
+        expected_dim=17,
+        device="cpu",
+        clip=1.0,
+    )
+    assert result.action.shape == (1, 17)
+    assert result.action[0, -2:].tolist() == [-1.0, 1.0]
+    assert result.saturation_fraction == pytest.approx(2.0 / 17.0)
 
 
 def test_parse_camera_map_accepts_short_policy_keys() -> None:

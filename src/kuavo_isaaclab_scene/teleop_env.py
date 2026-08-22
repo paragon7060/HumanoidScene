@@ -9,8 +9,9 @@ from isaaclab.devices.openxr import OpenXRDeviceCfg, XrCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
 from isaaclab.utils import configclass
 
+from .gripper_runtime import build_gripper_action_cfg
 from .manager_env import (
-    ActionsCfg,
+    GRIPPER_SETTINGS,
     KuavoRobustWorkcellEnvCfg,
     RewardsCfg,
     TerminationsCfg,
@@ -24,8 +25,7 @@ HEAD_JOINTS = ["zhead_1_joint", "zhead_2_joint"]
 
 
 @configclass
-class TeleopActionsCfg(ActionsCfg):
-    upper_body = None
+class TeleopActionsCfg:
     left_arm = DifferentialInverseKinematicsActionCfg(
         asset_name="robot",
         joint_names=LEFT_ARM_JOINTS,
@@ -59,6 +59,8 @@ class TeleopActionsCfg(ActionsCfg):
         use_default_offset=True,
         preserve_order=True,
     )
+    left_gripper = build_gripper_action_cfg(GRIPPER_SETTINGS, "left")
+    right_gripper = build_gripper_action_cfg(GRIPPER_SETTINGS, "right")
 
 
 @configclass
@@ -127,6 +129,10 @@ def set_domain_randomization(cfg: KuavoQuestTeleopEnvCfg, enabled: bool) -> None
     cfg.events.robot_material = None
     cfg.events.robot_arm_mass = None
     cfg.events.actuator_gains = None
+    cfg.events.left_gripper_material = None
+    cfg.events.right_gripper_material = None
+    cfg.events.left_gripper_gains = None
+    cfg.events.right_gripper_gains = None
     cfg.events.tote_physics = None
     cfg.events.cargo_physics = None
     cfg.events.gravity = None
