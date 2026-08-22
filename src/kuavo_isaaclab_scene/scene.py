@@ -243,6 +243,7 @@ from .camera_viewports import open_camera_viewports
 from .gripper_runtime import (
     build_gripper_articulation_cfg,
     build_gripper_attachment_cfg,
+    build_gripper_group_cfg,
 )
 from .paths import ASSET_DIR
 
@@ -719,6 +720,8 @@ class RackToConveyorSceneCfg(InteractiveSceneCfg):
     )
 
     robot: ArticulationCfg = KUAVO5_CFG
+    # Spawn the common parent before the child Allegro articulations.
+    grippers_group: AssetBaseCfg | None = build_gripper_group_cfg(GRIPPER_SETTINGS)
     left_gripper: ArticulationCfg | None = build_gripper_articulation_cfg(
         GRIPPER_SETTINGS, "left"
     )

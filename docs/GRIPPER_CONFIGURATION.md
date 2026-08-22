@@ -3,7 +3,8 @@
 The default `allegro` preset adds one independently controlled Allegro Hand to
 each Kuavo wrist. Both `scene.py` and the manager-based environment use the
 same configuration. The manager scene exposes the hands as
-`scene["left_gripper"]` and `scene["right_gripper"]`; the fixed-joint group is
+`scene["left_gripper"]` and `scene["right_gripper"]`; their shared parent is
+`scene["grippers_group"]`, and the fixed-joint group is
 `scene["gripper_attachments"]`.
 
 ## Run

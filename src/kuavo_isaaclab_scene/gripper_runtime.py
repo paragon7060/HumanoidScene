@@ -12,7 +12,7 @@ from typing import Callable
 
 import omni.kit.commands
 import omni.usd
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
+from pxr import Gf, Sdf, Usd, UsdPhysics
 
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
@@ -40,6 +40,52 @@ class MountedGripper(Articulation):
 @configclass
 class MountedGripperCfg(ArticulationCfg):
     class_type: type = MountedGripper
+
+
+def spawn_gripper_group(
+    prim_path: str,
+    cfg: "GripperGroupSpawnerCfg",
+    translation=None,
+    orientation=None,
+    **kwargs,
+) -> Usd.Prim:
+    """Create the shared Xform parent before child gripper articulations spawn."""
+    del cfg, kwargs
+    stage = sim_utils.get_current_stage()
+    parent_expression, leaf = prim_path.rsplit("/", 1)
+    env_paths = sim_utils.find_matching_prim_paths(parent_expression)
+    if not env_paths:
+        raise RuntimeError(f"No environment prims match {parent_expression!r}.")
+
+    first_group = None
+    for env_path in env_paths:
+        group_path = f"{env_path}/{leaf}"
+        group = stage.GetPrimAtPath(group_path)
+        if not group.IsValid():
+            group = sim_utils.create_prim(
+                group_path,
+                "Xform",
+                translation=translation,
+                orientation=orientation,
+                stage=stage,
+            )
+        first_group = first_group or group
+    assert first_group is not None
+    return first_group
+
+
+@configclass
+class GripperGroupSpawnerCfg(SpawnerCfg):
+    func: Callable = spawn_gripper_group
+
+
+def build_gripper_group_cfg(settings: GripperSettings) -> AssetBaseCfg | None:
+    if not settings.active_sides:
+        return None
+    return AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/Grippers",
+        spawn=GripperGroupSpawnerCfg(),
+    )
 
 
 def _expand_isaac_tokens(path: str) -> str:
@@ -229,7 +275,9 @@ def spawn_gripper_attachments(
     first_group = None
     for index, env_path in enumerate(env_paths):
         group_path = f"{env_path}/{leaf}"
-        group = UsdGeom.Xform.Define(stage, group_path).GetPrim()
+        # AssetBaseCfg creates an XformPrimView after spawning. create_prim()
+        # authors Isaac Lab's standard translate/orient/scale op sequence.
+        group = sim_utils.create_prim(group_path, "Xform", stage=stage)
         first_group = first_group or group
         for side in cfg.settings.active_sides:
             _align_and_attach(

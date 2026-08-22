@@ -37,6 +37,7 @@ from .gripper_runtime import (
     build_gripper_action_cfg,
     build_gripper_articulation_cfg,
     build_gripper_attachment_cfg,
+    build_gripper_group_cfg,
 )
 from .paths import ASSET_DIR
 from .rack_box_layout import (
@@ -543,6 +544,8 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
     )
 
     robot: ArticulationCfg = KUAVO5_CFG
+    # Isaac Lab's regex-based child spawners require this parent to exist.
+    grippers_group: AssetBaseCfg | None = build_gripper_group_cfg(GRIPPER_SETTINGS)
     left_gripper: ArticulationCfg | None = build_gripper_articulation_cfg(
         GRIPPER_SETTINGS, "left"
     )
