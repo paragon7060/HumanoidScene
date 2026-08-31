@@ -31,6 +31,7 @@ from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 from . import manager_mdp as workcell_mdp
 from .box_flap_friction import resolve_flap_friction_settings
+from .scene_physics import build_box_flap_actuator, build_contact_box_spawn, configure_robot_asset_physics
 from .groot_lerobot_bridge import CONTROLLED_JOINT_NAMES
 from .gripper_config import resolve_gripper_settings
 from .gripper_runtime import (
@@ -295,6 +296,8 @@ KUAVO_CFG = ArticulationCfg(
     },
 )
 
+configure_robot_asset_physics(KUAVO_CFG, ROBOT_MODEL, GRIPPER_SETTINGS)
+
 BUTTON_STATION_CFG = ArticulationCfg(
     prim_path="{ENV_REGEX_NS}/Workcell/SafetySystem/ButtonStation",
     spawn=sim_utils.UsdFileCfg(
@@ -342,15 +345,7 @@ STAGING_BOX_TYPES = (
 # hinges under gravity); a soft implicit actuator just damps them instead
 # of leaving raw PhysX solver defaults, and covers all joints so Isaac Lab
 # does not warn about un-actuated articulation DOFs.
-BOX_FLAP_ACTUATOR = ImplicitActuatorCfg(
-    joint_names_expr=["joint_front", "joint_back", "joint_left", "joint_right"],
-    effort_limit_sim=5.0,
-    velocity_limit_sim=10.0,
-    stiffness=0.0,
-    damping=0.05,
-    friction=FLAP_FRICTION.static,
-    dynamic_friction=FLAP_FRICTION.dynamic,
-)
+BOX_FLAP_ACTUATOR = build_box_flap_actuator(FLAP_FRICTION)
 
 
 def staging_box_cfg(box_name: str, usd_path: Path, index: int) -> ArticulationCfg:
@@ -359,14 +354,7 @@ def staging_box_cfg(box_name: str, usd_path: Path, index: int) -> ArticulationCf
     spec = RACK_BOX_SPAWN_PLAN[instance_name]
     return ArticulationCfg(
         prim_path=f"{{ENV_REGEX_NS}}/Workcell/StagingBoxes/{instance_name}",
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=str(usd_path),
-            scale=spec.scale,
-            articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-                solver_position_iteration_count=8,
-                solver_velocity_iteration_count=2,
-            ),
-        ),
+        spawn=build_contact_box_spawn(usd_path, spec.scale),
         init_state=ArticulationCfg.InitialStateCfg(
             pos=spec.position,
             rot=spec.rotation,

@@ -66,7 +66,58 @@ LeRobot은 HDF5 수집을 확인한 다음 별도 환경에 연결한다.
 [준비물](#quest-prerequisites) · [다운로드와 파일 설정](#quest-files) ·
 [런타임 서비스](#quest-runtime-service) · [웹 클라이언트](#quest-web-client) ·
 [Quest 연결](#quest-headset) · [첫 수집](#quest-first-recording) ·
-[LeRobot](#quest-lerobot) · [문제 해결](#quest-troubleshooting)
+[LeRobot](#quest-lerobot) · [문제 해결](#quest-troubleshooting) ·
+[다른 PC·공유기로 옮기기](#quest-other-pc-network)
+
+<a id="quest-other-pc-network"></a>
+
+### 다른 PC·공유기에서 실행하기
+
+다른 컴퓨터나 공유기에서도 사용할 수 있지만, **현재 PC의 경로·IP·인증서를 그대로
+사용하는 것은 아니다.** 이 구성은 PC와 Quest가 서로 통신 가능한 같은 LAN에 있는
+경우를 기준으로 한다. PC는 랜선, Quest는 같은 공유기의 Wi-Fi에 연결해도 된다.
+같은 공유기라도 게스트 Wi-Fi나 기기 간 통신 차단이 켜져 있으면 연결되지 않을 수 있다.
+
+| 옮기는 상황 | 필요한 작업 |
+|---|---|
+| 같은 PC, 다른 공유기 | 새 PC LAN IP를 확인한다. IP가 바뀌면 환경 파일·Quest 접속 주소를 수정하고 새 IP에 맞는 인증서를 준비한다. |
+| 다른 PC, 같은 공유기 | 새 PC에 Isaac Sim/Lab·CloudXR·웹 클라이언트를 준비하고 설치 경로·IP·인증서를 설정한다. |
+| 다른 PC, 다른 공유기 | 새 PC의 초기 설정 후 PC와 Quest를 서로 통신 가능한 같은 LAN에 연결한다. |
+| PC와 Quest가 서로 다른 장소·네트워크 | 아래 LAN 명령만으로는 연결을 보장하지 않는다. 라우팅·방화벽·신호 및 미디어 경로를 포함한 별도 원격 연결 구성이 필요하다. |
+
+**`CLOUDXR_HOST`는 시뮬레이션을 실행하는 PC의 LAN IP**다. 공유기 주소나 Quest IP,
+공인 IP를 넣는 항목이 아니다. 인터넷 회선이 바뀌었다는 이유만으로 재설치할 필요는 없지만,
+PC의 LAN IP와 기기 간 통신 가능 여부는 다시 확인한다. 공인 IP로 바꾸거나 무작정
+포트 포워딩하는 것만으로 원격 연결이 해결되지는 않는다.
+
+새 PC에서는 다음 항목을 준비한다.
+
+1. [설치 가이드](docs/INSTALL.md)와 [Quest 준비물](#quest-prerequisites)에 따라
+   해당 PC의 GPU·드라이버·Isaac 환경을 확인하고 CloudXR Runtime SDK와 웹 클라이언트를 준비한다.
+   `.external/`의 SDK, 환경 파일, 인증서와 개인 키는 Git에 포함되지 않으므로 **clone만으로 준비가 끝나지 않는다.**
+2. [.env.example](.env.example)을 참고해 그 PC의 `.external/quest-session.env`를 작성한다.
+   Runtime 관련 주석 예시는 필요한 줄의 `#`를 제거하고 실제 값을 넣는다.
+   `ISAACLAB_PYTHON`, `ISAACLAB_DIR`, `XR_RUNTIME_JSON`, `CLOUDXR_RUNTIME_DIR` 등은
+   그 PC의 설치 경로여야 한다. 문서의 `/home/seonho/...`나 `/absolute/path/...`를 그대로 쓰지 않는다.
+3. `CLOUDXR_HOST`를 새 PC LAN IP로, `CLOUDXR_CERTIFICATE`와 `CLOUDXR_KEY`를 그 PC의
+   인증서·개인 키 경로로 지정한다. 인증서는 접속에 사용할 IP를 포함하고 유효기간이 남아 있어야 한다.
+   기존 PC의 개인 키를 공유하는 대신 새 PC에서 준비하고, Quest에서 주소와 인증서를 직접 확인한다.
+4. **각 새 터미널에서** 저장소 루트로 이동한 뒤 아래처럼 환경 파일을 불러온다.
+   실행기가 이 파일을 자동으로 읽는 것은 아니다.
+
+```bash
+cd /actual/path/to/HumanoidScene  # 이 PC에 clone한 실제 경로로 변경
+source .external/quest-session.env
+echo "$CLOUDXR_HOST"             # 이 PC의 LAN IP인지 확인
+./quest_doctor.sh --require-runtime
+```
+
+환경 파일에 `export CLOUDXR_HOST=...`가 있다면 `source` 후 별도 선언할 필요가 없다.
+값이 비어 있거나 이전 PC의 IP가 나오면 환경 파일을 수정하고 다시 `source`한다.
+그다음 [준비된 환경 실행 안내](docs/QUEST_RUNTIME_SERVICE.md)의
+**Runtime → HTTPS 웹 서버 → Quest CONNECT → 수집기** 순서를 따른다.
+해당 문서의 `192.168.45.235`도 기존 PC의 주소이므로 새 PC의 주소로 바꾼다.
+인증서/개인 키와 환경 파일은 Git에 올리지 않고, 방화벽을 통째로 끄거나 서비스를 공용 인터넷에 노출하지 않는다.
 
 ### 1. 먼저 실행 경로를 구분하기
 
@@ -379,9 +430,12 @@ Quest 양안 해상도와 HDF5 head 640×360 해상도는 바꾸지 않는다.
 녹화 중 X를 누르면 현재 파일을 `operator_calibration`으로 닫고 보정한다. 중앙은 원래 stereo 장면이며, 작은 손목 영상 두 개가
 시야 왼쪽 위·오른쪽 위를 따라다닌다. 머리 카메라는 계속 기록하지만 중앙을 덮지 않는다.
 패널 하단의 `FOLLOW`/`REC`와 터미널의 `[BUTTON]`/`[TRACKING]`으로 상태를 확인한다.
-**컨트롤러를 계속 들고 조작하면 된다.** 맨손을 사용하려면 `--input-mode hands`로
-다시 실행한다. 이 모드만 손목·손가락 추적과 엄지·검지 pinch를 사용하며, 자동으로
-컨트롤러 모드와 전환하지 않는다. 자세한 [보정·조작 절차](docs/QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)를 참고한다.
+**기존 컨트롤러 조작은 그대로 유지된다.** 맨손 전환을 시험하려면 수집기 명령에
+`--hand-switch`를 추가한다. 이 옵션을 켠 실행에서만 오른쪽 아래 그립을 길게 눌러
+3초 카운트다운과 양손 추적 확인 후 맨손 수집으로 전환한다. 전환 전후 녹화는 별도
+파일로 저장한다. 처음부터 맨손만 사용하려면 `--input-mode hands`로 실행한다.
+자세한 전환·복귀·pinch 조작은 [맨손 실험 안내](docs/QUEST_RUNTIME_SERVICE.md)와
+[보정·조작 절차](docs/QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)를 참고한다.
 
 예시와 기본 설정은 녹화를 끝내도 앱·장면을 유지한다. `B`를 다시 누르면 새 파일로
 녹화하며, 장면 초기화는 `R`, 앱 종료는 `Ctrl+C`다. `--max-episodes 1`을 명시하면
@@ -671,12 +725,33 @@ the selected standalone box instances.
 
 ## Box flap joint friction
 
+Standalone (`run_scene.sh`), manager-based (`run_manager_env.sh`) and Quest
+(`collect_quest_teleop.sh`) now share asset physics through
+[`scene_physics.py`](src/kuavo_isaaclab_scene/scene_physics.py):
+
+- Flap resistance defaults to static **0.45 N·m**, dynamic **0.32 N·m**,
+  stiffness **0**, damping **0.05 N·m·s/rad**.
+- Local articulated boxes use 2mm contact offsets, zero rest offsets,
+  speculative CCD and 32/8 solver iterations.
+- S200062 uses corrected hand collision shapes, simulation estimates for
+  missing hand inertials, gripper armature 0.001 and an open initial/reset pose.
+  The shared gripper preset uses a closed target of 0rad.
+- The spring-loaded button asset is common to all three entry points.
+
+Only Quest disables wheel contact for its kinematic base movement; normal
+scenes retain wheel contact. VR controls, arm servo gains and scene-specific
+randomization remain separate. Standalone/Quest default to fixed flap friction;
+the manager robustness environment randomizes on reset. These are runtime
+overrides: opening a source USD alone in an editor does not apply them.
+Rack guide rollers have not been added. The higher solver iteration counts may
+increase physics cost, especially with many parallel environments.
+
 All four flap revolute joints use Isaac Lab/PhysX joint-axis friction. Set a
 fixed value in the standalone scene with:
 
 ```bash
 ./run_scene.sh --rack-boxes '1:small*2;2:medium,large;3:xlarge' \
-  --flap-static-friction 0.40 --flap-dynamic-friction 0.25
+  --flap-static-friction 0.45 --flap-dynamic-friction 0.32
 ```
 
 Randomize every box and every flap independently once at standalone-scene
@@ -685,8 +760,8 @@ startup with:
 ```bash
 ./run_scene.sh --rack-boxes '1:small*2;2:medium,large;3:xlarge' \
   --randomize-flap-friction \
-  --flap-static-friction-range 0.15 0.65 \
-  --flap-dynamic-friction-range 0.08 0.45
+  --flap-static-friction-range 0.25 0.75 \
+  --flap-dynamic-friction-range 0.15 0.50
 ```
 
 The manager-based robustness environment enables this randomization by
@@ -695,15 +770,15 @@ changed with the same arguments:
 
 ```bash
 ./run_manager_env.sh --num-envs 8 --steps 100000 \
-  --flap-static-friction-range 0.15 0.65 \
-  --flap-dynamic-friction-range 0.08 0.45
+  --flap-static-friction-range 0.25 0.75 \
+  --flap-dynamic-friction-range 0.15 0.50
 ```
 
 For a deterministic manager-based run:
 
 ```bash
 ./run_manager_env.sh --num-envs 1 --no-randomize-flap-friction \
-  --flap-static-friction 0.40 --flap-dynamic-friction 0.25
+  --flap-static-friction 0.45 --flap-dynamic-friction 0.32
 ```
 
 PhysX requires dynamic friction to be no greater than static friction. Random

@@ -249,6 +249,7 @@ from .gripper_runtime import (
     build_gripper_group_cfg,
 )
 from .paths import ASSET_DIR
+from .scene_physics import build_box_flap_actuator, build_contact_box_spawn, configure_robot_asset_physics
 from .robot_model import resolve_robot_model
 
 
@@ -460,15 +461,7 @@ STAGING_BOX_TYPES = (
 # hinges under gravity); a soft implicit actuator just damps them instead
 # of leaving raw PhysX solver defaults, and covers all joints so Isaac Lab
 # does not warn about un-actuated articulation DOFs.
-BOX_FLAP_ACTUATOR = ImplicitActuatorCfg(
-    joint_names_expr=["joint_front", "joint_back", "joint_left", "joint_right"],
-    effort_limit_sim=5.0,
-    velocity_limit_sim=10.0,
-    stiffness=0.0,
-    damping=0.05,
-    friction=FLAP_FRICTION.static,
-    dynamic_friction=FLAP_FRICTION.dynamic,
-)
+BOX_FLAP_ACTUATOR = build_box_flap_actuator(FLAP_FRICTION)
 
 
 def staging_box_cfg(box_name: str, usd_path: Path, index: int) -> ArticulationCfg:
@@ -477,14 +470,7 @@ def staging_box_cfg(box_name: str, usd_path: Path, index: int) -> ArticulationCf
     spec = RACK_BOX_SPAWN_PLAN[instance_name]
     return ArticulationCfg(
         prim_path=f"{{ENV_REGEX_NS}}/Workcell/StagingBoxes/{instance_name}",
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=str(usd_path),
-            scale=spec.scale,
-            articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-                solver_position_iteration_count=8,
-                solver_velocity_iteration_count=2,
-            ),
-        ),
+        spawn=build_contact_box_spawn(usd_path, spec.scale),
         init_state=ArticulationCfg.InitialStateCfg(
             pos=spec.position,
             rot=spec.rotation,
@@ -596,6 +582,8 @@ KUAVO_CFG = ArticulationCfg(
         ),
     },
 )
+
+configure_robot_asset_physics(KUAVO_CFG, ROBOT_MODEL, GRIPPER_SETTINGS)
 
 BUTTON_STATION_CFG = ArticulationCfg(
     prim_path="{ENV_REGEX_NS}/Workcell/SafetySystem/ButtonStation",

@@ -107,22 +107,10 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
         from .robot_model import resolve_robot_model
         if resolve_robot_model().name == "s200062":
             from .teleop_inertials import spawn_teleop_robot
+            # Shared hand/box physics is already configured by manager_env.
+            # Only the kinematic base's wheel contact exception is Quest-only.
             self.scene.robot.spawn.func = spawn_teleop_robot
-            # Missing rotor inertia makes tiny finger links numerically stiff
-            # under an implicit drive. This is a simulation estimate, like the
-            # missing link inertials; preserve the existing 5 Nm effort cap.
-            self.scene.robot.actuators["integrated_grippers"].armature = .001
-            self.scene.robot.spawn.articulation_props.solver_position_iteration_count = 32
-            self.scene.robot.spawn.articulation_props.solver_velocity_iteration_count = 8
         self.scene.num_envs = 1
-        from .manager_env import LOCAL_BOX_SCENE_KEYS
-        from .teleop_contacts import spawn_contact_box
-        for name in LOCAL_BOX_SCENE_KEYS:
-            box = getattr(self.scene, name, None)
-            if box is not None:
-                box.spawn.func = spawn_contact_box
-                box.spawn.articulation_props.solver_position_iteration_count = 32
-                box.spawn.articulation_props.solver_velocity_iteration_count = 8
         self.scene.env_spacing = 5.0
         self.episode_length_s = 3600.0
         self.curriculum = None

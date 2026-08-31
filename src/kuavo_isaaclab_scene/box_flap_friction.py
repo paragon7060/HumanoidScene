@@ -8,10 +8,10 @@ import os
 
 # Code-level defaults. Static friction must be greater than or equal to
 # dynamic friction for the PhysX joint-axis friction model.
-DEFAULT_FLAP_STATIC_FRICTION = 0.35
-DEFAULT_FLAP_DYNAMIC_FRICTION = 0.25
-DEFAULT_FLAP_STATIC_FRICTION_RANGE = (0.15, 0.65)
-DEFAULT_FLAP_DYNAMIC_FRICTION_RANGE = (0.08, 0.45)
+DEFAULT_FLAP_STATIC_FRICTION = 0.45
+DEFAULT_FLAP_DYNAMIC_FRICTION = 0.32
+DEFAULT_FLAP_STATIC_FRICTION_RANGE = (0.25, 0.75)
+DEFAULT_FLAP_DYNAMIC_FRICTION_RANGE = (0.15, 0.50)
 
 
 @dataclass(frozen=True)

@@ -234,31 +234,40 @@ position, rotation, scale, shelf가 우선하며 기록되지 않은 인스턴�
 
 ## 8. 박스 flap friction
 
+`run_scene.sh`, `run_manager_env.sh`, `collect_quest_teleop.sh`는 공통
+`scene_physics.py`와 `box_flap_friction.py`를 사용한다. 고정 마찰 기본값은
+정적 0.45 N·m / 동적 0.32 N·m이며 stiffness=0, damping=0.05를 유지한다.
+덮개 저항뿐 아니라 얇은 상자의 접촉 설정, S200062 손 충돌체·누락 관성 보완·
+열린 그리퍼 초기 자세도 공통 적용된다. 원본 USD만 직접 여는 경우에는 런타임 보완이
+적용되지 않는다. 바퀴 접촉 비활성화는 Quest의 kinematic base에만 적용한다.
+
 고정값:
 
 ```bash
-./run_scene.sh --flap-static-friction 0.40 \
-  --flap-dynamic-friction 0.25
+./run_scene.sh --flap-static-friction 0.45 \
+  --flap-dynamic-friction 0.32
 ```
 
 Standalone 시작 시 박스/flap별 randomization:
 
 ```bash
 ./run_scene.sh --randomize-flap-friction \
-  --flap-static-friction-range 0.15 0.65 \
-  --flap-dynamic-friction-range 0.08 0.45
+  --flap-static-friction-range 0.25 0.75 \
+  --flap-dynamic-friction-range 0.15 0.50
 ```
 
 Manager-based 환경은 reset마다 randomization이 기본 활성화된다.
 
 ```bash
 ./run_manager_env.sh --num-envs 8 --steps 100000 \
-  --flap-static-friction-range 0.15 0.65 \
-  --flap-dynamic-friction-range 0.08 0.45
+  --flap-static-friction-range 0.25 0.75 \
+  --flap-dynamic-friction-range 0.15 0.50
 ```
 
 결정론적 manager-based 실행은 `--no-randomize-flap-friction`을 사용한다.
 PhysX 제약 때문에 dynamic 값은 static 값 이하로 clamp된다.
+Quest는 `--domain-randomization`을 명시하지 않으면 덮개를 포함한 randomization이 꺼진다.
+이 옵션은 덮개뿐 아니라 재질·질량·조명 등의 randomization도 켠다.
 
 ## 9. task logic과 버튼 물리 확인
 

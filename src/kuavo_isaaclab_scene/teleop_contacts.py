@@ -1,5 +1,7 @@
 """Contact geometry for S200062 hands and thin, articulated cardboard boxes."""
 
+from isaaclab.sim.utils import clone
+
 
 def add_hand_colliders(root):
     """Use individual visual meshes as convex colliders, never a hull of both jaws."""
@@ -67,7 +69,10 @@ def add_hand_colliders(root):
           "2mm contact offset, speculative CCD, friction 1.0/0.8.", flush=True)
 
 
+@clone
 def spawn_contact_box(prim_path, cfg, translation=None, orientation=None, **kwargs):
+    # Author contact overrides before the outer decorator copies the asset
+    # into additional environments (including copy_from_source=True).
     from isaaclab.sim.spawners.from_files import spawn_from_usd
     from pxr import Usd, UsdPhysics, PhysxSchema
 
