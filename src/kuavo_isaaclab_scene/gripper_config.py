@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .paths import CONFIG_DIR, PACKAGE_CONFIG_DIR
+from .paths import ASSET_DIR, CONFIG_DIR, PACKAGE_CONFIG_DIR
 
 
 GRIPPER_ENV = "KUAVO_GRIPPER"
@@ -55,6 +55,7 @@ class GripperSettings:
     actuator: GripperActuatorSettings
     sides: dict[str, GripperSideSettings]
     config_path: Path
+    integrated: bool = False
 
     @property
     def active_sides(self) -> tuple[str, ...]:
@@ -69,6 +70,20 @@ class GripperSettings:
     def attachment_mount_body_for(self, side: str) -> str:
         side_cfg = self.sides[side]
         return side_cfg.attachment_mount_body or self.attachment_mount_body
+
+    def asset_name_for(self, side: str) -> str:
+        return "robot" if self.integrated else f"{side}_gripper"
+
+    def joint_names_for(self, side: str) -> tuple[str, ...]:
+        return tuple(name.replace("{side}", side[0]) for name in self.joint_names)
+
+    def command_for(self, side: str, command: dict[str, float]) -> dict[str, float]:
+        return {name.replace("{side}", side[0]): value for name, value in command.items()}
+
+    def body_names_for(self, side: str) -> str:
+        if self.integrated:
+            return rf"{side[0]}_(twofinger_base|[fb]_(bar_[1-4]|finger))"
+        return ".*"
 
 
 def add_gripper_cli_args(parser: argparse.ArgumentParser) -> None:
@@ -141,6 +156,9 @@ def _command(value: Any, label: str) -> dict[str, float]:
 
 
 def _resolve_usd_path(value: str, config_path: Path) -> str:
+    package_asset_token = "${KUAVO_PACKAGE_ASSET_DIR}"
+    if value.startswith(package_asset_token):
+        value = str(ASSET_DIR) + value[len(package_asset_token) :]
     value = os.path.expandvars(value)
     # Isaac tokens are expanded after Kit starts by gripper_runtime.py.
     if value.startswith("${ISAAC_NUCLEUS_DIR}") or value.startswith("${NUCLEUS_ASSET_ROOT_DIR}"):
@@ -174,6 +192,7 @@ def load_gripper_settings(
     if not isinstance(raw, dict):
         raise ValueError(f"Gripper preset {selected!r} must be an object.")
     enabled = bool(raw.get("enabled", True))
+    integrated = bool(raw.get("integrated", False))
     if not enabled:
         disabled_side = GripperSideSettings(False, "", (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0))
         return GripperSettings(
@@ -239,11 +258,23 @@ def load_gripper_settings(
         actuator=actuator_cfg,
         sides=sides,
         config_path=path,
+        integrated=integrated,
     )
 
 
 def resolve_gripper_settings() -> GripperSettings:
-    return load_gripper_settings()
+    # The full S200062 articulation already contains both two-finger grippers.
+    # Select their integrated control preset unless the caller explicitly
+    # disables gripper actions with KUAVO_GRIPPER=none.
+    from .robot_model import default_gripper_for_model, resolve_robot_model, validate_robot_gripper
+
+    model = resolve_robot_model()
+    selected = os.environ.get(GRIPPER_ENV)
+    if selected is None:
+        selected = default_gripper_for_model(model)
+    settings = load_gripper_settings(selected)
+    validate_robot_gripper(model, settings.name)
+    return settings
 
 
 BASE_TELEOP_ACTION_NAMES = (

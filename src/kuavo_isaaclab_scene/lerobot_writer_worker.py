@@ -108,7 +108,7 @@ def main() -> int:
                             fps=int(message["fps"]),
                             features=message["features"],
                             root=root,
-                            robot_type="kuavo5",
+                            robot_type="kuavo_s63",
                             use_videos=bool(message["use_videos"]),
                             batch_encoding_size=1,
                         )

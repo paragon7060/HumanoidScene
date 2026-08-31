@@ -13,7 +13,7 @@ and order. The recommended schema is:
 
 | LeRobot key | Shape | Representation |
 |---|---:|---|
-| `observation.state` | `(47,)` | 15 Kuavo manager-coordinate joints + 32 Allegro joint offsets |
+| `observation.state` | `(31,)` | 15 Kuavo manager-coordinate joints + 16 Leju claw joint offsets |
 | `observation.images.head` | `(3,H,W)` | RGB float after LeRobot conversion |
 | `observation.images.waist` | `(3,H,W)` | RGB float after LeRobot conversion |
 | `observation.images.left_wrist` | `(3,H,W)` | RGB float after LeRobot conversion |
@@ -199,7 +199,7 @@ GR00T relative-action checkpoints are executed with
 queueing. This is required because N1.7's single-step `select_action()` path
 does not decode cached relative chunks against a stable observation.
 
-The base Kuavo USD has no fingers, but the default runtime preset adds two
-16-joint Allegro articulations. The evaluator validates the configured policy
+The base S63 USD has no fingers, but the default runtime preset adds two
+8-joint Robotiq 2F-85-based Leju claw articulations. The evaluator validates the configured policy
 action dimension (17 by default, 15 with `--gripper none`) before execution.
 Use the same preset and state/action schema for collection, training, and eval.

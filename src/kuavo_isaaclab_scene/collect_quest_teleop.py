@@ -16,6 +16,7 @@ from .gripper_config import (
     resolve_gripper_settings,
     teleop_action_names,
 )
+from .robot_model import add_robot_model_cli_args, export_robot_model_cli
 
 
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
@@ -139,9 +140,11 @@ parser.add_argument(
 parser.add_argument("--rack-box-layout", type=Path, default=None, metavar="JSON")
 parser.add_argument("--rack-box-poses", type=Path, default=None, metavar="JSON")
 parser.add_argument("--ignore-captured-box-poses", action="store_true")
+add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+export_robot_model_cli(args_cli)
 export_gripper_cli(args_cli)
 try:
     GRIPPER_SETTINGS = resolve_gripper_settings()
@@ -285,12 +288,16 @@ def main() -> None:
     state_names = list(arm_joint_names)
     gripper_state_sources = []
     for side in GRIPPER_SETTINGS.active_sides:
-        gripper = env.scene[f"{side}_gripper"]
+        gripper = env.scene[GRIPPER_SETTINGS.asset_name_for(side)]
         gripper_joint_ids, gripper_joint_names = gripper.find_joints(
-            list(GRIPPER_SETTINGS.joint_names)
+            list(GRIPPER_SETTINGS.joint_names_for(side))
         )
         gripper_state_sources.append((side, gripper, gripper_joint_ids))
-        state_names.extend(f"{side}_{name}" for name in gripper_joint_names)
+        state_names.extend(
+            gripper_joint_names
+            if GRIPPER_SETTINGS.integrated
+            else (f"{side}_{name}" for name in gripper_joint_names)
+        )
     action_names = teleop_action_names(GRIPPER_SETTINGS)
     left_body_ids, _ = robot.find_bodies("zarm_l7_end_effector")
     right_body_ids, _ = robot.find_bodies("zarm_r7_end_effector")

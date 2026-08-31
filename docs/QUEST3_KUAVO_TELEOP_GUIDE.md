@@ -45,12 +45,14 @@ Meta Quest 경로도 scene과 동일한 안정 버전 조합인 **Isaac Sim 5.1.
 
 Isaac Lab v2.3.2의 `OpenXRDevice`는 retargeter requirement에 따라 조회할 tracking feature를 선택한다. Kuavo는 자체 mapper를 사용하므로 `RawQuestOpenXRDevice`가 hand/head requirement를 명시적으로 활성화하고 upstream raw dict를 그대로 반환한다. 이 어댑터가 없으면 retargeter 없는 직접 생성 경로에서 tracking dict가 비어 있을 수 있다.
 
-base Kuavo USD 자체에는 finger joint가 없지만 기본 `allegro` preset이 양쪽
-손목에 각각 16-joint Allegro articulation을 연결한다. 따라서 현재 구현은:
+기본 S200062 USD에는 양쪽 2-finger gripper와 D405 형상이 직접 포함된다. 각 손의
+4개 linkage joint를 하나의 binary action으로 동기 제어한다. 비교용
+`--robot-model s63`에서는 기존 외장 8-joint Robotiq 기반 claw를 사용한다.
+따라서 현재 구현은:
 
 - Quest 손목 위치/회전으로 양팔을 제어한다.
 - thumb-index pinch 거리와 양손 26개 관절은 데이터에 저장한다.
-- thumb-index 거리가 0.035 m 이하이면 같은 쪽 Allegro를 닫고, 그보다 크거나
+- thumb-index 거리가 0.055 m 이하이면 같은 쪽 gripper를 닫고, 그보다 크거나
   tracking이 유효하지 않으면 연다.
 - `--gripper none`으로 기존 14-D handless teleop action도 재현할 수 있다.
 
@@ -78,7 +80,7 @@ Meta Quest나 CloudXR Runtime 없이 정확한 teleop scene과 robot camera 3개
 
 ```bash
 cd HumanoidScene
-./preview_quest_local.sh
+./preview_quest_local.sh --robot-model s200062
 ```
 
 Isaac Sim main viewport와 함께 `robustness_camera`(Kuavo head), `left_wrist_camera`, `right_wrist_camera`의 작은 창 세 개가 열린다. 기본값 `--steps 0`은 창을 닫을 때까지 실행한다.
@@ -87,6 +89,12 @@ Kuavo 머리가 움직일 때 head camera 영상도 함께 변하는지 보려�
 
 ```bash
 ./preview_quest_local.sh --head-sweep
+```
+
+같은 Quest/카메라 경로에서 S63을 비교하려면:
+
+```bash
+./preview_quest_local.sh --robot-model s63 --head-sweep
 ```
 
 부하가 크면 다음처럼 해상도를 낮춘다.
@@ -179,6 +187,7 @@ Runtime은 해당 배포 패키지의 management/launch 절차대로 먼저 실�
 cd HumanoidScene
 
 ./collect_quest_teleop.sh \
+  --robot-model s200062 \
   --xr-runtime-json /absolute/path/to/openxr_cloudxr.json \
   --dataset-format lerobot \
   --lerobot-root datasets/kuavo_quest_lerobot \
@@ -253,7 +262,7 @@ Isaac Sim에서 캡처한 정확한 pose JSON을 쓰려면:
 - Quest의 일반 stereo scene view 위에 불투명한 head-locked XR UI를 놓는다.
 - 실제 Kuavo `scene["robustness_camera"]` 단안 RGB가 UI 전체를 채운다.
 - `scene["left_wrist_camera"]`, `scene["right_wrist_camera"]` 영상이 왼쪽/오른쪽 작은 창으로 표시된다.
-- HMD yaw/pitch는 Kuavo `zhead_1_joint`, `zhead_2_joint`에 연결되므로 실제 `head_camera_base`가 Quest 회전을 따라간다.
+- HMD yaw/pitch는 Kuavo `zhead_1_joint`, `zhead_2_joint`에 연결되므로 실제 head camera frame(S200062의 `camera`, S63의 `head_camera_base`)이 Quest 회전을 따라간다.
 - Kuavo에는 머리 translation joint가 없으므로 Quest의 위치 이동은 robot head에 적용되지 않는다.
 - desktop Isaac Sim에도 head/left wrist/right wrist mini viewport가 열린다.
 
@@ -380,8 +389,9 @@ HDF5도 동시에 남기려면:
 v3 주요 feature:
 
 ```text
-observation.state                    [T, 48] (16 Kuavo upper-body + 32 Allegro joints)
-observation.velocity                 [T, 48]
+observation.state                    [T, 24] (S200062: 16 upper-body + 8 gripper joints)
+# S63/Robotiq comparison: [T, 32] (16 upper-body + 16 gripper joints)
+observation.velocity                 [T, 32]
 observation.ee_pose                  [T, 14]
 observation.images.head              head camera MP4/image
 observation.images.left_wrist        left wrist MP4/image
@@ -422,8 +432,8 @@ PY
   attrs: success, end_reason, num_samples, joint_names, ...
   /samples
     action                         [T, 16]
-    robot_joint_position           [T, 48]
-    robot_joint_velocity           [T, 48]
+    robot_joint_position           [T, 32]
+    robot_joint_velocity           [T, 32]
     left_end_effector_pose_w       [T, 7]
     right_end_effector_pose_w      [T, 7]
     openxr_left_hand               [T, 26, 7]
@@ -482,9 +492,10 @@ XR render와 head/wrist RTX camera 3개를 동시에 쓰므로 GPU VRAM 압력�
   --no-record-depth --no-camera-preview
 ```
 
-### 손 형상이 반대이거나 forearm과 겹침
+### Gripper가 forearm과 겹침
 
-Isaac Lab 공식 asset은 오른손 Allegro 형상만 제공하므로 기본 preset은 이를 양쪽에
-사용한다. `preview_quest_local.sh --gripper allegro`에서 확인한 뒤
-`configs/grippers.json`의 해당 side `robot_mount_pos`/`robot_mount_rot`를 조정한다.
-왼손 전용 USD가 있으면 `sides.left.usd_path`로 지정한다.
+기본 preset은 대회용 Robotiq 2F-85 기반 Leju claw를 양쪽 손목에 사용한다.
+S63 비교 모드는 `preview_quest_local.sh --robot-model s63 --gripper robotiq_2f85`에서
+확인한 뒤 `configs/grippers.json`의 해당 side
+`robot_mount_pos`/`robot_mount_rot`를 조정한다. S200062의 gripper와 D405 mount는
+로봇 URDF에 직접 정의되어 있으므로 외장 gripper mount JSON을 사용하지 않는다.

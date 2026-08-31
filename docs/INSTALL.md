@@ -152,10 +152,16 @@ Run the manager-based environment:
 ./run_manager_env.sh --num-envs 1 --steps 100000
 ```
 
-The official Allegro hands are enabled by default and are fetched from the
-Isaac asset library on first use. Use `--gripper none` for an offline/legacy
-15-D smoke test, or see [Gripper configuration](GRIPPER_CONFIGURATION.md) for
-custom local USDs and mount calibration.
+The default S200062 robot, its built-in two-finger grippers, D405 meshes, and
+converted USD are packaged locally. The S63 robot and external Robotiq-based
+claws are also local and selectable with `--robot-model s63`. The original
+NVIDIA warehouse and Digital Twin conveyor remain runtime assets and need
+asset-server access on first use (or an already populated Isaac Sim cache).
+
+```bash
+./run_scene.sh --robot-model s200062       # default full model
+./run_scene.sh --robot-model s63           # comparison model
+```
 
 Choose different rack contents per launch:
 

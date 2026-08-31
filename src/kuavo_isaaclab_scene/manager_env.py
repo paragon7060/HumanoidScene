@@ -60,9 +60,11 @@ from .workcell_layout import (
     rotation as layout_rotation,
     scale as layout_scale,
 )
+from .robot_model import resolve_robot_model
 
 
-KUAVO_USD = ASSET_DIR / "kuavo5" / "usd" / "kuavo5_fixed.usd"
+ROBOT_MODEL = resolve_robot_model()
+KUAVO_USD = Path(ROBOT_MODEL.usd_path)
 OPEN_TOTE_USD = ASSET_DIR / "open_tote.usda"
 SAFETY_WORKER_USD = ASSET_DIR / "safety_worker.usda"
 MOBILE_ROBOT_USD = ASSET_DIR / "mobile_robot.usda"
@@ -73,7 +75,6 @@ SMALL_BOX_USD = ASSET_DIR / "SmallBox.usd"
 MEDIUM_BOX_USD = ASSET_DIR / "MediumBox.usd"
 LARGE_BOX_USD = ASSET_DIR / "LargeBox.usd"
 XLARGE_BOX_USD = ASSET_DIR / "XLargeBox.usd"
-
 FACTORY_USD = f"{NUCLEUS_ASSET_ROOT_DIR}/Isaac/Environments/Simple_Warehouse/warehouse.usd"
 RACK_USD = str(RACK_USD_LOCAL)
 CONVEYOR_USD = (
@@ -214,7 +215,7 @@ def kinematic_cuboid(
     )
 
 
-KUAVO5_CFG = ArticulationCfg(
+KUAVO_CFG = ArticulationCfg(
     prim_path="{ENV_REGEX_NS}/Kuavo",
     spawn=sim_utils.UsdFileCfg(
         usd_path=str(KUAVO_USD),
@@ -233,31 +234,35 @@ KUAVO5_CFG = ArticulationCfg(
         pos=layout_position("robot"),
         rot=layout_rotation("robot"),
         joint_pos={
-            "leg_l1_joint": 0.01867,
-            "leg_l2_joint": -0.00196,
-            "leg_l3_joint": -0.43815,
-            "leg_l4_joint": 0.80691,
-            "leg_l5_joint": -0.31346,
-            "leg_l6_joint": 0.01878,
-            "leg_r1_joint": -0.01867,
-            "leg_r2_joint": 0.00196,
-            "leg_r3_joint": -0.43815,
-            "leg_r4_joint": 0.80691,
-            "leg_r5_joint": -0.31346,
-            "leg_r6_joint": -0.01878,
+            "wheel_.*_joint": 0.0,
+            "knee_joint": 0.0,
+            "leg_joint": 0.0,
+            "waist_pitch_joint": 0.0,
             "zarm_.*_joint": 0.0,
             "waist_yaw_joint": 0.0,
             "zhead_.*_joint": 0.0,
+            **(
+                {"[lr]_[fb]_bar_[13]_joint": 0.0}
+                if ROBOT_MODEL.has_integrated_grippers
+                else {}
+            ),
         },
         joint_vel={".*": 0.0},
     ),
     actuators={
-        "legs": ImplicitActuatorCfg(
-            joint_names_expr=["leg_.*_joint"],
-            effort_limit_sim=350.0,
-            velocity_limit_sim=20.0,
+        "height_axis": ImplicitActuatorCfg(
+            joint_names_expr=["knee_joint", "leg_joint", "waist_pitch_joint"],
+            effort_limit_sim=700.0,
+            velocity_limit_sim=25.0,
             stiffness=400.0,
             damping=40.0,
+        ),
+        "wheels": ImplicitActuatorCfg(
+            joint_names_expr=["wheel_.*_joint"],
+            effort_limit_sim=100.0,
+            velocity_limit_sim=30.0,
+            stiffness=0.0,
+            damping=10.0,
         ),
         "arms": ImplicitActuatorCfg(
             joint_names_expr=["zarm_.*_joint"],
@@ -272,6 +277,20 @@ KUAVO5_CFG = ArticulationCfg(
             velocity_limit_sim=10.0,
             stiffness=120.0,
             damping=15.0,
+        ),
+        **(
+            {
+                "integrated_grippers": ImplicitActuatorCfg(
+                    joint_names_expr=["[lr]_[fb]_bar_[13]_joint"],
+                    effort_limit_sim=5.0,
+                    velocity_limit_sim=5.0,
+                    stiffness=100.0,
+                    damping=10.0,
+                    friction=0.02,
+                )
+            }
+            if ROBOT_MODEL.has_integrated_grippers
+            else {}
         ),
     },
 )
@@ -543,7 +562,7 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
         spawn=sim_utils.UsdFileCfg(usd_path=str(WORKCELL_GROUPS_USD)),
     )
 
-    robot: ArticulationCfg = KUAVO5_CFG
+    robot: ArticulationCfg = KUAVO_CFG
     # Isaac Lab's regex-based child spawners require this parent to exist.
     grippers_group: AssetBaseCfg | None = build_gripper_group_cfg(GRIPPER_SETTINGS)
     left_gripper: ArticulationCfg | None = build_gripper_articulation_cfg(
@@ -645,7 +664,7 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
     )
 
     robustness_camera = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Kuavo/head_camera_base/RobustnessCamera",
+        prim_path=f"{{ENV_REGEX_NS}}/Kuavo/{ROBOT_MODEL.head_camera_body}/RobustnessCamera",
         update_period=1.0 / 30.0,
         height=120,
         width=160,
@@ -657,17 +676,15 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
             clipping_range=(0.08, 8.0),
         ),
         offset=CameraCfg.OffsetCfg(
-            pos=(0.08, 0.0, 0.0),
-            rot=(1.0, 0.0, 0.0, 0.0),
+            pos=ROBOT_MODEL.head_camera_mount.pos,
+            rot=ROBOT_MODEL.head_camera_mount.rot,
             convention="ros",
         ),
     )
 
-    # Real Kuavo5 hardware also carries a chest/waist-mounted camera at
-    # `waist_camera_base`. It is added here for completeness alongside the
-    # head camera.
+    # Virtual waist view retained for the existing policy observation schema.
     waist_camera = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Kuavo/waist_camera_base/WaistCamera",
+        prim_path="{ENV_REGEX_NS}/Kuavo/waist_yaw_link/WaistCamera",
         update_period=1.0 / 30.0,
         height=120,
         width=160,
@@ -679,20 +696,17 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
             clipping_range=(0.05, 6.0),
         ),
         offset=CameraCfg.OffsetCfg(
-            pos=(0.05, 0.0, 0.0),
+            pos=(0.10, 0.0, 0.05),
             rot=(1.0, 0.0, 0.0, 0.0),
             convention="ros",
         ),
     )
 
-    # Wrist cameras are NOT part of the real Kuavo5 hardware (only head and
-    # waist cameras are). They are added here so both hands stay observable
-    # during close-range box manipulation. Mounted at the end-effector link,
-    # looking along the gripper's reach direction (local -Z in the arm7 link
-    # frame, since the end effector extends downward from the wrist joint
-    # in Kuavo's default standing pose).
+    # S200062: physical D405 position plus body-to-ROS-optical rotation.
+    # S63: adapted rig for Robotiq's opposite (+Z) finger reach. Both sensor
+    # poses use ROS optical axes (+Z forward, -Y up), not body +X forward.
     left_wrist_camera = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Kuavo/zarm_l7_end_effector/LeftWristCamera",
+        prim_path=f"{{ENV_REGEX_NS}}/Kuavo/{ROBOT_MODEL.wrist_camera_bodies['left']}/LeftWristCamera",
         update_period=1.0 / 30.0,
         height=120,
         width=160,
@@ -704,13 +718,13 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
             clipping_range=(0.03, 2.0),
         ),
         offset=CameraCfg.OffsetCfg(
-            pos=(0.0, 0.0, -0.02),
-            rot=(0.7071068, 0.0, 0.7071068, 0.0),
+            pos=ROBOT_MODEL.wrist_camera_mounts["left"].pos,
+            rot=ROBOT_MODEL.wrist_camera_mounts["left"].rot,
             convention="ros",
         ),
     )
     right_wrist_camera = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Kuavo/zarm_r7_end_effector/RightWristCamera",
+        prim_path=f"{{ENV_REGEX_NS}}/Kuavo/{ROBOT_MODEL.wrist_camera_bodies['right']}/RightWristCamera",
         update_period=1.0 / 30.0,
         height=120,
         width=160,
@@ -722,8 +736,8 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
             clipping_range=(0.03, 2.0),
         ),
         offset=CameraCfg.OffsetCfg(
-            pos=(0.0, 0.0, -0.02),
-            rot=(0.7071068, 0.0, 0.7071068, 0.0),
+            pos=ROBOT_MODEL.wrist_camera_mounts["right"].pos,
+            rot=ROBOT_MODEL.wrist_camera_mounts["right"].rot,
             convention="ros",
         ),
     )
@@ -792,7 +806,12 @@ class ObservationsCfg:
         left_gripper_joint_pos = (
             ObsTerm(
                 func=base_mdp.joint_pos_rel,
-                params={"asset_cfg": SceneEntityCfg("left_gripper", joint_names=list(GRIPPER_SETTINGS.joint_names))},
+                params={
+                    "asset_cfg": SceneEntityCfg(
+                        GRIPPER_SETTINGS.asset_name_for("left"),
+                        joint_names=list(GRIPPER_SETTINGS.joint_names_for("left")),
+                    )
+                },
                 noise=Unoise(n_min=-0.004, n_max=0.004),
             )
             if "left" in GRIPPER_SETTINGS.active_sides
@@ -801,7 +820,12 @@ class ObservationsCfg:
         right_gripper_joint_pos = (
             ObsTerm(
                 func=base_mdp.joint_pos_rel,
-                params={"asset_cfg": SceneEntityCfg("right_gripper", joint_names=list(GRIPPER_SETTINGS.joint_names))},
+                params={
+                    "asset_cfg": SceneEntityCfg(
+                        GRIPPER_SETTINGS.asset_name_for("right"),
+                        joint_names=list(GRIPPER_SETTINGS.joint_names_for("right")),
+                    )
+                },
                 noise=Unoise(n_min=-0.004, n_max=0.004),
             )
             if "right" in GRIPPER_SETTINGS.active_sides
@@ -937,7 +961,10 @@ class EventsCfg:
             func=base_mdp.randomize_rigid_body_material,
             mode="startup",
             params={
-                "asset_cfg": SceneEntityCfg("left_gripper", body_names=".*"),
+                "asset_cfg": SceneEntityCfg(
+                    GRIPPER_SETTINGS.asset_name_for("left"),
+                    body_names=GRIPPER_SETTINGS.body_names_for("left"),
+                ),
                 "static_friction_range": (0.65, 1.35),
                 "dynamic_friction_range": (0.50, 1.10),
                 "restitution_range": (0.0, 0.03),
@@ -953,7 +980,10 @@ class EventsCfg:
             func=base_mdp.randomize_rigid_body_material,
             mode="startup",
             params={
-                "asset_cfg": SceneEntityCfg("right_gripper", body_names=".*"),
+                "asset_cfg": SceneEntityCfg(
+                    GRIPPER_SETTINGS.asset_name_for("right"),
+                    body_names=GRIPPER_SETTINGS.body_names_for("right"),
+                ),
                 "static_friction_range": (0.65, 1.35),
                 "dynamic_friction_range": (0.50, 1.10),
                 "restitution_range": (0.0, 0.03),
@@ -969,7 +999,10 @@ class EventsCfg:
             func=base_mdp.randomize_actuator_gains,
             mode="startup",
             params={
-                "asset_cfg": SceneEntityCfg("left_gripper", joint_names=list(GRIPPER_SETTINGS.joint_names)),
+                "asset_cfg": SceneEntityCfg(
+                    GRIPPER_SETTINGS.asset_name_for("left"),
+                    joint_names=list(GRIPPER_SETTINGS.joint_names_for("left")),
+                ),
                 "stiffness_distribution_params": (0.90, 1.10),
                 "damping_distribution_params": (0.88, 1.12),
                 "operation": "scale",
@@ -983,7 +1016,10 @@ class EventsCfg:
             func=base_mdp.randomize_actuator_gains,
             mode="startup",
             params={
-                "asset_cfg": SceneEntityCfg("right_gripper", joint_names=list(GRIPPER_SETTINGS.joint_names)),
+                "asset_cfg": SceneEntityCfg(
+                    GRIPPER_SETTINGS.asset_name_for("right"),
+                    joint_names=list(GRIPPER_SETTINGS.joint_names_for("right")),
+                ),
                 "stiffness_distribution_params": (0.90, 1.10),
                 "damping_distribution_params": (0.88, 1.12),
                 "operation": "scale",

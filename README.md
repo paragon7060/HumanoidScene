@@ -1,9 +1,11 @@
 # HumanoidScene: Kuavo Isaac Lab workcell
 
-Kuavo 5.5 humanoid가 경사진 랙의 열린 박스를 빈 컨베이어 공간으로 옮기고,
+Kuavo S200062 humanoid가 경사진 랙의 열린 박스를 빈 컨베이어 공간으로 옮기고,
 모든 박스를 처리한 뒤 실제 물리 버튼을 누르는 Isaac Lab 환경이다. 편집 가능한
 standalone scene과 manager-based 환경, Meta Quest 양손 teleoperation, head/wrist
 camera, LeRobot Dataset v3 수집, GR00T N1.7 action 평가 코드를 함께 제공한다.
+기본 모델은 내장 2-finger gripper와 양쪽 D405 형상을 가진 `s200062`이며,
+`--robot-model s63`으로 기존 S63 + 외장 Robotiq 구성을 비교할 수 있다.
 
 다른 컴퓨터에서 시작할 때는 [설치 및 첫 실행 가이드](docs/INSTALL.md)를 먼저
 따르면 된다. 저장소에는 실행에 필요한 Kuavo/Rack/Box USD, URDF, mesh와 기본
@@ -20,12 +22,22 @@ export ISAACLAB_PYTHON="$(command -v python)"
 ./run_scene.sh --prefill 2
 ```
 
+두 로봇 버전을 같은 조건에서 확인하려면:
+
+```bash
+./run_scene.sh --robot-model s200062
+./run_scene.sh --robot-model s63
+
+./run_manager_env.sh --robot-model s200062 --num-envs 1 --steps 240
+./run_manager_env.sh --robot-model s63 --num-envs 1 --steps 240
+```
+
 주요 문서:
 
 - [설치, 의존성, 첫 실행](docs/INSTALL.md)
 - [Isaac Sim 배치 편집·위치/회전/크기 캡처](docs/ISAACSIM_WORKCELL_GUIDE.md)
 - [Meta Quest 3/3S teleoperation과 LeRobot 수집](docs/QUEST3_KUAVO_TELEOP_GUIDE.md)
-- [Allegro hand와 교체 가능한 gripper 설정](docs/GRIPPER_CONFIGURATION.md)
+- [Leju claw와 교체 가능한 gripper 설정](docs/GRIPPER_CONFIGURATION.md)
 - [GR00T N1.7 evaluation](docs/GROOT_N1_7_EVAL_GUIDE.md)
 - [외부 asset과 runtime 안내](THIRD_PARTY_ASSETS.md)
 
@@ -104,10 +116,11 @@ environment variable; without it, the wheel uses its packaged fallback JSON.
 
 ## Implemented workcell
 
-- fixed-base Kuavo 5.5 at the center of the rack/conveyor work area. Its
-  checked-in USD is converted from Leju Robotics' official `biped_s55` URDF
-  and STL meshes and preserves the source-authored colors without a runtime
-  visual-material override;
+- fixed-base Kuavo S200062 wheel humanoid at the center of the work area. Its
+  official URDF/STL source and converted USD are packaged locally, including
+  the built-in two-finger grippers and physical left/right D405 assemblies;
+- the previous S63 plus external Robotiq 2F-85 configuration remains available
+  through `--robot-model s63` for side-by-side comparison;
 - one packaged `src/kuavo_isaaclab_scene/assets/Rack.usd` steel rack bay
   (replaces the earlier official
   Nucleus `RackLongEmpty_A2`), already authored in real meters at
@@ -130,13 +143,10 @@ environment variable; without it, the wheel uses its packaged fallback JSON.
 - zero to three foreign-worker totes selected with `--prefill`;
 - slot occupancy, reservation, queue-push, and full-conveyor handling;
 - button gating and conveyor startup state machine;
-- head-mounted and chest/waist-mounted cameras matching real Kuavo5
-  hardware, plus two wrist-mounted cameras (not present on the real robot)
-  added for close-range manipulation visibility.
-- configurable left/right wrist grippers. The default `allegro` preset uses
-  two independently controlled official Allegro Hand articulations; use
-  `--gripper none` for the legacy handless schema or a custom
-  `--gripper-config` JSON for another end effector.
+- the robot head camera, one virtual waist policy camera, and two wrist cameras;
+  S200062 sensors attach directly to its `*_d405_camera` links;
+- one binary action per built-in S200062 two-finger gripper. In S63 comparison
+  mode the default `robotiq_2f85` preset mounts an external claw at each wrist.
 
 The button is not a wrist-distance proxy. The packaged `button_station.usda` contains
 a fixed post link and an 18 mm prismatic plunger with a return spring. A press
@@ -447,11 +457,11 @@ A robot controller should reserve a plan, execute its IK/grasp/push/release
 motion, verify the final tote pose, and then commit the reservation. Two workers
 cannot reserve the infeed simultaneously.
 
-The base Kuavo USD has no finger joints, so the default configuration attaches
-two independently actuated Allegro articulations at runtime. `--auto-demo`
-still does not claim physical robot manipulation: it validates task logic with
-scripted box motion, while learned/teleoperated control uses the configured
-hands.
+The default S200062 USD contains both grippers and their four actuated linkage
+joints per side. The S63 comparison USD has no finger joints, so that mode
+attaches two independently actuated Robotiq-based articulations at runtime.
+`--auto-demo` still validates task logic with scripted box motion; it does not
+claim physical robot manipulation.
 
 ## Manager-based robustness environment
 
@@ -465,9 +475,9 @@ There are now two runtime layers:
 The manager-based environment contains:
 
 - a 17-dimensional default manager action: 15 waist/dual-arm targets plus two
-  binary Allegro commands (`--gripper none` restores the previous 15-D schema);
-- a dynamically sized state/policy observation including both 16-joint hands
-  and physical button travel;
+  binary gripper commands (`--gripper none` restores the previous 15-D schema);
+- a dynamically sized state/policy observation including both grippers and
+  physical button travel (4 joints per side for S200062, 8 for S63/Robotiq);
 - head-mounted 120x160 RGB and depth observations (`robustness_camera`,
   the ``policy``-group vision term);
 - chest/waist-mounted, left-wrist, and right-wrist 120x160 RGB observations
@@ -486,20 +496,32 @@ The manager-based environment contains:
 
 ### Cameras
 
-| Camera | Mount point | Real Kuavo5 hardware? |
+| Camera | S200062 mount | S63 comparison mount |
 |---|---|---|
-| `robustness_camera` / `head_camera` | `head_camera_base` | Yes |
-| `waist_camera` | `waist_camera_base` | Yes |
-| `left_wrist_camera` | `zarm_l7_end_effector` | No (added for manipulation) |
-| `right_wrist_camera` | `zarm_r7_end_effector` | No (added for manipulation) |
+| `robustness_camera` / `head_camera` | `camera` | `head_camera_base` |
+| `waist_camera` | `waist_yaw_link` (virtual) | `waist_yaw_link` (virtual) |
+| `left_wrist_camera` | `l_d405_camera` | `zarm_l7_end_effector` + adapted pose |
+| `right_wrist_camera` | `r_d405_camera` | `zarm_r7_end_effector` + adapted pose |
 
-The head and waist mounts match the physical sensor locations already
-authored in the Kuavo5 USD (`head_camera_base`, `waist_camera_base`). The
-wrist cameras are not part of the real hardware; they were added so both
-hands stay observable at close range while manipulating totes, looking
-outward along the gripper's reach direction (local -Z at the end-effector
-link, since the arm hangs down from the wrist joint in Kuavo's default
-standing pose).
+S200062 wrist sensors keep the physical D405 positions authored in its URDF.
+Those links are camera body frames (+X forward), not optical frames. A fixed
+rotation maps the sensor's ROS optical axes (+Z forward, -Y up) into the body
+frame so the view faces the finger contact region. Identity sensor rotation
+on a D405 body link points sideways, away from the grasp region.
+The left/right `camera_connect -> camera_base -> camera` joint poses were
+checked against the [official S200062 URDF](https://gitee.com/leju-robot/kuavo-ros-opensource/blob/master/src/kuavo_assets/models/biped_s200062/urdf/biped_s200062.urdf):
+the packaged translations and rotations match. Only the sensor-local
+quaternion changes to `(0.5, -0.5, 0.5, -0.5)` in **wxyz** order, with no
+translation offset. This is an optical-frame correction, not a robot mount
+or mesh change; it does not require re-running `convert_kuavo.sh`.
+
+S63/Robotiq uses a separate virtual rig derived from the D405 chain: both its
+position and orientation are rotated by Ry(pi), since Robotiq reaches along
+mount +Z whereas the S200062 two-finger gripper reaches along -Z. It is then
+set back 30 mm along the viewing axis to keep both fully open pads in frame.
+This rig is a simulation adaptation, not a measured S63 camera calibration. Shared poses
+live in `wrist_camera_mount.py` and are selected by `robot_model.py` for both
+the standalone scene and manager environment. Head/waist settings are unchanged.
 
 `scene.py` spawns the same four cameras (as `head_camera`, `waist_camera`,
 `left_wrist_camera`, `right_wrist_camera`) for visual inspection, even

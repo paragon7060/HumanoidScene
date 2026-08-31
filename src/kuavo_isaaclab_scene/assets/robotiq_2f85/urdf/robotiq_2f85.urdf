@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+<!--
+  PhysX tree-articulation port of OpenLET's Leju claw from
+  challenge_cup_simulator/models/biped_s52/meshes/2f85/2f85.xml,
+  revision 51b3defaf8c032957647c7aa193d1fa20daef1f3.
+
+  The source MJCF closes each four-bar linkage with equality constraints and
+  drives both jaws through a tendon. URDF cannot represent that closed loop,
+  so Isaac Lab drives the eight revolute joints together through one binary
+  action. Meshes, link frames, joint limits, pad contact boxes, and materials
+  are retained from the challenge model.
+-->
+<robot name="robotiq_2f85_leju_claw">
+  <material name="leju_black"><color rgba="0.149 0.149 0.149 1"/></material>
+  <material name="leju_gray"><color rgba="0.4627 0.4627 0.4627 1"/></material>
+  <material name="leju_silicone"><color rgba="0.1882 0.1882 0.1882 1"/></material>
+
+  <link name="base_mount">
+    <inertial><origin xyz="0 0 0"/><mass value="0.01"/><inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/base_mount.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_black"/></visual>
+    <collision><geometry><mesh filename="../meshes/2f85/base_mount.stl" scale="0.001 0.001 0.001"/></geometry></collision>
+  </link>
+
+  <link name="base">
+    <inertial><origin xyz="0 -0.0000270394 0.0354675"/><mass value="0.0777441"/><inertia ixx="2.60285e-5" ixy="0" ixz="0" iyy="2.25381e-5" iyz="0" izz="1.52708e-5"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/base.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_black"/></visual>
+    <collision><geometry><mesh filename="../meshes/2f85/base.stl" scale="0.001 0.001 0.001"/></geometry></collision>
+  </link>
+  <joint name="base_mount_joint" type="fixed">
+    <parent link="base_mount"/><child link="base"/>
+    <origin xyz="0 0 0.0038" rpy="0 0 -1.57079632679"/>
+  </joint>
+
+  <!-- Positive-Y jaw. -->
+  <link name="right_driver">
+    <inertial><origin xyz="0 0.0177547 0.00107314"/><mass value="0.000899563"/><inertia ixx="1.72352e-7" ixy="0" ixz="0" iyy="1.60906e-7" iyz="0" izz="3.22006e-8"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/driver.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_gray"/></visual>
+    <collision><geometry><mesh filename="../meshes/2f85/driver.stl" scale="0.001 0.001 0.001"/></geometry></collision>
+  </link>
+  <joint name="right_driver_joint" type="revolute">
+    <parent link="base"/><child link="right_driver"/><origin xyz="0 0.0306011 0.054904"/><axis xyz="1 0 0"/>
+    <limit lower="0" upper="0.8" effort="5" velocity="5"/><dynamics damping="0.1" friction="0.02"/>
+  </joint>
+
+  <link name="right_coupler">
+    <inertial><origin xyz="0 0.00301209 0.0232175"/><mass value="0.00140974"/><inertia ixx="4.16206e-7" ixy="0" ixz="0" iyy="3.52216e-7" iyz="0" izz="8.88131e-8"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/coupler.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_black"/></visual>
+    <collision><geometry><mesh filename="../meshes/2f85/coupler.stl" scale="0.001 0.001 0.001"/></geometry></collision>
+  </link>
+  <joint name="right_coupler_joint" type="revolute">
+    <parent link="right_driver"/><child link="right_coupler"/><origin xyz="0 0.0315 -0.0041"/><axis xyz="1 0 0"/>
+    <limit lower="-1.57" upper="0" effort="5" velocity="5"/><dynamics damping="0.1" friction="0.02"/>
+  </joint>
+
+  <link name="right_spring_link">
+    <inertial><origin xyz="0 0.0181624 0.0212658"/><mass value="0.00221642"/><inertia ixx="8.96853e-7" ixy="0" ixz="0" iyy="6.71733e-7" iyz="0" izz="2.63931e-7"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/spring_link.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_black"/></visual>
+    <collision><geometry><mesh filename="../meshes/2f85/spring_link.stl" scale="0.001 0.001 0.001"/></geometry></collision>
+  </link>
+  <joint name="right_spring_link_joint" type="revolute">
+    <parent link="base"/><child link="right_spring_link"/><origin xyz="0 0.0132 0.0609"/><axis xyz="1 0 0"/>
+    <limit lower="-0.296706" upper="0.8" effort="5" velocity="5"/><dynamics damping="0.1" friction="0.02"/>
+  </joint>
+
+  <link name="right_follower">
+    <inertial><origin xyz="0 -0.011046 0.0124786"/><mass value="0.00125222"/><inertia ixx="2.67415e-7" ixy="0" ixz="0" iyy="2.4559e-7" iyz="0" izz="6.02031e-8"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/follower.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_black"/></visual>
+    <collision><geometry><mesh filename="../meshes/2f85/follower.stl" scale="0.001 0.001 0.001"/></geometry></collision>
+  </link>
+  <joint name="right_follower_joint" type="revolute">
+    <parent link="right_spring_link"/><child link="right_follower"/><origin xyz="0 0.055 0.0375"/><axis xyz="1 0 0"/>
+    <limit lower="-0.872664" upper="0.872664" effort="5" velocity="5"/><dynamics damping="0.1" friction="0.02"/>
+  </joint>
+
+  <link name="right_pad">
+    <inertial><origin xyz="0 -0.0025 0.0185"/><mass value="0.00035"/><inertia ixx="4.73958e-8" ixy="0" ixz="0" iyy="3.64583e-8" iyz="0" izz="1.23958e-8"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/pad.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_gray"/></visual>
+    <visual><geometry><mesh filename="../meshes/2f85/silicone_pad.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_silicone"/></visual>
+    <collision><origin xyz="0 -0.0026 0.028125"/><geometry><box size="0.022 0.008 0.01875"/></geometry></collision>
+    <collision><origin xyz="0 -0.0026 0.009375"/><geometry><box size="0.022 0.008 0.01875"/></geometry></collision>
+  </link>
+  <joint name="right_pad_joint" type="fixed"><parent link="right_follower"/><child link="right_pad"/><origin xyz="0 -0.0189 0.01352"/></joint>
+
+  <!-- Negative-Y jaw, mirrored exactly as in the challenge MJCF. -->
+  <link name="left_driver">
+    <inertial><origin xyz="0 0.0177547 0.00107314"/><mass value="0.000899563"/><inertia ixx="1.72352e-7" ixy="0" ixz="0" iyy="1.60906e-7" iyz="0" izz="3.22006e-8"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/driver.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_gray"/></visual>
+    <collision><geometry><mesh filename="../meshes/2f85/driver.stl" scale="0.001 0.001 0.001"/></geometry></collision>
+  </link>
+  <joint name="left_driver_joint" type="revolute">
+    <parent link="base"/><child link="left_driver"/><origin xyz="0 -0.0306011 0.054904" rpy="0 0 3.14159265359"/><axis xyz="1 0 0"/>
+    <limit lower="0" upper="0.8" effort="5" velocity="5"/><dynamics damping="0.1" friction="0.02"/>
+  </joint>
+
+  <link name="left_coupler">
+    <inertial><origin xyz="0 0.00301209 0.0232175"/><mass value="0.00140974"/><inertia ixx="4.16206e-7" ixy="0" ixz="0" iyy="3.52216e-7" iyz="0" izz="8.88131e-8"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/coupler.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_black"/></visual>
+    <collision><geometry><mesh filename="../meshes/2f85/coupler.stl" scale="0.001 0.001 0.001"/></geometry></collision>
+  </link>
+  <joint name="left_coupler_joint" type="revolute">
+    <parent link="left_driver"/><child link="left_coupler"/><origin xyz="0 0.0315 -0.0041"/><axis xyz="1 0 0"/>
+    <limit lower="-1.57" upper="0" effort="5" velocity="5"/><dynamics damping="0.1" friction="0.02"/>
+  </joint>
+
+  <link name="left_spring_link">
+    <inertial><origin xyz="0 0.0181624 0.0212658"/><mass value="0.00221642"/><inertia ixx="8.96853e-7" ixy="0" ixz="0" iyy="6.71733e-7" iyz="0" izz="2.63931e-7"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/spring_link.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_black"/></visual>
+    <collision><geometry><mesh filename="../meshes/2f85/spring_link.stl" scale="0.001 0.001 0.001"/></geometry></collision>
+  </link>
+  <joint name="left_spring_link_joint" type="revolute">
+    <parent link="base"/><child link="left_spring_link"/><origin xyz="0 -0.0132 0.0609" rpy="0 0 3.14159265359"/><axis xyz="1 0 0"/>
+    <limit lower="-0.296706" upper="0.8" effort="5" velocity="5"/><dynamics damping="0.1" friction="0.02"/>
+  </joint>
+
+  <link name="left_follower">
+    <inertial><origin xyz="0 -0.011046 0.0124786"/><mass value="0.00125222"/><inertia ixx="2.67415e-7" ixy="0" ixz="0" iyy="2.4559e-7" iyz="0" izz="6.02031e-8"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/follower.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_black"/></visual>
+    <collision><geometry><mesh filename="../meshes/2f85/follower.stl" scale="0.001 0.001 0.001"/></geometry></collision>
+  </link>
+  <joint name="left_follower_joint" type="revolute">
+    <parent link="left_spring_link"/><child link="left_follower"/><origin xyz="0 0.055 0.0375"/><axis xyz="1 0 0"/>
+    <limit lower="-0.872664" upper="0.872664" effort="5" velocity="5"/><dynamics damping="0.1" friction="0.02"/>
+  </joint>
+
+  <link name="left_pad">
+    <inertial><origin xyz="0 -0.0025 0.0185"/><mass value="0.00035"/><inertia ixx="4.73958e-8" ixy="0" ixz="0" iyy="3.64583e-8" iyz="0" izz="1.23958e-8"/></inertial>
+    <visual><geometry><mesh filename="../meshes/2f85/pad.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_gray"/></visual>
+    <visual><geometry><mesh filename="../meshes/2f85/silicone_pad.stl" scale="0.001 0.001 0.001"/></geometry><material name="leju_silicone"/></visual>
+    <collision><origin xyz="0 -0.0026 0.028125"/><geometry><box size="0.022 0.008 0.01875"/></geometry></collision>
+    <collision><origin xyz="0 -0.0026 0.009375"/><geometry><box size="0.022 0.008 0.01875"/></geometry></collision>
+  </link>
+  <joint name="left_pad_joint" type="fixed"><parent link="left_follower"/><child link="left_pad"/><origin xyz="0 -0.0189 0.01352"/></joint>
+</robot>

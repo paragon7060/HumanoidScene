@@ -1,8 +1,8 @@
 """Isaac Lab runtime integration for configurable wrist grippers.
 
-Each hand remains an independently addressable articulation.  A USD fixed
+Each hand remains an independently addressable articulation. A USD fixed
 joint marked ``excludeFromArticulation`` attaches it to the corresponding
-Kuavo wrist without merging the two Allegro joint-name namespaces.
+Kuavo wrist without merging the two gripper joint-name namespaces.
 """
 
 from __future__ import annotations
@@ -80,7 +80,7 @@ class GripperGroupSpawnerCfg(SpawnerCfg):
 
 
 def build_gripper_group_cfg(settings: GripperSettings) -> AssetBaseCfg | None:
-    if not settings.active_sides:
+    if not settings.active_sides or settings.integrated:
         return None
     return AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Grippers",
@@ -98,7 +98,7 @@ def build_gripper_articulation_cfg(
     settings: GripperSettings,
     side: str,
 ) -> MountedGripperCfg | None:
-    if side not in settings.active_sides:
+    if side not in settings.active_sides or settings.integrated:
         return None
     return MountedGripperCfg(
         prim_path=f"{{ENV_REGEX_NS}}/Grippers/{side.title()}",
@@ -116,7 +116,10 @@ def build_gripper_articulation_cfg(
             ),
             articulation_props=sim_utils.ArticulationRootPropertiesCfg(
                 articulation_enabled=True,
-                enabled_self_collisions=True,
+                # The challenge claw is a four-bar linkage represented as a
+                # tree articulation in PhysX. Internal collisions would fight
+                # the synchronized joint targets; object contacts stay active.
+                enabled_self_collisions=False,
                 solver_position_iteration_count=8,
                 solver_velocity_iteration_count=2,
                 sleep_threshold=0.005,
@@ -148,10 +151,10 @@ def build_gripper_action_cfg(settings: GripperSettings, side: str):
     if side not in settings.active_sides:
         return None
     return mdp.BinaryJointPositionActionCfg(
-        asset_name=f"{side}_gripper",
-        joint_names=list(settings.joint_names),
-        open_command_expr=dict(settings.open_command),
-        close_command_expr=dict(settings.close_command),
+        asset_name=settings.asset_name_for(side),
+        joint_names=list(settings.joint_names_for(side)),
+        open_command_expr=settings.command_for(side, settings.open_command),
+        close_command_expr=settings.command_for(side, settings.close_command),
     )
 
 
@@ -299,7 +302,7 @@ class GripperAttachmentSpawnerCfg(SpawnerCfg):
 
 
 def build_gripper_attachment_cfg(settings: GripperSettings) -> AssetBaseCfg | None:
-    if not settings.active_sides:
+    if not settings.active_sides or settings.integrated:
         return None
     return AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/GripperAttachments",

@@ -1,26 +1,25 @@
 # Gripper configuration
 
-The default `allegro` preset adds one independently controlled Allegro Hand to
-each Kuavo wrist. Both `scene.py` and the manager-based environment use the
-same configuration. The manager scene exposes the hands as
-`scene["left_gripper"]` and `scene["right_gripper"]`; their shared parent is
-`scene["grippers_group"]`, and the fixed-joint group is
-`scene["gripper_attachments"]`.
+The default `s200062` robot contains its own two-finger grippers. The
+`s200062_integrated` preset controls four linkage joints per side directly on
+`scene["robot"]`; it does not spawn another hand asset. In
+`--robot-model s63` comparison mode, the default `robotiq_2f85` preset adds the
+external Robotiq-based Leju claws from the 2026 OpenLET challenge model.
 
 ## Run
 
-Allegro is enabled by default:
+The full S200062 model is enabled by default:
 
 ```bash
 ./run_scene.sh
 ./run_manager_env.sh --num-envs 1 --steps 100000
 ```
 
-Select it explicitly, or restore the old handless action schema:
+Compare the S63/Robotiq combination, or disable gripper action channels:
 
 ```bash
-./run_scene.sh --gripper allegro
-./run_manager_env.sh --gripper none --num-envs 1
+./run_scene.sh --robot-model s63 --gripper robotiq_2f85
+./run_manager_env.sh --robot-model s200062 --gripper none --num-envs 1
 ```
 
 The standard manager action order is:
@@ -33,21 +32,23 @@ That is 17 dimensions with the default two hands and 15 dimensions with
 `--gripper none`. A positive gripper value opens the hand and a negative value
 closes it. Meta Quest and browser teleoperation append two channels to the
 existing 14-D bimanual IK/head command, producing a 16-D action. Pinch distance
-at or below 0.035 m closes the corresponding hand.
+at or below 0.055 m closes the corresponding hand.
 
-## Change gripper or mount pose
+## Change an external S63 gripper or mount pose
 
 Edit the deployment file [`configs/grippers.json`](../configs/grippers.json),
 or preserve it and pass a different file:
 
 ```bash
-./run_scene.sh --gripper custom --gripper-config /data/workcell/grippers.json
+./run_scene.sh --robot-model s63 --gripper custom \
+  --gripper-config /data/workcell/grippers.json
 ```
 
 Each enabled preset defines:
 
-- `usd_path`: default hand USD; local relative paths are resolved relative to
-  the JSON file, while `${ISAAC_NUCLEUS_DIR}` selects official Isaac assets;
+- `usd_path`: default hand USD; `${KUAVO_PACKAGE_ASSET_DIR}` resolves to this
+  package's checked-in asset directory and ordinary relative paths resolve
+  beside the JSON file;
 - `attachment_mount_body`: rigid mount prim inside the hand USD;
 - `joint_names`, `default_joint_pos`, `open_command`, `close_command`;
 - implicit actuator effort, stiffness, damping, and friction;
@@ -61,7 +62,7 @@ its local pose into:
 {
   "robot_mount_body": "zarm_l7_end_effector",
   "robot_mount_pos": [0.0, 0.0, 0.0],
-  "robot_mount_rot": [0.5, 0.5, -0.5, -0.5]
+  "robot_mount_rot": [1.0, 0.0, 0.0, 0.0]
 }
 ```
 
@@ -76,23 +77,34 @@ Pause simulation before editing. Record the mount's local transform relative
 to its end-effector parent, update the JSON, and restart; edits made only in a
 composed running stage are not automatically written back to configuration.
 
-## Allegro asset note
+## Packaged Robotiq 2F-85 / Leju claw assets
 
-The default USD is NVIDIA's official Wonik Robotics Allegro Hand asset:
+The shared left/right USD is generated from a PhysX tree-articulation port of
+OpenLET's challenge MJCF. The source revision, meshes, original MJCF, URDF port,
+and generated USD are all repository-local:
 
 ```text
-${ISAAC_NUCLEUS_DIR}/Robots/WonikRobotics/AllegroHand/allegro_hand_instanceable.usd
+${KUAVO_PACKAGE_ASSET_DIR}/robotiq_2f85/mjcf/robotiq_2f85.xml
+${KUAVO_PACKAGE_ASSET_DIR}/robotiq_2f85/urdf/robotiq_2f85.urdf
+${KUAVO_PACKAGE_ASSET_DIR}/robotiq_2f85/usd/robotiq_2f85.usd
 ```
 
-It is supplied by the installed Isaac asset library and is not redistributed
-in this repository. The official preset available in Isaac Lab is right-hand
-geometry. This project initially uses that geometry on both wrists. For a true
-mirrored left hand, set `sides.left.usd_path` to a compatible left-hand USD and
-override `attachment_mount_body` if its prim name differs.
+They need no network access. Each source hand has two closed-loop four-bar
+branches driven through one tendon. URDF does not encode that MuJoCo
+tendon/equality loop, so the PhysX port keeps eight revolute tree joints and one
+binary action sends synchronized driver/coupler/spring/follower targets. The
+pad-only box colliders remain available for object contact, while internal
+self-collision is disabled to avoid fighting those synchronized targets.
 
-For an offline deployment, place an authorized hand USD and all of its
-dependencies in your own asset directory and reference that local path in a
-custom preset.
+Rebuild the robot and gripper USDs after changing their URDFs:
+
+```bash
+export ISAACLAB_DIR=/absolute/path/to/IsaacLab-v2.3.2
+./scripts/convert_kuavo.sh
+```
+
+The robot and gripper assets are repository-local. The workcell environment
+keeps its original NVIDIA warehouse and Digital Twin conveyor runtime assets.
 
 ## LeRobot and GR00T compatibility
 
@@ -101,10 +113,10 @@ actions in the dataset schema. Keep the same preset for collection, training,
 and evaluation:
 
 ```bash
-./collect_quest_teleop.sh --gripper allegro --dataset-format lerobot \
+./collect_quest_teleop.sh --gripper robotiq_2f85 --dataset-format lerobot \
   --lerobot-python "$LEROBOT_PYTHON"
 
-./eval_groot.sh --gripper allegro --checkpoint /path/to/pretrained_model
+./eval_groot.sh --gripper robotiq_2f85 --checkpoint /path/to/pretrained_model
 ```
 
 Use `--gripper none` to evaluate an older 15-D manager checkpoint. The evaluator
@@ -116,7 +128,7 @@ before executing its output.
 Use a short GUI run and inspect both palms before collecting data:
 
 ```bash
-./preview_quest_local.sh --gripper allegro --steps 600
+./preview_quest_local.sh --gripper robotiq_2f85 --steps 600
 ```
 
 Confirm that each palm faces the box, fingertips point in the intended reach

@@ -11,6 +11,7 @@ import sys
 
 from isaaclab.app import AppLauncher
 from .gripper_config import add_gripper_cli_args, export_gripper_cli, resolve_gripper_settings
+from .robot_model import add_robot_model_cli_args, export_robot_model_cli
 
 
 parser = argparse.ArgumentParser(description="Preview Kuavo Quest cameras locally without Meta Quest.")
@@ -36,9 +37,11 @@ parser.add_argument("--rack-boxes", type=str, default=None, metavar="SPEC")
 parser.add_argument("--rack-box-layout", type=Path, default=None, metavar="JSON")
 parser.add_argument("--rack-box-poses", type=Path, default=None, metavar="JSON")
 parser.add_argument("--ignore-captured-box-poses", action="store_true")
+add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+export_robot_model_cli(args_cli)
 export_gripper_cli(args_cli)
 try:
     GRIPPER_SETTINGS = resolve_gripper_settings()
