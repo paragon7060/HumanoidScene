@@ -283,8 +283,21 @@ def _hand_array(hand: dict[str, np.ndarray] | None) -> np.ndarray:
     return np.stack([_pose_or_default(hand.get(name)) for name in HAND_JOINT_NAMES])
 
 
-def _camera_rgb(camera) -> np.ndarray:
-    rgb = _to_numpy(camera.data.output["rgb"][0])
+def _camera_rgb(camera) -> np.ndarray | None:
+    camera_data = camera.data
+    batch = camera_data.output.get("rgb")
+    # RTX annotators can return an empty first frame, including after XR
+    # reconnect. Wait for a real frame instead of reducing an empty array or
+    # writing fabricated black images into the demonstration.
+    if batch is None or batch.numel() == 0:
+        # Lab 2.3 allocates its cached tensor to the first annotator result's
+        # shape. Discard an empty allocation so the next valid frame can size
+        # the buffer correctly instead of assigning HxWx3 into a zero tensor.
+        camera_data.output.clear()
+        return None
+    rgb = _to_numpy(batch[0])
+    if rgb.ndim != 3 or rgb.shape[-1] not in (3, 4) or rgb.size == 0:
+        return None
     if rgb.shape[-1] > 3:
         rgb = rgb[..., :3]
     if rgb.dtype.kind == "f":
@@ -515,6 +528,7 @@ def main() -> None:
     last_tracking_state: tuple[bool, bool, bool] | None = None
     preview_enabled = False
     camera_reported = False
+    camera_wait_reported = False
     held_absolute_targets = np.zeros(len(action_names) - arm_action_size, dtype=np.float32)
     held_absolute_targets[2:] = 1.0  # Binary gripper actions: +1=open, 0 closes.
     free_view = False
@@ -865,13 +879,13 @@ def main() -> None:
             head_rgb = None
             left_wrist_rgb = None
             right_wrist_rgb = None
-            if quest_overlay is not None or recorder.recording:
+            if quest_overlay is not None or recorder.recording or not camera_reported:
                 if recorder.recording or not camera_reported:
                     head_rgb = _camera_rgb(env.scene["robustness_camera"])
                 if quest_overlay is not None or args_cli.record_wrist_cameras:
                     left_wrist_rgb = _camera_rgb(env.scene["left_wrist_camera"])
                     right_wrist_rgb = _camera_rgb(env.scene["right_wrist_camera"])
-                if quest_overlay is not None:
+                if quest_overlay is not None and left_wrist_rgb is not None and right_wrist_rgb is not None:
                     quest_overlay.update(head_rgb, left_wrist_rgb, right_wrist_rgb)
                     quest_overlay.set_status(
                         following=recorder.recording or preview_enabled,
@@ -885,7 +899,15 @@ def main() -> None:
                     camera_reported = True
 
             if recorder.recording:
-                assert head_rgb is not None
+                if head_rgb is None or (args_cli.record_wrist_cameras
+                                        and (left_wrist_rgb is None or right_wrist_rgb is None)):
+                    if not camera_wait_reported:
+                        print("[CAMERA] Waiting for valid RGB; no empty image samples are written.", flush=True)
+                        camera_wait_reported = True
+                    continue
+                if camera_wait_reported:
+                    print("[CAMERA] Valid RGB received; recording samples resumed.", flush=True)
+                    camera_wait_reported = False
                 box_poses = []
                 for name in box_names:
                     asset = env.scene[name]
