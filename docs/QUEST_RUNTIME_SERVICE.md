@@ -6,6 +6,23 @@
 Kuavo를 조작하는 구성이다. SDK 다운로드부터 필요한 경우
 [README](../README.md#quest-collection)를 먼저 따른다.
 
+## 이 PC에서 다시 시작하는 순서 (2026-09-01)
+
+**Runtime → HTTPS 웹 서버 → Quest에서 CONNECT → 수집기** 순서로 시작한다.
+아래 터미널 1·2·3은 각각 별도 터미널에서 실행하고 작업이 끝날 때까지 켜 둔다.
+현재 PC 주소는 `192.168.45.235`다. PC는 공유기에 유선, Quest는 같은 공유기의 Wi-Fi에
+연결하면 된다. IP가 바뀌면 `.external/quest-session.env`와 인증서도 확인해야 한다.
+이미 설치된 이 PC에서는 SDK 재설치, JSON/tgz 재다운로드, 웹 재빌드가 필요 없다.
+
+이번 실행 설정은 **컨트롤러, 팔 이동 1.5배, 30Hz 제어, VR 렌더 배율 1.0,
+compact 환경, 손목 카메라 OFF, depth OFF**다. 30Hz는 설정값이며 실제 속도는 `[PERF]`로 확인한다.
+손목 패널이 없는 것은 이 설정에서 정상이다. 아래 수집 명령에 옵션을 모두 명시했다.
+
+장면이 보이면 **정면을 보고 X → 손을 편하게 두고 A → 추종을 확인한 뒤 B** 순서다.
+팔을 더 뻗을 공간이 없으면 **A 정지 → 손을 편하게 이동 → A 재개**로 기준을 다시 잡는다.
+**녹화 중 A를 누르면 현재 파일은 실패 시도로 종료된다.** 보정·도달 범위 확인은 녹화 전에 한다.
+녹화 성공 종료는 PC Isaac Sim 창에서 `M`, 실패/중단은 `B`다. 모든 시도는 별도 HDF5로 보존한다.
+
 ## 준비 결과와 검증 범위
 
 2026-08-31 구성 기준: Node 22.23.2, CloudXR.js 6.2.0, Runtime 6.2.1/API 1.0.7.
@@ -35,6 +52,7 @@ B로 실제 녹화 시작·종료, 작업을 끝까지 수행한 수집 데이�
 [.env.example](../.env.example)의 변수를 실제 경로로 지정한다.
 
 ```bash
+cd /home/seonho/ksh_ws/HumanoidScene
 source .external/quest-session.env
 ./run_cloudxr_runtime.sh --check
 ./quest_doctor.sh --require-runtime
@@ -61,6 +79,7 @@ API 오류가 나면 실행기는 0이 아닌 종료 코드를 반환한다.
 ## 터미널 2: HTTPS 웹페이지
 
 ```bash
+cd /home/seonho/ksh_ws/HumanoidScene
 source .external/quest-session.env
 ./run_quest_browser.sh \
   --host "$CLOUDXR_HOST" \
@@ -84,7 +103,8 @@ npm --prefix .external/cloudxr-js-samples/simple run build
 
 1. Quest와 PC를 같은 신뢰할 수 있는 LAN에 연결하고 좌우 컨트롤러를 준비한다.
    `--input-mode hands`를 사용할 때만 맨손 추적을 켠다.
-2. Quest Browser에서 `https://<CLOUDXR_HOST>:8080`을 연다.
+2. Quest Browser에서 `https://<CLOUDXR_HOST>:8080`을 연다. 현재 이 PC는
+   `https://192.168.45.235:8080`이다.
 3. 이 PC에서 만든 자체 서명 인증서를 확인하고 신뢰할지 **사용자가 직접** 결정한다.
    연결할 IP가 맞는지 확인한다. 브라우저의 인증서 경고는 자동으로 우회하지 않는다.
 4. Runtime의 `https://<CLOUDXR_HOST>:49100`도 방문해 같은 인증서를 확인한다.
@@ -106,7 +126,7 @@ npm --prefix .external/cloudxr-js-samples/simple run build
 | Port | **49100** |
 | Immersive Mode | **VR Immersive** |
 | Video Codec | 우선 **H.264**로 점검; 실제 GPU/헤드셋 인코딩 지원은 별도 검증 |
-| Per-Eye Width / Height | 첫 점검은 **1024 / 1024** |
+| Per-Eye Width / Height | 이전에 정상 사용한 값을 유지한다. **1024 / 1024**는 최초 진단용 예시이며 이번 실행을 위해 해상도를 낮출 필요는 없다. |
 | Device Frame Rate | **72 FPS** |
 | Proxy URL / Media Address / Media Port | 비워 두고 기본 ICE 사용 |
 
@@ -123,9 +143,20 @@ WebXR·손 추적 권한 요청은 헤드셋에서 허용한다.
 ## 터미널 3: 수집기
 
 ```bash
+cd /home/seonho/ksh_ws/HumanoidScene
 source .external/quest-session.env
 ./collect_quest_teleop.sh \
   --robot-model s200062 \
+  --input-mode controllers \
+  --device cpu \
+  --control-hz 30 \
+  --xr-resolution-scale 1.0 \
+  --scene-detail compact \
+  --no-wrist-cameras \
+  --no-record-depth \
+  --controller-mapping scaled \
+  --position-gain 1.5 \
+  --arm-orientation-weight 0.5 \
   --dataset-format hdf5 \
   --max-episodes 0 \
   --episode-seconds 0 \
@@ -146,8 +177,9 @@ OpenXR 오류를 확인한다. 최초 실행의 셰이더·재질 준비 중에�
 
 정면을 보고 Quest **X**(PC **C**)로 시점을 로봇 head camera에 맞춘다.
 **A**(**T**)로 저장 없이 따라오기 시작/멈춤, **B**(**P**)로 녹화 시작/멈춤,
-**Y**(**H**)로 양쪽 위 작은 손목 패널 표시/숨김을 제어한다.
-중앙은 기본 stereo 장면이며 머리 RGB 패널이 가리지 않는다. 머리 영상은 계속 기록된다.
+손목 카메라를 별도로 켠 실행에서만 **Y**(**H**)로 손목 패널 표시/숨김을 제어한다.
+위 명령은 손목 카메라를 끄므로 패널이 나오지 않는다.
+중앙은 기본 stereo 장면이며 머리 RGB 패널이 가리지 않는다. 녹화 중에는 머리 RGB 영상도 저장된다.
 녹화 중 X는 현재 파일을 `operator_calibration`으로 닫고 보정하며, 녹화 중 따라오기를 멈추면 현재 시도도 실패로 종료된다.
 
 버튼 수신은 `[BUTTON]`, 실제 녹화는 `[DATA] Recording ...`로 구분해서 확인한다.
@@ -163,7 +195,7 @@ OpenXR 오류를 확인한다. 최초 실행의 셰이더·재질 준비 중에�
 잃어도 마지막 목표를 따라가며, A/B 정지 또는 X 보정 시 현재 자세에 멈춘다.
 실제 관절·충돌·중력 때문에 목표 오차가 남을 수 있으므로 화면을 보며 조정한다.
 
-패널이 검으면 `[CAMERA] Left/Right wrist RGB`의 `max`가 0인지 먼저 확인한다.
+손목 카메라를 켠 실행에서 패널이 검으면 `[CAMERA] Left/Right wrist RGB`의 `max`가 0인지 먼저 확인한다.
 센서 영상이 정상인데 패널만 검다면 XR UI 경로 문제다. 현재 위젯은 Frame 안에
 이미지 레이아웃을 직접 배치하며, 첫 유효 프레임 전의 검은 자리표시는 숨긴다.
 손목 패널은 눈앞 0.35 m에 표시한다. 더 조절하려면 `--xr-overlay-distance`를 쓰되
@@ -193,7 +225,13 @@ source .external/quest-session.env
 openssl x509 -in "$CLOUDXR_CERTIFICATE" -noout -dates -fingerprint -sha256
 ```
 
-각 서버 터미널에서 `Ctrl+C`를 눌러 종료한다. 인증서 파일이 암호화 통신을
+종료 순서는 **수집기 → Quest 연결 해제 → CloudXR Runtime → HTTPS 웹 서버**다.
+먼저 녹화를 `B` 또는 `M`으로 끝내고 터미널 3에서 `Ctrl+C`를 누른다.
+`[RESULT] Completed ...`가 표시되고 프롬프트로 돌아온 뒤 터미널 1·2도 각각 `Ctrl+C`로 종료한다.
+강제 종료나 터미널 창을 먼저 닫는 대신 수집기가 HDF5를 정리할 시간을 준다.
+이미 만들어진 dataset과 로그는 종료 과정에서 삭제하지 않는다.
+
+인증서 파일이 암호화 통신을
 제공해도 사용자 인증을 제공하지는 않는다. 서비스는 신뢰하는 LAN에서만 사용하고,
 라우터 포트 포워딩이나 방화벽 전체 해제는 하지 않는다.
 
@@ -215,8 +253,9 @@ A/B로 따라오기를 켠 뒤 사용한다. 베이스는 simulation fixed-root 
 `--scene-detail compact`로 불필요한 배경 props와 legacy bodies를 제거하되 재질은 유지한다.
 원래 배경과 비교하려면 `--scene-detail full`을 사용한다.
 `--control-hz 60`과 실제 wall-clock 60Hz는 다르므로 `[PERF]`로 확인한다.
-VR 렌더 배율은 1.0으로 유지하며 RTX 3060 대기 상태 실측은 약 15~16Hz(녹화 OFF)다.
-측정 후 Quest 외부 연결이 없는 것이 확인됐으므로 실제 착용·스트리밍 속도로 해석하지 않는다.
+VR 렌더 배율은 1.0으로 유지한다. 2026-09-01 팔·접촉 보완 후 위와 같은 30Hz 설정의
+RTX 3060 대기 상태 실측은 주로 약 24Hz(녹화 OFF)였다. Quest 외부 연결이 없었으므로
+실제 착용·스트리밍 속도로 해석하지 않는다.
 60Hz를 보장하는 설정이 아니다. 고정 컨베이어는 collider를 유지하되 속도 reset 대상에서
 제외해 `Body must be non-kinematic` 오류를 방지한다.
 프로파일: `--profile-steps 120`; XR PNG 캡처: `--capture-xr`.
