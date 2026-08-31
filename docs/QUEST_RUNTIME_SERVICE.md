@@ -211,7 +211,8 @@ A/B로 따라오기를 켠 뒤 사용한다. 베이스는 simulation fixed-root 
 기본은 absolute 위치 매핑, depth OFF, 추가 PC 렌더 OFF, CPU 물리/IK와 GPU RTX 렌더다.
 손 위치를 우선하기 위해 `--arm-orientation-weight 0`이 기본이며 손잡이 회전은 강제하지 않는다.
 `--control-hz 60`과 실제 wall-clock 60Hz는 다르므로 `[PERF]`로 확인한다.
-VR 렌더 배율은 1.0으로 유지하며 현재 RTX 3060 실측은 약 15~16Hz(녹화 OFF)다.
+VR 렌더 배율은 1.0으로 유지하며 RTX 3060 대기 상태 실측은 약 15~16Hz(녹화 OFF)다.
+측정 후 Quest 외부 연결이 없는 것이 확인됐으므로 실제 착용·스트리밍 속도로 해석하지 않는다.
 60Hz를 보장하는 설정이 아니다. 고정 컨베이어는 collider를 유지하되 속도 reset 대상에서
 제외해 `Body must be non-kinematic` 오류를 방지한다.
 프로파일: `--profile-steps 120`; XR PNG 캡처: `--capture-xr`.

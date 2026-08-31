@@ -117,6 +117,12 @@ parser.add_argument("--head-camera-height", type=int, default=360)
 parser.add_argument("--wrist-camera-width", type=int, default=240)
 parser.add_argument("--wrist-camera-height", type=int, default=180)
 parser.add_argument(
+    "--wrist-cameras",
+    action=argparse.BooleanOptionalAction,
+    default=True,
+    help="Create wrist camera sensors. Disabling also disables their Quest panels and recording.",
+)
+parser.add_argument(
     "--quest-camera-overlay",
     action=argparse.BooleanOptionalAction,
     default=True,
@@ -164,6 +170,9 @@ add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 parser.set_defaults(device="cpu")
 args_cli = parser.parse_args()
+if not args_cli.wrist_cameras:
+    args_cli.quest_camera_overlay = False
+    args_cli.record_wrist_cameras = False
 if args_cli.max_episodes < 0 or args_cli.episode_seconds < 0:
     parser.error("Episode count and timeout must be non-negative (0 means unlimited).")
 if not 0.1 <= args_cli.xr_resolution_scale <= 2.0:
@@ -334,16 +343,23 @@ def main() -> None:
     # Wrist depth is never recorded. Do not render/copy unused depth buffers.
     cfg.scene.left_wrist_camera.data_types = ["rgb"]
     cfg.scene.right_wrist_camera.data_types = ["rgb"]
+    if not args_cli.wrist_cameras:
+        cfg.scene.left_wrist_camera = None
+        cfg.scene.right_wrist_camera = None
     if not args_cli.record_depth:
         cfg.scene.robustness_camera.data_types = ["rgb"]
     set_domain_randomization(cfg, args_cli.domain_randomization)
 
     env = ManagerBasedRLEnv(cfg=cfg)
     env.reset(seed=args_cli.seed)
+    print(f"[CAMERA] Wrist sensors={'ON' if args_cli.wrist_cameras else 'OFF (not created)'}; "
+          f"head={args_cli.head_camera_width}x{args_cli.head_camera_height}; "
+          f"depth={'ON' if args_cli.record_depth else 'OFF'}", flush=True)
     if args_cli.camera_preview:
         open_camera_viewports(
             env.scene,
-            ["robustness_camera", "left_wrist_camera", "right_wrist_camera"],
+            (["robustness_camera", "left_wrist_camera", "right_wrist_camera"]
+             if args_cli.wrist_cameras else ["robustness_camera"]),
             headless=args_cli.headless,
             width=240,
             height=180,
@@ -738,6 +754,7 @@ def main() -> None:
                         "xr_resolution_scale": args_cli.xr_resolution_scale,
                         "render_quality": args_cli.render_quality,
                         "record_depth": args_cli.record_depth,
+                        "wrist_cameras_enabled": args_cli.wrist_cameras,
                         "control_dt": float(env.step_dt),
                         "action_layout": ",".join(action_names + BODY_ACTION_NAMES),
                         "base_control": "kinematic_fixed_root_xy_v1",
@@ -851,8 +868,9 @@ def main() -> None:
             if quest_overlay is not None or recorder.recording:
                 if recorder.recording or not camera_reported:
                     head_rgb = _camera_rgb(env.scene["robustness_camera"])
-                left_wrist_rgb = _camera_rgb(env.scene["left_wrist_camera"])
-                right_wrist_rgb = _camera_rgb(env.scene["right_wrist_camera"])
+                if quest_overlay is not None or args_cli.record_wrist_cameras:
+                    left_wrist_rgb = _camera_rgb(env.scene["left_wrist_camera"])
+                    right_wrist_rgb = _camera_rgb(env.scene["right_wrist_camera"])
                 if quest_overlay is not None:
                     quest_overlay.update(head_rgb, left_wrist_rgb, right_wrist_rgb)
                     quest_overlay.set_status(
@@ -868,8 +886,6 @@ def main() -> None:
 
             if recorder.recording:
                 assert head_rgb is not None
-                assert left_wrist_rgb is not None
-                assert right_wrist_rgb is not None
                 box_poses = []
                 for name in box_names:
                     asset = env.scene[name]
@@ -910,6 +926,8 @@ def main() -> None:
                     "head_rgb": head_rgb,
                 }
                 if args_cli.record_wrist_cameras:
+                    assert left_wrist_rgb is not None
+                    assert right_wrist_rgb is not None
                     sample["left_wrist_rgb"] = left_wrist_rgb
                     sample["right_wrist_rgb"] = right_wrist_rgb
                 if args_cli.input_mode == "controllers":
