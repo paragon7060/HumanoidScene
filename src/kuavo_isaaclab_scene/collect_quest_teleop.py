@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import os
 from pathlib import Path
 import signal
@@ -24,6 +25,8 @@ from .teleop_recorder import new_session_path
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
 parser.add_argument("--input-mode", choices=("controllers", "hands"), default="controllers",
                     help="Arm input: controller grip pose + trigger (default), or bare-hand wrist + pinch.")
+parser.add_argument("--hand-switch", action="store_true",
+                    help="Opt in to right squeeze hold: 3s countdown, tracked hands, calibration, new recording.")
 parser.add_argument("--profile-steps", type=int, default=0, help="Profile this many control steps after startup (0 disables).")
 parser.add_argument("--capture-xr", action="store_true", help="Save an XR display diagnostic capture after 60 frames.")
 parser.add_argument("--render-quality", choices=("performance", "quality"), default="performance")
@@ -182,8 +185,10 @@ if not 0.1 <= args_cli.xr_resolution_scale <= 2.0:
     parser.error("--xr-resolution-scale must be between 0.1 and 2.0.")
 if args_cli.arm_stiffness <= 0 or args_cli.arm_damping < 0 or not 0 <= args_cli.arm_orientation_weight <= 1:
     parser.error("Arm stiffness must be positive; damping non-negative; orientation weight between 0 and 1.")
-if args_cli.controller_mapping == "scaled" and not 1.0 <= args_cli.position_gain <= 3.0:
+if (args_cli.controller_mapping == "scaled" or args_cli.input_mode == "hands" or args_cli.hand_switch) and not 1.0 <= args_cli.position_gain <= 3.0:
     parser.error("Scaled --position-gain must be between 1.0 and 3.0.")
+if args_cli.hand_switch and args_cli.controller_mapping == "relative":
+    parser.error("--hand-switch requires scaled or absolute controller mapping to keep the action layout stable.")
 if args_cli.profile_steps < 0:
     parser.error("--profile-steps must be non-negative.")
 if args_cli.profile_steps or args_cli.capture_xr:
@@ -269,6 +274,8 @@ from .teleop_env import (
 from .teleop_mapping import (AbsoluteControllerMapper, ScaledControllerMapper, BimanualTeleopMapper, TeleopMappingCfg,
                              _quat_multiply, _quat_conjugate, _quat_to_pitch_yaw)
 from .teleop_body import BODY_ACTION_NAMES, BODY_JOINTS, TeleopBodyMapper, controller_axis
+from .teleop_hand_mode import (HandModeSwitch, HandCommands, HandGripper, HandTrackingGuard,
+                               hand_packet, controller_squeeze)
 from .teleop_scene import configure_scene_detail
 from .paths import ASSET_DIR
 from .teleop_lerobot_recorder import LeRobotTeleopRecorder
@@ -288,7 +295,8 @@ def _pose_or_default(pose: np.ndarray | None) -> np.ndarray:
 
 def _hand_array(hand: dict[str, np.ndarray] | None) -> np.ndarray:
     hand = hand or {}
-    return np.stack([_pose_or_default(hand.get(name)) for name in HAND_JOINT_NAMES])
+    return np.stack([np.asarray(hand[name], dtype=np.float32) if name in hand
+                     else np.full(7, np.nan, dtype=np.float32) for name in HAND_JOINT_NAMES])
 
 
 def _scene_asset_or_none(scene, name: str):
@@ -299,6 +307,7 @@ def _scene_asset_or_none(scene, name: str):
 
 
 def main() -> None:
+    active_mode = args_cli.input_mode
     cfg = KuavoQuestTeleopEnvCfg()
     cfg.sim.device = args_cli.device
     cfg.teleop_devices.devices["quest_handtracking"].sim_device = cfg.sim.device
@@ -306,7 +315,7 @@ def main() -> None:
     cfg.scene.robot.actuators["arms"].damping = args_cli.arm_damping
     cfg.decimation = 120 // args_cli.control_hz
     cfg.sim.render_interval = cfg.decimation
-    absolute_control = args_cli.input_mode == "controllers" and args_cli.controller_mapping in {"absolute", "scaled"}
+    absolute_control = active_mode == "hands" or args_cli.controller_mapping in {"absolute", "scaled"}
     arm_action_size = 14 if absolute_control else 12
     if absolute_control:
         cfg.actions.left_arm.controller.use_relative_mode = False
@@ -405,9 +414,10 @@ def main() -> None:
     # Isaac Lab v2.3 feature-gates raw OpenXR queries by retargeter
     # requirements. Kuavo uses its own safety mapper, so the adapter requests
     # hand/head tracking while retaining the raw upstream dictionary format.
-    xr_device = RawQuestOpenXRDevice(device_cfg, input_mode=args_cli.input_mode)
+    xr_device = RawQuestOpenXRDevice(device_cfg, input_mode=active_mode, allow_switch=args_cli.hand_switch)
+    hand_controls = args_cli.hand_switch or active_mode == "hands"
     try:
-        start_quest_xr_session(simulation_app, enable_ui=args_cli.quest_camera_overlay,
+        start_quest_xr_session(simulation_app, enable_ui=args_cli.quest_camera_overlay or hand_controls,
                                resolution_scale=args_cli.xr_resolution_scale,
                                render_quality=args_cli.render_quality)
     except Exception:
@@ -430,6 +440,15 @@ def main() -> None:
     mapper_type = ScaledControllerMapper if args_cli.controller_mapping == "scaled" else AbsoluteControllerMapper
     mapper_options = {"position_gain": args_cli.position_gain} if args_cli.controller_mapping == "scaled" else {}
     absolute_mapper = mapper_type(tool_forward_sign=-1 if args_cli.robot_model == "s200062" else 1, **mapper_options)
+    hand_mapper = ScaledControllerMapper(position_gain=args_cli.position_gain) if hand_controls else None
+    mode_switch = HandModeSwitch(active_mode)
+    hand_commands = HandCommands()
+    hand_gripper = HandGripper(GRIPPER_SETTINGS.pinch_close_threshold_m)
+    hand_tracking_guard = HandTrackingGuard()
+    control_status = None
+    if hand_controls:
+        from .xr_control_status import QuestControlStatus
+        control_status = QuestControlStatus()
     urdf = (ASSET_DIR / "kuavo_s200062/urdf/biped_s200062.urdf" if args_cli.robot_model == "s200062"
             else ASSET_DIR / "kuavo_s63/urdf/kuavo_s63.urdf")
     body_mapper = TeleopBodyMapper(urdf)
@@ -461,10 +480,13 @@ def main() -> None:
     keyboard.add_callback("C", lambda: requests.__setitem__("calibrate", True))
     keyboard.add_callback("T", lambda: requests.__setitem__("preview", True))
     keyboard.add_callback("H", lambda: requests.__setitem__("overlay", True))
-    xr_device.bind_button("left", "x", lambda: requests.__setitem__("calibrate", True))
-    xr_device.bind_button("right", "a", lambda: requests.__setitem__("preview", True))
-    xr_device.bind_button("right", "b", lambda: requests.__setitem__("toggle", True))
-    xr_device.bind_button("left", "y", lambda: requests.__setitem__("overlay", True))
+    def controller_request(key):
+        if active_mode == "controllers" and not mode_switch.pending:
+            requests[key] = True
+    xr_device.bind_button("left", "x", lambda: controller_request("calibrate"))
+    xr_device.bind_button("right", "a", lambda: controller_request("preview"))
+    xr_device.bind_button("right", "b", lambda: controller_request("toggle"))
+    xr_device.bind_button("left", "y", lambda: controller_request("overlay"))
 
     dataset_path = args_cli.dataset.expanduser().resolve()
     lerobot_root = args_cli.lerobot_root.expanduser().resolve()
@@ -497,7 +519,7 @@ def main() -> None:
             save_failed=args_cli.lerobot_save_failed,
             writer_python=args_cli.lerobot_python,
             action_names=action_names + BODY_ACTION_NAMES,
-            record_controllers=args_cli.input_mode == "controllers",
+            record_controllers=active_mode == "controllers" or args_cli.hand_switch,
         )
         lerobot_recorder = recorders["lerobot"]
         dataset_descriptions.append(
@@ -536,6 +558,10 @@ def main() -> None:
         xr_device.reset()
         mapper.reset()
         absolute_mapper.reset()
+        if hand_mapper is not None:
+            hand_mapper.reset()
+        mode_switch.cancel()
+        hand_gripper.sync({"left": 1., "right": 1.})
         body_mapper.reset()
         held_absolute_targets.fill(0.0)
         held_absolute_targets[2:] = 1.0
@@ -556,8 +582,8 @@ def main() -> None:
 
     print("[INFO] Quest/OpenXR Kuavo teleoperation is ready.")
     print(f"[INFO] Dataset: {'; '.join(dataset_descriptions)}")
-    print(f"[INFO] Arm input mode: {args_cli.input_mode}; "
-          + ("controller grip pose + index trigger" if args_cli.input_mode == "controllers" else "bare-hand wrist + pinch"))
+    print(f"[INFO] Arm input mode: {active_mode}; "
+          + ("controller grip pose + index trigger" if active_mode == "controllers" else "bare-hand wrist + pinch"))
     if args_cli.dataset_format in {"lerobot", "both"} and not args_cli.lerobot_save_failed:
         print("[INFO] LeRobot keeps successful episodes only; STOP/RESET/time-limit attempts are discarded.")
     if quest_overlay is not None:
@@ -568,9 +594,16 @@ def main() -> None:
     print("[CONTROL] Left stick=base forward/strafe; right stick=base turn/body lift; left squeeze=hold free view. "
           "Release squeeze to return to robot head. Index triggers: released=open, pressed=close.")
     print("[CONTROL] Arm motion is paused until P starts recording or T enables motion preview.")
-    position_label = ("scaled torso-relative workspace" if args_cli.controller_mapping == "scaled"
+    if hand_controls:
+        print("[HANDS] Thumb + MIDDLE finger (index extended), hold 1s: LEFT=follow/reclutch, RIGHT=record/stop. "
+              "Thumb + INDEX controls gripper. Base/torso fixed in hands mode. PC C=recenter, M=success.")
+    if args_cli.hand_switch:
+        print("[MODE] Right lower squeeze hold 1.2s: switch request, then 3s countdown and 0.5s stable tracking. "
+              "Hands start a NEW recording; return to controllers paused. P cancels pending switch.")
+    position_label = ("scaled torso-relative workspace" if active_mode == "hands" or args_cli.controller_mapping == "scaled"
                       else "absolute VR grip position") if absolute_control else "persistent relative pose"
-    orientation_label = ("clutched grip rotation, 1:1 angular displacement" if absolute_control and args_cli.controller_mapping == "scaled"
+    orientation_label = ("clutched wrist rotation, 1:1 angular displacement" if active_mode == "hands"
+                         else "clutched grip rotation, 1:1 angular displacement" if absolute_control and args_cli.controller_mapping == "scaled"
                          else "index/aim forward, thumb closing axis" if absolute_control else "relative rotation")
     print(f"[CONTROL] Arm mapping: {position_label}; {orientation_label}; "
           f"orientation weight={args_cli.arm_orientation_weight:.2f} (0=position only). "
@@ -613,6 +646,15 @@ def main() -> None:
                 print(f"[CONTROL] Exiting because --max-episodes {args_cli.max_episodes} was reached.")
                 break
 
+            if mode_switch.pending and any(requests[k] for k in ("toggle", "stop", "reset", "calibrate", "preview", "success")):
+                mode_switch.cancel()
+                preview_enabled = pending_start = False
+                manual_pause = True
+                requests["toggle"] = requests["preview"] = False
+                print("[MODE] Switch cancelled; motion/recording remain OFF.", flush=True)
+            if mode_switch.pending:
+                requests["start"] = False
+
             if requests["overlay"]:
                 requests["overlay"] = False
                 if quest_overlay is not None:
@@ -631,6 +673,8 @@ def main() -> None:
                     pending_start = False
                     manual_pause = True
                     mapper.reset(head_target=held_absolute_targets[:2])
+                    if hand_mapper is not None:
+                        hand_mapper.reset()
                     hold_arms()
                     print(f"[CONTROL] Motion preview {'ON' if preview_enabled else 'OFF'}; no samples are being recorded.")
             if requests["calibrate"]:
@@ -649,6 +693,8 @@ def main() -> None:
                     xr_device.reset()
                     mapper.reset(head_target=held_absolute_targets[:2])
                     absolute_mapper.reset()
+                    if hand_mapper is not None:
+                        hand_mapper.reset()
                     hold_arms()
                     print("[CALIBRATION] View centered at Kuavo head camera. "
                           "A starts following; scaled mode captures comfortable hand position/orientation references; "
@@ -670,7 +716,39 @@ def main() -> None:
             left_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_LEFT)
             right_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_RIGHT)
             head_pose = raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD)
-            next_free_view = left_controller is not None and float(left_controller[1, 3]) >= .5
+            now = time.monotonic()
+            if args_cli.hand_switch:
+                switch_left = xr_device.switch_controller_packet("left")
+                switch_right = xr_device.switch_controller_packet("right")
+                left_controller, right_controller = switch_left, switch_right
+                mode_event = mode_switch.update(
+                    now, controller_squeeze(switch_right),
+                    hands_ready=(hand_packet(left_hand) is not None and hand_packet(right_hand) is not None
+                                 and switch_left is None and switch_right is None),
+                    controllers_ready=switch_left is not None and switch_right is not None,
+                    head_ready=xr_device.switch_head_tracked(),
+                )
+                if mode_event in {"begin", "cancel", "ready"}:
+                    if recorder.recording:
+                        finish_episode(False, "input_mode_switch")
+                    preview_enabled = pending_start = False
+                    manual_pause = True
+                    for key in requests:
+                        requests[key] = False
+                    hold_arms()
+                    mapper.reset(head_target=held_absolute_targets[:2])
+                    absolute_mapper.reset()
+                    hand_mapper.reset()
+                    hand_commands = HandCommands()
+                    hand_gripper.sync({side: float(held_absolute_targets[2 + index])
+                                       for index, side in enumerate(GRIPPER_SETTINGS.active_sides)})
+                    if mode_event == "ready":
+                        active_mode = mode_switch.mode
+                        requests["start"] = active_mode == "hands"
+                    print(f"[MODE] {mode_event.upper()}: {mode_switch.status(now)}; "
+                          f"motion held; new recording={'requested' if requests['start'] else 'OFF'}", flush=True)
+            next_free_view = (active_mode == "controllers" and not mode_switch.pending
+                              and left_controller is not None and float(left_controller[1, 3]) >= .5)
             if next_free_view != free_view:
                 free_view = next_free_view
                 if not free_view:
@@ -685,21 +763,42 @@ def main() -> None:
                     left_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_LEFT)
                     right_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_RIGHT)
                     head_pose = raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD)
+                    if args_cli.hand_switch:
+                        switch_left = xr_device.switch_controller_packet("left")
+                        switch_right = xr_device.switch_controller_packet("right")
+                        left_controller, right_controller = switch_left, switch_right
                 xr_device.reset_head_reference()
                 mapper.reset(head_target=held_absolute_targets[:2])
                 print(f"[VIEW] {'FREE: room-scale view; arm goals held' if free_view else 'HEAD: robot camera anchor'}", flush=True)
             motion_head = xr_device.motion_head_pose(head_pose)
             root_quat = _to_numpy(robot.data.root_quat_w[0])
-            map_inputs = mapper.advance_controllers if args_cli.input_mode == "controllers" else mapper.advance
-            left_input, right_input = ((left_controller, right_controller) if args_cli.input_mode == "controllers"
+            map_inputs = mapper.advance_controllers if active_mode == "controllers" else mapper.advance
+            left_input, right_input = ((left_controller, right_controller) if active_mode == "controllers"
                                        else (left_hand, right_hand))
             mapped = map_inputs(left_input, right_input, motion_head, root_quat)
+            hand_packets = {"left": hand_packet(left_hand), "right": hand_packet(right_hand)} if hand_controls else {}
+            if active_mode == "hands":
+                mapped = replace(mapped, left_valid=hand_packets["left"] is not None,
+                                 right_valid=hand_packets["right"] is not None,
+                                 head_valid=xr_device.switch_head_tracked())
+                if not mode_switch.pending:
+                    for command in hand_commands.update(now, {"left": left_hand, "right": right_hand}):
+                        requests[command] = True
+                        print(f"[HAND COMMAND] {command}; thumb-middle held 1s.", flush=True)
+                    if hand_tracking_guard.update(now, following=recorder.recording or preview_enabled,
+                                                  valid=mapped.bimanual_valid and mapped.head_valid):
+                        if recorder.recording:
+                            finish_episode(False, "hand_tracking_lost")
+                        preview_enabled = pending_start = False
+                        manual_pause = True
+                        requests["toggle"] = requests["preview"] = False
+                        print("[HANDS] Tracking lost for 2s; stopped. Reacquire hands and explicitly restart.", flush=True)
             tracking_state = (mapped.left_valid, mapped.right_valid, mapped.head_valid)
             if tracking_state != last_tracking_state:
                 print(
                     "[TRACKING] "
                     f"left={tracking_state[0]}, right={tracking_state[1]}, head={tracking_state[2]} "
-                    f"input={args_cli.input_mode}"
+                    f"input={active_mode}"
                 )
                 last_tracking_state = tracking_state
 
@@ -743,27 +842,35 @@ def main() -> None:
                 pending_start = True
                 manual_pause = False
                 if not mapped.bimanual_valid:
-                    print(f"[CONTROL] Waiting for both tracked {args_cli.input_mode} before recording; B/P cancels.")
-            if args_cli.auto_start and not manual_pause and not recorder.recording:
+                    print(f"[CONTROL] Waiting for both tracked {active_mode} before recording; B/P cancels.")
+            if args_cli.auto_start and not manual_pause and not recorder.recording and not mode_switch.pending:
                 pending_start = True
 
-            if pending_start and mapped.bimanual_valid and not recorder.recording:
+            if (pending_start and mapped.bimanual_valid and not recorder.recording and not mode_switch.pending
+                    and (active_mode == "controllers" or mapped.head_valid and not any(hand_commands.active.values()))):
                 if not preview_enabled:
                     # Do not apply head/hand movement accumulated while paused
                     # when B/P starts recording directly (without motion preview).
                     mapper.reset(head_target=held_absolute_targets[:2])
-                    mapped = map_inputs(left_input, right_input, motion_head, root_quat)
+                    if active_mode == "hands":
+                        hand_mapper.reset()
+                    refreshed = map_inputs(left_input, right_input, motion_head, root_quat)
+                    mapped = replace(refreshed, left_valid=mapped.left_valid, right_valid=mapped.right_valid,
+                                     head_valid=mapped.head_valid)
                 episode_name = recorder.start_episode(
                     {
                         "seed": args_cli.seed,
-                        "input_mode": args_cli.input_mode,
-                        "arm_control": ("scaled_controller_pose_v2" if absolute_control and args_cli.controller_mapping == "scaled"
+                        "input_mode": active_mode,
+                        "arm_control": ("scaled_hand_pose_v1" if active_mode == "hands"
+                                        else "scaled_controller_pose_v2" if absolute_control and args_cli.controller_mapping == "scaled"
                                         else "absolute_controller_pose_v2" if absolute_control else "persistent_relative_pose_v1"),
-                        "controller_mapping": args_cli.controller_mapping,
-                        "position_gain": args_cli.position_gain if args_cli.controller_mapping != "absolute" else 1.0,
+                        "controller_mapping": "scaled" if active_mode == "hands" else args_cli.controller_mapping,
+                        "position_gain": args_cli.position_gain if active_mode == "hands" or args_cli.controller_mapping != "absolute" else 1.0,
                         "workspace_reference": "waist_yaw_link; first valid sample after explicit pause",
                         "arm_orientation_weight": args_cli.arm_orientation_weight,
-                        "tool_orientation_mapping": ("torso-relative grip delta applied to tool orientation captured after explicit pause"
+                        "tool_orientation_mapping": ("torso-relative wrist delta applied to tool orientation captured after explicit pause"
+                                                     if active_mode == "hands"
+                                                     else "torso-relative grip delta applied to tool orientation captured after explicit pause"
                                                      if absolute_control and args_cli.controller_mapping == "scaled"
                                                      else "approach=-aimZ; jaw_X=projected_-gripZ"
                                                      if absolute_control else "relative_rotation"),
@@ -774,7 +881,9 @@ def main() -> None:
                         "wrist_cameras_enabled": args_cli.wrist_cameras,
                         "control_dt": float(env.step_dt),
                         "action_layout": ",".join(action_names + BODY_ACTION_NAMES),
-                        "base_control": "kinematic_fixed_root_xy_yaw_v2",
+                        "base_control": "held_during_hand_tracking" if active_mode == "hands" else "kinematic_fixed_root_xy_yaw_v2",
+                        "hand_switch_enabled": args_cli.hand_switch,
+                        "hand_tracking_policy": "fresh_hand_source_tracked_joints; hold_on_loss; stop_after_2s",
                         "hand_inertials": "s200062_sim_estimates_v1" if args_cli.robot_model == "s200062" else "source_usd",
                         "joint_names": state_names,
                         "hand_joint_names": HAND_JOINT_NAMES,
@@ -801,7 +910,7 @@ def main() -> None:
                     ),
                 )
             )
-            if args_cli.input_mode == "controllers":
+            if active_mode == "controllers":
                 controllers = {"left": left_controller, "right": right_controller}
                 valid = {"left": mapped.left_valid, "right": mapped.right_valid}
                 for index, side in enumerate(GRIPPER_SETTINGS.active_sides):
@@ -810,16 +919,23 @@ def main() -> None:
                         (-1.0 if controllers[side][1, 2] >= 0.5 else 1.0)
                         if valid[side] else held_absolute_targets[2 + index]
                     )
+            else:
+                hands = {"left": left_hand, "right": right_hand}
+                for index, side in enumerate(GRIPPER_SETTINGS.active_sides):
+                    action_np[14 + index] = hand_gripper.update(
+                        side, hands[side], hold=mode_switch.pending or hand_commands.active[side] or not mapped.head_valid)
+            if mode_switch.pending:
+                action_np[12:] = held_absolute_targets
             if not (recorder.recording or preview_enabled):
                 action_np[:12] = 0.0
-                if args_cli.input_mode == "controllers":
+                if active_mode == "controllers" or hand_controls:
                     action_np[12:14] = held_absolute_targets[:2]
                     held_absolute_targets[2:] = action_np[14:]
                 else:
                     action_np[12:] = held_absolute_targets
                 hold_arms()
             else:
-                if free_view:
+                if free_view or active_mode == "hands" and not mapped.head_valid:
                     action_np[:12] = 0.0
                     action_np[12:14] = held_absolute_targets[:2]
                 held_absolute_targets[:] = action_np[12:]
@@ -828,11 +944,15 @@ def main() -> None:
                 torso_pose = np.concatenate((_to_numpy(robot.data.body_pos_w[0, torso_body_id]),
                                              _to_numpy(robot.data.body_quat_w[0, torso_body_id])))
                 arm_goals = []
-                for side, packet, body_id in (("left", left_controller, left_body_ids[0]),
-                                              ("right", right_controller, right_body_ids[0])):
+                pose_mapper = hand_mapper if active_mode == "hands" else absolute_mapper
+                packets = hand_packets if active_mode == "hands" else {"left": left_controller, "right": right_controller}
+                for side, body_id in (("left", left_body_ids[0]), ("right", right_body_ids[0])):
+                    packet = packets[side]
+                    if active_mode == "hands" and (hand_commands.active[side] or not mapped.head_valid):
+                        packet = None
                     tool_pose = np.concatenate((_to_numpy(robot.data.body_pos_w[0, body_id]),
                                                 _to_numpy(robot.data.body_quat_w[0, body_id])))
-                    arm_goals.append(absolute_mapper.target(
+                    arm_goals.append(pose_mapper.target(
                         side, None if free_view else packet, tool_pose, root_pose,
                         following=recorder.recording or preview_enabled,
                         aim_pose=xr_device.controller_aim_pose(side),
@@ -840,10 +960,24 @@ def main() -> None:
                     ))
                 action_np = np.concatenate((*arm_goals, action_np[12:]))
             body_action = body_mapper.advance(left_controller, right_controller, env.step_dt,
-                                               enabled=(recorder.recording or preview_enabled) and not free_view)
+                                               enabled=(recorder.recording or preview_enabled) and not free_view
+                                               and active_mode == "controllers" and not mode_switch.pending)
             action_np = np.concatenate((action_np, body_action))
-            for term in arm_terms:
-                term.set_following(recorder.recording or preview_enabled)
+            for side, term in zip(("left", "right"), arm_terms):
+                follow = recorder.recording or preview_enabled
+                if active_mode == "hands":
+                    follow = follow and hand_packets[side] is not None and mapped.head_valid and not hand_commands.active[side]
+                term.set_following(follow)
+            if control_status is not None:
+                status = mode_switch.status(now)
+                if not mode_switch.pending:
+                    status += (f" | FOLLOW {'ON' if recorder.recording or preview_enabled else 'OFF'}"
+                               f" | REC {'ON' if recorder.recording else 'WAIT' if pending_start else 'OFF'}")
+                    status += ("\nL middle pinch: follow | R: record/stop" if active_mode == "hands"
+                               else "\nRight lower grip 1.2s: hands")
+                    if active_mode == "hands" and not mapped.bimanual_valid:
+                        status += "\nCHECK HANDS: wrist + thumb/index must be tracked"
+                control_status.update(status)
             base_delta = _quat_multiply(root_quat, _quat_conjugate(last_base_quat))
             base_yaw_delta = _quat_to_pitch_yaw(base_delta)[1]
             if head_pose is not None and not free_view:
@@ -890,12 +1024,12 @@ def main() -> None:
                 if recorder.recording or preview_enabled:
                     movement = np.linalg.norm(positions - last_ee_positions, axis=1) * 1000.0
                     errors = [float(term.target_position_error()[0]) * 1000.0 for term in arm_terms]
-                    print(f"[MOTION] input={args_cli.input_mode} tracking={mapped.left_valid}/{mapped.right_valid}; "
+                    print(f"[MOTION] input={active_mode} tracking={mapped.left_valid}/{mapped.right_valid}; "
                           f"hand displacement L/R={movement[0]:.1f}/{movement[1]:.1f} mm; "
                           f"target error L/R={errors[0]:.1f}/{errors[1]:.1f} mm; "
                           f"rotation error L/R={np.rad2deg(float(arm_terms[0].target_orientation_error()[0])):.1f}/"
                           f"{np.rad2deg(float(arm_terms[1].target_orientation_error()[0])):.1f} deg", flush=True)
-                if args_cli.input_mode == "controllers":
+                if active_mode == "controllers":
                     body_term = env.action_manager.get_term("body")
                     actual_body = _to_numpy(robot.data.joint_pos[0, body_term._joint_ids])
                     print(f"[BODY] right stick={controller_axis(right_controller, 0):.2f}/"
@@ -923,7 +1057,7 @@ def main() -> None:
                         recording=recorder.recording,
                         hands_valid=mapped.bimanual_valid,
                         waiting=pending_start,
-                        input_mode=args_cli.input_mode,
+                        input_mode=active_mode,
                     )
                 if not camera_reported and head_rgb is not None and np.any(head_rgb):
                     print(f"[CAMERA] Head RGB {head_rgb.shape}: min={head_rgb.min()}, max={head_rgb.max()}, mean={head_rgb.mean():.1f}")
@@ -985,16 +1119,26 @@ def main() -> None:
                     assert right_wrist_rgb is not None
                     sample["left_wrist_rgb"] = left_wrist_rgb
                     sample["right_wrist_rgb"] = right_wrist_rgb
-                if args_cli.input_mode == "controllers":
+                if active_mode == "controllers":
                     # No finger tracking is requested in controller mode.
                     # Preserve that absence instead of writing fake hand poses.
                     sample["openxr_left_hand"] = np.full((len(HAND_JOINT_NAMES), 7), np.nan, dtype=np.float32)
                     sample["openxr_right_hand"] = np.full((len(HAND_JOINT_NAMES), 7), np.nan, dtype=np.float32)
-                    for side, packet in (("left", left_controller), ("right", right_controller)):
+                if args_cli.hand_switch or active_mode == "controllers":
+                    recorded_controllers = (("left", switch_left), ("right", switch_right)) if args_cli.hand_switch else (
+                        ("left", left_controller), ("right", right_controller))
+                    for side, packet in recorded_controllers:
                         sample[f"openxr_{side}_controller"] = (
                             np.asarray(packet, dtype=np.float32) if packet is not None
                             else np.full((2, 7), np.nan, dtype=np.float32)
                         )
+                if hand_controls:
+                    sample["hand_joint_valid"] = np.stack([
+                        np.isfinite(sample[f"openxr_{side}_hand"]).all(axis=1) for side in ("left", "right")
+                    ]).astype(np.uint8)
+                    sample["hand_command_active"] = np.array([
+                        hand_commands.active[side] if active_mode == "hands" else False for side in ("left", "right")
+                    ], dtype=np.uint8)
                 if args_cli.record_depth:
                     sample["head_depth_m"] = head_depth
                 if button is not None:
@@ -1016,6 +1160,8 @@ def main() -> None:
         recorder.close()
         if quest_overlay is not None:
             quest_overlay.close()
+        if control_status is not None:
+            control_status.close()
         env.close()
         print(f"[RESULT] Completed {completed_this_run} saved episode(s); {'; '.join(dataset_descriptions)}")
 

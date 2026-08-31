@@ -70,7 +70,7 @@ def start_quest_xr_session(simulation_app, *, enable_ui: bool = True, resolution
 class RawQuestOpenXRDevice(OpenXRDevice):
     """Return raw Quest head and selected hand/controller input on Isaac Lab v2.3.2."""
 
-    def __init__(self, cfg: OpenXRDeviceCfg, *, input_mode: str = "hands") -> None:
+    def __init__(self, cfg: OpenXRDeviceCfg, *, input_mode: str = "hands", allow_switch: bool = False) -> None:
         if input_mode not in {"hands", "controllers"}:
             raise ValueError("input_mode must be hands or controllers.")
         super().__init__(cfg)
@@ -85,10 +85,31 @@ class RawQuestOpenXRDevice(OpenXRDevice):
             RetargeterBase.Requirement.MOTION_CONTROLLER if input_mode == "controllers"
             else RetargeterBase.Requirement.HAND_TRACKING
         )
+        if allow_switch:
+            required_features.update((RetargeterBase.Requirement.MOTION_CONTROLLER,
+                                      RetargeterBase.Requirement.HAND_TRACKING))
         # Reserve A for the collector's explicit motion control instead of
         # Isaac Lab's optional anchor-rotation shortcut.
         self._unbind_all_buttons()
         self._physical_to_control = None
+
+    def _calculate_joint_poses(self, hand_device, previous_joint_poses):
+        """Never represent cached or controller-inferred bones as tracked hands."""
+        import numpy as np
+        from isaaclab.devices.openxr.common import HAND_JOINT_NAMES
+        from omni.kit.xr.core import XRPoseValidityFlags
+        if hand_device is None or str(hand_device.get_hand_tracking_data_source()) != "hand":
+            return {}
+        required = (XRPoseValidityFlags.POSITION_VALID | XRPoseValidityFlags.ORIENTATION_VALID
+                    | XRPoseValidityFlags.POSITION_TRACKED | XRPoseValidityFlags.ORIENTATION_TRACKED)
+        result = {}
+        for name, desc in hand_device.get_all_virtual_world_poses().items():
+            if name not in HAND_JOINT_NAMES or desc.validity_flags & required != required:
+                continue
+            q = desc.pose_matrix.ExtractRotationQuat()
+            result[name] = np.array([*desc.pose_matrix.ExtractTranslation(), q.GetReal(), *q.GetImaginary()],
+                                    dtype=np.float32)
+        return result
 
     def reset_head_reference(self):
         self._physical_to_control = None
@@ -120,6 +141,32 @@ class RawQuestOpenXRDevice(OpenXRDevice):
             quat = pose.ExtractRotationQuat()
             packet[0] = [*position, quat.GetReal(), *quat.GetImaginary()]
         return packet
+
+    def switch_controller_packet(self, hand):
+        """Strict physical-controller input for switching; legacy query is unchanged."""
+        import numpy as np
+        from omni.kit.xr.core import XRPoseValidityFlags
+        input_device = self._xr_core.get_input_device(f"/user/hand/{hand}")
+        # Hand aim/pinch can emulate controller input. Require a physical
+        # controller profile and a valid grip before accepting its squeeze.
+        if (input_device is None or str(input_device.get_hand_tracking_data_source()) == "hand"
+                or not input_device.has_input_gesture("thumbstick", "x") or not input_device.has_pose("grip")):
+            return None
+        flags = input_device.get_virtual_world_pose_desc("grip").validity_flags
+        required = XRPoseValidityFlags.POSITION_VALID | XRPoseValidityFlags.ORIENTATION_VALID
+        if flags & required != required:
+            return None
+        packet = self._query_controller(input_device)
+        return packet if packet.shape == (2, 7) and np.all(np.isfinite(packet)) else None
+
+    def switch_head_tracked(self):
+        from omni.kit.xr.core import XRPoseValidityFlags
+        device = self._xr_core.get_input_device("/user/head")
+        if device is None:
+            return False
+        flags = device.get_virtual_world_pose_desc("").validity_flags
+        required = XRPoseValidityFlags.POSITION_VALID | XRPoseValidityFlags.ORIENTATION_VALID
+        return flags & required == required
 
     def controller_aim_pose(self, hand):
         """Aim -Z is the controller's pointing direction; grip -Z faces thumb."""

@@ -57,8 +57,8 @@ Isaac Lab v2.3.2의 `OpenXRDevice`는 retargeter requirement에 따라 조회할
 
 - 기본 모드는 Quest 컨트롤러의 위치/회전으로 양팔을 제어하고 검지 트리거로 gripper를 조작한다.
 - `--input-mode hands`에서는 손목 위치/회전, thumb-index pinch 거리와 양손 26개 관절을 사용·저장한다.
-- 맨손 모드는 thumb-index 거리가 0.055 m 이하이면 같은 쪽 gripper를 닫고, 그보다 크거나
-  tracking이 유효하지 않으면 연다. 컨트롤러 모드는 tracking 손실 시 마지막 gripper 목표를 유지한다.
+- 맨손 모드는 thumb-index 거리가 0.055 m 이하이면 같은 쪽 gripper를 닫고, 0.070 m 이상이면 연다.
+  중간 구간과 tracking 손실 시 마지막 gripper 상태를 유지한다. 컨트롤러 모드의 trigger 매핑은 그대로다.
 - `--gripper none`은 gripper 채널만 제외한다. 현재 scaled/absolute+body 구성에서는 22-D action이다.
 
 다른 hand USD와 mount pose는 [Gripper configuration](GRIPPER_CONFIGURATION.md)의
@@ -248,7 +248,9 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 기본 입력은 **컨트롤러**(`--input-mode controllers`)다. 보정 기준 대비 손잡이 이동을
 1.1배 확대하여 같은 쪽 로봇 손끝의 목표로 사용한다. 검지 트리거는 절반 이상 당기면 닫고 놓으면 연다.
 생성·R 리셋도 열린 자세다. 추적이 끊기면 마지막 목표를 유지하며 맨손으로 자동 전환하지 않는다.
-맨손은 `--input-mode hands`로 별도 실행한다.
+맨손은 `--input-mode hands`로 시작하거나, `--hand-switch`를 붙인 실행에서 오른쪽 아래 그립을
+길게 눌러 전환한다. 기본 실행은 컨트롤러 전용으로 유지된다.
+[전환·맨손 조작 순서](QUEST_RUNTIME_SERVICE.md#선택-기능-오른쪽-그립-길게-눌러-맨손으로-전환)를 참고한다.
 
 기본값은 `--no-auto-start --max-episodes 0 --episode-seconds 0`이다. 앱을 켜 둔 채
 버튼으로 시도를 반복한다. `--auto-start`를 명시하면 유효한 양쪽 입력으로 자동 녹화한다.
@@ -360,11 +362,11 @@ teleport하지 않고 anchor의 위치만 갱신하여 물리적인 머리 회�
 높은 곳이 도달 범위를 벗어나면 오른쪽 스틱으로 몸통을 올린다. `[MOTION]`의
 목표 오차(mm)를 확인한다. 실제 물리 검증: `scripts/verify_quest_controls.py`.
 
-**맨손 모드에서는 버튼과 손 추적이 별개다.** `--input-mode hands`로 실행했다면
-컨트롤러를 잡을 때 Quest가 맨손 추적을 중단할 수 있다. 이 경우 버튼을 누른 뒤
-컨트롤러를 내려놓고 양손을 보이거나 PC 키를 쓴다. 기본 controllers 모드에는 해당하지 않는다.
+**맨손 모드에서는 엄지-중지 제스처 또는 PC 키로 조작한다.** 컨트롤러를 잡으면 Quest가
+맨손 추적을 중단할 수 있다. `--hand-switch`를 켰다면 오른쪽 아래 그립을 길게 눌러
+컨트롤러 모드로 명시적으로 복귀한다. 맨손 모드에서는 controller A/B/X/Y를 실행하지 않는다.
 패널에는 `FOLLOW ON/OFF`, `REC ON/OFF/WAIT`, 입력이 없으면 `CHECK CTRL` 또는 `CHECK HANDS`가 표시된다.
-버튼 로그가 없으면 controller 입력 전달을 확인하고 PC 키를 사용한다.
+컨트롤러 모드에서 버튼 로그가 없으면 controller 입력 전달을 확인하고 PC 키를 사용한다.
 
 컨트롤러 모드 HDF5에는 `openxr_left_controller`/`openxr_right_controller`를 `[2,7]`로
 추가 저장한다. 첫 행은 `x,y,z,qw,qx,qy,qz`, 둘째는 `stick_x,stick_y,trigger,squeeze,button_0,button_1,reserved`다.
