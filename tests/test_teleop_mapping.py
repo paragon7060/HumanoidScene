@@ -4,16 +4,16 @@ from kuavo_isaaclab_scene.teleop_mapping import AbsoluteControllerMapper, Scaled
 
 
 def test_scaled_reach_and_clutch_without_drift_or_recalibration_on_tracking_loss():
-    mapper = ScaledControllerMapper(position_gain=1.5)
+    mapper = ScaledControllerMapper()
     root = np.array([0., 0., 0., 1., 0., 0., 0.])
     tool = np.array([.3, .25, .65, 1., 0., 0., 0.])
     packet = np.array([[.2, .25, 1.1, 1., 0., 0., 0.], [0.] * 7])
     first = mapper.target("left", packet, tool, root, following=True)
-    np.testing.assert_allclose(first[:3], tool[:3], atol=1e-6)
+    np.testing.assert_allclose(first, tool, atol=1e-6)
     packet[0, :3] += [.2, 0., -.2]
     for _ in range(100):
         goal = mapper.target("left", packet, tool, root, following=True)
-        np.testing.assert_allclose(goal[:3], [.6, .25, .35], atol=1e-6)
+        np.testing.assert_allclose(goal[:3], [.52, .25, .43], atol=1e-6)
     np.testing.assert_allclose(mapper.target("left", None, tool, root, following=True), goal)
     np.testing.assert_allclose(mapper.target("left", packet, tool, root, following=True), goal)
     mapper.target("left", packet, tool, root, following=False)
@@ -33,9 +33,70 @@ def test_scaled_gain_does_not_multiply_base_turn_or_torso_lift():
     rotation = np.array([np.sqrt(.5), 0, 0, np.sqrt(.5)])
     torso[:3] = [1., 2., .8]; torso[3:] = rotation
     packet[0, :3] = torso[:3] + _quat_rotate(rotation, [.2, .25, .5])
+    packet[0, 3:] = rotation
     goal = mapper.target("left", packet, tool, root, following=True, reference_pose_w=torso)
     expected = torso[:3] + _quat_rotate(rotation, [.3, .25, .2])
     np.testing.assert_allclose(goal[:3], expected, atol=1e-6)
+    np.testing.assert_allclose(goal[3:], rotation, atol=1e-6)
+
+
+def test_scaled_orientation_clutch_uses_actual_pose_and_unscaled_torso_axis_rotation():
+    from kuavo_isaaclab_scene.teleop_mapping import _quat_multiply, _quat_rotate
+    mapper = ScaledControllerMapper(position_gain=2.)
+    root = np.array([0., 0., 0., 1., 0., 0., 0.])
+    # Tool points 90 degrees about Z; the comfortable controller points about X.
+    c = np.sqrt(.5)
+    tool = np.array([.3, .25, .65, c, 0., 0., c])
+    packet = np.array([[.2, .25, 1.1, c, c, 0., 0.], [0.] * 7])
+    first = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(first, tool, atol=1e-6)
+    # A 90 degree turn about torso Y must rotate the original tool axes about Y,
+    # not about the original tool's local Y, and must not use position gain=2.
+    packet[0, 3:] = _quat_multiply([c, 0., c, 0.], packet[0, 3:])
+    for _ in range(100):
+        goal = mapper.target("left", packet, tool, root, following=True)
+        axes = np.column_stack([_quat_rotate(goal[3:], axis) for axis in np.eye(3)])
+        np.testing.assert_allclose(axes, [[0., 0., 1.], [1., 0., 0.], [0., 1., 0.]], atol=1e-6)
+        np.testing.assert_allclose(goal[:3], tool[:3], atol=1e-6)
+    # Quaternion sign and an aim-pose disappearance must not cause a rotation.
+    packet[0, 3:] *= -1
+    aim = np.array([0., 0., 0., 1., 0., 0., 0.])
+    stable = mapper.target("left", packet, tool, root, following=True, aim_pose=aim)
+    assert abs(np.dot(stable[3:], goal[3:])) > 1 - 1e-6
+    assert abs(np.dot(mapper.target("left", packet, tool, root, following=True)[3:], goal[3:])) > 1 - 1e-6
+    np.testing.assert_allclose(mapper.target("left", None, tool, root, following=True), stable)
+    # The actual tool lags the commanded orientation. Resume from that actual
+    # pose after the operator rotates their wrist back into a comfortable pose.
+    tool[3:] = [np.cos(np.pi / 12), 0., np.sin(np.pi / 12), 0.]
+    mapper.target("left", packet, tool, root, following=False)
+    packet[0, 3:] = [1., 0., 0., 0.]
+    resumed = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(resumed, tool, atol=1e-6)
+    packet[0, 3:] = [np.cos(np.pi / 12), 0., np.sin(np.pi / 12), 0.]
+    advanced = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(_quat_rotate(advanced[3:], [0., 0., 1.]),
+                               [np.sqrt(3) / 2, 0., .5], atol=1e-6)
+
+
+def test_scaled_orientation_reacquisition_preserves_reference_and_reset_is_per_hand():
+    mapper = ScaledControllerMapper()
+    root = np.array([1., 2., 0., np.sqrt(.5), 0., 0., np.sqrt(.5)])
+    tool = np.array([1., 2., 1., *root[3:]])
+    packet = np.array([[1., 2.2, 1., 1., 0., 0., 0.], [0.] * 7])
+    for side in ("left", "right"):
+        first = mapper.target(side, packet, tool, root, following=True)
+        np.testing.assert_allclose(first[3:], [1., 0., 0., 0.], atol=1e-6)
+    packet[0, 3:] = [0., 0., 0., 1.]  # 180 degrees; quaternion conversion stays finite.
+    goal = mapper.target("right", packet, tool, root, following=True)
+    mapper.target("right", None, tool, root, following=True)
+    np.testing.assert_allclose(mapper.target("right", packet, tool, root, following=True), goal)
+    mapper.target("left", packet, tool, root, following=False)
+    left = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(left[3:], [1., 0., 0., 0.], atol=1e-6)
+    np.testing.assert_allclose(mapper.target("right", packet, tool, root, following=True), goal)
+    mapper.reset()
+    reset = mapper.target("right", packet, tool, root, following=True)
+    np.testing.assert_allclose(reset[3:], [1., 0., 0., 0.], atol=1e-6)
 
 
 def test_absolute_controller_position_uses_translated_rotated_robot_frame_without_drift():

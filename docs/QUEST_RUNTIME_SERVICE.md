@@ -14,12 +14,13 @@ Kuavo를 조작하는 구성이다. SDK 다운로드부터 필요한 경우
 연결하면 된다. IP가 바뀌면 `.external/quest-session.env`와 인증서도 확인해야 한다.
 이미 설치된 이 PC에서는 SDK 재설치, JSON/tgz 재다운로드, 웹 재빌드가 필요 없다.
 
-이번 실행 설정은 **컨트롤러, 팔 이동 1.5배, 30Hz 제어, VR 렌더 배율 1.0,
+이번 실행 설정은 **컨트롤러, 팔 이동 1.1배, 방향은 재개 시점 기준 1:1 회전, 30Hz 제어, VR 렌더 배율 1.0,
 compact 환경, 손목 카메라 OFF, depth OFF**다. 30Hz는 설정값이며 실제 속도는 `[PERF]`로 확인한다.
 손목 패널이 없는 것은 이 설정에서 정상이다. 아래 수집 명령에 옵션을 모두 명시했다.
 
 장면이 보이면 **정면을 보고 X → 손을 편하게 두고 A → 추종을 확인한 뒤 B** 순서다.
-팔을 더 뻗을 공간이 없으면 **A 정지 → 손을 편하게 이동 → A 재개**로 기준을 다시 잡는다.
+팔을 더 뻗거나 손목을 더 돌리기 어려우면 **A 정지 → 손을 편한 위치·방향으로 이동 → A 재개**로
+위치와 방향의 기준을 함께 다시 잡는다. 로봇 손끝의 현재 위치·방향에서 이어가므로 재개 목표가 튀지 않는다.
 **녹화 중 A를 누르면 현재 파일은 실패 시도로 종료된다.** 보정·도달 범위 확인은 녹화 전에 한다.
 녹화 성공 종료는 PC Isaac Sim 창에서 `M`, 실패/중단은 `B`다. 모든 시도는 별도 HDF5로 보존한다.
 
@@ -155,7 +156,7 @@ source .external/quest-session.env
   --no-wrist-cameras \
   --no-record-depth \
   --controller-mapping scaled \
-  --position-gain 1.5 \
+  --position-gain 1.1 \
   --arm-orientation-weight 0.5 \
   --dataset-format hdf5 \
   --max-episodes 0 \
@@ -246,8 +247,9 @@ A/B로 따라오기를 켠 뒤 사용한다. 베이스는 simulation fixed-root 
 시점은 robot head에 붙으며 왼쪽 아래 그립을 누르는 동안 room-scale 자유 시점이다.
 자유 시점에서는 새 팔·몸통 명령을 멈추고 기존 팔 목표를 유지한다.
 양쪽 위 검지 트리거는 놓으면 open, 당기면 close이며 생성·R 리셋도 open이다.
-기본은 보정 기준 대비 1.5배 scaled 위치 매핑(1:1은 `--controller-mapping absolute`), depth OFF, 추가 PC 렌더는 센서 사용 시에만 160×90로 유지, CPU 물리/IK와 GPU RTX 렌더다.
-`--arm-orientation-weight 0.5`가 기본이며 검지 pointing/엄지 축을 그리퍼 접근/닫힘 축에 대응시킨다.
+기본은 보정 기준 대비 1.1배 scaled 위치 매핑(1:1 절대 위치는 `--controller-mapping absolute`), depth OFF, 추가 PC 렌더는 센서 사용 시에만 160×90로 유지, CPU 물리/IK와 GPU RTX 렌더다.
+`--arm-orientation-weight 0.5`가 기본이다. scaled 모드는 A 재개 시 실제 손끝 방향을 기준으로 잡고
+이후 컨트롤러의 회전 변화를 1:1로 적용한다. 검지 pointing/엄지 축의 절대 대응은 absolute 모드에서 사용한다.
 머리는 보정된 HMD 로컬 기준으로 좌우/상하를 계산한다. 팔 제어·질량 보완 내용은
 [조작·물리 설정](QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)을 참고한다.
 `--scene-detail compact`로 불필요한 배경 props와 legacy bodies를 제거하되 재질은 유지한다.

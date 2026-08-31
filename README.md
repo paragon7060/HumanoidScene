@@ -330,7 +330,7 @@ export XR_RUNTIME_JSON="/absolute/path/to/openxr_cloudxr.json"
 ```
 
 Quest에서 WebXR 권한을 허용하고 좌우 컨트롤러를 추적 가능한 위치에 둔다.
-기본 입력은 `--input-mode controllers`이며 기본 매핑은 `--controller-mapping scaled --position-gain 1.5`다.
+기본 입력은 `--input-mode controllers`이며 기본 매핑은 `--controller-mapping scaled --position-gain 1.1`다.
 수집기 터미널에서 다음과 같은 로그를 확인한다.
 
 ```text
@@ -340,13 +340,15 @@ Quest에서 WebXR 권한을 허용하고 좌우 컨트롤러를 추적 가능한
 
 위 예시는 `--no-auto-start`로 시작하므로 먼저 보정하고 따라오기를 확인한 뒤 녹화한다.
 수동 시작이 기본이다. `--auto-start`를 명시하면 양쪽 입력 추적이 유효해질 때 녹화를 시작한다.
-시점은 robot head에 고정된다. 기본 `--controller-mapping scaled --position-gain 1.5`는
-편하게 든 손의 위치와 로봇 손끝을 기준으로 묶어, 손을 10cm 움직이면 손끝 목표를 15cm 옮긴다.
-`A`로 정지 → 손을 편한 위치로 이동 → `A`로 다시 시작하면 위치 점프 없이 기준을 다시 잡는다.
+시점은 robot head에 고정된다. 기본 `--controller-mapping scaled --position-gain 1.1`는
+편하게 든 손의 위치·방향과 현재 로봇 손끝 자세를 기준으로 묶어, 손을 10cm 움직이면 손끝 목표를 11cm 옮긴다.
+`A`로 정지 → 손을 편한 위치·방향으로 이동 → `A`로 재개하면 위치·방향 목표가 튀지 않게 기준을 다시 잡는다.
+손목을 돌린 각도는 1:1로 반영한다. 아래쪽 파지는 조금 회전 → A 정지 → 손목을 편하게 되돌림 → A 재개로 나눠 조절할 수 있다.
 VR 컨트롤러와 손끝이 항상 같은 위치에 놓이는 방식은 아니다. 기존 1:1은 `--controller-mapping absolute`다.
 기본 `--arm-orientation-weight 0.5`로 위치와 컨트롤러 방향을 함께 추종한다.
-그리퍼 접근 방향은 컨트롤러의 검지 pointing 방향, 집게가 닫히는 축은 엄지 방향에 맞춘다.
-X는 시점·머리 기준을 재설정하며 손잡이와 tool의 임의 회전 차이를 저장하지 않는다. 0을 지정하면 방향 추종이 꺼진다.
+scaled 모드에서는 보정 후 컨트롤러와 gripper의 절대 방향이 달라도 된다. absolute 모드에서만
+검지 pointing/엄지 축을 그리퍼 접근/닫힘 축에 직접 맞춘다. X는 시점·머리 기준을 재설정하고
+따라오기를 정지한다. 녹화 중 A/X는 현재 시도를 종료한다. 방향 weight를 0으로 지정하면 방향 추종이 꺼진다.
 각 검지 트리거를 절반 이상 당기면 해당 gripper가 닫히고 놓으면 열린다.
 S200062의 0rad는 닫힌 자세다. 현재는 앞쪽 두 관절 -0.25rad, 뒤쪽 두 관절 +0.25rad로
 약 9cm 벌려 생성·리셋한다(URDF 제한 ±0.698rad). 닫힘은 0rad다. 손가락별 충돌체를 사용하므로 얇은 상자 벽에 닿으면 실제 관절은 목표 전에 멈출 수 있다.

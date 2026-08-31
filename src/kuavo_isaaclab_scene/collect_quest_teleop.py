@@ -149,7 +149,7 @@ parser.add_argument(
     default=True,
     help="Store left/right wrist RGB frames in the selected dataset backend(s).",
 )
-parser.add_argument("--position-gain", type=float, default=1.5,
+parser.add_argument("--position-gain", type=float, default=1.1,
                     help="Hand displacement multiplier for scaled/relative mode; scaled accepts 1.0–3.0.")
 parser.add_argument("--rotation-gain", type=float, default=1.0)
 parser.add_argument(
@@ -570,12 +570,15 @@ def main() -> None:
     print("[CONTROL] Arm motion is paused until P starts recording or T enables motion preview.")
     position_label = ("scaled torso-relative workspace" if args_cli.controller_mapping == "scaled"
                       else "absolute VR grip position") if absolute_control else "persistent relative pose"
-    print(f"[CONTROL] Arm mapping: {position_label}; index/aim forward, thumb closing axis; "
+    orientation_label = ("clutched grip rotation, 1:1 angular displacement" if absolute_control and args_cli.controller_mapping == "scaled"
+                         else "index/aim forward, thumb closing axis" if absolute_control else "relative rotation")
+    print(f"[CONTROL] Arm mapping: {position_label}; {orientation_label}; "
           f"orientation weight={args_cli.arm_orientation_weight:.2f} (0=position only). "
           "While following, the last valid goal is retained on tracking loss; A explicitly stops motion.")
     if absolute_control and args_cli.controller_mapping == "scaled":
         print(f"[CONTROL] Scaled workspace gain={args_cli.position_gain:.2f}: hold controllers comfortably, then A. "
-              "A pauses; reposition your hands and A resumes from the current robot tools without a position jump.")
+              "A pauses; reposition/rotate your hands comfortably and A resumes from the current robot tool poses "
+              "without a position or orientation target jump.")
     print(f"[CONTROL] Session limit: {args_cli.max_episodes or 'unlimited'} episodes; "
           f"timeout: {args_cli.episode_seconds or 'disabled'}. Each attempt gets a separate HDF5 file.")
     if quest_overlay is not None:
@@ -647,8 +650,9 @@ def main() -> None:
                     mapper.reset(head_target=held_absolute_targets[:2])
                     absolute_mapper.reset()
                     hold_arms()
-                    print("[CALIBRATION] View centered at Kuavo head camera; fixed index/thumb tool axes retained. "
-                          "A starts following; scaled mode captures a comfortable hand reference. Motion preview OFF.")
+                    print("[CALIBRATION] View centered at Kuavo head camera. "
+                          "A starts following; scaled mode captures comfortable hand position/orientation references; "
+                          "absolute mode retains fixed index/thumb axes. Motion preview OFF.")
 
             raw = xr_device.advance()
             if not view_initialized and raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD) is not None:
@@ -753,13 +757,15 @@ def main() -> None:
                     {
                         "seed": args_cli.seed,
                         "input_mode": args_cli.input_mode,
-                        "arm_control": ("scaled_controller_pose_v1" if absolute_control and args_cli.controller_mapping == "scaled"
+                        "arm_control": ("scaled_controller_pose_v2" if absolute_control and args_cli.controller_mapping == "scaled"
                                         else "absolute_controller_pose_v2" if absolute_control else "persistent_relative_pose_v1"),
                         "controller_mapping": args_cli.controller_mapping,
                         "position_gain": args_cli.position_gain if args_cli.controller_mapping != "absolute" else 1.0,
                         "workspace_reference": "waist_yaw_link; first valid sample after explicit pause",
                         "arm_orientation_weight": args_cli.arm_orientation_weight,
-                        "tool_orientation_mapping": ("approach=-aimZ; jaw_X=projected_-gripZ"
+                        "tool_orientation_mapping": ("torso-relative grip delta applied to tool orientation captured after explicit pause"
+                                                     if absolute_control and args_cli.controller_mapping == "scaled"
+                                                     else "approach=-aimZ; jaw_X=projected_-gripZ"
                                                      if absolute_control else "relative_rotation"),
                         "xr_resolution_scale": args_cli.xr_resolution_scale,
                         "render_quality": args_cli.render_quality,
