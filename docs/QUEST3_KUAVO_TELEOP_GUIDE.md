@@ -264,7 +264,7 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 | 환경 reset/현재 시도 실패 종료 | — | `R` |
 | 성공 demonstration으로 종료 | — | `M` |
 | 베이스 전후/좌우 이동 | 왼쪽 스틱 | — |
-| 허리 좌우 회전/몸통 상하 | 오른쪽 스틱 | — |
+| 베이스 좌우 회전/몸통 상하 | 오른쪽 스틱 | — |
 | 누르는 동안 자유 시점, 놓으면 head 복귀 | 왼쪽 아래 그립 트리거 | — |
 | 놓으면 open, 당기면 close | 양쪽 위 검지 트리거 | — |
 
@@ -284,20 +284,30 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 HMD 시점 이동은 가상 시점 보정이며 실제 로봇의 머리 위치 관절을 추가하지 않는다.
 
 기본 `--controller-mapping absolute`는 위치 gain이나 이동량 누적을 사용하지 않는다.
-X는 시점을 head에 맞추고 손잡이와 tool의 방향 차이만 보정한다. 위치 오프셋을
-추가하지 않으므로 컨트롤러가 보이는 곳과 손끝 목표가 같다. 기본 `--arm-orientation-weight 0.5`는 위치와 손잡이 방향을 함께 추종한다.
-0은 방향 추종을 끄는 진단 옵션이다. 회전 목표가 관절 제한을 벗어나면 위치·방향 오차가 남을 수 있다. 보정 입력은 15cm/0.5rad, 관절 목표 변화는 물리
-스텝당 0.12rad 이내다. 남은 목표는 A/B 정지 또는 X 보정 때만 현재 자세로 바뀐다.
+X는 시점을 head에 맞추고 머리 기준을 재설정한다. 컨트롤러가 보이는 위치를 손끝 목표로 사용한다.
+S200062의 tool -Z(접근 방향)는 OpenXR aim -Z(검지 pointing), tool +X(집게 닫힘 축)는
+그 방향에 수직으로 투영한 grip -Z(엄지 쪽)에 맞춘다. X를 누를 때마다 임의의 회전 오프셋을
+저장하지 않는다. 실제 손가락 관절 측정은 아니며, 컨트롤러 좌표계로 검지·엄지 방향을 근사한다.
+aim이 없으면 grip -Y를 접근 방향으로 쓴다. 좌표 규약은
+[OpenXR specification](https://registry.khronos.org/OpenXR/specs/1.0-khr/html/xrspec.html)을 참고한다.
+기본 `--arm-orientation-weight 0.5`는 위치와 방향을 함께 추종하며, 0은 방향 추종을 끄는 진단 옵션이다.
+
+팔 IK는 제어 tick마다 한 번 계산하고 물리 substep 사이에는 같은 관절 목표를 유지한다.
+입력 필터 시정수는 45ms, 관절 속도/가속도 제한은 1.5rad/s, 12rad/s²다.
+중력 보상과 제한된 목표 누적으로 처짐을 줄이되, 관절 목표가 실제 값보다 0.1rad 이상
+앞서 누적되지 않게 한다. 도달 범위·관절 제한·물체 접촉 때문에 오차가 남을 수 있다.
+컨트롤러를 멈추거나 추적을 잃어도 남은 목표를 유지하며, A/B 정지 또는 X 보정 때만 현재 자세로 바뀐다.
 기존 상대 이동은 `--controller-mapping relative`; `--position-gain`은 이 모드에만 적용된다.
 
 스틱은 A/B로 따라오기를 켠 상태에서 작동한다. 최대 베이스 속도 0.25m/s,
-허리 yaw 0.5rad/s·±1.4rad, 몸통 높이는 초기 대비 0~+40cm·최대 0.12m/s다.
+베이스 yaw 최대 1.2rad/s(약 69°/s, 누적 회전 제한 없음), 몸통 높이는 초기 대비 0~+40cm·최대 0.12m/s다.
 높이는 knee/leg/waist pitch를 함께 제어해 몸통을 세운 채 조절한다.
 S200062 초기 자세는 높이 하한이므로 초기 상태의 아래 입력은 움직이지 않는다. 위로 올린 뒤 아래로 내린다.
 `[BODY]`에서 오른쪽 stick, enabled, 목표와 실제 관절값을 비교한다.
 왼쪽 아래 그립을 누른 자유 시점에서는 스틱 제어도 정지한다. 베이스는
-**fixed articulation root를 이동시키는 시뮬레이션용 평면 제어**다. 실제 바퀴 주행
-정책이나 충돌 회피가 아니므로 작은 입력으로 조작하고 물체 접촉 시 A로 멈춘다.
+**fixed articulation root의 위치·방향을 바꾸고 네 바퀴 회전을 동기화하는 시뮬레이션용 평면 제어**다.
+S200062 바퀴는 omni roller 대신 원통 collider를 사용하므로 이 모드에서는 바퀴 collider만 끈다.
+바퀴 접촉력으로 주행하는 모델이나 충돌 회피가 아니므로 작은 입력으로 조작하고 물체 접촉 시 A로 멈춘다.
 
 S200062 gripper의 관절 제한은 ±0.698rad이며 0rad는 거의 닫힌 자세다.
 열림은 f_bar_1/3=-0.25, b_bar_1/3=+0.25rad(메시 안쪽 간격 약 9cm),
@@ -307,6 +317,18 @@ S200062 gripper의 관절 제한은 ±0.698rad이며 0rad는 거의 닫힌 자�
 팔꿈치를 조금 굽힌 준비 자세로 생성한다. simulation PD stiffness/damping은
 팔 800/50, 몸통 지지 8000/200, 허리 yaw 800/50이며 기존 effort limit은 유지한다. 팔 게인은
 `--arm-stiffness`, `--arm-damping`으로 조절한다. 실물 로봇용 게인이 아니다.
+S200062 원본에서 관성이 누락된 손·카메라·좌표 링크가 USD에서 각각 1kg으로 들어가
+한쪽 손 부근에 약 16kg이 추가되어 있었다. Quest 환경은 이 34개 링크만
+`assets/kuavo_s200062/teleop_inertials.json`의 질량·COM·관성으로 보완한다(한쪽 합계 0.743kg).
+**시뮬레이션용 추정값이며 제조사 측정값이 아니다.** 관성은 메시 AABB의 균일 직육면체 근사다.
+작은 그리퍼 링크의 수치적 진동을 억제하기 위해 모터 armature 0.001kg·m²(추정),
+articulation solver iteration 32/8을 사용하며 gripper effort 상한 5Nm는 유지한다.
+URDF에 명시된 팔·몸통 관성과 원본 USD는 수정하지 않는다. 실물 동역학 일치를 위해서는 실제 부품 관성으로 교체해야 한다.
+
+HMD 회전은 보정 시 머리의 로컬 기준으로 계산한다. 왼쪽을 보면 head yaw 양수,
+위를 보면 head pitch 음수이며 베이스 회전과 분리한다. 매 프레임 이전 HMD 방향으로
+teleport하지 않고 anchor의 위치만 갱신하여 물리적인 머리 회전이 상쇄되지 않게 한다.
+
 높은 곳이 도달 범위를 벗어나면 오른쪽 스틱으로 몸통을 올린다. `[MOTION]`의
 목표 오차(mm)를 확인한다. 실제 물리 검증: `scripts/verify_quest_controls.py`.
 
@@ -323,7 +345,8 @@ LeRobot에는 같은 값이 `observation.openxr.left_controller`/`right_controll
 컨트롤러 모드에서 수집하지 않은 손가락 pose와 pinch는 NaN이다. 합성 손가락 데이터는 기록하지 않는다.
 입력/제어 모드나 action schema가 바뀌면 LeRobot도 새 dataset root를 사용한다.
 새 기본 action 24차원: 좌/우 tool xyz+qwqxqyqz(base frame), head yaw/pitch,
-좌/우 gripper, base forward/left 속도, knee/leg/waist pitch/yaw 목표. 이름은 `action_layout`에 저장한다.
+좌/우 gripper, base forward/left/yaw 속도, knee/leg/waist pitch 목표. 이름은 `action_layout`에 저장한다.
+기존 24차원과 길이는 같아도 마지막 6개 의미가 바뀌었으므로 파일의 이름 목록을 기준으로 해석한다.
 
 성공한 작업은 desktop Isaac Sim 창에서 `M`을 누른다. 별도 클라이언트의 `START`/`STOP`/`RESET`
 teleop message도 계속 지원하며, CloudXR.js sample에서 이 메시지를 보내지 않아도 위 버튼·PC 키를 사용할 수 있다.
@@ -677,3 +700,39 @@ S63 비교 모드는 `preview_quest_local.sh --robot-model s63 --gripper robotiq
 로봇 URDF에 직접 정의되어 있으므로 외장 gripper mount JSON을 사용하지 않는다.
 
 입력 축은 [OpenXR 규격](https://registry.khronos.org/OpenXR/specs/1.0-khr/html/xrspec.html#input-suggested-bindings)에 따라 +Y가 스틱 위쪽이다. WebXR Gamepad 원시 축 부호와 혼동하지 않는다.
+
+### 2026-09-01 팔·방향·베이스 회귀 검증
+
+30Hz 제어/120Hz 물리, S200062, CPU 물리, compact 환경에서 검증했다.
+실제 HMD 센서 노이즈나 네트워크 지연 측정과는 구분한다.
+
+| 검증 | 결과 |
+|---|---|
+| FK로 만든 도달 가능한 전방 파지 자세 | 양팔 위치 약 0.91mm, 방향 약 0.00185rad 오차 |
+| 방향 유지하며 위로 10cm | 위치 약 1.21mm 오차 |
+| 베이스 좌우 회전 | ±1.2rad/s 입력 1초 후 1.2rad 회전/원위치, 네 바퀴 회전 확인 |
+| 몸통 상하 | +24cm 목표에 +23.1cm, 내려오면 초기 높이 복귀 |
+| 머리 좌우·상하 | yaw ±0.3rad / pitch ∓0.2rad 목표, 방향·오차 검증 통과 |
+| 그리퍼 | 열림 약 90mm, 닫힘 약 2.5mm, reset 열림 |
+
+`verify_quest_stability.py`의 고정 목표 측정에서 높이 든 자세의 프레임 간 평균 이동은
+기존 약 2.49mm에서 0.21mm로 감소했다. 이 값에는 느린 수렴도 포함되므로 순수 센서 jitter로
+해석하지 않는다. 도달 가능한 전방 파지로 복귀한 뒤에는 위치 약 0.94mm 오차로 수렴했다.
+**손목을 아래로 유지한 높은 목표에는 아직 약 8.6cm, 그 자세로 복귀하는 8초 구간에는 약 11.2cm
+위치 오차가 남는다.** 특히 S200062 손목 마지막 관절 한계는 ±0.698rad(40°)이므로 모든 컨트롤러
+6D pose를 실현할 수 있는 것은 아니다. 목표를 버리거나 조용히 재보정하지는 않는다.
+
+```bash
+PYTHONPATH=src KUAVO_ROBOT_MODEL=s200062 python scripts/verify_quest_controls.py
+PYTHONPATH=src KUAVO_ROBOT_MODEL=s200062 python scripts/verify_quest_stability.py
+# XR runtime 환경을 먼저 불러온 뒤 실행. 합성 녹화는 artifacts/에만 저장한다.
+PYTHONPATH=src KUAVO_ROBOT_MODEL=s200062 python scripts/verify_quest_recording.py
+```
+
+이전 제어 비교는 이전 `teleop_ik.py`를 별도 경로에 추출하여
+`verify_quest_stability.py --legacy-ik <path> --legacy-physics`로 실행한다.
+실험은 다른 collector를 종료한 뒤 한 번에 하나만 실행한다.
+
+XR 녹화 중지·재시작 검증도 통과했다. 두 개의 서로 다른 HDF5에 각각 640×360 RGB
+88프레임이 저장됐고, head 회전에 따른 프레임 변화도 확인했다. 이 합성 녹화는 실제 demonstration이 아니다.
+단위·소켓 회귀 테스트 101개 통과. 실제 Quest 착용 상태의 방향 감각과 tracking noise는 재연결 후 별도 확인한다.

@@ -18,17 +18,17 @@ def test_native_openxr_up_moves_forward_and_lifts_torso_without_pitch():
     for _ in range(60):
         command = m.advance(packet(y=1), packet(y=1), 1/30, enabled=True)
     assert command[0] > 0
-    np.testing.assert_allclose(m._planar_position(command[2:4]), m.links.sum(axis=0) + [0, .24], atol=2e-5)
-    assert abs(command[2:5].sum()) < 1e-6
+    np.testing.assert_allclose(m._planar_position(command[3:5]), m.links.sum(axis=0) + [0, .24], atol=2e-5)
+    assert abs(command[3:6].sum()) < 1e-6
 
 
 def test_deadzone_loss_and_pause_stop_base_and_hold_waist():
     m = mapper()
     np.testing.assert_allclose(m.advance(packet(.1, -.1), packet(.1, -.1), .1, enabled=True), 0)
     active = m.advance(packet(x=1), packet(x=1, y=1), .1, enabled=True)
-    assert active[1] < 0 and active[-1] < 0
+    assert active[1] < 0 and active[2] < 0
     paused = m.advance(packet(1, 1), packet(1, 1), .1, enabled=False)
     lost = m.advance(None, None, .1, enabled=True)
-    np.testing.assert_allclose(paused[:2], 0)
-    np.testing.assert_allclose(paused[2:], active[2:])
+    np.testing.assert_allclose(paused[:3], 0)
+    np.testing.assert_allclose(paused[3:], active[3:])
     np.testing.assert_allclose(lost, paused)

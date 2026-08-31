@@ -104,6 +104,16 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
 
     def __post_init__(self) -> None:
         super().__post_init__()
+        from .robot_model import resolve_robot_model
+        if resolve_robot_model().name == "s200062":
+            from .teleop_inertials import spawn_teleop_robot
+            self.scene.robot.spawn.func = spawn_teleop_robot
+            # Missing rotor inertia makes tiny finger links numerically stiff
+            # under an implicit drive. This is a simulation estimate, like the
+            # missing link inertials; preserve the existing 5 Nm effort cap.
+            self.scene.robot.actuators["integrated_grippers"].armature = .001
+            self.scene.robot.spawn.articulation_props.solver_position_iteration_count = 32
+            self.scene.robot.spawn.articulation_props.solver_velocity_iteration_count = 8
         self.scene.num_envs = 1
         self.scene.env_spacing = 5.0
         self.episode_length_s = 3600.0

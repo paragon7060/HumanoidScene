@@ -11,48 +11,68 @@ import numpy as np
 Pose = np.ndarray  # [x, y, z, qw, qx, qy, qz]
 
 
-class AbsoluteControllerMapper:
-    """Align grip positions with robot tool positions in the same virtual world.
+def controller_gripper_orientation(grip_quat, aim_quat=None, tool_forward_sign=-1):
+    """Tool -Z points along index/aim; tool +X points toward the thumb.
 
-    Only orientation has a calibration offset, accounting for different grip
-    and robot tool axes. Position has no offset, integration, gain or clamping.
-    The IK action bounds convergence separately without discarding the goal.
+    OpenXR grip -Z runs from little finger toward thumb. Its -Y is the
+    fallback forward direction when aim is unavailable. Project the thumb
+    axis perpendicular to aim so the gripper closes in the thumb/index plane.
+    This is a controller-frame approximation, not tracked finger joints.
     """
+    forward = _quat_rotate(aim_quat, [0., 0., -1.]) if aim_quat is not None else _quat_rotate(grip_quat, [0., -1., 0.])
+    thumb = _quat_rotate(grip_quat, [0., 0., -1.])
+    x = thumb - np.dot(thumb, forward) * forward
+    if np.linalg.norm(x) < 1e-5:
+        x = _quat_rotate(grip_quat, [1., 0., 0.])
+        x -= np.dot(x, forward) * forward
+    x /= np.linalg.norm(x)
+    z = tool_forward_sign * forward / np.linalg.norm(forward)
+    y = np.cross(z, x)
+    rotation = np.column_stack((x, y, z))
+    # Davenport eigenvector conversion is stable even at 180 degrees.
+    r = rotation
+    k = np.array([
+        [r[0,0]-r[1,1]-r[2,2], r[0,1]+r[1,0], r[0,2]+r[2,0], r[2,1]-r[1,2]],
+        [r[0,1]+r[1,0], r[1,1]-r[0,0]-r[2,2], r[1,2]+r[2,1], r[0,2]-r[2,0]],
+        [r[0,2]+r[2,0], r[1,2]+r[2,1], r[2,2]-r[0,0]-r[1,1], r[1,0]-r[0,1]],
+        [r[2,1]-r[1,2], r[0,2]-r[2,0], r[1,0]-r[0,1], np.trace(r)],
+    ]) / 3.
+    _, vectors = np.linalg.eigh(k)
+    quat = vectors[:, -1][[3, 0, 1, 2]]
+    return quat if quat[0] >= 0 else -quat
 
-    def __init__(self):
+
+class AbsoluteControllerMapper:
+    """Use absolute grip position and a fixed anatomical tool-axis convention."""
+
+    def __init__(self, tool_forward_sign=-1):
+        if tool_forward_sign not in (-1, 1):
+            raise ValueError("Tool forward sign must be -1 (S200062) or +1 (S63/Robotiq)")
+        self._tool_forward_sign = tool_forward_sign
         self.reset()
 
     def reset(self):
-        self._orientation_offsets = {}
         self._goals_w = {}
 
-    def hold(self, side: str, tool_pose_w: Pose):
+    def hold(self, side, tool_pose_w):
         self._goals_w[side] = np.asarray(tool_pose_w, dtype=float).copy()
 
-    def target(self, side: str, controller, tool_pose_w: Pose, root_pose_w: Pose, *, following: bool):
+    def target(self, side, controller, tool_pose_w, root_pose_w, *, following, aim_pose=None):
         root = np.asarray(root_pose_w)
         tool = np.asarray(tool_pose_w)
         packet = None if controller is None else np.asarray(controller)
         valid = (packet is not None and packet.shape == (2, 7)
                  and np.all(np.isfinite(packet)) and _valid_pose(packet[0]))
-        if valid and side not in self._orientation_offsets:
-            self._orientation_offsets[side] = _quat_multiply(
-                _quat_conjugate(_normalized_quat(packet[0, 3:])), _normalized_quat(tool[3:])
-            )
         if not following or side not in self._goals_w:
             self.hold(side, tool)
         if following and valid:
-            self._goals_w[side] = np.concatenate((
-                packet[0, :3], _normalized_quat(_quat_multiply(
-                    _normalized_quat(packet[0, 3:]), self._orientation_offsets[side]
-                )),
-            ))
+            aim_quat = np.asarray(aim_pose)[3:] if _valid_pose(aim_pose) else None
+            self._goals_w[side] = np.concatenate((packet[0, :3], controller_gripper_orientation(
+                packet[0, 3:], aim_quat, self._tool_forward_sign)))
         goal = self._goals_w[side]
         inverse = _quat_conjugate(_normalized_quat(root[3:]))
-        return np.concatenate((
-            _quat_rotate(inverse, goal[:3] - root[:3]),
-            _normalized_quat(_quat_multiply(inverse, goal[3:])),
-        )).astype(np.float32)
+        return np.concatenate((_quat_rotate(inverse, goal[:3] - root[:3]),
+                               _normalized_quat(_quat_multiply(inverse, goal[3:])))).astype(np.float32)
 
 
 @dataclass(frozen=True)
@@ -256,13 +276,14 @@ class BimanualTeleopMapper:
             self._head_neutral = head_pose.copy()
             return self._filtered_head.copy(), True
 
-        delta_world = _quat_multiply(
-            _normalized_quat(head_pose[3:]),
-            _quat_conjugate(_normalized_quat(self._head_neutral[3:])),
-        )
-        root = _normalized_quat(root_quat_w)
-        delta_base = _quat_multiply(_quat_multiply(_quat_conjugate(root), delta_world), root)
-        pitch, yaw = _quat_to_pitch_yaw(delta_base)
+        # HMD local axes are +X right, +Y up, -Z forward. Extract
+        # heading from the look ray in the neutral *head* frame; world Euler
+        # angles couple nod/roll after recenter or base turning.
+        relative = _quat_multiply(_quat_conjugate(_normalized_quat(self._head_neutral[3:])),
+                                  _normalized_quat(head_pose[3:]))
+        forward = _quat_rotate(relative, [0., 0., -1.])
+        yaw = math.atan2(-float(forward[0]), -float(forward[2]))
+        pitch = math.atan2(-float(forward[1]), float(np.hypot(forward[0], forward[2])))
         target = np.array(
             [
                 np.clip(yaw + self._head_offset[0], -self.cfg.head_yaw_limit_rad, self.cfg.head_yaw_limit_rad),

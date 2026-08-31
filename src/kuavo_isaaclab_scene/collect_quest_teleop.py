@@ -263,7 +263,8 @@ from .teleop_env import (
     KuavoQuestTeleopEnvCfg,
     set_domain_randomization,
 )
-from .teleop_mapping import AbsoluteControllerMapper, BimanualTeleopMapper, TeleopMappingCfg
+from .teleop_mapping import (AbsoluteControllerMapper, BimanualTeleopMapper, TeleopMappingCfg,
+                             _quat_multiply, _quat_conjugate, _quat_to_pitch_yaw)
 from .teleop_body import BODY_ACTION_NAMES, BODY_JOINTS, TeleopBodyMapper, controller_axis
 from .teleop_scene import configure_scene_detail
 from .paths import ASSET_DIR
@@ -422,7 +423,7 @@ def main() -> None:
             rotation_gain=args_cli.rotation_gain,
         )
     )
-    absolute_mapper = AbsoluteControllerMapper()
+    absolute_mapper = AbsoluteControllerMapper(tool_forward_sign=-1 if args_cli.robot_model == "s200062" else 1)
     urdf = (ASSET_DIR / "kuavo_s200062/urdf/biped_s200062.urdf" if args_cli.robot_model == "s200062"
             else ASSET_DIR / "kuavo_s63/urdf/kuavo_s63.urdf")
     body_mapper = TeleopBodyMapper(urdf)
@@ -511,8 +512,7 @@ def main() -> None:
     held_absolute_targets[2:] = 1.0  # Binary gripper actions: nonnegative=open, negative=close.
     free_view = False
     view_initialized = False
-    waist_yaw_id = robot.find_joints("waist_yaw_joint")[0][0]
-    last_waist_yaw = float(robot.data.joint_pos[0, waist_yaw_id])
+    last_base_quat = _to_numpy(robot.data.root_quat_w[0]).copy()
     arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
     for term in arm_terms:
         term.orientation_weight = args_cli.arm_orientation_weight
@@ -524,7 +524,7 @@ def main() -> None:
             term.hold_current_pose()
 
     def reset_simulation() -> None:
-        nonlocal episode_steps, free_view, view_initialized, last_waist_yaw
+        nonlocal episode_steps, free_view, view_initialized, last_base_quat
         env.reset()
         xr_device.reset()
         mapper.reset()
@@ -534,7 +534,7 @@ def main() -> None:
         held_absolute_targets[2:] = 1.0
         free_view = False
         view_initialized = False
-        last_waist_yaw = float(robot.data.joint_pos[0, waist_yaw_id])
+        last_base_quat = _to_numpy(robot.data.root_quat_w[0]).copy()
         episode_steps = 0
 
     def finish_episode(success: bool, reason: str) -> None:
@@ -558,10 +558,10 @@ def main() -> None:
     print("[CONTROL] Quest START/STOP/RESET or desktop P=start/stop, R=reset, M=finish as success.")
     print("[CONTROL] C=recenter/calibrate, T=motion preview without recording, H=camera overlay on/off.")
     print("[CONTROL] Quest controllers: X=calibrate, A=motion start/stop, B=record start/stop, Y=panels on/off.")
-    print("[CONTROL] Left stick=base forward/strafe; right stick=waist yaw/lift; left squeeze=hold free view. "
+    print("[CONTROL] Left stick=base forward/strafe; right stick=base turn/body lift; left squeeze=hold free view. "
           "Release squeeze to return to robot head. Index triggers: released=open, pressed=close.")
     print("[CONTROL] Arm motion is paused until P starts recording or T enables motion preview.")
-    print(f"[CONTROL] Arm mapping: {'absolute VR grip position, calibrated tool orientation' if absolute_control else 'persistent relative pose'}; "
+    print(f"[CONTROL] Arm mapping: {'absolute VR grip position, index/aim forward, thumb closing axis' if absolute_control else 'persistent relative pose'}; "
           f"orientation weight={args_cli.arm_orientation_weight:.2f} (0=position only). "
           "While following, the last valid goal is retained on tracking loss; A explicitly stops motion.")
     print(f"[CONTROL] Session limit: {args_cli.max_episodes or 'unlimited'} episodes; "
@@ -635,7 +635,7 @@ def main() -> None:
                     mapper.reset(head_target=held_absolute_targets[:2])
                     absolute_mapper.reset()
                     hold_arms()
-                    print("[CALIBRATION] View centered at Kuavo head camera; tool orientation calibrated from current controller orientation. "
+                    print("[CALIBRATION] View centered at Kuavo head camera; fixed index/thumb tool axes retained. "
                           "A starts following the controller's actual VR position. Motion preview OFF.")
 
             raw = xr_device.advance()
@@ -741,8 +741,10 @@ def main() -> None:
                     {
                         "seed": args_cli.seed,
                         "input_mode": args_cli.input_mode,
-                        "arm_control": "absolute_controller_pose_v1" if absolute_control else "persistent_relative_pose_v1",
+                        "arm_control": "absolute_controller_pose_v2" if absolute_control else "persistent_relative_pose_v1",
                         "arm_orientation_weight": args_cli.arm_orientation_weight,
+                        "tool_orientation_mapping": ("approach=-aimZ; jaw_X=projected_-gripZ"
+                                                     if absolute_control else "relative_rotation"),
                         "xr_resolution_scale": args_cli.xr_resolution_scale,
                         "render_quality": args_cli.render_quality,
                         "record_depth": args_cli.record_depth,
@@ -750,7 +752,8 @@ def main() -> None:
                         "wrist_cameras_enabled": args_cli.wrist_cameras,
                         "control_dt": float(env.step_dt),
                         "action_layout": ",".join(action_names + BODY_ACTION_NAMES),
-                        "base_control": "kinematic_fixed_root_xy_v1",
+                        "base_control": "kinematic_fixed_root_xy_yaw_v2",
+                        "hand_inertials": "s200062_sim_estimates_v1" if args_cli.robot_model == "s200062" else "source_usd",
                         "joint_names": state_names,
                         "hand_joint_names": HAND_JOINT_NAMES,
                         "box_scene_keys": box_names,
@@ -808,6 +811,7 @@ def main() -> None:
                     arm_goals.append(absolute_mapper.target(
                         side, None if free_view else packet, tool_pose, root_pose,
                         following=recorder.recording or preview_enabled,
+                        aim_pose=xr_device.controller_aim_pose(side),
                     ))
                 action_np = np.concatenate((*arm_goals, action_np[12:]))
             body_action = body_mapper.advance(left_controller, right_controller, env.step_dt,
@@ -815,10 +819,11 @@ def main() -> None:
             action_np = np.concatenate((action_np, body_action))
             for term in arm_terms:
                 term.set_following(recorder.recording or preview_enabled)
-            waist_yaw = float(robot.data.joint_pos[0, waist_yaw_id])
+            base_delta = _quat_multiply(root_quat, _quat_conjugate(last_base_quat))
+            base_yaw_delta = _quat_to_pitch_yaw(base_delta)[1]
             if head_pose is not None and not free_view:
-                xr_device.pin_view_position(head_camera_pose()[0], waist_yaw - last_waist_yaw)
-            last_waist_yaw = waist_yaw
+                xr_device.pin_view_position(head_camera_pose()[0], base_yaw_delta)
+            last_base_quat = root_quat.copy()
             action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
             if desktop_viewport is not None:
                 # XR + disabled desktop viewport stops RTX annotator output
@@ -864,8 +869,8 @@ def main() -> None:
                     print(f"[BODY] right stick={controller_axis(right_controller, 0):.2f}/"
                           f"{controller_axis(right_controller, 1):.2f}; enabled="
                           f"{(recorder.recording or preview_enabled) and not free_view}; "
-                          f"height goal={body_mapper.height:.3f} m; "
-                          f"joint goal={np.round(body_action[2:], 3).tolist()}; "
+                          f"base yaw rate={body_action[2]:.2f} rad/s; height goal={body_mapper.height:.3f} m; "
+                          f"joint goal={np.round(body_action[3:], 3).tolist()}; "
                           f"actual={np.round(actual_body, 3).tolist()}", flush=True)
                 last_ee_positions = positions.copy()
                 last_motion_report = time.perf_counter()

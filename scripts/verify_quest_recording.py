@@ -22,7 +22,32 @@ from kuavo_isaaclab_scene.teleop_recorder import TeleopHdf5EpisodeRecorder, new_
 from kuavo_isaaclab_scene.quest_openxr import start_quest_xr_session
 
 
+def verify_anchor_motion():
+    from types import SimpleNamespace
+    from pxr import Gf
+    from kuavo_isaaclab_scene.quest_openxr import RawQuestOpenXRDevice
+    state = {"anchor": Gf.Matrix4d(1.), "head": Gf.Matrix4d(1.)}
+    state["head"].SetTranslateOnly(Gf.Vec3d(.2, .1, 1.4))
+    core = SimpleNamespace(
+        get_input_device=lambda path: SimpleNamespace(get_virtual_world_pose=lambda: state["head"]),
+        get_world_transform_matrix=lambda path: state["anchor"],
+        set_world_transform_matrix=lambda path, value: state.update(anchor=value),
+    )
+    device = SimpleNamespace(_xr_core=core, _xr_anchor_headset_path="/World/TestAnchor")
+    RawQuestOpenXRDevice.pin_view_position(device, [.3, .1, 1.4])
+    np.testing.assert_allclose(np.array(state["anchor"])[:3, :3], np.eye(3), atol=1e-8)
+    np.testing.assert_allclose(state["anchor"].ExtractTranslation(), [.1, 0, 0], atol=1e-8)
+    # A fresh physical head turn must never be copied back into the anchor.
+    state["head"].SetRotateOnly(Gf.Rotation(Gf.Vec3d(0, 0, 1), 25))
+    RawQuestOpenXRDevice.pin_view_position(device, [.3, .1, 1.4])
+    np.testing.assert_allclose(np.array(state["anchor"])[:3, :3], np.eye(3), atol=1e-8)
+    RawQuestOpenXRDevice.pin_view_position(device, [.3, .1, 1.4], .2)
+    np.testing.assert_allclose(float(state["anchor"].ExtractRotation().GetAngle()), np.degrees(.2), atol=1e-5)
+    print("[VERIFY] Anchor translation preserves head turn; base yaw rotates anchor positively.", flush=True)
+
+
 def main():
+    verify_anchor_motion()
     cfg = KuavoQuestTeleopEnvCfg()
     cfg.sim.device = "cpu"
     cfg.scene.left_wrist_camera = cfg.scene.right_wrist_camera = None

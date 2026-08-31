@@ -203,13 +203,15 @@ openssl x509 -in "$CLOUDXR_CERTIFICATE" -noout -dates -fingerprint -sha256
 
 ### 현재 조작·성능 기본값
 
-왼쪽 스틱은 베이스 전후/좌우 이동, 오른쪽 스틱은 허리 yaw/높이 조절이다.
-A/B로 따라오기를 켠 뒤 사용한다. 베이스는 simulation fixed-root 이동이다.
+왼쪽 스틱은 베이스 전후/좌우 이동, 오른쪽 스틱은 베이스 yaw(최대 1.2rad/s)/몸통 높이 조절이다.
+A/B로 따라오기를 켠 뒤 사용한다. 베이스는 simulation fixed-root 이동·회전이며 바퀴 회전을 동기화한다. 접촉력 기반 주행은 아니다.
 시점은 robot head에 붙으며 왼쪽 아래 그립을 누르는 동안 room-scale 자유 시점이다.
 자유 시점에서는 새 팔·몸통 명령을 멈추고 기존 팔 목표를 유지한다.
 양쪽 위 검지 트리거는 놓으면 open, 당기면 close이며 생성·R 리셋도 open이다.
 기본은 absolute 위치 매핑, depth OFF, 추가 PC 렌더는 센서 사용 시에만 160×90로 유지, CPU 물리/IK와 GPU RTX 렌더다.
-`--arm-orientation-weight 0.5`가 기본이며 손잡이 방향도 추종한다.
+`--arm-orientation-weight 0.5`가 기본이며 검지 pointing/엄지 축을 그리퍼 접근/닫힘 축에 대응시킨다.
+머리는 보정된 HMD 로컬 기준으로 좌우/상하를 계산한다. 팔 제어·질량 보완 내용은
+[조작·물리 설정](QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)을 참고한다.
 `--scene-detail compact`로 불필요한 배경 props와 legacy bodies를 제거하되 재질은 유지한다.
 원래 배경과 비교하려면 `--scene-detail full`을 사용한다.
 `--control-hz 60`과 실제 wall-clock 60Hz는 다르므로 `[PERF]`로 확인한다.

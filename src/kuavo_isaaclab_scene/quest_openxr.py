@@ -121,6 +121,21 @@ class RawQuestOpenXRDevice(OpenXRDevice):
             packet[0] = [*position, quat.GetReal(), *quat.GetImaginary()]
         return packet
 
+    def controller_aim_pose(self, hand):
+        """Aim -Z is the controller's pointing direction; grip -Z faces thumb."""
+        import numpy as np
+        from omni.kit.xr.core import XRPoseValidityFlags
+        device = self._xr_core.get_input_device(f"/user/hand/{hand}")
+        if device is None or not device.has_pose("aim"):
+            return None
+        desc = device.get_virtual_world_pose_desc("aim")
+        required = XRPoseValidityFlags.POSITION_VALID | XRPoseValidityFlags.ORIENTATION_VALID
+        if desc.validity_flags & required != required:
+            return None
+        pose = device.get_virtual_world_pose("aim")
+        q = pose.ExtractRotationQuat()
+        return np.array([*pose.ExtractTranslation(), q.GetReal(), *q.GetImaginary()])
+
     def bind_button(self, hand: str, button: str, callback: Callable[[], None]) -> None:
         """Bind a controller press, including devices that connect later."""
         if hand not in {"left", "right"}:
@@ -149,15 +164,20 @@ class RawQuestOpenXRDevice(OpenXRDevice):
         core.schedule_teleport_to_view(self._xr_anchor_headset_path, view_pose)
 
     def pin_view_position(self, camera_position_w, body_yaw_delta=0.0):
-        """Attach the eye position without cancelling low-latency HMD rotation."""
-        import math
+        """Move the anchor, without teleporting to an old HMD orientation."""
         from pxr import Gf
         head = self._xr_core.get_input_device("/user/head")
         if head is None:
             return
-        rotation = head.get_virtual_world_pose().ExtractRotationQuat()
-        rotation = Gf.Quatd(math.cos(body_yaw_delta / 2), Gf.Vec3d(0, 0, math.sin(body_yaw_delta / 2))) * rotation
-        self.recenter_view(camera_position_w, [rotation.GetReal(), *rotation.GetImaginary()])
+        # Teleporting every tick to the *previous* virtual head orientation
+        # cancels the next physical turn. Update the stage anchor transform
+        # directly so fresh HMD rotation continues through XR's own pipeline.
+        position = head.get_virtual_world_pose().ExtractTranslation()
+        delta = Gf.Matrix4d(1.0)
+        delta.SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), float(body_yaw_delta) * 180.0 / 3.141592653589793))
+        delta.SetTranslateOnly(Gf.Vec3d(*[float(v) for v in camera_position_w]) - delta.TransformDir(position))
+        anchor = self._xr_core.get_world_transform_matrix(self._xr_anchor_headset_path)
+        self._xr_core.set_world_transform_matrix(self._xr_anchor_headset_path, anchor * delta)
 
     def advance(self) -> dict[Any, Any]:
         """Poll the upstream device without applying an Isaac Lab retargeter."""

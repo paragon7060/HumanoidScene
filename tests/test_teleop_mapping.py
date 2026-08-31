@@ -30,17 +30,24 @@ def test_absolute_controller_loss_retains_goal_but_explicit_pause_holds_actual_t
     np.testing.assert_allclose(resumed[:3], packet[0, :3], atol=1e-6)
 
 
-def test_absolute_orientation_calibration_preserves_tool_axes_without_position_offset():
+def test_absolute_orientation_uses_finger_axes_independent_of_robot_pose_or_calibration():
+    from kuavo_isaaclab_scene.teleop_mapping import _quat_rotate
     mapper = AbsoluteControllerMapper()
     root = np.array([0., 0., 0., 1., 0., 0., 0.])
     tool = np.array([.2, .1, 1., 1., 0., 0., 0.])
-    packet = np.array([[.5, .2, 1.2, np.sqrt(.5), 0., 0., np.sqrt(.5)], [0.] * 7])
-    first = mapper.target("left", packet, tool, root, following=True)
-    np.testing.assert_allclose(first[:3], packet[0, :3], atol=1e-6)
-    np.testing.assert_allclose(first[3:], tool[3:], atol=1e-6)
-    packet[0, 3:] = [0., 0., 0., 1.]
-    turned = mapper.target("left", packet, tool, root, following=True)
-    np.testing.assert_allclose(turned[3:], [np.sqrt(.5), 0., 0., np.sqrt(.5)], atol=1e-6)
+    packet = np.array([[.5, .2, 1.2, 1., 0., 0., 0.], [0.] * 7])
+    aim = np.array([.5, .2, 1.2, np.sqrt(.5), -np.sqrt(.5), 0., 0.])
+    first = mapper.target("left", packet, tool, root, following=True, aim_pose=aim)
+    # Aim -Z -> -Y for this synthetic controller; thumb is grip -Z.
+    np.testing.assert_allclose(_quat_rotate(first[3:], [0, 0, -1]), [0, -1, 0], atol=1e-6)
+    np.testing.assert_allclose(_quat_rotate(first[3:], [1, 0, 0]), [0, 0, -1], atol=1e-6)
+    mapper.reset(); tool[3:] = [0., 1., 0., 0.]
+    again = mapper.target("right", packet, tool, root, following=True, aim_pose=aim)
+    np.testing.assert_allclose(again, first, atol=1e-6)
+    s63 = AbsoluteControllerMapper(tool_forward_sign=1).target(
+        "left", packet, tool, root, following=True, aim_pose=aim)
+    np.testing.assert_allclose(_quat_rotate(s63[3:], [0, 0, 1]), [0, -1, 0], atol=1e-6)
+    np.testing.assert_allclose(_quat_rotate(s63[3:], [1, 0, 0]), [0, 0, -1], atol=1e-6)
 
 
 def _hand(x: float, orientation=(1.0, 0.0, 0.0, 0.0)):
@@ -94,7 +101,7 @@ def test_reclutch_hands_preserves_head_reference_and_prevents_arm_jump():
     root = np.array([1.0, 0.0, 0.0, 0.0])
     head = np.array([0.0, 0.0, 1.6, 1.0, 0.0, 0.0, 0.0])
     mapper.advance(_hand(0.2), _hand(-0.2), head, root)
-    head[3:] = [np.cos(0.2), 0.0, 0.0, np.sin(0.2)]
+    head[3:] = [np.cos(0.2), 0.0, np.sin(0.2), 0.0]
     turned = mapper.advance(_hand(0.3), _hand(-0.1), head, root)
     mapper.reset_hands()
     reclutched = mapper.advance(_hand(1.0), _hand(0.9), head, root)
@@ -107,7 +114,7 @@ def test_recenter_uses_current_head_direction_as_neutral():
     root = np.array([1.0, 0.0, 0.0, 0.0])
     head = np.array([0.0, 0.0, 1.6, 1.0, 0.0, 0.0, 0.0])
     mapper.advance(_hand(0.2), _hand(-0.2), head, root)
-    head[3:] = [np.cos(0.3), 0.0, 0.0, np.sin(0.3)]
+    head[3:] = [np.cos(0.3), 0.0, np.sin(0.3), 0.0]
     assert abs(mapper.advance(_hand(0.2), _hand(-0.2), head, root).action[12]) > 0.1
     mapper.reset()
     centered = mapper.advance(_hand(0.2), _hand(-0.2), head, root)
@@ -149,3 +156,16 @@ def test_invalid_controller_packets_never_move_arms():
         mapped = mapper.advance_controllers(packet, packet, None, np.array([1., 0., 0., 0.]))
         assert not mapped.bimanual_valid
         np.testing.assert_allclose(mapped.action[:12], 0.0)
+
+
+def test_head_turn_and_nod_signs_follow_hmd_and_ignore_base_yaw():
+    for root in ([1., 0, 0, 0], [np.sqrt(.5), 0, 0, np.sqrt(.5)]):
+        mapper = BimanualTeleopMapper(TeleopMappingCfg(head_smoothing=1.0))
+        neutral = np.array([0., 0., 1.6, 1., 0., 0., 0.])
+        mapper._head_target(neutral, root)
+        left = neutral.copy(); left[3:] = [np.cos(.15), 0, np.sin(.15), 0]
+        command, _ = mapper._head_target(left, root)
+        np.testing.assert_allclose(command, [.3, 0], atol=1e-6)
+        up = neutral.copy(); up[3:] = [np.cos(.1), np.sin(.1), 0, 0]
+        command, _ = mapper._head_target(up, root)
+        np.testing.assert_allclose(command, [0, -.2], atol=1e-6)
