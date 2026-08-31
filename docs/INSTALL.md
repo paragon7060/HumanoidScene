@@ -202,7 +202,7 @@ Shelf numbers are `1=bottom`, `2=middle`, and `3=top`. Each box size has two
 instances. See [the workcell guide](ISAACSIM_WORKCELL_GUIDE.md) for editing,
 rotation/scale capture, and respawn.
 
-## 5. Meta Quest hand tracking and data collection
+## 5. Meta Quest controller/hand tracking and data collection
 
 처음 구성한다면 [README의 Quest 설치·연결·첫 수집 안내](../README.md#quest-collection)를
 먼저 따른다. 공식 SDK/`.tgz` 다운로드, OpenXR JSON 설정, Linux 런타임 서비스의
@@ -235,17 +235,27 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 ./quest_doctor.sh --require-runtime
 ./collect_quest_teleop.sh \
   --dataset-format hdf5 \
-  --dataset datasets/kuavo_quest_teleop.hdf5 \
   --rack-boxes '1:small*2;2:medium,large;3:xlarge*2'
 ```
 
-The collector enables Isaac Lab OpenXR, maps both tracked hands to Kuavo arm
-targets, records head/wrist cameras, and shows the head camera with wrist-camera
-overlays in the headset. The desktop Isaac Sim UI can also display the camera
-feeds in small viewport windows.
+The collector enables Isaac Lab OpenXR, maps both tracked controllers to Kuavo arm
+targets, and records head/wrist cameras. The headset keeps the native stereo
+scene in the center with two small wrist-camera panels at the upper left/right.
+The desktop Isaac Sim UI can also display the camera feeds in small viewports.
+For initial setup, add `--no-auto-start`, then use Quest X (desktop C) to recenter,
+A (T) to toggle motion preview, B (P) to toggle recording, and Y (H) to hide/show
+the panels. The default `--input-mode controllers` uses grip position/rotation
+for arm motion and each index trigger for its gripper. Use `--input-mode hands`
+for bare-hand wrist/pinch tracking instead; modes never switch automatically.
+See the [control guide](QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어).
+
+Each invocation creates a separate timestamped HDF5 file in `datasets/` and
+prints its path. Explicit `--dataset` paths must not already exist; HDF5 sessions
+are never automatically appended to or overwritten. Use `--max-episodes 1` to
+keep each collected attempt in a separate file.
 
 `RawQuestOpenXRDevice` compatibility adapter explicitly enables raw hand/head
-tracking in Isaac Lab v2.3.2 while leaving Kuavo's existing calibration,
+or controller tracking in Isaac Lab v2.3.2 while leaving Kuavo's calibration,
 smoothing, safety clamp, and differential-IK mapper in control of the action.
 
 CloudXR Runtime, the Quest client, and the proprietary CloudXR npm package are

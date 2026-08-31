@@ -20,7 +20,7 @@ HMD yaw/pitch → zhead_1_joint / zhead_2_joint
         ↓
 ManagerBasedRLEnv + Kuavo head/wrist RGB cameras
         ↓ XRSceneView head-locked compositor
-head RGB full-screen + left/right wrist overlays
+native stereo scene + small upper-left/right wrist overlays
         ↓
 HDF5 recorder / isolated LeRobot Dataset v3 writer
 ```
@@ -34,7 +34,7 @@ HDF5 recorder / isolated LeRobot Dataset v3 writer
 - `src/kuavo_isaaclab_scene/teleop_recorder.py`: RAM에 누적하지 않는 HDF5 writer
 - `src/kuavo_isaaclab_scene/teleop_lerobot_recorder.py`: Isaac Lab과 별도 v3 writer process 사이의 recorder client
 - `src/kuavo_isaaclab_scene/lerobot_writer_worker.py`: LeRobot v3 `create/resume/add_frame/save_episode/finalize` worker
-- `src/kuavo_isaaclab_scene/xr_camera_overlay.py`: Quest head-locked head/wrist camera compositor
+- `src/kuavo_isaaclab_scene/xr_camera_overlay.py`: Quest head-locked small wrist-camera panels
 - `src/kuavo_isaaclab_scene/collect_quest_teleop.py`: 실행/episode 제어
 - `collect_quest_teleop.sh`: 루트 실행 wrapper
 
@@ -55,10 +55,10 @@ Isaac Lab v2.3.2의 `OpenXRDevice`는 retargeter requirement에 따라 조회할
 `--robot-model s63`에서는 기존 외장 8-joint Robotiq 기반 claw를 사용한다.
 따라서 현재 구현은:
 
-- Quest 손목 위치/회전으로 양팔을 제어한다.
-- thumb-index pinch 거리와 양손 26개 관절은 데이터에 저장한다.
-- thumb-index 거리가 0.055 m 이하이면 같은 쪽 gripper를 닫고, 그보다 크거나
-  tracking이 유효하지 않으면 연다.
+- 기본 모드는 Quest 컨트롤러의 위치/회전으로 양팔을 제어하고 검지 트리거로 gripper를 조작한다.
+- `--input-mode hands`에서는 손목 위치/회전, thumb-index pinch 거리와 양손 26개 관절을 사용·저장한다.
+- 맨손 모드는 thumb-index 거리가 0.055 m 이하이면 같은 쪽 gripper를 닫고, 그보다 크거나
+  tracking이 유효하지 않으면 연다. 컨트롤러 모드는 tracking 손실 시 마지막 gripper 목표를 유지한다.
 - `--gripper none`으로 기존 14-D handless teleop action도 재현할 수 있다.
 
 다른 hand USD와 mount pose는 [Gripper configuration](GRIPPER_CONFIGURATION.md)의
@@ -244,16 +244,54 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 
 ## 4. 조작 및 episode 제어
 
-기본값은 `--auto-start`다. 양손 tracking이 유효해지면 자동으로 recording을 시작한다.
+기본 입력은 **컨트롤러**(`--input-mode controllers`)다. 컨트롤러를 들고 조작한다.
+위치·회전 변화가 같은 쪽 팔에 연결되고, 검지 트리거를 절반 이상 당기면 그리퍼를
+닫고 놓으면 연다. 입력을 잃으면 해당 팔과 그리퍼를 유지하고, 재인식 첫 프레임은
+팔 보정에만 쓴다. `--input-mode hands`는 기존 맨손 wrist·pinch 모드를 선택한다.
+모드는 실행 시 고정되며 추적 손실을 이유로 서로 전환하지 않는다.
 
-| 동작 | Quest teleop message | Isaac Sim desktop key |
+기본값은 `--auto-start`다. 선택한 양쪽 입력 tracking이 유효해지면 자동으로 recording을 시작한다.
+
+처음에는 `--no-auto-start`를 권장한다. 아래 버튼은 OpenXR controller press에
+연결되어 있으며, 누르면 수집기 터미널에 `[BUTTON] X pressed ...` 같은 로그가 찍힌다.
+
+| 동작 | Quest 컨트롤러 | Isaac Sim desktop key |
 |---|---|---|
-| recording 시작 | `START` | `P` |
-| recording 종료/실패 | `STOP` | `P` |
-| 환경 reset/현재 시도 실패 종료 | `RESET` | `R` |
-| 성공 demonstration으로 종료 | - | `M` |
+| 시점·자세 보정 | 왼쪽 `X` | `C` |
+| 저장 없이 따라오기 시작/멈춤 | 오른쪽 `A` | `T` |
+| recording 시작/종료(실패) | 오른쪽 `B` | `P` |
+| 손목 패널 표시/숨김 | 왼쪽 `Y` | `H` |
+| 환경 reset/현재 시도 실패 종료 | — | `R` |
+| 성공 demonstration으로 종료 | — | `M` |
 
-성공한 작업은 desktop Isaac Sim 창에서 `M`을 누른다. 현재 CloudXR.js simple sample이 START/STOP/RESET message를 보내지 않아도 `--auto-start`와 desktop key를 사용할 수 있다.
+1. 편한 자세로 정면을 보고 `X`/`C`를 누른다. 현재 HMD 시점을 Kuavo head camera
+   위치·방향에 맞추고 손·머리 움직임의 기준을 다시 잡는다. 따라오기는 꺼진다.
+2. 양쪽 컨트롤러를 보이고 `[TRACKING] left=True, right=True, head=True input=controllers`를 확인한다.
+   `A`/`T`를 눌러 저장 없이 따라오기를 켜고 작은 움직임부터 시험한다.
+3. `B`/`P`로 녹화를 시작한다. 양쪽 입력 추적이 유효해야 실제 녹화가 시작된다.
+   추적 대기 중에는 `REC WAIT`가 표시되고 `B`/`P`를 다시 누르면 예약이 취소된다.
+4. 성공이면 PC에서 `M`, 실패/중단이면 `B`/`P`를 누른다. 녹화 중 `A`/`T`를
+   눌러도 따라오기를 멈추고 현재 녹화를 실패로 종료한다.
+
+보정은 녹화 중 차단된다. 따라오기만 멈출 때는 마지막 머리·그리퍼 목표를
+유지하고 팔 이동 명령을 0으로 만든다. 에피소드 종료/환경 reset은 초기 장면으로
+되돌린다. HMD 시점 이동은 가상 시점 보정이며 실제 로봇의 머리 위치 관절을 추가하지 않는다.
+
+**맨손 모드에서는 버튼과 손 추적이 별개다.** `--input-mode hands`로 실행했다면
+컨트롤러를 잡을 때 Quest가 맨손 추적을 중단할 수 있다. 이 경우 버튼을 누른 뒤
+컨트롤러를 내려놓고 양손을 보이거나 PC 키를 쓴다. 기본 controllers 모드에는 해당하지 않는다.
+패널에는 `FOLLOW ON/OFF`, `REC ON/OFF/WAIT`, 입력이 없으면 `CHECK CTRL` 또는 `CHECK HANDS`가 표시된다.
+버튼 로그가 없으면 controller 입력 전달을 확인하고 PC 키를 사용한다.
+
+컨트롤러 모드 HDF5에는 `openxr_left_controller`/`openxr_right_controller`를 `[2,7]`로
+추가 저장한다. 첫 행은 `x,y,z,qw,qx,qy,qz`, 둘째는 `stick_x,stick_y,trigger,squeeze,button_0,button_1,reserved`다.
+LeRobot에는 같은 값이 `observation.openxr.left_controller`/`right_controller`의 14차원 벡터로 저장된다.
+에피소드 metadata의 `input_mode`가 모드를 나타내며, `tracking_valid`의 left/right는 선택한 입력의 유효성이다.
+컨트롤러 모드에서 수집하지 않은 손가락 pose와 pinch는 NaN이다. 합성 손가락 데이터는 기록하지 않는다.
+입력 모드를 바꾸면 LeRobot도 새 dataset root를 사용한다(컨트롤러 필드 유무가 달라짐).
+
+성공한 작업은 desktop Isaac Sim 창에서 `M`을 누른다. 별도 클라이언트의 `START`/`STOP`/`RESET`
+teleop message도 계속 지원하며, CloudXR.js sample에서 이 메시지를 보내지 않아도 위 버튼·PC 키를 사용할 수 있다.
 
 LeRobot 모드에서는 기본적으로 `M`으로 성공 처리한 episode만 저장한다. `STOP`, `RESET`, time limit episode는 학습 데이터에 섞이지 않도록 폐기된다. 실패 episode도 분석용으로 보존하려면 `--lerobot-save-failed`를 추가한다.
 
@@ -291,14 +329,15 @@ Isaac Sim에서 캡처한 정확한 pose JSON을 쓰려면:
 
 ## 6. Head camera와 Quest 시야
 
-- Quest의 일반 stereo scene view 위에 불투명한 head-locked XR UI를 놓는다.
-- 실제 Kuavo `scene["robustness_camera"]` 단안 RGB가 UI 전체를 채운다.
-- `scene["left_wrist_camera"]`, `scene["right_wrist_camera"]` 영상이 왼쪽/오른쪽 작은 창으로 표시된다.
-- HMD yaw/pitch는 Kuavo `zhead_1_joint`, `zhead_2_joint`에 연결되므로 실제 head camera frame(S200062의 `camera`, S63의 `head_camera_base`)이 Quest 회전을 따라간다.
+- 중앙에는 Quest의 일반 stereo scene view를 유지한다. 큰 head RGB 패널로 덮지 않는다.
+- `scene["left_wrist_camera"]`, `scene["right_wrist_camera"]` 영상이 시야 왼쪽 위/오른쪽 위 작은 창으로 표시된다.
+- 패널은 기본 거리 0.85 m, 크기 0.34×0.255 m이며 머리를 따라 고정된다. `Y`/`H`로 숨겨도 카메라 기록은 유지된다.
+- 실제 Kuavo `scene["robustness_camera"]` RGB는 dataset에 계속 저장된다. 중앙의 stereo 시점과 이 단안 영상은 동일하지 않다.
+- 따라오기 또는 녹화 중 HMD yaw/pitch는 Kuavo `zhead_1_joint`, `zhead_2_joint`에 연결된다. `X`/`C`로 현재 시점을 head camera에 정렬한다.
 - Kuavo에는 머리 translation joint가 없으므로 Quest의 위치 이동은 robot head에 적용되지 않는다.
 - desktop Isaac Sim에도 head/left wrist/right wrist mini viewport가 열린다.
 
-Quest camera compositor는 기본으로 활성화된다. 원래 stereo scene view로 돌아가려면:
+손목 패널은 기본으로 활성화된다. 시작부터 패널을 만들지 않으려면:
 
 ```bash
 ./collect_quest_teleop.sh \
@@ -324,13 +363,18 @@ Quest camera compositor는 기본으로 활성화된다. 원래 stereo scene vie
 
 ### Quest에서 확인할 항목
 
-1. 연결 직후 검은 화면이 잠시 보인 뒤 head camera 영상이 전체 시야를 채우는지 확인한다.
-2. 왼쪽 중앙에 `LEFT WRIST`, 오른쪽 중앙에 `RIGHT WRIST` 영상이 표시되는지 확인한다.
-3. Quest를 좌우로 돌렸을 때 Kuavo `zhead_1_joint`가 회전하고 head camera 영상도 함께 변하는지 확인한다.
-4. Quest를 위아래로 돌렸을 때 `zhead_2_joint`가 제한 범위 안에서 회전하는지 확인한다.
+1. 중앙에 원래 stereo 장면이 보이고 큰 검은 패널이 없는지 확인한다.
+2. 왼쪽 위 `LEFT WRIST`, 오른쪽 위 `RIGHT WRIST`에 영상과 상태 표시가 보이는지 확인한다.
+3. `X`/`C`로 정면을 맞춘 뒤 `A`/`T`를 누르고, 머리를 좌우로 돌릴 때 Kuavo `zhead_1_joint`가 회전하는지 확인한다.
+4. 따라오기 중 Quest를 위아래로 돌렸을 때 `zhead_2_joint`가 제한 범위 안에서 회전하는지 확인한다.
 5. 몸을 앞뒤로 움직이는 translation은 Kuavo 머리에 적용되지 않는 것이 정상이다. 현재 model에는 yaw/pitch 두 관절만 있다.
 
-패널이 보이지 않으면 먼저 `--xr-overlay-forward-axis +z`를 시도한다. 패널은 보이지만 가장자리에 원래 stereo scene이 노출되면 `--xr-overlay-distance`를 작게 조절한다. 실제 확인 결과를 기준으로 `QuestCameraOverlayCfg.plane_width_m`, `plane_height_m`을 조절할 수 있다.
+패널이 검으면 `[CAMERA] Left/Right wrist RGB: min=..., max=..., mean=...`를 확인한다.
+`max`가 0보다 큰데 패널만 검다면 카메라 자체가 아니라 XR UI 표시 경로를 점검한다.
+위젯은 단일 자식 Frame 안에 이미지 레이아웃을 넣고, 첫 유효 영상 전에는 패널을 숨긴다.
+`Y`/`H`로 숨겨 중앙 장면과 구분할 수 있다. 뒤쪽에 패널이 생긴 경우에만
+`--xr-overlay-forward-axis +z`를 시도한다. 중앙을 비우는 배치는 의도된 것이며
+화면 전체를 덮기 위해 거리를 줄일 필요는 없다. 크기·위치는 `QuestCameraOverlayCfg`에서 조절한다.
 
 카메라 해상도 변경:
 
@@ -407,7 +451,6 @@ HDF5도 동시에 남기려면:
 ./collect_quest_teleop.sh \
   --xr-runtime-json /absolute/path/to/openxr_cloudxr.json \
   --dataset-format both \
-  --dataset datasets/kuavo_quest_raw.hdf5 \
   --lerobot-root datasets/kuavo_quest_lerobot \
   --lerobot-repo-id paragon7060/kuavo_quest_teleop
 ```
@@ -416,7 +459,11 @@ HDF5도 동시에 남기려면:
 `--lerobot-python /path/to/env/bin/python`으로 지정한다. launcher는 알려진 conda
 경로도 탐색하며, worker는 시작할 때 format이 정확히 `v3.0`인지 확인한다.
 
-기본 camera 저장은 MP4다. 개별 PNG가 필요하면 `--no-lerobot-use-videos`를 사용한다. 기존 dataset에 이어서 수집할 때에는 FPS, camera 해상도, wrist camera 포함 여부, box/button 수가 최초 schema와 같아야 한다. 이 값이 바뀌면 새 `--lerobot-root`를 사용한다.
+HDF5는 실행마다 새 파일로 분리되며 기존 파일을 재사용하지 않는다. 지정한
+`--dataset` 경로가 이미 있으면 오류로 중단한다. 시도별 파일이 필요하면
+`--max-episodes 1`을 사용한다.
+
+기본 camera 저장은 MP4다. 개별 PNG가 필요하면 `--no-lerobot-use-videos`를 사용한다. 기존 **LeRobot** dataset에 이어서 수집할 때에는 FPS, camera 해상도, wrist camera 포함 여부, box/button 수가 최초 schema와 같아야 한다. 이 값이 바뀌면 새 `--lerobot-root`를 사용한다.
 
 v3 주요 feature:
 
@@ -488,7 +535,7 @@ PY
 ${ISAACLAB_PYTHON} - <<'PY'
 import h5py
 
-path = "datasets/kuavo_quest_teleop.hdf5"
+path = "datasets/SESSION_FILE.hdf5"  # [INFO] Dataset에 출력된 실제 파일 경로
 with h5py.File(path, "r") as f:
     for name, demo in f["data"].items():
         print(name, demo.attrs["num_samples"], demo.attrs["success"])
@@ -501,8 +548,9 @@ PY
 
 ### Quest 화면은 연결되지만 tracking이 계속 False
 
-- Quest 브라우저에서 hand tracking permission을 허용했는지 확인한다.
-- controller가 아니라 bare-hand tracking mode로 양손을 카메라에 보이게 한다.
+- 먼저 `[TRACKING] ... input=controllers/hands`로 선택한 입력을 확인한다.
+- controllers 모드는 좌우 컨트롤러가 켜져 있고 Quest와 연결되어 있는지, 추적 가능한 위치인지 확인한다.
+- hands 모드만 hand tracking permission을 허용하고 컨트롤러를 내려놓은 뒤 맨손을 카메라에 보인다.
 - Isaac Lab console에서 세 값이 모두 True로 바뀌는지 확인한다.
 - CloudXR video 연결과 OpenXR input 전달은 별개이므로, 영상만 보인다고 hand input이 반드시 들어온 것은 아니다.
 

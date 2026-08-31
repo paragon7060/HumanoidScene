@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+import signal
 import sys
 
 from isaaclab.app import AppLauncher
@@ -17,9 +18,12 @@ from .gripper_config import (
     teleop_action_names,
 )
 from .robot_model import add_robot_model_cli_args, export_robot_model_cli
+from .teleop_recorder import new_session_path
 
 
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
+parser.add_argument("--input-mode", choices=("controllers", "hands"), default="controllers",
+                    help="Arm input: controller grip pose + trigger (default), or bare-hand wrist + pinch.")
 parser.add_argument(
     "--dataset-format",
     choices=("hdf5", "lerobot", "both"),
@@ -29,8 +33,8 @@ parser.add_argument(
 parser.add_argument(
     "--dataset",
     type=Path,
-    default=Path("datasets/kuavo_quest_teleop.hdf5"),
-    help="HDF5 file to create or append to.",
+    default=None,
+    help="New HDF5 file to create. Default: a unique timestamped file in datasets/. Existing files are never reused.",
 )
 parser.add_argument(
     "--lerobot-root",
@@ -101,9 +105,9 @@ parser.add_argument(
     "--quest-camera-overlay",
     action=argparse.BooleanOptionalAction,
     default=True,
-    help="Replace the Quest view with head RGB and left/right wrist overlays.",
+    help="Show small wrist-camera panels at the upper left/right of the Quest view.",
 )
-parser.add_argument("--xr-overlay-distance", type=float, default=0.65, metavar="METERS")
+parser.add_argument("--xr-overlay-distance", type=float, default=0.85, metavar="METERS")
 parser.add_argument(
     "--xr-overlay-forward-axis",
     choices=("-z", "+z"),
@@ -144,6 +148,12 @@ add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+args_cli.dataset = (args_cli.dataset or new_session_path()).expanduser().resolve()
+if args_cli.dataset_format in {"hdf5", "both"} and args_cli.dataset.exists():
+    parser.error(
+        f"HDF5 file already exists: {args_cli.dataset}. Existing sessions are never overwritten or appended to. "
+        "Omit --dataset for a new session file, or choose a different filename."
+    )
 export_robot_model_cli(args_cli)
 export_gripper_cli(args_cli)
 try:
@@ -208,7 +218,7 @@ from isaaclab.devices.openxr.common import HAND_JOINT_NAMES
 
 from .camera_viewports import open_camera_viewports
 from .manager_env import LOCAL_BOX_SCENE_KEYS
-from .quest_openxr import RawQuestOpenXRDevice
+from .quest_openxr import RawQuestOpenXRDevice, start_quest_xr_session
 from .teleop_env import (
     HEAD_JOINTS,
     LEFT_ARM_JOINTS,
@@ -311,7 +321,12 @@ def main() -> None:
     # Isaac Lab v2.3 feature-gates raw OpenXR queries by retargeter
     # requirements. Kuavo uses its own safety mapper, so the adapter requests
     # hand/head tracking while retaining the raw upstream dictionary format.
-    xr_device = RawQuestOpenXRDevice(device_cfg)
+    xr_device = RawQuestOpenXRDevice(device_cfg, input_mode=args_cli.input_mode)
+    try:
+        start_quest_xr_session(simulation_app, enable_ui=args_cli.quest_camera_overlay)
+    except Exception:
+        env.close()
+        raise
     keyboard = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.0, rot_sensitivity=0.0, sim_device=env.device))
     mapper = BimanualTeleopMapper(
         TeleopMappingCfg(
@@ -335,13 +350,22 @@ def main() -> None:
             env.close()
             raise
 
-    requests = {"start": False, "stop": False, "reset": False, "success": False, "toggle": False}
+    requests = {
+        key: False for key in ("start", "stop", "reset", "success", "toggle", "calibrate", "preview", "overlay")
+    }
     xr_device.add_callback("START", lambda: requests.__setitem__("start", True))
     xr_device.add_callback("STOP", lambda: requests.__setitem__("stop", True))
     xr_device.add_callback("RESET", lambda: requests.__setitem__("reset", True))
     keyboard.add_callback("P", lambda: requests.__setitem__("toggle", True))
     keyboard.add_callback("R", lambda: requests.__setitem__("reset", True))
     keyboard.add_callback("M", lambda: requests.__setitem__("success", True))
+    keyboard.add_callback("C", lambda: requests.__setitem__("calibrate", True))
+    keyboard.add_callback("T", lambda: requests.__setitem__("preview", True))
+    keyboard.add_callback("H", lambda: requests.__setitem__("overlay", True))
+    xr_device.bind_button("left", "x", lambda: requests.__setitem__("calibrate", True))
+    xr_device.bind_button("right", "a", lambda: requests.__setitem__("preview", True))
+    xr_device.bind_button("right", "b", lambda: requests.__setitem__("toggle", True))
+    xr_device.bind_button("left", "y", lambda: requests.__setitem__("overlay", True))
 
     dataset_path = args_cli.dataset.expanduser().resolve()
     lerobot_root = args_cli.lerobot_root.expanduser().resolve()
@@ -374,6 +398,7 @@ def main() -> None:
             save_failed=args_cli.lerobot_save_failed,
             writer_python=args_cli.lerobot_python,
             action_names=action_names,
+            record_controllers=args_cli.input_mode == "controllers",
         )
         lerobot_recorder = recorders["lerobot"]
         dataset_descriptions.append(
@@ -387,12 +412,16 @@ def main() -> None:
     manual_pause = False
     start_wall_time = time.perf_counter()
     last_tracking_state: tuple[bool, bool, bool] | None = None
+    preview_enabled = False
+    camera_reported = False
+    held_absolute_targets = np.zeros(len(action_names) - 12, dtype=np.float32)
 
     def reset_simulation() -> None:
         nonlocal episode_steps
         env.reset()
         xr_device.reset()
         mapper.reset()
+        held_absolute_targets.fill(0.0)
         episode_steps = 0
 
     def finish_episode(success: bool, reason: str) -> None:
@@ -405,33 +434,94 @@ def main() -> None:
 
     print("[INFO] Quest/OpenXR Kuavo teleoperation is ready.")
     print(f"[INFO] Dataset: {'; '.join(dataset_descriptions)}")
+    print(f"[INFO] Arm input mode: {args_cli.input_mode}; "
+          + ("controller grip pose + index trigger" if args_cli.input_mode == "controllers" else "bare-hand wrist + pinch"))
     if args_cli.dataset_format in {"lerobot", "both"} and not args_cli.lerobot_save_failed:
         print("[INFO] LeRobot keeps successful episodes only; STOP/RESET/time-limit attempts are discarded.")
     if quest_overlay is not None:
-        print("[INFO] Quest view: opaque Kuavo head camera with left/right wrist camera overlays.")
+        print("[INFO] Quest view: scene with small wrist-camera panels at the upper left/right.")
     print("[CONTROL] Quest START/STOP/RESET or desktop P=start/stop, R=reset, M=finish as success.")
-    print("[CONTROL] Hold both tracked hands in view; the first valid frame only calibrates and never moves the arms.")
+    print("[CONTROL] C=recenter/calibrate, T=motion preview without recording, H=camera overlay on/off.")
+    print("[CONTROL] Quest controllers: X=calibrate, A=motion start/stop, B=record start/stop, Y=panels on/off.")
+    print("[CONTROL] Arm motion is paused until P starts recording or T enables motion preview.")
+    print("[CONTROL] Track both selected input devices; the first valid frame only calibrates and never moves the arms.")
     print(
         f"[GRIPPER] preset={GRIPPER_SETTINGS.name}, sides={GRIPPER_SETTINGS.active_sides or 'none'}, "
         f"pinch close threshold={GRIPPER_SETTINGS.pinch_close_threshold_m:.3f} m."
     )
 
+    stop_requested = False
+
+    def request_shutdown(signum, frame) -> None:
+        nonlocal stop_requested
+        stop_requested = True
+
+    # Kit's default SIGINT handler can exit before HDF5 cleanup. Finish the
+    # current frame, then let the collector's finally block close the file.
+    previous_handlers = {
+        sig: signal.signal(sig, request_shutdown) for sig in (signal.SIGINT, signal.SIGTERM)
+    }
     try:
-        while simulation_app.is_running():
+        while not stop_requested and simulation_app.is_running():
             if args_cli.max_episodes and completed_this_run >= args_cli.max_episodes:
                 break
+
+            if requests["overlay"]:
+                requests["overlay"] = False
+                if quest_overlay is not None:
+                    visible = quest_overlay.toggle_visible()
+                    print(f"[VIEW] Camera overlay {'shown when frames are ready' if visible else 'hidden'}.")
+                else:
+                    print("[VIEW] Camera overlay was disabled by --no-quest-camera-overlay.")
+            if requests["preview"]:
+                requests["preview"] = False
+                if recorder.recording:
+                    preview_enabled = False
+                    requests["stop"] = True
+                    print("[CONTROL] Motion stopped; finishing the current recording.")
+                else:
+                    preview_enabled = not preview_enabled
+                    pending_start = False
+                    manual_pause = True
+                    mapper.reset(head_target=held_absolute_targets[:2])
+                    print(f"[CONTROL] Motion preview {'ON' if preview_enabled else 'OFF'}; no samples are being recorded.")
+            if requests["calibrate"]:
+                requests["calibrate"] = False
+                if recorder.recording:
+                    print("[CALIBRATION] Stop recording with B/P before recentering.")
+                elif last_tracking_state is None or not last_tracking_state[2]:
+                    print("[CALIBRATION] Head tracking is unavailable; wear the headset and reconnect first.")
+                else:
+                    preview_enabled = False
+                    pending_start = False
+                    manual_pause = True
+                    camera_data = env.scene["robustness_camera"].data
+                    xr_device.recenter_view(
+                        _to_numpy(camera_data.pos_w[0]), _to_numpy(camera_data.quat_w_opengl[0])
+                    )
+                    for _ in range(3):
+                        simulation_app.update()
+                    xr_device.reset()
+                    mapper.reset(head_target=held_absolute_targets[:2])
+                    print("[CALIBRATION] View centered at Kuavo head camera; current head/hand poses become neutral. Motion preview OFF.")
 
             raw = xr_device.advance()
             left_hand = raw.get(RawQuestOpenXRDevice.TrackingTarget.HAND_LEFT)
             right_hand = raw.get(RawQuestOpenXRDevice.TrackingTarget.HAND_RIGHT)
+            left_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_LEFT)
+            right_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_RIGHT)
             head_pose = raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD)
             root_quat = _to_numpy(robot.data.root_quat_w[0])
-            mapped = mapper.advance(left_hand, right_hand, head_pose, root_quat)
+            map_inputs = mapper.advance_controllers if args_cli.input_mode == "controllers" else mapper.advance
+            left_input, right_input = ((left_controller, right_controller) if args_cli.input_mode == "controllers"
+                                       else (left_hand, right_hand))
+            mapped = map_inputs(left_input, right_input, head_pose, root_quat)
             tracking_state = (mapped.left_valid, mapped.right_valid, mapped.head_valid)
             if tracking_state != last_tracking_state:
                 print(
                     "[TRACKING] "
-                    f"left={tracking_state[0]}, right={tracking_state[1]}, head={tracking_state[2]}"
+                    f"left={tracking_state[0]}, right={tracking_state[1]}, head={tracking_state[2]} "
+                    f"input={args_cli.input_mode}"
                 )
                 last_tracking_state = tracking_state
 
@@ -439,10 +529,15 @@ def main() -> None:
                 requests["toggle"] = False
                 if recorder.recording:
                     requests["stop"] = True
+                elif pending_start:
+                    pending_start = False
+                    manual_pause = True
+                    print("[CONTROL] Pending recording cancelled.")
                 else:
                     requests["start"] = True
             if requests["reset"]:
                 requests["reset"] = False
+                preview_enabled = False
                 if recorder.recording:
                     finish_episode(False, "operator_reset")
                 else:
@@ -452,6 +547,7 @@ def main() -> None:
                 continue
             if requests["success"]:
                 requests["success"] = False
+                preview_enabled = False
                 if recorder.recording:
                     finish_episode(True, "operator_success")
                 pending_start = False
@@ -459,6 +555,7 @@ def main() -> None:
                 continue
             if requests["stop"]:
                 requests["stop"] = False
+                preview_enabled = False
                 if recorder.recording:
                     finish_episode(False, "operator_stop")
                 pending_start = False
@@ -468,13 +565,21 @@ def main() -> None:
                 requests["start"] = False
                 pending_start = True
                 manual_pause = False
+                if not mapped.bimanual_valid:
+                    print(f"[CONTROL] Waiting for both tracked {args_cli.input_mode} before recording; B/P cancels.")
             if args_cli.auto_start and not manual_pause and not recorder.recording:
                 pending_start = True
 
             if pending_start and mapped.bimanual_valid and not recorder.recording:
+                if not preview_enabled:
+                    # Do not apply head/hand movement accumulated while paused
+                    # when B/P starts recording directly (without motion preview).
+                    mapper.reset(head_target=held_absolute_targets[:2])
+                    mapped = map_inputs(left_input, right_input, head_pose, root_quat)
                 episode_name = recorder.start_episode(
                     {
                         "seed": args_cli.seed,
+                        "input_mode": args_cli.input_mode,
                         "control_dt": float(env.step_dt),
                         "action_layout": ",".join(action_names),
                         "joint_names": state_names,
@@ -502,8 +607,20 @@ def main() -> None:
                     ),
                 )
             )
-            if not recorder.recording:
+            if args_cli.input_mode == "controllers":
+                controllers = {"left": left_controller, "right": right_controller}
+                valid = {"left": mapped.left_valid, "right": mapped.right_valid}
+                for index, side in enumerate(GRIPPER_SETTINGS.active_sides):
+                    # Loss of controller tracking holds the gripper, too.
+                    action_np[14 + index] = (
+                        (-1.0 if controllers[side][1, 2] >= 0.5 else 1.0)
+                        if valid[side] else held_absolute_targets[2 + index]
+                    )
+            if not (recorder.recording or preview_enabled):
                 action_np[:12] = 0.0
+                action_np[12:] = held_absolute_targets
+            else:
+                held_absolute_targets[:] = action_np[12:]
             action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
             env.step(action)
 
@@ -516,6 +633,16 @@ def main() -> None:
                 right_wrist_rgb = _camera_rgb(env.scene["right_wrist_camera"])
                 if quest_overlay is not None:
                     quest_overlay.update(head_rgb, left_wrist_rgb, right_wrist_rgb)
+                    quest_overlay.set_status(
+                        following=recorder.recording or preview_enabled,
+                        recording=recorder.recording,
+                        hands_valid=mapped.bimanual_valid,
+                        waiting=pending_start,
+                        input_mode=args_cli.input_mode,
+                    )
+                if not camera_reported and np.any(head_rgb):
+                    print(f"[CAMERA] Head RGB {head_rgb.shape}: min={head_rgb.min()}, max={head_rgb.max()}, mean={head_rgb.mean():.1f}")
+                    camera_reported = True
 
             if recorder.recording:
                 assert head_rgb is not None
@@ -561,6 +688,16 @@ def main() -> None:
                 if args_cli.record_wrist_cameras:
                     sample["left_wrist_rgb"] = left_wrist_rgb
                     sample["right_wrist_rgb"] = right_wrist_rgb
+                if args_cli.input_mode == "controllers":
+                    # No finger tracking is requested in controller mode.
+                    # Preserve that absence instead of writing fake hand poses.
+                    sample["openxr_left_hand"] = np.full((len(HAND_JOINT_NAMES), 7), np.nan, dtype=np.float32)
+                    sample["openxr_right_hand"] = np.full((len(HAND_JOINT_NAMES), 7), np.nan, dtype=np.float32)
+                    for side, packet in (("left", left_controller), ("right", right_controller)):
+                        sample[f"openxr_{side}_controller"] = (
+                            np.asarray(packet, dtype=np.float32) if packet is not None
+                            else np.full((2, 7), np.nan, dtype=np.float32)
+                        )
                 if args_cli.record_depth:
                     sample["head_depth_m"] = _camera_depth(env.scene["robustness_camera"])
                 if button is not None:
@@ -568,12 +705,15 @@ def main() -> None:
                 recorder.append(sample)
                 episode_steps += 1
                 if episode_steps * env.step_dt >= args_cli.episode_seconds:
+                    preview_enabled = False
                     finish_episode(False, "time_limit")
                     manual_pause = not args_cli.auto_start
 
     except KeyboardInterrupt:
         print("\n[INFO] Interrupted by user.")
     finally:
+        for sig, handler in previous_handlers.items():
+            signal.signal(sig, handler)
         if recorder.recording:
             recorder.finish_episode(success=False, reason="process_interrupted")
         recorder.close()

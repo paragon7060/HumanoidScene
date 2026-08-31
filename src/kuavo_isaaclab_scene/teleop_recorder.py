@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
+from uuid import uuid4
 
 import h5py
 import numpy as np
+
+
+def new_session_path(directory: str | Path = "datasets") -> Path:
+    """Choose a separate file for each collector invocation."""
+    timestamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
+    return Path(directory).expanduser() / f"kuavo_quest_{timestamp}_{uuid4().hex[:8]}.hdf5"
 
 
 class TeleopRecorder(Protocol):
@@ -76,13 +84,18 @@ class TeleopHdf5Recorder:
     def __init__(self, path: str | Path, *, flush_every: int = 30):
         self.path = Path(path).expanduser().resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._file = h5py.File(self.path, "a")
+        # Exclusive creation protects existing sessions even if two collectors
+        # race for the same explicitly supplied filename.
+        self._file = h5py.File(self.path, "x")
         self._data = self._file.require_group("data")
         self._file.attrs.setdefault("format", "kuavo_quest_teleop_hdf5")
         self._file.attrs.setdefault("format_version", "1.0")
         self._flush_every = max(1, int(flush_every))
         self._episode: h5py.Group | None = None
         self._sample_count = 0
+        # Kit may terminate before recording starts. Persist the empty file's
+        # structure too, so that the preserved file is readable for inspection.
+        self._file.flush()
 
     @property
     def recording(self) -> bool:

@@ -50,6 +50,7 @@ def build_lerobot_features(
     record_wrist_cameras: bool,
     use_videos: bool,
     action_names: Sequence[str] = ACTION_NAMES,
+    record_controllers: bool = False,
 ) -> dict[str, dict]:
     """Return the fixed schema used for every episode in one dataset."""
     image_dtype = "video" if use_videos else "image"
@@ -81,6 +82,10 @@ def build_lerobot_features(
         "next.done": _vector_feature(1, ["done"]),
         "next.success": _vector_feature(1, ["success"]),
     }
+    if record_controllers:
+        names = POSE_NAMES + ["stick_x", "stick_y", "trigger", "squeeze", "button_0", "button_1", "reserved"]
+        for side in ("left", "right"):
+            features[f"observation.openxr.{side}_controller"] = _vector_feature(14, names)
     if record_wrist_cameras:
         for side in ("left", "right"):
             features[f"observation.images.{side}_wrist"] = {
@@ -121,6 +126,8 @@ def sample_to_lerobot_frame(sample: dict[str, Any], features: dict[str, dict]) -
         "next.success": np.zeros(1, dtype=np.float32),
     }
     optional_mappings = {
+        "observation.openxr.left_controller": "openxr_left_controller",
+        "observation.openxr.right_controller": "openxr_right_controller",
         "observation.images.left_wrist": "left_wrist_rgb",
         "observation.images.right_wrist": "right_wrist_rgb",
         "observation.box_root_pose": "box_root_pose_w",
@@ -154,6 +161,7 @@ class LeRobotTeleopRecorder:
         save_failed: bool = False,
         writer_python: str | Path | None = None,
         action_names: Sequence[str] = ACTION_NAMES,
+        record_controllers: bool = False,
     ):
         if fps <= 0:
             raise ValueError("LeRobot fps must be positive.")
@@ -170,6 +178,7 @@ class LeRobotTeleopRecorder:
         if not self.writer_python.is_file():
             raise FileNotFoundError(f"LeRobot v3 Python does not exist: {self.writer_python}")
         self.features = build_lerobot_features(
+            record_controllers=record_controllers,
             joint_names=joint_names,
             hand_joint_names=hand_joint_names,
             head_resolution=head_resolution,

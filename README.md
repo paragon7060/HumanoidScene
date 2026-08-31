@@ -103,7 +103,7 @@ flowchart LR
 - **웹 클라이언트 개발 도구:** Node.js 20.19.0 이상과 npm.
   [CloudXR.js 요구사항](https://docs.nvidia.com/cloudxr-sdk/latest/requirement/cloudxrjs_req.html)에 맞춰 설치하고
   `node --version`, `npm --version`으로 확인한다.
-- **헤드셋:** Meta Quest 3/3S, Meta Quest Browser, 손 추적 활성화.
+- **헤드셋:** Meta Quest 3/3S, Meta Quest Browser, 좌우 컨트롤러. 맨손 모드에서는 손 추적 활성화.
   현재 CloudXR.js 문서의 Quest OS 기준은 79 이상이다. 브라우저의 WebXR·손 추적
   권한 요청도 허용해야 한다.
 - **네트워크:** PC와 Quest가 서로 접근 가능한 같은 LAN에 있어야 한다.
@@ -324,13 +324,13 @@ export XR_RUNTIME_JSON="/absolute/path/to/openxr_cloudxr.json"
 ./collect_quest_teleop.sh \
   --robot-model s200062 \
   --dataset-format hdf5 \
-  --dataset datasets/quest_first_session.hdf5 \
   --max-episodes 1 \
-  --episode-seconds 60
+  --episode-seconds 60 \
+  --no-auto-start
 ```
 
-Quest에서 WebXR/손 추적 권한을 허용하고 양손을 헤드셋 카메라가 볼 수 있는
-위치에 둔다. 최초 유효 프레임은 자세 보정에 사용된다.
+Quest에서 WebXR 권한을 허용하고 좌우 컨트롤러를 추적 가능한 위치에 둔다.
+기본 입력은 `--input-mode controllers`이며 최초 유효 프레임은 자세 보정에 사용된다.
 수집기 터미널에서 다음과 같은 로그를 확인한다.
 
 ```text
@@ -338,15 +338,28 @@ Quest에서 WebXR/손 추적 권한을 허용하고 양손을 헤드셋 카메�
 [DATA] Recording hdf5=demo_00000
 ```
 
-기본 `--auto-start`에서는 양손 추적이 유효해지면 녹화를 시작한다.
-머리 회전은 로봇 머리, 손목 움직임은 양팔, 엄지·검지 pinch는 gripper에 대응한다.
+위 예시는 `--no-auto-start`로 시작하므로 먼저 보정하고 따라오기를 확인한 뒤 녹화한다.
+이 옵션을 생략한 기본 `--auto-start`에서는 양쪽 입력 추적이 유효해지면 녹화를 시작한다.
+머리 회전은 로봇 머리, 컨트롤러 위치·회전 변화는 양팔에 대응한다.
+각 검지 트리거를 절반 이상 당기면 해당 gripper가 닫히고 놓으면 열린다.
 키보드 조작은 **PC의 Isaac Sim 창에 포커스를 둔 상태**에서 한다.
 
-| 키 | 동작 |
-|---|---|
-| `P` | 녹화 시작 또는 중지; 중지는 실패로 종료 |
-| `M` | 현재 에피소드를 작업자 판정 성공으로 종료·저장 |
-| `R` | 현재 시도를 실패로 종료하고 장면·자세 보정 초기화 |
+| Quest 컨트롤러 | PC 키 | 동작 |
+|---|---|---|
+| 왼쪽 `X` | `C` | 현재 시점을 Kuavo head camera에 맞추고 자세 기준 재설정; 따라오기 중지 |
+| 오른쪽 `A` | `T` | 저장 없이 따라오기 시작/멈춤; 녹화 중 누르면 녹화도 실패로 종료 |
+| 오른쪽 `B` | `P` | 녹화·따라오기 시작 또는 중지; 중지는 실패로 종료 |
+| 왼쪽 `Y` | `H` | 양쪽 위 손목 카메라 패널 표시/숨김 |
+| — | `M` | 현재 에피소드를 작업자 판정 성공으로 종료·저장 |
+| — | `R` | 현재 시도를 실패로 종료하고 장면·자세 보정 초기화 |
+
+정면을 편하게 바라보며 `X`로 보정한 뒤 `A`로 움직임을 확인하고 `B`로 녹화한다.
+보정은 녹화 중에는 차단된다. 중앙은 원래 stereo 장면이며, 작은 손목 영상 두 개가
+시야 왼쪽 위·오른쪽 위를 따라다닌다. 머리 카메라는 계속 기록하지만 중앙을 덮지 않는다.
+패널 하단의 `FOLLOW`/`REC`와 터미널의 `[BUTTON]`/`[TRACKING]`으로 상태를 확인한다.
+**컨트롤러를 계속 들고 조작하면 된다.** 맨손을 사용하려면 `--input-mode hands`로
+다시 실행한다. 이 모드만 손목·손가락 추적과 엄지·검지 pinch를 사용하며, 자동으로
+컨트롤러 모드와 전환하지 않는다. 자세한 [보정·조작 절차](docs/QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)를 참고한다.
 
 예시 명령은 60초 제한 또는 `M`/`P`/`R`로 샘플이 있는 에피소드 하나를 끝내면
 종료한다. **HDF5는 실패·시간 초과·reset 시도도 샘플이 있으면 저장**하므로
@@ -354,12 +367,15 @@ Quest에서 WebXR/손 추적 권한을 허용하고 양손을 헤드셋 카메�
 판정이 아니며, 실제 작업을 완료했을 때 누른다.
 
 수집기가 정상 종료한 뒤 PC에서 저장 파일을 확인한다.
+기본적으로 실행마다 `datasets/kuavo_quest_<날짜-시간>_<고유값>.hdf5`가 새로 생긴다.
+아래 `SESSION_FILE.hdf5`를 수집기 `[INFO] Dataset: HDF5=...`에 출력된 실제 경로로 바꾼다.
 
 ```bash
-python - <<'PY'
+python - "datasets/SESSION_FILE.hdf5" <<'PY'
 import h5py
+import sys
 
-with h5py.File("datasets/quest_first_session.hdf5", "r") as f:
+with h5py.File(sys.argv[1], "r") as f:
     print("episodes:", len(f["data"]))
     for name, demo in f["data"].items():
         print(name, "samples:", demo.attrs["num_samples"],
@@ -369,8 +385,11 @@ with h5py.File("datasets/quest_first_session.hdf5", "r") as f:
 PY
 ```
 
-`episodes: 0`이면 양손 추적과 녹화 시작 로그부터 확인한다. 기존 HDF5 경로를
-다시 사용하면 에피소드가 추가되므로 독립 실험에는 새 파일명을 사용한다.
+`episodes: 0`이면 선택한 입력의 양쪽 추적과 녹화 시작 로그부터 확인한다.
+HDF5는 실행별로 분리하며, `--dataset`으로 지정한 경로가 이미 있으면 오류로 종료한다.
+기존 파일에 자동으로 이어 쓰거나 덮어쓰지 않는다. 한 실행에서 여러 에피소드를
+모을 수 있으며, 시도별로 파일을 보관·폐기하려면 `--max-episodes 1`로 실행한다.
+실패 시도도 자동 삭제하지 않으므로 `success`·`end_reason`을 보고 선별한다.
 RGB·depth 영상은 용량이 크니 장시간 수집 전에 디스크 여유 공간도 확인한다.
 
 <a id="quest-lerobot"></a>
@@ -391,7 +410,6 @@ export LEROBOT_PYTHON="/absolute/path/to/lerobot-v3-environment/bin/python"
 ./collect_quest_teleop.sh \
   --robot-model s200062 \
   --dataset-format both \
-  --dataset datasets/quest_session_002.hdf5 \
   --lerobot-root datasets/quest_session_002_lerobot \
   --lerobot-repo-id local/kuavo_quest_teleop \
   --max-episodes 20 \
@@ -418,7 +436,7 @@ Hugging Face Hub에 업로드하지는 않는다. 영상·메타데이터 마무
 | WebXR 불가 / CONNECT 비활성화 | HTTP origin 예외 또는 HTTPS 설정, Quest OS·브라우저·권한 확인 |
 | HTTPS 페이지는 열리지만 연결 실패 | WSS 프록시·포트 및 웹 서버/프록시 양쪽 인증서 확인. HTTPS에서 평문 WS 연결 금지 |
 | 로컬 미리보기만 연결되거나 `8765`로 연결됨 | 실제 수집에는 `Manual Input IP:Port`와 Runtime 신호 포트 사용 |
-| 영상은 나오는데 tracking이 False | 손 추적 활성화·권한·양손 가시성·Runtime 입력 전달 확인. 영상 성공과 입력 성공은 별도 |
+| 영상은 나오는데 tracking이 False | `input=controllers`면 좌우 컨트롤러 연결·가시성, `input=hands`면 손 추적 활성화·권한·맨손 가시성을 확인. 영상과 입력 성공은 별도 |
 | LeRobot 폴더에 에피소드가 없음 | 별도 v3 writer, 녹화 시작 로그, `M` 성공 처리, 정상 종료 확인. 실패 보존은 명시적으로 선택 |
 
 카메라 overlay 방향, 손 이동 gain, gripper, dataset schema의 세부 설정은

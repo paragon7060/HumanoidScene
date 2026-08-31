@@ -136,12 +136,19 @@ class BimanualTeleopMapper:
         self.cfg = cfg or TeleopMappingCfg()
         self.reset()
 
-    def reset(self) -> None:
+    def reset(self, head_target: np.ndarray | None = None) -> None:
+        self.reset_hands()
+        self._head_neutral: Pose | None = None
+        self._head_offset = np.zeros(2) if head_target is None else np.asarray(head_target, dtype=float).copy()
+        if self._head_offset.shape != (2,) or not np.all(np.isfinite(self._head_offset)):
+            raise ValueError("Head calibration target must contain finite yaw/pitch offsets.")
+        self._filtered_head = self._head_offset.copy()
+
+    def reset_hands(self) -> None:
+        """Re-clutch both hands without changing the current head calibration."""
         self._previous_wrist: dict[str, Pose | None] = {"left": None, "right": None}
         self._filtered_position = {"left": np.zeros(3), "right": np.zeros(3)}
         self._filtered_rotation = {"left": np.zeros(3), "right": np.zeros(3)}
-        self._head_neutral: Pose | None = None
-        self._filtered_head = np.zeros(2)
 
     def _hand_delta(
         self,
@@ -214,8 +221,8 @@ class BimanualTeleopMapper:
         pitch, yaw = _quat_to_pitch_yaw(delta_base)
         target = np.array(
             [
-                np.clip(yaw, -self.cfg.head_yaw_limit_rad, self.cfg.head_yaw_limit_rad),
-                np.clip(pitch, -self.cfg.head_pitch_limit_rad, self.cfg.head_pitch_limit_rad),
+                np.clip(yaw + self._head_offset[0], -self.cfg.head_yaw_limit_rad, self.cfg.head_yaw_limit_rad),
+                np.clip(pitch + self._head_offset[1], -self.cfg.head_pitch_limit_rad, self.cfg.head_pitch_limit_rad),
             ],
             dtype=np.float64,
         )
@@ -243,3 +250,18 @@ class BimanualTeleopMapper:
             right_pinch_m=_pinch_distance(right_hand),
         )
 
+    def advance_controllers(self, left_controller, right_controller, head_pose, root_quat_w):
+        """Use controller grip deltas with the same re-clutch and safety limits.
+
+        The internal wrist key only selects the pose mapper. No hand joints or
+        pinch distances are synthesized for recording.
+        """
+        def pose_target(packet):
+            if packet is None:
+                return None
+            packet = np.asarray(packet)
+            if packet.shape != (2, 7) or not np.all(np.isfinite(packet)):
+                return None
+            return {"wrist": packet[0]}
+
+        return self.advance(pose_target(left_controller), pose_target(right_controller), head_pose, root_quat_w)

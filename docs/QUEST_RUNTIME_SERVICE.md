@@ -16,9 +16,13 @@ SDK와 Node는 `.external` 아래에만 설치하고 Isaac conda 환경은 변�
 - Runtime 라이브러리 로드, WS/WSS 서비스 기동·정상 종료 성공.
 - PC HTTPS 페이지와 Runtime TLS 인증서를 직접 검증, OpenXR 파일 사전 점검 통과.
 - 브라우저 UI의 Manual backend, VR 모드, H.264 선택 확인.
+- 실제 OpenXR 앱·디스플레이 세션 활성화, Quest에서 기본 장면 표시 확인.
+- 맨손·머리 추적 수신과 head/양손목 센서의 0이 아닌 RGB 프레임 확인.
+- 수집기 정상 종료 뒤 별도 HDF5 파일이 읽히는 것 확인(점검 세션은 0 episode).
+- 실제 X 버튼으로 보정 실행, Y로 패널 표시/숨김, B 버튼 이벤트 수신 확인.
 
-**아직 확인되지 않은 것:** 실제 Quest 영상·손 추적, Isaac Lab 수집기와 Runtime의
-실기 연결, HDF5 저장, RTX 3060의 CloudXR 인코딩 성능·호환성.
+**추가 실기 검증이 필요한 것:** 새 손목 패널의 Quest 내 영상 표시, A로 팔 따라오기,
+B로 실제 녹화 시작·종료, 작업을 끝까지 수행한 수집 데이터, 장시간 스트리밍 성능.
 현재 NVIDIA 문서는 Ada/Blackwell GPU를 명시하므로 기동 성공을 RTX 3060의
 공식 지원으로 해석하지 않는다.
 [공식 요구사항](https://docs.nvidia.com/cloudxr-sdk/latest/requirement/runtime_req.html)을 확인한다.
@@ -78,7 +82,8 @@ npm --prefix .external/cloudxr-js-samples/simple run build
 
 ## Quest에서 직접 할 설정
 
-1. Quest와 PC를 같은 신뢰할 수 있는 LAN에 연결하고 손 추적을 켠다.
+1. Quest와 PC를 같은 신뢰할 수 있는 LAN에 연결하고 좌우 컨트롤러를 준비한다.
+   `--input-mode hands`를 사용할 때만 맨손 추적을 켠다.
 2. Quest Browser에서 `https://<CLOUDXR_HOST>:8080`을 연다.
 3. 이 PC에서 만든 자체 서명 인증서를 확인하고 신뢰할지 **사용자가 직접** 결정한다.
    연결할 IP가 맞는지 확인한다. 브라우저의 인증서 경고는 자동으로 우회하지 않는다.
@@ -122,15 +127,46 @@ source .external/quest-session.env
 ./collect_quest_teleop.sh \
   --robot-model s200062 \
   --dataset-format hdf5 \
-  --dataset datasets/quest_first_session.hdf5 \
   --max-episodes 1 \
-  --episode-seconds 60
+  --episode-seconds 60 \
+  --no-auto-start
 ```
 
 Isaac Sim 최초 실행 시 NVIDIA EULA가 표시되면 사용자가 내용을 확인하고 직접
 동의해야 한다. 준비 과정에서는 `OMNI_KIT_ACCEPT_EULA`를 설정하거나 동의 파일을
-만들지 않았다. GPU 구동과 장면 로딩이 끝나면 양손을 인식시켜
-`[TRACKING] ... True`와 `[DATA] Recording ...`를 확인한다.
+만들지 않았다. GPU 구동과 장면 로딩이 끝나면 양쪽 컨트롤러를 인식시켜
+`[TRACKING] ... True`를 확인한다. 위 명령은 녹화를 자동 시작하지 않는다.
+
+수집기는 장면 생성 후 지정된 `XR_RUNTIME_JSON`을 Kit의 Custom Runtime으로
+선택하고 XR 출력 세션을 시작한다. `[XR] OpenXR session and display are active.`와
+Runtime 터미널의 `[OPENXR] App connected`가 나와야 실제 앱 연결 단계가 완료된다.
+XR 확장 로딩 또는 `[CLIENT] Connected`만으로는 이 단계가 완료된 것이 아니다.
+출력이 활성화되지 않으면 수집기는 오류를 내므로, 종료 로그에서 런타임 경로와
+OpenXR 오류를 확인한다. 최초 실행의 셰이더·재질 준비 중에는 수 분이 걸릴 수 있다.
+
+정면을 보고 Quest **X**(PC **C**)로 시점을 로봇 head camera에 맞춘다.
+**A**(**T**)로 저장 없이 따라오기 시작/멈춤, **B**(**P**)로 녹화 시작/멈춤,
+**Y**(**H**)로 양쪽 위 작은 손목 패널 표시/숨김을 제어한다.
+중앙은 기본 stereo 장면이며 머리 RGB 패널이 가리지 않는다. 머리 영상은 계속 기록된다.
+녹화 중 보정은 차단되고, 녹화 중 따라오기를 멈추면 현재 시도도 실패로 종료된다.
+
+버튼 수신은 `[BUTTON]`, 실제 녹화는 `[DATA] Recording ...`로 구분해서 확인한다.
+기본 `--input-mode controllers`는 컨트롤러 위치·회전으로 팔을 움직이고, 각 검지
+트리거를 절반 이상 당기면 해당 gripper를 닫는다. 컨트롤러를 계속 들고 조작한다.
+맨손을 원할 때만 `--input-mode hands`로 다시 실행한다. 현재 모드는 `[INFO] Arm input mode`
+및 `[TRACKING] ... input=...`에서 확인한다. 머리만 추적되면 팔은 움직이지 않는다.
+[보정·조작 절차](QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)를 참고한다.
+
+패널이 검으면 `[CAMERA] Left/Right wrist RGB`의 `max`가 0인지 먼저 확인한다.
+센서 영상이 정상인데 패널만 검다면 XR UI 경로 문제다. 현재 위젯은 Frame 안에
+이미지 레이아웃을 직접 배치하며, 첫 유효 프레임 전의 검은 자리표시는 숨긴다.
+
+HDF5는 실행마다 날짜·시간·고유값을 넣은 별도 파일을 만든다. 정확한 경로는
+`[INFO] Dataset: HDF5=...`에서 확인한다. `--dataset`을 명시해도 기존 파일을
+덮어쓰거나 이어 쓰지 않고 오류로 중단한다. `--max-episodes 1`이면 샘플이 있는
+시도 하나를 끝낸 뒤 종료하므로 성공/실패 파일을 개별 보관·폐기하기 편하다.
+오류가 난 기존 파일도 자동 삭제하거나 복구 명목으로 수정하지 않는다.
+실행 중에는 `Ctrl+C`로 수집기를 종료해 HDF5 정리가 완료된 뒤 창을 닫는다.
 
 PC Isaac Sim 창에서 `M`은 작업자 판정 성공, `P`는 시작/중지, `R`은 reset이다.
 HDF5는 샘플이 있는 실패 시도도 보존한다.
