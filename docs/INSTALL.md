@@ -222,8 +222,8 @@ export ISAACLAB_PYTHON="$(command -v python)"
 이 명령은 GUI를 열지 않는다. CloudXR Runtime 없이도 PC browser/IWER preview에
 필요한 repository/Isaac 구성은 검사할 수 있다.
 
-Prepare NVIDIA CloudXR Runtime and its service on the Isaac workstation. The
-repository does not provide a Linux CloudXR service launcher. For the documented
+Prepare NVIDIA CloudXR Runtime and its service on the Isaac workstation using
+[the included Linux service launcher](QUEST_RUNTIME_SERVICE.md). For the documented
 CloudXR.js path, install the npm package on the PC and open the hosted client
 page in Quest Browser; do not install the `.tgz` on the headset. After completing
 the [runtime service](../README.md#quest-runtime-service) and

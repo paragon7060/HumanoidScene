@@ -179,8 +179,9 @@ WSS 서버가 되지는 않는다. 실제 OpenXR 수집은 미리보기를 종�
 [Runtime 다운로드와 JSON 설정](../README.md#quest-files),
 [Linux 서비스 준비 및 현재 제공 범위](../README.md#quest-runtime-service)를 먼저 확인한다.
 SDK와 `openxr_cloudxr.json`만 준비해도 서비스가 자동 시작되는 것은 아니다.
-이 저장소에는 Linux CloudXR 서비스 실행기나 자동 기동 코드가 없으므로,
-Isaac Lab과 함께 사용할 서비스 구성을 별도로 준비해야 한다.
+이 저장소의 `run_cloudxr_runtime.sh`로 서비스를 실행할 수 있다.
+[실행기·HTTPS 설정 안내](QUEST_RUNTIME_SERVICE.md)를 참고한다. SDK 바이너리는
+별도 설치하며, 서비스는 수집 중 계속 실행되어 있어야 한다.
 
 CloudXR Runtime 6.x 설치 디렉터리에서 다음 파일을 찾는다.
 
@@ -206,6 +207,9 @@ HTTPS 페이지에서는 WSS 연결이 필요하다. 이 경우
 ```
 
 ### 3.2 Isaac Lab collector 실행
+
+먼저 Quest 웹 클라이언트를 Runtime에 CONNECT한다. `auto-webrtc`는 클라이언트
+연결 전에는 OpenXR 시스템 정보를 제공하지 않으므로 수집기보다 클라이언트를 먼저 연결한다.
 
 ```bash
 cd HumanoidScene

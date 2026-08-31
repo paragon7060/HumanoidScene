@@ -12,6 +12,13 @@ collection, start with the [main README walkthrough](../../README.md#quest-colle
 Actual OpenXR collection uses the sample's `Manual Input IP:Port` backend and
 the CloudXR Runtime signaling endpoint, not the local preview port 8765.
 
+`runtime_service.cpp` hosts the separately installed NVIDIA Runtime SDK through
+its C API. `run_cloudxr_runtime.sh` builds and launches it. The advertised endpoint
+defaults to loopback, but Runtime 6.2.1 can still bind signaling on all interfaces;
+use only on a trusted LAN. It supports native WSS using PEM files; Runtime 6.2.1 expects the
+PEM contents in its property API, so the host reads the files without logging
+the private key. See [runtime and HTTPS operation](../../docs/QUEST_RUNTIME_SERVICE.md).
+
 Run from the HumanoidScene repository:
 
 ```bash

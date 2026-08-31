@@ -54,10 +54,13 @@ LeRobot은 HDF5 수집을 확인한 다음 별도 환경에 연결한다.
 바꿔야 하는 예시이며 그대로 실행하면 안 된다.
 
 > **현재 제공 범위:** 이 저장소는 Kuavo 장면, OpenXR 입력 어댑터, 수집기와
-> 브라우저 미리보기 설치 스크립트를 제공한다. NVIDIA CloudXR SDK, Linux
-> 런타임 서비스 실행기, TLS 프록시는 포함하거나 자동 설치하지 않는다.
+> 브라우저 미리보기 설치 스크립트, Linux 런타임 실행기와 정적 HTTPS 서버를 제공한다.
+> NVIDIA CloudXR SDK 바이너리·Node.js·TLS 인증서는 별도 준비한다.
 > `quest_doctor.sh` 통과는 파일 구성 검사 결과이며, 실제 Quest 스트리밍·손 추적
 > 성공을 보장하지 않는다. 실기 연결은 아래 절차로 별도 검증해야 한다.
+
+이미 이 PC에 패키지를 준비했다면 [준비된 환경 실행 안내](docs/QUEST_RUNTIME_SERVICE.md)에서
+터미널별 명령과 Quest 설정을 바로 확인한다.
 
 바로 이동:
 [준비물](#quest-prerequisites) · [다운로드와 파일 설정](#quest-files) ·
@@ -197,11 +200,14 @@ CloudXR 6.x Runtime SDK는 Linux에서 라이브러리와 C API를 제공한다.
 서비스 실행기를 만드는 방식을 설명한다. 문서의 `NvStreamManager.exe` 방식은
 Windows 전용이다.
 
-**이 저장소에는 Linux CloudXR 서비스 실행기나 자동 기동 코드가 아직 없다.**
-SDK만 다운로드했다면 이 단계는 아직 미완료다. 사용 중인 배포 환경의 실행기를
-준비하거나 [Runtime Management API](https://docs.nvidia.com/cloudxr-sdk/latest/usr_guide/cloudxr_runtime/runtime_mgmt_api.html)를
-사용해 서비스를 시작하는 구성을 먼저 마련해야 한다. 실행기는 Isaac Lab 수집기와
-함께 사용할 수 있어야 하며, 수집 중에도 서비스를 유지해야 한다.
+이 저장소의 `./run_cloudxr_runtime.sh`가
+[Runtime Management API](https://docs.nvidia.com/cloudxr-sdk/latest/usr_guide/cloudxr_runtime/runtime_mgmt_api.html)로
+서비스를 시작·종료한다. SDK를 `.external/cloudxr-runtime`에 풀고 C++ 컴파일러를
+준비한 뒤 `./run_cloudxr_runtime.sh --check`로 라이브러리를 확인한다.
+클라이언트에 알릴 주소는 `--host <PC LAN IP>`로 지정한다. Runtime 6.2.1은 이
+설정과 별개로 신호 포트를 모든 인터페이스에 열 수 있으므로 신뢰하는 LAN에서만 사용한다.
+수집 중에는 이 프로세스를 유지한다. HTTPS/WSS 실행과 인증서 설정은
+[런타임 실행 안내](docs/QUEST_RUNTIME_SERVICE.md)를 따른다.
 
 구성을 처음 확인할 때는 NVIDIA의
 [LÖVR CloudXR 샘플](https://github.com/NVIDIA/cloudxr-lovr-sample)로 서비스와 Quest
@@ -212,6 +218,8 @@ Isaac Lab용 서비스 구성을 준비한 뒤 아래 수집 단계로 진행한
 서비스의 설정·로그에서 WebRTC 연결을 받는지 확인한다. 기본 신호 포트를
 사용한다면 PC에서 `ss -ltnp 'sport = :49100'`으로 listener도 확인할 수 있다.
 포트가 열렸다는 사실만으로 손 추적이나 영상 전송 성공이 확인되지는 않는다.
+`auto-webrtc`에서는 Quest 클라이언트를 연결해야 OpenXR 시스템 정보가 준비되므로,
+실제 순서는 **서비스 → Quest 클라이언트 CONNECT → Isaac Lab 수집기**로 진행한다.
 
 <a id="quest-web-client"></a>
 
@@ -282,6 +290,8 @@ TLS 프록시도 준비한다. 개발용 자체 서명 인증서라면 **직접 
 Quest에서 웹 서버와 프록시 인증서를 각각 신뢰하도록 설정한다.
 HTTPS 페이지에서 평문 `ws://`로 연결하면 mixed-content 정책으로 차단된다.
 위 예시는 프록시 방식이며, 저장소가 인증서나 프록시를 자동 설치하지는 않는다.
+별도 프록시 대신 [이 저장소 실행기의 직접 WSS 방식](docs/QUEST_RUNTIME_SERVICE.md)을
+사용할 수도 있다. 이 경우 HTTPS에서도 Runtime 포트는 `49100`이며 `48322`는 사용하지 않는다.
 
 포트는 목적별로 다르다. 방화벽을 통째로 끄거나 인터넷에 포트 포워딩하지 말고,
 사용할 연결 방식에 필요한 트래픽만 신뢰하는 LAN/Quest에서 허용한다.
@@ -299,9 +309,11 @@ HTTPS 페이지에서 평문 `ws://`로 연결하면 mixed-content 정책으로 
 
 ### 7. 첫 데이터는 HDF5 한 에피소드로 확인
 
-진행 전 확인할 상태는 **Runtime 서비스 실행 중 / 웹 서버 실행 중 / Quest에서
-웹페이지 접근 가능**이다. PC의 로컬 미리보기 시뮬레이터는 종료한다.
-새 터미널에서 저장소 루트로 이동한 뒤 수집기를 실행한다.
+진행 전 확인할 상태는 **Runtime 서비스 실행 중 / 웹 서버 실행 중 / Quest 클라이언트
+CONNECT 완료**다. PC의 로컬 미리보기 시뮬레이터는 종료한다.
+Quest에서 `Manual Input IP:Port`, 올바른 IP·포트, VR 모드를 선택해 연결한 뒤
+새 터미널에서 저장소 루트로 이동해 수집기를 실행한다. `auto-webrtc` 런타임은
+헤드셋 연결 전에는 `XR_ERROR_FORM_FACTOR_UNAVAILABLE`을 반환할 수 있다.
 
 ```bash
 conda activate env_isaaclab_232
@@ -317,9 +329,8 @@ export XR_RUNTIME_JSON="/absolute/path/to/openxr_cloudxr.json"
   --episode-seconds 60
 ```
 
-Quest 페이지에서 위 표의 **Manual Input IP:Port**, 올바른 IP·포트, **VR** 모드를
-선택하고 `CONNECT`를 누른다. WebXR/손 추적 권한을 허용하고 양손을 헤드셋
-카메라가 볼 수 있는 위치에 둔다. 최초 유효 프레임은 자세 보정에 사용된다.
+Quest에서 WebXR/손 추적 권한을 허용하고 양손을 헤드셋 카메라가 볼 수 있는
+위치에 둔다. 최초 유효 프레임은 자세 보정에 사용된다.
 수집기 터미널에서 다음과 같은 로그를 확인한다.
 
 ```text
