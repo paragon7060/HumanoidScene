@@ -27,11 +27,11 @@ def as_rgba(image: np.ndarray) -> np.ndarray:
 class QuestCameraOverlayCfg:
     """Two small panels leave the center of the native XR view unobstructed."""
 
-    distance_m: float = 0.85
-    plane_width_m: float = 0.34
-    plane_height_m: float = 0.255
-    horizontal_offset_m: float = 0.38
-    vertical_offset_m: float = 0.27
+    distance_m: float = 0.35
+    plane_width_m: float = 0.20
+    plane_height_m: float = 0.15
+    horizontal_offset_m: float = 0.19
+    vertical_offset_m: float = 0.12
     ui_resolution_width: int = 480
     forward_axis: str = "-z"
 

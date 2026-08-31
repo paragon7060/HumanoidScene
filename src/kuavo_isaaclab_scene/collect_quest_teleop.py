@@ -77,13 +77,13 @@ parser.add_argument(
     help="Keep failed/stopped LeRobot episodes. By default only successful episodes are saved.",
 )
 parser.add_argument("--seed", type=int, default=42)
-parser.add_argument("--max-episodes", type=int, default=20, help="0 means unlimited.")
-parser.add_argument("--episode-seconds", type=float, default=30.0, help="Automatic episode timeout.")
+parser.add_argument("--max-episodes", type=int, default=0, help="0 (default) keeps the application open between attempts.")
+parser.add_argument("--episode-seconds", type=float, default=0.0, help="Episode timeout in simulation seconds; 0 disables it.")
 parser.add_argument(
     "--auto-start",
     action=argparse.BooleanOptionalAction,
-    default=True,
-    help="Start recording automatically after both hands become valid.",
+    default=False,
+    help="Start recording automatically after both selected input devices become valid.",
 )
 parser.add_argument(
     "--domain-randomization",
@@ -107,7 +107,7 @@ parser.add_argument(
     default=True,
     help="Show small wrist-camera panels at the upper left/right of the Quest view.",
 )
-parser.add_argument("--xr-overlay-distance", type=float, default=0.85, metavar="METERS")
+parser.add_argument("--xr-overlay-distance", type=float, default=0.35, metavar="METERS")
 parser.add_argument(
     "--xr-overlay-forward-axis",
     choices=("-z", "+z"),
@@ -148,6 +148,8 @@ add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+if args_cli.max_episodes < 0 or args_cli.episode_seconds < 0:
+    parser.error("Episode count and timeout must be non-negative (0 means unlimited).")
 args_cli.dataset = (args_cli.dataset or new_session_path()).expanduser().resolve()
 if args_cli.dataset_format in {"hdf5", "both"} and args_cli.dataset.exists():
     parser.error(
@@ -170,8 +172,6 @@ if min(
     parser.error("Head and wrist camera width/height values must be positive.")
 if args_cli.xr_overlay_distance <= 0.08:
     parser.error("--xr-overlay-distance must be greater than the 0.08 m XR near plane.")
-if args_cli.episode_seconds <= 0.0:
-    parser.error("--episode-seconds must be positive.")
 if args_cli.max_episodes < 0:
     parser.error("--max-episodes must be 0 or greater.")
 if args_cli.lerobot_fps < 0:
@@ -228,7 +228,7 @@ from .teleop_env import (
 )
 from .teleop_mapping import BimanualTeleopMapper, TeleopMappingCfg
 from .teleop_lerobot_recorder import LeRobotTeleopRecorder
-from .teleop_recorder import TeleopHdf5Recorder, TeleopRecorderGroup
+from .teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopRecorderGroup
 from .xr_camera_overlay import QuestCameraOverlay, QuestCameraOverlayCfg
 
 
@@ -372,8 +372,8 @@ def main() -> None:
     recorders = {}
     dataset_descriptions = []
     if args_cli.dataset_format in {"hdf5", "both"}:
-        recorders["hdf5"] = TeleopHdf5Recorder(dataset_path)
-        dataset_descriptions.append(f"HDF5={dataset_path}")
+        recorders["hdf5"] = TeleopHdf5EpisodeRecorder(dataset_path)
+        dataset_descriptions.append(f"HDF5 first file={dataset_path}; subsequent attempts get new files in {dataset_path.parent}")
     if args_cli.dataset_format in {"lerobot", "both"}:
         control_fps = 1.0 / float(env.step_dt)
         lerobot_fps = args_cli.lerobot_fps or int(round(control_fps))
@@ -415,6 +415,13 @@ def main() -> None:
     preview_enabled = False
     camera_reported = False
     held_absolute_targets = np.zeros(len(action_names) - 12, dtype=np.float32)
+    arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
+    last_motion_report = time.perf_counter()
+    last_ee_positions = _to_numpy(robot.data.body_pos_w[0, [left_body_ids[0], right_body_ids[0]]]).copy()
+
+    def hold_arms():
+        for term in arm_terms:
+            term.hold_current_pose()
 
     def reset_simulation() -> None:
         nonlocal episode_steps
@@ -430,7 +437,9 @@ def main() -> None:
         if name is not None:
             completed_this_run += 1
             print(f"[DATA] Finished {name}: success={success}, reason={reason}")
-        reset_simulation()
+        hold_arms()
+        mapper.reset(head_target=held_absolute_targets[:2])
+        print("[CONTROL] Recording closed. Scene stays open; A=follow, B=new recording, R=reset.")
 
     print("[INFO] Quest/OpenXR Kuavo teleoperation is ready.")
     print(f"[INFO] Dataset: {'; '.join(dataset_descriptions)}")
@@ -444,7 +453,11 @@ def main() -> None:
     print("[CONTROL] C=recenter/calibrate, T=motion preview without recording, H=camera overlay on/off.")
     print("[CONTROL] Quest controllers: X=calibrate, A=motion start/stop, B=record start/stop, Y=panels on/off.")
     print("[CONTROL] Arm motion is paused until P starts recording or T enables motion preview.")
-    print("[CONTROL] Track both selected input devices; the first valid frame only calibrates and never moves the arms.")
+    print("[CONTROL] First/reacquired input frame adds no arm delta. While following, the last valid goal is retained.")
+    print(f"[CONTROL] Session limit: {args_cli.max_episodes or 'unlimited'} episodes; "
+          f"timeout: {args_cli.episode_seconds or 'disabled'}. Each attempt gets a separate HDF5 file.")
+    if quest_overlay is not None:
+        print(f"[VIEW] Wrist camera panels: {args_cli.xr_overlay_distance:.2f} m in front of the headset.")
     print(
         f"[GRIPPER] preset={GRIPPER_SETTINGS.name}, sides={GRIPPER_SETTINGS.active_sides or 'none'}, "
         f"pinch close threshold={GRIPPER_SETTINGS.pinch_close_threshold_m:.3f} m."
@@ -464,6 +477,7 @@ def main() -> None:
     try:
         while not stop_requested and simulation_app.is_running():
             if args_cli.max_episodes and completed_this_run >= args_cli.max_episodes:
+                print(f"[CONTROL] Exiting because --max-episodes {args_cli.max_episodes} was reached.")
                 break
 
             if requests["overlay"]:
@@ -484,6 +498,7 @@ def main() -> None:
                     pending_start = False
                     manual_pause = True
                     mapper.reset(head_target=held_absolute_targets[:2])
+                    hold_arms()
                     print(f"[CONTROL] Motion preview {'ON' if preview_enabled else 'OFF'}; no samples are being recorded.")
             if requests["calibrate"]:
                 requests["calibrate"] = False
@@ -503,6 +518,7 @@ def main() -> None:
                         simulation_app.update()
                     xr_device.reset()
                     mapper.reset(head_target=held_absolute_targets[:2])
+                    hold_arms()
                     print("[CALIBRATION] View centered at Kuavo head camera; current head/hand poses become neutral. Motion preview OFF.")
 
             raw = xr_device.advance()
@@ -540,8 +556,7 @@ def main() -> None:
                 preview_enabled = False
                 if recorder.recording:
                     finish_episode(False, "operator_reset")
-                else:
-                    reset_simulation()
+                reset_simulation()
                 pending_start = False
                 manual_pause = True
                 continue
@@ -580,6 +595,7 @@ def main() -> None:
                     {
                         "seed": args_cli.seed,
                         "input_mode": args_cli.input_mode,
+                        "arm_control": "persistent_relative_pose_v1",
                         "control_dt": float(env.step_dt),
                         "action_layout": ",".join(action_names),
                         "joint_names": state_names,
@@ -619,10 +635,21 @@ def main() -> None:
             if not (recorder.recording or preview_enabled):
                 action_np[:12] = 0.0
                 action_np[12:] = held_absolute_targets
+                hold_arms()
             else:
                 held_absolute_targets[:] = action_np[12:]
             action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
             env.step(action)
+            if time.perf_counter() - last_motion_report >= 3.0:
+                positions = _to_numpy(robot.data.body_pos_w[0, [left_body_ids[0], right_body_ids[0]]])
+                if recorder.recording or preview_enabled:
+                    movement = np.linalg.norm(positions - last_ee_positions, axis=1) * 1000.0
+                    errors = [float(term.target_position_error()[0]) * 1000.0 for term in arm_terms]
+                    print(f"[MOTION] input={args_cli.input_mode} tracking={mapped.left_valid}/{mapped.right_valid}; "
+                          f"hand displacement L/R={movement[0]:.1f}/{movement[1]:.1f} mm; "
+                          f"target error L/R={errors[0]:.1f}/{errors[1]:.1f} mm", flush=True)
+                last_ee_positions = positions.copy()
+                last_motion_report = time.perf_counter()
 
             head_rgb = None
             left_wrist_rgb = None
@@ -704,7 +731,7 @@ def main() -> None:
                     sample["button_joint_position"] = _to_numpy(button.data.joint_pos[0]).astype(np.float32)
                 recorder.append(sample)
                 episode_steps += 1
-                if episode_steps * env.step_dt >= args_cli.episode_seconds:
+                if args_cli.episode_seconds and episode_steps * env.step_dt >= args_cli.episode_seconds:
                     preview_enabled = False
                     finish_episode(False, "time_limit")
                     manual_pause = not args_cli.auto_start

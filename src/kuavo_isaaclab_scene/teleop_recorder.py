@@ -13,7 +13,7 @@ import numpy as np
 
 
 def new_session_path(directory: str | Path = "datasets") -> Path:
-    """Choose a separate file for each collector invocation."""
+    """Choose a unique file for a recording attempt."""
     timestamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
     return Path(directory).expanduser() / f"kuavo_quest_{timestamp}_{uuid4().hex[:8]}.hdf5"
 
@@ -178,3 +178,46 @@ class TeleopHdf5Recorder:
 
     def __exit__(self, *_args: object) -> None:
         self.close()
+
+
+class TeleopHdf5EpisodeRecorder:
+    """Keep the application alive while closing a separate file for every attempt."""
+
+    def __init__(self, first_path: str | Path):
+        self.first_path = Path(first_path).expanduser().resolve()
+        if self.first_path.exists():
+            raise FileExistsError(self.first_path)
+        self.path = self.first_path
+        self._writer: TeleopHdf5Recorder | None = None
+        self._started = 0
+
+    @property
+    def recording(self) -> bool:
+        return self._writer is not None and self._writer.recording
+
+    def start_episode(self, metadata: dict[str, Any] | None = None) -> str:
+        if self.recording:
+            raise RuntimeError("An episode is already being recorded.")
+        self.path = self.first_path if not self._started else new_session_path(self.first_path.parent)
+        self._writer = TeleopHdf5Recorder(self.path)
+        self._started += 1
+        name = self._writer.start_episode(metadata)
+        print(f"[DATA] New HDF5 file: {self.path}", flush=True)
+        return f"{self.path.name}/{name}"
+
+    def append(self, sample: dict[str, Any]) -> None:
+        if self._writer is not None:
+            self._writer.append(sample)
+
+    def finish_episode(self, *, success: bool, reason: str) -> str | None:
+        if self._writer is None:
+            return None
+        writer, self._writer = self._writer, None
+        try:
+            name = writer.finish_episode(success=success, reason=reason)
+            return f"{self.path.name}/{name}" if name is not None else None
+        finally:
+            writer.close()
+
+    def close(self) -> None:
+        self.finish_episode(success=False, reason="process_closed")

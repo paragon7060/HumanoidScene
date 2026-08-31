@@ -10,6 +10,7 @@ from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsA
 from isaaclab.utils import configclass
 
 from .gripper_runtime import build_gripper_action_cfg
+from .teleop_ik import PersistentTeleopIKAction
 from .manager_env import (
     GRIPPER_SETTINGS,
     KuavoRobustWorkcellEnvCfg,
@@ -27,6 +28,7 @@ HEAD_JOINTS = ["zhead_1_joint", "zhead_2_joint"]
 @configclass
 class TeleopActionsCfg:
     left_arm = DifferentialInverseKinematicsActionCfg(
+        class_type=PersistentTeleopIKAction,
         asset_name="robot",
         joint_names=LEFT_ARM_JOINTS,
         body_name="zarm_l7_end_effector",
@@ -40,6 +42,7 @@ class TeleopActionsCfg:
         debug_vis=False,
     )
     right_arm = DifferentialInverseKinematicsActionCfg(
+        class_type=PersistentTeleopIKAction,
         asset_name="robot",
         joint_names=RIGHT_ARM_JOINTS,
         body_name="zarm_r7_end_effector",

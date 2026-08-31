@@ -127,8 +127,8 @@ source .external/quest-session.env
 ./collect_quest_teleop.sh \
   --robot-model s200062 \
   --dataset-format hdf5 \
-  --max-episodes 1 \
-  --episode-seconds 60 \
+  --max-episodes 0 \
+  --episode-seconds 0 \
   --no-auto-start
 ```
 
@@ -157,14 +157,24 @@ OpenXR 오류를 확인한다. 최초 실행의 셰이더·재질 준비 중에�
 및 `[TRACKING] ... input=...`에서 확인한다. 머리만 추적되면 팔은 움직이지 않는다.
 [보정·조작 절차](QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)를 참고한다.
 
+팔이 움직이지 않거나 너무 작게 움직이면 `A`로 `FOLLOW ON`을 만든 뒤 `[MOTION]`을
+확인한다. 컨트롤러 인식, 입력 명령, 실제 손끝 이동은 서로 다른 확인 항목이다.
+현재 제어는 목표를 프레임마다 버리지 않고 유지한다. 손이 멈추거나 잠깐 추적을
+잃어도 마지막 목표를 따라가며, A/B 정지 또는 X 보정 시 현재 자세에 멈춘다.
+실제 관절·충돌·중력 때문에 목표 오차가 남을 수 있으므로 화면을 보며 조정한다.
+
 패널이 검으면 `[CAMERA] Left/Right wrist RGB`의 `max`가 0인지 먼저 확인한다.
 센서 영상이 정상인데 패널만 검다면 XR UI 경로 문제다. 현재 위젯은 Frame 안에
 이미지 레이아웃을 직접 배치하며, 첫 유효 프레임 전의 검은 자리표시는 숨긴다.
+손목 패널은 눈앞 0.35 m에 표시한다. 더 조절하려면 `--xr-overlay-distance`를 쓰되
+near plane인 0.08 m보다는 크게 둔다.
 
-HDF5는 실행마다 날짜·시간·고유값을 넣은 별도 파일을 만든다. 정확한 경로는
-`[INFO] Dataset: HDF5=...`에서 확인한다. `--dataset`을 명시해도 기존 파일을
-덮어쓰거나 이어 쓰지 않고 오류로 중단한다. `--max-episodes 1`이면 샘플이 있는
-시도 하나를 끝낸 뒤 종료하므로 성공/실패 파일을 개별 보관·폐기하기 편하다.
+HDF5는 **녹화 시도마다** 날짜·시간·고유값을 넣은 별도 파일을 만든다. 정확한 경로는
+`[DATA] New HDF5 file: ...`에서 확인한다. `--dataset`은 첫 파일 이름이며 이후에는
+같은 폴더의 새 고유 파일을 쓴다. 기존 파일을 덮어쓰거나 이어 쓰지 않는다.
+기본 `--max-episodes 0 --episode-seconds 0 --no-auto-start`는 앱을 유지하고 수동으로
+녹화한다. A/B로 시도를 끝낸 뒤 다시 B로 새 파일에 수집할 수 있다. R만 장면을 초기화한다.
+`--max-episodes 1`을 쓰면 시도 종료 후 앱까지 정상 종료한다. 오류로 꺼진 것과 구분한다.
 오류가 난 기존 파일도 자동 삭제하거나 복구 명목으로 수정하지 않는다.
 실행 중에는 `Ctrl+C`로 수집기를 종료해 HDF5 정리가 완료된 뒤 창을 닫는다.
 

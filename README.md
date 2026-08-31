@@ -324,8 +324,8 @@ export XR_RUNTIME_JSON="/absolute/path/to/openxr_cloudxr.json"
 ./collect_quest_teleop.sh \
   --robot-model s200062 \
   --dataset-format hdf5 \
-  --max-episodes 1 \
-  --episode-seconds 60 \
+  --max-episodes 0 \
+  --episode-seconds 0 \
   --no-auto-start
 ```
 
@@ -335,11 +335,11 @@ Quest에서 WebXR 권한을 허용하고 좌우 컨트롤러를 추적 가능한
 
 ```text
 [TRACKING] left=True, right=True, head=True
-[DATA] Recording hdf5=demo_00000
+[DATA] New HDF5 file: .../kuavo_quest_<timestamp>_<id>.hdf5
 ```
 
 위 예시는 `--no-auto-start`로 시작하므로 먼저 보정하고 따라오기를 확인한 뒤 녹화한다.
-이 옵션을 생략한 기본 `--auto-start`에서는 양쪽 입력 추적이 유효해지면 녹화를 시작한다.
+수동 시작이 기본이다. `--auto-start`를 명시하면 양쪽 입력 추적이 유효해질 때 녹화를 시작한다.
 머리 회전은 로봇 머리, 컨트롤러 위치·회전 변화는 양팔에 대응한다.
 각 검지 트리거를 절반 이상 당기면 해당 gripper가 닫히고 놓으면 열린다.
 키보드 조작은 **PC의 Isaac Sim 창에 포커스를 둔 상태**에서 한다.
@@ -361,14 +361,16 @@ Quest에서 WebXR 권한을 허용하고 좌우 컨트롤러를 추적 가능한
 다시 실행한다. 이 모드만 손목·손가락 추적과 엄지·검지 pinch를 사용하며, 자동으로
 컨트롤러 모드와 전환하지 않는다. 자세한 [보정·조작 절차](docs/QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)를 참고한다.
 
-예시 명령은 60초 제한 또는 `M`/`P`/`R`로 샘플이 있는 에피소드 하나를 끝내면
-종료한다. **HDF5는 실패·시간 초과·reset 시도도 샘플이 있으면 저장**하므로
+예시와 기본 설정은 녹화를 끝내도 앱·장면을 유지한다. `B`를 다시 누르면 새 파일로
+녹화하며, 장면 초기화는 `R`, 앱 종료는 `Ctrl+C`다. `--max-episodes 1`을 명시하면
+한 시도 뒤 앱까지 종료하므로 연속 조작에는 사용하지 않는다.
+**HDF5는 실패·시간 초과·reset 시도도 샘플이 있으면 저장**하므로
 성공 데이터 여부는 `success`와 `end_reason`을 확인해야 한다. `M`은 자동 성공
 판정이 아니며, 실제 작업을 완료했을 때 누른다.
 
-수집기가 정상 종료한 뒤 PC에서 저장 파일을 확인한다.
-기본적으로 실행마다 `datasets/kuavo_quest_<날짜-시간>_<고유값>.hdf5`가 새로 생긴다.
-아래 `SESSION_FILE.hdf5`를 수집기 `[INFO] Dataset: HDF5=...`에 출력된 실제 경로로 바꾼다.
+녹화를 끝내 파일이 닫힌 뒤 PC에서 저장 파일을 확인한다. 앱을 종료할 필요는 없다.
+녹화 시도마다 `datasets/kuavo_quest_<날짜-시간>_<고유값>.hdf5`가 새로 생긴다.
+아래 `SESSION_FILE.hdf5`를 `[DATA] New HDF5 file: ...`에 출력된 실제 경로로 바꾼다.
 
 ```bash
 python - "datasets/SESSION_FILE.hdf5" <<'PY'
@@ -386,9 +388,9 @@ PY
 ```
 
 `episodes: 0`이면 선택한 입력의 양쪽 추적과 녹화 시작 로그부터 확인한다.
-HDF5는 실행별로 분리하며, `--dataset`으로 지정한 경로가 이미 있으면 오류로 종료한다.
-기존 파일에 자동으로 이어 쓰거나 덮어쓰지 않는다. 한 실행에서 여러 에피소드를
-모을 수 있으며, 시도별로 파일을 보관·폐기하려면 `--max-episodes 1`로 실행한다.
+HDF5는 시도별로 분리하며, `--dataset`은 첫 파일 이름을 지정한다. 이미 존재하면
+오류로 종료한다. 이후 시도는 같은 폴더의 새 고유 파일을 쓴다. 기존 파일에
+이어 쓰거나 덮어쓰지 않으며, 녹화 없이 화면·따라오기만 확인하면 파일을 만들지 않는다.
 실패 시도도 자동 삭제하지 않으므로 `success`·`end_reason`을 보고 선별한다.
 RGB·depth 영상은 용량이 크니 장시간 수집 전에 디스크 여유 공간도 확인한다.
 

@@ -249,10 +249,11 @@ for arm motion and each index trigger for its gripper. Use `--input-mode hands`
 for bare-hand wrist/pinch tracking instead; modes never switch automatically.
 See the [control guide](QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어).
 
-Each invocation creates a separate timestamped HDF5 file in `datasets/` and
-prints its path. Explicit `--dataset` paths must not already exist; HDF5 sessions
-are never automatically appended to or overwritten. Use `--max-episodes 1` to
-keep each collected attempt in a separate file.
+Each recording attempt creates and closes its own HDF5 file without closing the
+app. Defaults are manual recording, unlimited attempts, and no episode timeout.
+`--dataset` names the first file; subsequent attempts use unique names in that
+directory. Existing files are never appended to or overwritten. Only use
+`--max-episodes 1` if the app should exit after a single attempt.
 
 `RawQuestOpenXRDevice` compatibility adapter explicitly enables raw hand/head
 or controller tracking in Isaac Lab v2.3.2 while leaving Kuavo's calibration,

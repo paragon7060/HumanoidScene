@@ -4,7 +4,7 @@ import pytest
 import subprocess
 import sys
 
-from kuavo_isaaclab_scene.teleop_recorder import TeleopHdf5Recorder, new_session_path
+from kuavo_isaaclab_scene.teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopHdf5Recorder, new_session_path
 from kuavo_isaaclab_scene.teleop_lerobot_recorder import build_lerobot_features, sample_to_lerobot_frame
 
 
@@ -56,6 +56,31 @@ def test_empty_recording_file_survives_exit_without_python_cleanup(tmp_path):
     with h5py.File(path, "r") as stream:
         assert len(stream["data"]) == 0
         assert stream.attrs["format"] == "kuavo_quest_teleop_hdf5"
+
+
+def test_multiple_attempts_close_separate_files_without_closing_the_session(tmp_path):
+    first = tmp_path / "first.hdf5"
+    recorder = TeleopHdf5EpisodeRecorder(first)
+    assert not first.exists()  # Preview alone creates no dataset.
+    recorder.start_episode({"input_mode": "controllers"})
+    recorder.append({"action": np.array([1.0])})
+    recorder.finish_episode(success=False, reason="operator_stop")
+    assert not recorder.recording
+    original = first.read_bytes()
+    recorder.start_episode({"input_mode": "controllers"})
+    second = recorder.path
+    assert second != first
+    recorder.append({"action": np.array([2.0])})
+    recorder.close()  # Interrupted attempt is still preserved.
+    assert first.read_bytes() == original
+    for path, value, reason in ((first, 1.0, "operator_stop"), (second, 2.0, "process_closed")):
+        with h5py.File(path, "r") as f:
+            assert len(f["data"]) == 1
+            episode = f["data/demo_00000"]
+            assert episode.attrs["end_reason"] == reason
+            assert episode["samples/action"][0, 0] == value
+    with pytest.raises(FileExistsError):
+        TeleopHdf5EpisodeRecorder(first)
 
 
 @pytest.mark.parametrize("record_controllers", [False, True])

@@ -240,17 +240,19 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 [DATA] Recording demo_00000
 ```
 
-양손이 처음 인식된 프레임은 calibration에만 사용되며 action은 0이다. tracking을 잃었다가 다시 찾은 손도 첫 프레임에 재calibration되므로 갑자기 팔이 튀지 않는다.
+양쪽 입력의 첫 인식·재인식 프레임은 기준 보정에만 사용하여 새로운 팔 이동량을
+추가하지 않는다. 따라오기가 켜져 있으면 추적 손실 중에도 기존 유효 목표는 유지한다.
 
 ## 4. 조작 및 episode 제어
 
 기본 입력은 **컨트롤러**(`--input-mode controllers`)다. 컨트롤러를 들고 조작한다.
 위치·회전 변화가 같은 쪽 팔에 연결되고, 검지 트리거를 절반 이상 당기면 그리퍼를
-닫고 놓으면 연다. 입력을 잃으면 해당 팔과 그리퍼를 유지하고, 재인식 첫 프레임은
+닫고 놓으면 연다. 입력을 잠깐 잃으면 팔은 마지막 유효 목표를 계속 따라가고 그리퍼 목표도 유지한다. 재인식 첫 프레임은
 팔 보정에만 쓴다. `--input-mode hands`는 기존 맨손 wrist·pinch 모드를 선택한다.
 모드는 실행 시 고정되며 추적 손실을 이유로 서로 전환하지 않는다.
 
-기본값은 `--auto-start`다. 선택한 양쪽 입력 tracking이 유효해지면 자동으로 recording을 시작한다.
+기본값은 `--no-auto-start --max-episodes 0 --episode-seconds 0`이다. 앱을 켜 둔 채
+버튼으로 시도를 반복한다. `--auto-start`를 명시하면 유효한 양쪽 입력으로 자동 녹화한다.
 
 처음에는 `--no-auto-start`를 권장한다. 아래 버튼은 OpenXR controller press에
 연결되어 있으며, 누르면 수집기 터미널에 `[BUTTON] X pressed ...` 같은 로그가 찍힌다.
@@ -274,8 +276,18 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
    눌러도 따라오기를 멈추고 현재 녹화를 실패로 종료한다.
 
 보정은 녹화 중 차단된다. 따라오기만 멈출 때는 마지막 머리·그리퍼 목표를
-유지하고 팔 이동 명령을 0으로 만든다. 에피소드 종료/환경 reset은 초기 장면으로
-되돌린다. HMD 시점 이동은 가상 시점 보정이며 실제 로봇의 머리 위치 관절을 추가하지 않는다.
+유지하고 남아 있는 팔 목표를 현재 자세로 취소한다. 에피소드 종료 시 파일만 닫고
+장면은 유지한다. `R`만 초기 장면으로 되돌린다. `--max-episodes 1`을 명시하면
+한 시도 후 앱까지 종료하므로 연속 조작에는 사용하지 않는다.
+HMD 시점 이동은 가상 시점 보정이며 실제 로봇의 머리 위치 관절을 추가하지 않는다.
+
+팔 목표는 현재 손끝이 아닌 이전 목표에 상대 이동량을 누적한다. 팔이 입력보다 느릴 때
+남은 목표가 다음 프레임에 사라지는 것을 막는다. 각 IK 보정 단계의 오차 입력은
+15 cm/0.5 rad로 제한하되 원래 목표는 유지한다. 컨트롤러를
+멈추거나 잠깐 추적을 잃어도 남은 목표를 따라간다. A/B로 명시적으로 정지하거나
+X로 보정할 때만 현재 자세에 멈춘다. 주변을 보면서 조작하고 정지는 A로 한다.
+`[MOTION]`에는 실제 손끝 이동량과 목표 오차(mm)가 3초 간격으로 표시된다.
+시뮬레이터 자체 검증은 Isaac Lab Python으로 `scripts/verify_quest_ik.py`를 실행한다.
 
 **맨손 모드에서는 버튼과 손 추적이 별개다.** `--input-mode hands`로 실행했다면
 컨트롤러를 잡을 때 Quest가 맨손 추적을 중단할 수 있다. 이 경우 버튼을 누른 뒤
@@ -331,7 +343,7 @@ Isaac Sim에서 캡처한 정확한 pose JSON을 쓰려면:
 
 - 중앙에는 Quest의 일반 stereo scene view를 유지한다. 큰 head RGB 패널로 덮지 않는다.
 - `scene["left_wrist_camera"]`, `scene["right_wrist_camera"]` 영상이 시야 왼쪽 위/오른쪽 위 작은 창으로 표시된다.
-- 패널은 기본 거리 0.85 m, 크기 0.34×0.255 m이며 머리를 따라 고정된다. `Y`/`H`로 숨겨도 카메라 기록은 유지된다.
+- 패널은 눈앞 0.35 m, 크기 0.20×0.15 m이며 머리를 따라 고정된다. `Y`/`H`로 숨겨도 카메라 기록은 유지된다.
 - 실제 Kuavo `scene["robustness_camera"]` RGB는 dataset에 계속 저장된다. 중앙의 stereo 시점과 이 단안 영상은 동일하지 않다.
 - 따라오기 또는 녹화 중 HMD yaw/pitch는 Kuavo `zhead_1_joint`, `zhead_2_joint`에 연결된다. `X`/`C`로 현재 시점을 head camera에 정렬한다.
 - Kuavo에는 머리 translation joint가 없으므로 Quest의 위치 이동은 robot head에 적용되지 않는다.
@@ -459,9 +471,9 @@ HDF5도 동시에 남기려면:
 `--lerobot-python /path/to/env/bin/python`으로 지정한다. launcher는 알려진 conda
 경로도 탐색하며, worker는 시작할 때 format이 정확히 `v3.0`인지 확인한다.
 
-HDF5는 실행마다 새 파일로 분리되며 기존 파일을 재사용하지 않는다. 지정한
-`--dataset` 경로가 이미 있으면 오류로 중단한다. 시도별 파일이 필요하면
-`--max-episodes 1`을 사용한다.
+HDF5는 시도마다 새 파일로 분리되며 기존 파일을 재사용하지 않는다. 지정한
+`--dataset`은 첫 파일이며 이미 있으면 오류로 중단한다. 다음 시도는 같은 폴더의
+새 고유 파일을 사용한다. 저장 경로는 `[DATA] New HDF5 file`에 표시된다.
 
 기본 camera 저장은 MP4다. 개별 PNG가 필요하면 `--no-lerobot-use-videos`를 사용한다. 기존 **LeRobot** dataset에 이어서 수집할 때에는 FPS, camera 해상도, wrist camera 포함 여부, box/button 수가 최초 schema와 같아야 한다. 이 값이 바뀌면 새 `--lerobot-root`를 사용한다.
 
