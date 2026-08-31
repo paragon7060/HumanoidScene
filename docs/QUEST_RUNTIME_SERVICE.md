@@ -208,7 +208,7 @@ A/B로 따라오기를 켠 뒤 사용한다. 베이스는 simulation fixed-root 
 시점은 robot head에 붙으며 왼쪽 아래 그립을 누르는 동안 room-scale 자유 시점이다.
 자유 시점에서는 새 팔·몸통 명령을 멈추고 기존 팔 목표를 유지한다.
 양쪽 위 검지 트리거는 놓으면 open, 당기면 close이며 생성·R 리셋도 open이다.
-기본은 absolute 위치 매핑, depth OFF, 추가 PC 렌더는 센서 사용 시에만 160×90로 유지, CPU 물리/IK와 GPU RTX 렌더다.
+기본은 보정 기준 대비 1.5배 scaled 위치 매핑(1:1은 `--controller-mapping absolute`), depth OFF, 추가 PC 렌더는 센서 사용 시에만 160×90로 유지, CPU 물리/IK와 GPU RTX 렌더다.
 `--arm-orientation-weight 0.5`가 기본이며 검지 pointing/엄지 축을 그리퍼 접근/닫힘 축에 대응시킨다.
 머리는 보정된 HMD 로컬 기준으로 좌우/상하를 계산한다. 팔 제어·질량 보완 내용은
 [조작·물리 설정](QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)을 참고한다.

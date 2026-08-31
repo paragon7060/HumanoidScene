@@ -1,6 +1,41 @@
 import numpy as np
 
-from kuavo_isaaclab_scene.teleop_mapping import AbsoluteControllerMapper, BimanualTeleopMapper, TeleopMappingCfg
+from kuavo_isaaclab_scene.teleop_mapping import AbsoluteControllerMapper, ScaledControllerMapper, BimanualTeleopMapper, TeleopMappingCfg
+
+
+def test_scaled_reach_and_clutch_without_drift_or_recalibration_on_tracking_loss():
+    mapper = ScaledControllerMapper(position_gain=1.5)
+    root = np.array([0., 0., 0., 1., 0., 0., 0.])
+    tool = np.array([.3, .25, .65, 1., 0., 0., 0.])
+    packet = np.array([[.2, .25, 1.1, 1., 0., 0., 0.], [0.] * 7])
+    first = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(first[:3], tool[:3], atol=1e-6)
+    packet[0, :3] += [.2, 0., -.2]
+    for _ in range(100):
+        goal = mapper.target("left", packet, tool, root, following=True)
+        np.testing.assert_allclose(goal[:3], [.6, .25, .35], atol=1e-6)
+    np.testing.assert_allclose(mapper.target("left", None, tool, root, following=True), goal)
+    np.testing.assert_allclose(mapper.target("left", packet, tool, root, following=True), goal)
+    mapper.target("left", packet, tool, root, following=False)
+    packet[0, :3] = [.1, .2, 1.2]
+    resumed = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(resumed[:3], tool[:3], atol=1e-6)
+
+
+def test_scaled_gain_does_not_multiply_base_turn_or_torso_lift():
+    from kuavo_isaaclab_scene.teleop_mapping import _quat_rotate
+    mapper = ScaledControllerMapper(position_gain=2.)
+    root = np.array([0., 0., 0., 1., 0., 0., 0.])
+    torso = np.array([0., 0., .5, 1., 0., 0., 0.])
+    tool = np.array([.3, .25, .7, 1., 0., 0., 0.])
+    packet = np.array([[.2, .25, 1., 1., 0., 0., 0.], [0.] * 7])
+    mapper.target("left", packet, tool, root, following=True, reference_pose_w=torso)
+    rotation = np.array([np.sqrt(.5), 0, 0, np.sqrt(.5)])
+    torso[:3] = [1., 2., .8]; torso[3:] = rotation
+    packet[0, :3] = torso[:3] + _quat_rotate(rotation, [.2, .25, .5])
+    goal = mapper.target("left", packet, tool, root, following=True, reference_pose_w=torso)
+    expected = torso[:3] + _quat_rotate(rotation, [.3, .25, .2])
+    np.testing.assert_allclose(goal[:3], expected, atol=1e-6)
 
 
 def test_absolute_controller_position_uses_translated_rotated_robot_frame_without_drift():

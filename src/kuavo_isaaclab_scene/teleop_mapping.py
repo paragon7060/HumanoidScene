@@ -57,7 +57,11 @@ class AbsoluteControllerMapper:
     def hold(self, side, tool_pose_w):
         self._goals_w[side] = np.asarray(tool_pose_w, dtype=float).copy()
 
-    def target(self, side, controller, tool_pose_w, root_pose_w, *, following, aim_pose=None):
+    def _position_target(self, side, packet, tool, reference):
+        return packet[0, :3]
+
+    def target(self, side, controller, tool_pose_w, root_pose_w, *, following, aim_pose=None,
+               reference_pose_w=None):
         root = np.asarray(root_pose_w)
         tool = np.asarray(tool_pose_w)
         packet = None if controller is None else np.asarray(controller)
@@ -67,12 +71,49 @@ class AbsoluteControllerMapper:
             self.hold(side, tool)
         if following and valid:
             aim_quat = np.asarray(aim_pose)[3:] if _valid_pose(aim_pose) else None
-            self._goals_w[side] = np.concatenate((packet[0, :3], controller_gripper_orientation(
+            reference = root if reference_pose_w is None else np.asarray(reference_pose_w)
+            position = self._position_target(side, packet, tool, reference)
+            self._goals_w[side] = np.concatenate((position, controller_gripper_orientation(
                 packet[0, 3:], aim_quat, self._tool_forward_sign)))
         goal = self._goals_w[side]
         inverse = _quat_conjugate(_normalized_quat(root[3:]))
         return np.concatenate((_quat_rotate(inverse, goal[:3] - root[:3]),
                                _normalized_quat(_quat_multiply(inverse, goal[3:])))).astype(np.float32)
+
+
+class ScaledControllerMapper(AbsoluteControllerMapper):
+    """Clutched, drift-free hand displacement scaled around a torso reference.
+
+    The first valid sample after explicit pause pairs the comfortable human
+    hand pose with the current robot tool. Base/torso motion is not amplified.
+    Missing tracking preserves both the last world goal and the reference.
+    """
+
+    def __init__(self, position_gain=1.5, tool_forward_sign=-1):
+        if not np.isfinite(position_gain) or not 1.0 <= position_gain <= 3.0:
+            raise ValueError("Scaled position gain must be finite and between 1 and 3")
+        self.position_gain = float(position_gain)
+        super().__init__(tool_forward_sign)
+
+    def reset(self):
+        super().reset()
+        self._references = {}
+
+    def target(self, side, controller, tool_pose_w, root_pose_w, *, following, **kwargs):
+        if not following:
+            self._references.pop(side, None)
+        return super().target(side, controller, tool_pose_w, root_pose_w, following=following, **kwargs)
+
+    def _position_target(self, side, packet, tool, reference):
+        rotation = _normalized_quat(reference[3:])
+        inverse = _quat_conjugate(rotation)
+        controller_local = _quat_rotate(inverse, packet[0, :3] - reference[:3])
+        if side not in self._references:
+            tool_local = _quat_rotate(inverse, tool[:3] - reference[:3])
+            self._references[side] = (controller_local.copy(), tool_local)
+        controller_zero, tool_zero = self._references[side]
+        local = tool_zero + self.position_gain * (controller_local - controller_zero)
+        return reference[:3] + _quat_rotate(rotation, local)
 
 
 @dataclass(frozen=True)

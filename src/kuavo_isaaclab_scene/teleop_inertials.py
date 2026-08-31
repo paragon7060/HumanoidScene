@@ -37,6 +37,8 @@ def spawn_teleop_robot(prim_path, cfg, translation=None, orientation=None, **kwa
         raise RuntimeError(f"Missing S200062 hand rigid bodies for inertial correction: {sorted(remaining)}")
     if wheel_colliders < 4:
         raise RuntimeError(f"Expected four or more wheel colliders, found {wheel_colliders}")
+    from .teleop_contacts import add_hand_colliders
+    add_hand_colliders(root)
     print("[PHYSICS] Applied simulation estimates to 34 hand/frame links lacking URDF inertials; "
           f"0.743 kg per hand; omitted {wheel_colliders} kinematic wheel colliders; "
           "existing arm/torso inertials retained.", flush=True)

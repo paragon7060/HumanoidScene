@@ -115,6 +115,14 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
             self.scene.robot.spawn.articulation_props.solver_position_iteration_count = 32
             self.scene.robot.spawn.articulation_props.solver_velocity_iteration_count = 8
         self.scene.num_envs = 1
+        from .manager_env import LOCAL_BOX_SCENE_KEYS
+        from .teleop_contacts import spawn_contact_box
+        for name in LOCAL_BOX_SCENE_KEYS:
+            box = getattr(self.scene, name, None)
+            if box is not None:
+                box.spawn.func = spawn_contact_box
+                box.spawn.articulation_props.solver_position_iteration_count = 32
+                box.spawn.articulation_props.solver_velocity_iteration_count = 8
         self.scene.env_spacing = 5.0
         self.episode_length_s = 3600.0
         self.curriculum = None

@@ -29,8 +29,8 @@ parser.add_argument("--capture-xr", action="store_true", help="Save an XR displa
 parser.add_argument("--render-quality", choices=("performance", "quality"), default="performance")
 parser.add_argument("--xr-resolution-scale", type=float, default=1.0,
                     help="XR render-buffer scale (0.1–2.0); lower values reduce sharpness, not material quality.")
-parser.add_argument("--controller-mapping", choices=("absolute", "relative"), default="absolute",
-                    help="Absolute aligns robot tools to VR grip positions; relative enables the legacy delta mapping.")
+parser.add_argument("--controller-mapping", choices=("scaled", "absolute", "relative"), default="scaled",
+                    help="Scaled amplifies hand displacement from a comfortable reference; absolute is 1:1; relative is legacy.")
 parser.add_argument("--arm-stiffness", type=float, default=800.0)
 parser.add_argument("--arm-damping", type=float, default=50.0)
 parser.add_argument("--arm-orientation-weight", type=float, default=0.5,
@@ -149,7 +149,8 @@ parser.add_argument(
     default=True,
     help="Store left/right wrist RGB frames in the selected dataset backend(s).",
 )
-parser.add_argument("--position-gain", type=float, default=1.5)
+parser.add_argument("--position-gain", type=float, default=1.5,
+                    help="Hand displacement multiplier for scaled/relative mode; scaled accepts 1.0–3.0.")
 parser.add_argument("--rotation-gain", type=float, default=1.0)
 parser.add_argument(
     "--xr-runtime-json",
@@ -181,6 +182,8 @@ if not 0.1 <= args_cli.xr_resolution_scale <= 2.0:
     parser.error("--xr-resolution-scale must be between 0.1 and 2.0.")
 if args_cli.arm_stiffness <= 0 or args_cli.arm_damping < 0 or not 0 <= args_cli.arm_orientation_weight <= 1:
     parser.error("Arm stiffness must be positive; damping non-negative; orientation weight between 0 and 1.")
+if args_cli.controller_mapping == "scaled" and not 1.0 <= args_cli.position_gain <= 3.0:
+    parser.error("Scaled --position-gain must be between 1.0 and 3.0.")
 if args_cli.profile_steps < 0:
     parser.error("--profile-steps must be non-negative.")
 if args_cli.profile_steps or args_cli.capture_xr:
@@ -263,7 +266,7 @@ from .teleop_env import (
     KuavoQuestTeleopEnvCfg,
     set_domain_randomization,
 )
-from .teleop_mapping import (AbsoluteControllerMapper, BimanualTeleopMapper, TeleopMappingCfg,
+from .teleop_mapping import (AbsoluteControllerMapper, ScaledControllerMapper, BimanualTeleopMapper, TeleopMappingCfg,
                              _quat_multiply, _quat_conjugate, _quat_to_pitch_yaw)
 from .teleop_body import BODY_ACTION_NAMES, BODY_JOINTS, TeleopBodyMapper, controller_axis
 from .teleop_scene import configure_scene_detail
@@ -303,7 +306,7 @@ def main() -> None:
     cfg.scene.robot.actuators["arms"].damping = args_cli.arm_damping
     cfg.decimation = 120 // args_cli.control_hz
     cfg.sim.render_interval = cfg.decimation
-    absolute_control = args_cli.input_mode == "controllers" and args_cli.controller_mapping == "absolute"
+    absolute_control = args_cli.input_mode == "controllers" and args_cli.controller_mapping in {"absolute", "scaled"}
     arm_action_size = 14 if absolute_control else 12
     if absolute_control:
         cfg.actions.left_arm.controller.use_relative_mode = False
@@ -359,6 +362,7 @@ def main() -> None:
 
     robot = env.scene["robot"]
     head_body_id = robot.find_bodies(resolve_robot_model().head_camera_body)[0][0]
+    torso_body_id = robot.find_bodies("waist_yaw_link")[0][0]
     camera_offset = cfg.scene.robustness_camera.offset
     camera_offset_pos = torch.tensor([camera_offset.pos], device=env.device)
     camera_offset_quat = convert_camera_frame_orientation_convention(
@@ -423,7 +427,9 @@ def main() -> None:
             rotation_gain=args_cli.rotation_gain,
         )
     )
-    absolute_mapper = AbsoluteControllerMapper(tool_forward_sign=-1 if args_cli.robot_model == "s200062" else 1)
+    mapper_type = ScaledControllerMapper if args_cli.controller_mapping == "scaled" else AbsoluteControllerMapper
+    mapper_options = {"position_gain": args_cli.position_gain} if args_cli.controller_mapping == "scaled" else {}
+    absolute_mapper = mapper_type(tool_forward_sign=-1 if args_cli.robot_model == "s200062" else 1, **mapper_options)
     urdf = (ASSET_DIR / "kuavo_s200062/urdf/biped_s200062.urdf" if args_cli.robot_model == "s200062"
             else ASSET_DIR / "kuavo_s63/urdf/kuavo_s63.urdf")
     body_mapper = TeleopBodyMapper(urdf)
@@ -512,6 +518,7 @@ def main() -> None:
     held_absolute_targets[2:] = 1.0  # Binary gripper actions: nonnegative=open, negative=close.
     free_view = False
     view_initialized = False
+    button_pressed_state = False
     last_base_quat = _to_numpy(robot.data.root_quat_w[0]).copy()
     arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
     for term in arm_terms:
@@ -561,9 +568,14 @@ def main() -> None:
     print("[CONTROL] Left stick=base forward/strafe; right stick=base turn/body lift; left squeeze=hold free view. "
           "Release squeeze to return to robot head. Index triggers: released=open, pressed=close.")
     print("[CONTROL] Arm motion is paused until P starts recording or T enables motion preview.")
-    print(f"[CONTROL] Arm mapping: {'absolute VR grip position, index/aim forward, thumb closing axis' if absolute_control else 'persistent relative pose'}; "
+    position_label = ("scaled torso-relative workspace" if args_cli.controller_mapping == "scaled"
+                      else "absolute VR grip position") if absolute_control else "persistent relative pose"
+    print(f"[CONTROL] Arm mapping: {position_label}; index/aim forward, thumb closing axis; "
           f"orientation weight={args_cli.arm_orientation_weight:.2f} (0=position only). "
           "While following, the last valid goal is retained on tracking loss; A explicitly stops motion.")
+    if absolute_control and args_cli.controller_mapping == "scaled":
+        print(f"[CONTROL] Scaled workspace gain={args_cli.position_gain:.2f}: hold controllers comfortably, then A. "
+              "A pauses; reposition your hands and A resumes from the current robot tools without a position jump.")
     print(f"[CONTROL] Session limit: {args_cli.max_episodes or 'unlimited'} episodes; "
           f"timeout: {args_cli.episode_seconds or 'disabled'}. Each attempt gets a separate HDF5 file.")
     if quest_overlay is not None:
@@ -636,7 +648,7 @@ def main() -> None:
                     absolute_mapper.reset()
                     hold_arms()
                     print("[CALIBRATION] View centered at Kuavo head camera; fixed index/thumb tool axes retained. "
-                          "A starts following the controller's actual VR position. Motion preview OFF.")
+                          "A starts following; scaled mode captures a comfortable hand reference. Motion preview OFF.")
 
             raw = xr_device.advance()
             if not view_initialized and raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD) is not None:
@@ -741,7 +753,11 @@ def main() -> None:
                     {
                         "seed": args_cli.seed,
                         "input_mode": args_cli.input_mode,
-                        "arm_control": "absolute_controller_pose_v2" if absolute_control else "persistent_relative_pose_v1",
+                        "arm_control": ("scaled_controller_pose_v1" if absolute_control and args_cli.controller_mapping == "scaled"
+                                        else "absolute_controller_pose_v2" if absolute_control else "persistent_relative_pose_v1"),
+                        "controller_mapping": args_cli.controller_mapping,
+                        "position_gain": args_cli.position_gain if args_cli.controller_mapping != "absolute" else 1.0,
+                        "workspace_reference": "waist_yaw_link; first valid sample after explicit pause",
                         "arm_orientation_weight": args_cli.arm_orientation_weight,
                         "tool_orientation_mapping": ("approach=-aimZ; jaw_X=projected_-gripZ"
                                                      if absolute_control else "relative_rotation"),
@@ -803,6 +819,8 @@ def main() -> None:
                 held_absolute_targets[:] = action_np[12:]
             if absolute_control:
                 root_pose = np.concatenate((_to_numpy(robot.data.root_pos_w[0]), root_quat))
+                torso_pose = np.concatenate((_to_numpy(robot.data.body_pos_w[0, torso_body_id]),
+                                             _to_numpy(robot.data.body_quat_w[0, torso_body_id])))
                 arm_goals = []
                 for side, packet, body_id in (("left", left_controller, left_body_ids[0]),
                                               ("right", right_controller, right_body_ids[0])):
@@ -812,6 +830,7 @@ def main() -> None:
                         side, None if free_view else packet, tool_pose, root_pose,
                         following=recorder.recording or preview_enabled,
                         aim_pose=xr_device.controller_aim_pose(side),
+                        reference_pose_w=torso_pose,
                     ))
                 action_np = np.concatenate((*arm_goals, action_np[12:]))
             body_action = body_mapper.advance(left_controller, right_controller, env.step_dt,
@@ -832,6 +851,13 @@ def main() -> None:
                 desktop_viewport.updates_enabled = bool(recorder.recording or quest_overlay is not None
                                                         or not camera_reported)
             env.step(action)
+            if button is not None:
+                travel = float(button.data.joint_pos[0, 0])
+                pressed = travel >= (.002 if button_pressed_state else .006)
+                if pressed != button_pressed_state:
+                    button_pressed_state = pressed
+                    print(f"[CONTACT] Green button {'PRESSED' if pressed else 'RELEASED'}; "
+                          f"physical travel={travel * 1000:.1f} mm.", flush=True)
             profile_steps += 1
             report_steps += 1
             if args_cli.capture_xr and profile_steps == 60:

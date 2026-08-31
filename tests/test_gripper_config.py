@@ -48,10 +48,10 @@ def test_s200062_integrated_preset_targets_robot_side_joints() -> None:
         "l_b_bar_3_joint",
     )
     assert settings.command_for("right", settings.close_command) == {
-        "r_f_bar_1_joint": -0.005,
-        "r_f_bar_3_joint": -0.005,
-        "r_b_bar_1_joint": 0.005,
-        "r_b_bar_3_joint": 0.005,
+        "r_f_bar_1_joint": 0.0,
+        "r_f_bar_3_joint": 0.0,
+        "r_b_bar_1_joint": 0.0,
+        "r_b_bar_3_joint": 0.0,
     }
     assert len(teleop_action_names(settings)) == 16
 
