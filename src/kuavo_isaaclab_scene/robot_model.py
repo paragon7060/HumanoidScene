@@ -43,7 +43,8 @@ _MODELS = {
         head_camera_body="camera",
         head_camera_mount=WristCameraMount(
             pos=(0.0, 0.0, 0.0),
-            rot=(1.0, 0.0, 0.0, 0.0),
+            # URDF camera is a body frame (+X forward), not ROS optical +Z.
+            rot=CAMERA_BODY_TO_ROS_OPTICAL_ROT,
         ),
         wrist_camera_bodies={
             "left": "l_d405_camera",

@@ -21,7 +21,7 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._target_position = torch.zeros((self.num_envs, 3), device=self.device)
         self._target_orientation = torch.zeros((self.num_envs, 4), device=self.device)
         self._target_ready = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
-        self.orientation_weight = 0.0
+        self.orientation_weight = 0.5
         self._following = True
         self._held_joints = None
 
@@ -109,6 +109,12 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         delta += .08 * (nullspace @ (rest - joints).unsqueeze(-1)).squeeze(-1)
         desired = torch.clamp(joints + delta.clamp(-.12, .12), limits[..., 0], limits[..., 1])
         self._asset.set_joint_position_target(desired, self._joint_ids)
+
+    def target_orientation_error(self):
+        position, orientation = self._compute_frame_pose()
+        _, error = compute_pose_error(position, orientation, position, self._target_orientation,
+                                      rot_error_type="axis_angle")
+        return error.norm(dim=-1)
 
     def target_position_error(self):
         position, _ = self._compute_frame_pose()

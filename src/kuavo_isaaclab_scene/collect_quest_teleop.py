@@ -33,12 +33,14 @@ parser.add_argument("--controller-mapping", choices=("absolute", "relative"), de
                     help="Absolute aligns robot tools to VR grip positions; relative enables the legacy delta mapping.")
 parser.add_argument("--arm-stiffness", type=float, default=800.0)
 parser.add_argument("--arm-damping", type=float, default=50.0)
-parser.add_argument("--arm-orientation-weight", type=float, default=0.0,
-                    help="0 prioritizes exact hand position; increase to trade position reach for controller rotation.")
+parser.add_argument("--arm-orientation-weight", type=float, default=0.5,
+                    help="Rotation weight in pose IK; 0 disables controller rotation, 0.5 balances position and orientation.")
 parser.add_argument("--control-hz", type=int, choices=(30, 60), default=60,
                     help="Simulation control timestep; actual wall-clock rate is printed as [PERF].")
+parser.add_argument("--scene-detail", choices=("full", "compact"), default="compact",
+                    help="Compact removes background warehouse props and unused legacy task bodies; preserves materials.")
 parser.add_argument("--desktop-render", action=argparse.BooleanOptionalAction, default=False,
-                    help="Render the extra desktop scene viewport in addition to the Quest eyes.")
+                    help="Render the full desktop viewport; otherwise keep only a tiny render while camera frames are needed.")
 parser.add_argument(
     "--dataset-format",
     choices=("hdf5", "lerobot", "both"),
@@ -251,6 +253,7 @@ from isaaclab.devices.openxr.common import HAND_JOINT_NAMES
 from isaaclab.utils.math import combine_frame_transforms, convert_camera_frame_orientation_convention
 
 from .camera_viewports import open_camera_viewports
+from .teleop_camera import camera_rgb as _camera_rgb, camera_depth as _camera_depth
 from .manager_env import LOCAL_BOX_SCENE_KEYS
 from .quest_openxr import RawQuestOpenXRDevice, start_quest_xr_session
 from .teleop_env import (
@@ -261,7 +264,8 @@ from .teleop_env import (
     set_domain_randomization,
 )
 from .teleop_mapping import AbsoluteControllerMapper, BimanualTeleopMapper, TeleopMappingCfg
-from .teleop_body import BODY_ACTION_NAMES, BODY_JOINTS, TeleopBodyMapper
+from .teleop_body import BODY_ACTION_NAMES, BODY_JOINTS, TeleopBodyMapper, controller_axis
+from .teleop_scene import configure_scene_detail
 from .paths import ASSET_DIR
 from .teleop_lerobot_recorder import LeRobotTeleopRecorder
 from .teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopRecorderGroup
@@ -281,34 +285,6 @@ def _pose_or_default(pose: np.ndarray | None) -> np.ndarray:
 def _hand_array(hand: dict[str, np.ndarray] | None) -> np.ndarray:
     hand = hand or {}
     return np.stack([_pose_or_default(hand.get(name)) for name in HAND_JOINT_NAMES])
-
-
-def _camera_rgb(camera) -> np.ndarray | None:
-    camera_data = camera.data
-    batch = camera_data.output.get("rgb")
-    # RTX annotators can return an empty first frame, including after XR
-    # reconnect. Wait for a real frame instead of reducing an empty array or
-    # writing fabricated black images into the demonstration.
-    if batch is None or batch.numel() == 0:
-        # Lab 2.3 allocates its cached tensor to the first annotator result's
-        # shape. Discard an empty allocation so the next valid frame can size
-        # the buffer correctly instead of assigning HxWx3 into a zero tensor.
-        camera_data.output.clear()
-        return None
-    rgb = _to_numpy(batch[0])
-    if rgb.ndim != 3 or rgb.shape[-1] not in (3, 4) or rgb.size == 0:
-        return None
-    if rgb.shape[-1] > 3:
-        rgb = rgb[..., :3]
-    if rgb.dtype.kind == "f":
-        scale = 255.0 if float(np.nanmax(rgb)) <= 1.01 else 1.0
-        rgb = np.clip(rgb * scale, 0.0, 255.0).astype(np.uint8)
-    return rgb.astype(np.uint8, copy=False)
-
-
-def _camera_depth(camera) -> np.ndarray:
-    depth = _to_numpy(camera.data.output["distance_to_image_plane"][0])
-    return depth.astype(np.float16)
 
 
 def _scene_asset_or_none(scene, name: str):
@@ -362,6 +338,7 @@ def main() -> None:
     if not args_cli.record_depth:
         cfg.scene.robustness_camera.data_types = ["rgb"]
     set_domain_randomization(cfg, args_cli.domain_randomization)
+    configure_scene_detail(cfg, args_cli.scene_detail)
 
     env = ManagerBasedRLEnv(cfg=cfg)
     env.reset(seed=args_cli.seed)
@@ -437,7 +414,8 @@ def main() -> None:
         from omni.kit.viewport.utility import get_active_viewport
         desktop_viewport = get_active_viewport()
         if desktop_viewport is not None:
-            desktop_viewport.updates_enabled = False
+            desktop_viewport.fill_frame = False
+            desktop_viewport.resolution = (160, 90)
     mapper = BimanualTeleopMapper(
         TeleopMappingCfg(
             position_gain=args_cli.position_gain,
@@ -530,7 +508,7 @@ def main() -> None:
     camera_reported = False
     camera_wait_reported = False
     held_absolute_targets = np.zeros(len(action_names) - arm_action_size, dtype=np.float32)
-    held_absolute_targets[2:] = 1.0  # Binary gripper actions: +1=open, 0 closes.
+    held_absolute_targets[2:] = 1.0  # Binary gripper actions: nonnegative=open, negative=close.
     free_view = False
     view_initialized = False
     waist_yaw_id = robot.find_joints("waist_yaw_joint")[0][0]
@@ -768,6 +746,7 @@ def main() -> None:
                         "xr_resolution_scale": args_cli.xr_resolution_scale,
                         "render_quality": args_cli.render_quality,
                         "record_depth": args_cli.record_depth,
+                        "scene_detail": args_cli.scene_detail,
                         "wrist_cameras_enabled": args_cli.wrist_cameras,
                         "control_dt": float(env.step_dt),
                         "action_layout": ",".join(action_names + BODY_ACTION_NAMES),
@@ -842,7 +821,11 @@ def main() -> None:
             last_waist_yaw = waist_yaw
             action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
             if desktop_viewport is not None:
-                desktop_viewport.updates_enabled = False
+                # XR + disabled desktop viewport stops RTX annotator output
+                # on Kit 107.3. Keep a tiny desktop render while sensors are needed;
+                # this does not change either XR eye or recording resolution.
+                desktop_viewport.updates_enabled = bool(recorder.recording or quest_overlay is not None
+                                                        or not camera_reported)
             env.step(action)
             profile_steps += 1
             report_steps += 1
@@ -872,7 +855,18 @@ def main() -> None:
                     errors = [float(term.target_position_error()[0]) * 1000.0 for term in arm_terms]
                     print(f"[MOTION] input={args_cli.input_mode} tracking={mapped.left_valid}/{mapped.right_valid}; "
                           f"hand displacement L/R={movement[0]:.1f}/{movement[1]:.1f} mm; "
-                          f"target error L/R={errors[0]:.1f}/{errors[1]:.1f} mm", flush=True)
+                          f"target error L/R={errors[0]:.1f}/{errors[1]:.1f} mm; "
+                          f"rotation error L/R={np.rad2deg(float(arm_terms[0].target_orientation_error()[0])):.1f}/"
+                          f"{np.rad2deg(float(arm_terms[1].target_orientation_error()[0])):.1f} deg", flush=True)
+                if args_cli.input_mode == "controllers":
+                    body_term = env.action_manager.get_term("body")
+                    actual_body = _to_numpy(robot.data.joint_pos[0, body_term._joint_ids])
+                    print(f"[BODY] right stick={controller_axis(right_controller, 0):.2f}/"
+                          f"{controller_axis(right_controller, 1):.2f}; enabled="
+                          f"{(recorder.recording or preview_enabled) and not free_view}; "
+                          f"height goal={body_mapper.height:.3f} m; "
+                          f"joint goal={np.round(body_action[2:], 3).tolist()}; "
+                          f"actual={np.round(actual_body, 3).tolist()}", flush=True)
                 last_ee_positions = positions.copy()
                 last_motion_report = time.perf_counter()
 
@@ -899,8 +893,10 @@ def main() -> None:
                     camera_reported = True
 
             if recorder.recording:
+                head_depth = _camera_depth(env.scene["robustness_camera"]) if args_cli.record_depth else None
                 if head_rgb is None or (args_cli.record_wrist_cameras
-                                        and (left_wrist_rgb is None or right_wrist_rgb is None)):
+                                        and (left_wrist_rgb is None or right_wrist_rgb is None)) or (
+                                            args_cli.record_depth and head_depth is None):
                     if not camera_wait_reported:
                         print("[CAMERA] Waiting for valid RGB; no empty image samples are written.", flush=True)
                         camera_wait_reported = True
@@ -963,7 +959,7 @@ def main() -> None:
                             else np.full((2, 7), np.nan, dtype=np.float32)
                         )
                 if args_cli.record_depth:
-                    sample["head_depth_m"] = _camera_depth(env.scene["robustness_camera"])
+                    sample["head_depth_m"] = head_depth
                 if button is not None:
                     sample["button_joint_position"] = _to_numpy(button.data.joint_pos[0]).astype(np.float32)
                 recorder.append(sample)

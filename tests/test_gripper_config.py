@@ -48,10 +48,10 @@ def test_s200062_integrated_preset_targets_robot_side_joints() -> None:
         "l_b_bar_3_joint",
     )
     assert settings.command_for("right", settings.close_command) == {
-        "r_f_bar_1_joint": 0.55,
-        "r_f_bar_3_joint": -0.55,
-        "r_b_bar_1_joint": -0.55,
-        "r_b_bar_3_joint": 0.55,
+        "r_f_bar_1_joint": -0.005,
+        "r_f_bar_3_joint": -0.005,
+        "r_b_bar_1_joint": 0.005,
+        "r_b_bar_3_joint": 0.005,
     }
     assert len(teleop_action_names(settings)) == 16
 
@@ -63,6 +63,21 @@ def test_runtime_default_gripper_follows_robot_model(monkeypatch) -> None:
 
     monkeypatch.setenv(ROBOT_MODEL_ENV, "s63")
     assert resolve_gripper_settings().name == "robotiq_2f85"
+
+
+def test_integrated_commands_stay_inside_actual_urdf_limits():
+    import xml.etree.ElementTree as ET
+    from kuavo_isaaclab_scene.paths import ASSET_DIR
+
+    settings = load_gripper_settings("s200062_integrated")
+    joints = {j.attrib["name"]: j for j in ET.parse(
+        ASSET_DIR / "kuavo_s200062/urdf/biped_s200062.urdf"
+    ).findall("joint")}
+    for side in settings.active_sides:
+        for command in (settings.open_command, settings.close_command):
+            for name, position in settings.command_for(side, command).items():
+                limit = joints[name].find("limit").attrib
+                assert float(limit["lower"]) <= position <= float(limit["upper"])
 
 
 def test_custom_preset_resolves_relative_side_usd(tmp_path) -> None:

@@ -78,6 +78,18 @@ def test_camera_body_axes_are_not_ros_optical_axes() -> None:
     assert rotation @ [0, -1, 0] == pytest.approx([0, 0, 1])
 
 
+def test_head_optical_axis_faces_workcell_instead_of_ceiling():
+    root = ET.parse(ASSET_DIR / 'kuavo_s200062/urdf/biped_s200062.urdf').getroot()
+    frames = _fk(root, 'waist_yaw_link', {})
+    model = resolve_robot_model('s200062')
+    body = frames[model.head_camera_body]
+    optical = body @ _mount_matrix(model.head_camera_mount)
+    assert optical[:3, 3] == pytest.approx(body[:3, 3])
+    assert optical[:3, 2] == pytest.approx(body[:3, 0])
+    # Source mount is pitched 20.5 degrees downward from body-forward.
+    assert optical[0, 2] > .9 and -.5 < optical[2, 2] < -.2
+
+
 @pytest.mark.parametrize('mounts', [S200062_D405_MOUNTS, S63_ROBOTIQ_D405_MOUNTS])
 def test_d405_optical_mounts_are_normalized_mirrors(mounts) -> None:
     left = mounts['left']

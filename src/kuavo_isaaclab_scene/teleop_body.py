@@ -50,7 +50,7 @@ class TeleopBodyMapper:
             velocity = .25 * np.array([controller_axis(left, 1), -controller_axis(left, 0)])
             velocity /= max(1.0, np.linalg.norm(velocity) / .25)
             self.yaw = float(np.clip(self.yaw - .5 * controller_axis(right, 0) * dt, -1.4, 1.4))
-            requested_height = float(np.clip(self.height + .12 * controller_axis(right, 1) * dt, -.08, .40))
+            requested_height = float(np.clip(self.height + .12 * controller_axis(right, 1) * dt, 0.0, .40))
             target = self.links.sum(axis=0) + [0., requested_height]
             q = self.joints[:2].copy()
             for _ in range(12):

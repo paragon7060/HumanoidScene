@@ -114,6 +114,12 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
         self.scene.robot.actuators["arms"].damping = 50.0
         self.scene.robot.actuators["height_axis"].stiffness = 8000.0
         self.scene.robot.actuators["height_axis"].damping = 200.0
+        # Give waist yaw its own servo; head gains remain unchanged.
+        yaw = self.scene.robot.actuators["upper_body"].copy()
+        yaw.joint_names_expr = ["waist_yaw_joint"]
+        yaw.stiffness, yaw.damping = 800.0, 50.0
+        self.scene.robot.actuators["waist_yaw"] = yaw
+        self.scene.robot.actuators["upper_body"].joint_names_expr = ["zhead_.*_joint"]
         # A fully extended elbow is singular for upward motion. Start with
         # spare elbow travel while preserving the tool's neutral orientation.
         self.scene.robot.init_state.joint_pos.pop("zarm_.*_joint", None)
