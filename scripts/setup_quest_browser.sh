@@ -5,7 +5,10 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UPSTREAM_URL="https://github.com/NVIDIA/cloudxr-js-samples.git"
 UPSTREAM_COMMIT="29941936e90234a06847ba1c209d70f60b6b59bd"
 TARGET_DIR="${CLOUDXR_JS_SAMPLES_DIR:-${PROJECT_DIR}/.external/cloudxr-js-samples}"
-PATCH_FILE="${PROJECT_DIR}/integrations/cloudxr/cloudxr-js-samples-local-isaaclab.patch"
+PATCH_FILES=(
+  "${PROJECT_DIR}/integrations/cloudxr/cloudxr-js-samples-local-isaaclab.patch"
+  "${PROJECT_DIR}/integrations/cloudxr/cloudxr-js-samples-quest-cert.patch"
+)
 BRIDGE_FILE="${PROJECT_DIR}/integrations/cloudxr/LocalIsaacLabBridge.ts"
 PATCH_ONLY=0
 
@@ -29,12 +32,14 @@ if [[ "${CURRENT_COMMIT}" != "${UPSTREAM_COMMIT}" ]]; then
   exit 1
 fi
 
-if git -C "${TARGET_DIR}" apply --reverse --check "${PATCH_FILE}" >/dev/null 2>&1; then
-  printf '%s\n' 'Local IsaacLab patch is already applied.'
-else
-  git -C "${TARGET_DIR}" apply --check "${PATCH_FILE}"
-  git -C "${TARGET_DIR}" apply "${PATCH_FILE}"
-fi
+for PATCH_FILE in "${PATCH_FILES[@]}"; do
+  if git -C "${TARGET_DIR}" apply --reverse --check "${PATCH_FILE}" >/dev/null 2>&1; then
+    printf 'Patch already applied: %s\n' "$(basename "${PATCH_FILE}")"
+  else
+    git -C "${TARGET_DIR}" apply --check "${PATCH_FILE}"
+    git -C "${TARGET_DIR}" apply "${PATCH_FILE}"
+  fi
+done
 install -m 0644 "${BRIDGE_FILE}" "${TARGET_DIR}/simple/src/LocalIsaacLabBridge.ts"
 
 printf 'CloudXR browser integration: %s/simple\n' "${TARGET_DIR}"

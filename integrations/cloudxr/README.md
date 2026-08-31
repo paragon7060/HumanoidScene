@@ -12,6 +12,10 @@ collection, start with the [main README walkthrough](../../README.md#quest-colle
 Actual OpenXR collection uses the sample's `Manual Input IP:Port` backend and
 the CloudXR Runtime signaling endpoint, not the local preview port 8765.
 
+The Quest certificate patch opens the certificate link in the same tab, avoiding
+the sample's new-tab navigation when the headset browser blocks it. Certificate
+review remains manual; use Back to return to the client after reviewing it.
+
 `runtime_service.cpp` hosts the separately installed NVIDIA Runtime SDK through
 its C API. `run_cloudxr_runtime.sh` builds and launches it. The advertised endpoint
 defaults to loopback, but Runtime 6.2.1 can still bind signaling on all interfaces;

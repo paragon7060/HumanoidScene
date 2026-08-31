@@ -86,6 +86,14 @@ npm --prefix .external/cloudxr-js-samples/simple run build
    Runtime은 일반 웹 서버가 아니므로 빈 화면이나 HTTP 오류가 나올 수 있다.
 5. 8080 페이지로 돌아가 아래 설정을 선택하고 `CONNECT`한다.
 
+`Accept cert`를 눌렀을 때 `about:blank#blocked`가 나타나면 Quest 주소창에
+`https://<CLOUDXR_HOST>:49100`을 직접 입력한다. 기존 샘플의 새 탭 링크가
+차단되는 경우를 줄이도록 이 저장소의 패치는 인증서 링크를 같은 탭에서 연다.
+인증서 주소와 내용을 직접 확인한 뒤, 뒤로 가기로 8080 페이지에 돌아온다.
+이 변경은 인증서를 자동 신뢰하거나 브라우저의 보안 검증을 해제하지 않는다.
+이미 설치한 샘플은 `./setup_quest_browser.sh --patch-only` 후 production build를
+다시 하고 Quest 페이지를 새로 고치면 반영된다.
+
 | 항목 | 값 |
 |---|---|
 | Server Backend | **Manual Input IP:Port** |
