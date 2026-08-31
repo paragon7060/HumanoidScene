@@ -22,7 +22,8 @@ from isaaclab.devices.openxr import OpenXRDeviceCfg
 from isaaclab.devices.retargeter_base import RetargeterBase
 
 
-def start_quest_xr_session(simulation_app, *, enable_ui: bool = True, timeout_seconds: float = 90.0) -> None:
+def start_quest_xr_session(simulation_app, *, enable_ui: bool = True, resolution_scale: float = 1.0,
+                           render_quality: str = "performance", timeout_seconds: float = 90.0) -> None:
     """Start Kit's XR output, which loading the OpenXR experience does not start.
 
     Use the explicitly configured runtime instead of a previously saved Kit
@@ -40,6 +41,11 @@ def start_quest_xr_session(simulation_app, *, enable_ui: bool = True, timeout_se
     if core is None:
         raise RuntimeError("Kit XRCore is unavailable; launch the Isaac Lab OpenXR experience.")
     settings.set_bool("/xr/ui/enabled", enable_ui)
+    settings.set_float("/persistent/xr/profile/ar/render/resolutionMultiplier", resolution_scale)
+    # XR has its own render preset, applied after SimulationCfg. Its default
+    # balanced preset otherwise restores four lighting samples per pixel.
+    settings.set_string("/persistent/xr/profile/ar/renderQuality", render_quality)
+    print(f"[XR] Render resolution multiplier: {resolution_scale:.2f}; factory materials unchanged.", flush=True)
     if not core.is_xr_enabled():
         settings.set_string("/persistent/xr/system/openxr/activeRuntimeJSON", runtime_path)
         settings.set_string("/persistent/xr/system/openxr/runtime", "custom")
@@ -82,6 +88,27 @@ class RawQuestOpenXRDevice(OpenXRDevice):
         # Reserve A for the collector's explicit motion control instead of
         # Isaac Lab's optional anchor-rotation shortcut.
         self._unbind_all_buttons()
+        self._physical_to_control = None
+
+    def reset_head_reference(self):
+        self._physical_to_control = None
+
+    def reset(self):
+        super().reset()
+        self.reset_head_reference()
+
+    def motion_head_pose(self, valid_world_pose):
+        """Head motion without feedback from the moving robot-view anchor."""
+        if valid_world_pose is None:
+            return None
+        head = self._xr_core.get_input_device("/user/head")
+        physical = head.get_pose()
+        if self._physical_to_control is None:
+            self._physical_to_control = physical.GetInverse() * head.get_virtual_world_pose()
+        pose = physical * self._physical_to_control
+        q = pose.ExtractRotationQuat()
+        import numpy as np
+        return np.array([*pose.ExtractTranslation(), q.GetReal(), *q.GetImaginary()])
 
     def _query_controller(self, input_device):
         packet = super()._query_controller(input_device)
@@ -120,6 +147,17 @@ class RawQuestOpenXRDevice(OpenXRDevice):
         view_pose.SetRotate(Gf.Quatd(w, Gf.Vec3d(x, y, z)))
         view_pose.SetTranslateOnly(Gf.Vec3d(*position))
         core.schedule_teleport_to_view(self._xr_anchor_headset_path, view_pose)
+
+    def pin_view_position(self, camera_position_w, body_yaw_delta=0.0):
+        """Attach the eye position without cancelling low-latency HMD rotation."""
+        import math
+        from pxr import Gf
+        head = self._xr_core.get_input_device("/user/head")
+        if head is None:
+            return
+        rotation = head.get_virtual_world_pose().ExtractRotationQuat()
+        rotation = Gf.Quatd(math.cos(body_yaw_delta / 2), Gf.Vec3d(0, 0, math.sin(body_yaw_delta / 2))) * rotation
+        self.recenter_view(camera_position_w, [rotation.GetReal(), *rotation.GetImaginary()])
 
     def advance(self) -> dict[Any, Any]:
         """Poll the upstream device without applying an Isaac Lab retargeter."""

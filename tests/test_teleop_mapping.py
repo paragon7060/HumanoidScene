@@ -1,6 +1,46 @@
 import numpy as np
 
-from kuavo_isaaclab_scene.teleop_mapping import BimanualTeleopMapper, TeleopMappingCfg
+from kuavo_isaaclab_scene.teleop_mapping import AbsoluteControllerMapper, BimanualTeleopMapper, TeleopMappingCfg
+
+
+def test_absolute_controller_position_uses_translated_rotated_robot_frame_without_drift():
+    mapper = AbsoluteControllerMapper()
+    # Root is translated and rotated 90 degrees about world Z.
+    root = np.array([2., 3., 1., np.sqrt(.5), 0., 0., np.sqrt(.5)])
+    tool = np.array([2., 3.1, 1.2, 1., 0., 0., 0.])
+    packet = np.array([[2., 3.5, 1.3, 1., 0., 0., 0.], [0.] * 7])
+    for _ in range(100):
+        goal = mapper.target("left", packet, tool, root, following=True)
+        np.testing.assert_allclose(goal[:3], [.5, 0., .3], atol=1e-6)
+    packet[0, :3] = [2., 3.1, 1.2]
+    returned = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(returned[:3], [.1, 0., .2], atol=1e-6)
+
+
+def test_absolute_controller_loss_retains_goal_but_explicit_pause_holds_actual_tool():
+    mapper = AbsoluteControllerMapper()
+    root = np.array([0., 0., 0., 1., 0., 0., 0.])
+    tool = np.array([.2, .1, 1., 1., 0., 0., 0.])
+    packet = np.array([[.5, .2, 1.2, 1., 0., 0., 0.], [0.] * 7])
+    goal = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(mapper.target("left", None, tool, root, following=True), goal)
+    np.testing.assert_allclose(mapper.target("left", packet, tool, root, following=False), tool)
+    packet[0, 0] = .3
+    resumed = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(resumed[:3], packet[0, :3], atol=1e-6)
+
+
+def test_absolute_orientation_calibration_preserves_tool_axes_without_position_offset():
+    mapper = AbsoluteControllerMapper()
+    root = np.array([0., 0., 0., 1., 0., 0., 0.])
+    tool = np.array([.2, .1, 1., 1., 0., 0., 0.])
+    packet = np.array([[.5, .2, 1.2, np.sqrt(.5), 0., 0., np.sqrt(.5)], [0.] * 7])
+    first = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(first[:3], packet[0, :3], atol=1e-6)
+    np.testing.assert_allclose(first[3:], tool[3:], atol=1e-6)
+    packet[0, 3:] = [0., 0., 0., 1.]
+    turned = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(turned[3:], [np.sqrt(.5), 0., 0., np.sqrt(.5)], atol=1e-6)
 
 
 def _hand(x: float, orientation=(1.0, 0.0, 0.0, 0.0)):

@@ -140,6 +140,10 @@ class TeleopHdf5Recorder:
                 kwargs: dict[str, Any] = {"shape": shape, "maxshape": maxshape, "dtype": array.dtype, "chunks": True}
                 if array.ndim >= 2:
                     kwargs["compression"] = "lzf"
+                    # One frame per chunk: h5py's automatic multi-frame chunks
+                    # otherwise decompress/recompress past images on each append.
+                    if array.size:
+                        kwargs["chunks"] = (1, *array.shape)
                 samples.create_dataset(name, **kwargs)
             dataset = samples[name]
             if dataset.shape[1:] != array.shape:

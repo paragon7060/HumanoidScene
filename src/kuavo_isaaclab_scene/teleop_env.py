@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import isaaclab.envs.mdp as mdp
+from isaaclab.assets import AssetBaseCfg
 from isaaclab.controllers import DifferentialIKControllerCfg
 from isaaclab.devices import DevicesCfg
 from isaaclab.devices.openxr import OpenXRDeviceCfg, XrCfg
@@ -11,6 +12,7 @@ from isaaclab.utils import configclass
 
 from .gripper_runtime import build_gripper_action_cfg
 from .teleop_ik import PersistentTeleopIKAction
+from .teleop_body_action import TeleopBodyActionCfg
 from .manager_env import (
     GRIPPER_SETTINGS,
     KuavoRobustWorkcellEnvCfg,
@@ -64,6 +66,7 @@ class TeleopActionsCfg:
     )
     left_gripper = build_gripper_action_cfg(GRIPPER_SETTINGS, "left")
     right_gripper = build_gripper_action_cfg(GRIPPER_SETTINGS, "right")
+    body = TeleopBodyActionCfg()
 
 
 @configclass
@@ -105,16 +108,50 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
         self.scene.env_spacing = 5.0
         self.episode_length_s = 3600.0
         self.curriculum = None
-        self.observations.policy.enable_corruption = False
-        self.observations.vision.enable_corruption = False
+        # Stronger simulation servo reduces gravity sag and lag; keep the
+        # existing effort cap. These gains are not intended for real hardware.
+        self.scene.robot.actuators["arms"].stiffness = 800.0
+        self.scene.robot.actuators["arms"].damping = 50.0
+        self.scene.robot.actuators["height_axis"].stiffness = 8000.0
+        self.scene.robot.actuators["height_axis"].damping = 200.0
+        # A fully extended elbow is singular for upward motion. Start with
+        # spare elbow travel while preserving the tool's neutral orientation.
+        self.scene.robot.init_state.joint_pos.pop("zarm_.*_joint", None)
+        for side in ("l", "r"):
+            for index in range(1, 8):
+                self.scene.robot.init_state.joint_pos[f"zarm_{side}{index}_joint"] = {
+                    1: .25, 4: -.65, 7: .40,
+                }.get(index, 0.0)
+        if GRIPPER_SETTINGS.integrated:
+            self.scene.robot.init_state.joint_pos.pop("[lr]_[fb]_bar_[13]_joint", None)
+        for side in GRIPPER_SETTINGS.active_sides:
+            asset_cfg = self.scene.robot if GRIPPER_SETTINGS.integrated else getattr(
+                self.scene, GRIPPER_SETTINGS.asset_name_for(side)
+            )
+            asset_cfg.init_state.joint_pos.update(GRIPPER_SETTINGS.command_for(side, GRIPPER_SETTINGS.open_command))
+        # Collection reads sensors/state directly. Training observations add
+        # object transforms, joint accelerations and duplicate camera copies.
+        self.observations.policy = None
+        self.observations.vision = None
         # Keep the physical Kuavo head and wrist cameras for the Quest camera
         # compositor. The waist camera is unnecessary for teleoperation.
         self.scene.waist_camera = None
-        self.observations.vision.waist_rgb = None
+        # Collection does not need the safety-worker / background AMR actors.
+        # Keep the factory USD and its materials untouched.
+        self.scene.moving_human = None
+        self.scene.moving_robot = None
+        self.events.reset_movers = None
+        self.events.move_movers = None
+        # The conveyor deck never moves. Keep its collider, but do not register
+        # it for the dynamic-body reset that writes unsupported velocities to
+        # kinematic bodies (PhysX errors on every reset).
+        deck = self.scene.conveyor_surface
+        self.scene.conveyor_surface = AssetBaseCfg(
+            prim_path=deck.prim_path, spawn=deck.spawn,
+            init_state=AssetBaseCfg.InitialStateCfg(pos=deck.init_state.pos, rot=deck.init_state.rot),
+        )
         # Sensors stay in the scene, but the collector reads their tensors
         # directly so they do not need to be duplicated in observation dicts.
-        self.observations.vision.left_wrist_rgb = None
-        self.observations.vision.right_wrist_rgb = None
         self.teleop_devices = DevicesCfg(
             devices={
                 "quest_handtracking": OpenXRDeviceCfg(

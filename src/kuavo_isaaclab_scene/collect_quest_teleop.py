@@ -17,13 +17,28 @@ from .gripper_config import (
     resolve_gripper_settings,
     teleop_action_names,
 )
-from .robot_model import add_robot_model_cli_args, export_robot_model_cli
+from .robot_model import add_robot_model_cli_args, export_robot_model_cli, resolve_robot_model
 from .teleop_recorder import new_session_path
 
 
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
 parser.add_argument("--input-mode", choices=("controllers", "hands"), default="controllers",
                     help="Arm input: controller grip pose + trigger (default), or bare-hand wrist + pinch.")
+parser.add_argument("--profile-steps", type=int, default=0, help="Profile this many control steps after startup (0 disables).")
+parser.add_argument("--capture-xr", action="store_true", help="Save an XR display diagnostic capture after 60 frames.")
+parser.add_argument("--render-quality", choices=("performance", "quality"), default="performance")
+parser.add_argument("--xr-resolution-scale", type=float, default=1.0,
+                    help="XR render-buffer scale (0.1–2.0); lower values reduce sharpness, not material quality.")
+parser.add_argument("--controller-mapping", choices=("absolute", "relative"), default="absolute",
+                    help="Absolute aligns robot tools to VR grip positions; relative enables the legacy delta mapping.")
+parser.add_argument("--arm-stiffness", type=float, default=800.0)
+parser.add_argument("--arm-damping", type=float, default=50.0)
+parser.add_argument("--arm-orientation-weight", type=float, default=0.0,
+                    help="0 prioritizes exact hand position; increase to trade position reach for controller rotation.")
+parser.add_argument("--control-hz", type=int, choices=(30, 60), default=60,
+                    help="Simulation control timestep; actual wall-clock rate is printed as [PERF].")
+parser.add_argument("--desktop-render", action=argparse.BooleanOptionalAction, default=False,
+                    help="Render the extra desktop scene viewport in addition to the Quest eyes.")
 parser.add_argument(
     "--dataset-format",
     choices=("hdf5", "lerobot", "both"),
@@ -94,7 +109,7 @@ parser.add_argument(
 parser.add_argument(
     "--camera-preview",
     action=argparse.BooleanOptionalAction,
-    default=True,
+    default=False,
     help="Open Kuavo head/wrist camera windows in the desktop Isaac Sim UI.",
 )
 parser.add_argument("--head-camera-width", type=int, default=640)
@@ -117,7 +132,7 @@ parser.add_argument(
 parser.add_argument(
     "--record-depth",
     action=argparse.BooleanOptionalAction,
-    default=True,
+    default=False,
     help="Store head-camera depth in addition to RGB.",
 )
 parser.add_argument(
@@ -147,9 +162,18 @@ parser.add_argument("--ignore-captured-box-poses", action="store_true")
 add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
+parser.set_defaults(device="cpu")
 args_cli = parser.parse_args()
 if args_cli.max_episodes < 0 or args_cli.episode_seconds < 0:
     parser.error("Episode count and timeout must be non-negative (0 means unlimited).")
+if not 0.1 <= args_cli.xr_resolution_scale <= 2.0:
+    parser.error("--xr-resolution-scale must be between 0.1 and 2.0.")
+if args_cli.arm_stiffness <= 0 or args_cli.arm_damping < 0 or not 0 <= args_cli.arm_orientation_weight <= 1:
+    parser.error("Arm stiffness must be positive; damping non-negative; orientation weight between 0 and 1.")
+if args_cli.profile_steps < 0:
+    parser.error("--profile-steps must be non-negative.")
+if args_cli.profile_steps or args_cli.capture_xr:
+    Path("artifacts").mkdir(exist_ok=True)
 args_cli.dataset = (args_cli.dataset or new_session_path()).expanduser().resolve()
 if args_cli.dataset_format in {"hdf5", "both"} and args_cli.dataset.exists():
     parser.error(
@@ -215,6 +239,7 @@ import torch
 from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.devices.openxr.common import HAND_JOINT_NAMES
+from isaaclab.utils.math import combine_frame_transforms, convert_camera_frame_orientation_convention
 
 from .camera_viewports import open_camera_viewports
 from .manager_env import LOCAL_BOX_SCENE_KEYS
@@ -226,7 +251,9 @@ from .teleop_env import (
     KuavoQuestTeleopEnvCfg,
     set_domain_randomization,
 )
-from .teleop_mapping import BimanualTeleopMapper, TeleopMappingCfg
+from .teleop_mapping import AbsoluteControllerMapper, BimanualTeleopMapper, TeleopMappingCfg
+from .teleop_body import BODY_ACTION_NAMES, BODY_JOINTS, TeleopBodyMapper
+from .paths import ASSET_DIR
 from .teleop_lerobot_recorder import LeRobotTeleopRecorder
 from .teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopRecorderGroup
 from .xr_camera_overlay import QuestCameraOverlay, QuestCameraOverlayCfg
@@ -271,6 +298,17 @@ def _scene_asset_or_none(scene, name: str):
 
 def main() -> None:
     cfg = KuavoQuestTeleopEnvCfg()
+    cfg.sim.device = args_cli.device
+    cfg.teleop_devices.devices["quest_handtracking"].sim_device = cfg.sim.device
+    cfg.scene.robot.actuators["arms"].stiffness = args_cli.arm_stiffness
+    cfg.scene.robot.actuators["arms"].damping = args_cli.arm_damping
+    cfg.decimation = 120 // args_cli.control_hz
+    cfg.sim.render_interval = cfg.decimation
+    absolute_control = args_cli.input_mode == "controllers" and args_cli.controller_mapping == "absolute"
+    arm_action_size = 14 if absolute_control else 12
+    if absolute_control:
+        cfg.actions.left_arm.controller.use_relative_mode = False
+        cfg.actions.right_arm.controller.use_relative_mode = False
     cfg.seed = args_cli.seed
     cfg.scene.robustness_camera.width = args_cli.head_camera_width
     cfg.scene.robustness_camera.height = args_cli.head_camera_height
@@ -279,6 +317,25 @@ def main() -> None:
     cfg.scene.right_wrist_camera.width = args_cli.wrist_camera_width
     cfg.scene.right_wrist_camera.height = args_cli.wrist_camera_height
     cfg.sim.render.antialiasing_mode = "DLSS"
+    if args_cli.render_quality == "performance":
+        cfg.sim.render.dlss_mode = 0
+        cfg.sim.render.enable_reflections = False
+        cfg.sim.render.enable_translucency = False
+        cfg.sim.render.enable_global_illumination = False
+        cfg.sim.render.enable_ambient_occlusion = False
+        cfg.sim.render.samples_per_pixel = 1
+    else:
+        cfg.sim.render.dlss_mode = 2
+        cfg.sim.render.enable_reflections = True
+        cfg.sim.render.enable_translucency = True
+        cfg.sim.render.enable_global_illumination = True
+        cfg.sim.render.enable_ambient_occlusion = True
+        cfg.sim.render.samples_per_pixel = 2
+    # Wrist depth is never recorded. Do not render/copy unused depth buffers.
+    cfg.scene.left_wrist_camera.data_types = ["rgb"]
+    cfg.scene.right_wrist_camera.data_types = ["rgb"]
+    if not args_cli.record_depth:
+        cfg.scene.robustness_camera.data_types = ["rgb"]
     set_domain_randomization(cfg, args_cli.domain_randomization)
 
     env = ManagerBasedRLEnv(cfg=cfg)
@@ -294,7 +351,20 @@ def main() -> None:
         )
 
     robot = env.scene["robot"]
-    arm_joint_ids, arm_joint_names = robot.find_joints(LEFT_ARM_JOINTS + RIGHT_ARM_JOINTS + HEAD_JOINTS)
+    head_body_id = robot.find_bodies(resolve_robot_model().head_camera_body)[0][0]
+    camera_offset = cfg.scene.robustness_camera.offset
+    camera_offset_pos = torch.tensor([camera_offset.pos], device=env.device)
+    camera_offset_quat = convert_camera_frame_orientation_convention(
+        torch.tensor([camera_offset.rot], device=env.device), origin=camera_offset.convention, target="opengl"
+    )
+
+    def head_camera_pose():
+        pos, quat = combine_frame_transforms(
+            robot.data.body_pos_w[:, head_body_id], robot.data.body_quat_w[:, head_body_id],
+            camera_offset_pos, camera_offset_quat,
+        )
+        return _to_numpy(pos[0]), _to_numpy(quat[0])
+    arm_joint_ids, arm_joint_names = robot.find_joints(LEFT_ARM_JOINTS + RIGHT_ARM_JOINTS + HEAD_JOINTS + BODY_JOINTS)
     state_names = list(arm_joint_names)
     gripper_state_sources = []
     for side in GRIPPER_SETTINGS.active_sides:
@@ -309,6 +379,9 @@ def main() -> None:
             else (f"{side}_{name}" for name in gripper_joint_names)
         )
     action_names = teleop_action_names(GRIPPER_SETTINGS)
+    if absolute_control:
+        action_names = tuple(f"{side}_{axis}_base" for side in ("left", "right")
+                             for axis in ("x", "y", "z", "qw", "qx", "qy", "qz")) + action_names[12:]
     left_body_ids, _ = robot.find_bodies("zarm_l7_end_effector")
     right_body_ids, _ = robot.find_bodies("zarm_r7_end_effector")
     if len(left_body_ids) != 1 or len(right_body_ids) != 1:
@@ -323,17 +396,29 @@ def main() -> None:
     # hand/head tracking while retaining the raw upstream dictionary format.
     xr_device = RawQuestOpenXRDevice(device_cfg, input_mode=args_cli.input_mode)
     try:
-        start_quest_xr_session(simulation_app, enable_ui=args_cli.quest_camera_overlay)
+        start_quest_xr_session(simulation_app, enable_ui=args_cli.quest_camera_overlay,
+                               resolution_scale=args_cli.xr_resolution_scale,
+                               render_quality=args_cli.render_quality)
     except Exception:
         env.close()
         raise
     keyboard = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.0, rot_sensitivity=0.0, sim_device=env.device))
+    desktop_viewport = None
+    if not args_cli.desktop_render:
+        from omni.kit.viewport.utility import get_active_viewport
+        desktop_viewport = get_active_viewport()
+        if desktop_viewport is not None:
+            desktop_viewport.updates_enabled = False
     mapper = BimanualTeleopMapper(
         TeleopMappingCfg(
             position_gain=args_cli.position_gain,
             rotation_gain=args_cli.rotation_gain,
         )
     )
+    absolute_mapper = AbsoluteControllerMapper()
+    urdf = (ASSET_DIR / "kuavo_s200062/urdf/biped_s200062.urdf" if args_cli.robot_model == "s200062"
+            else ASSET_DIR / "kuavo_s63/urdf/kuavo_s63.urdf")
+    body_mapper = TeleopBodyMapper(urdf)
 
     quest_overlay = None
     if args_cli.quest_camera_overlay:
@@ -397,7 +482,7 @@ def main() -> None:
             use_videos=args_cli.lerobot_use_videos,
             save_failed=args_cli.lerobot_save_failed,
             writer_python=args_cli.lerobot_python,
-            action_names=action_names,
+            action_names=action_names + BODY_ACTION_NAMES,
             record_controllers=args_cli.input_mode == "controllers",
         )
         lerobot_recorder = recorders["lerobot"]
@@ -414,8 +499,15 @@ def main() -> None:
     last_tracking_state: tuple[bool, bool, bool] | None = None
     preview_enabled = False
     camera_reported = False
-    held_absolute_targets = np.zeros(len(action_names) - 12, dtype=np.float32)
+    held_absolute_targets = np.zeros(len(action_names) - arm_action_size, dtype=np.float32)
+    held_absolute_targets[2:] = 1.0  # Binary gripper actions: +1=open, 0 closes.
+    free_view = False
+    view_initialized = False
+    waist_yaw_id = robot.find_joints("waist_yaw_joint")[0][0]
+    last_waist_yaw = float(robot.data.joint_pos[0, waist_yaw_id])
     arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
+    for term in arm_terms:
+        term.orientation_weight = args_cli.arm_orientation_weight
     last_motion_report = time.perf_counter()
     last_ee_positions = _to_numpy(robot.data.body_pos_w[0, [left_body_ids[0], right_body_ids[0]]]).copy()
 
@@ -424,11 +516,17 @@ def main() -> None:
             term.hold_current_pose()
 
     def reset_simulation() -> None:
-        nonlocal episode_steps
+        nonlocal episode_steps, free_view, view_initialized, last_waist_yaw
         env.reset()
         xr_device.reset()
         mapper.reset()
+        absolute_mapper.reset()
+        body_mapper.reset()
         held_absolute_targets.fill(0.0)
+        held_absolute_targets[2:] = 1.0
+        free_view = False
+        view_initialized = False
+        last_waist_yaw = float(robot.data.joint_pos[0, waist_yaw_id])
         episode_steps = 0
 
     def finish_episode(success: bool, reason: str) -> None:
@@ -452,8 +550,12 @@ def main() -> None:
     print("[CONTROL] Quest START/STOP/RESET or desktop P=start/stop, R=reset, M=finish as success.")
     print("[CONTROL] C=recenter/calibrate, T=motion preview without recording, H=camera overlay on/off.")
     print("[CONTROL] Quest controllers: X=calibrate, A=motion start/stop, B=record start/stop, Y=panels on/off.")
+    print("[CONTROL] Left stick=base forward/strafe; right stick=waist yaw/lift; left squeeze=hold free view. "
+          "Release squeeze to return to robot head. Index triggers: released=open, pressed=close.")
     print("[CONTROL] Arm motion is paused until P starts recording or T enables motion preview.")
-    print("[CONTROL] First/reacquired input frame adds no arm delta. While following, the last valid goal is retained.")
+    print(f"[CONTROL] Arm mapping: {'absolute VR grip position, calibrated tool orientation' if absolute_control else 'persistent relative pose'}; "
+          f"orientation weight={args_cli.arm_orientation_weight:.2f} (0=position only). "
+          "While following, the last valid goal is retained on tracking loss; A explicitly stops motion.")
     print(f"[CONTROL] Session limit: {args_cli.max_episodes or 'unlimited'} episodes; "
           f"timeout: {args_cli.episode_seconds or 'disabled'}. Each attempt gets a separate HDF5 file.")
     if quest_overlay is not None:
@@ -474,6 +576,14 @@ def main() -> None:
     previous_handlers = {
         sig: signal.signal(sig, request_shutdown) for sig in (signal.SIGINT, signal.SIGTERM)
     }
+    profile = None
+    profile_steps = 0
+    report_steps = 0
+    report_time = time.perf_counter()
+    if args_cli.profile_steps:
+        import cProfile
+        profile = cProfile.Profile()
+        profile.enable()
     try:
         while not stop_requested and simulation_app.is_running():
             if args_cli.max_episodes and completed_this_run >= args_cli.max_episodes:
@@ -503,35 +613,63 @@ def main() -> None:
             if requests["calibrate"]:
                 requests["calibrate"] = False
                 if recorder.recording:
-                    print("[CALIBRATION] Stop recording with B/P before recentering.")
-                elif last_tracking_state is None or not last_tracking_state[2]:
+                    finish_episode(False, "operator_calibration")
+                if last_tracking_state is None or not last_tracking_state[2]:
                     print("[CALIBRATION] Head tracking is unavailable; wear the headset and reconnect first.")
                 else:
                     preview_enabled = False
                     pending_start = False
                     manual_pause = True
-                    camera_data = env.scene["robustness_camera"].data
-                    xr_device.recenter_view(
-                        _to_numpy(camera_data.pos_w[0]), _to_numpy(camera_data.quat_w_opengl[0])
-                    )
+                    xr_device.recenter_view(*head_camera_pose())
                     for _ in range(3):
                         simulation_app.update()
                     xr_device.reset()
                     mapper.reset(head_target=held_absolute_targets[:2])
+                    absolute_mapper.reset()
                     hold_arms()
-                    print("[CALIBRATION] View centered at Kuavo head camera; current head/hand poses become neutral. Motion preview OFF.")
+                    print("[CALIBRATION] View centered at Kuavo head camera; tool orientation calibrated from current controller orientation. "
+                          "A starts following the controller's actual VR position. Motion preview OFF.")
 
             raw = xr_device.advance()
+            if not view_initialized and raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD) is not None:
+                xr_device.recenter_view(*head_camera_pose())
+                for _ in range(3):
+                    simulation_app.update()
+                xr_device.reset()
+                mapper.reset(head_target=held_absolute_targets[:2])
+                absolute_mapper.reset()
+                raw = xr_device.advance()
+                view_initialized = True
+                print("[VIEW] Initial viewpoint attached to robot head.", flush=True)
             left_hand = raw.get(RawQuestOpenXRDevice.TrackingTarget.HAND_LEFT)
             right_hand = raw.get(RawQuestOpenXRDevice.TrackingTarget.HAND_RIGHT)
             left_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_LEFT)
             right_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_RIGHT)
             head_pose = raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD)
+            next_free_view = left_controller is not None and float(left_controller[1, 3]) >= .5
+            if next_free_view != free_view:
+                free_view = next_free_view
+                if not free_view:
+                    xr_device.recenter_view(*head_camera_pose())
+                    # Apply the teleport before reading poses or pinning the
+                    # next frame; otherwise the old orientation overwrites it.
+                    for _ in range(3):
+                        simulation_app.update()
+                    raw = xr_device.advance()
+                    left_hand = raw.get(RawQuestOpenXRDevice.TrackingTarget.HAND_LEFT)
+                    right_hand = raw.get(RawQuestOpenXRDevice.TrackingTarget.HAND_RIGHT)
+                    left_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_LEFT)
+                    right_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_RIGHT)
+                    head_pose = raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD)
+                xr_device.reset_head_reference()
+                mapper.reset(head_target=held_absolute_targets[:2])
+                print(f"[VIEW] {'FREE: room-scale view; arm goals held' if free_view else 'HEAD: robot camera anchor'}", flush=True)
+            motion_head = xr_device.motion_head_pose(head_pose)
             root_quat = _to_numpy(robot.data.root_quat_w[0])
             map_inputs = mapper.advance_controllers if args_cli.input_mode == "controllers" else mapper.advance
             left_input, right_input = ((left_controller, right_controller) if args_cli.input_mode == "controllers"
                                        else (left_hand, right_hand))
-            mapped = map_inputs(left_input, right_input, head_pose, root_quat)
+            mapped = map_inputs(left_input, right_input, motion_head, root_quat)
             tracking_state = (mapped.left_valid, mapped.right_valid, mapped.head_valid)
             if tracking_state != last_tracking_state:
                 print(
@@ -590,14 +728,19 @@ def main() -> None:
                     # Do not apply head/hand movement accumulated while paused
                     # when B/P starts recording directly (without motion preview).
                     mapper.reset(head_target=held_absolute_targets[:2])
-                    mapped = map_inputs(left_input, right_input, head_pose, root_quat)
+                    mapped = map_inputs(left_input, right_input, motion_head, root_quat)
                 episode_name = recorder.start_episode(
                     {
                         "seed": args_cli.seed,
                         "input_mode": args_cli.input_mode,
-                        "arm_control": "persistent_relative_pose_v1",
+                        "arm_control": "absolute_controller_pose_v1" if absolute_control else "persistent_relative_pose_v1",
+                        "arm_orientation_weight": args_cli.arm_orientation_weight,
+                        "xr_resolution_scale": args_cli.xr_resolution_scale,
+                        "render_quality": args_cli.render_quality,
+                        "record_depth": args_cli.record_depth,
                         "control_dt": float(env.step_dt),
-                        "action_layout": ",".join(action_names),
+                        "action_layout": ",".join(action_names + BODY_ACTION_NAMES),
+                        "base_control": "kinematic_fixed_root_xy_v1",
                         "joint_names": state_names,
                         "hand_joint_names": HAND_JOINT_NAMES,
                         "box_scene_keys": box_names,
@@ -634,12 +777,63 @@ def main() -> None:
                     )
             if not (recorder.recording or preview_enabled):
                 action_np[:12] = 0.0
-                action_np[12:] = held_absolute_targets
+                if args_cli.input_mode == "controllers":
+                    action_np[12:14] = held_absolute_targets[:2]
+                    held_absolute_targets[2:] = action_np[14:]
+                else:
+                    action_np[12:] = held_absolute_targets
                 hold_arms()
             else:
+                if free_view:
+                    action_np[:12] = 0.0
+                    action_np[12:14] = held_absolute_targets[:2]
                 held_absolute_targets[:] = action_np[12:]
+            if absolute_control:
+                root_pose = np.concatenate((_to_numpy(robot.data.root_pos_w[0]), root_quat))
+                arm_goals = []
+                for side, packet, body_id in (("left", left_controller, left_body_ids[0]),
+                                              ("right", right_controller, right_body_ids[0])):
+                    tool_pose = np.concatenate((_to_numpy(robot.data.body_pos_w[0, body_id]),
+                                                _to_numpy(robot.data.body_quat_w[0, body_id])))
+                    arm_goals.append(absolute_mapper.target(
+                        side, None if free_view else packet, tool_pose, root_pose,
+                        following=recorder.recording or preview_enabled,
+                    ))
+                action_np = np.concatenate((*arm_goals, action_np[12:]))
+            body_action = body_mapper.advance(left_controller, right_controller, env.step_dt,
+                                               enabled=(recorder.recording or preview_enabled) and not free_view)
+            action_np = np.concatenate((action_np, body_action))
+            for term in arm_terms:
+                term.set_following(recorder.recording or preview_enabled)
+            waist_yaw = float(robot.data.joint_pos[0, waist_yaw_id])
+            if head_pose is not None and not free_view:
+                xr_device.pin_view_position(head_camera_pose()[0], waist_yaw - last_waist_yaw)
+            last_waist_yaw = waist_yaw
             action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
+            if desktop_viewport is not None:
+                desktop_viewport.updates_enabled = False
             env.step(action)
+            profile_steps += 1
+            report_steps += 1
+            if args_cli.capture_xr and profile_steps == 60:
+                from omni.kit.xr.core import XRCore
+                capture_path = str(Path("artifacts/quest-xr-display").resolve())
+                XRCore.get_singleton().schedule_capture_display_frame(capture_path)
+                print(f"[VIEW] Requested XR display capture: {capture_path}", flush=True)
+                if quest_overlay is not None:
+                    quest_overlay.describe()
+            if profile is not None and profile_steps >= args_cli.profile_steps:
+                import pstats
+                profile.disable()
+                profile.dump_stats("artifacts/quest-control.prof")
+                pstats.Stats(profile).sort_stats("cumulative").print_stats(30)
+                profile = None
+            if time.perf_counter() - report_time >= 5.0:
+                elapsed = time.perf_counter() - report_time
+                print(f"[PERF] loop={report_steps / elapsed:.1f} Hz, {1000 * elapsed / report_steps:.0f} ms/frame; "
+                      f"recording={recorder.recording}", flush=True)
+                report_steps = 0
+                report_time = time.perf_counter()
             if time.perf_counter() - last_motion_report >= 3.0:
                 positions = _to_numpy(robot.data.body_pos_w[0, [left_body_ids[0], right_body_ids[0]]])
                 if recorder.recording or preview_enabled:
@@ -655,7 +849,8 @@ def main() -> None:
             left_wrist_rgb = None
             right_wrist_rgb = None
             if quest_overlay is not None or recorder.recording:
-                head_rgb = _camera_rgb(env.scene["robustness_camera"])
+                if recorder.recording or not camera_reported:
+                    head_rgb = _camera_rgb(env.scene["robustness_camera"])
                 left_wrist_rgb = _camera_rgb(env.scene["left_wrist_camera"])
                 right_wrist_rgb = _camera_rgb(env.scene["right_wrist_camera"])
                 if quest_overlay is not None:
@@ -667,7 +862,7 @@ def main() -> None:
                         waiting=pending_start,
                         input_mode=args_cli.input_mode,
                     )
-                if not camera_reported and np.any(head_rgb):
+                if not camera_reported and head_rgb is not None and np.any(head_rgb):
                     print(f"[CAMERA] Head RGB {head_rgb.shape}: min={head_rgb.min()}, max={head_rgb.max()}, mean={head_rgb.mean():.1f}")
                     camera_reported = True
 
@@ -709,6 +904,8 @@ def main() -> None:
                     "tracking_valid": np.array(
                         [mapped.left_valid, mapped.right_valid, mapped.head_valid], dtype=np.uint8
                     ),
+                    "robot_root_pose_w": _to_numpy(robot.data.root_pose_w[0]).astype(np.float32),
+                    "free_view": np.uint8(free_view),
                     "box_root_pose_w": np.asarray(box_poses, dtype=np.float32).reshape(-1, 7),
                     "head_rgb": head_rgb,
                 }

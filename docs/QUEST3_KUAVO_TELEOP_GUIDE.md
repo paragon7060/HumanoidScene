@@ -1,6 +1,6 @@
 # Meta Quest 3 → Kuavo Isaac Lab teleoperation/data collection
 
-이 문서는 현재 workcell을 Meta Quest 3에서 보고, OpenXR hand tracking으로 Kuavo의 양팔과 머리를 조작하면서 LeRobot Dataset v3 또는 HDF5 demonstration을 수집하는 절차를 정리한다.
+이 문서는 현재 workcell을 Meta Quest 3에서 보고, OpenXR controller tracking으로 Kuavo의 양팔·베이스·허리·머리를 조작하면서 LeRobot Dataset v3 또는 HDF5 demonstration을 수집하는 절차를 정리한다.
 
 처음 설치한다면 [README의 다운로드부터 첫 저장까지 안내](../README.md#quest-collection)를
 먼저 따른다. Runtime SDK와 npm `.tgz`의 공식 다운로드, JSON 경로 설정,
@@ -10,12 +10,12 @@ Linux 서비스 준비, Quest 브라우저의 HTTP/HTTPS 설정, 포트 구분�
 ## 1. 구현 구조
 
 ```text
-Quest 3 WebXR hand/head tracking
+Quest 3 WebXR controller/head tracking
         ↓ CloudXR Runtime 6.x / OpenXR
 Isaac Lab OpenXRDevice
-        ↓ Kuavo 안전 상대-pose mapper
-left wrist 6D → left 7-DoF differential IK
-right wrist 6D → right 7-DoF differential IK
+        ↓ Kuavo absolute grip-position mapper
+left grip xyz → left 7-DoF position-priority IK
+right grip xyz → right 7-DoF position-priority IK
 HMD yaw/pitch → zhead_1_joint / zhead_2_joint
         ↓
 ManagerBasedRLEnv + Kuavo head/wrist RGB cameras
@@ -59,7 +59,7 @@ Isaac Lab v2.3.2의 `OpenXRDevice`는 retargeter requirement에 따라 조회할
 - `--input-mode hands`에서는 손목 위치/회전, thumb-index pinch 거리와 양손 26개 관절을 사용·저장한다.
 - 맨손 모드는 thumb-index 거리가 0.055 m 이하이면 같은 쪽 gripper를 닫고, 그보다 크거나
   tracking이 유효하지 않으면 연다. 컨트롤러 모드는 tracking 손실 시 마지막 gripper 목표를 유지한다.
-- `--gripper none`으로 기존 14-D handless teleop action도 재현할 수 있다.
+- `--gripper none`은 gripper 채널만 제외한다. 현재 기본 absolute+body 구성에서는 22-D action이다.
 
 다른 hand USD와 mount pose는 [Gripper configuration](GRIPPER_CONFIGURATION.md)의
 JSON preset으로 교체한다.
@@ -240,16 +240,14 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 [DATA] Recording demo_00000
 ```
 
-양쪽 입력의 첫 인식·재인식 프레임은 기준 보정에만 사용하여 새로운 팔 이동량을
-추가하지 않는다. 따라오기가 켜져 있으면 추적 손실 중에도 기존 유효 목표는 유지한다.
+기본 absolute 모드는 추적 손실 중 마지막 목표를 유지하고 재인식하면 현재 위치를 목표로 쓴다.
 
 ## 4. 조작 및 episode 제어
 
-기본 입력은 **컨트롤러**(`--input-mode controllers`)다. 컨트롤러를 들고 조작한다.
-위치·회전 변화가 같은 쪽 팔에 연결되고, 검지 트리거를 절반 이상 당기면 그리퍼를
-닫고 놓으면 연다. 입력을 잠깐 잃으면 팔은 마지막 유효 목표를 계속 따라가고 그리퍼 목표도 유지한다. 재인식 첫 프레임은
-팔 보정에만 쓴다. `--input-mode hands`는 기존 맨손 wrist·pinch 모드를 선택한다.
-모드는 실행 시 고정되며 추적 손실을 이유로 서로 전환하지 않는다.
+기본 입력은 **컨트롤러**(`--input-mode controllers`)다. VR 손잡이 위치가 같은 쪽
+로봇 손끝의 절대 목표다. 검지 트리거는 절반 이상 당기면 닫고 놓으면 연다.
+생성·R 리셋도 열린 자세다. 추적이 끊기면 마지막 목표를 유지하며 맨손으로 자동 전환하지 않는다.
+맨손은 `--input-mode hands`로 별도 실행한다.
 
 기본값은 `--no-auto-start --max-episodes 0 --episode-seconds 0`이다. 앱을 켜 둔 채
 버튼으로 시도를 반복한다. `--auto-start`를 명시하면 유효한 양쪽 입력으로 자동 녹화한다.
@@ -265,6 +263,10 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 | 손목 패널 표시/숨김 | 왼쪽 `Y` | `H` |
 | 환경 reset/현재 시도 실패 종료 | — | `R` |
 | 성공 demonstration으로 종료 | — | `M` |
+| 베이스 전후/좌우 이동 | 왼쪽 스틱 | — |
+| 허리 좌우 회전/몸통 상하 | 오른쪽 스틱 | — |
+| 누르는 동안 자유 시점, 놓으면 head 복귀 | 왼쪽 아래 그립 트리거 | — |
+| 놓으면 open, 당기면 close | 양쪽 위 검지 트리거 | — |
 
 1. 편한 자세로 정면을 보고 `X`/`C`를 누른다. 현재 HMD 시점을 Kuavo head camera
    위치·방향에 맞추고 손·머리 움직임의 기준을 다시 잡는다. 따라오기는 꺼진다.
@@ -275,19 +277,30 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 4. 성공이면 PC에서 `M`, 실패/중단이면 `B`/`P`를 누른다. 녹화 중 `A`/`T`를
    눌러도 따라오기를 멈추고 현재 녹화를 실패로 종료한다.
 
-보정은 녹화 중 차단된다. 따라오기만 멈출 때는 마지막 머리·그리퍼 목표를
-유지하고 남아 있는 팔 목표를 현재 자세로 취소한다. 에피소드 종료 시 파일만 닫고
+녹화 중 X는 파일을 `operator_calibration`으로 닫고 보정한다. A/B로 명시적으로
+멈추면 팔은 현재 자세에 멈춘다. 검지 트리거는 팔 정지 중에도 작동한다. 에피소드 종료 시 파일만 닫고
 장면은 유지한다. `R`만 초기 장면으로 되돌린다. `--max-episodes 1`을 명시하면
 한 시도 후 앱까지 종료하므로 연속 조작에는 사용하지 않는다.
 HMD 시점 이동은 가상 시점 보정이며 실제 로봇의 머리 위치 관절을 추가하지 않는다.
 
-팔 목표는 현재 손끝이 아닌 이전 목표에 상대 이동량을 누적한다. 팔이 입력보다 느릴 때
-남은 목표가 다음 프레임에 사라지는 것을 막는다. 각 IK 보정 단계의 오차 입력은
-15 cm/0.5 rad로 제한하되 원래 목표는 유지한다. 컨트롤러를
-멈추거나 잠깐 추적을 잃어도 남은 목표를 따라간다. A/B로 명시적으로 정지하거나
-X로 보정할 때만 현재 자세에 멈춘다. 주변을 보면서 조작하고 정지는 A로 한다.
-`[MOTION]`에는 실제 손끝 이동량과 목표 오차(mm)가 3초 간격으로 표시된다.
-시뮬레이터 자체 검증은 Isaac Lab Python으로 `scripts/verify_quest_ik.py`를 실행한다.
+기본 `--controller-mapping absolute`는 위치 gain이나 이동량 누적을 사용하지 않는다.
+X는 시점을 head에 맞추고 손잡이와 tool의 방향 차이만 보정한다. 위치 오프셋을
+추가하지 않으므로 컨트롤러가 보이는 곳과 손끝 목표가 같다. 기본 `--arm-orientation-weight 0`은 손 위치를 우선하고 손잡이 회전을 강제하지 않는다.
+회전 추종이 필요하면 이 값을 0보다 크게 설정하되 높은 목표의 도달성이 줄 수 있다. 보정 입력은 15cm/0.5rad, 관절 목표 변화는 물리
+스텝당 0.12rad 이내다. 남은 목표는 A/B 정지 또는 X 보정 때만 현재 자세로 바뀐다.
+기존 상대 이동은 `--controller-mapping relative`; `--position-gain`은 이 모드에만 적용된다.
+
+스틱은 A/B로 따라오기를 켠 상태에서 작동한다. 최대 베이스 속도 0.25m/s,
+허리 yaw 0.5rad/s·±1.4rad, 몸통 높이는 초기 대비 -8~+40cm·최대 0.12m/s다.
+높이는 knee/leg/waist pitch를 함께 제어해 몸통을 세운 채 조절한다. 베이스는
+**fixed articulation root를 이동시키는 시뮬레이션용 평면 제어**다. 실제 바퀴 주행
+정책이나 충돌 회피가 아니므로 작은 입력으로 조작하고 물체 접촉 시 A로 멈춘다.
+
+팔꿈치를 조금 굽힌 준비 자세로 생성한다. simulation PD stiffness/damping은
+팔 800/50, 몸통 지지 8000/200이며 기존 effort limit은 유지한다. 팔 게인은
+`--arm-stiffness`, `--arm-damping`으로 조절한다. 실물 로봇용 게인이 아니다.
+높은 곳이 도달 범위를 벗어나면 오른쪽 스틱으로 몸통을 올린다. `[MOTION]`의
+목표 오차(mm)를 확인한다. 실제 물리 검증: `scripts/verify_quest_controls.py`.
 
 **맨손 모드에서는 버튼과 손 추적이 별개다.** `--input-mode hands`로 실행했다면
 컨트롤러를 잡을 때 Quest가 맨손 추적을 중단할 수 있다. 이 경우 버튼을 누른 뒤
@@ -300,7 +313,9 @@ X로 보정할 때만 현재 자세에 멈춘다. 주변을 보면서 조작하�
 LeRobot에는 같은 값이 `observation.openxr.left_controller`/`right_controller`의 14차원 벡터로 저장된다.
 에피소드 metadata의 `input_mode`가 모드를 나타내며, `tracking_valid`의 left/right는 선택한 입력의 유효성이다.
 컨트롤러 모드에서 수집하지 않은 손가락 pose와 pinch는 NaN이다. 합성 손가락 데이터는 기록하지 않는다.
-입력 모드를 바꾸면 LeRobot도 새 dataset root를 사용한다(컨트롤러 필드 유무가 달라짐).
+입력/제어 모드나 action schema가 바뀌면 LeRobot도 새 dataset root를 사용한다.
+새 기본 action 24차원: 좌/우 tool xyz+qwqxqyqz(base frame), head yaw/pitch,
+좌/우 gripper, base forward/left 속도, knee/leg/waist pitch/yaw 목표. 이름은 `action_layout`에 저장한다.
 
 성공한 작업은 desktop Isaac Sim 창에서 `M`을 누른다. 별도 클라이언트의 `START`/`STOP`/`RESET`
 teleop message도 계속 지원하며, CloudXR.js sample에서 이 메시지를 보내지 않아도 위 버튼·PC 키를 사용할 수 있다.
@@ -343,11 +358,13 @@ Isaac Sim에서 캡처한 정확한 pose JSON을 쓰려면:
 
 - 중앙에는 Quest의 일반 stereo scene view를 유지한다. 큰 head RGB 패널로 덮지 않는다.
 - `scene["left_wrist_camera"]`, `scene["right_wrist_camera"]` 영상이 시야 왼쪽 위/오른쪽 위 작은 창으로 표시된다.
-- 패널은 눈앞 0.35 m, 크기 0.20×0.15 m이며 머리를 따라 고정된다. `Y`/`H`로 숨겨도 카메라 기록은 유지된다.
+- 패널은 눈앞 0.35 m, 크기 0.14×0.105 m이며 머리를 따라 고정된다. `Y`/`H`로 숨겨도 카메라 기록은 유지된다.
 - 실제 Kuavo `scene["robustness_camera"]` RGB는 dataset에 계속 저장된다. 중앙의 stereo 시점과 이 단안 영상은 동일하지 않다.
 - 따라오기 또는 녹화 중 HMD yaw/pitch는 Kuavo `zhead_1_joint`, `zhead_2_joint`에 연결된다. `X`/`C`로 현재 시점을 head camera에 정렬한다.
 - Kuavo에는 머리 translation joint가 없으므로 Quest의 위치 이동은 robot head에 적용되지 않는다.
-- desktop Isaac Sim에도 head/left wrist/right wrist mini viewport가 열린다.
+- 기본 시점의 위치는 head camera에 붙으며 HMD 회전은 그대로 반영해 주변을 볼 수 있다. 왼쪽 아래 그립을 누르면 room-scale 자유 시점, 놓으면 head 복귀다.
+- 자유 시점 동안 새 팔·몸통 명령은 멈추고 마지막 팔 목표는 유지한다. HDF5 `free_view`로 구분한다.
+- PC 카메라 창은 `--camera-preview`, desktop 장면 렌더는 `--desktop-render`로 켠다. 기본은 OFF다.
 
 손목 패널은 기본으로 활성화된다. 시작부터 패널을 만들지 않으려면:
 
@@ -399,7 +416,22 @@ Isaac Sim에서 캡처한 정확한 pose JSON을 쓰려면:
   --wrist-camera-height 180
 ```
 
-기본 해상도는 head 640×360, wrist 각각 240×180이다. 메모리 사용량을 줄이려면 해상도와 depth 기록을 함께 낮춘다.
+기본 해상도는 head 640×360, wrist 각각 240×180이며 depth 저장은 OFF다.
+수집용 장면에서 사람·배경 이동 로봇을 제거하고 공장 USD와 재질·텍스처는 유지한다.
+단일 환경은 CPU 물리/IK, GPU RTX 렌더를 기본으로 쓴다. 훈련용 관측은 계산하지 않고
+HDF5는 영상 프레임별 chunk로 저장한다. `--control-hz 60`은 시뮬레이션 시간 기준이다.
+실제 속도는 `[PERF]`의 wall-clock Hz를 확인한다. 60Hz에는 전체 프레임이 16.7ms 이내여야 한다.
+`--profile-steps 120`으로 병목을 측정하고 `--capture-xr`로 실제 XR 출력 PNG를 저장한다.
+`--xr-resolution-scale`은 XR 렌더 버퍼의 가로·세로 배율이다. 기본 1.0으로
+런타임 권장 해상도를 그대로 유지한다. 0.5배 실험은 약 19Hz에 그쳤으며 사용감·선명도
+손실이 커 기본값에 적용하지 않았다. 수집용 head/wrist RGB 해상도와는 별개다.
+`--render-quality quality --xr-resolution-scale 1.0`은 효과·선명도 우선 설정이다.
+
+2026-08-31 RTX 3060 검증에서 렌더 배율 1.0의 단일 환경은 약 15.4Hz(녹화 OFF)였다.
+이는 네트워크 포함 headset 지연 측정값이 아니라 수집기 루프 속도이며, 60Hz 달성을 뜻하지 않는다.
+실제 물리 테스트의 15cm 위쪽 목표 오차는 기존 게인 약 5cm → 변경 후 약 2cm,
+더 높은 1.2m 목표에서는 약 3.7cm였다. 접촉 없는 별도 위치의 결과이므로 랙 접촉이나
+도달 범위 밖의 목표에서는 오차가 더 커질 수 있다.
 
 ```bash
 ./collect_quest_teleop.sh \
@@ -480,9 +512,9 @@ HDF5는 시도마다 새 파일로 분리되며 기존 파일을 재사용하지
 v3 주요 feature:
 
 ```text
-observation.state                    [T, 24] (S200062: 16 upper-body + 8 gripper joints)
-# S63/Robotiq comparison: [T, 32] (16 upper-body + 16 gripper joints)
-observation.velocity                 [T, 32]
+observation.state                    [T, 28] (S200062: 20 arm/head/body + 8 gripper joints)
+# S63/Robotiq comparison: [T, 36] (20 arm/head/body + 16 gripper joints)
+observation.velocity                 [T, 28] (S200062)
 observation.ee_pose                  [T, 14]
 observation.images.head              head camera MP4/image
 observation.images.left_wrist        left wrist MP4/image
@@ -494,7 +526,7 @@ observation.pinch_distance            [T, 2]
 observation.tracking_valid            [T, 3]
 observation.box_root_pose             [T, number_of_boxes * 7]
 observation.button_joint_position     [T, number_of_button_joints]
-action                                [T, 16] (14 IK/head + left/right gripper)
+action                                [T, 24] (arms 14 + head 2 + grippers 2 + body 6)
 next.done / next.success              [T, 1]
 task                                  natural-language task
 ```
@@ -522,9 +554,11 @@ PY
 /data/demo_00000
   attrs: success, end_reason, num_samples, joint_names, ...
   /samples
-    action                         [T, 16]
-    robot_joint_position           [T, 32]
-    robot_joint_velocity           [T, 32]
+    action                         [T, 24] (default)
+    robot_joint_position           [T, 28] (S200062)
+    robot_joint_velocity           [T, 28] (S200062)
+    robot_root_pose_w              [T, 7]
+    free_view                      [T]
     left_end_effector_pose_w       [T, 7]
     right_end_effector_pose_w      [T, 7]
     openxr_left_hand               [T, 26, 7]
@@ -591,3 +625,5 @@ S63 비교 모드는 `preview_quest_local.sh --robot-model s63 --gripper robotiq
 확인한 뒤 `configs/grippers.json`의 해당 side
 `robot_mount_pos`/`robot_mount_rot`를 조정한다. S200062의 gripper와 D405 mount는
 로봇 URDF에 직접 정의되어 있으므로 외장 gripper mount JSON을 사용하지 않는다.
+
+입력 축은 [OpenXR 규격](https://registry.khronos.org/OpenXR/specs/1.0-khr/html/xrspec.html#input-suggested-bindings)에 따라 +Y가 스틱 위쪽이다. WebXR Gamepad 원시 축 부호와 혼동하지 않는다.

@@ -11,6 +11,50 @@ import numpy as np
 Pose = np.ndarray  # [x, y, z, qw, qx, qy, qz]
 
 
+class AbsoluteControllerMapper:
+    """Align grip positions with robot tool positions in the same virtual world.
+
+    Only orientation has a calibration offset, accounting for different grip
+    and robot tool axes. Position has no offset, integration, gain or clamping.
+    The IK action bounds convergence separately without discarding the goal.
+    """
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self._orientation_offsets = {}
+        self._goals_w = {}
+
+    def hold(self, side: str, tool_pose_w: Pose):
+        self._goals_w[side] = np.asarray(tool_pose_w, dtype=float).copy()
+
+    def target(self, side: str, controller, tool_pose_w: Pose, root_pose_w: Pose, *, following: bool):
+        root = np.asarray(root_pose_w)
+        tool = np.asarray(tool_pose_w)
+        packet = None if controller is None else np.asarray(controller)
+        valid = (packet is not None and packet.shape == (2, 7)
+                 and np.all(np.isfinite(packet)) and _valid_pose(packet[0]))
+        if valid and side not in self._orientation_offsets:
+            self._orientation_offsets[side] = _quat_multiply(
+                _quat_conjugate(_normalized_quat(packet[0, 3:])), _normalized_quat(tool[3:])
+            )
+        if not following or side not in self._goals_w:
+            self.hold(side, tool)
+        if following and valid:
+            self._goals_w[side] = np.concatenate((
+                packet[0, :3], _normalized_quat(_quat_multiply(
+                    _normalized_quat(packet[0, 3:]), self._orientation_offsets[side]
+                )),
+            ))
+        goal = self._goals_w[side]
+        inverse = _quat_conjugate(_normalized_quat(root[3:]))
+        return np.concatenate((
+            _quat_rotate(inverse, goal[:3] - root[:3]),
+            _normalized_quat(_quat_multiply(inverse, goal[3:])),
+        )).astype(np.float32)
+
+
 @dataclass(frozen=True)
 class TeleopMappingCfg:
     """Safety and response settings for the relative bimanual mapping."""

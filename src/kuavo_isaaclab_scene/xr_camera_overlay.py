@@ -28,11 +28,11 @@ class QuestCameraOverlayCfg:
     """Two small panels leave the center of the native XR view unobstructed."""
 
     distance_m: float = 0.35
-    plane_width_m: float = 0.20
-    plane_height_m: float = 0.15
-    horizontal_offset_m: float = 0.19
+    plane_width_m: float = 0.14
+    plane_height_m: float = 0.105
+    horizontal_offset_m: float = 0.14
     vertical_offset_m: float = 0.12
-    ui_resolution_width: int = 480
+    ui_resolution_width: int = 320
     forward_axis: str = "-z"
 
     def __post_init__(self) -> None:
@@ -69,8 +69,10 @@ class QuestCameraOverlay:
         if layer is None or not layer.is_valid():
             raise RuntimeError("Failed to create the Kuavo XR camera overlay USD layer.")
         self._xr_layer = layer
+        layer.show()
         head_path = layer.ensure_device_prim_path("/user/head")
         self._providers = [ui.ByteImageProvider(), ui.ByteImageProvider()]
+        self._gpu_frames = [None, None]
         self._containers = []
         self._components = []
         self._wanted_visible = True
@@ -83,10 +85,13 @@ class QuestCameraOverlay:
         forward = -1.0 if self.cfg.forward_axis == "-z" else 1.0
         wrist_width, wrist_height = wrist_resolution
         for index, (label, side) in enumerate((("LEFT WRIST", -1.0), ("RIGHT WRIST", 1.0))):
-            self._set_provider(self._providers[index], np.zeros((wrist_height, wrist_width, 3), dtype=np.uint8))
+            self._set_provider(index, np.zeros((wrist_height, wrist_width, 3), dtype=np.uint8))
             component = WidgetComponent(
                 widget_type, width=width_cm, height=height_cm,
-                resolution_scale=canvas_width / width_cm, unit_to_pixel_scale=1.0,
+                # resolution_scale changes logical UI scale too: using 24
+                # there cropped a 480px widget to its top-left ~20px. Keep
+                # logical pixels at scale 1 and convert cm with the unit scale.
+                resolution_scale=1.0, unit_to_pixel_scale=canvas_width / width_cm,
                 update_policy=UpdatePolicy.ALWAYS, color=[1.0, 1.0, 1.0, 1.0],
                 widget_kwargs={"provider": self._providers[index], "label": label,
                                "width": canvas_width, "height": canvas_height},
@@ -108,6 +113,12 @@ class QuestCameraOverlay:
             self._components.append(component)
             self._containers.append(container)
 
+    def describe(self):
+        print(f"[VIEW] XR layer visible={self._xr_layer.is_visible()} path={self._xr_layer.get_top_level_prim_path()}", flush=True)
+        for index, container in enumerate(self._containers):
+            print(f"[VIEW] panel {index}: visible={container.visible}, frames={self._has_frames[index]}, "
+                  f"system={container.scene_view.system_path}", flush=True)
+
     @staticmethod
     def _enable_extensions() -> None:
         import omni.kit.app
@@ -128,25 +139,33 @@ class QuestCameraOverlay:
                     ui.ImageWithProvider(provider, fill_policy=ui.IwpFillPolicy.IWP_STRETCH,
                                          width=width, height=height)
                     with ui.VStack():
-                        ui.Label(label, height=28, alignment=ui.Alignment.CENTER,
-                                 style={"font_size": 18, "color": 0xFFFFFFFF,
-                                        "background_color": 0xA0000000})
+                        with ui.ZStack(height=28):
+                            ui.Rectangle(style={"background_color": 0xC0000000})
+                            ui.Label(label, alignment=ui.Alignment.CENTER,
+                                     style={"font_size": 18, "color": 0xFFFFFFFF})
                         ui.Spacer()
-                        self.status_label = ui.Label(
-                            "FOLLOW OFF | REC OFF", height=28, alignment=ui.Alignment.CENTER,
-                            style={"font_size": 16, "color": 0xFFFFFFFF, "background_color": 0xC0000000},
-                        )
+                        with ui.ZStack(height=28):
+                            ui.Rectangle(style={"background_color": 0xC0000000})
+                            self.status_label = ui.Label(
+                                "FOLLOW OFF | REC OFF", alignment=ui.Alignment.CENTER,
+                                style={"font_size": 16, "color": 0xFFFFFFFF},
+                            )
         return WristCameraWidget
 
-    @staticmethod
-    def _set_provider(provider, image: np.ndarray) -> None:
+    def _set_provider(self, index, image: np.ndarray) -> None:
+        import torch
         rgba = as_rgba(image)
         height, width = rgba.shape[:2]
-        provider.set_bytes_data(rgba.reshape(-1).data, [width, height])
+        # The CPU ByteImageProvider overload stalls ~20ms per image on this
+        # renderer. Upload through the native GPU-pointer API and retain the
+        # tensor until the next rendered frame consumes it.
+        frame = torch.as_tensor(rgba, device="cuda:0").contiguous()
+        self._providers[index].set_bytes_data_from_gpu(frame.data_ptr(), [width, height])
+        self._gpu_frames[index] = frame
 
     def update(self, head_rgb: np.ndarray, left_rgb: np.ndarray, right_rgb: np.ndarray) -> None:
         for index, rgb in enumerate((left_rgb, right_rgb)):
-            self._set_provider(self._providers[index], rgb)
+            self._set_provider(index, rgb)
             if not self._has_frames[index] and np.any(rgb):
                 self._has_frames[index] = True
                 print(f"[CAMERA] {'Left' if index == 0 else 'Right'} wrist RGB: "

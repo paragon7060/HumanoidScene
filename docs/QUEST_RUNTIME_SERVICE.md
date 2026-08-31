@@ -148,10 +148,10 @@ OpenXR 오류를 확인한다. 최초 실행의 셰이더·재질 준비 중에�
 **A**(**T**)로 저장 없이 따라오기 시작/멈춤, **B**(**P**)로 녹화 시작/멈춤,
 **Y**(**H**)로 양쪽 위 작은 손목 패널 표시/숨김을 제어한다.
 중앙은 기본 stereo 장면이며 머리 RGB 패널이 가리지 않는다. 머리 영상은 계속 기록된다.
-녹화 중 보정은 차단되고, 녹화 중 따라오기를 멈추면 현재 시도도 실패로 종료된다.
+녹화 중 X는 현재 파일을 `operator_calibration`으로 닫고 보정하며, 녹화 중 따라오기를 멈추면 현재 시도도 실패로 종료된다.
 
 버튼 수신은 `[BUTTON]`, 실제 녹화는 `[DATA] Recording ...`로 구분해서 확인한다.
-기본 `--input-mode controllers`는 컨트롤러 위치·회전으로 팔을 움직이고, 각 검지
+기본 `--input-mode controllers`는 컨트롤러 위치로 팔을 움직이고, 각 검지
 트리거를 절반 이상 당기면 해당 gripper를 닫는다. 컨트롤러를 계속 들고 조작한다.
 맨손을 원할 때만 `--input-mode hands`로 다시 실행한다. 현재 모드는 `[INFO] Arm input mode`
 및 `[TRACKING] ... input=...`에서 확인한다. 머리만 추적되면 팔은 움직이지 않는다.
@@ -200,3 +200,18 @@ openssl x509 -in "$CLOUDXR_CERTIFICATE" -noout -dates -fingerprint -sha256
 준비 과정에서 이미 실행 중인 서버에는 중복 실행하지 않는다.
 `.external/quest-ready-state.json`에 당시 서버 PID와 접속 URL을 기록했다.
 재시작 전 `ss -ltnp 'sport = :8080 or sport = :49100'`으로 현재 프로세스를 확인한다.
+
+### 현재 조작·성능 기본값
+
+왼쪽 스틱은 베이스 전후/좌우 이동, 오른쪽 스틱은 허리 yaw/높이 조절이다.
+A/B로 따라오기를 켠 뒤 사용한다. 베이스는 simulation fixed-root 이동이다.
+시점은 robot head에 붙으며 왼쪽 아래 그립을 누르는 동안 room-scale 자유 시점이다.
+자유 시점에서는 새 팔·몸통 명령을 멈추고 기존 팔 목표를 유지한다.
+양쪽 위 검지 트리거는 놓으면 open, 당기면 close이며 생성·R 리셋도 open이다.
+기본은 absolute 위치 매핑, depth OFF, 추가 PC 렌더 OFF, CPU 물리/IK와 GPU RTX 렌더다.
+손 위치를 우선하기 위해 `--arm-orientation-weight 0`이 기본이며 손잡이 회전은 강제하지 않는다.
+`--control-hz 60`과 실제 wall-clock 60Hz는 다르므로 `[PERF]`로 확인한다.
+VR 렌더 배율은 1.0으로 유지하며 현재 RTX 3060 실측은 약 15~16Hz(녹화 OFF)다.
+60Hz를 보장하는 설정이 아니다. 고정 컨베이어는 collider를 유지하되 속도 reset 대상에서
+제외해 `Body must be non-kinematic` 오류를 방지한다.
+프로파일: `--profile-steps 120`; XR PNG 캡처: `--capture-xr`.
