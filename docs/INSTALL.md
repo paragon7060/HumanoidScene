@@ -93,7 +93,7 @@ Use this path when you want to inspect each NVIDIA installation step:
 ```bash
 conda create -y -n env_isaaclab_232 python=3.11 pip
 conda activate env_isaaclab_232
-python -m pip install --upgrade pip setuptools "wheel==0.45.1"
+python -m pip install --upgrade "pip>=25.3" setuptools "wheel==0.45.1"
 
 python -m pip install "isaacsim[all,extscache]==5.1.0" \
   --extra-index-url https://pypi.nvidia.com
@@ -104,7 +104,8 @@ mkdir -p .external
 git clone --depth 1 --branch v2.3.2 \
   https://github.com/isaac-sim/IsaacLab.git .external/IsaacLab-v2.3.2
 cd .external/IsaacLab-v2.3.2
-python -m pip install --editable source/isaaclab
+python -m pip install --build-constraint ../../versions/build-constraints.txt \
+  --editable source/isaaclab
 cd ../..
 
 python -m pip install onnx==1.18.0 typing_extensions==4.12.2 psutil==5.9.8
@@ -137,6 +138,33 @@ actual Isaac Sim run and must be accepted by the operator.
 `starlette==0.49.1`, while the Isaac Sim 5.1 FastAPI wheel declares
 `starlette<0.46`. The workcell does not use Isaac Sim's FastAPI service; retain
 Isaac Lab's pin for its device/livestream code rather than manually changing it.
+
+### Recovering a flatdict build failure
+
+If installation stops at `flatdict` with `No module named 'pkg_resources'`,
+the temporary pip build environment selected setuptools 82 or newer, which
+[removed pkg_resources](https://setuptools.pypa.io/en/latest/history.html#v82-0-0).
+Isaac Lab v2.3.2 requires `flatdict==4.0.1`, whose setup script still imports it.
+Downgrading setuptools only in the conda environment does not fix an isolated
+build. The installer applies `versions/build-constraints.txt` (`setuptools<82`)
+to Isaac Lab's isolated dependency builds using
+[pip's build constraints](https://pip.pypa.io/en/stable/user_guide/#build-constraints)
+(pip 25.3 or newer).
+
+From the repository root, resume the interrupted installation in the existing
+environment without deleting it:
+
+```bash
+./install_isaaclab_stable.sh --reuse-env
+```
+
+For a custom environment, also pass the same `--env-name` and `--isaaclab-dir`
+used initially. To repair just the failing dependency in an activated environment:
+
+```bash
+python -m pip install --upgrade "pip>=25.3"
+python -m pip install --build-constraint versions/build-constraints.txt flatdict==4.0.1
+```
 
 ## 4. First scene and manager environment
 
@@ -176,6 +204,10 @@ rotation/scale capture, and respawn.
 
 ## 5. Meta Quest hand tracking and data collection
 
+처음 구성한다면 [README의 Quest 설치·연결·첫 수집 안내](../README.md#quest-collection)를
+먼저 따른다. 공식 SDK/`.tgz` 다운로드, OpenXR JSON 설정, Linux 런타임 서비스의
+별도 준비, 브라우저 보안 설정과 포트 구분을 설명한다.
+
 Meta Quest 코드도 위에서 설치한 동일한 `env_isaaclab_232` 환경을 사용한다.
 Quest 전용으로 Isaac Sim 또는 Isaac Lab을 다시 설치하거나, 구버전
 `env_isaaclab` 환경을 활성화하면 안 된다. 먼저 OpenXR experience와 extension
@@ -190,9 +222,13 @@ export ISAACLAB_PYTHON="$(command -v python)"
 이 명령은 GUI를 열지 않는다. CloudXR Runtime 없이도 PC browser/IWER preview에
 필요한 repository/Isaac 구성은 검사할 수 있다.
 
-Install NVIDIA CloudXR Runtime on the Isaac workstation and the matching CloudXR
-client on the Quest. Locate the runtime's `openxr_cloudxr.json`, then launch the
-collector from the workstation:
+Prepare NVIDIA CloudXR Runtime and its service on the Isaac workstation. The
+repository does not provide a Linux CloudXR service launcher. For the documented
+CloudXR.js path, install the npm package on the PC and open the hosted client
+page in Quest Browser; do not install the `.tgz` on the headset. After completing
+the [runtime service](../README.md#quest-runtime-service) and
+[Quest connection](../README.md#quest-headset) setup, locate the runtime's
+`openxr_cloudxr.json` and launch the collector from the workstation:
 
 ```bash
 export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json

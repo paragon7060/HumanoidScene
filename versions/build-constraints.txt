@@ -1,0 +1,5 @@
+# Isaac Lab v2.3.2 requires flatdict==4.0.1, whose setup.py imports
+# pkg_resources. Setuptools 82 removed it. Constrain isolated builds only;
+# changing setuptools in the target environment does not constrain pip's
+# temporary build environment. Requires pip >=25.3 (--build-constraint).
+setuptools<82

@@ -2,6 +2,11 @@
 
 이 문서는 현재 workcell을 Meta Quest 3에서 보고, OpenXR hand tracking으로 Kuavo의 양팔과 머리를 조작하면서 LeRobot Dataset v3 또는 HDF5 demonstration을 수집하는 절차를 정리한다.
 
+처음 설치한다면 [README의 다운로드부터 첫 저장까지 안내](../README.md#quest-collection)를
+먼저 따른다. Runtime SDK와 npm `.tgz`의 공식 다운로드, JSON 경로 설정,
+Linux 서비스 준비, Quest 브라우저의 HTTP/HTTPS 설정, 포트 구분을 단계별로 설명한다.
+이 문서는 그 이후의 조작·카메라·데이터 schema 세부 설정을 다룬다.
+
 ## 1. 구현 구조
 
 ```text
@@ -163,7 +168,19 @@ IWER panel에서 HMD와 좌우 controller pose를 움직인다. 첫 유효 frame
 
 이 로컬 경로는 CloudXR codec/네트워크 품질을 검증하는 것이 아니라, 우리가 구성한 IsaacLab scene의 카메라와 Quest 제어 mapping이 상호작용하는지를 검증한다. PC 검증 후 Quest에서 같은 bridge를 시험하려면 IsaacLab 쪽을 `./preview_quest_browser.sh --bridge-host 0.0.0.0`으로 실행하고, Quest 페이지에서 Server IP를 PC의 LAN IP로 바꾼다. 8765는 인증 없는 개발용 포트이므로 신뢰할 수 있는 로컬 네트워크에서만 연다.
 
+이 미리보기는 데이터를 저장하지 않는다. Quest의 HTTP 접속에는 해당 개발
+origin에 대한 WebXR 허용 설정도 필요하다. HTTPS를 사용한다면 로컬 bridge도
+별도의 TLS 종단이 필요하며, 페이지를 HTTPS로 바꾸는 것만으로 평문 8765 서버가
+WSS 서버가 되지는 않는다. 실제 OpenXR 수집은 미리보기를 종료하고
+`Manual Input IP:Port` 백엔드와 CloudXR Runtime에 연결한다.
+
 ### 3.1 CloudXR Runtime 준비
+
+[Runtime 다운로드와 JSON 설정](../README.md#quest-files),
+[Linux 서비스 준비 및 현재 제공 범위](../README.md#quest-runtime-service)를 먼저 확인한다.
+SDK와 `openxr_cloudxr.json`만 준비해도 서비스가 자동 시작되는 것은 아니다.
+이 저장소에는 Linux CloudXR 서비스 실행기나 자동 기동 코드가 없으므로,
+Isaac Lab과 함께 사용할 서비스 구성을 별도로 준비해야 한다.
 
 CloudXR Runtime 6.x 설치 디렉터리에서 다음 파일을 찾는다.
 
@@ -172,6 +189,13 @@ find /path/to/cloudxr-runtime -name openxr_cloudxr.json -print
 ```
 
 Runtime은 해당 배포 패키지의 management/launch 절차대로 먼저 실행한다. Quest에서 사용 중인 CloudXR.js simple client는 Isaac Lab PC의 CloudXR Runtime(WebRTC 기본 포트 49100)에 연결한다.
+
+49100은 WebSocket 신호용 TCP 포트이며, WebRTC 미디어는 기본 UDP 47998을 사용한다.
+HTTPS 페이지에서는 WSS 연결이 필요하다. 이 경우
+[Quest 브라우저·프록시 설정](../README.md#quest-headset)에 따라 TLS 프록시를
+준비하고 프록시 포트를 선택한다. 실제 SDK/GPU 조합의 스트리밍은 별도 실기
+검증 대상이다. 아래 doctor는 JSON과 라이브러리 파일 존재만 검사하며 서비스
+상태나 GPU 지원을 확인하지 않는다.
 
 실행 전에 manifest JSON 형식과 `runtime.library_path`까지 검사한다.
 
@@ -222,12 +246,16 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 |---|---|---|
 | recording 시작 | `START` | `P` |
 | recording 종료/실패 | `STOP` | `P` |
-| 환경 reset/episode 폐기 | `RESET` | `R` |
+| 환경 reset/현재 시도 실패 종료 | `RESET` | `R` |
 | 성공 demonstration으로 종료 | - | `M` |
 
 성공한 작업은 desktop Isaac Sim 창에서 `M`을 누른다. 현재 CloudXR.js simple sample이 START/STOP/RESET message를 보내지 않아도 `--auto-start`와 desktop key를 사용할 수 있다.
 
 LeRobot 모드에서는 기본적으로 `M`으로 성공 처리한 episode만 저장한다. `STOP`, `RESET`, time limit episode는 학습 데이터에 섞이지 않도록 폐기된다. 실패 episode도 분석용으로 보존하려면 `--lerobot-save-failed`를 추가한다.
+
+HDF5는 샘플이 있는 실패·reset·시간 초과 episode도 저장한다. 따라서 `both`
+모드에서 HDF5와 LeRobot의 episode 수는 다를 수 있다. `M`은 작업자가 성공을
+판정하는 입력이며, 실제 작업을 완료했을 때 사용한다.
 
 자동 시작을 끄려면:
 

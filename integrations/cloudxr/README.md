@@ -6,6 +6,12 @@ sample. It forwards WebXR head/hand/controller tracking to
 `preview_quest_browser.sh` on WebSocket port 8765 and renders the returned Kuavo
 camera composite.
 
+This backend is a preview and does not record datasets. For NVIDIA downloads,
+the OpenXR runtime manifest, Linux service prerequisites, and actual Quest
+collection, start with the [main README walkthrough](../../README.md#quest-collection).
+Actual OpenXR collection uses the sample's `Manual Input IP:Port` backend and
+the CloudXR Runtime signaling endpoint, not the local preview port 8765.
+
 Run from the HumanoidScene repository:
 
 ```bash

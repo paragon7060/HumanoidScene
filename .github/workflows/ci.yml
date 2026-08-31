@@ -21,6 +21,11 @@ jobs:
         run: bash -n ./*.sh scripts/*.sh
       - name: Check pinned installer plan
         run: ./install_isaaclab_stable.sh --dry-run
+      - name: Check legacy Isaac Lab dependency build
+        run: >-
+          python -m pip wheel --no-deps --no-cache-dir --no-binary flatdict
+          --build-constraint versions/build-constraints.txt
+          --wheel-dir /tmp/kuavo-build-smoke flatdict==4.0.1
       - name: Verify no GitHub-size-limit files
         run: |
           find . -type f -not -path './.git/*' -size +99M -print -quit | tee /tmp/oversized.txt

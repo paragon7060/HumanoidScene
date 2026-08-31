@@ -34,6 +34,7 @@ export ISAACLAB_PYTHON="$(command -v python)"
 
 주요 문서:
 
+- [Meta Quest 데이터 수집: 다운로드부터 첫 저장까지](#quest-collection)
 - [설치, 의존성, 첫 실행](docs/INSTALL.md)
 - [Isaac Sim 배치 편집·위치/회전/크기 캡처](docs/ISAACSIM_WORKCELL_GUIDE.md)
 - [Meta Quest 3/3S teleoperation과 LeRobot 수집](docs/QUEST3_KUAVO_TELEOP_GUIDE.md)
@@ -41,10 +42,379 @@ export ISAACLAB_PYTHON="$(command -v python)"
 - [GR00T N1.7 evaluation](docs/GROOT_N1_7_EVAL_GUIDE.md)
 - [외부 asset과 runtime 안내](THIRD_PARTY_ASSETS.md)
 
-Meta Quest 없이 PC Chrome/IWER 연결 경로를 먼저 확인하려면
-`./quest_doctor.sh`로 OpenXR 구성요소를 점검한 뒤
-`./preview_quest_browser.sh`를 실행한다. 실제 Quest/OpenXR 수집은
-`./quest_doctor.sh --require-runtime`과 `./collect_quest_teleop.sh`를 사용한다.
+<a id="quest-collection"></a>
+
+## Meta Quest 데이터 수집: 다운로드부터 첫 저장까지
+
+처음에는 **PC에서 장면 확인 → CloudXR 파일 준비 → 런타임 서비스 준비 →
+Quest 브라우저 연결 → HDF5 한 에피소드 저장** 순서로 진행한다.
+LeRobot은 HDF5 수집을 확인한 다음 별도 환경에 연결한다.
+이 절의 명령은 별도 안내가 없으면 **Isaac Lab이 설치된 Linux PC의 저장소
+루트 `HumanoidScene/`**에서 실행한다. `/absolute/path/...`는 실제 파일 경로로
+바꿔야 하는 예시이며 그대로 실행하면 안 된다.
+
+> **현재 제공 범위:** 이 저장소는 Kuavo 장면, OpenXR 입력 어댑터, 수집기와
+> 브라우저 미리보기 설치 스크립트를 제공한다. NVIDIA CloudXR SDK, Linux
+> 런타임 서비스 실행기, TLS 프록시는 포함하거나 자동 설치하지 않는다.
+> `quest_doctor.sh` 통과는 파일 구성 검사 결과이며, 실제 Quest 스트리밍·손 추적
+> 성공을 보장하지 않는다. 실기 연결은 아래 절차로 별도 검증해야 한다.
+
+바로 이동:
+[준비물](#quest-prerequisites) · [다운로드와 파일 설정](#quest-files) ·
+[런타임 서비스](#quest-runtime-service) · [웹 클라이언트](#quest-web-client) ·
+[Quest 연결](#quest-headset) · [첫 수집](#quest-first-recording) ·
+[LeRobot](#quest-lerobot) · [문제 해결](#quest-troubleshooting)
+
+### 1. 먼저 실행 경로를 구분하기
+
+| 목적 | PC에서 실행할 명령 | 필요한 CloudXR 구성 | 데이터 저장 |
+|---|---|---|---|
+| 로봇과 카메라를 PC 창에서 확인 | `./preview_quest_local.sh` | 없음 | 없음 |
+| PC Chrome/IWER 입력과 카메라 연결 확인 | `./preview_quest_browser.sh` + 웹 클라이언트 | CloudXR.js `.tgz`; 외부 런타임은 불필요 | 없음 |
+| 실제 Quest 손·머리 추적으로 수집 | `./collect_quest_teleop.sh` + 웹 클라이언트 | 실행 중인 CloudXR Runtime, JSON 및 라이브러리, CloudXR.js `.tgz` | HDF5 / LeRobot |
+
+IWER는 데스크톱 브라우저에서 가상 HMD/컨트롤러 입력을 만드는 도구다.
+미리보기에서 로봇이 움직이더라도 OpenXR 수집 연결이 검증된 것은 아니다.
+특히 `Local Kuavo IsaacLab (IWER/Quest)` 백엔드의 `8765` 포트와 실제 CloudXR
+백엔드의 `49100` 포트를 혼동하지 않는다.
+
+```mermaid
+flowchart LR
+    Q[Quest Browser: 손·머리 추적] <-->|WebSocket 신호 + WebRTC 영상| R[PC: CloudXR Runtime 서비스]
+    R <-->|OpenXR| I[PC: Isaac Lab + Kuavo 수집기]
+    I --> D[HDF5 또는 LeRobot 데이터]
+    W[PC: 웹 서버 8080] -->|클라이언트 페이지 제공| Q
+```
+
+<a id="quest-prerequisites"></a>
+
+### 2. PC와 Quest 준비물 확인
+
+- **PC:** Linux x86_64, Ubuntu 22.04 이상, NVIDIA 그래픽 드라이버와 NVENC를
+  지원하는 GPU. Isaac 환경은 이 저장소의 **Python 3.11 + Isaac Sim 5.1.0 +
+  Isaac Lab v2.3.2**, conda 환경 이름은 `env_isaaclab_232`를 사용한다.
+- **GPU 지원 범위:** NVIDIA의 현재 CloudXR Runtime 요구사항은 Ada/Blackwell
+  계열을 명시한다. RTX 3060 같은 Ampere GPU에서 Isaac Sim이 실행되거나
+  `doctor.sh`가 통과해도 CloudXR 지원이 확인된 것은 아니다. 사용 중인 SDK 버전의
+  [공식 GPU·드라이버 요구사항](https://docs.nvidia.com/cloudxr-sdk/latest/requirement/runtime_req.html)을 먼저 확인한다.
+- **웹 클라이언트 개발 도구:** Node.js 20.19.0 이상과 npm.
+  [CloudXR.js 요구사항](https://docs.nvidia.com/cloudxr-sdk/latest/requirement/cloudxrjs_req.html)에 맞춰 설치하고
+  `node --version`, `npm --version`으로 확인한다.
+- **헤드셋:** Meta Quest 3/3S, Meta Quest Browser, 손 추적 활성화.
+  현재 CloudXR.js 문서의 Quest OS 기준은 79 이상이다. 브라우저의 WebXR·손 추적
+  권한 요청도 허용해야 한다.
+- **네트워크:** PC와 Quest가 서로 접근 가능한 같은 LAN에 있어야 한다.
+  PC는 유선, Quest는 5 GHz/6 GHz Wi-Fi를 사용한다. 게스트 Wi-Fi나 기관망의
+  기기 간 통신 차단 여부는 [공식 네트워크 안내](https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html)를 참고한다.
+
+아직 Isaac 환경이 없다면 [설치 가이드](docs/INSTALL.md)부터 진행한다.
+중단된 설치를 재개할 때는 환경을 삭제하지 않고
+`./install_isaaclab_stable.sh --reuse-env`를 사용한다.
+이미 설치했다면 다음 점검만 실행한다. Quest 때문에 Isaac 환경을 다시 만들 필요는 없다.
+
+```bash
+conda activate env_isaaclab_232
+export ISAACLAB_PYTHON="$(command -v python)"
+./setup.sh --check-only
+./quest_doctor.sh
+```
+
+이 단계의 `Quest compatibility: OK`는 Isaac Lab의 OpenXR experience와
+Isaac Sim extension이 있다는 뜻이다. `CloudXR runtime: not configured`가 함께
+나오는 것은 아직 다음 단계의 JSON 경로를 지정하지 않았기 때문이다.
+
+헤드셋을 연결하기 전에 장면과 머리·양손목 카메라를 확인하려면 다음 명령을 실행한다.
+확인 후 창을 닫고 다음 단계로 넘어간다.
+
+```bash
+./preview_quest_local.sh --robot-model s200062
+```
+
+<a id="quest-files"></a>
+
+### 3. 무엇을 어디서 다운로드하는가
+
+아래 두 NVIDIA 패키지는 **서로 별도 다운로드**이며 모두 PC에서 사용한다.
+Quest에 `.tgz`를 복사하거나 설치하는 것이 아니다. Quest에서는 PC가 제공하는
+웹페이지를 연다. 공식 배포 절차는
+[Getting CloudXR](https://docs.nvidia.com/cloudxr-sdk/latest/getting_cloudxr.html)에 있다.
+
+| 받을 것 | 공식 다운로드 | 파일의 역할 |
+|---|---|---|
+| CloudXR Runtime Linux SDK | [NGC: CloudXR Runtime](https://catalog.ngc.nvidia.com/orgs/nvidia/resources/cloudxr-runtime) | `CloudXR-<version>-Linux-sdk.tar.gz` 안의 런타임 라이브러리·헤더·`openxr_cloudxr.json` |
+| CloudXR.js npm 패키지 | [NGC: CloudXR.js](https://catalog.ngc.nvidia.com/orgs/nvidia/resources/cloudxr-js/files) | 이 저장소의 클라이언트 예시는 `nvidia-cloudxr-6.2.0.tgz`를 사용 |
+
+NGC에서 버전을 선택하고 **File Browser → 해당 파일 → Download**로 받는다.
+로그인이 요청되면 NVIDIA 계정으로 로그인하고 해당 패키지의 라이선스를 확인한다.
+Runtime과 JS의 버전 번호가 반드시 같지는 않으므로
+[공식 호환표](https://docs.nvidia.com/cloudxr-sdk/latest/release_notes/release_notes.html#compatibility-matrix)를 확인한다.
+이 절은 CloudXR 6.x SDK/웹 클라이언트 경로를 설명한다. Isaac Lab v2.3.2의
+예전 안내에 나오는 CloudXR `5.0.1` Docker/Apple 클라이언트 설정을 그대로 섞지 않는다.
+
+**Runtime 압축 파일은 풀고, npm `.tgz`는 풀지 않은 채 npm에 전달한다.**
+다운로드한 실제 파일 경로를 지정해 다음처럼 준비한다.
+
+```bash
+export CLOUDXR_RUNTIME_ARCHIVE="/absolute/path/to/CloudXR-<version>-Linux-sdk.tar.gz"
+mkdir -p .external/cloudxr-runtime
+tar -xzf "$CLOUDXR_RUNTIME_ARCHIVE" -C .external/cloudxr-runtime
+
+# 출력된 경로 중 현재 사용할 Linux 런타임의 manifest를 선택한다.
+find "$PWD/.external/cloudxr-runtime" -name openxr_cloudxr.json -print
+```
+
+검색 결과를 다음 변수에 넣는다. `XR_RUNTIME_JSON`은 **JSON 파일 자체**를,
+`CLOUDXR_NPM_TGZ`는 **npm 압축 파일 자체**를 가리켜야 한다.
+
+```bash
+export XR_RUNTIME_JSON="/absolute/path/to/openxr_cloudxr.json"
+export CLOUDXR_NPM_TGZ="$HOME/Downloads/nvidia-cloudxr-6.2.0.tgz"
+
+test -f "$XR_RUNTIME_JSON" && test -f "$CLOUDXR_NPM_TGZ"
+./quest_doctor.sh --require-runtime
+```
+
+`openxr_cloudxr.json`은 OpenXR loader에게 어떤 런타임 라이브러리를 로드할지
+알려주는 manifest다. JSON 안의 `runtime.library_path`가 실제 `.so`를 가리켜야
+하므로 **JSON만 다른 폴더로 복사하거나 빈 JSON을 직접 만들면 안 된다.**
+압축을 푼 디렉터리 구조를 유지한다. 위 점검은 JSON 형식과 라이브러리 파일의 존재를
+검사하지만 `.so` 로딩, 서비스 기동, GPU 호환성, 헤드셋 접속은 검사하지 않는다.
+
+환경변수는 터미널마다 따로 설정해야 한다. 반복 입력을 피하려면
+[.env.example](.env.example)을 참고해 **필요한 변수만** `.env`에 저장하고 새 터미널에서
+`source .env`를 실행한다. launcher가 `.env`를 자동으로 읽지는 않는다.
+예시 파일의 미사용 `LEROBOT_PYTHON` placeholder까지 그대로 복사하지 않는다.
+
+<a id="quest-runtime-service"></a>
+
+### 4. 런타임 서비스 준비 — JSON 설정만으로 끝나지 않는다
+
+CloudXR 6.x Runtime SDK는 Linux에서 라이브러리와 C API를 제공한다.
+`XR_RUNTIME_JSON`을 지정하거나 `npm run dev-server`를 실행하는 것만으로
+스트리밍 서비스가 시작되지는 않는다.
+[NVIDIA 런타임 시작 안내](https://docs.nvidia.com/cloudxr-sdk/latest/usr_guide/cloudxr_runtime/getting_started.html)는
+애플리케이션 내부에서 서비스를 관리하거나, SDK의 `cxrServiceAPI.h`로 별도의
+서비스 실행기를 만드는 방식을 설명한다. 문서의 `NvStreamManager.exe` 방식은
+Windows 전용이다.
+
+**이 저장소에는 Linux CloudXR 서비스 실행기나 자동 기동 코드가 아직 없다.**
+SDK만 다운로드했다면 이 단계는 아직 미완료다. 사용 중인 배포 환경의 실행기를
+준비하거나 [Runtime Management API](https://docs.nvidia.com/cloudxr-sdk/latest/usr_guide/cloudxr_runtime/runtime_mgmt_api.html)를
+사용해 서비스를 시작하는 구성을 먼저 마련해야 한다. 실행기는 Isaac Lab 수집기와
+함께 사용할 수 있어야 하며, 수집 중에도 서비스를 유지해야 한다.
+
+구성을 처음 확인할 때는 NVIDIA의
+[LÖVR CloudXR 샘플](https://github.com/NVIDIA/cloudxr-lovr-sample)로 서비스와 Quest
+연결을 별도로 점검할 수 있다. 단, LÖVR 장면이 보이는 것은 **LÖVR 연결 검사**이며
+Kuavo 수집기가 연결됐다는 뜻은 아니다. 샘플을 종료해 포트/GPU 충돌을 피하고,
+Isaac Lab용 서비스 구성을 준비한 뒤 아래 수집 단계로 진행한다.
+
+서비스의 설정·로그에서 WebRTC 연결을 받는지 확인한다. 기본 신호 포트를
+사용한다면 PC에서 `ss -ltnp 'sport = :49100'`으로 listener도 확인할 수 있다.
+포트가 열렸다는 사실만으로 손 추적이나 영상 전송 성공이 확인되지는 않는다.
+
+<a id="quest-web-client"></a>
+
+### 5. PC에서 Quest용 웹 클라이언트 준비
+
+Runtime 서비스와 웹 서버는 역할이 다르다. 아래 웹 서버는 Quest에 클라이언트
+페이지를 제공하며, 실제 시뮬레이션 영상은 Runtime에서 전송한다.
+
+```bash
+# 저장소 루트에서, CLOUDXR_NPM_TGZ를 설정한 터미널
+node --version
+npm --version
+./setup_quest_browser.sh
+npm --prefix .external/cloudxr-js-samples/simple run dev-server
+```
+
+`setup_quest_browser.sh`는 NVIDIA 샘플을 고정 커밋
+`29941936e90234a06847ba1c209d70f60b6b59bd`에 받아 이 저장소의 로컬 미리보기
+패치를 적용하고 `.tgz`를 npm으로 설치한다. `detached HEAD` 안내는 커밋 고정에
+따른 정상 메시지다. 설치 후 서버 터미널을 켜 둔다.
+공식 명령은 [Simple WebGL Sample](https://docs.nvidia.com/cloudxr-sdk/latest/usr_guide/cloudxr_js/sample_webgl.html)에서도 확인할 수 있다.
+
+PC Chrome에서는 `http://localhost:8080`으로 페이지가 열리는지 확인한다.
+IWER로 로봇까지 움직여 보려면 별도 터미널에서 `./preview_quest_browser.sh`를 실행하고
+페이지에서 `Local Kuavo IsaacLab (IWER/Quest)`, IP `127.0.0.1`, 포트 `8765`를 선택한다.
+이 경로는 데이터 저장 없이 입력·카메라만 확인한다.
+[자세한 PC 미리보기 절차](docs/QUEST3_KUAVO_TELEOP_GUIDE.md#301-pc-브라우저에서-quest-상호작용-검증)를 참고한다.
+확인이 끝나면 미리보기 시뮬레이터를 종료한다. 실제 수집은 다음 단계의
+**Manual Input IP:Port** 백엔드와 수집기를 사용한다.
+
+<a id="quest-headset"></a>
+
+### 6. Quest 브라우저와 네트워크 설정
+
+PC에서 `hostname -I`로 LAN IP를 확인한다. 여러 주소가 나오면 Quest와 같은
+네트워크에 연결된 인터페이스의 주소를 고른다. 아래 `192.168.0.10`은 예시다.
+**Quest에서 `localhost`/`127.0.0.1`은 PC가 아니라 Quest 자신이다.**
+
+두 연결 방식 중 하나를 선택한다. HTTP는 신뢰할 수 있는 개발용 LAN에서만
+사용하고, 지속적인 장치 테스트나 배포에는 HTTPS/WSS를 구성한다.
+
+| 설정 | HTTP 개발 연결 | HTTPS 연결 |
+|---|---|---|
+| PC 웹 서버 명령 끝부분 | `run dev-server` | `run dev-server:https` |
+| Quest에서 열 페이지 | `http://192.168.0.10:8080` | `https://192.168.0.10:8080` |
+| 클라이언트의 Server Backend | `Manual Input IP:Port` | `Manual Input IP:Port` |
+| 클라이언트의 Server IP | PC LAN IP | TLS 프록시 IP |
+| 클라이언트의 Port | `49100` | 프록시 포트, 공식 예시는 `48322` |
+| 추가 준비 | 해당 HTTP origin에만 WebXR 허용 | TLS 프록시와 인증서 신뢰 설정 |
+
+**HTTP 개발 연결:** Quest Browser에서 `chrome://flags`를 열고
+`unsafely-treat-insecure-origin-as-secure`를 찾아 활성화한다. 허용 origin에는
+자신의 PC 페이지 주소 하나, 예를 들어 `http://192.168.0.10:8080`을 입력하고
+브라우저를 Relaunch한다. 포트까지 정확히 같아야 한다. 이는 암호화나 인증을
+추가하는 설정이 아니므로 공용망에서 사용하지 않고 테스트 후 예외를 제거한다.
+[NVIDIA Quest 브라우저 설정](https://docs.nvidia.com/cloudxr-sdk/latest/usr_guide/cloudxr_js/client_setup.html#meta-quest-configuration)에 상세 절차가 있다.
+
+**HTTPS 연결:** HTTP 웹 서버를 종료하고 다음으로 바꾼다.
+
+```bash
+npm --prefix .external/cloudxr-js-samples/simple run dev-server:https
+```
+
+이것만으로는 충분하지 않다. 공식
+[WebSocket Proxy Setup](https://docs.nvidia.com/cloudxr-sdk/latest/usr_guide/cloudxr_js/proxy_setup.html)에
+따라 `wss://<프록시 IP>:48322`를 Runtime의 `ws://<PC IP>:49100`으로 전달하는
+TLS 프록시도 준비한다. 개발용 자체 서명 인증서라면 **직접 구성한 서버인지 확인한 뒤**
+Quest에서 웹 서버와 프록시 인증서를 각각 신뢰하도록 설정한다.
+HTTPS 페이지에서 평문 `ws://`로 연결하면 mixed-content 정책으로 차단된다.
+위 예시는 프록시 방식이며, 저장소가 인증서나 프록시를 자동 설치하지는 않는다.
+
+포트는 목적별로 다르다. 방화벽을 통째로 끄거나 인터넷에 포트 포워딩하지 말고,
+사용할 연결 방식에 필요한 트래픽만 신뢰하는 LAN/Quest에서 허용한다.
+[공식 Web Client 포트 안내](https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#web-client-ports)를 기준으로 설정한다.
+
+| 포트 | 용도 |
+|---|---|
+| TCP `8080` | HTTP 또는 HTTPS 클라이언트 페이지 |
+| TCP `49100` | CloudXR WebSocket 신호 연결 |
+| UDP `47998` | CloudXR WebRTC 미디어 |
+| TCP `48322` | HTTPS 방식의 WSS 프록시 예시 포트 |
+| TCP `8765` | 이 저장소의 로컬 미리보기 전용; 실제 OpenXR 수집에는 불필요 |
+
+<a id="quest-first-recording"></a>
+
+### 7. 첫 데이터는 HDF5 한 에피소드로 확인
+
+진행 전 확인할 상태는 **Runtime 서비스 실행 중 / 웹 서버 실행 중 / Quest에서
+웹페이지 접근 가능**이다. PC의 로컬 미리보기 시뮬레이터는 종료한다.
+새 터미널에서 저장소 루트로 이동한 뒤 수집기를 실행한다.
+
+```bash
+conda activate env_isaaclab_232
+export ISAACLAB_PYTHON="$(command -v python)"
+export XR_RUNTIME_JSON="/absolute/path/to/openxr_cloudxr.json"
+./quest_doctor.sh --require-runtime
+
+./collect_quest_teleop.sh \
+  --robot-model s200062 \
+  --dataset-format hdf5 \
+  --dataset datasets/quest_first_session.hdf5 \
+  --max-episodes 1 \
+  --episode-seconds 60
+```
+
+Quest 페이지에서 위 표의 **Manual Input IP:Port**, 올바른 IP·포트, **VR** 모드를
+선택하고 `CONNECT`를 누른다. WebXR/손 추적 권한을 허용하고 양손을 헤드셋
+카메라가 볼 수 있는 위치에 둔다. 최초 유효 프레임은 자세 보정에 사용된다.
+수집기 터미널에서 다음과 같은 로그를 확인한다.
+
+```text
+[TRACKING] left=True, right=True, head=True
+[DATA] Recording hdf5=demo_00000
+```
+
+기본 `--auto-start`에서는 양손 추적이 유효해지면 녹화를 시작한다.
+머리 회전은 로봇 머리, 손목 움직임은 양팔, 엄지·검지 pinch는 gripper에 대응한다.
+키보드 조작은 **PC의 Isaac Sim 창에 포커스를 둔 상태**에서 한다.
+
+| 키 | 동작 |
+|---|---|
+| `P` | 녹화 시작 또는 중지; 중지는 실패로 종료 |
+| `M` | 현재 에피소드를 작업자 판정 성공으로 종료·저장 |
+| `R` | 현재 시도를 실패로 종료하고 장면·자세 보정 초기화 |
+
+예시 명령은 60초 제한 또는 `M`/`P`/`R`로 샘플이 있는 에피소드 하나를 끝내면
+종료한다. **HDF5는 실패·시간 초과·reset 시도도 샘플이 있으면 저장**하므로
+성공 데이터 여부는 `success`와 `end_reason`을 확인해야 한다. `M`은 자동 성공
+판정이 아니며, 실제 작업을 완료했을 때 누른다.
+
+수집기가 정상 종료한 뒤 PC에서 저장 파일을 확인한다.
+
+```bash
+python - <<'PY'
+import h5py
+
+with h5py.File("datasets/quest_first_session.hdf5", "r") as f:
+    print("episodes:", len(f["data"]))
+    for name, demo in f["data"].items():
+        print(name, "samples:", demo.attrs["num_samples"],
+              "success:", demo.attrs["success"], "reason:", demo.attrs["end_reason"])
+        print("action:", demo["samples/action"].shape)
+        print("head_rgb:", demo["samples/head_rgb"].shape)
+PY
+```
+
+`episodes: 0`이면 양손 추적과 녹화 시작 로그부터 확인한다. 기존 HDF5 경로를
+다시 사용하면 에피소드가 추가되므로 독립 실험에는 새 파일명을 사용한다.
+RGB·depth 영상은 용량이 크니 장시간 수집 전에 디스크 여유 공간도 확인한다.
+
+<a id="quest-lerobot"></a>
+
+### 8. HDF5 확인 후 LeRobot Dataset v3로 수집
+
+HDF5에는 LeRobot 설치가 필요 없다. LeRobot을 사용할 때는 Isaac 환경의
+NumPy/Torch를 바꾸지 않도록 **별도 Python 환경의 v3 writer**를 준비한다.
+환경과 데이터 구조는 [LeRobot 수집 안내](docs/QUEST3_KUAVO_TELEOP_GUIDE.md#9-lerobot-dataset-v3-수집)를 참고한다.
+이미 준비된 환경의 Python을 다음처럼 연결한다.
+
+```bash
+export LEROBOT_PYTHON="/absolute/path/to/lerobot-v3-environment/bin/python"
+"$LEROBOT_PYTHON" -c \
+  'from lerobot.datasets import CODEBASE_VERSION; assert str(CODEBASE_VERSION) == "v3.0"'
+
+# 현재 터미널은 env_isaaclab_232이며 XR_RUNTIME_JSON도 설정되어 있어야 한다.
+./collect_quest_teleop.sh \
+  --robot-model s200062 \
+  --dataset-format both \
+  --dataset datasets/quest_session_002.hdf5 \
+  --lerobot-root datasets/quest_session_002_lerobot \
+  --lerobot-repo-id local/kuavo_quest_teleop \
+  --max-episodes 20 \
+  --episode-seconds 60
+```
+
+LeRobot은 기본적으로 **성공 처리한 에피소드만 보존**한다. 실패 시도까지 필요하면
+`--lerobot-save-failed`를 추가한다. 따라서 `both` 모드에서 두 형식의 에피소드
+개수는 다를 수 있다. `--lerobot-repo-id`는 로컬 데이터의 식별자이며 이 명령이
+Hugging Face Hub에 업로드하지는 않는다. 영상·메타데이터 마무리를 위해 정상
+종료하고, 카메라 해상도·로봇 모델·action schema를 바꿀 때는 새 dataset 경로를 쓴다.
+
+<a id="quest-troubleshooting"></a>
+
+### 9. 연결이 안 될 때 확인할 곳
+
+| 증상 | 확인할 내용 |
+|---|---|
+| `CloudXR runtime: not configured` | 수집기를 실행할 **같은 터미널**에서 `XR_RUNTIME_JSON`을 export했는지 확인. `.env`는 자동 로드되지 않음 |
+| `manifest does not exist` / `runtime.library_path does not exist` | JSON 경로와 SDK 압축 해제 구조 확인. `.tgz`나 디렉터리를 JSON 변수에 넣지 않았는지 확인 |
+| `quest_doctor.sh`는 OK인데 `XR_ERROR_RUNTIME_FAILURE` 발생 | 실제 Runtime 서비스 실행·SDK 버전·GPU 지원·런타임 로그 확인. doctor는 서비스 접속 검사가 아님 |
+| `Set CLOUDXR_NPM_TGZ ...` / `npm is required` | PC에 받은 `.tgz`의 절대 경로, Node/npm 설치와 PATH 확인 |
+| Quest에서 페이지가 열리지 않음 | PC LAN IP, 웹 서버, TCP 8080, Wi-Fi 기기 간 통신 차단 확인. Quest에 localhost를 넣지 않음 |
+| WebXR 불가 / CONNECT 비활성화 | HTTP origin 예외 또는 HTTPS 설정, Quest OS·브라우저·권한 확인 |
+| HTTPS 페이지는 열리지만 연결 실패 | WSS 프록시·포트 및 웹 서버/프록시 양쪽 인증서 확인. HTTPS에서 평문 WS 연결 금지 |
+| 로컬 미리보기만 연결되거나 `8765`로 연결됨 | 실제 수집에는 `Manual Input IP:Port`와 Runtime 신호 포트 사용 |
+| 영상은 나오는데 tracking이 False | 손 추적 활성화·권한·양손 가시성·Runtime 입력 전달 확인. 영상 성공과 입력 성공은 별도 |
+| LeRobot 폴더에 에피소드가 없음 | 별도 v3 writer, 녹화 시작 로그, `M` 성공 처리, 정상 종료 확인. 실패 보존은 명시적으로 선택 |
+
+카메라 overlay 방향, 손 이동 gain, gripper, dataset schema의 세부 설정은
+[Quest 상세 가이드](docs/QUEST3_KUAVO_TELEOP_GUIDE.md)를 참고한다.
+공식 링크는 2026-08-31에 확인했으며 `/latest/` 문서의 버전·요구사항은 변경될 수 있다.
+
+## Workcell overview
 
 Isaac Lab workcell based on the supplied factory reference image. With the
 default legacy six-tote layout, the complete task is:

@@ -114,7 +114,7 @@ if [[ ${ENV_EXISTS} -eq 0 ]]; then
 fi
 conda activate "${ENV_NAME}"
 
-python -m pip install --upgrade pip setuptools "wheel==0.45.1"
+python -m pip install --upgrade "pip>=25.3" setuptools "wheel==0.45.1"
 python -m pip install \
   "isaacsim[all,extscache]==${KUAVO_ISAAC_SIM_VERSION}" \
   --extra-index-url https://pypi.nvidia.com
@@ -144,7 +144,11 @@ fi
 # The upstream wrapper also installs mimic/RL/notebook packages and opens the
 # VS Code/EULA bootstrap even with `--install none`; those extras are not
 # required by this repository and introduce unbounded transitive dependencies.
-python -m pip install --editable "${ISAACLAB_CHECKOUT}/source/isaaclab"
+# flatdict 4.0.1 still imports pkg_resources from setuptools during its build.
+# Limit the isolated build environment without downgrading runtime packages.
+python -m pip install \
+  --build-constraint "${PROJECT_DIR}/versions/build-constraints.txt" \
+  --editable "${ISAACLAB_CHECKOUT}/source/isaaclab"
 # Re-assert Isaac Sim's exact runtime requirements after Isaac Lab resolves
 # ONNX/OpenXR dependencies from the current package index.
 python -m pip install \
