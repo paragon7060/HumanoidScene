@@ -106,6 +106,7 @@ resolve_isaaclab_dir() {
     candidates+=("${ISAACLAB_DIR}")
   fi
   candidates+=(
+    "${KUAVO_PROJECT_DIR}/.external/IsaacLab-v2.3.2"
     "${KUAVO_PROJECT_DIR}/../IsaacLab"
     "${HOME}/IsaacLab"
     "${HOME}/isaaclab"

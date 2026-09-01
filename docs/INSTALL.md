@@ -181,14 +181,16 @@ Run the manager-based environment:
 ```
 
 The default S200062 robot, its built-in two-finger grippers, D405 meshes, and
-converted USD are packaged locally. The S63 robot and external Robotiq-based
-claws are also local and selectable with `--robot-model s63`. The original
+converted USD are packaged locally. The S63 wheel robot, S56 biped, and external
+Robotiq-based claws are also local and selectable with `--robot-model s63` or
+`--robot-model s56`. The original
 NVIDIA warehouse and Digital Twin conveyor remain runtime assets and need
 asset-server access on first use (or an already populated Isaac Sim cache).
 
 ```bash
 ./run_scene.sh --robot-model s200062       # default full model
 ./run_scene.sh --robot-model s63           # comparison model
+./run_scene.sh --robot-model s56           # fixed-root biped + Robotiq
 ```
 
 Choose different rack contents per launch:

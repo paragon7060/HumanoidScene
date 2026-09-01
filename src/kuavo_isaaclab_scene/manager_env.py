@@ -232,13 +232,19 @@ KUAVO_CFG = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=layout_position("robot"),
+        pos=ROBOT_MODEL.spawn_position(layout_position("robot")),
         rot=layout_rotation("robot"),
         joint_pos={
-            "wheel_.*_joint": 0.0,
-            "knee_joint": 0.0,
-            "leg_joint": 0.0,
-            "waist_pitch_joint": 0.0,
+            **(
+                {
+                    "wheel_.*_joint": 0.0,
+                    "knee_joint": 0.0,
+                    "leg_joint": 0.0,
+                    "waist_pitch_joint": 0.0,
+                }
+                if ROBOT_MODEL.has_wheel_base
+                else {"leg_.*_joint": 0.0}
+            ),
             "zarm_.*_joint": 0.0,
             "waist_yaw_joint": 0.0,
             "zhead_.*_joint": 0.0,
@@ -251,19 +257,33 @@ KUAVO_CFG = ArticulationCfg(
         joint_vel={".*": 0.0},
     ),
     actuators={
-        "height_axis": ImplicitActuatorCfg(
-            joint_names_expr=["knee_joint", "leg_joint", "waist_pitch_joint"],
-            effort_limit_sim=700.0,
-            velocity_limit_sim=25.0,
-            stiffness=400.0,
-            damping=40.0,
-        ),
-        "wheels": ImplicitActuatorCfg(
-            joint_names_expr=["wheel_.*_joint"],
-            effort_limit_sim=100.0,
-            velocity_limit_sim=30.0,
-            stiffness=0.0,
-            damping=10.0,
+        **(
+            {
+                "height_axis": ImplicitActuatorCfg(
+                    joint_names_expr=["knee_joint", "leg_joint", "waist_pitch_joint"],
+                    effort_limit_sim=700.0,
+                    velocity_limit_sim=25.0,
+                    stiffness=400.0,
+                    damping=40.0,
+                ),
+                "wheels": ImplicitActuatorCfg(
+                    joint_names_expr=["wheel_.*_joint"],
+                    effort_limit_sim=100.0,
+                    velocity_limit_sim=30.0,
+                    stiffness=0.0,
+                    damping=10.0,
+                ),
+            }
+            if ROBOT_MODEL.has_wheel_base
+            else {
+                "lower_body": ImplicitActuatorCfg(
+                    joint_names_expr=["leg_.*_joint"],
+                    effort_limit_sim=300.0,
+                    velocity_limit_sim=20.0,
+                    stiffness=400.0,
+                    damping=40.0,
+                )
+            }
         ),
         "arms": ImplicitActuatorCfg(
             joint_names_expr=["zarm_.*_joint"],

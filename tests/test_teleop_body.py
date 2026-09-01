@@ -32,3 +32,14 @@ def test_deadzone_loss_and_pause_stop_base_and_hold_waist():
     np.testing.assert_allclose(paused[:3], 0)
     np.testing.assert_allclose(paused[3:], active[3:])
     np.testing.assert_allclose(lost, paused)
+
+
+def test_s56_fixed_biped_keeps_height_channels_zero():
+    m = TeleopBodyMapper(
+        ASSET_DIR / "kuavo_s56/urdf/kuavo_s56.urdf",
+        has_wheel_base=False,
+    )
+    command = m.advance(packet(y=1), packet(x=1, y=1), .1, enabled=True)
+    assert command[0] > 0 and command[2] < 0
+    np.testing.assert_allclose(command[3:], 0)
+    assert m.height == 0.0

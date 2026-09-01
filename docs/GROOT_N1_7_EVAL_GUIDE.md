@@ -199,7 +199,9 @@ GR00T relative-action checkpoints are executed with
 queueing. This is required because N1.7's single-step `select_action()` path
 does not decode cached relative chunks against a stable observation.
 
-The base S63 USD has no fingers, but the default runtime preset adds two
-8-joint Robotiq 2F-85-based Leju claw articulations. The evaluator validates the configured policy
-action dimension (17 by default, 15 with `--gripper none`) before execution.
-Use the same preset and state/action schema for collection, training, and eval.
+The base S63 and S56 USDs have no articulated fingers, but their default
+runtime preset adds two 8-joint Robotiq 2F-85-based Leju claw articulations.
+Select S56 with `--robot-model s56`. The evaluator validates the configured
+policy action dimension (17 by default, 15 with `--gripper none`) before
+execution and records `robot_model` in the metrics JSON. Use the same robot,
+preset, and state/action schema for collection, training, and eval.

@@ -64,6 +64,9 @@ def test_runtime_default_gripper_follows_robot_model(monkeypatch) -> None:
     monkeypatch.setenv(ROBOT_MODEL_ENV, "s63")
     assert resolve_gripper_settings().name == "robotiq_2f85"
 
+    monkeypatch.setenv(ROBOT_MODEL_ENV, "s56")
+    assert resolve_gripper_settings().name == "robotiq_2f85"
+
 
 def test_integrated_commands_stay_inside_actual_urdf_limits():
     import xml.etree.ElementTree as ET

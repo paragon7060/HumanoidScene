@@ -3,8 +3,9 @@
 The default `s200062` robot contains its own two-finger grippers. The
 `s200062_integrated` preset controls four linkage joints per side directly on
 `scene["robot"]`; it does not spawn another hand asset. In
-`--robot-model s63` comparison mode, the default `robotiq_2f85` preset adds the
-external Robotiq-based Leju claws from the 2026 OpenLET challenge model.
+`--robot-model s63` and `--robot-model s56` comparison modes, the default
+`robotiq_2f85` preset adds the external Robotiq-based Leju claws from the 2026
+OpenLET challenge model.
 
 ## Run
 
@@ -15,10 +16,11 @@ The full S200062 model is enabled by default:
 ./run_manager_env.sh --num-envs 1 --steps 100000
 ```
 
-Compare the S63/Robotiq combination, or disable gripper action channels:
+Compare an external-Robotiq model, or disable gripper action channels:
 
 ```bash
 ./run_scene.sh --robot-model s63 --gripper robotiq_2f85
+./run_scene.sh --robot-model s56 --gripper robotiq_2f85
 ./run_manager_env.sh --robot-model s200062 --gripper none --num-envs 1
 ```
 
@@ -34,13 +36,18 @@ closes it. Meta Quest and browser teleoperation append two channels to the
 existing 14-D bimanual IK/head command, producing a 16-D action. Pinch distance
 at or below 0.055 m closes the corresponding hand.
 
-## Change an external S63 gripper or mount pose
+S56 is a fixed-root biped rather than a wheel-base model. Its source home pose
+places the torso root at 0.98 m, so the launcher applies that height
+automatically. Teleoperation keeps the existing six-channel body command
+schema, but the three telescopic-height channels are no-ops for S56.
+
+## Change an external S63/S56 gripper or mount pose
 
 Edit the deployment file [`configs/grippers.json`](../configs/grippers.json),
 or preserve it and pass a different file:
 
 ```bash
-./run_scene.sh --robot-model s63 --gripper custom \
+./run_scene.sh --robot-model s56 --gripper custom \
   --gripper-config /data/workcell/grippers.json
 ```
 

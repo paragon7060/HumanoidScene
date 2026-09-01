@@ -4,8 +4,9 @@ Kuavo S200062 humanoid가 경사진 랙의 열린 박스를 빈 컨베이어 공
 모든 박스를 처리한 뒤 실제 물리 버튼을 누르는 Isaac Lab 환경이다. 편집 가능한
 standalone scene과 manager-based 환경, Meta Quest 양손 teleoperation, head/wrist
 camera, LeRobot Dataset v3 수집, GR00T N1.7 action 평가 코드를 함께 제공한다.
-기본 모델은 내장 2-finger gripper와 양쪽 D405 형상을 가진 `s200062`이며,
-`--robot-model s63`으로 기존 S63 + 외장 Robotiq 구성을 비교할 수 있다.
+기본 모델은 내장 2-finger gripper와 양쪽 D405 형상을 가진 `s200062`이다.
+`--robot-model s63`으로 기존 휠형 S63, `--robot-model s56`으로 공식 S56 이족
+모델과 외장 Robotiq 구성을 같은 장면에서 비교할 수 있다.
 
 다른 컴퓨터에서 시작할 때는 [설치 및 첫 실행 가이드](docs/INSTALL.md)를 먼저
 따르면 된다. 저장소에는 실행에 필요한 Kuavo/Rack/Box USD, URDF, mesh와 기본
@@ -22,14 +23,16 @@ export ISAACLAB_PYTHON="$(command -v python)"
 ./run_scene.sh --prefill 2
 ```
 
-두 로봇 버전을 같은 조건에서 확인하려면:
+세 로봇 버전을 같은 조건에서 확인하려면:
 
 ```bash
 ./run_scene.sh --robot-model s200062
 ./run_scene.sh --robot-model s63
+./run_scene.sh --robot-model s56
 
 ./run_manager_env.sh --robot-model s200062 --num-envs 1 --steps 240
 ./run_manager_env.sh --robot-model s63 --num-envs 1 --steps 240
+./run_manager_env.sh --robot-model s56 --num-envs 1 --steps 240
 ```
 
 주요 문서:
@@ -611,6 +614,9 @@ environment variable; without it, the wheel uses its packaged fallback JSON.
   the built-in two-finger grippers and physical left/right D405 assemblies;
 - the previous S63 plus external Robotiq 2F-85 configuration remains available
   through `--robot-model s63` for side-by-side comparison;
+- the official S56 biped is available through `--robot-model s56`; it starts
+  with its torso-root home height at 0.98 m and uses the external Robotiq
+  preset by default;
 - one packaged `src/kuavo_isaaclab_scene/assets/Rack.usd` steel rack bay
   (replaces the earlier official
   Nucleus `RackLongEmpty_A2`), already authored in real meters at
@@ -635,8 +641,9 @@ environment variable; without it, the wheel uses its packaged fallback JSON.
 - button gating and conveyor startup state machine;
 - the robot head camera, one virtual waist policy camera, and two wrist cameras;
   S200062 sensors attach directly to its `*_d405_camera` links;
-- one binary action per built-in S200062 two-finger gripper. In S63 comparison
-  mode the default `robotiq_2f85` preset mounts an external claw at each wrist.
+- one binary action per built-in S200062 two-finger gripper. In S63 and S56
+  comparison modes the default `robotiq_2f85` preset mounts an external claw
+  at each wrist.
 
 The button is not a wrist-distance proxy. The packaged `button_station.usda` contains
 a fixed post link and an 18 mm prismatic plunger with a return spring. A press
@@ -969,8 +976,9 @@ motion, verify the final tote pose, and then commit the reservation. Two workers
 cannot reserve the infeed simultaneously.
 
 The default S200062 USD contains both grippers and their four actuated linkage
-joints per side. The S63 comparison USD has no finger joints, so that mode
-attaches two independently actuated Robotiq-based articulations at runtime.
+joints per side. The S63 and S56 comparison USDs have no finger joints, so
+those modes attach two independently actuated Robotiq-based articulations at
+runtime.
 `--auto-demo` still validates task logic with scripted box motion; it does not
 claim physical robot manipulation.
 
@@ -988,7 +996,8 @@ The manager-based environment contains:
 - a 17-dimensional default manager action: 15 waist/dual-arm targets plus two
   binary gripper commands (`--gripper none` restores the previous 15-D schema);
 - a dynamically sized state/policy observation including both grippers and
-  physical button travel (4 joints per side for S200062, 8 for S63/Robotiq);
+  physical button travel (4 joints per side for S200062, 8 for S63/S56 with
+  Robotiq);
 - head-mounted 120x160 RGB and depth observations (`robustness_camera`,
   the ``policy``-group vision term);
 - chest/waist-mounted, left-wrist, and right-wrist 120x160 RGB observations
@@ -1007,7 +1016,7 @@ The manager-based environment contains:
 
 ### Cameras
 
-| Camera | S200062 mount | S63 comparison mount |
+| Camera | S200062 mount | S63/S56 comparison mount |
 |---|---|---|
 | `robustness_camera` / `head_camera` | `camera` | `head_camera_base` |
 | `waist_camera` | `waist_yaw_link` (virtual) | `waist_yaw_link` (virtual) |
@@ -1026,11 +1035,11 @@ quaternion changes to `(0.5, -0.5, 0.5, -0.5)` in **wxyz** order, with no
 translation offset. This is an optical-frame correction, not a robot mount
 or mesh change; it does not require re-running `convert_kuavo.sh`.
 
-S63/Robotiq uses a separate virtual rig derived from the D405 chain: both its
+S63/S56 with Robotiq use a separate virtual rig derived from the D405 chain: both its
 position and orientation are rotated by Ry(pi), since Robotiq reaches along
 mount +Z whereas the S200062 two-finger gripper reaches along -Z. It is then
 set back 30 mm along the viewing axis to keep both fully open pads in frame.
-This rig is a simulation adaptation, not a measured S63 camera calibration. Shared poses
+This rig is a simulation adaptation, not a measured S63/S56 camera calibration. Shared poses
 live in `wrist_camera_mount.py` and are selected by `robot_model.py` for both
 the standalone scene and manager environment. Head/waist settings are unchanged.
 

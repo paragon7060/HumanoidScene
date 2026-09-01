@@ -29,11 +29,23 @@ def test_s63_remains_selectable_for_comparison() -> None:
     assert model.wrist_camera_bodies["left"] == "zarm_l7_end_effector"
 
 
-def test_robot_cli_exposes_both_versions() -> None:
+def test_s56_biped_uses_source_home_height_and_external_grippers() -> None:
+    model = resolve_robot_model("s56")
+    assert not model.has_integrated_grippers
+    assert not model.has_wheel_base
+    assert model.default_gripper_preset == "robotiq_2f85"
+    assert model.usd_path.endswith("kuavo_s56/usd/kuavo_s56_fixed.usd")
+    assert model.urdf_path.endswith("kuavo_s56/urdf/kuavo_s56.urdf")
+    assert model.spawn_position((1.0, 2.0, 0.1)) == (1.0, 2.0, 1.08)
+    assert model.teleop_body_joint_names[:2] == ("leg_l1_joint", "leg_l2_joint")
+
+
+def test_robot_cli_exposes_all_versions() -> None:
     parser = argparse.ArgumentParser()
     add_robot_model_cli_args(parser)
     assert parser.parse_args(["--robot-model", "s200062"]).robot_model == "s200062"
     assert parser.parse_args(["--robot-model", "s63"]).robot_model == "s63"
+    assert parser.parse_args(["--robot-model", "s56"]).robot_model == "s56"
 
 
 def test_integrated_and_external_grippers_cannot_overlap() -> None:

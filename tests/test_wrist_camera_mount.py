@@ -128,7 +128,7 @@ def test_s63_rotates_source_rig_and_sets_it_back_for_open_jaws(side):
     assert _mount_matrix(S63_ROBOTIQ_D405_MOUNTS[side]) == pytest.approx(expected)
 
 
-@pytest.mark.parametrize('model', ['s200062', 's63'])
+@pytest.mark.parametrize('model', ['s200062', 's63', 's56'])
 @pytest.mark.parametrize('side', ['left', 'right'])
 @pytest.mark.parametrize('fraction', [0.0, 0.5, 1.0])
 def test_finger_contact_regions_are_in_front_and_inside_wrist_fov(model, side, fraction):

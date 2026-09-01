@@ -52,7 +52,9 @@ Isaac Lab v2.3.2의 `OpenXRDevice`는 retargeter requirement에 따라 조회할
 
 기본 S200062 USD에는 양쪽 2-finger gripper와 D405 형상이 직접 포함된다. 각 손의
 4개 linkage joint를 하나의 binary action으로 동기 제어한다. 비교용
-`--robot-model s63`에서는 기존 외장 8-joint Robotiq 기반 claw를 사용한다.
+`--robot-model s63`과 `--robot-model s56`에서는 기존 외장 8-joint Robotiq 기반
+claw를 사용한다. S56은 휠·신축 몸체 축이 없는 고정형 이족 모델이므로 몸체 action의
+XY/yaw preview만 유지되고 높이 3채널은 0으로 고정된다.
 따라서 현재 구현은:
 
 - 기본 모드는 Quest 컨트롤러의 위치/회전으로 양팔을 제어하고 검지 트리거로 gripper를 조작한다.
@@ -96,10 +98,11 @@ Kuavo 머리가 움직일 때 head camera 영상도 함께 변하는지 보려�
 ./preview_quest_local.sh --head-sweep
 ```
 
-같은 Quest/카메라 경로에서 S63을 비교하려면:
+같은 Quest/카메라 경로에서 S63 또는 S56을 비교하려면:
 
 ```bash
 ./preview_quest_local.sh --robot-model s63 --head-sweep
+./preview_quest_local.sh --robot-model s56 --head-sweep
 ```
 
 부하가 크면 다음처럼 해상도를 낮춘다.
@@ -617,6 +620,7 @@ v3 주요 feature:
 ```text
 observation.state                    [T, 28] (S200062: 20 arm/head/body + 8 gripper joints)
 # S63/Robotiq comparison: [T, 36] (20 arm/head/body + 16 gripper joints)
+# S56/Robotiq comparison: [T, 45] (29 arm/head/leg/waist + 16 gripper joints)
 observation.velocity                 [T, 28] (S200062)
 observation.ee_pose                  [T, 14]
 observation.images.head              head camera MP4/image
@@ -724,7 +728,7 @@ XR render와 head/wrist RTX camera 3개를 동시에 쓰므로 GPU VRAM 압력�
 ### Gripper가 forearm과 겹침
 
 기본 preset은 대회용 Robotiq 2F-85 기반 Leju claw를 양쪽 손목에 사용한다.
-S63 비교 모드는 `preview_quest_local.sh --robot-model s63 --gripper robotiq_2f85`에서
+S63/S56 비교 모드는 `preview_quest_local.sh --robot-model s56 --gripper robotiq_2f85`에서
 확인한 뒤 `configs/grippers.json`의 해당 side
 `robot_mount_pos`/`robot_mount_rot`를 조정한다. S200062의 gripper와 D405 mount는
 로봇 URDF에 직접 정의되어 있으므로 외장 gripper mount JSON을 사용하지 않는다.

@@ -47,7 +47,9 @@ class AbsoluteControllerMapper:
 
     def __init__(self, tool_forward_sign=-1):
         if tool_forward_sign not in (-1, 1):
-            raise ValueError("Tool forward sign must be -1 (S200062) or +1 (S63/Robotiq)")
+            raise ValueError(
+                "Tool forward sign must be -1 (S200062) or +1 (S63/S56 with Robotiq)"
+            )
         self._tool_forward_sign = tool_forward_sign
         self.reset()
 

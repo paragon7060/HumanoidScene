@@ -15,7 +15,7 @@ import sys
 from isaaclab.app import AppLauncher
 
 from .gripper_config import add_gripper_cli_args, export_gripper_cli, resolve_gripper_settings
-from .robot_model import add_robot_model_cli_args, export_robot_model_cli
+from .robot_model import add_robot_model_cli_args, export_robot_model_cli, resolve_robot_model
 from .rack_box_layout import resolve_rack_box_pose_path
 
 
@@ -161,6 +161,7 @@ try:
         args_cli.rack_box_poses,
         ignore=args_cli.ignore_captured_box_poses,
     )
+    ACTIVE_ROBOT_MODEL = resolve_robot_model()
     GRIPPER_SETTINGS = resolve_gripper_settings()
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
@@ -400,6 +401,7 @@ def main() -> None:
         "format_version": 1,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "checkpoint": checkpoint_label,
+        "robot_model": ACTIVE_ROBOT_MODEL.name,
         "task": args_cli.task,
         "state_mode": args_cli.state_mode,
         "action_mode": args_cli.action_mode,

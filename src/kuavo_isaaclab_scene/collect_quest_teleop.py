@@ -273,11 +273,10 @@ from .teleop_env import (
 )
 from .teleop_mapping import (AbsoluteControllerMapper, ScaledControllerMapper, BimanualTeleopMapper, TeleopMappingCfg,
                              _quat_multiply, _quat_conjugate, _quat_to_pitch_yaw)
-from .teleop_body import BODY_ACTION_NAMES, BODY_JOINTS, TeleopBodyMapper, controller_axis
+from .teleop_body import BODY_ACTION_NAMES, TeleopBodyMapper, controller_axis
 from .teleop_hand_mode import (HandModeSwitch, HandCommands, HandGripper, HandTrackingGuard,
                                hand_packet, controller_squeeze)
 from .teleop_scene import configure_scene_detail
-from .paths import ASSET_DIR
 from .teleop_lerobot_recorder import LeRobotTeleopRecorder
 from .teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopRecorderGroup
 from .xr_camera_overlay import QuestCameraOverlay, QuestCameraOverlayCfg
@@ -308,6 +307,7 @@ def _scene_asset_or_none(scene, name: str):
 
 def main() -> None:
     active_mode = args_cli.input_mode
+    robot_model = resolve_robot_model()
     cfg = KuavoQuestTeleopEnvCfg()
     cfg.sim.device = args_cli.device
     cfg.teleop_devices.devices["quest_handtracking"].sim_device = cfg.sim.device
@@ -370,7 +370,7 @@ def main() -> None:
         )
 
     robot = env.scene["robot"]
-    head_body_id = robot.find_bodies(resolve_robot_model().head_camera_body)[0][0]
+    head_body_id = robot.find_bodies(robot_model.head_camera_body)[0][0]
     torso_body_id = robot.find_bodies("waist_yaw_link")[0][0]
     camera_offset = cfg.scene.robustness_camera.offset
     camera_offset_pos = torch.tensor([camera_offset.pos], device=env.device)
@@ -384,7 +384,12 @@ def main() -> None:
             camera_offset_pos, camera_offset_quat,
         )
         return _to_numpy(pos[0]), _to_numpy(quat[0])
-    arm_joint_ids, arm_joint_names = robot.find_joints(LEFT_ARM_JOINTS + RIGHT_ARM_JOINTS + HEAD_JOINTS + BODY_JOINTS)
+    arm_joint_ids, arm_joint_names = robot.find_joints(
+        LEFT_ARM_JOINTS
+        + RIGHT_ARM_JOINTS
+        + HEAD_JOINTS
+        + list(robot_model.teleop_body_joint_names)
+    )
     state_names = list(arm_joint_names)
     gripper_state_sources = []
     for side in GRIPPER_SETTINGS.active_sides:
@@ -439,8 +444,18 @@ def main() -> None:
     )
     mapper_type = ScaledControllerMapper if args_cli.controller_mapping == "scaled" else AbsoluteControllerMapper
     mapper_options = {"position_gain": args_cli.position_gain} if args_cli.controller_mapping == "scaled" else {}
-    absolute_mapper = mapper_type(tool_forward_sign=-1 if args_cli.robot_model == "s200062" else 1, **mapper_options)
-    hand_mapper = ScaledControllerMapper(position_gain=args_cli.position_gain) if hand_controls else None
+    absolute_mapper = mapper_type(
+        tool_forward_sign=robot_model.tool_forward_sign,
+        **mapper_options,
+    )
+    hand_mapper = (
+        ScaledControllerMapper(
+            position_gain=args_cli.position_gain,
+            tool_forward_sign=robot_model.tool_forward_sign,
+        )
+        if hand_controls
+        else None
+    )
     mode_switch = HandModeSwitch(active_mode)
     hand_commands = HandCommands()
     hand_gripper = HandGripper(GRIPPER_SETTINGS.pinch_close_threshold_m)
@@ -449,9 +464,10 @@ def main() -> None:
     if hand_controls:
         from .xr_control_status import QuestControlStatus
         control_status = QuestControlStatus()
-    urdf = (ASSET_DIR / "kuavo_s200062/urdf/biped_s200062.urdf" if args_cli.robot_model == "s200062"
-            else ASSET_DIR / "kuavo_s63/urdf/kuavo_s63.urdf")
-    body_mapper = TeleopBodyMapper(urdf)
+    body_mapper = TeleopBodyMapper(
+        robot_model.urdf_path,
+        has_wheel_base=robot_model.has_wheel_base,
+    )
 
     quest_overlay = None
     if args_cli.quest_camera_overlay:
@@ -884,7 +900,11 @@ def main() -> None:
                         "base_control": "held_during_hand_tracking" if active_mode == "hands" else "kinematic_fixed_root_xy_yaw_v2",
                         "hand_switch_enabled": args_cli.hand_switch,
                         "hand_tracking_policy": "fresh_hand_source_tracked_joints; hold_on_loss; stop_after_2s",
-                        "hand_inertials": "s200062_sim_estimates_v1" if args_cli.robot_model == "s200062" else "source_usd",
+                        "hand_inertials": (
+                            "s200062_sim_estimates_v1"
+                            if robot_model.name == "s200062"
+                            else "source_usd"
+                        ),
                         "joint_names": state_names,
                         "hand_joint_names": HAND_JOINT_NAMES,
                         "box_scene_keys": box_names,

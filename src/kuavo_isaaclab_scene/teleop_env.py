@@ -105,7 +105,8 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
     def __post_init__(self) -> None:
         super().__post_init__()
         from .robot_model import resolve_robot_model
-        if resolve_robot_model().name == "s200062":
+        robot_model = resolve_robot_model()
+        if robot_model.name == "s200062":
             from .teleop_inertials import spawn_teleop_robot
             # Shared hand/box physics is already configured by manager_env.
             # Only the kinematic base's wheel contact exception is Quest-only.
@@ -118,8 +119,9 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
         # existing effort cap. These gains are not intended for real hardware.
         self.scene.robot.actuators["arms"].stiffness = 800.0
         self.scene.robot.actuators["arms"].damping = 50.0
-        self.scene.robot.actuators["height_axis"].stiffness = 8000.0
-        self.scene.robot.actuators["height_axis"].damping = 200.0
+        if robot_model.has_wheel_base:
+            self.scene.robot.actuators["height_axis"].stiffness = 8000.0
+            self.scene.robot.actuators["height_axis"].damping = 200.0
         # Give waist yaw its own servo; head gains remain unchanged.
         yaw = self.scene.robot.actuators["upper_body"].copy()
         yaw.joint_names_expr = ["waist_yaw_joint"]

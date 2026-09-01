@@ -24,6 +24,20 @@ the same official S63 directory. The packaged source is deliberately limited
 to the 29 meshes referenced by the adapted URDF; unused hand/tool meshes are
 not copied.
 
+This repository also packages the official
+[`biped_s56`](https://gitee.com/leju-robot/kuavo-ros-opensource/tree/master/src/kuavo_assets/models/biped_s56)
+URDF and the 35 STL meshes used by the runtime model, pinned to Gitee revision
+`4d7b0ee8441ed6588ac0134daae05e8a5c78a4e7`. The upstream package manifest
+declares the asset package as BSD. The runtime URDF changes ROS
+`package://kuavo_assets/models/biped_s56/meshes/` references to local relative
+paths. As with S63, the upstream `*_hand_pitch_nohand.STL` visuals contain a
+baked hand without finger joints, so this port selects the supplied
+finger-free `*_hand_pitch.STL` files and mounts the packaged Robotiq assets at
+the empty wrist frames. Those end-effector frames are rotated by Ry(pi) so the
+external grippers point outward. The fixed torso root is spawned at the
+upstream MuJoCo home height of 0.98 m. The generated fixed-base USD is packaged
+under `assets/kuavo_s56/usd/`.
+
 No S62 geometry, mass, inertia, joint origin, or wheel placement is copied into
 the robot. The S63 URDF already carries the requested S62 appearance profile:
 opaque white for 28 rendered robot meshes and gray

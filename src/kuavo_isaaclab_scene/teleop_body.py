@@ -23,14 +23,21 @@ def controller_axis(packet, index, deadzone=0.15):
 class TeleopBodyMapper:
     """Move the base in its XY plane and lift the torso without pitching it."""
 
-    def __init__(self, urdf: str | Path):
-        joints = {j.attrib["name"]: j for j in ET.parse(urdf).findall("joint")}
-        self.links = np.array([
-            [float(x) for x in joints[name].find("origin").attrib["xyz"].split()][::2]
-            for name in ("leg_joint", "waist_pitch_joint")
-        ])
-        self.limits = np.array([[float(joints[n].find("limit").attrib[k]) for k in ("lower", "upper")]
-                                for n in BODY_JOINTS])
+    def __init__(self, urdf: str | Path, *, has_wheel_base: bool = True):
+        self.has_wheel_base = has_wheel_base
+        if has_wheel_base:
+            joints = {j.attrib["name"]: j for j in ET.parse(urdf).findall("joint")}
+            self.links = np.array([
+                [float(x) for x in joints[name].find("origin").attrib["xyz"].split()][::2]
+                for name in ("leg_joint", "waist_pitch_joint")
+            ])
+            self.limits = np.array([
+                [float(joints[name].find("limit").attrib[key]) for key in ("lower", "upper")]
+                for name in BODY_JOINTS
+            ])
+        else:
+            self.links = np.empty((0, 2))
+            self.limits = np.empty((0, 2))
         self.reset()
 
     def reset(self):
@@ -50,21 +57,34 @@ class TeleopBodyMapper:
             velocity = .25 * np.array([controller_axis(left, 1), -controller_axis(left, 0)])
             velocity /= max(1.0, np.linalg.norm(velocity) / .25)
             yaw_rate = -1.2 * controller_axis(right, 0)
-            requested_height = float(np.clip(self.height + .12 * controller_axis(right, 1) * dt, 0.0, .40))
-            target = self.links.sum(axis=0) + [0., requested_height]
-            q = self.joints[:2].copy()
-            for _ in range(12):
-                error = target - self._planar_position(q)
-                if np.linalg.norm(error) < 1e-5:
-                    break
-                jac = np.column_stack([(self._planar_position(q + np.eye(2)[i] * 1e-5)
-                                        - self._planar_position(q)) / 1e-5 for i in range(2)])
-                q += np.clip(np.linalg.solve(jac.T @ jac + np.eye(2) * 1e-5, jac.T @ error), -.05, .05)
-                q = np.clip(q, self.limits[:2, 0], self.limits[:2, 1])
-            pitch = -q.sum()
-            if (self.limits[2, 0] <= pitch <= self.limits[2, 1]
-                    and np.linalg.norm(self._planar_position(q) - target) < .002):
-                self.height = requested_height
-                self.joints[:3] = [*q, pitch]
+            if self.has_wheel_base:
+                requested_height = float(np.clip(
+                    self.height + .12 * controller_axis(right, 1) * dt, 0.0, .40
+                ))
+                target = self.links.sum(axis=0) + [0., requested_height]
+                q = self.joints[:2].copy()
+                for _ in range(12):
+                    error = target - self._planar_position(q)
+                    if np.linalg.norm(error) < 1e-5:
+                        break
+                    jac = np.column_stack([
+                        (self._planar_position(q + np.eye(2)[i] * 1e-5)
+                         - self._planar_position(q)) / 1e-5
+                        for i in range(2)
+                    ])
+                    q += np.clip(
+                        np.linalg.solve(
+                            jac.T @ jac + np.eye(2) * 1e-5,
+                            jac.T @ error,
+                        ),
+                        -.05,
+                        .05,
+                    )
+                    q = np.clip(q, self.limits[:2, 0], self.limits[:2, 1])
+                pitch = -q.sum()
+                if (self.limits[2, 0] <= pitch <= self.limits[2, 1]
+                        and np.linalg.norm(self._planar_position(q) - target) < .002):
+                    self.height = requested_height
+                    self.joints[:3] = [*q, pitch]
             self.joints[3] = 0.0
         return np.concatenate((velocity, [yaw_rate], self.joints[:3])).astype(np.float32)

@@ -13,12 +13,12 @@ S200062 keeps the physical camera positions and only adds that optical
 rotation. Collapsed poses compose the complete source chain and correction.
 Rounded URDF angles are represented by exact -pi, pi/3 and +/-pi/2.
 
-S63 uses a different gripper: Robotiq fingers extend along mount +Z, whereas
+S63 and S56 use a different gripper: Robotiq fingers extend along mount +Z, whereas
 S200062 two-finger jaws extend along -Z. Its virtual camera rig is therefore
 adapted by Ry(pi), for both position and orientation, in the gripper mount
 frame, then moved 30 mm backward along the optical viewing axis so both
 fully open contact pads fit the image. This is a simulation adaptation,
-not an S63 hardware calibration.
+not an S63 or S56 hardware calibration.
 
 Source: LejuRobotics/kuavo-ros-opensource, revision
 5d60846b092b425a7a3c06479bdfdbc2b100e890.

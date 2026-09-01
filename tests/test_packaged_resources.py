@@ -14,6 +14,7 @@ def test_required_assets_are_packaged() -> None:
         ASSET_DIR / "LargeBox.usd",
         ASSET_DIR / "XLargeBox.usd",
         ASSET_DIR / "button_station.usda",
+        ASSET_DIR / "kuavo_s56" / "usd" / "kuavo_s56_fixed.usd",
         ASSET_DIR / "kuavo_s63" / "usd" / "kuavo_s63_fixed.usd",
         ASSET_DIR / "kuavo_s200062" / "usd" / "kuavo_s200062_fixed.usd",
         ASSET_DIR / "robotiq_2f85" / "usd" / "robotiq_2f85.usd",
@@ -25,6 +26,7 @@ def test_required_assets_are_packaged() -> None:
 
 def test_packaged_robot_and_gripper_assets_have_no_remote_references() -> None:
     paths = [
+        *(ASSET_DIR / "kuavo_s56").rglob("*"),
         *(ASSET_DIR / "kuavo_s63").rglob("*"),
         *(ASSET_DIR / "robotiq_2f85").rglob("*"),
     ]
@@ -107,6 +109,37 @@ def test_s63_is_handless_with_only_its_referenced_meshes_packaged() -> None:
         assert joint is not None
         assert joint.find("parent").attrib["link"] == f"zarm_{side}7_link"
         assert joint.find("origin").attrib == {"xyz": xyz, "rpy": rpy}
+
+
+def test_s56_runtime_urdf_is_local_handless_and_has_adapted_tool_frames() -> None:
+    asset = ASSET_DIR / "kuavo_s56"
+    root = ET.parse(asset / "urdf" / "kuavo_s56.urdf").getroot()
+    assert root.attrib["name"] == "biped_s56"
+    revolute = {
+        joint.attrib["name"] for joint in root.findall("./joint[@type='revolute']")
+    }
+    assert {f"leg_{side}{index}_joint" for side in ("l", "r") for index in range(1, 7)} <= revolute
+    assert {f"zarm_{side}{index}_joint" for side in ("l", "r") for index in range(1, 8)} <= revolute
+    assert not any(name.startswith("wheel_") for name in revolute)
+
+    for mesh in root.findall(".//mesh"):
+        filename = mesh.attrib["filename"]
+        assert not filename.startswith(("package://", "http://", "https://", "omniverse://"))
+        assert (asset / "urdf" / filename).resolve().is_file(), filename
+    referenced = {
+        Path(mesh.attrib["filename"]).name
+        for mesh in root.findall(".//visual/geometry/mesh")
+    }
+    assert {"l_hand_pitch.STL", "r_hand_pitch.STL"} <= referenced
+    assert not any("nohand" in name.lower() for name in referenced)
+
+    for side in ("l", "r"):
+        joint = root.find(f"./joint[@name='zarm_{side}7_end_effector_joint']")
+        assert joint is not None
+        assert joint.find("origin").attrib == {
+            "xyz": "0 0.0 -0.17",
+            "rpy": "0 3.14159265359 0",
+        }
 
 
 def test_s63_chassis_wheels_and_wrist_inertials_are_preserved() -> None:
