@@ -7,10 +7,30 @@ ISAACLAB_DIR="$(resolve_isaaclab_dir)"
 ISAACLAB_PYTHON="$(resolve_isaaclab_python)"
 require_supported_runtime "${ISAACLAB_PYTHON}"
 
+"${ISAACLAB_PYTHON}" "${PROJECT_DIR}/scripts/build_s56_twofinger_urdf.py"
+
 env TERM=xterm "${ISAACLAB_PYTHON}" \
     "${ISAACLAB_DIR}/scripts/tools/convert_urdf.py" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56/urdf/kuavo_s56.urdf" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56/usd/kuavo_s56_fixed.usd" \
+    --fix-base \
+    --joint-stiffness 400 \
+    --joint-damping 40 \
+    --headless
+
+env TERM=xterm "${ISAACLAB_PYTHON}" \
+    "${ISAACLAB_DIR}/scripts/tools/convert_urdf.py" \
+    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56/urdf/kuavo_s56_bare.urdf" \
+    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_bare/usd/kuavo_s56_bare_fixed.usd" \
+    --fix-base \
+    --joint-stiffness 400 \
+    --joint-damping 40 \
+    --headless
+
+env TERM=xterm "${ISAACLAB_PYTHON}" \
+    "${ISAACLAB_DIR}/scripts/tools/convert_urdf.py" \
+    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56/urdf/kuavo_s56_twofinger.urdf" \
+    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_twofinger/usd/kuavo_s56_twofinger_fixed.usd" \
     --fix-base \
     --joint-stiffness 400 \
     --joint-damping 40 \
@@ -44,6 +64,8 @@ env TERM=xterm "${ISAACLAB_PYTHON}" \
 
 for usd_path in \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56/usd/kuavo_s56_fixed.usd" \
+    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_bare/usd/kuavo_s56_bare_fixed.usd" \
+    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_twofinger/usd/kuavo_s56_twofinger_fixed.usd" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s63/usd/kuavo_s63_fixed.usd" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s200062/usd/kuavo_s200062_fixed.usd" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/robotiq_2f85/usd/robotiq_2f85.usd"; do
@@ -58,6 +80,8 @@ done
 # composed USDs and must not be included in the offline asset package.
 rm -f \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56/usd/config.yaml" \
+    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_bare/usd/config.yaml" \
+    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_twofinger/usd/config.yaml" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s63/usd/config.yaml" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s200062/usd/config.yaml" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/robotiq_2f85/usd/config.yaml"
@@ -65,4 +89,4 @@ for mesh_name in base_mount base coupler driver follower pad silicone_pad spring
     rm -rf "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/robotiq_2f85/meshes/2f85/${mesh_name}_tmp"
 done
 
-echo "Generated fixed-base Kuavo S200062/S63/S56 and Robotiq 2F-85 USDs."
+echo "Generated fixed-base Kuavo S200062/S63/S56/S56-twofinger and Robotiq 2F-85 USDs."

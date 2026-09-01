@@ -13,7 +13,7 @@
 
 - [Isaac Sim Workcell 편집](ISAACSIM_WORKCELL_GUIDE.md): prim 구조, 위치·회전·크기,
   rack-relative box pose 캡처와 respawn
-- [Gripper 설정](GRIPPER_CONFIGURATION.md): 내장 손과 외장 Leju/Robotiq 구성
+- [Gripper 설정](GRIPPER_CONFIGURATION.md): S56 QiangNao/S200062 two-finger 선택과 외장 Leju/Robotiq 구성
 - [Third-party assets](../THIRD_PARTY_ASSETS.md): 외부 asset 출처와 라이선스
 
 ## Meta Quest
@@ -35,6 +35,10 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 ## Policy와 평가
 
 - [GR00T N1.7 평가](GROOT_N1_7_EVAL_GUIDE.md)
+- [RwH-Kuavo V2 GR00T N1.5를 S56에서 평가](RWH_KUAVO_V2_S56_EVAL.md):
+  별도 Conda worker, 16-D arm/claw 변환, headless 3-view MP4, VRAM과 배포 설정
+- [로봇 모델 평가 파이프라인](ROBOT_MODEL_EVAL_PIPELINE.md): 공통 계층, 호환성
+  경계, 새 USD/URDF·gripper·checkpoint profile 온보딩 체크리스트
 - [Offline policy 평가](OFFLINE_POLICY_EVAL.md)
 
 ## 상세 참조

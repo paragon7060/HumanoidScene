@@ -4,7 +4,7 @@ Input devices, servo gains and kinematic base control remain environment-specifi
 """
 
 from .teleop_contacts import spawn_contact_box
-from .teleop_inertials import spawn_s200062_robot
+from .teleop_inertials import spawn_s200062_robot, spawn_s56_twofinger_robot
 from .robot_model import (
     S56_ACTUATOR_LIMITS,
     S56_MUJOCO_ARMATURE,
@@ -55,7 +55,13 @@ def configure_robot_asset_physics(cfg, model, gripper_settings):
             actuator.dynamic_friction = S56_MUJOCO_FRICTIONLOSS
             actuator.effort_limit_sim = dict(limits["effort_limit_sim"])
             actuator.velocity_limit_sim = dict(limits["velocity_limit_sim"])
-        cfg.actuators["integrated_grippers"].armature = .001
+        if "integrated_grippers" in cfg.actuators:
+            cfg.actuators["integrated_grippers"].armature = 0.001
+        if gripper_settings.name == "s56_twofinger":
+            # This variant uses the exact S200062 hand/D405 subtree.  Apply
+            # the same missing-inertial and convex-contact corrections while
+            # retaining all S56 leg/arm actuator limits above.
+            cfg.spawn.func = spawn_s56_twofinger_robot
         if gripper_settings.integrated:
             for side in gripper_settings.active_sides:
                 cfg.init_state.joint_pos.update(

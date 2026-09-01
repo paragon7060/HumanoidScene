@@ -1009,7 +1009,7 @@ The manager-based environment contains:
 - randomized tote/cargo mass, friction, restitution, robot arm mass, actuator
   gains, box-flap joint friction, gravity, lighting, rack-box poses, cargo
   poses, and conveyor prefill;
-- randomized moving human and AMR paths, speeds, phases, and offsets;
+- randomized moving AMR path, speed, phase, and offset (the safety-worker actor is not spawned);
 - task progress, cargo retention, tote stability, obstacle clearance, action
   smoothness, and success rewards;
 - timeout, cargo spill, tote drop, moving-obstacle contact, and task success

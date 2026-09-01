@@ -15,6 +15,8 @@ def test_required_assets_are_packaged() -> None:
         ASSET_DIR / "XLargeBox.usd",
         ASSET_DIR / "button_station.usda",
         ASSET_DIR / "kuavo_s56" / "usd" / "kuavo_s56_fixed.usd",
+        ASSET_DIR / "kuavo_s56_bare" / "usd" / "kuavo_s56_bare_fixed.usd",
+        ASSET_DIR / "kuavo_s56_twofinger" / "usd" / "kuavo_s56_twofinger_fixed.usd",
         ASSET_DIR / "kuavo_s63" / "usd" / "kuavo_s63_fixed.usd",
         ASSET_DIR / "kuavo_s200062" / "usd" / "kuavo_s200062_fixed.usd",
         ASSET_DIR / "robotiq_2f85" / "usd" / "robotiq_2f85.usd",
@@ -27,6 +29,8 @@ def test_required_assets_are_packaged() -> None:
 def test_packaged_robot_and_gripper_assets_have_no_remote_references() -> None:
     paths = [
         *(ASSET_DIR / "kuavo_s56").rglob("*"),
+        *(ASSET_DIR / "kuavo_s56_bare").rglob("*"),
+        *(ASSET_DIR / "kuavo_s56_twofinger").rglob("*"),
         *(ASSET_DIR / "kuavo_s63").rglob("*"),
         *(ASSET_DIR / "robotiq_2f85").rglob("*"),
     ]

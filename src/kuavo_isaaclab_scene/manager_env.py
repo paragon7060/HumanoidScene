@@ -67,7 +67,6 @@ from .robot_model import resolve_robot_model
 ROBOT_MODEL = resolve_robot_model()
 KUAVO_USD = Path(ROBOT_MODEL.usd_path)
 OPEN_TOTE_USD = ASSET_DIR / "open_tote.usda"
-SAFETY_WORKER_USD = ASSET_DIR / "safety_worker.usda"
 MOBILE_ROBOT_USD = ASSET_DIR / "mobile_robot.usda"
 BUTTON_STATION_USD = ASSET_DIR / "button_station.usda"
 WORKCELL_GROUPS_USD = ASSET_DIR / "workcell_groups.usda"
@@ -653,18 +652,6 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
     totes: RigidObjectCollectionCfg = build_totes_cfg()
     cargo: RigidObjectCollectionCfg = build_cargo_cfg()
 
-    moving_human = RigidObjectCfg(
-        prim_path="{ENV_REGEX_NS}/Workcell/DynamicObstacles/MovingHuman",
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=str(SAFETY_WORKER_USD),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                kinematic_enabled=True,
-                disable_gravity=True,
-                max_depenetration_velocity=0.5,
-            ),
-        ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.55, -1.03, 0.0)),
-    )
     moving_robot = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Workcell/DynamicObstacles/MovingRobot",
         spawn=sim_utils.UsdFileCfg(
@@ -1159,7 +1146,7 @@ class TerminationsCfg:
         func=workcell_mdp.task_object_dropped,
         params=TASK_OBJECT_PARAMS,
     )
-    human_or_robot_contact = DoneTerm(
+    moving_robot_contact = DoneTerm(
         func=workcell_mdp.obstacle_collision,
         params={
             "robot_cfg": SceneEntityCfg("robot", body_names=ROBOT_SAFETY_LINKS),

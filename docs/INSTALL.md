@@ -182,7 +182,8 @@ Run the manager-based environment:
 
 The default S200062 robot, its built-in two-finger grippers, D405 meshes, and
 converted USD are packaged locally. The S63 wheel robot with external Robotiq
-claws and the S56 biped with integrated QiangNao hands are also local and
+claws and the S56 biped with selectable integrated QiangNao or transplanted
+S200062 two-finger/D405 hands are also local and
 selectable with `--robot-model s63` or `--robot-model s56`. The original
 NVIDIA warehouse and Digital Twin conveyor remain runtime assets and need
 asset-server access on first use (or an already populated Isaac Sim cache).
@@ -191,6 +192,8 @@ asset-server access on first use (or an already populated Isaac Sim cache).
 ./run_scene.sh --robot-model s200062       # default full model
 ./run_scene.sh --robot-model s63           # comparison model
 ./run_scene.sh --robot-model s56           # fixed-root biped + QiangNao dexterous hands
+./run_scene.sh --robot-model s56 --gripper s56_twofinger  # S200062 hand + D405
+./run_scene.sh --robot-model s56 --gripper none  # separately generated bare wrists
 ```
 
 Choose different rack contents per launch:
@@ -299,6 +302,15 @@ by Git. Evaluate a manager-compatible GR00T output with:
 
 Then follow the [GR00T N1.7 evaluation guide](GROOT_N1_7_EVAL_GUIDE.md) to load
 real policy weights and select the action convention.
+
+The GR00T N1.5 RwH-Kuavo checkpoint uses a separate LeRobot 0.5.x interpreter;
+follow the [S56 checkpoint-40K guide](RWH_KUAVO_V2_S56_EVAL.md) instead. Install
+FFmpeg when headless evaluation MP4 output is required:
+
+```bash
+sudo apt-get install ffmpeg
+ffmpeg -hide_banner -encoders 2>/dev/null | rg libx264
+```
 
 ## 7. Layout portability
 

@@ -9,6 +9,28 @@ from typing import Iterable
 import numpy as np
 
 
+def control_decimation(physics_dt: float, control_hz: float) -> int:
+    """Return an integer simulator decimation for an exact control rate."""
+    if not math.isfinite(physics_dt) or physics_dt <= 0.0:
+        raise ValueError("physics_dt must be finite and positive")
+    if not math.isfinite(control_hz) or control_hz <= 0.0:
+        raise ValueError("control_hz must be finite and positive")
+
+    physics_hz = 1.0 / physics_dt
+    decimation = round(physics_hz / control_hz)
+    if decimation < 1:
+        raise ValueError(
+            f"control_hz={control_hz:g} exceeds physics_hz={physics_hz:g}"
+        )
+    actual_hz = physics_hz / decimation
+    if not math.isclose(actual_hz, control_hz, rel_tol=1.0e-9, abs_tol=1.0e-9):
+        raise ValueError(
+            f"control_hz={control_hz:g} cannot be represented exactly by "
+            f"physics_hz={physics_hz:g}; choose a rate with an integer decimation"
+        )
+    return decimation
+
+
 def percentile_nearest_rank(values: Iterable[float], percentile: float) -> float:
     """Return a deterministic nearest-rank percentile for a finite sample."""
     sample = sorted(float(value) for value in values)

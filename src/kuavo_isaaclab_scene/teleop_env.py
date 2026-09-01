@@ -122,7 +122,7 @@ class TeleopTerminationsCfg(TerminationsCfg):
     time_out = None
     cargo_spill = None
     tote_drop = None
-    human_or_robot_contact = None
+    moving_robot_contact = None
     success = None
 
 
@@ -192,9 +192,8 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
         # Keep the physical Kuavo head and wrist cameras for the Quest camera
         # compositor. The waist camera is unnecessary for teleoperation.
         self.scene.waist_camera = None
-        # Collection does not need the safety-worker / background AMR actors.
+        # Collection does not need the background AMR actor.
         # Keep the factory USD and its materials untouched.
-        self.scene.moving_human = None
         self.scene.moving_robot = None
         self.events.reset_movers = None
         self.events.move_movers = None

@@ -70,11 +70,13 @@ S63_ROBOTIQ_D405_MOUNTS = {
 }
 
 S56_QIANGNAO_D405_MOUNTS = {
-    # The tool frame is 170 mm below the wrist. Move the virtual sensor back
-    # above it and look straight down the QiangNao hand's -Z reach axis.
+    # The tool frame is 170 mm below the wrist. A camera centered directly
+    # behind that frame looks through the large wrist shell. Move the virtual
+    # sensor 120 mm to the side and aim it diagonally at the palm instead.
+    # Ry(-3*pi/4) maps ROS optical +Z toward local (-X, 0, -Z).
     side: WristCameraMount(
-        pos=(0.03, 0.0, 0.22),
-        rot=(0.0, 1.0, 0.0, 0.0),
+        pos=(0.12, 0.0, 0.22),
+        rot=(sin(pi / 8.0), 0.0, -cos(pi / 8.0), 0.0),
     )
     for side in ("left", "right")
 }

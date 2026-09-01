@@ -43,6 +43,34 @@ def test_s56_biped_uses_source_home_height_and_qiangnao_hands() -> None:
     assert model.teleop_body_joint_names[:2] == ("leg_l1_joint", "leg_l2_joint")
 
 
+def test_s56_twofinger_selection_switches_complete_asset_and_camera_rig() -> None:
+    model = resolve_robot_model("s56", "s56_twofinger")
+    assert model.name == "s56"
+    assert model.integrated_gripper_preset == "s56_twofinger"
+    assert model.usd_path.endswith(
+        "kuavo_s56_twofinger/usd/kuavo_s56_twofinger_fixed.usd"
+    )
+    assert model.urdf_path.endswith("kuavo_s56/urdf/kuavo_s56_twofinger.urdf")
+    assert model.wrist_camera_bodies == {
+        "left": "l_d405_camera",
+        "right": "r_d405_camera",
+    }
+
+
+def test_s56_twofinger_cli_environment_selects_variant(monkeypatch) -> None:
+    monkeypatch.setenv("KUAVO_ROBOT_MODEL", "s56")
+    monkeypatch.setenv("KUAVO_GRIPPER", "s56_twofinger")
+    assert resolve_robot_model().integrated_gripper_preset == "s56_twofinger"
+
+
+def test_s56_none_selection_switches_to_bare_wrist_asset() -> None:
+    model = resolve_robot_model("s56", "none")
+    assert not model.has_integrated_grippers
+    assert model.default_gripper_preset == "none"
+    assert model.usd_path.endswith("kuavo_s56_bare/usd/kuavo_s56_bare_fixed.usd")
+    assert model.urdf_path.endswith("kuavo_s56/urdf/kuavo_s56_bare.urdf")
+
+
 def test_s56_actuator_physics_matches_upstream_mujoco_and_urdf() -> None:
     assert S56_MUJOCO_ARMATURE == 0.05
     assert S56_MUJOCO_FRICTIONLOSS == 0.02

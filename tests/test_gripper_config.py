@@ -79,11 +79,22 @@ def test_s56_qiangnao_integrated_preset_uses_ten_joints_per_hand() -> None:
     assert len(teleop_action_names(settings)) == 16
 
 
+def test_s56_twofinger_reuses_s200062_joint_commands() -> None:
+    donor = load_gripper_settings("s200062_integrated")
+    settings = load_gripper_settings("s56_twofinger")
+    assert settings.integrated
+    assert settings.joint_names == donor.joint_names
+    assert settings.open_command == donor.open_command
+    assert settings.close_command == donor.close_command
+    assert settings.actuator == donor.actuator
+
+
 @pytest.mark.parametrize(
     ("preset", "urdf"),
     (
         ("s200062_integrated", "kuavo_s200062/urdf/biped_s200062.urdf"),
         ("s56_qiangnao", "kuavo_s56/urdf/kuavo_s56.urdf"),
+        ("s56_twofinger", "kuavo_s56/urdf/kuavo_s56_twofinger.urdf"),
     ),
 )
 def test_integrated_commands_stay_inside_actual_urdf_limits(preset, urdf):

@@ -168,7 +168,6 @@ def main() -> None:
     obstacle_terminations = 0
     other_terminations = 0
     reward_sum = torch.zeros(env.num_envs, device=env.device)
-    human_start = env.scene["moving_human"].data.root_pos_w.clone()
     mobile_start = env.scene["moving_robot"].data.root_pos_w.clone()
 
     for _ in range(args_cli.steps):
@@ -184,17 +183,13 @@ def main() -> None:
                 env.termination_manager.get_term("cargo_spill").sum().item()
             )
             obstacle_terminations += int(
-                env.termination_manager.get_term("human_or_robot_contact").sum().item()
+                env.termination_manager.get_term("moving_robot_contact").sum().item()
             )
             other_terminations += int(torch.sum(terminated).item())
         del truncated, extras
 
     retained = workcell_mdp.cargo_retained_fraction(env)
     prefill = getattr(env, "_workcell_prefill_count", torch.zeros(env.num_envs, device=env.device))
-    human_motion = torch.linalg.norm(
-        env.scene["moving_human"].data.root_pos_w - human_start,
-        dim=1,
-    )
     mobile_motion = torch.linalg.norm(
         env.scene["moving_robot"].data.root_pos_w - mobile_start,
         dim=1,
@@ -209,8 +204,7 @@ def main() -> None:
         f"retained_obs_mean={retained.float().mean().item():.3f}"
     )
     print(
-        f"[RESULT] mover_displacement_mean: human={human_motion.mean().item():.3f} m, "
-        f"amr={mobile_motion.mean().item():.3f} m, "
+        f"[RESULT] mover_displacement_mean: amr={mobile_motion.mean().item():.3f} m, "
         f"difficulty={float(getattr(env, '_robustness_difficulty', 0.0)):.3f}"
     )
     env.close()

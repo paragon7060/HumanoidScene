@@ -2,8 +2,11 @@
 
 The default `s200062` robot contains its own two-finger grippers. The
 `s200062_integrated` preset controls four linkage joints per side directly on
-`scene["robot"]`; it does not spawn another hand asset. S56 likewise uses the
-integrated `s56_qiangnao` preset with ten physical joints per hand. Only the
+`scene["robot"]`; it does not spawn another hand asset. S56 supports two
+complete integrated variants: `s56_qiangnao` with ten physical joints per hand,
+and `s56_twofinger`, which transplants the S200062 four-bar grippers and their
+physical D405 links. `--gripper none` selects a third generated S56 articulation
+with bare S200062 wrist shells and no hand geometry. Only the
 `--robot-model s63` comparison mode defaults to the external Robotiq-based
 Leju claws from the 2026 OpenLET challenge model.
 
@@ -16,14 +19,27 @@ The full S200062 model is enabled by default:
 ./run_manager_env.sh --num-envs 1 --steps 100000
 ```
 
-Run the integrated S56 hand, compare an external-Robotiq model, or disable
+Run either integrated S56 hand, compare an external-Robotiq model, or disable
 gripper action channels:
 
 ```bash
 ./run_scene.sh --robot-model s63 --gripper robotiq_2f85
-./run_scene.sh --robot-model s56
+./run_scene.sh --robot-model s56 --gripper s56_qiangnao
+./run_scene.sh --robot-model s56 --gripper s56_twofinger
+./run_scene.sh --robot-model s56 --gripper none
 ./run_manager_env.sh --robot-model s200062 --gripper none --num-envs 1
 ```
+
+`s56_twofinger` is not layered on top of the QiangNao USD. Selecting it swaps
+the complete robot articulation to the generated
+`assets/kuavo_s56_twofinger/usd/kuavo_s56_twofinger_fixed.usd`. The QiangNao
+links are absent, the S200062 bare wrist replaces the S56 source mesh named
+`*_hand_pitch_nohand.STL` (that misleading mesh actually contains a complete
+five-finger hand), and the original S200062 linkage/camera subtrees attach
+directly to it. The wrist sensors use the transplanted physical D405 frames
+with only the ROS optical-axis correction. `--gripper none` selects
+`assets/kuavo_s56_bare/usd/kuavo_s56_bare_fixed.usd` for geometry-level removal;
+it is not a visibility toggle on the QiangNao articulation.
 
 The standard manager action order is:
 
@@ -110,6 +126,11 @@ Rebuild the robot and gripper USDs after changing their URDFs:
 export ISAACLAB_DIR=/absolute/path/to/IsaacLab-v2.3.2
 ./scripts/convert_kuavo.sh
 ```
+
+The converter first regenerates `kuavo_s56_bare.urdf` and
+`kuavo_s56_twofinger.urdf` from the untouched S56 and S200062 source-derived
+URDFs, then converts all S56 variants. Do not edit the generated URDFs by hand;
+change the generator or donor asset and rebuild.
 
 The robot and gripper assets are repository-local. The workcell environment
 keeps its original NVIDIA warehouse and Digital Twin conveyor runtime assets.

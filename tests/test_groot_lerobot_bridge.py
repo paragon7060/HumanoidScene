@@ -7,12 +7,18 @@ torch = pytest.importorskip("torch")
 from kuavo_isaaclab_scene.groot_lerobot_bridge import (
     CONTROLLED_JOINT_NAMES,
     MANAGER_ACTION_SCALES,
+    RWH_KUAVO_V2_CAMERA_MAP,
+    RWH_KUAVO_V2_NAMES,
     KuavoLeRobotBridge,
     LeRobotGrootRunner,
     adapt_manager_action,
     adapt_policy_action,
+    adapt_rwh_kuavo_v2_action,
     camera_rgb_to_lerobot,
+    claw_fraction,
     parse_camera_map,
+    receive_framed_pickle,
+    send_framed_pickle,
 )
 
 
@@ -94,6 +100,63 @@ def test_manager_action_supports_configured_gripper_dimensions() -> None:
     assert result.saturation_fraction == pytest.approx(2.0 / 17.0)
 
 
+def test_rwh_action_maps_raw_arm_radians_and_claws_to_s56_manager() -> None:
+    current = torch.zeros((1, 15))
+    current[:, 0] = 0.25
+    defaults = torch.zeros((1, 15))
+    scales = torch.tensor(MANAGER_ACTION_SCALES).unsqueeze(0)
+    policy_action = torch.tensor([[*([0.225] * 7), 0.0, *([-0.225] * 7), 1.0]])
+    result = adapt_rwh_kuavo_v2_action(
+        policy_action,
+        current_joint_pos=current,
+        default_joint_pos=defaults,
+        action_scales=scales,
+    )
+    assert result.action.shape == (1, 17)
+    assert result.action[0, 0].item() == pytest.approx(0.25)
+    assert result.action[0, 1:8].tolist() == pytest.approx([0.5] * 7)
+    assert result.action[0, 8:15].tolist() == pytest.approx([-0.5] * 7)
+    assert result.action[0, 15:].tolist() == pytest.approx([1.0, -1.0])
+
+
+def test_rwh_action_uses_robot_limits_instead_of_arbitrary_manager_clip() -> None:
+    current = torch.zeros((1, 15))
+    defaults = torch.zeros((1, 15))
+    scales = torch.tensor(MANAGER_ACTION_SCALES).unsqueeze(0)
+    limits = torch.tensor([[[-2.0, 2.0]] * 15])
+    policy_action = torch.tensor([[3.0, *([0.0] * 6), -0.2, *([0.0] * 6), -3.0, 1.2]])
+    result = adapt_rwh_kuavo_v2_action(
+        policy_action,
+        current_joint_pos=current,
+        default_joint_pos=defaults,
+        action_scales=scales,
+        joint_limits=limits,
+        clip=None,
+    )
+    assert result.action[0, 1].item() == pytest.approx(2.0 / 0.45)
+    assert result.action[0, 14].item() == pytest.approx(-2.0 / 0.45)
+    assert result.action[0, 15:].tolist() == pytest.approx([1.0, -1.0])
+    assert result.saturation_fraction == pytest.approx(4.0 / 17.0)
+
+
+def test_qiangnao_hand_pose_compresses_to_continuous_claw() -> None:
+    open_pos = torch.zeros((1, 3))
+    close_pos = torch.tensor([[1.0, 2.0, 4.0]])
+    halfway = close_pos * 0.5
+    result = claw_fraction(halfway, open_pos=open_pos, close_pos=close_pos)
+    assert result.shape == (1, 1)
+    assert result.item() == pytest.approx(0.5)
+    assert claw_fraction(close_pos * 2.0, open_pos=open_pos, close_pos=close_pos).item() == 1.0
+
+
+def test_qiangnao_hand_pose_broadcasts_reference_pose_across_environments() -> None:
+    open_pos = torch.zeros((1, 3))
+    close_pos = torch.tensor([[1.0, 2.0, 4.0]])
+    joint_pos = torch.cat((open_pos, close_pos), dim=0)
+    result = claw_fraction(joint_pos, open_pos=open_pos, close_pos=close_pos)
+    assert result.tolist() == [[0.0], [1.0]]
+
+
 def test_parse_camera_map_accepts_short_policy_keys() -> None:
     assert parse_camera_map(["front=robustness_camera", "left=left_wrist_camera"]) == {
         "observation.images.front": "robustness_camera",
@@ -101,6 +164,28 @@ def test_parse_camera_map_accepts_short_policy_keys() -> None:
     }
     with pytest.raises(ValueError, match="expected"):
         parse_camera_map(["invalid"])
+    assert parse_camera_map(None, default_map=RWH_KUAVO_V2_CAMERA_MAP) == RWH_KUAVO_V2_CAMERA_MAP
+
+
+def test_framed_pickle_round_trip() -> None:
+    class MemoryConnection:
+        def __init__(self) -> None:
+            self.data = bytearray()
+
+        def sendall(self, value: bytes) -> None:
+            self.data.extend(value)
+
+        def recv(self, size: int) -> bytes:
+            value = bytes(self.data[:size])
+            del self.data[:size]
+            return value
+
+    connection = MemoryConnection()
+    payload = {"names": RWH_KUAVO_V2_NAMES, "state": torch.arange(16)}
+    send_framed_pickle(connection, payload)
+    result = receive_framed_pickle(connection)
+    assert result["names"] == RWH_KUAVO_V2_NAMES
+    assert torch.equal(result["state"], payload["state"])
 
 
 class _FakeRobot:
@@ -109,6 +194,7 @@ class _FakeRobot:
         self.data = SimpleNamespace(
             joint_pos=torch.zeros((1, 15)),
             default_joint_pos=torch.zeros((1, 15)),
+            soft_joint_pos_limits=torch.tensor([[[-3.0, 3.0]] * 15]),
         )
 
     def find_joints(self, names, preserve_order=False):
@@ -129,6 +215,7 @@ def test_bridge_builds_lerobot_observation_and_applies_action() -> None:
     )
     observation = bridge.observation("move boxes")
     assert observation["observation.state"].shape == (1, 15)
+    assert torch.equal(bridge.state(), observation["observation.state"])
     assert observation["observation.images.front"].shape == (1, 3, 3, 4)
     assert observation["task"] == ["move boxes"]
     assert torch.equal(bridge.action(torch.zeros((1, 15))).action, torch.zeros((1, 15)))
@@ -179,3 +266,24 @@ def test_policy_runner_postprocesses_full_chunk_then_queues_steps() -> None:
     assert torch.all(third.action == 12.0)
     assert policy.calls == 2
     assert policy.resets == 1
+
+
+def test_policy_runner_preserves_chunk_when_n15_postprocessor_selects_last_step() -> None:
+    policy = _FakePolicy()
+
+    def n15_postprocessor(chunk):
+        return chunk[:, -1] + 10.0 if chunk.ndim == 3 else chunk + 10.0
+
+    runner = LeRobotGrootRunner(
+        policy,
+        preprocessor=lambda batch: batch,
+        postprocessor=n15_postprocessor,
+    )
+    observation = {"observation.state": torch.zeros((1, 15))}
+    first = runner.select_action(observation)
+    second = runner.select_action(observation)
+    assert first.inferred_new_chunk
+    assert not second.inferred_new_chunk
+    assert torch.all(first.action == 11.0)
+    assert torch.all(second.action == 11.5)
+    assert policy.calls == 1

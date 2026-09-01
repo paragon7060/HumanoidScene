@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import os
 
 from .paths import ASSET_DIR
@@ -158,7 +158,9 @@ _MODELS = {
         head_camera_body="head_camera_base",
         head_camera_mount=WristCameraMount(
             pos=(0.08, 0.0, 0.0),
-            rot=(1.0, 0.0, 0.0, 0.0),
+            # Source camera bodies use +X forward; Isaac's ROS convention
+            # expects optical +Z forward.
+            rot=CAMERA_BODY_TO_ROS_OPTICAL_ROT,
         ),
         wrist_camera_bodies={
             "left": "zarm_l7_end_effector",
@@ -181,7 +183,7 @@ _MODELS = {
         head_camera_body="head_camera_base",
         head_camera_mount=WristCameraMount(
             pos=(0.08, 0.0, 0.0),
-            rot=(1.0, 0.0, 0.0, 0.0),
+            rot=CAMERA_BODY_TO_ROS_OPTICAL_ROT,
         ),
         wrist_camera_bodies={
             "left": "zarm_l7_end_effector",
@@ -190,6 +192,36 @@ _MODELS = {
         wrist_camera_mounts=dict(S56_QIANGNAO_D405_MOUNTS),
     ),
 }
+
+# The bare and two-finger options are complete alternate articulations, not
+# visibility toggles or external grippers layered over the QiangNao hand.
+# They select generated USDs before the scene is imported.
+_S56_BARE_MODEL = replace(
+    _MODELS["s56"],
+    usd_path=str(ASSET_DIR / "kuavo_s56_bare" / "usd" / "kuavo_s56_bare_fixed.usd"),
+    urdf_path=str(ASSET_DIR / "kuavo_s56" / "urdf" / "kuavo_s56_bare.urdf"),
+    integrated_gripper_preset=None,
+    default_gripper_preset="none",
+)
+
+
+_S56_TWOFINGER_MODEL = replace(
+    _MODELS["s56"],
+    usd_path=str(
+        ASSET_DIR / "kuavo_s56_twofinger" / "usd" / "kuavo_s56_twofinger_fixed.usd"
+    ),
+    urdf_path=str(ASSET_DIR / "kuavo_s56" / "urdf" / "kuavo_s56_twofinger.urdf"),
+    integrated_gripper_preset="s56_twofinger",
+    default_gripper_preset="s56_twofinger",
+    wrist_camera_bodies={
+        "left": "l_d405_camera",
+        "right": "r_d405_camera",
+    },
+    wrist_camera_mounts={
+        "left": WristCameraMount((0.0, 0.0, 0.0), CAMERA_BODY_TO_ROS_OPTICAL_ROT),
+        "right": WristCameraMount((0.0, 0.0, 0.0), CAMERA_BODY_TO_ROS_OPTICAL_ROT),
+    },
+)
 
 
 def add_robot_model_cli_args(parser: argparse.ArgumentParser) -> None:
@@ -205,13 +237,24 @@ def export_robot_model_cli(args: argparse.Namespace) -> None:
     os.environ[ROBOT_MODEL_ENV] = str(args.robot_model)
 
 
-def resolve_robot_model(name: str | None = None) -> RobotModelSettings:
+def resolve_robot_model(
+    name: str | None = None,
+    gripper_name: str | None = None,
+) -> RobotModelSettings:
     selected = name or os.environ.get(ROBOT_MODEL_ENV, DEFAULT_ROBOT_MODEL)
     try:
-        return _MODELS[selected]
+        model = _MODELS[selected]
     except KeyError as exc:
         choices = ", ".join(ROBOT_MODEL_NAMES)
         raise ValueError(f"Unknown robot model {selected!r}; available models: {choices}.") from exc
+    selected_gripper = gripper_name
+    if selected_gripper is None and name is None:
+        selected_gripper = os.environ.get("KUAVO_GRIPPER")
+    if selected == "s56" and selected_gripper == "s56_twofinger":
+        return _S56_TWOFINGER_MODEL
+    if selected == "s56" and selected_gripper == "none":
+        return _S56_BARE_MODEL
+    return model
 
 
 def default_gripper_for_model(model: RobotModelSettings) -> str | None:
@@ -226,5 +269,7 @@ def validate_robot_gripper(model: RobotModelSettings, gripper_name: str) -> None
             f"Robot {model.name!r} already contains its grippers; use "
             f"{integrated!r} (default) or 'none', not {gripper_name!r}."
         )
-    if integrated is None and gripper_name in ("s200062_integrated", "s56_qiangnao"):
+    if integrated is None and gripper_name in (
+        "s200062_integrated", "s56_qiangnao", "s56_twofinger"
+    ):
         raise ValueError(f"The {gripper_name} gripper is part of its matching robot USD.")

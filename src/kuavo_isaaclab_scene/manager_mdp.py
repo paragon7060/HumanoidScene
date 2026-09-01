@@ -319,33 +319,26 @@ def task_object_dropped(
 
 def obstacle_state_obs(
     env: ManagerBasedRLEnv,
-    human_cfg: SceneEntityCfg = SceneEntityCfg("moving_human"),
     mobile_cfg: SceneEntityCfg = SceneEntityCfg("moving_robot"),
 ) -> torch.Tensor:
-    human = env.scene[human_cfg.name]
+    """Return the AMR position and linear velocity as a 6-D observation."""
     mobile = env.scene[mobile_cfg.name]
-    human_state = human.data.root_state_w.clone()
     mobile_state = mobile.data.root_state_w.clone()
-    human_state[:, :3] -= env.scene.env_origins
     mobile_state[:, :3] -= env.scene.env_origins
-    return torch.cat((human_state[:, :3], human_state[:, 7:10], mobile_state[:, :3], mobile_state[:, 7:10]), dim=1)
+    return torch.cat((mobile_state[:, :3], mobile_state[:, 7:10]), dim=1)
 
 
 def obstacle_clearance(
     env: ManagerBasedRLEnv,
     robot_cfg: SceneEntityCfg,
-    human_cfg: SceneEntityCfg = SceneEntityCfg("moving_human"),
     mobile_cfg: SceneEntityCfg = SceneEntityCfg("moving_robot"),
 ) -> torch.Tensor:
-    """Minimum planar clearance between selected Kuavo links and movers."""
+    """Minimum planar clearance between selected Kuavo links and the AMR."""
     robot = env.scene[robot_cfg.name]
-    human = env.scene[human_cfg.name]
     mobile = env.scene[mobile_cfg.name]
     body_xy = robot.data.body_link_pos_w[:, robot_cfg.body_ids, :2]
-    obstacle_xy = torch.stack((human.data.root_pos_w[:, :2], mobile.data.root_pos_w[:, :2]), dim=1)
-    center_dist = torch.linalg.norm(body_xy[:, :, None, :] - obstacle_xy[:, None, :, :], dim=-1)
-    radii = torch.tensor((0.22, 0.31), device=robot.device)
-    return torch.amin(center_dist - radii[None, None, :], dim=(1, 2))
+    center_dist = torch.linalg.norm(body_xy - mobile.data.root_pos_w[:, None, :2], dim=-1)
+    return torch.amin(center_dist - 0.31, dim=1)
 
 
 def obstacle_proximity_penalty(
@@ -541,69 +534,46 @@ def randomize_box_flap_joint_friction(
 def reset_movers(
     env: ManagerBasedRLEnv,
     env_ids: torch.Tensor,
-    human_cfg: SceneEntityCfg = SceneEntityCfg("moving_human"),
     mobile_cfg: SceneEntityCfg = SceneEntityCfg("moving_robot"),
 ) -> None:
-    human = env.scene[human_cfg.name]
-    env_ids = _env_ids(env, env_ids, human.device)
+    mobile = env.scene[mobile_cfg.name]
+    env_ids = _env_ids(env, env_ids, mobile.device)
     if not hasattr(env, "_mover_phase"):
-        env._mover_phase = torch.zeros((env.num_envs, 2), device=human.device)
-        env._mover_speed = torch.ones((env.num_envs, 2), device=human.device)
-        env._mover_offset = torch.zeros((env.num_envs, 2), device=human.device)
+        env._mover_phase = torch.zeros(env.num_envs, device=mobile.device)
+        env._mover_speed = torch.ones(env.num_envs, device=mobile.device)
+        env._mover_offset = torch.zeros(env.num_envs, device=mobile.device)
     difficulty = 0.35 + 0.65 * float(getattr(env, "_robustness_difficulty", 0.0))
-    env._mover_phase[env_ids] = torch.rand((len(env_ids), 2), device=human.device)
-    env._mover_speed[env_ids, 0] = difficulty * torch.empty(
+    env._mover_phase[env_ids] = torch.rand(len(env_ids), device=mobile.device)
+    env._mover_speed[env_ids] = difficulty * torch.empty(
         len(env_ids),
-        device=human.device,
-    ).uniform_(0.055, 0.11)
-    env._mover_speed[env_ids, 1] = difficulty * torch.empty(
-        len(env_ids),
-        device=human.device,
+        device=mobile.device,
     ).uniform_(0.07, 0.14)
-    env._mover_offset[env_ids, 0] = difficulty * torch.empty(
+    env._mover_offset[env_ids] = difficulty * torch.empty(
         len(env_ids),
-        device=human.device,
-    ).uniform_(-0.12, 0.12)
-    env._mover_offset[env_ids, 1] = difficulty * torch.empty(
-        len(env_ids),
-        device=human.device,
+        device=mobile.device,
     ).uniform_(-0.16, 0.16)
-    move_movers(env, env_ids, human_cfg, mobile_cfg)
+    move_movers(env, env_ids, mobile_cfg)
 
 
 def move_movers(
     env: ManagerBasedRLEnv,
     env_ids: torch.Tensor,
-    human_cfg: SceneEntityCfg = SceneEntityCfg("moving_human"),
     mobile_cfg: SceneEntityCfg = SceneEntityCfg("moving_robot"),
 ) -> None:
-    """Advance randomized periodic human and AMR trajectories."""
-    human = env.scene[human_cfg.name]
+    """Advance the randomized periodic AMR trajectory."""
     mobile = env.scene[mobile_cfg.name]
-    env_ids = _env_ids(env, env_ids, human.device)
+    env_ids = _env_ids(env, env_ids, mobile.device)
     if not hasattr(env, "_mover_phase"):
-        reset_movers(env, env_ids, human_cfg, mobile_cfg)
+        reset_movers(env, env_ids, mobile_cfg)
         return
 
     time_s = env.episode_length_buf[env_ids].float() * env.step_dt
-    human_angle = 2.0 * math.pi * (
-        env._mover_speed[env_ids, 0] * time_s + env._mover_phase[env_ids, 0]
-    )
     mobile_angle = 2.0 * math.pi * (
-        env._mover_speed[env_ids, 1] * time_s + env._mover_phase[env_ids, 1]
+        env._mover_speed[env_ids] * time_s + env._mover_phase[env_ids]
     )
-
-    human_pose = human.data.default_root_state[env_ids, :7].clone()
-    human_pose[:, 0] = 0.55 + 1.05 * torch.sin(human_angle)
-    human_pose[:, 1] = -1.03 + env._mover_offset[env_ids, 0]
-    human_pose[:, 2] = 0.0
-    human_yaw = torch.where(torch.cos(human_angle) >= 0.0, 0.0, torch.full_like(human_angle, math.pi))
-    zeros = torch.zeros_like(human_yaw)
-    human_pose[:, 3:7] = math_utils.quat_from_euler_xyz(zeros, zeros, human_yaw)
-    human_pose[:, :3] += env.scene.env_origins[env_ids]
 
     mobile_pose = mobile.data.default_root_state[env_ids, :7].clone()
-    mobile_pose[:, 0] = 2.02 + env._mover_offset[env_ids, 1]
+    mobile_pose[:, 0] = 2.02 + env._mover_offset[env_ids]
     mobile_pose[:, 1] = 0.05 + 1.12 * torch.sin(mobile_angle)
     mobile_pose[:, 2] = 0.0
     mobile_yaw = torch.where(
@@ -611,21 +581,16 @@ def move_movers(
         torch.full_like(mobile_angle, math.pi / 2.0),
         torch.full_like(mobile_angle, -math.pi / 2.0),
     )
+    zeros = torch.zeros_like(mobile_yaw)
     mobile_pose[:, 3:7] = math_utils.quat_from_euler_xyz(zeros, zeros, mobile_yaw)
     mobile_pose[:, :3] += env.scene.env_origins[env_ids]
 
-    human.write_root_pose_to_sim(human_pose, env_ids=env_ids)
     mobile.write_root_pose_to_sim(mobile_pose, env_ids=env_ids)
 
-    human_velocity = torch.zeros((len(env_ids), 6), device=human.device)
-    human_velocity[:, 0] = (
-        1.05 * 2.0 * math.pi * env._mover_speed[env_ids, 0] * torch.cos(human_angle)
-    )
-    mobile_velocity = torch.zeros((len(env_ids), 6), device=human.device)
+    mobile_velocity = torch.zeros((len(env_ids), 6), device=mobile.device)
     mobile_velocity[:, 1] = (
-        1.12 * 2.0 * math.pi * env._mover_speed[env_ids, 1] * torch.cos(mobile_angle)
+        1.12 * 2.0 * math.pi * env._mover_speed[env_ids] * torch.cos(mobile_angle)
     )
-    human.write_root_velocity_to_sim(human_velocity, env_ids=env_ids)
     mobile.write_root_velocity_to_sim(mobile_velocity, env_ids=env_ids)
 
 

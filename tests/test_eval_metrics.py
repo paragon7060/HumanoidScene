@@ -3,10 +3,25 @@ import pytest
 
 from kuavo_isaaclab_scene.eval_metrics import (
     action_comparison_metrics,
+    control_decimation,
     percentile_nearest_rank,
     termination_reason_counts,
     wilson_score_interval,
 )
+
+
+def test_control_decimation_matches_dataset_rate_exactly() -> None:
+    assert control_decimation(1.0 / 120.0, 10.0) == 12
+    assert control_decimation(1.0 / 120.0, 30.0) == 4
+
+
+def test_control_decimation_rejects_inexact_or_invalid_rates() -> None:
+    with pytest.raises(ValueError, match="integer decimation"):
+        control_decimation(1.0 / 120.0, 50.0)
+    with pytest.raises(ValueError, match="exceeds"):
+        control_decimation(1.0 / 120.0, 240.0)
+    with pytest.raises(ValueError, match="positive"):
+        control_decimation(1.0 / 120.0, 0.0)
 
 
 def test_wilson_interval_contains_observed_rate() -> None:

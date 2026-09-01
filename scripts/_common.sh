@@ -98,6 +98,40 @@ resolve_lerobot_python() {
   return 1
 }
 
+resolve_groot_n15_python() {
+  local candidates=()
+  local candidate
+
+  if [[ -n "${LEROBOT_PYTHON:-}" ]]; then
+    candidates+=("${LEROBOT_PYTHON}")
+  fi
+  if [[ -n "${CONDA_PREFIX:-}" ]]; then
+    candidates+=("${CONDA_PREFIX}/bin/python")
+  fi
+  candidates+=(
+    "${HOME}/anaconda3/envs/lerobot_050_groot/bin/python"
+    "${HOME}/miniconda3/envs/lerobot_050_groot/bin/python"
+    "${HOME}/miniforge3/envs/lerobot_050_groot/bin/python"
+    "${HOME}/anaconda3/envs/lerobot_050/bin/python"
+    "${HOME}/miniconda3/envs/lerobot_050/bin/python"
+    "${HOME}/miniforge3/envs/lerobot_050/bin/python"
+  )
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -x "${candidate}" ]] && "${candidate}" -c \
+      'import lerobot; from lerobot.policies.groot.modeling_groot import GrootPolicy; assert tuple(map(int, lerobot.__version__.split(".")[:2])) < (0, 6)' \
+      >/dev/null 2>&1; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  printf '%s\n' \
+    "Unable to find a LeRobot 0.5.x environment with GR00T N1.5 support." \
+    "Set LEROBOT_PYTHON to its Python executable." >&2
+  return 1
+}
+
 resolve_isaaclab_dir() {
   local candidates=()
   local candidate

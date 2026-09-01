@@ -207,21 +207,50 @@ On one GPU, keep the checkpoint camera set minimal and use the same modest
 camera resolution used during collection. Do not remove a visual key that the
 checkpoint declares; the evaluator fails early and reports the missing key.
 
+## Headless evaluation video
+
+`--video-out` records the cameras supplied to the policy, so it works without
+an Isaac Sim desktop viewport or camera-preview windows. Camera tiles follow
+the insertion order of `--camera-map` and are placed left-to-right in one H.264
+MP4. Cameras with different resolutions are resized to a common height while
+preserving their aspect ratio.
+
+```bash
+./eval_groot.sh \
+  --checkpoint /path/to/pretrained_model \
+  --headless --no-camera-preview \
+  --episodes 1 \
+  --video-out artifacts/eval/groot_three_view.mp4
+```
+
+The default video FPS is the environment control rate. Override display size
+or playback rate with `--video-height` and `--video-fps`. For multiple
+episodes, a base name such as `eval.mp4` produces `eval_ep000.mp4`,
+`eval_ep001.mp4`, and so on. Existing files are protected unless
+`--overwrite-video` is supplied. FFmpeg with the `libx264` encoder must be
+available on `PATH`.
+
 ## Action safety and diagnostics
 
-Decoded manager actions are clamped to `[-1, 1]` by default. The JSON records
+Generic decoded manager actions are clamped to `[-1, 1]` by default. The JSON records
 `mean_action_saturation`; a large value indicates a units/statistics mismatch
 or an overly restrictive clamp. Change the limit with `--action-clip VALUE`,
 or use `--action-clip 0` only after verifying the checkpoint's action units.
+The RwH S56 profile already uses `--action-clip 0` because its outputs are
+absolute radians; it clamps those values to the S56 joint limits instead.
 
 GR00T relative-action checkpoints are executed with
 `predict_action_chunk()`, then the entire chunk is postprocessed before local
 queueing. This is required because N1.7's single-step `select_action()` path
 does not decode cached relative chunks against a stable observation.
 
-The base S63 and S56 USDs have no articulated fingers, but their default
-runtime preset adds two 8-joint Robotiq 2F-85-based Leju claw articulations.
-Select S56 with `--robot-model s56`. The evaluator validates the configured
-policy action dimension (17 by default, 15 with `--gripper none`) before
-execution and records `robot_model` in the metrics JSON. Use the same robot,
-preset, and state/action schema for collection, training, and eval.
+S63 uses external Robotiq 2F-85-based Leju claws, while S56 includes its
+QiangNao dexterous hands in the robot articulation. Select S56 with
+`--robot-model s56`. The evaluator validates the configured policy action
+dimension (17 by default, 15 with `--gripper none`) before execution and
+records `robot_model` in the metrics JSON. Use the same robot, preset, and
+state/action schema for collection, training, and eval.
+
+The `Whalswp/RwH-Kuavo_V2` checkpoint is GR00T N1.5 with a different 16-D
+left-arm/claw/right-arm/claw schema. Do not run it with the generic N1.7
+defaults; use the dedicated [RwH-Kuavo V2 S56 profile](RWH_KUAVO_V2_S56_EVAL.md).

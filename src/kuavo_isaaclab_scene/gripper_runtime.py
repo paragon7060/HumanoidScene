@@ -7,25 +7,91 @@ Kuavo wrist without merging the two gripper joint-name namespaces.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import MISSING
 from typing import Callable
 
 import omni.kit.commands
 import omni.usd
 from pxr import Gf, Sdf, Usd, UsdPhysics
+import torch
 
 import isaaclab.sim as sim_utils
+import isaaclab.utils.string as string_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import Articulation, ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import mdp
+from isaaclab.managers import ActionTerm, ActionTermCfg
 from isaaclab.sim import SpawnerCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, NUCLEUS_ASSET_ROOT_DIR
 
 from .gripper_config import GripperSettings
+from .gripper_action import interpolate_signed_gripper_action
 
 
 _MOUNTED_GRIPPERS: dict[str, Articulation] = {}
+
+
+class InterpolatedJointPositionAction(ActionTerm):
+    """One signed scalar continuously controlling a multi-joint gripper pose."""
+
+    def __init__(self, cfg: "InterpolatedJointPositionActionCfg", env) -> None:
+        super().__init__(cfg, env)
+        self._joint_ids, self._joint_names = self._asset.find_joints(
+            cfg.joint_names, preserve_order=True
+        )
+        self._raw_actions = torch.zeros(self.num_envs, 1, device=self.device)
+        self._processed_actions = torch.zeros(
+            self.num_envs, len(self._joint_ids), device=self.device
+        )
+        self._open_command = self._resolve_command(cfg.open_command_expr, "open")
+        self._close_command = self._resolve_command(cfg.close_command_expr, "close")
+
+    def _resolve_command(self, expressions: dict[str, float], label: str) -> torch.Tensor:
+        command = torch.zeros(len(self._joint_ids), device=self.device)
+        indices, names, values = string_utils.resolve_matching_names_values(
+            expressions, self._joint_names
+        )
+        if len(indices) != len(self._joint_ids):
+            missing = set(self._joint_names) - set(names)
+            raise ValueError(f"Could not resolve {label} command for gripper joints: {missing}")
+        command[indices] = torch.tensor(values, device=self.device)
+        return command
+
+    @property
+    def action_dim(self) -> int:
+        return 1
+
+    @property
+    def raw_actions(self) -> torch.Tensor:
+        return self._raw_actions
+
+    @property
+    def processed_actions(self) -> torch.Tensor:
+        return self._processed_actions
+
+    def process_actions(self, actions: torch.Tensor) -> None:
+        self._raw_actions[:] = actions
+        self._processed_actions[:] = interpolate_signed_gripper_action(
+            self._raw_actions, self._open_command, self._close_command
+        )
+
+    def apply_actions(self) -> None:
+        self._asset.set_joint_position_target(
+            self._processed_actions, joint_ids=self._joint_ids
+        )
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> None:
+        self._raw_actions[env_ids] = 1.0
+
+
+@configclass
+class InterpolatedJointPositionActionCfg(ActionTermCfg):
+    class_type: type = InterpolatedJointPositionAction
+    joint_names: list[str] = MISSING
+    open_command_expr: dict[str, float] = MISSING
+    close_command_expr: dict[str, float] = MISSING
 
 
 class MountedGripper(Articulation):
@@ -147,10 +213,20 @@ def build_gripper_articulation_cfg(
     )
 
 
-def build_gripper_action_cfg(settings: GripperSettings, side: str):
+def build_gripper_action_cfg(
+    settings: GripperSettings,
+    side: str,
+    *,
+    continuous: bool = False,
+):
     if side not in settings.active_sides:
         return None
-    return mdp.BinaryJointPositionActionCfg(
+    cfg_type = (
+        InterpolatedJointPositionActionCfg
+        if continuous
+        else mdp.BinaryJointPositionActionCfg
+    )
+    return cfg_type(
         asset_name=settings.asset_name_for(side),
         joint_names=list(settings.joint_names_for(side)),
         open_command_expr=settings.command_for(side, settings.open_command),

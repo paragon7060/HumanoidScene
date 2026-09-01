@@ -91,6 +91,17 @@ def test_head_optical_axis_faces_workcell_instead_of_ceiling():
     assert optical[0, 2] > .9 and -.5 < optical[2, 2] < -.2
 
 
+@pytest.mark.parametrize('model_name', ['s63', 's56'])
+def test_s56_and_s63_head_optical_axes_follow_source_camera_forward(model_name):
+    root = ET.parse(ASSET_DIR / f'kuavo_{model_name}/urdf/kuavo_{model_name}.urdf').getroot()
+    frames = _fk(root, 'waist_yaw_link', {})
+    model = resolve_robot_model(model_name)
+    body = frames[model.head_camera_body]
+    optical = body @ _mount_matrix(model.head_camera_mount)
+    assert optical[:3, 2] == pytest.approx(body[:3, 0])
+    assert optical[0, 2] > .9 and -.5 < optical[2, 2] < -.2
+
+
 @pytest.mark.parametrize('mounts', [S200062_D405_MOUNTS, S63_ROBOTIQ_D405_MOUNTS])
 def test_d405_optical_mounts_are_normalized_mirrors(mounts) -> None:
     left = mounts['left']
@@ -121,12 +132,31 @@ def test_s200062_only_changes_sensor_axes_not_physical_position(side):
 
 
 @pytest.mark.parametrize('side', ['left', 'right'])
+def test_s56_twofinger_uses_transplanted_physical_d405_frame(side, monkeypatch):
+    monkeypatch.setenv('KUAVO_GRIPPER', 's56_twofinger')
+    model = resolve_robot_model('s56', 's56_twofinger')
+    root = ET.parse(ASSET_DIR / 'kuavo_s56/urdf/kuavo_s56_twofinger.urdf').getroot()
+    frames = _fk(root, f'{side[0]}_twofinger_base', {})
+    actual = frames[f'{side[0]}_d405_camera'] @ _mount_matrix(
+        model.wrist_camera_mounts[side]
+    )
+    assert actual == pytest.approx(_mount_matrix(S200062_D405_MOUNTS[side]), abs=1.2e-5)
+
+
+@pytest.mark.parametrize('side', ['left', 'right'])
 def test_s63_rotates_source_rig_and_sets_it_back_for_open_jaws(side):
     source = _mount_matrix(S200062_D405_MOUNTS[side])
     flip = np.diag([-1.0, 1.0, -1.0, 1.0])  # Ry(pi)
     expected = flip @ source
     expected[:3, 3] -= 0.030 * expected[:3, 2]
     assert _mount_matrix(S63_ROBOTIQ_D405_MOUNTS[side]) == pytest.approx(expected)
+
+
+def test_s56_wrist_camera_is_offset_away_from_occluding_wrist_shell() -> None:
+    for mount in S56_QIANGNAO_D405_MOUNTS.values():
+        assert mount.pos == pytest.approx((0.12, 0.0, 0.22))
+        optical_forward = _rotation(mount.rot)[:, 2]
+        assert optical_forward == pytest.approx((-math.sqrt(0.5), 0.0, -math.sqrt(0.5)))
 
 
 @pytest.mark.parametrize('model', ['s200062', 's63', 's56'])

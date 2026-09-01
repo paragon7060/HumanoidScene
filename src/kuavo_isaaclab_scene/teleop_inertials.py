@@ -5,9 +5,8 @@ from isaaclab.sim.utils import clone
 from .paths import ASSET_DIR
 
 
-@clone
-def spawn_s200062_robot(prim_path, cfg, translation=None, orientation=None,
-                       *, disable_wheel_contacts=False, **kwargs):
+def _spawn_twofinger_robot(prim_path, cfg, translation=None, orientation=None,
+                           *, disable_wheel_contacts=False, model_label="S200062", **kwargs):
     from isaaclab.sim.spawners.from_files import spawn_from_usd
     from pxr import Gf, Usd, UsdPhysics
 
@@ -45,10 +44,38 @@ def spawn_s200062_robot(prim_path, cfg, translation=None, orientation=None,
     add_hand_colliders(root)
     wheel_status = (f"omitted {wheel_colliders} kinematic wheel colliders"
                     if disable_wheel_contacts else "wheel contacts retained")
-    print("[PHYSICS] Applied simulation estimates to 34 hand/frame links lacking URDF inertials; "
+    print(f"[PHYSICS] Applied {model_label} two-finger simulation estimates to "
+          "34 hand/frame links lacking URDF inertials; "
           f"0.743 kg per hand; {wheel_status}; "
           "existing arm/torso inertials retained.", flush=True)
     return root
+
+
+@clone
+def spawn_s200062_robot(prim_path, cfg, translation=None, orientation=None,
+                        *, disable_wheel_contacts=False, **kwargs):
+    return _spawn_twofinger_robot(
+        prim_path,
+        cfg,
+        translation,
+        orientation,
+        disable_wheel_contacts=disable_wheel_contacts,
+        model_label="S200062",
+        **kwargs,
+    )
+
+
+@clone
+def spawn_s56_twofinger_robot(prim_path, cfg, translation=None, orientation=None, **kwargs):
+    """Spawn the S56 articulation carrying the transplanted S200062 hand rig."""
+    return _spawn_twofinger_robot(
+        prim_path,
+        cfg,
+        translation,
+        orientation,
+        model_label="S56",
+        **kwargs,
+    )
 
 
 def spawn_teleop_robot(prim_path, cfg, translation=None, orientation=None, **kwargs):
