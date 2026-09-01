@@ -8,7 +8,7 @@ camera composite.
 
 This backend is a preview and does not record datasets. For NVIDIA downloads,
 the OpenXR runtime manifest, Linux service prerequisites, and actual Quest
-collection, start with the [main README walkthrough](../../README.md#quest-collection).
+collection, start with the [Quest quick-start guide](../../docs/QUEST3_QUICKSTART.md).
 Actual OpenXR collection uses the sample's `Manual Input IP:Port` backend and
 the CloudXR Runtime signaling endpoint, not the local preview port 8765.
 

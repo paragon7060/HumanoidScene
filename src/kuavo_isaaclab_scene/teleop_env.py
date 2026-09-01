@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import isaaclab.envs.mdp as mdp
+import isaaclab.sim as sim_utils
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.controllers import DifferentialIKControllerCfg
 from isaaclab.devices import DevicesCfg
 from isaaclab.devices.openxr import OpenXRDeviceCfg, XrCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
+from isaaclab.sensors import CameraCfg
 from isaaclab.utils import configclass
 
 from .gripper_runtime import build_gripper_action_cfg
@@ -16,6 +18,8 @@ from .teleop_body_action import TeleopBodyActionCfg
 from .manager_env import (
     GRIPPER_SETTINGS,
     KuavoRobustWorkcellEnvCfg,
+    ROBOT_MODEL,
+    RobustWorkcellSceneCfg,
     RewardsCfg,
     TerminationsCfg,
 )
@@ -25,6 +29,39 @@ from .workcell_layout import offset as layout_offset, rotation as layout_rotatio
 LEFT_ARM_JOINTS = [f"zarm_l{index}_joint" for index in range(1, 8)]
 RIGHT_ARM_JOINTS = [f"zarm_r{index}_joint" for index in range(1, 8)]
 HEAD_JOINTS = ["zhead_1_joint", "zhead_2_joint"]
+
+
+def _browser_eye_camera(name: str, lateral_offset_m: float) -> CameraCfg:
+    """Create one RGB eye used by the lightweight Quest browser preview."""
+    return CameraCfg(
+        prim_path=f"{{ENV_REGEX_NS}}/Kuavo/{ROBOT_MODEL.head_camera_body}/{name}",
+        update_period=1.0 / 30.0,
+        height=512,
+        width=512,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            # 24 mm aperture / 12 mm focal length gives a 90 degree
+            # horizontal FOV, which is closer to an HMD eye than the
+            # physical Kuavo camera's narrow lens.
+            focal_length=12.0,
+            focus_distance=2.0,
+            horizontal_aperture=24.0,
+            clipping_range=(0.08, 8.0),
+        ),
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.08, lateral_offset_m, 0.0),
+            rot=(1.0, 0.0, 0.0, 0.0),
+            convention="ros",
+        ),
+    )
+
+
+@configclass
+class QuestTeleopSceneCfg(RobustWorkcellSceneCfg):
+    """Workcell plus a virtual stereo pair used only by browser preview."""
+
+    xr_left_eye_camera = _browser_eye_camera("XrLeftEyeCamera", 0.032)
+    xr_right_eye_camera = _browser_eye_camera("XrRightEyeCamera", -0.032)
 
 
 @configclass
@@ -93,6 +130,11 @@ class TeleopTerminationsCfg(TerminationsCfg):
 class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
     """Single-environment bimanual IK scene with a robot-head XR anchor."""
 
+    scene: QuestTeleopSceneCfg = QuestTeleopSceneCfg(
+        num_envs=1,
+        env_spacing=5.0,
+        replicate_physics=True,
+    )
     actions: TeleopActionsCfg = TeleopActionsCfg()
     rewards: TeleopRewardsCfg = TeleopRewardsCfg()
     terminations: TeleopTerminationsCfg = TeleopTerminationsCfg()

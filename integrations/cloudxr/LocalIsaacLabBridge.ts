@@ -1,11 +1,22 @@
 type PoseArray = [number, number, number, number, number, number, number];
+const PROTOCOL_VERSION = 2;
+const FRAME_HEADER_BYTES = 32;
+
+type EyeViewPacket = {
+  eye: 'left' | 'right';
+  pose: PoseArray;
+  projection_matrix: number[];
+};
 
 type TrackingPacket = {
   type: 'tracking';
+  protocol_version: number;
+  sequence: number;
   timestamp_ms: number;
   head: PoseArray | null;
   left_hand: Record<string, PoseArray> | null;
   right_hand: Record<string, PoseArray> | null;
+  views: EyeViewPacket[];
 };
 
 function transformToArray(transform: XRRigidTransform): PoseArray {
@@ -71,6 +82,17 @@ export class LocalIsaacLabBridge {
   private texture: WebGLTexture;
   private vertexBuffer: WebGLBuffer;
   private positionLocation: number;
+  private eyeIndexLocation: WebGLUniformLocation;
+  private trackingSequence = 0;
+  private metricsStartedAt = performance.now();
+  private receivedFrames = 0;
+  private renderedFrames = 0;
+  private droppedFrames = 0;
+  private poseLatencyTotalMs = 0;
+  private poseLatencySamples = 0;
+  private decodeTotalMs = 0;
+  private decodeSamples = 0;
+  private latestServerFps = 0;
 
   constructor(
     private gl: WebGL2RenderingContext,
@@ -83,6 +105,9 @@ export class LocalIsaacLabBridge {
     this.texture = texture;
     this.vertexBuffer = vertexBuffer;
     this.positionLocation = gl.getAttribLocation(this.program, 'a_position');
+    const eyeIndexLocation = gl.getUniformLocation(this.program, 'u_eye_index');
+    if (!eyeIndexLocation) throw new Error('Failed to find stereo eye shader uniform');
+    this.eyeIndexLocation = eyeIndexLocation;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
@@ -111,13 +136,21 @@ export class LocalIsaacLabBridge {
     await new Promise<void>((resolve, reject) => {
       const socket = new WebSocket(url);
       socket.binaryType = 'arraybuffer';
-      socket.addEventListener('open', () => resolve(), { once: true });
+      socket.addEventListener(
+        'open',
+        () => {
+          socket.send(JSON.stringify({ type: 'client_hello', protocol_version: PROTOCOL_VERSION }));
+          resolve();
+        },
+        { once: true }
+      );
       socket.addEventListener('error', () => reject(new Error(`Cannot connect to ${url}`)), {
         once: true,
       });
       socket.addEventListener('message', event => {
         if (event.data instanceof ArrayBuffer) void this.acceptCameraFrame(event.data);
         else if (event.data instanceof Blob) void event.data.arrayBuffer().then(data => this.acceptCameraFrame(data));
+        else if (typeof event.data === 'string') this.acceptControlMessage(event.data);
       });
       this.socket = socket;
     });
@@ -126,6 +159,7 @@ export class LocalIsaacLabBridge {
   onXRFrame(timestamp: DOMHighResTimeStamp, frame: XRFrame, baseLayer: XRWebGLLayer): void {
     this.sendTracking(timestamp, frame);
     this.render(frame, baseLayer);
+    this.reportMetrics(timestamp);
   }
 
   close(): void {
@@ -143,10 +177,21 @@ export class LocalIsaacLabBridge {
     const viewerPose = frame.getViewerPose(this.referenceSpace);
     const packet: TrackingPacket = {
       type: 'tracking',
+      protocol_version: PROTOCOL_VERSION,
+      sequence: ++this.trackingSequence,
       timestamp_ms: timestamp,
       head: viewerPose ? transformToArray(viewerPose.transform) : null,
       left_hand: null,
       right_hand: null,
+      views: viewerPose
+        ? viewerPose.views
+            .filter(view => view.eye === 'left' || view.eye === 'right')
+            .map(view => ({
+              eye: view.eye as 'left' | 'right',
+              pose: transformToArray(view.transform),
+              projection_matrix: Array.from(view.projectionMatrix),
+            }))
+        : [],
     };
     for (const inputSource of frame.session.inputSources) {
       if (inputSource.handedness !== 'left' && inputSource.handedness !== 'right') continue;
@@ -158,15 +203,99 @@ export class LocalIsaacLabBridge {
   }
 
   private async acceptCameraFrame(data: ArrayBuffer): Promise<void> {
-    if (this.decodingImage) return;
+    this.receivedFrames += 1;
+    if (data.byteLength < FRAME_HEADER_BYTES) {
+      this.failProtocol('Frame is shorter than the protocol header.');
+      return;
+    }
+    const header = new DataView(data, 0, FRAME_HEADER_BYTES);
+    const magic = String.fromCharCode(
+      header.getUint8(0), header.getUint8(1), header.getUint8(2), header.getUint8(3)
+    );
+    const version = header.getUint8(4);
+    const headerBytes = header.getUint16(6, true);
+    if (magic !== 'KVR2' || version !== PROTOCOL_VERSION || headerBytes !== FRAME_HEADER_BYTES) {
+      this.failProtocol(`Unsupported frame protocol magic=${magic} version=${version}.`);
+      return;
+    }
+    const poseTimestampMs = header.getFloat64(16, true);
+    this.latestServerFps = header.getFloat32(28, true);
+    if (Number.isFinite(poseTimestampMs) && poseTimestampMs > 0) {
+      this.poseLatencyTotalMs += Math.max(0, performance.now() - poseTimestampMs);
+      this.poseLatencySamples += 1;
+    }
+    if (this.decodingImage) {
+      this.droppedFrames += 1;
+      return;
+    }
     this.decodingImage = true;
+    const decodeStartedAt = performance.now();
     try {
-      const bitmap = await createImageBitmap(new Blob([data], { type: 'image/jpeg' }));
+      const bitmap = await createImageBitmap(
+        new Blob([data.slice(headerBytes)], { type: 'image/jpeg' })
+      );
       this.latestBitmap?.close();
       this.latestBitmap = bitmap;
+      this.decodeTotalMs += performance.now() - decodeStartedAt;
+      this.decodeSamples += 1;
     } finally {
       this.decodingImage = false;
     }
+  }
+
+  private acceptControlMessage(message: string): void {
+    try {
+      const payload = JSON.parse(message) as Record<string, unknown>;
+      if (payload.type === 'protocol_error') {
+        this.failProtocol(
+          `Server expects protocol ${payload.expected}; browser is ${PROTOCOL_VERSION}. Re-run setup_quest_browser.sh --patch-only.`
+        );
+      } else if (payload.type === 'server_hello' && payload.protocol_version !== PROTOCOL_VERSION) {
+        this.failProtocol(`Server hello used protocol ${payload.protocol_version}.`);
+      }
+    } catch (error) {
+      console.warn('Ignoring malformed Kuavo bridge control message', error);
+    }
+  }
+
+  private failProtocol(message: string): void {
+    console.error(`[KUAVO XR PROTOCOL] ${message}`);
+    this.socket?.close(1002, 'Kuavo XR protocol mismatch');
+  }
+
+  private reportMetrics(now: DOMHighResTimeStamp): void {
+    const elapsedMs = now - this.metricsStartedAt;
+    if (elapsedMs < 1000) return;
+    const elapsedSeconds = elapsedMs / 1000;
+    const receivedFps = this.receivedFrames / elapsedSeconds;
+    const renderedFps = this.renderedFrames / elapsedSeconds;
+    const poseToFrameMs = this.poseLatencySamples
+      ? this.poseLatencyTotalMs / this.poseLatencySamples
+      : Number.NaN;
+    const decodeMs = this.decodeSamples ? this.decodeTotalMs / this.decodeSamples : Number.NaN;
+    const metrics = {
+      type: 'client_metrics',
+      protocol_version: PROTOCOL_VERSION,
+      received_fps: receivedFps,
+      rendered_fps: renderedFps,
+      pose_to_frame_ms: poseToFrameMs,
+      decode_ms: decodeMs,
+      dropped_frames: this.droppedFrames,
+    };
+    if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(metrics));
+    console.info(
+      `[KUAVO XR] receive=${receivedFps.toFixed(1)} fps render=${renderedFps.toFixed(1)} fps ` +
+      `pose-to-frame=${poseToFrameMs.toFixed(1)} ms decode=${decodeMs.toFixed(1)} ms ` +
+      `server=${this.latestServerFps.toFixed(1)} fps dropped=${this.droppedFrames}`
+    );
+    this.metricsStartedAt = now;
+    this.receivedFrames = 0;
+    this.renderedFrames = 0;
+    this.droppedFrames = 0;
+    this.poseLatencyTotalMs = 0;
+    this.poseLatencySamples = 0;
+    this.decodeTotalMs = 0;
+    this.decodeSamples = 0;
   }
 
   private render(frame: XRFrame, baseLayer: XRWebGLLayer): void {
@@ -188,11 +317,13 @@ export class LocalIsaacLabBridge {
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       this.latestBitmap.close();
       this.latestBitmap = null;
+      this.renderedFrames += 1;
     }
     for (const view of viewerPose.views) {
       const viewport = baseLayer.getViewport(view);
       if (!viewport) continue;
       gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+      gl.uniform1f(this.eyeIndexLocation, view.eye === 'right' ? 1.0 : 0.0);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
   }
@@ -209,8 +340,12 @@ export class LocalIsaacLabBridge {
       precision mediump float;
       in vec2 v_uv;
       uniform sampler2D u_texture;
+      uniform float u_eye_index;
       out vec4 out_color;
-      void main() { out_color = texture(u_texture, v_uv); }`;
+      void main() {
+        vec2 atlas_uv = vec2(v_uv.x * 0.5 + u_eye_index * 0.5, v_uv.y);
+        out_color = texture(u_texture, atlas_uv);
+      }`;
     const compile = (type: number, source: string): WebGLShader => {
       const shader = this.gl.createShader(type);
       if (!shader) throw new Error('Failed to allocate WebGL shader');

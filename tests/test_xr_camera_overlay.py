@@ -18,3 +18,10 @@ def test_overlay_config_rejects_plane_inside_near_clip():
     with pytest.raises(ValueError, match="near plane"):
         QuestCameraOverlayCfg(distance_m=0.05)
 
+
+def test_overlay_defaults_are_compact_and_leave_room_for_three_panels():
+    cfg = QuestCameraOverlayCfg()
+    assert cfg.distance_m > 0.08
+    assert cfg.plane_width_m <= 0.2
+    assert cfg.plane_height_m <= 0.15
+    assert cfg.horizontal_offset_m > cfg.plane_width_m / 2

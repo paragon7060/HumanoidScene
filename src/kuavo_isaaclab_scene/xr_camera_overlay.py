@@ -1,4 +1,4 @@
-"""Small head-locked wrist-camera panels for Kuavo teleoperation."""
+"""Small head-locked head/wrist camera panels for Kuavo teleoperation."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def as_rgba(image: np.ndarray) -> np.ndarray:
 
 @dataclass(frozen=True)
 class QuestCameraOverlayCfg:
-    """Two small panels leave the center of the native XR view unobstructed."""
+    """Three compact panels preserve the native stereo scene around them."""
 
     distance_m: float = 0.35
     plane_width_m: float = 0.14
@@ -47,7 +47,7 @@ class QuestCameraOverlayCfg:
 
 
 class QuestCameraOverlay:
-    """Show wrist RGB above each side of the view; never cover it with head RGB."""
+    """Show left wrist, head and right wrist RGB as separate small panels."""
 
     def __init__(self, head_resolution, wrist_resolution, cfg=None) -> None:
         self.cfg = cfg or QuestCameraOverlayCfg()
@@ -71,12 +71,12 @@ class QuestCameraOverlay:
         self._xr_layer = layer
         layer.show()
         head_path = layer.ensure_device_prim_path("/user/head")
-        self._providers = [ui.ByteImageProvider(), ui.ByteImageProvider()]
-        self._gpu_frames = [None, None]
+        self._providers = [ui.ByteImageProvider() for _ in range(3)]
+        self._gpu_frames = [None, None, None]
         self._containers = []
         self._components = []
         self._wanted_visible = True
-        self._has_frames = [False, False]
+        self._has_frames = [False, False, False]
         width_cm = self.cfg.plane_width_m * 100.0
         height_cm = self.cfg.plane_height_m * 100.0
         canvas_width = self.cfg.ui_resolution_width
@@ -84,8 +84,14 @@ class QuestCameraOverlay:
         widget_type = self._make_widget_type(ui)
         forward = -1.0 if self.cfg.forward_axis == "-z" else 1.0
         wrist_width, wrist_height = wrist_resolution
-        for index, (label, side) in enumerate((("LEFT WRIST", -1.0), ("RIGHT WRIST", 1.0))):
-            self._set_provider(index, np.zeros((wrist_height, wrist_width, 3), dtype=np.uint8))
+        head_width, head_height = head_resolution
+        panels = (
+            ("LEFT WRIST", -1.0, wrist_width, wrist_height),
+            ("HEAD CAMERA", 0.0, head_width, head_height),
+            ("RIGHT WRIST", 1.0, wrist_width, wrist_height),
+        )
+        for index, (label, side, source_width, source_height) in enumerate(panels):
+            self._set_provider(index, np.zeros((source_height, source_width, 3), dtype=np.uint8))
             component = WidgetComponent(
                 widget_type, width=width_cm, height=height_cm,
                 # resolution_scale changes logical UI scale too: using 24
@@ -164,11 +170,12 @@ class QuestCameraOverlay:
         self._gpu_frames[index] = frame
 
     def update(self, head_rgb: np.ndarray, left_rgb: np.ndarray, right_rgb: np.ndarray) -> None:
-        for index, rgb in enumerate((left_rgb, right_rgb)):
+        labels = ("Left wrist", "Head", "Right wrist")
+        for index, rgb in enumerate((left_rgb, head_rgb, right_rgb)):
             self._set_provider(index, rgb)
             if not self._has_frames[index] and np.any(rgb):
                 self._has_frames[index] = True
-                print(f"[CAMERA] {'Left' if index == 0 else 'Right'} wrist RGB: "
+                print(f"[CAMERA] {labels[index]} RGB: "
                       f"min={rgb.min()}, max={rgb.max()}, mean={rgb.mean():.1f}", flush=True)
             self._containers[index].visible = self._wanted_visible and self._has_frames[index]
 

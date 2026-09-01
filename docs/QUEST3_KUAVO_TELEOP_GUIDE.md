@@ -1,11 +1,18 @@
 # Meta Quest 3 → Kuavo Isaac Lab teleoperation/data collection
 
-이 문서는 현재 workcell을 Meta Quest 3에서 보고, OpenXR controller tracking으로 Kuavo의 양팔·베이스·허리·머리를 조작하면서 LeRobot Dataset v3 또는 HDF5 demonstration을 수집하는 절차를 정리한다.
+이 문서는 현재 workcell을 Meta Quest 3에서 보고, OpenXR controller tracking으로 Kuavo의 양팔·베이스·허리·머리를 조작하면서 LeRobot Dataset v3 또는 HDF5 demonstration을 수집하는 세부 절차를 정리한다.
 
-처음 설치한다면 [README의 다운로드부터 첫 저장까지 안내](../README.md#quest-collection)를
-먼저 따른다. Runtime SDK와 npm `.tgz`의 공식 다운로드, JSON 경로 설정,
-Linux 서비스 준비, Quest 브라우저의 HTTP/HTTPS 설정, 포트 구분을 단계별로 설명한다.
-이 문서는 그 이후의 조작·카메라·데이터 schema 세부 설정을 다룬다.
+처음 연결한다면 [Quest 빠른 시작](QUEST3_QUICKSTART.md), 관찰자 화면과 GPU
+설정만 필요하다면 [Quest 화면·성능 가이드](QUEST3_DISPLAY_AND_PERFORMANCE.md)를
+먼저 읽는다. 준비된 Runtime과 웹 서버를 다시 실행하는 명령은
+[Quest Runtime 실행 가이드](QUEST_RUNTIME_SERVICE.md)에 분리되어 있다.
+
+## 관련 문서
+
+- [처음 연결하고 첫 HDF5 저장](QUEST3_QUICKSTART.md)
+- [준비된 Runtime과 웹 서버 재실행](QUEST_RUNTIME_SERVICE.md)
+- [PC 관찰자 화면, camera preview와 성능](QUEST3_DISPLAY_AND_PERFORMANCE.md)
+- [Isaac Sim workcell 배치 편집](ISAACSIM_WORKCELL_GUIDE.md)
 
 ## 1. 구현 구조
 
@@ -20,7 +27,7 @@ HMD yaw/pitch → zhead_1_joint / zhead_2_joint
         ↓
 ManagerBasedRLEnv + Kuavo head/wrist RGB cameras
         ↓ XRSceneView head-locked compositor
-native stereo scene + small upper-left/right wrist overlays
+native stereo scene + compact left-wrist/head/right-wrist overlays
         ↓
 HDF5 recorder / isolated LeRobot Dataset v3 writer
 ```
@@ -34,7 +41,7 @@ HDF5 recorder / isolated LeRobot Dataset v3 writer
 - `src/kuavo_isaaclab_scene/teleop_recorder.py`: RAM에 누적하지 않는 HDF5 writer
 - `src/kuavo_isaaclab_scene/teleop_lerobot_recorder.py`: Isaac Lab과 별도 v3 writer process 사이의 recorder client
 - `src/kuavo_isaaclab_scene/lerobot_writer_worker.py`: LeRobot v3 `create/resume/add_frame/save_episode/finalize` worker
-- `src/kuavo_isaaclab_scene/xr_camera_overlay.py`: Quest head-locked small wrist-camera panels
+- `src/kuavo_isaaclab_scene/xr_camera_overlay.py`: Quest head-locked head/wrist camera panels
 - `src/kuavo_isaaclab_scene/collect_quest_teleop.py`: 실행/episode 제어
 - `collect_quest_teleop.sh`: 루트 실행 wrapper
 
@@ -52,8 +59,9 @@ Isaac Lab v2.3.2의 `OpenXRDevice`는 retargeter requirement에 따라 조회할
 
 기본 S200062 USD에는 양쪽 2-finger gripper와 D405 형상이 직접 포함된다. 각 손의
 4개 linkage joint를 하나의 binary action으로 동기 제어한다. 비교용
-`--robot-model s63`과 `--robot-model s56`에서는 기존 외장 8-joint Robotiq 기반
-claw를 사용한다. S56은 휠·신축 몸체 축이 없는 고정형 이족 모델이므로 몸체 action의
+`--robot-model s63`은 외장 8-joint Robotiq 기반 claw를 사용하고,
+`--robot-model s56`은 로봇 articulation에 포함된 QiangNao 손(손당 10관절)을 사용한다.
+S56은 휠·신축 몸체 축이 없는 고정형 이족 모델이므로 몸체 action의
 XY/yaw preview만 유지되고 높이 3채널은 0으로 고정된다.
 따라서 현재 구현은:
 
@@ -421,7 +429,8 @@ Isaac Sim에서 캡처한 정확한 pose JSON을 쓰려면:
 ## 6. Head camera와 Quest 시야
 
 - 중앙에는 Quest의 일반 stereo scene view를 유지한다. 큰 head RGB 패널로 덮지 않는다.
-- `scene["left_wrist_camera"]`, `scene["right_wrist_camera"]` 영상이 시야 왼쪽 위/오른쪽 위 작은 창으로 표시된다.
+- `scene["left_wrist_camera"]`, `scene["robustness_camera"]`,
+  `scene["right_wrist_camera"]` 영상이 왼쪽·중앙·오른쪽의 작은 창으로 표시된다.
 - 패널은 눈앞 0.35 m, 크기 0.14×0.105 m이며 머리를 따라 고정된다. `Y`/`H`로 숨겨도 카메라 기록은 유지된다.
 - 실제 Kuavo `scene["robustness_camera"]` RGB는 dataset에 계속 저장된다. 중앙의 stereo 시점과 이 단안 영상은 동일하지 않다.
 - 따라오기 또는 녹화 중 HMD yaw/pitch는 Kuavo `zhead_1_joint`, `zhead_2_joint`에 연결된다. `X`/`C`로 현재 시점을 head camera에 정렬한다.
@@ -430,7 +439,7 @@ Isaac Sim에서 캡처한 정확한 pose JSON을 쓰려면:
 - 자유 시점 동안 새 팔·몸통 명령은 멈추고 마지막 팔 목표는 유지한다. HDF5 `free_view`로 구분한다.
 - PC 카메라 창은 `--camera-preview`, desktop 장면 렌더는 `--desktop-render`로 켠다. 기본은 OFF다.
 
-손목 패널은 기본으로 활성화된다. 시작부터 패널을 만들지 않으려면:
+카메라 패널 세 개는 기본으로 활성화된다. 시작부터 패널을 만들지 않으려면:
 
 ```bash
 ./collect_quest_teleop.sh \
@@ -457,12 +466,14 @@ Isaac Sim에서 캡처한 정확한 pose JSON을 쓰려면:
 ### Quest에서 확인할 항목
 
 1. 중앙에 원래 stereo 장면이 보이고 큰 검은 패널이 없는지 확인한다.
-2. 왼쪽 위 `LEFT WRIST`, 오른쪽 위 `RIGHT WRIST`에 영상과 상태 표시가 보이는지 확인한다.
+2. 왼쪽 `LEFT WRIST`, 중앙 `HEAD CAMERA`, 오른쪽 `RIGHT WRIST`에
+   영상과 상태 표시가 보이는지 확인한다.
 3. `X`/`C`로 정면을 맞춘 뒤 `A`/`T`를 누르고, 머리를 좌우로 돌릴 때 Kuavo `zhead_1_joint`가 회전하는지 확인한다.
 4. 따라오기 중 Quest를 위아래로 돌렸을 때 `zhead_2_joint`가 제한 범위 안에서 회전하는지 확인한다.
 5. 몸을 앞뒤로 움직이는 translation은 Kuavo 머리에 적용되지 않는 것이 정상이다. 현재 model에는 yaw/pitch 두 관절만 있다.
 
-패널이 검으면 `[CAMERA] Left/Right wrist RGB: min=..., max=..., mean=...`를 확인한다.
+패널이 검으면 `[CAMERA] Left wrist`, `[CAMERA] Head`,
+`[CAMERA] Right wrist` RGB 로그의 `max`를 확인한다.
 `max`가 0보다 큰데 패널만 검다면 카메라 자체가 아니라 XR UI 표시 경로를 점검한다.
 위젯은 단일 자식 Frame 안에 이미지 레이아웃을 넣고, 첫 유효 영상 전에는 패널을 숨긴다.
 `Y`/`H`로 숨겨 중앙 장면과 구분할 수 있다. 뒤쪽에 패널이 생긴 경우에만
@@ -620,7 +631,7 @@ v3 주요 feature:
 ```text
 observation.state                    [T, 28] (S200062: 20 arm/head/body + 8 gripper joints)
 # S63/Robotiq comparison: [T, 36] (20 arm/head/body + 16 gripper joints)
-# S56/Robotiq comparison: [T, 45] (29 arm/head/leg/waist + 16 gripper joints)
+# S56/QiangNao comparison: [T, 49] (29 arm/head/leg/waist + 20 hand joints)
 observation.velocity                 [T, 28] (S200062)
 observation.ee_pose                  [T, 14]
 observation.images.head              head camera MP4/image
@@ -727,11 +738,11 @@ XR render와 head/wrist RTX camera 3개를 동시에 쓰므로 GPU VRAM 압력�
 
 ### Gripper가 forearm과 겹침
 
-기본 preset은 대회용 Robotiq 2F-85 기반 Leju claw를 양쪽 손목에 사용한다.
-S63/S56 비교 모드는 `preview_quest_local.sh --robot-model s56 --gripper robotiq_2f85`에서
-확인한 뒤 `configs/grippers.json`의 해당 side
-`robot_mount_pos`/`robot_mount_rot`를 조정한다. S200062의 gripper와 D405 mount는
-로봇 URDF에 직접 정의되어 있으므로 외장 gripper mount JSON을 사용하지 않는다.
+S63의 기본 preset은 대회용 Robotiq 2F-85 기반 Leju claw를 양쪽 손목에 사용한다.
+`preview_quest_local.sh --robot-model s63 --gripper robotiq_2f85`에서 확인한 뒤
+`configs/grippers.json`의 해당 side `robot_mount_pos`/`robot_mount_rot`를 조정한다.
+S200062 gripper와 S56 QiangNao 손은 로봇 URDF에 직접 정의되어 있으므로 외장
+gripper mount JSON을 사용하지 않는다.
 
 입력 축은 [OpenXR 규격](https://registry.khronos.org/OpenXR/specs/1.0-khr/html/xrspec.html#input-suggested-bindings)에 따라 +Y가 스틱 위쪽이다. WebXR Gamepad 원시 축 부호와 혼동하지 않는다.
 

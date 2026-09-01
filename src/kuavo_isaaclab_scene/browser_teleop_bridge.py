@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import json
+import struct
 import threading
 import time
 from typing import Any
@@ -20,6 +21,9 @@ import websockets
 
 
 Pose = np.ndarray  # [x, y, z, qw, qx, qy, qz]
+PROTOCOL_VERSION = 2
+FRAME_MAGIC = b"KVR2"
+FRAME_HEADER = struct.Struct("<4sBBHIIdff")
 
 _WEBXR_TO_KUAVO = np.array(
     [
@@ -32,11 +36,31 @@ _WEBXR_TO_KUAVO = np.array(
 
 
 @dataclass(frozen=True)
+class BrowserEyeView:
+    eye: str
+    pose: Pose
+    projection_matrix: np.ndarray
+
+
+@dataclass(frozen=True)
 class BrowserTrackingSample:
+    sequence: int
+    client_timestamp_ms: float
     head: Pose | None
     left_hand: dict[str, Pose] | None
     right_hand: dict[str, Pose] | None
+    views: tuple[BrowserEyeView, ...]
     received_at: float
+
+
+@dataclass(frozen=True)
+class BrowserClientMetrics:
+    received_fps: float = 0.0
+    rendered_fps: float = 0.0
+    pose_to_frame_ms: float = float("nan")
+    decode_ms: float = float("nan")
+    dropped_frames: int = 0
+    received_at: float = 0.0
 
 
 def _normalized_quat(quat: np.ndarray) -> np.ndarray:
@@ -111,7 +135,11 @@ def parse_tracking_message(message: str, *, received_at: float | None = None) ->
         payload = json.loads(message)
     except (TypeError, json.JSONDecodeError):
         return None
-    if not isinstance(payload, dict) or payload.get("type") != "tracking":
+    if (
+        not isinstance(payload, dict)
+        or payload.get("type") != "tracking"
+        or payload.get("protocol_version") != PROTOCOL_VERSION
+    ):
         return None
 
     def parse_hand(value: Any) -> dict[str, Pose] | None:
@@ -124,11 +152,84 @@ def parse_tracking_message(message: str, *, received_at: float | None = None) ->
                 parsed[name] = pose
         return parsed if "wrist" in parsed else None
 
+    views = []
+    for value in payload.get("views", []):
+        if not isinstance(value, dict) or value.get("eye") not in {"left", "right"}:
+            continue
+        pose = webxr_pose_to_kuavo(value.get("pose"))
+        try:
+            projection = np.asarray(value.get("projection_matrix"), dtype=np.float32)
+        except (TypeError, ValueError):
+            continue
+        if pose is None or projection.shape != (16,) or not np.all(np.isfinite(projection)):
+            continue
+        views.append(BrowserEyeView(value["eye"], pose, projection))
+
+    try:
+        sequence = int(payload.get("sequence"))
+        client_timestamp_ms = float(payload.get("timestamp_ms"))
+    except (TypeError, ValueError):
+        return None
+    if sequence < 0 or not np.isfinite(client_timestamp_ms):
+        return None
+
     return BrowserTrackingSample(
+        sequence=sequence,
+        client_timestamp_ms=client_timestamp_ms,
         head=webxr_pose_to_kuavo(payload.get("head")),
         left_hand=parse_hand(payload.get("left_hand")),
         right_hand=parse_hand(payload.get("right_hand")),
+        views=tuple(views),
         received_at=time.monotonic() if received_at is None else received_at,
+    )
+
+
+def pack_frame_packet(
+    jpeg: bytes,
+    *,
+    frame_sequence: int,
+    tracking_sequence: int,
+    client_timestamp_ms: float,
+    encode_ms: float,
+    server_fps: float,
+) -> bytes:
+    """Prefix JPEG bytes with the versioned browser frame header."""
+    if not jpeg:
+        raise ValueError("JPEG payload must not be empty.")
+    header = FRAME_HEADER.pack(
+        FRAME_MAGIC,
+        PROTOCOL_VERSION,
+        0,
+        FRAME_HEADER.size,
+        int(frame_sequence),
+        int(tracking_sequence),
+        float(client_timestamp_ms),
+        float(encode_ms),
+        float(server_fps),
+    )
+    return header + bytes(jpeg)
+
+
+def unpack_frame_packet(packet: bytes) -> tuple[dict[str, float | int], bytes]:
+    """Decode a frame packet for tests and offline diagnostics."""
+    if len(packet) < FRAME_HEADER.size:
+        raise ValueError("Frame packet is shorter than its header.")
+    magic, version, flags, header_size, frame_seq, tracking_seq, timestamp, encode_ms, server_fps = (
+        FRAME_HEADER.unpack_from(packet)
+    )
+    if magic != FRAME_MAGIC or version != PROTOCOL_VERSION or header_size != FRAME_HEADER.size:
+        raise ValueError("Unsupported browser frame protocol.")
+    return (
+        {
+            "version": version,
+            "flags": flags,
+            "frame_sequence": frame_seq,
+            "tracking_sequence": tracking_seq,
+            "client_timestamp_ms": timestamp,
+            "encode_ms": encode_ms,
+            "server_fps": server_fps,
+        },
+        packet[header_size:],
     )
 
 
@@ -141,8 +242,9 @@ class BrowserTeleopBridge:
         self.stale_after_s = float(stale_after_s)
         self._lock = threading.Lock()
         self._sample: BrowserTrackingSample | None = None
-        self._jpeg: bytes | None = None
-        self._jpeg_sequence = 0
+        self._frame_packet: bytes | None = None
+        self._frame_sequence = 0
+        self._client_metrics = BrowserClientMetrics()
         self._clients = 0
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stop_event: asyncio.Event | None = None
@@ -175,15 +277,33 @@ class BrowserTeleopBridge:
         with self._lock:
             sample = self._sample
         if sample is None or now - sample.received_at > self.stale_after_s:
-            return BrowserTrackingSample(None, None, None, now)
+            return BrowserTrackingSample(0, 0.0, None, None, None, (), now)
         return sample
 
-    def publish_jpeg(self, jpeg: bytes) -> None:
-        if not jpeg:
-            return
+    @property
+    def client_metrics(self) -> BrowserClientMetrics:
         with self._lock:
-            self._jpeg = bytes(jpeg)
-            self._jpeg_sequence += 1
+            return self._client_metrics
+
+    def publish_frame(
+        self,
+        jpeg: bytes,
+        *,
+        tracking_sequence: int,
+        client_timestamp_ms: float,
+        encode_ms: float,
+        server_fps: float,
+    ) -> None:
+        with self._lock:
+            self._frame_sequence += 1
+            self._frame_packet = pack_frame_packet(
+                jpeg,
+                frame_sequence=self._frame_sequence,
+                tracking_sequence=tracking_sequence,
+                client_timestamp_ms=client_timestamp_ms,
+                encode_ms=encode_ms,
+                server_fps=server_fps,
+            )
 
     def _thread_main(self) -> None:
         try:
@@ -207,9 +327,30 @@ class BrowserTeleopBridge:
     async def _handle_client(self, websocket) -> None:
         with self._lock:
             self._clients += 1
-        receiver = asyncio.create_task(self._receive_tracking(websocket))
-        sender = asyncio.create_task(self._send_camera(websocket))
         try:
+            hello_raw = await asyncio.wait_for(websocket.recv(), timeout=3.0)
+            try:
+                hello = json.loads(hello_raw) if isinstance(hello_raw, str) else None
+            except json.JSONDecodeError:
+                hello = None
+            if not isinstance(hello, dict) or hello.get("type") != "client_hello":
+                await websocket.close(code=1002, reason="Kuavo protocol hello required")
+                return
+            if hello.get("protocol_version") != PROTOCOL_VERSION:
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "protocol_error",
+                            "expected": PROTOCOL_VERSION,
+                            "received": hello.get("protocol_version"),
+                        }
+                    )
+                )
+                await websocket.close(code=1002, reason="Kuavo protocol version mismatch")
+                return
+            await websocket.send(json.dumps({"type": "server_hello", "protocol_version": PROTOCOL_VERSION}))
+            receiver = asyncio.create_task(self._receive_messages(websocket))
+            sender = asyncio.create_task(self._send_camera(websocket))
             done, pending = await asyncio.wait((receiver, sender), return_when=asyncio.FIRST_COMPLETED)
             for task in pending:
                 task.cancel()
@@ -218,7 +359,7 @@ class BrowserTeleopBridge:
             with self._lock:
                 self._clients = max(0, self._clients - 1)
 
-    async def _receive_tracking(self, websocket) -> None:
+    async def _receive_messages(self, websocket) -> None:
         async for message in websocket:
             if not isinstance(message, str):
                 continue
@@ -226,14 +367,37 @@ class BrowserTeleopBridge:
             if sample is not None:
                 with self._lock:
                     self._sample = sample
+                continue
+            try:
+                payload = json.loads(message)
+            except json.JSONDecodeError:
+                continue
+            if (
+                isinstance(payload, dict)
+                and payload.get("type") == "client_metrics"
+                and payload.get("protocol_version") == PROTOCOL_VERSION
+            ):
+                try:
+                    metrics = BrowserClientMetrics(
+                        received_fps=float(payload.get("received_fps", 0.0)),
+                        rendered_fps=float(payload.get("rendered_fps", 0.0)),
+                        pose_to_frame_ms=float(payload.get("pose_to_frame_ms", float("nan"))),
+                        decode_ms=float(payload.get("decode_ms", float("nan"))),
+                        dropped_frames=int(payload.get("dropped_frames", 0)),
+                        received_at=time.monotonic(),
+                    )
+                except (TypeError, ValueError):
+                    continue
+                with self._lock:
+                    self._client_metrics = metrics
 
     async def _send_camera(self, websocket) -> None:
         sent_sequence = -1
         while True:
             with self._lock:
-                jpeg = self._jpeg
-                sequence = self._jpeg_sequence
-            if jpeg is not None and sequence != sent_sequence:
-                await websocket.send(jpeg)
+                packet = self._frame_packet
+                sequence = self._frame_sequence
+            if packet is not None and sequence != sent_sequence:
+                await websocket.send(packet)
                 sent_sequence = sequence
             await asyncio.sleep(1.0 / 30.0)

@@ -131,7 +131,7 @@ parser.add_argument(
     "--quest-camera-overlay",
     action=argparse.BooleanOptionalAction,
     default=True,
-    help="Show small wrist-camera panels at the upper left/right of the Quest view.",
+    help="Show compact left-wrist, head and right-wrist panels over the stereo Quest view.",
 )
 parser.add_argument("--xr-overlay-distance", type=float, default=0.35, metavar="METERS")
 parser.add_argument(
@@ -155,6 +155,18 @@ parser.add_argument(
 parser.add_argument("--position-gain", type=float, default=1.1,
                     help="Hand displacement multiplier for scaled/relative mode; scaled accepts 1.0–3.0.")
 parser.add_argument("--rotation-gain", type=float, default=1.0)
+parser.add_argument(
+    "--tracking-recovery-frames",
+    type=int,
+    default=5,
+    help="Consecutive fully tracked frames required before control and recording resume.",
+)
+parser.add_argument(
+    "--tracking-loss-abort-seconds",
+    type=float,
+    default=1.0,
+    help="Finish the active episode as failed after continuous tracking loss.",
+)
 parser.add_argument(
     "--xr-runtime-json",
     type=Path,
@@ -215,6 +227,10 @@ if min(
     parser.error("Head and wrist camera width/height values must be positive.")
 if args_cli.xr_overlay_distance <= 0.08:
     parser.error("--xr-overlay-distance must be greater than the 0.08 m XR near plane.")
+if args_cli.tracking_recovery_frames < 1:
+    parser.error("--tracking-recovery-frames must be at least one.")
+if args_cli.tracking_loss_abort_seconds <= 0.0:
+    parser.error("--tracking-loss-abort-seconds must be positive.")
 if args_cli.max_episodes < 0:
     parser.error("--max-episodes must be 0 or greater.")
 if args_cli.lerobot_fps < 0:
@@ -279,6 +295,7 @@ from .teleop_hand_mode import (HandModeSwitch, HandCommands, HandGripper, HandTr
 from .teleop_scene import configure_scene_detail
 from .teleop_lerobot_recorder import LeRobotTeleopRecorder
 from .teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopRecorderGroup
+from .teleop_safety import TrackingLossGuard
 from .xr_camera_overlay import QuestCameraOverlay, QuestCameraOverlayCfg
 
 
@@ -309,6 +326,10 @@ def main() -> None:
     active_mode = args_cli.input_mode
     robot_model = resolve_robot_model()
     cfg = KuavoQuestTeleopEnvCfg()
+    # Native OpenXR/CloudXR supplies its own stereo projection. The virtual
+    # eye sensors are only needed by preview_quest_browser.py.
+    cfg.scene.xr_left_eye_camera = None
+    cfg.scene.xr_right_eye_camera = None
     cfg.sim.device = args_cli.device
     cfg.teleop_devices.devices["quest_handtracking"].sim_device = cfg.sim.device
     cfg.scene.robot.actuators["arms"].stiffness = args_cli.arm_stiffness
@@ -460,6 +481,10 @@ def main() -> None:
     hand_commands = HandCommands()
     hand_gripper = HandGripper(GRIPPER_SETTINGS.pinch_close_threshold_m)
     hand_tracking_guard = HandTrackingGuard()
+    tracking_guard = TrackingLossGuard(
+        recovery_frames=args_cli.tracking_recovery_frames,
+        abort_after_s=args_cli.tracking_loss_abort_seconds,
+    )
     control_status = None
     if hand_controls:
         from .xr_control_status import QuestControlStatus
@@ -549,6 +574,7 @@ def main() -> None:
     manual_pause = False
     start_wall_time = time.perf_counter()
     last_tracking_state: tuple[bool, bool, bool] | None = None
+    tracking_pause_active = False
     preview_enabled = False
     camera_reported = False
     camera_wait_reported = False
@@ -569,7 +595,7 @@ def main() -> None:
             term.hold_current_pose()
 
     def reset_simulation() -> None:
-        nonlocal episode_steps, free_view, view_initialized, last_base_quat
+        nonlocal episode_steps, free_view, view_initialized, last_base_quat, tracking_pause_active
         env.reset()
         xr_device.reset()
         mapper.reset()
@@ -577,6 +603,8 @@ def main() -> None:
         if hand_mapper is not None:
             hand_mapper.reset()
         mode_switch.cancel()
+        tracking_guard.reset()
+        tracking_pause_active = False
         hand_gripper.sync({"left": 1., "right": 1.})
         body_mapper.reset()
         held_absolute_targets.fill(0.0)
@@ -603,7 +631,7 @@ def main() -> None:
     if args_cli.dataset_format in {"lerobot", "both"} and not args_cli.lerobot_save_failed:
         print("[INFO] LeRobot keeps successful episodes only; STOP/RESET/time-limit attempts are discarded.")
     if quest_overlay is not None:
-        print("[INFO] Quest view: scene with small wrist-camera panels at the upper left/right.")
+        print("[INFO] Quest view: stereo scene with compact left-wrist, head and right-wrist panels.")
     print("[CONTROL] Quest START/STOP/RESET or desktop P=start/stop, R=reset, M=finish as success.")
     print("[CONTROL] C=recenter/calibrate, T=motion preview without recording, H=camera overlay on/off.")
     print("[CONTROL] Quest controllers: X=calibrate, A=motion start/stop, B=record start/stop, Y=panels on/off.")
@@ -810,6 +838,7 @@ def main() -> None:
                         requests["toggle"] = requests["preview"] = False
                         print("[HANDS] Tracking lost for 2s; stopped. Reacquire hands and explicitly restart.", flush=True)
             tracking_state = (mapped.left_valid, mapped.right_valid, mapped.head_valid)
+            safety = tracking_guard.advance(all(tracking_state), now)
             if tracking_state != last_tracking_state:
                 print(
                     "[TRACKING] "
@@ -817,6 +846,20 @@ def main() -> None:
                     f"input={active_mode}"
                 )
                 last_tracking_state = tracking_state
+            if safety.recording_paused != tracking_pause_active:
+                if safety.recording_paused:
+                    print("[SAFETY] Tracking lost: arm/base motion stopped, grippers held, recording paused.")
+                else:
+                    print("[SAFETY] Tracking stable again: control and recording resumed.")
+                tracking_pause_active = safety.recording_paused
+            if safety.abort_episode and (recorder.recording or preview_enabled):
+                if recorder.recording:
+                    finish_episode(False, "tracking_lost")
+                preview_enabled = False
+                pending_start = False
+                manual_pause = True
+                print("[SAFETY] Tracking timeout: episode/preview stopped; explicitly restart after recovery.")
+                continue
 
             if requests["toggle"]:
                 requests["toggle"] = False
@@ -862,7 +905,8 @@ def main() -> None:
             if args_cli.auto_start and not manual_pause and not recorder.recording and not mode_switch.pending:
                 pending_start = True
 
-            if (pending_start and mapped.bimanual_valid and not recorder.recording and not mode_switch.pending
+            if (pending_start and safety.control_allowed and mapped.bimanual_valid
+                    and not recorder.recording and not mode_switch.pending
                     and (active_mode == "controllers" or mapped.head_valid and not any(hand_commands.active.values()))):
                 if not preview_enabled:
                     # Do not apply head/hand movement accumulated while paused
@@ -946,7 +990,7 @@ def main() -> None:
                         side, hands[side], hold=mode_switch.pending or hand_commands.active[side] or not mapped.head_valid)
             if mode_switch.pending:
                 action_np[12:] = held_absolute_targets
-            if not (recorder.recording or preview_enabled):
+            if not (recorder.recording or preview_enabled) or not safety.control_allowed:
                 action_np[:12] = 0.0
                 if active_mode == "controllers" or hand_controls:
                     action_np[12:14] = held_absolute_targets[:2]
@@ -974,17 +1018,18 @@ def main() -> None:
                                                 _to_numpy(robot.data.body_quat_w[0, body_id])))
                     arm_goals.append(pose_mapper.target(
                         side, None if free_view else packet, tool_pose, root_pose,
-                        following=recorder.recording or preview_enabled,
+                        following=(recorder.recording or preview_enabled) and safety.control_allowed,
                         aim_pose=xr_device.controller_aim_pose(side),
                         reference_pose_w=torso_pose,
                     ))
                 action_np = np.concatenate((*arm_goals, action_np[12:]))
             body_action = body_mapper.advance(left_controller, right_controller, env.step_dt,
                                                enabled=(recorder.recording or preview_enabled) and not free_view
-                                               and active_mode == "controllers" and not mode_switch.pending)
+                                               and safety.control_allowed and active_mode == "controllers"
+                                               and not mode_switch.pending)
             action_np = np.concatenate((action_np, body_action))
             for side, term in zip(("left", "right"), arm_terms):
-                follow = recorder.recording or preview_enabled
+                follow = (recorder.recording or preview_enabled) and safety.control_allowed
                 if active_mode == "hands":
                     follow = follow and hand_packets[side] is not None and mapped.head_valid and not hand_commands.active[side]
                 term.set_following(follow)
@@ -1065,15 +1110,14 @@ def main() -> None:
             left_wrist_rgb = None
             right_wrist_rgb = None
             if quest_overlay is not None or recorder.recording or not camera_reported:
-                if recorder.recording or not camera_reported:
-                    head_rgb = _camera_rgb(env.scene["robustness_camera"])
+                head_rgb = _camera_rgb(env.scene["robustness_camera"])
                 if quest_overlay is not None or args_cli.record_wrist_cameras:
                     left_wrist_rgb = _camera_rgb(env.scene["left_wrist_camera"])
                     right_wrist_rgb = _camera_rgb(env.scene["right_wrist_camera"])
                 if quest_overlay is not None and left_wrist_rgb is not None and right_wrist_rgb is not None:
                     quest_overlay.update(head_rgb, left_wrist_rgb, right_wrist_rgb)
                     quest_overlay.set_status(
-                        following=recorder.recording or preview_enabled,
+                        following=(recorder.recording or preview_enabled) and safety.control_allowed,
                         recording=recorder.recording,
                         hands_valid=mapped.bimanual_valid,
                         waiting=pending_start,
@@ -1083,7 +1127,7 @@ def main() -> None:
                     print(f"[CAMERA] Head RGB {head_rgb.shape}: min={head_rgb.min()}, max={head_rgb.max()}, mean={head_rgb.mean():.1f}")
                     camera_reported = True
 
-            if recorder.recording:
+            if recorder.recording and not safety.recording_paused:
                 head_depth = _camera_depth(env.scene["robustness_camera"]) if args_cli.record_depth else None
                 if head_rgb is None or (args_cli.record_wrist_cameras
                                         and (left_wrist_rgb is None or right_wrist_rgb is None)) or (

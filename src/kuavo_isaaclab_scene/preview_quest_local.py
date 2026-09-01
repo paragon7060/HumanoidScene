@@ -91,6 +91,9 @@ from .teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
 
 def main() -> None:
     cfg = KuavoQuestTeleopEnvCfg()
+    # Desktop preview uses the main viewport and physical robot cameras only.
+    cfg.scene.xr_left_eye_camera = None
+    cfg.scene.xr_right_eye_camera = None
     cfg.seed = args_cli.seed
     cfg.scene.robustness_camera.width = args_cli.head_camera_width
     cfg.scene.robustness_camera.height = args_cli.head_camera_height
