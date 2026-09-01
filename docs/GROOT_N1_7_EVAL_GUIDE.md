@@ -6,6 +6,11 @@ joint state, executes a decoded action chunk through Isaac Lab, and writes
 per-episode success, completion time, progress, reward, inference latency, and
 action-clipping metrics to JSON.
 
+The summary also reports a 95% Wilson confidence interval for success rate,
+termination-reason counts, and aggregate mean/p95 inference latency. These
+statistics make comparisons across checkpoints less sensitive to a small
+episode sample and show whether failures are task timeouts or safety events.
+
 ## Fixed LeRobot schema
 
 Training and evaluation must use the same feature names, dimensions, units,
@@ -140,6 +145,21 @@ green-button joint travel of at least 6 mm. The JSON `success_rate` is the task
 success rate; `mean_success_time_s` can be compared to the 11-second target.
 Use at least 20 episodes for a quick check and preferably 50 or more for an 80%
 claim across randomized starts.
+
+Before a full simulation run, use the recorded-dataset regression evaluator to
+check policy loading, preprocessing, normalization, action units, and latency:
+
+```bash
+./offline_eval_groot.sh \
+  --checkpoint /path/to/pretrained_model \
+  --dataset-root /path/to/lerobot/dataset \
+  --repo-id YOUR_ORG/kuavo_rack_to_conveyor \
+  --max-frames 100
+```
+
+See [`OFFLINE_POLICY_EVAL.md`](OFFLINE_POLICY_EVAL.md). Offline action error is
+diagnostic only; the closed-loop `success_rate` from this simulator evaluator
+remains the authoritative task score.
 
 For a deterministic diagnostic run:
 

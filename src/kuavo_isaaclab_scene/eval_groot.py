@@ -14,6 +14,11 @@ import sys
 
 from isaaclab.app import AppLauncher
 
+from .eval_metrics import (
+    percentile_nearest_rank,
+    termination_reason_counts,
+    wilson_score_interval,
+)
 from .gripper_config import add_gripper_cli_args, export_gripper_cli, resolve_gripper_settings
 from .robot_model import add_robot_model_cli_args, export_robot_model_cli, resolve_robot_model
 from .rack_box_layout import resolve_rack_box_pose_path
@@ -232,13 +237,6 @@ def _termination_reason(extras: dict, success: bool, truncated: bool) -> str:
     return "time_limit" if truncated else "terminated"
 
 
-def _percentile_95(values: list[float]) -> float:
-    if not values:
-        return 0.0
-    ordered = sorted(values)
-    return ordered[min(len(ordered) - 1, math.ceil(0.95 * len(ordered)) - 1)]
-
-
 def _default_metrics_path() -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     project_root = Path(__file__).resolve().parents[2]
@@ -310,6 +308,7 @@ def main() -> None:
     print(f"[INFO] Camera map: {camera_map}")
 
     episode_results: list[dict[str, object]] = []
+    all_inference_latencies: list[float] = []
     try:
         for episode_index in range(args_cli.episodes):
             if not simulation_app.is_running():
@@ -364,9 +363,10 @@ def main() -> None:
                 "mean_inference_ms": (
                     statistics.fmean(inference_latencies) if inference_latencies else 0.0
                 ),
-                "p95_inference_ms": _percentile_95(inference_latencies),
+                "p95_inference_ms": percentile_nearest_rank(inference_latencies, 95.0),
             }
             episode_results.append(episode_result)
+            all_inference_latencies.extend(inference_latencies)
             print(
                 f"[EPISODE {episode_index:03d}] success={success}, reason={reason}, "
                 f"steps={completed_steps}, sim_time={elapsed_s:.2f}s, "
@@ -376,6 +376,7 @@ def main() -> None:
         env.close()
 
     successes = sum(bool(item["success"]) for item in episode_results)
+    confidence_low, confidence_high = wilson_score_interval(successes, len(episode_results))
     success_times = [
         float(item["sim_time_s"]) for item in episode_results if bool(item["success"])
     ]
@@ -384,6 +385,14 @@ def main() -> None:
         "episodes_completed": len(episode_results),
         "successes": successes,
         "success_rate": successes / len(episode_results) if episode_results else 0.0,
+        "success_rate_ci95": {
+            "low": confidence_low,
+            "high": confidence_high,
+            "method": "wilson",
+        },
+        "termination_reasons": termination_reason_counts(
+            str(item["reason"]) for item in episode_results
+        ),
         "mean_success_time_s": statistics.fmean(success_times) if success_times else None,
         "mean_reward": (
             statistics.fmean(float(item["reward_sum"]) for item in episode_results)
@@ -395,10 +404,15 @@ def main() -> None:
             if episode_results
             else 0.0
         ),
+        "policy_inferences": len(all_inference_latencies),
+        "mean_inference_ms": (
+            statistics.fmean(all_inference_latencies) if all_inference_latencies else 0.0
+        ),
+        "p95_inference_ms": percentile_nearest_rank(all_inference_latencies, 95.0),
     }
     payload = {
         "format": "kuavo_groot_n1_7_eval",
-        "format_version": 1,
+        "format_version": 2,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "checkpoint": checkpoint_label,
         "robot_model": ACTIVE_ROBOT_MODEL.name,
