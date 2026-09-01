@@ -33,7 +33,7 @@ from . import manager_mdp as workcell_mdp
 from .box_flap_friction import resolve_flap_friction_settings
 from .scene_physics import build_box_flap_actuator, build_contact_box_spawn, configure_robot_asset_physics
 from .groot_lerobot_bridge import CONTROLLED_JOINT_NAMES
-from .gripper_config import resolve_gripper_settings
+from .gripper_config import load_gripper_settings, resolve_gripper_settings
 from .gripper_runtime import (
     build_gripper_action_cfg,
     build_gripper_articulation_cfg,
@@ -108,6 +108,11 @@ CUSTOM_RACK_BOXES_ACTIVE = bool(
 )
 FLAP_FRICTION = resolve_flap_friction_settings(randomize_default=True)
 GRIPPER_SETTINGS = resolve_gripper_settings()
+INTEGRATED_GRIPPER_SETTINGS = (
+    load_gripper_settings(ROBOT_MODEL.integrated_gripper_preset)
+    if ROBOT_MODEL.has_integrated_grippers
+    else None
+)
 FLAP_STATIC_RESET_RANGE = (
     FLAP_FRICTION.static_range
     if FLAP_FRICTION.randomize
@@ -249,7 +254,9 @@ KUAVO_CFG = ArticulationCfg(
             "waist_yaw_joint": 0.0,
             "zhead_.*_joint": 0.0,
             **(
-                {"[lr]_[fb]_bar_[13]_joint": 0.0}
+                INTEGRATED_GRIPPER_SETTINGS.command_for_all_sides(
+                    INTEGRATED_GRIPPER_SETTINGS.default_joint_pos
+                )
                 if ROBOT_MODEL.has_integrated_grippers
                 else {}
             ),
@@ -302,12 +309,12 @@ KUAVO_CFG = ArticulationCfg(
         **(
             {
                 "integrated_grippers": ImplicitActuatorCfg(
-                    joint_names_expr=["[lr]_[fb]_bar_[13]_joint"],
-                    effort_limit_sim=5.0,
+                    joint_names_expr=list(INTEGRATED_GRIPPER_SETTINGS.joint_name_exprs_for_robot),
+                    effort_limit_sim=INTEGRATED_GRIPPER_SETTINGS.actuator.effort_limit_sim,
                     velocity_limit_sim=5.0,
-                    stiffness=100.0,
-                    damping=10.0,
-                    friction=0.02,
+                    stiffness=INTEGRATED_GRIPPER_SETTINGS.actuator.stiffness,
+                    damping=INTEGRATED_GRIPPER_SETTINGS.actuator.damping,
+                    friction=INTEGRATED_GRIPPER_SETTINGS.actuator.friction,
                 )
             }
             if ROBOT_MODEL.has_integrated_grippers

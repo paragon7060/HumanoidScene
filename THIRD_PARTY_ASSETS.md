@@ -26,15 +26,17 @@ not copied.
 
 This repository also packages the official
 [`biped_s56`](https://gitee.com/leju-robot/kuavo-ros-opensource/tree/master/src/kuavo_assets/models/biped_s56)
-URDF and the 35 STL meshes used by the runtime model, pinned to Gitee revision
+URDF and 59 STL meshes, pinned to Gitee revision
 `4d7b0ee8441ed6588ac0134daae05e8a5c78a4e7`. The upstream package manifest
 declares the asset package as BSD. The runtime URDF changes ROS
 `package://kuavo_assets/models/biped_s56/meshes/` references to local relative
-paths. As with S63, the upstream `*_hand_pitch_nohand.STL` visuals contain a
-baked hand without finger joints, so this port selects the supplied
-finger-free `*_hand_pitch.STL` files and mounts the packaged Robotiq assets at
-the empty wrist frames. Those end-effector frames are rotated by Ry(pi) so the
-external grippers point outward. The fixed torso root is spawned at the
+paths. The v56 configuration selects QiangNao hands and ships their palm and
+finger meshes, but its URDF omits the hand joints. This port therefore combines
+the S56 meshes with the QiangNao 10-joint-per-hand topology and wrist mounting
+transforms from the same repository's official
+[`biped_s49`](https://gitee.com/leju-robot/kuavo-ros-opensource/tree/master/src/kuavo_assets/models/biped_s49)
+URDF. The wrist uses the official `*_hand_pitch_nohand.STL` visual so it does
+not overlap the articulated hand. The fixed torso root is spawned at the
 upstream MuJoCo home height of 0.98 m. The generated fixed-base USD is packaged
 under `assets/kuavo_s56/usd/`.
 

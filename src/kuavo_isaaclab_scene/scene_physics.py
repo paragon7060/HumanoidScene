@@ -5,6 +5,11 @@ Input devices, servo gains and kinematic base control remain environment-specifi
 
 from .teleop_contacts import spawn_contact_box
 from .teleop_inertials import spawn_s200062_robot
+from .robot_model import (
+    S56_ACTUATOR_LIMITS,
+    S56_MUJOCO_ARMATURE,
+    S56_MUJOCO_FRICTIONLOSS,
+)
 
 
 def build_box_flap_actuator(settings):
@@ -37,6 +42,26 @@ def build_contact_box_spawn(usd_path, scale):
 
 def configure_robot_asset_physics(cfg, model, gripper_settings):
     """Apply hand contacts/inertials without changing wheel contacts or arm control."""
+    if model.name == "s56":
+        # Port the physical joint parameters from biped_s56.xml and the
+        # per-motor limits from biped_s56.urdf.  The generic scene actuator
+        # limits are deliberately retained for the other robot variants.
+        cfg.spawn.articulation_props.solver_position_iteration_count = 32
+        cfg.spawn.articulation_props.solver_velocity_iteration_count = 8
+        for group_name, limits in S56_ACTUATOR_LIMITS.items():
+            actuator = cfg.actuators[group_name]
+            actuator.armature = S56_MUJOCO_ARMATURE
+            actuator.friction = S56_MUJOCO_FRICTIONLOSS
+            actuator.dynamic_friction = S56_MUJOCO_FRICTIONLOSS
+            actuator.effort_limit_sim = dict(limits["effort_limit_sim"])
+            actuator.velocity_limit_sim = dict(limits["velocity_limit_sim"])
+        cfg.actuators["integrated_grippers"].armature = .001
+        if gripper_settings.integrated:
+            for side in gripper_settings.active_sides:
+                cfg.init_state.joint_pos.update(
+                    gripper_settings.command_for(side, gripper_settings.open_command)
+                )
+        return
     if model.name != "s200062":
         return
     cfg.spawn.func = spawn_s200062_robot

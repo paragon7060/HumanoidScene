@@ -9,6 +9,7 @@ import os
 from .paths import ASSET_DIR
 from .wrist_camera_mount import (
     CAMERA_BODY_TO_ROS_OPTICAL_ROT,
+    S56_QIANGNAO_D405_MOUNTS,
     S63_ROBOTIQ_D405_MOUNTS,
     WristCameraMount,
 )
@@ -27,6 +28,61 @@ WHEEL_BODY_JOINT_NAMES = (
 S56_LEG_JOINT_NAMES = tuple(
     f"leg_{side}{index}_joint" for side in ("l", "r") for index in range(1, 7)
 )
+
+# biped_s56 actuator data from the upstream kuavo-ros-opensource model.
+# The URDF carries the per-motor limits while the accompanying MuJoCo XML
+# applies the armature and Coulomb loss to every movable joint.  Keep these
+# values independent of the generic scene gains: S56's light distal wrist
+# links become numerically unstable when driven with the generic 100 Nm limit
+# and zero reflected rotor inertia.
+S56_MUJOCO_ARMATURE = 0.05
+S56_MUJOCO_FRICTIONLOSS = 0.02
+S56_ACTUATOR_LIMITS = {
+    "lower_body": {
+        "effort_limit_sim": {
+            "leg_[lr]1_joint": 127.0,
+            "leg_[lr]2_joint": 71.0,
+            "leg_[lr]3_joint": 132.0,
+            "leg_[lr]4_joint": 280.0,
+            "leg_[lr]5_joint": 91.6,
+            "leg_[lr]6_joint": 68.4,
+        },
+        "velocity_limit_sim": {
+            "leg_[lr]1_joint": 10.4,
+            "leg_[lr]2_joint": 8.7,
+            "leg_[lr]3_joint": 12.7,
+            "leg_[lr]4_joint": 10.4,
+            "leg_[lr][56]_joint": 17.8,
+        },
+    },
+    "arms": {
+        "effort_limit_sim": {
+            "zarm_[lr]1_joint": 66.0,
+            "zarm_[lr]2_joint": 75.0,
+            "zarm_[lr]3_joint": 57.0,
+            "zarm_[lr]4_joint": 75.0,
+            "zarm_[lr][567]_joint": 14.1,
+        },
+        "velocity_limit_sim": {
+            "zarm_[lr]1_joint": 18.8,
+            "zarm_[lr]2_joint": 8.0,
+            "zarm_[lr]3_joint": 7.5,
+            "zarm_[lr]4_joint": 8.0,
+            "zarm_[lr][567]_joint": 17.5,
+        },
+    },
+    "upper_body": {
+        "effort_limit_sim": {
+            "waist_yaw_joint": 102.0,
+            "zhead_1_joint": 1.5,
+            "zhead_2_joint": 12.0,
+        },
+        "velocity_limit_sim": {
+            "waist_yaw_joint": 8.7,
+            "zhead_[12]_joint": 5.23,
+        },
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -114,15 +170,14 @@ _MODELS = {
         name="s56",
         usd_path=str(ASSET_DIR / "kuavo_s56" / "usd" / "kuavo_s56_fixed.usd"),
         urdf_path=str(ASSET_DIR / "kuavo_s56" / "urdf" / "kuavo_s56.urdf"),
-        integrated_gripper_preset=None,
-        default_gripper_preset="robotiq_2f85",
+        integrated_gripper_preset="s56_qiangnao",
+        default_gripper_preset="s56_qiangnao",
         # The source is a biped whose root is the torso rather than a
         # ground-aligned wheel chassis. Its MuJoCo home pose uses z=0.98 m.
         spawn_height_m=0.98,
         has_wheel_base=False,
-        # The runtime's empty end-effector frames are adapted so mounted
-        # Robotiq +Z points outward, matching the S63 policy convention.
-        tool_forward_sign=1,
+        # The QiangNao fingers extend along the source wrist's -Z axis.
+        tool_forward_sign=-1,
         head_camera_body="head_camera_base",
         head_camera_mount=WristCameraMount(
             pos=(0.08, 0.0, 0.0),
@@ -132,7 +187,7 @@ _MODELS = {
             "left": "zarm_l7_end_effector",
             "right": "zarm_r7_end_effector",
         },
-        wrist_camera_mounts=dict(S63_ROBOTIQ_D405_MOUNTS),
+        wrist_camera_mounts=dict(S56_QIANGNAO_D405_MOUNTS),
     ),
 }
 
@@ -171,5 +226,5 @@ def validate_robot_gripper(model: RobotModelSettings, gripper_name: str) -> None
             f"Robot {model.name!r} already contains its grippers; use "
             f"{integrated!r} (default) or 'none', not {gripper_name!r}."
         )
-    if integrated is None and gripper_name == "s200062_integrated":
-        raise ValueError("The s200062_integrated gripper is part of the S200062 robot USD.")
+    if integrated is None and gripper_name in ("s200062_integrated", "s56_qiangnao"):
+        raise ValueError(f"The {gripper_name} gripper is part of its matching robot USD.")

@@ -77,11 +77,24 @@ class GripperSettings:
     def joint_names_for(self, side: str) -> tuple[str, ...]:
         return tuple(name.replace("{side}", side[0]) for name in self.joint_names)
 
+    @property
+    def joint_name_exprs_for_robot(self) -> tuple[str, ...]:
+        """Return regexes covering both hands of an integrated preset."""
+        return tuple(name.replace("{side}", "[lr]") for name in self.joint_names)
+
     def command_for(self, side: str, command: dict[str, float]) -> dict[str, float]:
         return {name.replace("{side}", side[0]): value for name, value in command.items()}
 
+    def command_for_all_sides(self, command: dict[str, float]) -> dict[str, float]:
+        result: dict[str, float] = {}
+        for side in self.active_sides:
+            result.update(self.command_for(side, command))
+        return result
+
     def body_names_for(self, side: str) -> str:
         if self.integrated:
+            if self.name == "s56_qiangnao":
+                return rf"{side[0]}_(palm|thumb_.*|index_.*|middle_.*|ring_.*|little_.*)"
             return rf"{side[0]}_(twofinger_base|[fb]_(bar_[1-4]|finger))"
         return ".*"
 

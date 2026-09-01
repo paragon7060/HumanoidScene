@@ -55,6 +55,53 @@
         }
       }
     },
+    "s56_qiangnao": {
+      "enabled": true,
+      "integrated": true,
+      "usd_path": "integrated://robot",
+      "attachment_mount_body": "robot",
+      "joint_names": [
+        "{side}_thumbCMC",
+        "{side}_thumbMCP",
+        "{side}_indexMCP",
+        "{side}_indexPIP",
+        "{side}_middleMCP",
+        "{side}_middlePIP",
+        "{side}_ringMCP",
+        "{side}_ringPIP",
+        "{side}_littleMCP",
+        "{side}_littlePIP"
+      ],
+      "default_joint_pos": {"{side}_(thumb|index|middle|ring|little).*": 0.0},
+      "open_command": {"{side}_(thumb|index|middle|ring|little).*": 0.0},
+      "close_command": {
+        "{side}_thumbCMC": 1.5708,
+        "{side}_thumbMCP": 0.87266,
+        "{side}_(index|middle|ring|little)MCP": 1.309,
+        "{side}_(index|middle|ring|little)PIP": 1.25
+      },
+      "pinch_close_threshold_m": 0.055,
+      "actuator": {
+        "effort_limit_sim": 1.0,
+        "stiffness": 20.0,
+        "damping": 2.0,
+        "friction": 0.02
+      },
+      "sides": {
+        "left": {
+          "enabled": true,
+          "robot_mount_body": "l_palm",
+          "robot_mount_pos": [0.0, 0.0, 0.0],
+          "robot_mount_rot": [1.0, 0.0, 0.0, 0.0]
+        },
+        "right": {
+          "enabled": true,
+          "robot_mount_body": "r_palm",
+          "robot_mount_pos": [0.0, 0.0, 0.0],
+          "robot_mount_rot": [1.0, 0.0, 0.0, 0.0]
+        }
+      }
+    },
     "robotiq_2f85": {
       "enabled": true,
       "usd_path": "${KUAVO_PACKAGE_ASSET_DIR}/robotiq_2f85/usd/robotiq_2f85.usd",

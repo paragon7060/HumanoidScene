@@ -12,6 +12,7 @@ from kuavo_isaaclab_scene.robot_model import resolve_robot_model
 from kuavo_isaaclab_scene.wrist_camera_mount import (
     CAMERA_BODY_TO_ROS_OPTICAL_ROT,
     S200062_D405_MOUNTS,
+    S56_QIANGNAO_D405_MOUNTS,
     S63_ROBOTIQ_D405_MOUNTS,
 )
 
@@ -146,7 +147,7 @@ def test_finger_contact_regions_are_in_front_and_inside_wrist_fov(model, side, f
         for jaw, x in [('f', -0.02), ('b', 0.02)]:
             for y, z in itertools.product([-0.009, 0.009], [-0.04, -0.06]):
                 points.append(frames[f'{prefix}_{jaw}_finger'] @ [x, y, z, 1])
-    else:
+    elif model == 's63':
         root = ET.parse(ASSET_DIR / 'robotiq_2f85/urdf/robotiq_2f85.urdf').getroot()
         q = 0.8 * fraction
         positions = {f'{jaw}_{link}_joint': sign*q for jaw in ['left', 'right']
@@ -155,6 +156,25 @@ def test_finger_contact_regions_are_in_front_and_inside_wrist_fov(model, side, f
         camera = mount
         points = [frames[f'{jaw}_pad'] @ [x, -0.0026, z, 1]
                   for jaw, x, z in itertools.product(['left', 'right'], [-0.011, 0.011], [0.003, 0.034])]
+    else:
+        root = ET.parse(ASSET_DIR / 'kuavo_s56/urdf/kuavo_s56.urdf').getroot()
+        prefix = side[0]
+        positions = {
+            f'{prefix}_thumbCMC': 1.5708 * fraction,
+            f'{prefix}_thumbMCP': 0.87266 * fraction,
+        }
+        for finger in ('index', 'middle', 'ring', 'little'):
+            positions[f'{prefix}_{finger}MCP'] = 1.309 * fraction
+            positions[f'{prefix}_{finger}PIP'] = 1.25 * fraction
+        frames = _fk(root, f'zarm_{prefix}7_link', positions)
+        camera = frames[f'zarm_{prefix}7_end_effector'] @ mount
+        points = [
+            frames[f'{prefix}_{finger}_dist'] @ [0.0, y, 0.0, 1.0]
+            for finger, y in itertools.product(
+                ('thumb', 'index', 'middle', 'ring', 'little'),
+                (0.01, 0.025),
+            )
+        ]
     optical_points = (np.linalg.inv(camera) @ np.asarray(points).T).T[:, :3]
     # Actual wrist camera: 160x120, focal length 12 mm, aperture 24 mm.
     # ROS optical projection uses +Z depth, not +X depth.

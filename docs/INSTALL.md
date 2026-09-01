@@ -181,16 +181,16 @@ Run the manager-based environment:
 ```
 
 The default S200062 robot, its built-in two-finger grippers, D405 meshes, and
-converted USD are packaged locally. The S63 wheel robot, S56 biped, and external
-Robotiq-based claws are also local and selectable with `--robot-model s63` or
-`--robot-model s56`. The original
+converted USD are packaged locally. The S63 wheel robot with external Robotiq
+claws and the S56 biped with integrated QiangNao hands are also local and
+selectable with `--robot-model s63` or `--robot-model s56`. The original
 NVIDIA warehouse and Digital Twin conveyor remain runtime assets and need
 asset-server access on first use (or an already populated Isaac Sim cache).
 
 ```bash
 ./run_scene.sh --robot-model s200062       # default full model
 ./run_scene.sh --robot-model s63           # comparison model
-./run_scene.sh --robot-model s56           # fixed-root biped + Robotiq
+./run_scene.sh --robot-model s56           # fixed-root biped + QiangNao dexterous hands
 ```
 
 Choose different rack contents per launch:
@@ -206,7 +206,7 @@ rotation/scale capture, and respawn.
 
 ## 5. Meta Quest controller/hand tracking and data collection
 
-처음 구성한다면 [README의 Quest 설치·연결·첫 수집 안내](../README.md#quest-collection)를
+처음 구성한다면 [Quest 빠른 시작](QUEST3_QUICKSTART.md)을
 먼저 따른다. 공식 SDK/`.tgz` 다운로드, OpenXR JSON 설정, Linux 런타임 서비스의
 별도 준비, 브라우저 보안 설정과 포트 구분을 설명한다.
 

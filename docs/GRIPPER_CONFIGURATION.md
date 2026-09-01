@@ -2,10 +2,10 @@
 
 The default `s200062` robot contains its own two-finger grippers. The
 `s200062_integrated` preset controls four linkage joints per side directly on
-`scene["robot"]`; it does not spawn another hand asset. In
-`--robot-model s63` and `--robot-model s56` comparison modes, the default
-`robotiq_2f85` preset adds the external Robotiq-based Leju claws from the 2026
-OpenLET challenge model.
+`scene["robot"]`; it does not spawn another hand asset. S56 likewise uses the
+integrated `s56_qiangnao` preset with ten physical joints per hand. Only the
+`--robot-model s63` comparison mode defaults to the external Robotiq-based
+Leju claws from the 2026 OpenLET challenge model.
 
 ## Run
 
@@ -16,11 +16,12 @@ The full S200062 model is enabled by default:
 ./run_manager_env.sh --num-envs 1 --steps 100000
 ```
 
-Compare an external-Robotiq model, or disable gripper action channels:
+Run the integrated S56 hand, compare an external-Robotiq model, or disable
+gripper action channels:
 
 ```bash
 ./run_scene.sh --robot-model s63 --gripper robotiq_2f85
-./run_scene.sh --robot-model s56 --gripper robotiq_2f85
+./run_scene.sh --robot-model s56
 ./run_manager_env.sh --robot-model s200062 --gripper none --num-envs 1
 ```
 
@@ -41,13 +42,13 @@ places the torso root at 0.98 m, so the launcher applies that height
 automatically. Teleoperation keeps the existing six-channel body command
 schema, but the three telescopic-height channels are no-ops for S56.
 
-## Change an external S63/S56 gripper or mount pose
+## Change an external S63 gripper or mount pose
 
 Edit the deployment file [`configs/grippers.json`](../configs/grippers.json),
 or preserve it and pass a different file:
 
 ```bash
-./run_scene.sh --robot-model s56 --gripper custom \
+./run_scene.sh --robot-model s63 --gripper custom \
   --gripper-config /data/workcell/grippers.json
 ```
 
@@ -120,10 +121,10 @@ actions in the dataset schema. Keep the same preset for collection, training,
 and evaluation:
 
 ```bash
-./collect_quest_teleop.sh --gripper robotiq_2f85 --dataset-format lerobot \
+./collect_quest_teleop.sh --robot-model s63 --gripper robotiq_2f85 --dataset-format lerobot \
   --lerobot-python "$LEROBOT_PYTHON"
 
-./eval_groot.sh --gripper robotiq_2f85 --checkpoint /path/to/pretrained_model
+./eval_groot.sh --robot-model s63 --gripper robotiq_2f85 --checkpoint /path/to/pretrained_model
 ```
 
 Use `--gripper none` to evaluate an older 15-D manager checkpoint. The evaluator
@@ -135,7 +136,7 @@ before executing its output.
 Use a short GUI run and inspect both palms before collecting data:
 
 ```bash
-./preview_quest_local.sh --gripper robotiq_2f85 --steps 600
+./preview_quest_local.sh --robot-model s63 --gripper robotiq_2f85 --steps 600
 ```
 
 Confirm that each palm faces the box, fingertips point in the intended reach

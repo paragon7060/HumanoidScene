@@ -111,7 +111,7 @@ def test_s63_is_handless_with_only_its_referenced_meshes_packaged() -> None:
         assert joint.find("origin").attrib == {"xyz": xyz, "rpy": rpy}
 
 
-def test_s56_runtime_urdf_is_local_handless_and_has_adapted_tool_frames() -> None:
+def test_s56_runtime_urdf_contains_local_qiangnao_hands() -> None:
     asset = ASSET_DIR / "kuavo_s56"
     root = ET.parse(asset / "urdf" / "kuavo_s56.urdf").getroot()
     assert root.attrib["name"] == "biped_s56"
@@ -120,6 +120,13 @@ def test_s56_runtime_urdf_is_local_handless_and_has_adapted_tool_frames() -> Non
     }
     assert {f"leg_{side}{index}_joint" for side in ("l", "r") for index in range(1, 7)} <= revolute
     assert {f"zarm_{side}{index}_joint" for side in ("l", "r") for index in range(1, 8)} <= revolute
+    assert {
+        f"{side}_{finger}{joint}"
+        for side in ("l", "r")
+        for finger in ("index", "middle", "ring", "little")
+        for joint in ("MCP", "PIP")
+    } <= revolute
+    assert {f"{side}_thumb{joint}" for side in ("l", "r") for joint in ("CMC", "MCP")} <= revolute
     assert not any(name.startswith("wheel_") for name in revolute)
 
     for mesh in root.findall(".//mesh"):
@@ -130,16 +137,19 @@ def test_s56_runtime_urdf_is_local_handless_and_has_adapted_tool_frames() -> Non
         Path(mesh.attrib["filename"]).name
         for mesh in root.findall(".//visual/geometry/mesh")
     }
-    assert {"l_hand_pitch.STL", "r_hand_pitch.STL"} <= referenced
-    assert not any("nohand" in name.lower() for name in referenced)
+    assert {"l_hand_pitch_nohand.STL", "r_hand_pitch_nohand.STL"} <= referenced
+    assert {"l_palm.STL", "r_palm.STL", "l_thumb_dist.STL", "r_little_dist.STL"} <= referenced
 
     for side in ("l", "r"):
         joint = root.find(f"./joint[@name='zarm_{side}7_end_effector_joint']")
         assert joint is not None
         assert joint.find("origin").attrib == {
             "xyz": "0 0.0 -0.17",
-            "rpy": "0 3.14159265359 0",
+            "rpy": "0 0 0",
         }
+        palm_joint = root.find(f"./joint[@name='{side}_palm_fixed_joint']")
+        assert palm_joint is not None
+        assert palm_joint.find("parent").attrib["link"] == f"zarm_{side}7_link"
 
 
 def test_s63_chassis_wheels_and_wrist_inertials_are_preserved() -> None:
