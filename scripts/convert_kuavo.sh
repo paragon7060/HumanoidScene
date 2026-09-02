@@ -62,6 +62,8 @@ env TERM=xterm "${ISAACLAB_PYTHON}" \
     --joint-damping 10 \
     --headless
 
+"${ISAACLAB_PYTHON}" "${PROJECT_DIR}/scripts/finalize_twofinger_usd.py"
+
 for usd_path in \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56/usd/kuavo_s56_fixed.usd" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_bare/usd/kuavo_s56_bare_fixed.usd" \

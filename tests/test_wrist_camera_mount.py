@@ -168,9 +168,10 @@ def test_finger_contact_regions_are_in_front_and_inside_wrist_fov(model, side, f
     if model == 's200062':
         root = ET.parse(ASSET_DIR / 'kuavo_s200062/urdf/biped_s200062.urdf').getroot()
         prefix = side[0]
-        q = 0.55 * fraction
-        positions = {f'{prefix}_f_bar_1_joint': q, f'{prefix}_f_bar_3_joint': -q,
-                     f'{prefix}_b_bar_1_joint': -q, f'{prefix}_b_bar_3_joint': q}
+        from kuavo_isaaclab_scene.twofinger_linkage import initial_passive_positions
+        q = -0.25 * (1.0 - fraction)
+        positions = {f'{prefix}_f_bar_1_joint': q, f'{prefix}_b_bar_1_joint': -q}
+        positions.update(initial_passive_positions(positions))
         frames = _fk(root, f'{prefix}_twofinger_base', positions)
         camera = frames[f'{prefix}_d405_camera'] @ mount
         points = []

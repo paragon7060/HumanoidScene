@@ -295,12 +295,25 @@ joint라도 link 길이, joint origin, camera 위치가 다르면 같은 policy 
 
 ### S56 checkpoint-40K 현재 검증 상태
 
-2026-09-02 기준 수정된 S56 bare/two-finger USD는 각각 실제 Isaac Sim에서 spawn과
-step을 완료했고, QiangNao dexterous-hand geometry와 S200062 two-finger geometry가
-겹치지 않는다. 24초 `pick up the box` rollout에서는 왼 claw가 실제 명령을 따라
-닫혔고 14개 arm의 다음-step 목표 추종 MAE는 약 `0.0175 rad`였지만, 물체 접근과
-들기에는 실패했다. 따라서 현재 주요 병목은 controller보다 checkpoint/runtime,
-target-task data, camera/visual domain과 pick 전용 성공 판정이다.
+2-finger 중앙 `bar_4`가 고정되어 있던 문제를 수정했다. S56/S200062의 양손에
+finger–bar 물리 hinge를 추가하고 수동 링크의 독립 PD 구동을 제거했다.
+3회 개폐·reset 검증에서 연결점 최대 오차는 각각 약 0.00193/0.00244 mm였다.
+구조의 단순화 범위와 재현 명령은
+[4-bar 연결 검증](docs/GRIPPER_CONFIGURATION.md#s200062--s56-physical-four-bar-closure)에 있다.
+
+2026-09-02 **4-bar 수정 후 실제 checkpoint-40K 재평가**를 완료했다.
+`pick up the box`, 10 Hz, 24초/240 step, seed 42에서 양쪽 claw의 개폐 명령 추종과
+14개 arm의 다음-step 목표 추종 MAE `0.0155 rad`를 확인했다. 다만 영상에서
+성공적인 박스 들기는 관찰되지 않았으며 기존 manager task progress는 0이었다.
+이 manager의 성공 조건은 pick-only가 아니므로 별도 집기 성공률로 해석하면 안 된다.
+영상은 `artifacts/eval/rwh_s56_fourbar_fixed_24s.mp4`에 head/left wrist/right wrist
+순서로 저장했고, 지표와 trace도 같은 디렉터리에 있다. 생성 결과물은 Git에 포함하지 않는다.
+
+재평가는 기존과 동일한 conda LeRobot **0.5.1**에서 실행했다. 학습 환경 0.5.2와의
+완전한 일치, strict checkpoint loading, target-task data, camera/visual domain과
+pick 전용 성공 판정은 아직 검증 과제로 남아 있다. 1회 rollout의 추종 오차 차이만으로
+정책 성능이 개선됐다고 판단할 수 없다. 이전 `corrected_twofinger` 기록은 dexterous
+mesh 중복만 제거했던 **4-bar 수정 전** 결과이므로 구분해서 비교해야 한다.
 
 체크포인트의 saved preprocessor에 있는 `new_embodiment=31`은 평가에서도 override
 없이 그대로 사용한다. texture는 단순히 고해상도로 만드는 것보다 학습 카메라의

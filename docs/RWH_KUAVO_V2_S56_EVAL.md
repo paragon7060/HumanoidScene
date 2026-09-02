@@ -275,6 +275,70 @@ do not force it through this 16-D adapter.
 
 ## Validated rollout status
 
+### After the physical four-bar fix (2026-09-02)
+
+The actual checkpoint-40K rollout completed normally after the S56/S200062
+[closed-loop correction](GRIPPER_CONFIGURATION.md#s200062--s56-physical-four-bar-closure).
+This was not a mock-policy test. Reproduction from the repository root:
+
+```bash
+conda activate env_isaaclab_232
+./eval_rwh_kuavo_v2_s56.sh \
+  --headless --no-camera-preview \
+  --episodes 1 --max-steps 240 --seed 42 \
+  --control-hz 10 --actions-per-inference 16 \
+  --video-out artifacts/eval/rwh_s56_fourbar_fixed_24s.mp4 \
+  --metrics-out artifacts/eval/rwh_s56_fourbar_fixed_24s.json \
+  --trace-out artifacts/eval/rwh_s56_fourbar_fixed_trace_24s.json
+```
+
+Use new output filenames when repeating an experiment. The task remained
+`pick up the box`, with checkpoint-q50 arm reset, open claws, 120 Hz physics,
+no domain randomization and the unchanged 16-D policy/17-D manager interface.
+
+| Check | Post-fix result |
+|---|---|
+| Completion | exit 0; 240 steps / 24.0 s; time limit |
+| Recorded video | 240 frames, 2544 x 480, 10 FPS; head / left wrist / right wrist |
+| Box lift | no successful lift observed in sampled video frames |
+| Grippers | both claws received and followed closing commands |
+| 14-arm next-step raw-target MAE / p95 | 0.01555 / 0.04276 rad |
+| Left / right claw next-step MAE | 0.01234 / 0.01003 on the normalized 0-1 scale |
+| Mean action saturation | 4.88%, including claw clipping |
+| Existing manager progress / reward | 0.0 / 83.96320 |
+| Policy inference calls | 15 |
+
+The right-claw closing target exceeded 0.8 at 11.1-13.1 s and from 22.8 s
+onward; the earlier trace had almost no right-claw closure. Tracking statistics
+exclude the final auto-reset state and compare claws with clipped [0,1]
+targets. Actions and states were finite, and signed manager-to-claw conversion
+matched the clipped targets exactly. The trace does not include passive-link
+pin gaps or contact forces; those are covered separately by the linkage tests.
+
+The earlier 0.01754-rad arm MAE came from a separate pre-fix trace run, not
+the pre-fix video run. Different closed-loop trajectories and one episode per
+comparison do not establish a systematic policy improvement. The correction
+fixes linkage motion, but this rollout still does not demonstrate successful
+picking. Existing manager success also requires the broader conveyor/button
+task, so its 0/1 success result is not a pick-only success rate.
+
+The launcher again selected conda `lerobot_050_groot` with LeRobot **0.5.1**;
+exact training-runtime parity with 0.5.2 remains unverified. Non-strict loading
+reported the same unexpected tied embedding key. Existing tokenizer regex,
+imported visual reference and sensor inertia warnings remain. The checkpoint's
+saved embodiment routing was not changed. A mid-run GPU snapshot attributed
+7441 MiB to this Isaac process and 8830 MiB to its policy worker (~15.89 GiB
+combined); this is a snapshot, not a measured peak or minimum VRAM requirement.
+
+### Historical rollout before the physical four-bar fix
+
+**Historical, before the physical four-bar fix.** The recordings named
+`corrected_twofinger` removed the leftover dexterous meshes but still had
+fixed central bars. Their arm tracking results do not validate gripper
+mechanics. The S56/S200062 closed-loop fix is documented in
+[Gripper configuration](GRIPPER_CONFIGURATION.md#s200062--s56-physical-four-bar-closure);
+the post-fix rollout is reported above.
+
 Validation on 2026-09-02 used the generated S56 articulation with the complete
 S200062 two-finger/D405 subtrees, checkpoint q50 arm reset, three native camera
 observations, 10 Hz control, 16 actions per inference, and no domain
@@ -304,11 +368,18 @@ Observed result:
 An 8-second ablation with `--actions-per-inference 1` produced a larger arm
 trajectory and closed the left claw earlier, but still produced no task
 progress. Executing the checkpoint's default 16-step chunk is therefore not the
-primary failure in this scene.
+sole explanation for failure in this scene; this pre-fix ablation does not
+exclude action-chunk effects after the mechanism correction.
 
-The trace rules out gross action-order, gripper interpolation, and arm tracking
-failures. It does not validate grasp contact because the commanded hand did not
-reach a box. Remaining high-priority gaps are:
+The trace checks action-order, commanded claw interpolation, and arm tracking,
+but does not validate passive linkage closure. The subsequently discovered
+fixed-bar defect invalidates the earlier inference that the entire gripper
+mechanism was correct. It also does not validate grasp contact because the
+commanded hand did not reach a box.
+
+### Remaining validation gaps
+
+The post-fix rollout does not resolve these high-priority gaps:
 
 1. Runtime parity. The validated machine automatically selected a functional
    LeRobot 0.5.1 GR00T environment. A separate environment reporting 0.5.2 was

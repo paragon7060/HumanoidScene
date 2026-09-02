@@ -14,10 +14,9 @@ def add_hand_colliders(root):
     )}
     wrist_links = {"zarm_l7_link", "zarm_r7_link"}
     hardware |= wrist_links
-    # The imported four-bar mechanism is a tree: passive decorative bars do
-    # not follow a closed linkage. Giving those bars colliders blocks the jaw
-    # opening and kicks thin flaps away. Contact belongs to the driven finger
-    # bodies and housing; keep the passive bar visuals unchanged.
+    # Passive bars now follow physical closed loops. Contact remains on the
+    # jaws/housing/wrists: thin linkage hardware is not part of this simplified
+    # contact model and must not form a convex hull across the gripping gap.
     material_path = str(root.GetPath()) + "/HandContactMaterial"
     spawn_rigid_body_material(material_path, RigidBodyMaterialCfg(
         static_friction=1.0, dynamic_friction=.8, restitution=0.0))

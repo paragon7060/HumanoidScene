@@ -11,6 +11,8 @@ def _spawn_twofinger_robot(prim_path, cfg, translation=None, orientation=None,
     from pxr import Gf, Usd, UsdPhysics
 
     root = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
+    from .twofinger_linkage import require_closed_linkages
+    require_closed_linkages(root)
     estimates = json.loads((ASSET_DIR / "kuavo_s200062/teleop_inertials.json").read_text())["links"]
     for prim in list(Usd.PrimRange(root)):
         if (disable_wheel_contacts and prim.IsInstance()

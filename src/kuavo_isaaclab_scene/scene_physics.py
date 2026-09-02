@@ -42,6 +42,30 @@ def build_contact_box_spawn(usd_path, scale):
 
 def configure_robot_asset_physics(cfg, model, gripper_settings):
     """Apply hand contacts/inertials without changing wheel contacts or arm control."""
+    from .twofinger_linkage import TWO_FINGER_PRESETS, initial_passive_positions
+
+    if model.name == "s200062" or gripper_settings.name in TWO_FINGER_PRESETS:
+        from isaaclab.actuators import ImplicitActuatorCfg
+        from .gripper_config import load_gripper_settings
+        from .twofinger_linkage import validate_motor_commands
+
+        # S200062 retains its physical integrated hand even with --gripper
+        # none; its passive joints must still be configured and reset safely.
+        effective_hand = (gripper_settings if gripper_settings.name in TWO_FINGER_PRESETS
+                          else load_gripper_settings("s200062_integrated"))
+        validate_motor_commands(effective_hand)
+
+        # Only motor cranks have servos. The loop solver moves both passive
+        # links; a PD target on bar_3/bar_4 would fight the closing hinge.
+        cfg.actuators["twofinger_passive"] = ImplicitActuatorCfg(
+            joint_names_expr=["[lr]_[fb]_bar_[34]_joint"],
+            effort_limit_sim=5.0, velocity_limit_sim=5.0,
+            stiffness=0.0, damping=0.01, friction=0.0, armature=0.001,
+        )
+        commands = {}
+        for side in ("left", "right"):
+            commands.update(effective_hand.command_for(side, effective_hand.open_command))
+        cfg.init_state.joint_pos.update(initial_passive_positions(commands))
     if model.name == "s56":
         # Port the physical joint parameters from biped_s56.xml and the
         # per-motor limits from biped_s56.urdf.  The generic scene actuator

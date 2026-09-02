@@ -44,15 +44,11 @@ def test_s200062_integrated_preset_targets_robot_side_joints() -> None:
     assert settings.asset_name_for("left") == "robot"
     assert settings.joint_names_for("left") == (
         "l_f_bar_1_joint",
-        "l_f_bar_3_joint",
         "l_b_bar_1_joint",
-        "l_b_bar_3_joint",
     )
     assert settings.command_for("right", settings.close_command) == {
         "r_f_bar_1_joint": 0.0,
-        "r_f_bar_3_joint": 0.0,
         "r_b_bar_1_joint": 0.0,
-        "r_b_bar_3_joint": 0.0,
     }
     assert len(teleop_action_names(settings)) == 16
 
