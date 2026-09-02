@@ -1,0 +1,69 @@
+diff --git a/simple/index.html b/simple/index.html
+index 2aef29b..5d83cb7 100644
+--- a/simple/index.html
++++ b/simple/index.html
+@@ -541,6 +541,6 @@ limitations under the License.
+                 <label for="serverType" class="input-label">Select Server Backend</label>
+                 <select id="serverType" class="ui-input">
+                     <option value="local-isaaclab">Local Kuavo IsaacLab (IWER/Quest)</option>
+-                    <option value="manual">Manual Input IP:Port</option>
++                    <option value="manual" selected>Manual Input IP:Port</option>
+                     <option value="nvcf" disabled>NVCF</option>
+                 </select>
+@@ -614,7 +614,7 @@ limitations under the License.
+                 <label for="deviceFrameRate" class="input-label">Device Frame Rate</label>
+                 <select id="deviceFrameRate" class="ui-input config-input">
+-                    <option value="72">72 FPS</option>
+-                    <option value="90" selected>90 FPS</option>
++                    <option value="72" selected>72 FPS</option>
++                    <option value="90">90 FPS</option>
+                     <option value="120">120 FPS</option>
+                 </select>
+                 <div class="config-text">
+@@ -627,9 +627,9 @@ limitations under the License.
+                 <label for="maxStreamingBitrateMbps" class="input-label">Megabits per second</label>
+                 <select id="maxStreamingBitrateMbps" class="ui-input config-input">
+-                    <option value="80">80 Mbps</option>
++                    <option value="80" selected>80 Mbps</option>
+                     <option value="100">100 Mbps</option>
+                     <option value="120">120 Mbps</option>
+-                    <option value="150" selected>150 Mbps</option>
++                    <option value="150">150 Mbps</option>
+                     <option value="180">180 Mbps</option>
+                     <option value="200">200 Mbps</option>
+                 </select>
+@@ -643,8 +643,8 @@ limitations under the License.
+                 <label for="codec" class="input-label">Video Codec</label>
+                 <select id="codec" class="ui-input config-input">
+-                    <option value="h264">H.264</option>
++                    <option value="h264" selected>H.264</option>
+                     <option value="h265">H.265 (HEVC)</option>
+-                    <option value="av1" selected>AV1</option>
++                    <option value="av1">AV1</option>
+                 </select>
+                 <div class="config-text">
+                     Select the preferred streaming codec. Availability depends on browser and server support.
+diff --git a/simple/src/main.ts b/simple/src/main.ts
+index 1cbcdcd..89205ad 100644
+--- a/simple/src/main.ts
++++ b/simple/src/main.ts
+@@ -244,6 +244,18 @@ class CloudXRClient {
+     this.mediaPortInput = document.getElementById('mediaPort') as HTMLInputElement;
+     this.codecSelect = document.getElementById('codec') as HTMLSelectElement;
+     this.serverTypeSelect = document.getElementById('serverType') as HTMLSelectElement;
+-
++
++    // The upstream AV1 default cannot be encoded by the RTX 3060 used for
++    // this workcell. Migrate saved upstream defaults once so an old AV1
++    // localStorage value cannot silently stop every new Quest session.
++    const safeDefaultsVersion = 'kuavo-cloudxr-safe-defaults-v1';
++    if (localStorage.getItem(safeDefaultsVersion) !== 'applied') {
++      localStorage.setItem('codec', 'h264');
++      localStorage.setItem('deviceFrameRate', '72');
++      localStorage.setItem('maxStreamingBitrateMbps', '80');
++      localStorage.setItem('immersiveMode', 'vr');
++      localStorage.setItem(safeDefaultsVersion, 'applied');
++    }
++
+     this.serverTypeSelect.addEventListener('change', () => {
+       if (this.serverTypeSelect.value === 'local-isaaclab') {

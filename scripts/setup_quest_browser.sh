@@ -8,6 +8,7 @@ TARGET_DIR="${CLOUDXR_JS_SAMPLES_DIR:-${PROJECT_DIR}/.external/cloudxr-js-sample
 PATCH_FILES=(
   "${PROJECT_DIR}/integrations/cloudxr/cloudxr-js-samples-local-isaaclab.patch"
   "${PROJECT_DIR}/integrations/cloudxr/cloudxr-js-samples-quest-cert.patch"
+  "${PROJECT_DIR}/integrations/cloudxr/cloudxr-js-samples-kuavo-safe-defaults.patch"
 )
 BRIDGE_FILE="${PROJECT_DIR}/integrations/cloudxr/LocalIsaacLabBridge.ts"
 PATCH_ONLY=0
@@ -32,8 +33,26 @@ if [[ "${CURRENT_COMMIT}" != "${UPSTREAM_COMMIT}" ]]; then
   exit 1
 fi
 
+patch_marker_present() {
+  case "$(basename "$1")" in
+    cloudxr-js-samples-local-isaaclab.patch)
+      grep -q "LocalIsaacLabBridge" "${TARGET_DIR}/simple/src/main.ts"
+      ;;
+    cloudxr-js-samples-quest-cert.patch)
+      grep -q 'id="certLink" href="#" target="_self"' "${TARGET_DIR}/simple/index.html"
+      ;;
+    cloudxr-js-samples-kuavo-safe-defaults.patch)
+      grep -q "kuavo-cloudxr-safe-defaults-v1" "${TARGET_DIR}/simple/src/main.ts"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 for PATCH_FILE in "${PATCH_FILES[@]}"; do
-  if git -C "${TARGET_DIR}" apply --reverse --check "${PATCH_FILE}" >/dev/null 2>&1; then
+  if patch_marker_present "${PATCH_FILE}" \
+      || git -C "${TARGET_DIR}" apply --reverse --check "${PATCH_FILE}" >/dev/null 2>&1; then
     printf 'Patch already applied: %s\n' "$(basename "${PATCH_FILE}")"
   else
     git -C "${TARGET_DIR}" apply --check "${PATCH_FILE}"

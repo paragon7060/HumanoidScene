@@ -192,6 +192,11 @@ npm --prefix .external/cloudxr-js-samples/simple run build
 | Device Frame Rate | **72 FPS** |
 | Proxy URL / Media Address / Media Port | 비워 두고 기본 ICE 사용 |
 
+이 저장소의 패치는 새 브라우저 세션의 기본값을 Manual/H.264/72 FPS/80 Mbps로
+맞추고, 기존 브라우저에 저장된 AV1 기본값도 한 번 갱신한다. per-eye 해상도는
+임의로 낮추지 않는다. 페이지를 새로 빌드했다면 Quest에서 페이지를 완전히 종료한 뒤
+다시 열어야 새 기본값이 적용된다.
+
 `Local Kuavo IsaacLab`/`8765`는 수집용이 아니다. 이 구성은 Runtime 자체 TLS를
 사용하므로 별도 WSS 프록시 `48322`도 필요 없다. `Load defaults`를 나중에
 선택하면 해상도·코덱 등이 바뀔 수 있으므로 최종 값을 다시 확인한다.

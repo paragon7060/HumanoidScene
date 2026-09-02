@@ -16,6 +16,11 @@ The Quest certificate patch opens the certificate link in the same tab, avoiding
 the sample's new-tab navigation when the headset browser blocks it. Certificate
 review remains manual; use Back to return to the client after reviewing it.
 
+The workcell defaults patch selects `Manual Input IP:Port`, H.264, 72 FPS and
+80 Mbps. It also migrates the browser's saved upstream AV1/90 FPS settings once.
+The RTX 3060 is not on CloudXR Runtime 6.2.1's GPU allowlist and its encoder
+cannot serve the upstream AV1 default. Per-eye resolution is left unchanged.
+
 `runtime_service.cpp` hosts the separately installed NVIDIA Runtime SDK through
 its C API. `run_cloudxr_runtime.sh` builds and launches it. The advertised endpoint
 defaults to loopback, but Runtime 6.2.1 can still bind signaling on all interfaces;
