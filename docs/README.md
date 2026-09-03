@@ -21,6 +21,7 @@
 | 상황 | 읽을 문서 |
 |---|---|
 | 처음 연결한다 | [Quest 빠른 시작](QUEST3_QUICKSTART.md) |
+| 실제 수집기 SDK·인증서부터 준비한다 | [수집기 설치·간편 실행](QUEST_COLLECTOR_SETUP.md) |
 | 이미 설치된 서비스를 다시 실행한다 | [Quest Runtime 실행](QUEST_RUNTIME_SERVICE.md) |
 | 조작키·보정·카메라·데이터 schema가 필요하다 | [Quest 상세 가이드](QUEST3_KUAVO_TELEOP_GUIDE.md) |
 | 관찰자 화면과 성능 옵션을 정한다 | [Quest 화면·성능](QUEST3_DISPLAY_AND_PERFORMANCE.md) |

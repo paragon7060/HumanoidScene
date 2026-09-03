@@ -3,7 +3,7 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME_DIR="${CLOUDXR_RUNTIME_DIR:-${PROJECT_DIR}/.external/cloudxr-runtime}"
 SOURCE="${PROJECT_DIR}/integrations/cloudxr/runtime_service.cpp"
-BINARY="${PROJECT_DIR}/.external/bin/kuavo-cloudxr-service"
+BINARY="${CLOUDXR_SERVICE_BINARY:-${PROJECT_DIR}/.external/bin/kuavo-cloudxr-service}"
 if [[ ! -f "${RUNTIME_DIR}/include/cxrServiceAPI.h" || ! -f "${RUNTIME_DIR}/libcloudxr.so" ]]; then
   printf '%s\n' 'Extract the CloudXR Linux SDK into .external/cloudxr-runtime or set CLOUDXR_RUNTIME_DIR.' >&2
   exit 1

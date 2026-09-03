@@ -1,5 +1,10 @@
 # 준비된 PC에서 Quest teleop 시작하기
 
+> 새 PC의 권장 진입점은 [수집기 설치·간편 실행](QUEST_COLLECTOR_SETUP.md)이다.
+> `setup_quest_collector.sh`로 PC별 설정을 생성하면 `quest_collector.sh`가 자동으로
+> 불러온다. 아래의 `/home/seonho/...`, `192.168.45.235`, 8080은 기존 PC의
+> 수동 실행 기록이며 그대로 복사하지 않는다. 새 wrapper의 수집용 HTTPS 기본 포트는 8443이다.
+
 이 저장소는 별도로 설치한 NVIDIA CloudXR Runtime 6.x를 실행하는
 `run_cloudxr_runtime.sh`와 빌드된 웹 클라이언트를 제공하는
 `run_quest_browser.sh`를 포함한다. 실제 로봇 하드웨어가 아니라 Isaac Lab 속

@@ -42,6 +42,8 @@ parser.add_argument("--control-hz", type=int, choices=(30, 60), default=60,
                     help="Simulation control timestep; actual wall-clock rate is printed as [PERF].")
 parser.add_argument("--scene-detail", choices=("full", "compact"), default="compact",
                     help="Compact removes background warehouse props and unused legacy task bodies; preserves materials.")
+parser.add_argument("--scene-config", type=Path, default=None, metavar="PY",
+                    help="Trusted local Python scene file defining configure(cfg); applied before physics starts.")
 parser.add_argument("--desktop-render", action=argparse.BooleanOptionalAction, default=False,
                     help="Render the full desktop viewport; otherwise keep only a tiny render while camera frames are needed.")
 parser.add_argument(
@@ -188,6 +190,10 @@ add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 parser.set_defaults(device="cpu")
 args_cli = parser.parse_args()
+if args_cli.scene_config is not None:
+    args_cli.scene_config = args_cli.scene_config.expanduser().resolve()
+    if not args_cli.scene_config.is_file() or args_cli.scene_config.suffix != ".py":
+        parser.error("--scene-config must point to an existing trusted Python (.py) scene file.")
 if not args_cli.wrist_cameras:
     args_cli.quest_camera_overlay = False
     args_cli.record_wrist_cameras = False
@@ -373,6 +379,10 @@ def main() -> None:
         cfg.scene.robustness_camera.data_types = ["rgb"]
     set_domain_randomization(cfg, args_cli.domain_randomization)
     configure_scene_detail(cfg, args_cli.scene_detail)
+    # Assets and spawn-time material overrides must precede creation of the
+    # PhysX tensor views. Editing stage topology after env.reset invalidates them.
+    from .teleop_scene_config import apply_scene_config
+    extra_recording_objects = apply_scene_config(args_cli.scene_config, cfg)
 
     env = ManagerBasedRLEnv(cfg=cfg)
     env.reset(seed=args_cli.seed)
@@ -432,7 +442,8 @@ def main() -> None:
     right_body_ids, _ = robot.find_bodies("zarm_r7_end_effector")
     if len(left_body_ids) != 1 or len(right_body_ids) != 1:
         raise RuntimeError("Could not resolve both Kuavo end-effector bodies.")
-    box_names = [name for name in LOCAL_BOX_SCENE_KEYS if _scene_asset_or_none(env.scene, name) is not None]
+    box_names = [name for name in dict.fromkeys((*LOCAL_BOX_SCENE_KEYS, *extra_recording_objects))
+                 if _scene_asset_or_none(env.scene, name) is not None]
     button = _scene_asset_or_none(env.scene, "button_station")
     button_joint_count = int(button.data.joint_pos.shape[-1]) if button is not None else 0
 
@@ -938,6 +949,7 @@ def main() -> None:
                         "render_quality": args_cli.render_quality,
                         "record_depth": args_cli.record_depth,
                         "scene_detail": args_cli.scene_detail,
+                        "scene_config": str(args_cli.scene_config) if args_cli.scene_config else "default",
                         "wrist_cameras_enabled": args_cli.wrist_cameras,
                         "control_dt": float(env.step_dt),
                         "action_layout": ",".join(action_names + BODY_ACTION_NAMES),
