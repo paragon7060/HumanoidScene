@@ -129,8 +129,13 @@ Kuavo 머리가 움직일 때 head camera 영상도 함께 변하는지 보려�
 
 - IWER HMD 회전 → Kuavo head yaw/pitch
 - IWER 좌우 controller 이동/회전 → Kuavo 양팔 differential IK
-- Kuavo 단안 head camera → 브라우저 전체 XR 화면
-- 좌우 wrist camera → 브라우저 화면 아래쪽 inset
+- 좌우 XR camera → 브라우저 양안 stereo 화면
+- head/좌우 wrist camera → 작은 영상 panel
+- 왼쪽 stick → 베이스 전후/좌우 이동, 오른쪽 stick → 베이스 회전/몸통 높이
+
+브라우저 스틱도 수집기의 `TeleopBodyMapper`를 사용한다. 추적 손실 시 베이스는
+정지하고 몸통 높이는 유지한다. 웹 클라이언트 갱신과 조작 제한은
+[미리보기 조작 안내](QUEST3_QUICKSTART.md#브라우저-미리보기의-베이스몸통-조작)를 참고한다.
 
 터미널 1에서 정확한 teleop 환경과 로컬 브리지를 실행한다.
 

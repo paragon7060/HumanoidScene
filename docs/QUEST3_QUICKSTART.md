@@ -15,6 +15,40 @@ HDF5 episode 저장까지의 최소 흐름만 설명한다. CloudXR SDK 설치, 
 
 PC 브라우저 미리보기 성공은 CloudXR/OpenXR 실기 연결 성공을 뜻하지 않는다.
 
+### 브라우저 미리보기의 베이스·몸통 조작
+
+`preview_quest_browser.sh`도 수집기의 `TeleopBodyMapper`를 사용한다.
+
+| 입력 | 동작 |
+|---|---|
+| 왼쪽 stick 위/아래 | 베이스 전진/후진 |
+| 왼쪽 stick 좌/우 | 베이스 좌/우 평행 이동 |
+| 오른쪽 stick 좌/우 | 베이스 좌/우 회전 |
+| 오른쪽 stick 위/아래 | 몸통 높이 올리기/내리기 (S200062/S63) |
+| 양쪽 검지 trigger | 해당 gripper 닫기/열기 |
+
+베이스 최고 속도는 0.25 m/s, 회전은 1.2 rad/s이며 수집기와 같은 deadzone과
+몸통 높이 제한을 사용한다. 처음 몸통 높이는 하한이므로 먼저 올려야 내릴 수 있다.
+S56은 평면 베이스 조작만 가능하고 몸통 승강은 지원하지 않는다. 이 이동은 실제
+바퀴 주행 제어가 아니라 시뮬레이션 fixed-root 이동이다.
+
+미리보기는 기존처럼 유효한 추적 후 자동으로 따라오며, 아래 수집기의 A/B 녹화
+버튼 절차를 사용하지 않는다. 양쪽 controller와 head가 추적되고 연결이 유효할 때만
+스틱을 적용한다. 추적 손실·오래된 패킷·controller 제거 시 베이스는 정지하고 몸통
+높이는 유지한다. 맨손 모드는 스틱이 없으므로 베이스·몸통은 유지한다.
+
+업데이트 후에는 Python 실행기뿐 아니라 웹 클라이언트도 갱신해야 한다.
+
+```bash
+./setup_quest_browser.sh --patch-only
+npm --prefix .external/cloudxr-js-samples/simple run build
+```
+
+웹 서버를 유지한 채 Quest에서 XR을 종료하고 페이지를 새로 고친 뒤 재접속한다.
+기존 Python 미리보기도 종료 후 같은 명령으로 재실행한다. 구버전 웹페이지는
+스틱 데이터를 보내지 않으므로 베이스가 움직이지 않는다. 데이터 저장은 여전히
+`collect_quest_teleop.sh`에서만 지원한다.
+
 ## 1. Isaac 환경 확인
 
 ```bash

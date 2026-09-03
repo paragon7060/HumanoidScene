@@ -43,6 +43,20 @@ class BrowserEyeView:
 
 
 @dataclass(frozen=True)
+class BrowserControllerState:
+    grip: Pose
+    thumbstick: tuple[float, float]  # WebXR: right/down positive
+    trigger: float
+
+    def native_packet(self) -> np.ndarray:
+        """Adapt WebXR axes to the shared OpenXR body mapper (+Y up)."""
+        packet = np.zeros((2, 7), dtype=np.float32)
+        packet[0] = self.grip
+        packet[1, :3] = (self.thumbstick[0], -self.thumbstick[1], self.trigger)
+        return packet
+
+
+@dataclass(frozen=True)
 class BrowserTrackingSample:
     sequence: int
     client_timestamp_ms: float
@@ -51,6 +65,9 @@ class BrowserTrackingSample:
     right_hand: dict[str, Pose] | None
     views: tuple[BrowserEyeView, ...]
     received_at: float
+    # Optional protocol-v2 extension: older clients remain safe with no motion.
+    left_controller: BrowserControllerState | None = None
+    right_controller: BrowserControllerState | None = None
 
 
 @dataclass(frozen=True)
@@ -152,6 +169,20 @@ def parse_tracking_message(message: str, *, received_at: float | None = None) ->
                 parsed[name] = pose
         return parsed if "wrist" in parsed else None
 
+    def parse_controller(value: Any) -> BrowserControllerState | None:
+        if not isinstance(value, dict):
+            return None
+        try:
+            grip = webxr_pose_to_kuavo(value.get("grip"))
+            stick = np.asarray(value.get("thumbstick"), dtype=np.float32)
+            trigger = float(value.get("trigger", 0.0))
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if grip is None or stick.shape != (2,) or not np.all(np.isfinite(stick)) or not np.isfinite(trigger):
+            return None
+        stick = np.clip(stick, -1.0, 1.0)
+        return BrowserControllerState(grip, (float(stick[0]), float(stick[1])), float(np.clip(trigger, 0.0, 1.0)))
+
     views = []
     for value in payload.get("views", []):
         if not isinstance(value, dict) or value.get("eye") not in {"left", "right"}:
@@ -181,6 +212,8 @@ def parse_tracking_message(message: str, *, received_at: float | None = None) ->
         right_hand=parse_hand(payload.get("right_hand")),
         views=tuple(views),
         received_at=time.monotonic() if received_at is None else received_at,
+        left_controller=parse_controller(payload.get("left_controller")),
+        right_controller=parse_controller(payload.get("right_controller")),
     )
 
 

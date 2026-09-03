@@ -8,6 +8,12 @@ type EyeViewPacket = {
   projection_matrix: number[];
 };
 
+type ControllerPacket = {
+  grip: PoseArray;
+  thumbstick: [number, number]; // WebXR: +X right, +Y down
+  trigger: number;
+};
+
 type TrackingPacket = {
   type: 'tracking';
   protocol_version: number;
@@ -16,6 +22,8 @@ type TrackingPacket = {
   head: PoseArray | null;
   left_hand: Record<string, PoseArray> | null;
   right_hand: Record<string, PoseArray> | null;
+  left_controller: ControllerPacket | null;
+  right_controller: ControllerPacket | null;
   views: EyeViewPacket[];
 };
 
@@ -43,6 +51,29 @@ function controllerHand(wrist: PoseArray): Record<string, PoseArray> {
     wrist,
     thumb_tip: [x - 0.025, y + 0.015, z - 0.035, qw, qx, qy, qz],
     index_tip: [x + 0.025, y + 0.015, z - 0.035, qw, qx, qy, qz],
+  };
+}
+
+export function trackedController(
+  frame: XRFrame,
+  inputSource: XRInputSource,
+  referenceSpace: XRReferenceSpace
+): ControllerPacket | null {
+  // Hand tracking can also expose a gamepad; do not interpret it as a stick.
+  const gamepad = inputSource.gamepad;
+  if (inputSource.hand || !inputSource.gripSpace || !gamepad || gamepad.mapping !== 'xr-standard') return null;
+  const grip = poseFromSpace(frame, inputSource.gripSpace, referenceSpace);
+  if (!grip) return null;
+  const axis = (index: number): number => {
+    const value = gamepad.axes[index] ?? 0;
+    return Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
+  };
+  const trigger = gamepad.buttons[0]?.value ?? 0;
+  return {
+    grip,
+    // xr-standard axes 0/1 are the touchpad, 2/3 are the thumbstick.
+    thumbstick: [axis(2), axis(3)],
+    trigger: Number.isFinite(trigger) ? Math.max(0, Math.min(1, trigger)) : 0,
   };
 }
 
@@ -183,6 +214,8 @@ export class LocalIsaacLabBridge {
       head: viewerPose ? transformToArray(viewerPose.transform) : null,
       left_hand: null,
       right_hand: null,
+      left_controller: null,
+      right_controller: null,
       views: viewerPose
         ? viewerPose.views
             .filter(view => view.eye === 'left' || view.eye === 'right')
@@ -196,8 +229,14 @@ export class LocalIsaacLabBridge {
     for (const inputSource of frame.session.inputSources) {
       if (inputSource.handedness !== 'left' && inputSource.handedness !== 'right') continue;
       const hand = trackedHand(frame, inputSource, this.referenceSpace);
-      if (inputSource.handedness === 'left') packet.left_hand = hand;
-      else packet.right_hand = hand;
+      const controller = trackedController(frame, inputSource, this.referenceSpace);
+      if (inputSource.handedness === 'left') {
+        packet.left_hand = hand;
+        packet.left_controller = controller;
+      } else {
+        packet.right_hand = hand;
+        packet.right_controller = controller;
+      }
     }
     this.socket.send(JSON.stringify(packet));
   }

@@ -16,7 +16,7 @@ from .gripper_config import (
     gripper_teleop_action,
     resolve_gripper_settings,
 )
-from .robot_model import add_robot_model_cli_args, export_robot_model_cli
+from .robot_model import add_robot_model_cli_args, export_robot_model_cli, resolve_robot_model
 
 
 parser = argparse.ArgumentParser(description="Preview Kuavo Quest interaction through a local browser/IWER.")
@@ -104,12 +104,14 @@ import torch
 from isaaclab.envs import ManagerBasedRLEnv
 
 from .browser_teleop_bridge import BrowserTeleopBridge, BrowserTrackingSample
+from .browser_teleop_control import browser_body_action, compose_browser_action
 from .camera_viewports import open_camera_viewports
 from .stereo_camera_calibration import calibrations_from_tracking, camera_world_pose
 from .stereo_compositor import compose_stereo_atlas
 from .teleop_safety import GripperCommandLatch, TrackingLossGuard
 from .teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
 from .teleop_mapping import BimanualTeleopMapper, TeleopMappingCfg
+from .teleop_body import TeleopBodyMapper
 
 
 def _to_numpy(tensor: torch.Tensor) -> np.ndarray:
@@ -203,6 +205,9 @@ def main() -> None:
     )
     gripper_latch = GripperCommandLatch(GRIPPER_SETTINGS.active_sides)
     tracking_guard = TrackingLossGuard(recovery_frames=5, abort_after_s=1.0)
+    robot_model = resolve_robot_model()
+    body_mapper = TeleopBodyMapper(robot_model.urdf_path, has_wheel_base=robot_model.has_wheel_base)
+    arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
     robot = env.scene["robot"]
     stream_interval = max(1, int(round((1.0 / float(env.step_dt)) / args_cli.stream_fps)))
     previous_clients = -1
@@ -219,9 +224,11 @@ def main() -> None:
     print(f"[READY] Browser bridge: ws://{args_cli.bridge_host}:{args_cli.bridge_port}")
     print("[CONTROL] In Chrome/IWER, move the HMD and left/right controllers.")
     print("[CONTROL] The first tracked frame calibrates; subsequent motion drives Kuavo head and arms.")
+    print("[CONTROL] Left stick=base forward/strafe; right stick=turn/torso lift; index triggers=grippers.")
+    print("[CONTROL] Body motion requires both tracked controllers and head; tracking loss stops the base and holds torso height.")
     print("[VIEW] Browser XR: stereo Isaac scene with small head/left-wrist/right-wrist panels.")
     print("[LIMIT] Browser JPEG preview has no CloudXR pose reprojection; use collect_quest_teleop.sh for recording.")
-    print(f"[GRIPPER] preset={GRIPPER_SETTINGS.name}; controller pinch drives open/close.")
+    print(f"[GRIPPER] preset={GRIPPER_SETTINGS.name}; controller triggers or tracked-hand pinch drive open/close.")
 
     step = 0
     try:
@@ -275,24 +282,29 @@ def main() -> None:
                     print(f"[XR CALIBRATION] Quest eye separation={ipd_m * 1000.0:.1f} mm; FOV updated.")
                     last_reported_ipd_m = ipd_m
 
-            desired_gripper = gripper_teleop_action(
+            desired_gripper = list(gripper_teleop_action(
                 GRIPPER_SETTINGS,
                 mapped.left_pinch_m,
                 mapped.right_pinch_m,
-            )
+            ))
+            controllers = {"left": sample.left_controller, "right": sample.right_controller}
+            for index, side in enumerate(GRIPPER_SETTINGS.active_sides):
+                controller = controllers[side]
+                if controller is not None:
+                    desired_gripper[index] = -1.0 if controller.trigger >= 0.5 else 1.0
             safe_gripper = gripper_latch.advance(
-                desired_gripper,
+                tuple(desired_gripper),
                 left_valid=mapped.left_valid,
                 right_valid=mapped.right_valid,
             )
-            action_np = np.concatenate(
-                (
-                    mapped.action,
-                    np.asarray(safe_gripper, dtype=np.float32),
-                )
+            body_action = browser_body_action(
+                sample, body_mapper, env.step_dt, control_allowed=safety.control_allowed
             )
+            action_np = compose_browser_action(mapped.action, safe_gripper, body_action)
             if not safety.control_allowed:
                 action_np[:12] = 0.0
+            for term in arm_terms:
+                term.set_following(safety.control_allowed)
             action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
             env.step(action)
             metrics_steps += 1

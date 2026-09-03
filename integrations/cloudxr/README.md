@@ -6,6 +6,19 @@ sample. It forwards WebXR head/hand/controller tracking to
 `preview_quest_browser.sh` on WebSocket port 8765 and renders the returned Kuavo
 camera composite.
 
+The browser also sends tracked controller grips, thumbstick axes and trigger
+values. The Python preview adapts WebXR's down-positive Y axis to the shared
+OpenXR body mapper, enabling the same base translation/rotation and torso lift
+as collection. Missing/stale controller input stops the base and holds torso
+height. Protocol v2 remains compatible with older clients, but those clients
+cannot move the base until rebuilt. Thumbstick indices 2/3 and trigger index 0
+follow the [WebXR Gamepads mapping](https://immersive-web.github.io/webxr-gamepads-module/#xr-standard-gamepad-mapping).
+
+After updating this integration, run `./setup_quest_browser.sh --patch-only`
+and `npm --prefix .external/cloudxr-js-samples/simple run build`, then reload
+the Quest page and restart the preview. No simulator is needed for the input
+extraction check: `node tests/test_browser_controller_packet.cjs`.
+
 This backend is a preview and does not record datasets. For NVIDIA downloads,
 the OpenXR runtime manifest, Linux service prerequisites, and actual Quest
 collection, start with the [Quest quick-start guide](../../docs/QUEST3_QUICKSTART.md).
