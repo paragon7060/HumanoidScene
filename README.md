@@ -25,6 +25,7 @@ Kuavo humanoid가 경사진 랙의 열린 박스를 컨베이어의 빈 공간�
 | 목적별 문서 찾기 | [문서 목차](docs/README.md) |
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |
 | Meta Quest를 처음 연결하고 수집 | [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md) |
+| 실제 수집기 SDK·인증서 준비 및 간편 실행 | [수집기 설치·실행](docs/QUEST_COLLECTOR_SETUP.md) |
 | Quest 전체 옵션과 조작법 | [Quest 상세 가이드](docs/QUEST3_KUAVO_TELEOP_GUIDE.md) |
 | 관찰자 화면과 성능 설정 | [Quest 화면·성능](docs/QUEST3_DISPLAY_AND_PERFORMANCE.md) |
 | 준비된 CloudXR 환경 재실행 | [Quest Runtime 실행](docs/QUEST_RUNTIME_SERVICE.md) |
@@ -125,6 +126,18 @@ dictionary 설정은 [Workcell 편집 가이드](docs/ISAACSIM_WORKCELL_GUIDE.md
 
 ## 4. Isaac Sim 배치 편집
 
+로봇이 서는 **rack–conveyor 외형 간격**은 현재 **1.10 m**다. 좌표를 직접 계산하지
+않고 다음 명령으로 확인·조절할 수 있다. Rack/로봇은 유지하고 conveyor만 이동한다.
+
+```bash
+./set_workcell_gap.sh                        # 현재 간격 확인
+./set_workcell_gap.sh --gap 1.20 --dry-run   # 1.20 m로 변경할 위치 미리보기
+./set_workcell_gap.sh --gap 1.20             # JSON 저장; scene/eval 재시작 시 적용
+```
+
+이는 벨트 내부 물리면이 아닌 프레임 포함 외형 기준이다. 백업·별도 layout 사용법과
+지원하는 배치 조건은 [간격 조절](docs/ISAACSIM_WORKCELL_GUIDE.md#51a-rackconveyor-통로-간격을-숫자로-조절)에 있다.
+
 권장 흐름:
 
 1. `run_scene.sh`로 scene을 연다.
@@ -191,6 +204,21 @@ manager-based 환경은 reset마다 randomize한다.
 ```
 
 ## 7. Meta Quest teleoperation
+
+실제 OpenXR 수집기를 처음 준비한다면 [수집기 설치·실행](docs/QUEST_COLLECTOR_SETUP.md)을
+따른다. `setup_quest_collector.sh`가 SDK·인증서·환경 파일·수집용 웹 snapshot을
+별도로 준비하고, 이후에는 아래 명령만 사용한다.
+
+```bash
+./quest_collector.sh check     # 서비스/시뮬레이터 없이 파일·SDK 로딩 점검
+./quest_collector.sh runtime   # 터미널 1
+./quest_collector.sh web       # 터미널 2, HTTPS 8443
+# Quest에서 Manual backend / PC IP / 49100으로 CONNECT한 뒤:
+./quest_collector.sh collect   # 터미널 3, 수동 녹화 시작
+```
+
+각 서비스는 별도 터미널에서 유지한다. 생성된 환경 파일을 자동으로 읽으며,
+preview의 HTTP 8080/WebSocket 8765와 구분한다.
 
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에
 중복하지 않는다. 처음에는 [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md)을 따른다.

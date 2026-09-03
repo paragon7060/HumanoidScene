@@ -89,8 +89,8 @@ def _normalize_quat(value: list[float], anchor: str) -> Quat:
     return tuple(float(component) / norm for component in value)  # type: ignore[return-value]
 
 
-def load_layout() -> dict[str, AnchorPose]:
-    path = _layout_path()
+def load_layout(path: Path | None = None) -> dict[str, AnchorPose]:
+    path = _layout_path() if path is None else path
     with path.open("r", encoding="utf-8") as stream:
         raw = json.load(stream)
     missing = set(REQUIRED_ANCHORS).difference(raw)

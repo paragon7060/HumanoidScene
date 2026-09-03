@@ -159,6 +159,48 @@ artifacts/output/measured_workcell.usda
 conveyor, fence, button station의
 월드 position/rotation과 랙 scale을 저장한다.
 
+### 5.1a Rack–conveyor 통로 간격을 숫자로 조절
+
+현재 기본 layout의 간격은 **1.10 m**다. 기준은 rack의 로봇 쪽 앞면과 conveyor의
+가장 돌출된 외형 사이 거리다. 내부 벨트용 collision deck의 끝이나 로봇 중심까지의
+거리가 아니다. 로봇 몸체, 박스 돌출, 팔 작업 공간 및 안전 여유는 별도로 확인한다.
+
+```bash
+conda activate env_isaaclab_232
+./set_workcell_gap.sh
+./set_workcell_gap.sh --gap 1.10 --dry-run
+./set_workcell_gap.sh --gap 1.10
+```
+
+GPU나 Isaac Sim 실행 없이 계산한다. 기본적으로 `configs/workcell_layout.json`의
+`conveyor.pos`만 수정하고 rack, robot, fence, button station과 회전은 유지한다.
+현재 배치에서는 conveyor X만 바뀐다. 벨트 물리면과 슬롯 등 conveyor anchor에
+연결된 요소는 다음 scene/eval 실행에서 함께 이동한다. 실행 중인 scene에는 즉시
+반영되지 않으므로 재시작해야 한다. 이전 eval 영상은 이전 간격의 기록 그대로다.
+
+파일을 변경할 때 `workcell_layout.json.bak.<timestamp>` 백업을 남긴다. 같은 간격을
+다시 지정하면 파일을 쓰지 않는다. 기본 runtime JSON과 wheel용 packaged JSON은
+이번 변경에서 모두 1.10 m로 동기화했다. 이후 현장별 조정은 runtime JSON에만
+저장되며, 배포용 기본값을 갱신할 때는 기존 `scripts/build_wheel.sh`가 설정을 복사한다.
+
+별도 실험 배치를 만들려면:
+
+```bash
+./set_workcell_gap.sh --gap 1.20 --output artifacts/layouts/aisle_120cm.json
+KUAVO_WORKCELL_LAYOUT="$PWD/artifacts/layouts/aisle_120cm.json" ./run_scene.sh
+```
+
+`--layout /path/layout.json`으로 조정 대상을 지정할 수 있고, 생략하면 런처의
+`KUAVO_WORKCELL_LAYOUT` / `KUAVO_CONFIG_DIR` 선택을 따른다. 기존 별도 output은
+덮어쓰지 않는다. wheel 설치에서는 `python -m kuavo_isaaclab_scene.workcell_gap`도 가능하다.
+
+측정은 현재 `Rack.usd`와 Isaac 5.1 `ConveyorBelt_A08_PR_NVD_01.usd`의 보정된
+외형 bounds를 사용한다. 두 구조물이 수직으로 서 있고, 서로 평행하며 앞쪽 구간이
+겹치는 배치만 지원한다. Rack 크기 변경과 두 구조물의 공통 yaw 회전은 지원하지만,
+conveyor의 layout scale은 scene에서 적용되지 않으므로 1이 아니면 거부한다.
+새 USD/프레임을 사용하면 `workcell_gap.py`의 bounds를 다시 측정해야 한다.
+사선 또는 L자 배치에서는 이 통로 간격 정의가 맞지 않으므로 기존 수동 배치/캡처를 쓴다.
+
 ### 5.2 랙 위 박스 자동 감지 및 캡처
 
 ```bash
