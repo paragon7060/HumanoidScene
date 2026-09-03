@@ -5,6 +5,8 @@ import re
 import pytest
 
 from kuavo_isaaclab_scene.gripper_config import (
+    DEFAULT_GRIPPER_CONFIG,
+    FingerContactSettings,
     GRIPPER_ENV,
     gripper_teleop_action,
     load_gripper_settings,
@@ -156,3 +158,65 @@ def test_invalid_quaternion_is_rejected(tmp_path) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="quaternion"):
         load_gripper_settings(config_path=path)
+
+
+def test_high_friction_is_only_enabled_for_s56_twofinger() -> None:
+    settings = load_gripper_settings("s56_twofinger")
+    assert settings.finger_contact == FingerContactSettings(3.0, 2.0, "average")
+    assert settings.actuator.friction == 0.02
+    for preset in ("s200062_integrated", "s56_qiangnao", "robotiq_2f85", "none"):
+        assert load_gripper_settings(preset).finger_contact == FingerContactSettings()
+
+
+def _write_contact_config(tmp_path, contact, preset="s56_twofinger"):
+    payload = json.loads(DEFAULT_GRIPPER_CONFIG.read_text(encoding="utf-8"))
+    payload["presets"][preset]["finger_contact"] = contact
+    path = tmp_path / "grippers.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("preset", ["s56_twofinger", "s200062_integrated"])
+@pytest.mark.parametrize("combine", ["average", "min", "multiply", "max"])
+def test_custom_finger_contact_config(tmp_path, monkeypatch, preset, combine) -> None:
+    path = _write_contact_config(tmp_path, {
+        "static_friction": 2.5, "dynamic_friction": 1.5,
+        "friction_combine_mode": combine,
+    }, preset)
+    monkeypatch.setenv("KUAVO_GRIPPER_CONFIG", str(path))
+    assert load_gripper_settings(preset).finger_contact == FingerContactSettings(2.5, 1.5, combine)
+
+
+def test_legacy_config_preserves_contact_friction(tmp_path) -> None:
+    payload = json.loads(DEFAULT_GRIPPER_CONFIG.read_text(encoding="utf-8"))
+    del payload["presets"]["s56_twofinger"]["finger_contact"]
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    assert load_gripper_settings("s56_twofinger", path).finger_contact == FingerContactSettings()
+
+
+@pytest.mark.parametrize("contact", [
+    [], None, {"static_friction": -1}, {"dynamic_friction": -1},
+    {"static_friction": math.nan}, {"dynamic_friction": math.inf},
+    {"static_friction": True}, {"dynamic_friction": "2"},
+    {"static_friction": 1.0, "dynamic_friction": 2.0},
+    {"friction_combine_mode": "maximum"}, {"friction_combine_mode": []},
+    {"friction": 3.0},
+])
+def test_invalid_finger_contact_config_is_rejected(tmp_path, contact) -> None:
+    path = _write_contact_config(tmp_path, contact)
+    with pytest.raises(ValueError, match="finger_contact"):
+        load_gripper_settings("s56_twofinger", path)
+
+
+def test_finger_contact_rejects_unsupported_hand_presets(tmp_path) -> None:
+    path = _write_contact_config(tmp_path, {}, "s56_qiangnao")
+    with pytest.raises(ValueError, match="only.*two-finger"):
+        load_gripper_settings("s56_qiangnao", path)
+
+
+def test_packaged_and_workspace_gripper_defaults_match() -> None:
+    from pathlib import Path
+
+    workspace = Path(__file__).resolve().parents[1] / "configs/grippers.json"
+    assert json.loads(workspace.read_text()) == json.loads(DEFAULT_GRIPPER_CONFIG.read_text())

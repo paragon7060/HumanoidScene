@@ -103,6 +103,49 @@ composed running stage are not automatically written back to configuration.
 
 ## S200062 / S56 physical four-bar closure
 
+### Finger surface friction
+
+The S56 `s56_twofinger` preset now uses an experimental high-friction setting:
+static **3.0**, dynamic **2.0**, versus the previous **1.0 / 0.8**. These are
+simulation tuning values, not measured real Kuavo contact coefficients.
+Adjust `presets.s56_twofinger.finger_contact` in `configs/grippers.json`:
+
+```json
+"finger_contact": {
+  "static_friction": 3.0,
+  "dynamic_friction": 2.0,
+  "friction_combine_mode": "average"
+}
+```
+
+Only the four `l/r_f/b_finger` collision-mesh groups use this material; it
+applies to the entire finger mesh, not a separately modeled rubber pad.
+Housing and wrist surfaces retain **1.0 / 0.8**, and joint `actuator.friction`
+remains **0.02**. Torque limits, PD gains, box materials and contact offsets
+are unchanged. The S200062 preset retains **1.0 / 0.8** by default but can use
+the same optional configuration block. Other hand types do not support this
+field and reject it instead of silently ignoring it.
+
+The combined contact friction also depends on the object's material and its
+combine mode; `average` retains the previous hand-side combination rule.
+Increasing friction can reduce slipping after contact, but does not create
+contact, increase squeezing torque, or ensure a successful lift. Check contact
+stability and real-world plausibility before treating this as a hardware preset.
+Restart the scene/eval to apply edits. Old videos, policy metrics and numerical
+contact-force results below predate this increase and must not be reused as
+evidence of high-friction grasp performance. Missing `finger_contact` in an
+older custom JSON preserves the old **1.0 / 0.8** values.
+
+High-friction regression (2026-09-02): `verify_twofinger_linkage.py` now checks
+the resolved physics-material bindings on all finger, housing and wrist collision
+meshes, and includes them in its JSON report. An S56 headless contact probe passed
+two open/close/reset cycles (960 physics steps at 120 Hz): maximum pin separation
+**0.0740 mm**. Local report:
+`artifacts/diagnostics/s56_finger_friction_3_2_contact.json`. This uses kinematic
+test blocks; it is neither a slip-resistance benchmark nor a policy grasp eval.
+
+### Linkage geometry and validation
+
 The `s200062_integrated` and `s56_twofinger` presets drive only
 `{side}_f_bar_1_joint` and `{side}_b_bar_1_joint`. Central `bar_4` links are
 revolute, not welded to the housing. Each finger is connected to its matching

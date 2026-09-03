@@ -39,8 +39,54 @@ from isaaclab.sensors import Camera, CameraCfg, ContactSensor, ContactSensorCfg
 import isaaclab.sim as sim_utils
 from isaaclab.utils.math import quat_apply
 from kuavo_isaaclab_scene.eval_video import FfmpegVideoWriter
+from kuavo_isaaclab_scene.gripper_config import FingerContactSettings, load_gripper_settings
 from kuavo_isaaclab_scene.manager_env import KUAVO_CFG
 from kuavo_isaaclab_scene.twofinger_linkage import FINGER_PIN, FOLLOWER_PIN, pin_for
+
+
+def verify_contact_materials():
+    """Check resolved physics bindings on actual collision meshes, not just JSON."""
+    from pxr import PhysxSchema, Usd, UsdGeom, UsdPhysics, UsdShade
+
+    stage = sim_utils.get_current_stage()
+    root = stage.GetPrimAtPath("/World/Robot")
+    fingers = {f"{side}_{jaw}_finger" for side in "lr" for jaw in "fb"}
+    housing = {f"{side}_twofinger_base" for side in "lr"} | {"zarm_l7_link", "zarm_r7_link"}
+    configured = load_gripper_settings().finger_contact
+    report = {}
+    for link in root.GetChildren():
+        name = link.GetName()
+        if name not in fingers | housing:
+            continue
+        expected = configured if name in fingers else FingerContactSettings()
+        material_name = "FingerContactMaterial" if name in fingers else "HandContactMaterial"
+        meshes = []
+        for prim in Usd.PrimRange(link):
+            if not prim.IsA(UsdGeom.Mesh) or "/visuals/" not in str(prim.GetPath()):
+                continue
+            collision = UsdPhysics.CollisionAPI(prim)
+            if not collision or not collision.GetCollisionEnabledAttr().Get():
+                raise RuntimeError(f"Missing enabled collision on {prim.GetPath()}")
+            material, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial("physics")
+            expected_path = f"/World/Robot/{material_name}"
+            if not material or str(material.GetPath()) != expected_path:
+                raise RuntimeError(f"Incorrect physics material on {prim.GetPath()}: expected {expected_path}")
+            api = UsdPhysics.MaterialAPI(material.GetPrim())
+            static = api.GetStaticFrictionAttr().Get()
+            dynamic = api.GetDynamicFrictionAttr().Get()
+            combine = PhysxSchema.PhysxMaterialAPI(material.GetPrim()).GetFrictionCombineModeAttr().Get()
+            if (not math.isclose(static, expected.static_friction, rel_tol=1e-6, abs_tol=1e-7)
+                    or not math.isclose(dynamic, expected.dynamic_friction, rel_tol=1e-6, abs_tol=1e-7)
+                    or combine != expected.friction_combine_mode):
+                raise RuntimeError(f"Unexpected surface friction on {prim.GetPath()}: {static}/{dynamic}/{combine}")
+            meshes.append(str(prim.GetPath()))
+        if not meshes:
+            raise RuntimeError(f"No contact meshes found under {link.GetPath()}")
+        report[name] = {"static_friction": static, "dynamic_friction": dynamic,
+                        "friction_combine_mode": combine, "collision_meshes": meshes}
+    if set(report) != fingers | housing:
+        raise RuntimeError(f"Missing contact links: {(fingers | housing) - set(report)}")
+    return report
 
 
 def main():
@@ -101,6 +147,7 @@ def main():
                                                 clipping_range=(0.01, 10.0)),
             )))
     sim.reset()
+    contact_materials = verify_contact_materials()
     dt = sim.get_physics_dt()
     motor_names = [f"{s}_{j}_bar_1_joint" for s in "lr" for j in "fb"]
     motor_ids, _ = robot.find_joints(motor_names, preserve_order=True)
@@ -181,6 +228,7 @@ def main():
                   "p95_pin_gap_m": gaps.flatten().quantile(.95).item(),
                   "follower_motion_rad": motion.tolist(),
                   "contact_probe": args.contact_probe,
+                  "contact_materials": contact_materials,
                   "max_contact_force_n": max_force,
                   "passed": bool(gaps.max() < .001 and torch.all(motion > motion_threshold)
                                  and (not args.contact_probe or max_force > 1.0)),
