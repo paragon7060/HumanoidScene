@@ -16,9 +16,9 @@ from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils.math import quat_apply
-from kuavo_isaaclab_scene.paths import ASSET_DIR
-from kuavo_isaaclab_scene.teleop_body import TeleopBodyMapper
-from kuavo_isaaclab_scene.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
+from kuavo_isaaclab_scene.core.paths import ASSET_DIR
+from kuavo_isaaclab_scene.teleop.teleop_body import TeleopBodyMapper
+from kuavo_isaaclab_scene.envs.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
 
 
 def body_bottom(box):

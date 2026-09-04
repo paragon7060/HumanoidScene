@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from kuavo_isaaclab_scene.quest_runtime import validate_openxr_manifest
+from kuavo_isaaclab_scene.teleop.quest_runtime import validate_openxr_manifest
 
 
 def test_openxr_manifest_accepts_existing_relative_library(tmp_path: Path) -> None:

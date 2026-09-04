@@ -17,4 +17,4 @@ fi
 
 exec env TERM=xterm PYTHONUNBUFFERED=1 PYTHONPATH="${PACKAGE_PATH}" \
   KUAVO_CONFIG_DIR="${RUNTIME_CONFIG_DIR}" \
-  "${ISAACLAB_PYTHON}" -m kuavo_isaaclab_scene.collect_quest_teleop "$@"
+  "${ISAACLAB_PYTHON}" -m kuavo_isaaclab_scene.teleop.collect_quest_teleop "$@"

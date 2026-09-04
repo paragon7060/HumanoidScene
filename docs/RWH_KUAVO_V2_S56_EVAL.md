@@ -90,6 +90,20 @@ checkpoint's preprocessing statistics and uses its 14 arm angles as the ready
 pose. Both claws start fully open. Pass `--initial-pose default` to reproduce
 the old all-zero arm reset.
 
+For a task-relevant demonstration start, pass `--initial-pose dataset-medoid`.
+This preset is one complete, real `frame_index == 0` state rather than a
+per-joint synthetic median. It is the robust medoid of 2,485 episode starts
+sampled from six parcel/box-related tasks in
+`LejuRobotics/LET-KUAVO-VLA-1.0-Dataset` (revision
+`61e3256ac917721c3c9d2098db28b1f5efc2d54a`): task
+`078-scan-cardboard-parcels`, episode 234. Both claws start open. The preset
+also initializes `zhead_2_joint` at +25 degrees so both hands remain in the
+initial head-camera frame. The S56 pitch limit is +30 degrees. You can
+override the preset with `--initial-head-pitch-deg DEGREES`.
+
+This option changes only `robot.init_state.joint_pos`. It does not adjust the
+head or wrist camera extrinsics, FOV, link hierarchy, or gripper geometry.
+
 Images are supplied in this checkpoint-key order:
 
 ```text
@@ -157,13 +171,14 @@ Check one real inference and one queued action:
   --metrics-out artifacts/eval/rwh_kuavo_v2_s56_checkpoint40k_smoke.json
 ```
 
-## Headless three-camera video
+## Headless policy and scene video
 
-Headless recording uses the exact RGB observations passed to the policy. One
-MP4 contains the synchronized horizontal layout:
+Headless recording preserves the exact three RGB observations passed to the
+policy and, by default, adds a fixed side view for diagnosing whole-body motion.
+One MP4 contains the synchronized horizontal layout:
 
 ```text
-head_cam_h | wrist_cam_l | wrist_cam_r
+head_cam_h | wrist_cam_l | wrist_cam_r | scene_side
 ```
 
 ```bash
@@ -182,10 +197,20 @@ actuator or gripper that fails to track a valid command. On a terminal step,
 state; omit that sample from tracking-error calculations.
 
 At the native checkpoint resolution the output is H.264/yuv420p at
-`2544x480`, 10 FPS. `--video-height 360` makes a smaller review copy without
+`3392x480`, 10 FPS. `--video-height 360` makes a smaller review copy without
 changing the policy input resolution. `--video-fps` changes playback metadata,
 not the evaluation control rate. Existing videos are never replaced unless
 `--overwrite-video` is specified.
+
+Use `--no-video-scene-view` for the former three-camera-only output. For another
+workcell layout, reposition the fixed view without changing policy observations:
+
+```bash
+./eval_rwh_kuavo_v2_s56.sh \
+  --video-out artifacts/eval/custom_view.mp4 \
+  --scene-camera-eye -0.2 -3.2 1.8 \
+  --scene-camera-target -0.2 0.45 1.0
+```
 
 For multiple episodes:
 

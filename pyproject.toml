@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest>=8"]
 groot = ["lerobot[groot]"]
+rl = ["rsl-rl-lib==3.1.2", "tensorboard>=2.14"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -26,6 +27,8 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+# USD/mesh/config directories are package data, not Python namespace packages.
+namespaces = false
 
 [tool.setuptools.package-data]
 kuavo_isaaclab_scene = [

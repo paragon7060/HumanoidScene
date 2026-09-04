@@ -1,6 +1,6 @@
 import numpy as np
 
-from kuavo_isaaclab_scene.teleop_hand_mode import (
+from kuavo_isaaclab_scene.teleop.teleop_hand_mode import (
     HandModeSwitch, LongPress, HandCommands, HandGripper, HandTrackingGuard, hand_packet,
 )
 

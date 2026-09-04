@@ -2,7 +2,7 @@
 import json
 import xml.etree.ElementTree as ET
 import numpy as np
-from kuavo_isaaclab_scene.paths import ASSET_DIR
+from kuavo_isaaclab_scene.core.paths import ASSET_DIR
 
 
 def test_hand_estimates_only_cover_missing_inertials_with_physical_inertia():

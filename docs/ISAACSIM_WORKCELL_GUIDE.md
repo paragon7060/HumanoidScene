@@ -81,7 +81,7 @@ JSON 구성도 사용할 수 있다.
   --ignore-captured-box-poses
 ```
 
-코드 기본값은 `src/kuavo_isaaclab_scene/rack_box_layout.py`의 다음 dictionary로 관리한다.
+코드 기본값은 `src/kuavo_isaaclab_scene/workcell/rack_box_layout.py`의 다음 dictionary로 관리한다.
 
 ```python
 DEFAULT_RACK_BOX_LAYOUT = {
@@ -192,7 +192,7 @@ KUAVO_WORKCELL_LAYOUT="$PWD/artifacts/layouts/aisle_120cm.json" ./run_scene.sh
 
 `--layout /path/layout.json`으로 조정 대상을 지정할 수 있고, 생략하면 런처의
 `KUAVO_WORKCELL_LAYOUT` / `KUAVO_CONFIG_DIR` 선택을 따른다. 기존 별도 output은
-덮어쓰지 않는다. wheel 설치에서는 `python -m kuavo_isaaclab_scene.workcell_gap`도 가능하다.
+덮어쓰지 않는다. wheel 설치에서는 `python -m kuavo_isaaclab_scene.workcell.workcell_gap`도 가능하다.
 
 측정은 현재 `Rack.usd`와 Isaac 5.1 `ConveyorBelt_A08_PR_NVD_01.usd`의 보정된
 외형 bounds를 사용한다. 두 구조물이 수직으로 서 있고, 서로 평행하며 앞쪽 구간이
@@ -277,7 +277,7 @@ position, rotation, scale, shelf가 우선하며 기록되지 않은 인스턴�
 ## 8. 박스 flap friction
 
 `run_scene.sh`, `run_manager_env.sh`, `collect_quest_teleop.sh`는 공통
-`scene_physics.py`와 `box_flap_friction.py`를 사용한다. 고정 마찰 기본값은
+`envs/scene_physics.py`와 `workcell/box_flap_friction.py`를 사용한다. 고정 마찰 기본값은
 정적 0.45 N·m / 동적 0.32 N·m이며 stiffness=0, damping=0.05를 유지한다.
 덮개 저항뿐 아니라 얇은 상자의 접촉 설정, S200062 손 충돌체·누락 관성 보완·
 열린 그리퍼 초기 자세도 공통 적용된다. 원본 USD만 직접 여는 경우에는 런타임 보완이
@@ -379,7 +379,7 @@ composed stage 저장:
   수 있다. 새 scene을 연 뒤 `Rack` root만 편집하고 다시 저장·캡처한다.
 - GUI Isaac Sim과 headless 캡처를 동시에 실행하면 VRAM 부족으로 다른
   Electron 앱까지 종료될 수 있다. 편집 창을 닫은 뒤 캡처한다.
-- package `scene.py`는 시각 확인과 task scheduler용이고, `manager_env.py`는 학습 및
+- package `envs/scene.py`는 시각 확인과 task scheduler용이고, `envs/manager_env.py`는 학습 및
   domain randomization용이다. 두 환경은 동일한 layout/pose JSON을 읽는다.
 
 ## 12. 관리 원칙

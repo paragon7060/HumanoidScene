@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from kuavo_isaaclab_scene import workcell_layout as layout
-from kuavo_isaaclab_scene.workcell_gap import adjusted_position, main, measure_gap
+from kuavo_isaaclab_scene.workcell import workcell_layout as layout
+from kuavo_isaaclab_scene.workcell.workcell_gap import adjusted_position, main, measure_gap
 
 
 @pytest.fixture

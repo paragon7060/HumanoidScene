@@ -7,9 +7,9 @@ launcher = AppLauncher(headless=True, enable_cameras=False, device="cpu")
 import numpy as np
 import torch
 from isaaclab.envs import ManagerBasedRLEnv
-from kuavo_isaaclab_scene.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
-from kuavo_isaaclab_scene.teleop_body import TeleopBodyMapper
-from kuavo_isaaclab_scene.paths import ASSET_DIR
+from kuavo_isaaclab_scene.envs.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
+from kuavo_isaaclab_scene.teleop.teleop_body import TeleopBodyMapper
+from kuavo_isaaclab_scene.core.paths import ASSET_DIR
 from isaaclab.utils.math import quat_from_euler_xyz, quat_mul
 import trimesh
 
@@ -42,7 +42,7 @@ def main():
     cfg.actions.left_arm.controller.use_relative_mode = False
     cfg.actions.right_arm.controller.use_relative_mode = False
     set_domain_randomization(cfg, False)
-    from kuavo_isaaclab_scene.teleop_scene import configure_scene_detail
+    from kuavo_isaaclab_scene.teleop.teleop_scene import configure_scene_detail
     configure_scene_detail(cfg, "compact")
     env = ManagerBasedRLEnv(cfg)
     robot = env.scene["robot"]

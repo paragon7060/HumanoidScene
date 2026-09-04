@@ -15,17 +15,17 @@ import numpy as np
 import torch
 from isaaclab.envs import ManagerBasedRLEnv
 from omni.kit.viewport.utility import get_active_viewport
-from kuavo_isaaclab_scene.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
-from kuavo_isaaclab_scene.teleop_camera import camera_rgb
-from kuavo_isaaclab_scene.teleop_scene import configure_scene_detail
-from kuavo_isaaclab_scene.teleop_recorder import TeleopHdf5EpisodeRecorder, new_session_path
-from kuavo_isaaclab_scene.quest_openxr import start_quest_xr_session
+from kuavo_isaaclab_scene.envs.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
+from kuavo_isaaclab_scene.display.camera_frames import camera_rgb
+from kuavo_isaaclab_scene.teleop.teleop_scene import configure_scene_detail
+from kuavo_isaaclab_scene.recording.teleop_recorder import TeleopHdf5EpisodeRecorder, new_session_path
+from kuavo_isaaclab_scene.teleop.quest_openxr import start_quest_xr_session
 
 
 def verify_anchor_motion():
     from types import SimpleNamespace
     from pxr import Gf
-    from kuavo_isaaclab_scene.quest_openxr import RawQuestOpenXRDevice
+    from kuavo_isaaclab_scene.teleop.quest_openxr import RawQuestOpenXRDevice
     state = {"anchor": Gf.Matrix4d(1.), "head": Gf.Matrix4d(1.)}
     state["head"].SetTranslateOnly(Gf.Vec3d(.2, .1, 1.4))
     core = SimpleNamespace(

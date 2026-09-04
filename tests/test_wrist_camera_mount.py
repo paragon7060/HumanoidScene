@@ -7,9 +7,9 @@ import xml.etree.ElementTree as ET
 import numpy as np
 import pytest
 
-from kuavo_isaaclab_scene.paths import ASSET_DIR
-from kuavo_isaaclab_scene.robot_model import resolve_robot_model
-from kuavo_isaaclab_scene.wrist_camera_mount import (
+from kuavo_isaaclab_scene.core.paths import ASSET_DIR
+from kuavo_isaaclab_scene.robots.robot_model import resolve_robot_model
+from kuavo_isaaclab_scene.robots.wrist_camera_mount import (
     CAMERA_BODY_TO_ROS_OPTICAL_ROT,
     S200062_D405_MOUNTS,
     S56_QIANGNAO_D405_MOUNTS,
@@ -168,7 +168,7 @@ def test_finger_contact_regions_are_in_front_and_inside_wrist_fov(model, side, f
     if model == 's200062':
         root = ET.parse(ASSET_DIR / 'kuavo_s200062/urdf/biped_s200062.urdf').getroot()
         prefix = side[0]
-        from kuavo_isaaclab_scene.twofinger_linkage import initial_passive_positions
+        from kuavo_isaaclab_scene.robots.twofinger_linkage import initial_passive_positions
         q = -0.25 * (1.0 - fraction)
         positions = {f'{prefix}_f_bar_1_joint': q, f'{prefix}_b_bar_1_joint': -q}
         positions.update(initial_passive_positions(positions))

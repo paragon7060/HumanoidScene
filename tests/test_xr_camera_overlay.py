@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from kuavo_isaaclab_scene.xr_camera_overlay import QuestCameraOverlayCfg, as_rgba
+from kuavo_isaaclab_scene.display.xr_camera_overlay import QuestCameraOverlayCfg, as_rgba
 
 
 def test_as_rgba_adds_opaque_alpha_and_preserves_pixels():

@@ -1,6 +1,6 @@
 import numpy as np
 
-from kuavo_isaaclab_scene.teleop_mapping import AbsoluteControllerMapper, ScaledControllerMapper, BimanualTeleopMapper, TeleopMappingCfg
+from kuavo_isaaclab_scene.teleop.teleop_mapping import AbsoluteControllerMapper, ScaledControllerMapper, BimanualTeleopMapper, TeleopMappingCfg
 
 
 def test_scaled_reach_and_clutch_without_drift_or_recalibration_on_tracking_loss():
@@ -23,7 +23,7 @@ def test_scaled_reach_and_clutch_without_drift_or_recalibration_on_tracking_loss
 
 
 def test_scaled_gain_does_not_multiply_base_turn_or_torso_lift():
-    from kuavo_isaaclab_scene.teleop_mapping import _quat_rotate
+    from kuavo_isaaclab_scene.teleop.teleop_mapping import _quat_rotate
     mapper = ScaledControllerMapper(position_gain=2.)
     root = np.array([0., 0., 0., 1., 0., 0., 0.])
     torso = np.array([0., 0., .5, 1., 0., 0., 0.])
@@ -41,7 +41,7 @@ def test_scaled_gain_does_not_multiply_base_turn_or_torso_lift():
 
 
 def test_scaled_orientation_clutch_uses_actual_pose_and_unscaled_torso_axis_rotation():
-    from kuavo_isaaclab_scene.teleop_mapping import _quat_multiply, _quat_rotate
+    from kuavo_isaaclab_scene.teleop.teleop_mapping import _quat_multiply, _quat_rotate
     mapper = ScaledControllerMapper(position_gain=2.)
     root = np.array([0., 0., 0., 1., 0., 0., 0.])
     # Tool points 90 degrees about Z; the comfortable controller points about X.
@@ -127,7 +127,7 @@ def test_absolute_controller_loss_retains_goal_but_explicit_pause_holds_actual_t
 
 
 def test_absolute_orientation_uses_finger_axes_independent_of_robot_pose_or_calibration():
-    from kuavo_isaaclab_scene.teleop_mapping import _quat_rotate
+    from kuavo_isaaclab_scene.teleop.teleop_mapping import _quat_rotate
     mapper = AbsoluteControllerMapper()
     root = np.array([0., 0., 0., 1., 0., 0., 0.])
     tool = np.array([.2, .1, 1., 1., 0., 0., 0.])

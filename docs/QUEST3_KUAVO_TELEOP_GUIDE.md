@@ -34,15 +34,15 @@ HDF5 recorder / isolated LeRobot Dataset v3 writer
 
 관련 파일:
 
-- `src/kuavo_isaaclab_scene/teleop_env.py`: manager-based 양팔 IK/head action 환경
-- `src/kuavo_isaaclab_scene/quest_openxr.py`: Isaac Lab v2.3.2 raw hand/head tracking 호환 어댑터
-- `src/kuavo_isaaclab_scene/quest_runtime.py`: GUI를 열지 않는 OpenXR/CloudXR 사전 점검
-- `src/kuavo_isaaclab_scene/teleop_mapping.py`: tracking 유효성, calibration, smoothing, safety clamp
-- `src/kuavo_isaaclab_scene/teleop_recorder.py`: RAM에 누적하지 않는 HDF5 writer
-- `src/kuavo_isaaclab_scene/teleop_lerobot_recorder.py`: Isaac Lab과 별도 v3 writer process 사이의 recorder client
-- `src/kuavo_isaaclab_scene/lerobot_writer_worker.py`: LeRobot v3 `create/resume/add_frame/save_episode/finalize` worker
-- `src/kuavo_isaaclab_scene/xr_camera_overlay.py`: Quest head-locked head/wrist camera panels
-- `src/kuavo_isaaclab_scene/collect_quest_teleop.py`: 실행/episode 제어
+- `src/kuavo_isaaclab_scene/envs/teleop_env.py`: manager-based 양팔 IK/head action 환경
+- `src/kuavo_isaaclab_scene/teleop/quest_openxr.py`: Isaac Lab v2.3.2 raw hand/head tracking 호환 어댑터
+- `src/kuavo_isaaclab_scene/teleop/quest_runtime.py`: GUI를 열지 않는 OpenXR/CloudXR 사전 점검
+- `src/kuavo_isaaclab_scene/teleop/teleop_mapping.py`: tracking 유효성, calibration, smoothing, safety clamp
+- `src/kuavo_isaaclab_scene/recording/teleop_recorder.py`: RAM에 누적하지 않는 HDF5 writer
+- `src/kuavo_isaaclab_scene/recording/teleop_lerobot_recorder.py`: Isaac Lab과 별도 v3 writer process 사이의 recorder client
+- `src/kuavo_isaaclab_scene/recording/lerobot_writer_worker.py`: LeRobot v3 `create/resume/add_frame/save_episode/finalize` worker
+- `src/kuavo_isaaclab_scene/display/xr_camera_overlay.py`: Quest head-locked head/wrist camera panels
+- `src/kuavo_isaaclab_scene/teleop/collect_quest_teleop.py`: 실행/episode 제어
 - `collect_quest_teleop.sh`: 루트 실행 wrapper
 
 환경은 `Isaac-Kuavo-QuestTeleop-v0`으로도 등록되어 있다. 실제 Quest 수집에는 raw hand/head pose와 camera를 함께 기록하는 전용 `collect_quest_teleop.sh`를 사용한다.

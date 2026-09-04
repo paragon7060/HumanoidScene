@@ -9,6 +9,16 @@
 2. [Isaac Sim Workcell 편집](ISAACSIM_WORKCELL_GUIDE.md)
 3. [Quest 빠른 시작](QUEST3_QUICKSTART.md)
 
+## 코드 개발
+
+- [하위 task별 RL 학습](RL_TRAINING.md): approach/pick/carry/place/button, PPO,
+  성공 상태 bank와 manager별 설정 수정
+- [코드 구조와 개발 위치](CODE_STRUCTURE.md): scene/env, Quest, robot/asset,
+  display, recording, evaluation 경계와 Python 경로 변경 안내
+- 새 하위 task별 학습은 `rl/managers/`와 `rl/mdp/`, 기존 robustness 환경은
+  `envs/manager_env.py`와 `envs/manager_mdp.py`에서 수정한다.
+  Standalone 화면 구성과 실행은 `envs/scene.py`다.
+
 ## Scene과 asset
 
 - [Isaac Sim Workcell 편집](ISAACSIM_WORKCELL_GUIDE.md): prim 구조, 위치·회전·크기,

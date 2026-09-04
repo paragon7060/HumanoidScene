@@ -3,8 +3,8 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from kuavo_isaaclab_scene.groot_lerobot_bridge import InferenceSample
-from kuavo_isaaclab_scene.offline_policy_eval import (
+from kuavo_isaaclab_scene.evaluation.groot_lerobot_bridge import InferenceSample
+from kuavo_isaaclab_scene.evaluation.offline_policy_eval import (
     evaluate_offline_frames,
     policy_observation_from_frame,
 )

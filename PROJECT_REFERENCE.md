@@ -571,6 +571,14 @@ both `scene.py` and the manager-based environment.
 ```text
 HumanoidScene/
 ├── src/kuavo_isaaclab_scene/  # installable Python package
+│   ├── envs/                  # scenes, manager configs, MDP, task and physics
+│   ├── teleop/                # Quest tracking, controls and collection launchers
+│   ├── robots/                # robot/gripper models and inertials
+│   ├── workcell/              # layout, capture and box asset parameters
+│   ├── display/               # viewports, XR panels, stereo and video
+│   ├── recording/             # HDF5/LeRobot writers
+│   ├── evaluation/            # policy adapters and evaluation runners
+│   ├── core/                  # package paths and compatibility checks
 │   ├── assets/                # USD, URDF, meshes and textures
 │   └── configs/               # immutable wheel fallback layouts
 ├── configs/                   # mutable deployment/captured layouts
@@ -582,6 +590,9 @@ HumanoidScene/
 ├── pyproject.toml             # setuptools package metadata
 └── *.sh                       # backward-compatible launch wrappers
 ```
+
+See [code structure and import migration](docs/CODE_STRUCTURE.md) for canonical
+Python module paths. Root shell commands and USD/JSON asset paths are unchanged.
 
 GR00T N1.7 평가 진입점은 `./eval_groot.sh`이며, 실제 모델을 로드하지 않는
 짧은 wiring test는 다음과 같다:
@@ -695,7 +706,7 @@ under `/World/envs/env_0/Workcell/StagingBoxes` instead of being nested inside
 the rack prim.
 
 For a persistent code-level dictionary, edit only
-`DEFAULT_RACK_BOX_LAYOUT` in `src/kuavo_isaaclab_scene/rack_box_layout.py`:
+`DEFAULT_RACK_BOX_LAYOUT` in `src/kuavo_isaaclab_scene/workcell/rack_box_layout.py`:
 
 ```python
 DEFAULT_RACK_BOX_LAYOUT = {
@@ -723,7 +734,7 @@ You can also keep multiple layouts as JSON and select one per run:
 ```
 
 All four source box USDs currently have the same authored bounding box.
-`BOX_DIMENSIONS_M` in `src/kuavo_isaaclab_scene/rack_box_layout.py` provides editable physical target
+`BOX_DIMENSIONS_M` in `src/kuavo_isaaclab_scene/workcell/rack_box_layout.py` provides editable physical target
 sizes for the named variants; spawn scales are computed automatically.
 
 When a non-empty custom layout is selected, `scene.py` treats those local box
@@ -737,7 +748,7 @@ the selected standalone box instances.
 
 Standalone (`run_scene.sh`), manager-based (`run_manager_env.sh`) and Quest
 (`collect_quest_teleop.sh`) now share asset physics through
-[`scene_physics.py`](src/kuavo_isaaclab_scene/scene_physics.py):
+[`scene_physics.py`](src/kuavo_isaaclab_scene/envs/scene_physics.py):
 
 - Flap resistance defaults to static **0.45 N·m**, dynamic **0.32 N·m**,
   stiffness **0**, damping **0.05 N·m·s/rad**.
@@ -793,7 +804,7 @@ For a deterministic manager-based run:
 
 PhysX requires dynamic friction to be no greater than static friction. Random
 samples are therefore clamped per flap to satisfy that constraint. Persistent
-code defaults and ranges are in `src/kuavo_isaaclab_scene/box_flap_friction.py`.
+code defaults and ranges are in `src/kuavo_isaaclab_scene/workcell/box_flap_friction.py`.
 
 ## Task-system demonstration
 
@@ -920,9 +931,9 @@ Other principal geometry controls are:
   directly, or use the Isaac Sim Scale tool and recapture. The current local
   asset is 88.1 cm deep x 105.1 cm wide x 216.5 cm high at identity scale;
 - local box target sizes: edit `BOX_DIMENSIONS_M` in
-  `src/kuavo_isaaclab_scene/rack_box_layout.py`;
+  `src/kuavo_isaaclab_scene/workcell/rack_box_layout.py`;
 - rack box shelf coordinates and seating clearance: the `RACK_*_RAW`
-  constants in `src/kuavo_isaaclab_scene/rack_box_layout.py`;
+  constants in `src/kuavo_isaaclab_scene/workcell/rack_box_layout.py`;
 - conveyor slot spacing: `CONVEYOR_SLOT_PITCH`.
 
 Anchor translation and rotation should be changed through
@@ -989,9 +1000,9 @@ claim physical robot manipulation.
 
 There are now two runtime layers:
 
-- `scene.py`: one visual `InteractiveScene` plus the custom conveyor/task
+- `envs/scene.py`: one visual `InteractiveScene` plus the custom conveyor/task
   scheduler used by the oracle demonstration;
-- `manager_env.py`: a real Isaac Lab `ManagerBasedRLEnvCfg`, registered as
+- `envs/manager_env.py`: a real Isaac Lab `ManagerBasedRLEnvCfg`, registered as
   `Isaac-Kuavo-RobustWorkcell-v0`.
 
 The manager-based environment contains:
@@ -1043,7 +1054,7 @@ position and orientation are rotated by Ry(pi), since Robotiq reaches along
 mount +Z whereas the S200062 two-finger gripper reaches along -Z. It is then
 set back 30 mm along the viewing axis to keep both fully open pads in frame.
 This rig is a simulation adaptation, not a measured S63/S56 camera calibration. Shared poses
-live in `wrist_camera_mount.py` and are selected by `robot_model.py` for both
+live in `robots/wrist_camera_mount.py` and are selected by `robots/robot_model.py` for both
 the standalone scene and manager environment. Head/waist settings are unchanged.
 
 `scene.py` spawns the same four cameras (as `head_camera`, `waist_camera`,

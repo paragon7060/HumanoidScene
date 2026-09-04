@@ -56,7 +56,7 @@ require_supported_runtime() {
     args+=(--allow-unsupported)
   fi
   if ! env PYTHONPATH="${package_path}" "${python_exe}" \
-    -m kuavo_isaaclab_scene.runtime_compat "${args[@]}"; then
+    -m kuavo_isaaclab_scene.core.runtime_compat "${args[@]}"; then
     printf '%s\n' \
       'Install the pinned stable stack with:' \
       '  ./install_isaaclab_stable.sh' \

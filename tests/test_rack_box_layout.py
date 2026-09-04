@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from kuavo_isaaclab_scene import rack_box_layout as boxes
-from kuavo_isaaclab_scene import workcell_layout as workcell
+from kuavo_isaaclab_scene.workcell import rack_box_layout as boxes
+from kuavo_isaaclab_scene.workcell import workcell_layout as workcell
 
 
 def test_captured_pose_overrides_spawn_pose_in_rack_frame(tmp_path) -> None:

@@ -10,4 +10,4 @@ RUNTIME_CONFIG_DIR="${KUAVO_CONFIG_DIR:-${PROJECT_DIR}/configs}"
 
 exec env TERM=xterm PYTHONUNBUFFERED=1 PYTHONPATH="${PACKAGE_PATH}" \
   KUAVO_CONFIG_DIR="${RUNTIME_CONFIG_DIR}" \
-  "${ISAACLAB_PYTHON}" -m kuavo_isaaclab_scene.run_manager_env "$@"
+  "${ISAACLAB_PYTHON}" -m kuavo_isaaclab_scene.envs.run_manager_env "$@"

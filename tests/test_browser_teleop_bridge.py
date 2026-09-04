@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import websockets
 
-from kuavo_isaaclab_scene.browser_teleop_bridge import (
+from kuavo_isaaclab_scene.teleop.browser_teleop_bridge import (
     BrowserTeleopBridge,
     PROTOCOL_VERSION,
     pack_frame_packet,

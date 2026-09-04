@@ -20,7 +20,7 @@ output = Path(tempfile.mkdtemp(prefix="hand-switch-", dir="artifacts")).resolve(
 sys.argv = [sys.argv[0], "--robot-model", "s200062", "--hand-switch", "--no-auto-start",
             "--control-hz", "30", "--no-wrist-cameras", "--no-record-depth",
             "--dataset", str(output / "first.hdf5")]
-import kuavo_isaaclab_scene.collect_quest_teleop as collector
+import kuavo_isaaclab_scene.teleop.collect_quest_teleop as collector
 import h5py
 import numpy as np
 
@@ -112,7 +112,7 @@ class SyntheticXR:
 def verify_fresh_hand_adapter():
     from pxr import Gf
     from omni.kit.xr.core import XRPoseValidityFlags as F
-    from kuavo_isaaclab_scene.quest_openxr import RawQuestOpenXRDevice
+    from kuavo_isaaclab_scene.teleop.quest_openxr import RawQuestOpenXRDevice
     pose = Gf.Matrix4d(1.)
     pose.SetTranslateOnly(Gf.Vec3d(.2, .3, 1.))
     flags = F.POSITION_VALID | F.ORIENTATION_VALID | F.POSITION_TRACKED | F.ORIENTATION_TRACKED
@@ -138,7 +138,7 @@ try:
     collector.RawQuestOpenXRDevice = SyntheticXR
     collector.time = SimpleNamespace(monotonic=lambda: SyntheticXR.tick * .05, perf_counter=time.perf_counter)
     if not verification_args.xr_display:
-        from kuavo_isaaclab_scene import xr_control_status
+        from kuavo_isaaclab_scene.display import xr_control_status
         statuses = []
 
         class StatusSink:

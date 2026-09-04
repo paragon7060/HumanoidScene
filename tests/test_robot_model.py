@@ -2,7 +2,7 @@ import argparse
 
 import pytest
 
-from kuavo_isaaclab_scene.robot_model import (
+from kuavo_isaaclab_scene.robots.robot_model import (
     DEFAULT_ROBOT_MODEL,
     S56_ACTUATOR_LIMITS,
     S56_MUJOCO_ARMATURE,

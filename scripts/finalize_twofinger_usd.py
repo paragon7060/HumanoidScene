@@ -34,8 +34,8 @@ def main():
         env["KUAVO_USD_BOOTSTRAPPED"] = "1"
         os.execve(sys.executable, [sys.executable, *sys.argv], env)
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-    from kuavo_isaaclab_scene.paths import ASSET_DIR
-    from kuavo_isaaclab_scene.twofinger_linkage import author_closed_linkages, require_closed_linkages
+    from kuavo_isaaclab_scene.core.paths import ASSET_DIR
+    from kuavo_isaaclab_scene.robots.twofinger_linkage import author_closed_linkages, require_closed_linkages
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="*", type=Path)
     parser.add_argument("--check", action="store_true", help="Validate existing assets without writing")

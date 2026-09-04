@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from kuavo_isaaclab_scene.teleop_scene_config import apply_scene_config
+from kuavo_isaaclab_scene.teleop.teleop_scene_config import apply_scene_config
 
 
 def test_default_scene_is_untouched():
@@ -41,7 +41,7 @@ def test_invalid_contract_fails_before_environment_creation(tmp_path, source, me
 
 
 def test_collector_configures_scene_before_creating_env():
-    source = Path(__file__).parents[1] / "src/kuavo_isaaclab_scene/collect_quest_teleop.py"
+    source = Path(__file__).parents[1] / "src/kuavo_isaaclab_scene/teleop/collect_quest_teleop.py"
     tree = ast.parse(source.read_text())
     main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
     calls = {node.func.id: node.lineno for node in ast.walk(main)

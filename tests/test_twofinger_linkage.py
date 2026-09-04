@@ -8,8 +8,8 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from kuavo_isaaclab_scene.paths import ASSET_DIR
-from kuavo_isaaclab_scene.twofinger_linkage import (
+from kuavo_isaaclab_scene.core.paths import ASSET_DIR
+from kuavo_isaaclab_scene.robots.twofinger_linkage import (
     FINGER_PIN, FOLLOWER_PIN, initial_passive_positions, passive_joint_angles, pin_for,
     validate_motor_commands,
 )
@@ -61,7 +61,7 @@ def test_urdf_central_links_are_passive_revolute_not_fixed(asset):
 
 
 def test_legacy_passive_joint_commands_are_rejected():
-    from kuavo_isaaclab_scene.gripper_config import load_gripper_settings
+    from kuavo_isaaclab_scene.robots.gripper_config import load_gripper_settings
     settings = load_gripper_settings("s56_twofinger")
     validate_motor_commands(settings)
     with pytest.raises(ValueError, match="only bar_1"):

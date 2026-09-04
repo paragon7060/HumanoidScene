@@ -15,8 +15,8 @@ app = AppLauncher(headless=True, device="cpu").app
 import numpy as np
 import torch
 from isaaclab.envs import ManagerBasedRLEnv
-from kuavo_isaaclab_scene.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
-from kuavo_isaaclab_scene.teleop_scene import configure_scene_detail
+from kuavo_isaaclab_scene.envs.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
+from kuavo_isaaclab_scene.teleop.teleop_scene import configure_scene_detail
 
 
 def main():

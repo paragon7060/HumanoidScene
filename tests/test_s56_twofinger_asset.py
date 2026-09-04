@@ -1,7 +1,7 @@
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from kuavo_isaaclab_scene.paths import ASSET_DIR
+from kuavo_isaaclab_scene.core.paths import ASSET_DIR
 
 
 def test_generated_s56_twofinger_asset_replaces_qiangnao_without_overlap() -> None:

@@ -34,4 +34,4 @@ if [[ ${ALLOW_UNSUPPORTED} -eq 1 ]]; then
   ARGS+=(--allow-unsupported)
 fi
 env PYTHONPATH="${PACKAGE_PATH}" "${ISAACLAB_PYTHON}" \
-  -m kuavo_isaaclab_scene.runtime_compat "${ARGS[@]}"
+  -m kuavo_isaaclab_scene.core.runtime_compat "${ARGS[@]}"

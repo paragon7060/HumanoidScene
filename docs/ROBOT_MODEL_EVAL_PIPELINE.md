@@ -7,14 +7,17 @@ an explicit robot/action/camera contract.
 
 ## Pipeline layers
 
+Python file paths below are relative to `src/kuavo_isaaclab_scene/`.
+See [code structure](CODE_STRUCTURE.md) for the full package map.
+
 | Layer | Responsibility | Main files |
 |---|---|---|
-| Robot asset | Complete USD/URDF, body and joint names, default pose | `robot_model.py`, `assets/` |
-| End effector | Preset, hand joints, open/close convention, actuator gains | `configs/grippers.json`, `gripper_runtime.py` |
-| Isaac manager | Physics, 15-D upper body plus configured hand actions | `manager_env.py`, `scene_physics.py` |
-| Policy profile | State/action order, units, limits, camera keys | `groot_lerobot_bridge.py`, `eval_groot.py` |
-| Policy worker | Load LeRobot in a separate Conda environment and return chunks | `groot_policy_worker.py` |
-| Evidence | Metrics JSON, synchronized camera MP4 and optional per-step trace | `eval_metrics.py`, `eval_video.py` |
+| Robot asset | Complete USD/URDF, body and joint names, default pose | `robots/robot_model.py`, `assets/` |
+| End effector | Preset, hand joints, open/close convention, actuator gains | `configs/grippers.json`, `robots/gripper_runtime.py` |
+| Isaac manager | Physics, 15-D upper body plus configured hand actions | `envs/manager_env.py`, `envs/scene_physics.py` |
+| Policy profile | State/action order, units, limits, camera keys | `evaluation/groot_lerobot_bridge.py`, `evaluation/eval_groot.py` |
+| Policy worker | Load LeRobot in a separate Conda environment and return chunks | `evaluation/groot_policy_worker.py` |
+| Evidence | Metrics JSON, synchronized camera MP4 and optional per-step trace | `evaluation/eval_metrics.py`, `display/eval_video.py` |
 
 The generic entry point is `eval_groot.sh`. A checkpoint-specific root wrapper,
 such as `eval_rwh_kuavo_v2_s56.sh`, should only supply validated defaults and

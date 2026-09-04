@@ -1,7 +1,7 @@
 import numpy as np
 
-from kuavo_isaaclab_scene.browser_teleop_bridge import BrowserEyeView, BrowserTrackingSample
-from kuavo_isaaclab_scene.stereo_camera_calibration import (
+from kuavo_isaaclab_scene.teleop.browser_teleop_bridge import BrowserEyeView, BrowserTrackingSample
+from kuavo_isaaclab_scene.display.stereo_camera_calibration import (
     calibrations_from_tracking,
     camera_world_pose,
     projection_to_intrinsics,

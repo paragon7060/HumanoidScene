@@ -24,9 +24,9 @@ fi
 env PYTHONPATH="${PACKAGE_PATH}" "${ISAACLAB_PYTHON}" -c \
   'import gymnasium, h5py, isaaclab, numpy, websockets; print("Python dependencies: OK")'
 env PYTHONPATH="${PACKAGE_PATH}" "${ISAACLAB_PYTHON}" -c \
-  'from kuavo_isaaclab_scene.paths import ASSET_DIR; required=("Rack.usd", "SmallBox.usd", "MediumBox.usd", "LargeBox.usd", "XLargeBox.usd"); missing=[name for name in required if not (ASSET_DIR/name).is_file()]; assert not missing, f"Missing assets: {missing}"; print(f"Packaged USD assets: OK ({ASSET_DIR})")'
+  'from kuavo_isaaclab_scene.core.paths import ASSET_DIR; required=("Rack.usd", "SmallBox.usd", "MediumBox.usd", "LargeBox.usd", "XLargeBox.usd"); missing=[name for name in required if not (ASSET_DIR/name).is_file()]; assert not missing, f"Missing assets: {missing}"; print(f"Packaged USD assets: OK ({ASSET_DIR})")'
 env PYTHONPATH="${PACKAGE_PATH}" "${ISAACLAB_PYTHON}" -c \
-  'from kuavo_isaaclab_scene.gripper_config import load_gripper_settings; cfg=load_gripper_settings(); print(f"Gripper config: OK ({cfg.name}, {cfg.active_sides})")'
+  'from kuavo_isaaclab_scene.robots.gripper_config import load_gripper_settings; cfg=load_gripper_settings(); print(f"Gripper config: OK ({cfg.name}, {cfg.active_sides})")'
 
 if LEROBOT_CHECK="$(resolve_lerobot_python 2>/dev/null)"; then
   printf 'LeRobot Dataset v3 Python: %s\n' "${LEROBOT_CHECK}"

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from kuavo_isaaclab_scene.runtime_compat import validate_runtime
+from kuavo_isaaclab_scene.core.runtime_compat import validate_runtime
 
 
 SUPPORTED = {

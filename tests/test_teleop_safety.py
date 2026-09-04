@@ -1,4 +1,4 @@
-from kuavo_isaaclab_scene.teleop_safety import GripperCommandLatch, TrackingLossGuard
+from kuavo_isaaclab_scene.teleop.teleop_safety import GripperCommandLatch, TrackingLossGuard
 
 
 def test_gripper_latch_holds_only_the_lost_hand_command():

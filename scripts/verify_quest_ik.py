@@ -11,7 +11,7 @@ launcher = AppLauncher(headless=True, enable_cameras=False)
 import torch
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.mdp.actions.task_space_actions import DifferentialInverseKinematicsAction
-from kuavo_isaaclab_scene.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
+from kuavo_isaaclab_scene.envs.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
 
 
 def main():

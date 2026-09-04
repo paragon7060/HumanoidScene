@@ -4,7 +4,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from kuavo_isaaclab_scene.groot_lerobot_bridge import (
+from kuavo_isaaclab_scene.evaluation.groot_lerobot_bridge import (
     CONTROLLED_JOINT_NAMES,
     MANAGER_ACTION_SCALES,
     RWH_KUAVO_V2_CAMERA_MAP,

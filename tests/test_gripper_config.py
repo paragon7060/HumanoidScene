@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from kuavo_isaaclab_scene.gripper_config import (
+from kuavo_isaaclab_scene.robots.gripper_config import (
     DEFAULT_GRIPPER_CONFIG,
     FingerContactSettings,
     GRIPPER_ENV,
@@ -13,7 +13,7 @@ from kuavo_isaaclab_scene.gripper_config import (
     resolve_gripper_settings,
     teleop_action_names,
 )
-from kuavo_isaaclab_scene.robot_model import ROBOT_MODEL_ENV
+from kuavo_isaaclab_scene.robots.robot_model import ROBOT_MODEL_ENV
 
 
 def test_default_robotiq_2f85_preset_has_two_binary_actions() -> None:
@@ -97,7 +97,7 @@ def test_s56_twofinger_reuses_s200062_joint_commands() -> None:
 )
 def test_integrated_commands_stay_inside_actual_urdf_limits(preset, urdf):
     import xml.etree.ElementTree as ET
-    from kuavo_isaaclab_scene.paths import ASSET_DIR
+    from kuavo_isaaclab_scene.core.paths import ASSET_DIR
 
     settings = load_gripper_settings(preset)
     joints = {j.attrib["name"]: j for j in ET.parse(

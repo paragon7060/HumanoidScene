@@ -10,4 +10,4 @@ if [[ -n "${LEROBOT_SRC:-}" ]]; then
 fi
 
 exec env TERM=xterm PYTHONUNBUFFERED=1 PYTHONPATH="${PACKAGE_PATH}" \
-  "${LEROBOT_PYTHON}" -m kuavo_isaaclab_scene.offline_eval_groot "$@"
+  "${LEROBOT_PYTHON}" -m kuavo_isaaclab_scene.evaluation.offline_eval_groot "$@"

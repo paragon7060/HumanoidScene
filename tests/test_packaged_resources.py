@@ -3,7 +3,7 @@
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from kuavo_isaaclab_scene.paths import ASSET_DIR, CONFIG_DIR, PACKAGE_CONFIG_DIR
+from kuavo_isaaclab_scene.core.paths import ASSET_DIR, CONFIG_DIR, PACKAGE_CONFIG_DIR
 
 
 def test_required_assets_are_packaged() -> None:

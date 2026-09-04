@@ -1,6 +1,6 @@
 import numpy as np
-from kuavo_isaaclab_scene.paths import ASSET_DIR
-from kuavo_isaaclab_scene.teleop_body import TeleopBodyMapper
+from kuavo_isaaclab_scene.core.paths import ASSET_DIR
+from kuavo_isaaclab_scene.teleop.teleop_body import TeleopBodyMapper
 
 
 def packet(x=0., y=0.):

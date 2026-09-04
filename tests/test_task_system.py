@@ -1,4 +1,4 @@
-from kuavo_isaaclab_scene.task_system import (
+from kuavo_isaaclab_scene.envs.task_system import (
     ConveyorSlotManager,
     PlacementMode,
     RackConveyorTask,

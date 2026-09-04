@@ -2,7 +2,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from kuavo_isaaclab_scene.gripper_action import interpolate_signed_gripper_action
+from kuavo_isaaclab_scene.robots.gripper_action import interpolate_signed_gripper_action
 
 
 def test_signed_gripper_interpolation_preserves_endpoints_and_midpoint() -> None:

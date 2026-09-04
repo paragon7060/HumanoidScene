@@ -23,6 +23,8 @@ Kuavo humanoid가 경사진 랙의 열린 박스를 컨베이어의 빈 공간�
 |---|---|
 | 처음 설치하고 scene 실행 | [설치 및 첫 실행](docs/INSTALL.md) |
 | 목적별 문서 찾기 | [문서 목차](docs/README.md) |
+| 기능별 코드 위치·Python import 경로 | [코드 구조와 개발 위치](docs/CODE_STRUCTURE.md) |
+| 하위 task별 PPO 학습·manager 수정 | [RL 학습 가이드](docs/RL_TRAINING.md) |
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |
 | Meta Quest를 처음 연결하고 수집 | [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md) |
 | 실제 수집기 SDK·인증서 준비 및 간편 실행 | [수집기 설치·실행](docs/QUEST_COLLECTOR_SETUP.md) |
@@ -81,7 +83,7 @@ export ISAACLAB_PYTHON="$(command -v python)"
 | PC 브라우저 XR bridge 확인 | `./preview_quest_browser.sh` |
 | 실제 Quest 데이터 수집 | `./collect_quest_teleop.sh --xr-runtime-json /path/openxr_cloudxr.json` |
 | GR00T wiring smoke test | `./eval_groot.sh --mock-policy --headless --episodes 1 --max-steps 5` |
-| S56 GR00T N1.5 + 3-view 영상 | `./eval_rwh_kuavo_v2_s56.sh --headless --video-out artifacts/eval/s56.mp4 --episodes 1` |
+| S56 GR00T N1.5 + policy/측면 영상 | `./eval_rwh_kuavo_v2_s56.sh --headless --video-out artifacts/eval/s56.mp4 --episodes 1` |
 
 전체 인자는 실행기에 `--help`를 붙여 확인한다.
 
@@ -285,8 +287,8 @@ GR00T N1.5 checkpoint-40K의 16-D arm/claw schema를 S56과 이식된 S200062
 [RwH-Kuavo V2 S56 평가 가이드](docs/RWH_KUAVO_V2_S56_EVAL.md)를
 참고한다. Isaac Lab과 LeRobot 0.5.x는 별도 Conda 프로세스로 유지된다.
 
-실제 checkpoint를 `pick up the box` instruction으로 headless 평가하면서 head와
-좌우 wrist 영상을 하나의 MP4로 저장한다.
+실제 checkpoint를 `pick up the box` instruction으로 headless 평가하면서 head,
+좌우 wrist와 고정 측면 scene 영상을 하나의 MP4로 저장한다.
 
 ```bash
 ./eval_rwh_kuavo_v2_s56.sh \
@@ -297,10 +299,81 @@ GR00T N1.5 checkpoint-40K의 16-D arm/claw schema를 S56과 이식된 S200062
   --trace-out artifacts/eval/rwh_s56_pick_box_trace.json
 ```
 
-MP4의 화면 순서는 `head_cam_h | wrist_cam_l | wrist_cam_r`이다. 여러 episode를
-실행하면 `_ep000`, `_ep001`, ... 파일로 나뉜다. 기존 파일을 교체할 때만
-`--overwrite-video`를 명시한다. 전용 launcher는 학습 데이터셋과 동일한 10 Hz를
-기본값으로 사용하므로 240 step이 24초에 해당한다.
+MP4의 화면 순서는 `head_cam_h | wrist_cam_l | wrist_cam_r | scene_side`이다.
+여러 episode를 실행하면 `_ep000`, `_ep001`, ... 파일로 나뉜다. 기존 파일을
+교체할 때만 `--overwrite-video`를 명시한다. 전용 launcher는 학습 데이터셋과
+동일한 10 Hz를 기본값으로 사용하므로 240 step이 24초에 해당한다.
+
+### 초기 상태 지정
+
+`--initial-pose`는 evaluation reset 때 적용할 팔과 gripper 상태를 선택한다. 이
+옵션은 카메라 extrinsic, gripper geometry 또는 runtime IK를 변경하지 않는다.
+
+| 값 | 동작 |
+|---|---|
+| `default` | 선택한 robot model의 기본 joint pose를 사용한다. S56 팔은 기본적으로 0 rad다. |
+| `checkpoint-q50` | checkpoint preprocessor의 `observation.state.q50` 14개 팔 각도를 사용하고 양 claw를 연다. 로컬 checkpoint가 필요하며 RwH S56 profile의 기본값이다. |
+| `dataset-medoid` | parcel/box 관련 학습 episode 2,485개의 시작 상태 중 실제 한 episode에서 나온 medoid 자세를 사용하고 양 claw를 연다. |
+
+`dataset-medoid`를 RwH S56 profile과 사용하면 head pitch는 기본 +25°로 시작해
+양손이 head camera에 보이게 한다. 다음처럼 명시하면 이 값을 덮어쓴다. 양수는
+아래를 보는 방향이며 허용 범위는 -30°에서 +30°다.
+
+```bash
+./eval_rwh_kuavo_v2_s56.sh \
+  --initial-pose dataset-medoid \
+  --initial-head-pitch-deg 20 \
+  --headless --episodes 1 --max-steps 600 \
+  --video-out artifacts/eval/s56_medoid_60s.mp4
+```
+
+다른 checkpoint의 q50 시작 자세를 사용할 때는 checkpoint와 별도 LeRobot Conda
+Python을 함께 지정한다.
+
+```bash
+./eval_groot.sh \
+  --policy-profile rwh-kuavo-v2-s56 \
+  --checkpoint /absolute/path/to/pretrained_model \
+  --lerobot-python /absolute/path/to/lerobot-conda/bin/python \
+  --initial-pose checkpoint-q50 \
+  --task 'pick up the box' \
+  --control-hz 10 --episodes 1 --max-steps 600 \
+  --headless --no-camera-preview \
+  --video-out artifacts/eval/custom_checkpoint.mp4
+```
+
+### 자주 사용하는 evaluation 인자
+
+| 목적 | 인자 |
+|---|---|
+| instruction 변경 | `--task 'pick up the box'` |
+| rollout 길이와 반복 | `--max-steps 600 --episodes 5 --seed 42` |
+| 학습 주기와 일치 | `--control-hz 10` |
+| 한 inference 뒤 실행할 chunk 길이 | `--actions-per-inference 16` |
+| deterministic 비교 | `--no-domain-randomization` |
+| robustness 평가 | `--domain-randomization` |
+| 정책 RGB 해상도 | `--camera-width 848 --camera-height 480` |
+| 작은 review 영상 | `--video-height 360` |
+| 측면 scene view 제외 | `--no-video-scene-view` |
+| 측면 카메라 위치 변경 | `--scene-camera-eye X Y Z --scene-camera-target X Y Z` |
+| camera feature 재매핑 | `--camera-map head_cam_h=robustness_camera`를 feature마다 반복 |
+| per-step action/state 기록 | `--trace-out artifacts/eval/run_trace.json` |
+| 기존 MP4 교체 | `--overwrite-video` |
+| rack box 구성 변경 | `--rack-boxes '1:small*2;2:large'` 또는 `--rack-box-layout FILE` |
+
+측면 카메라는 녹화 전용이므로 정책 관측에는 들어가지 않는다. 다른 workcell에서
+전신 구도는 다음처럼 조절한다.
+
+```bash
+./eval_rwh_kuavo_v2_s56.sh \
+  --initial-pose dataset-medoid \
+  --video-out artifacts/eval/custom_side.mp4 \
+  --scene-camera-eye -0.2 -3.2 1.8 \
+  --scene-camera-target -0.2 0.45 1.0
+```
+
+argument 전체 목록과 profile별 제약은 `./eval_groot.sh --help` 및
+[RwH-Kuavo V2 S56 평가 가이드](docs/RWH_KUAVO_V2_S56_EVAL.md)를 참고한다.
 
 ### 모델과 체크포인트 재사용 범위
 
@@ -361,7 +434,16 @@ pytest -q
 
 ```text
 HumanoidScene/
-├── src/kuavo_isaaclab_scene/  # scene, teleop, recorder, evaluation
+├── src/kuavo_isaaclab_scene/
+│   ├── envs/                  # standalone/manager/teleop 환경, MDP, task, physics
+│   ├── rl/                    # 하위 task별 RL 환경, manager 설정, PPO 실행기
+│   ├── teleop/                # Meta Quest 입력·제어·수집 실행기
+│   ├── robots/                # 로봇 모델, gripper, 관성, 카메라 장착 위치
+│   ├── workcell/              # rack/box 배치, pose 캡처, flap 마찰 설정
+│   ├── display/               # camera viewport, XR overlay, stereo, 영상
+│   ├── recording/             # HDF5/LeRobot 기록 및 별도 writer process
+│   ├── evaluation/            # GR00T online/offline 평가 및 policy worker
+│   ├── core/                  # 공통 resource 경로, runtime 호환성
 │   ├── assets/                # USD, URDF, mesh, texture
 │   └── configs/               # packaged fallback configs
 ├── configs/                   # editable deployment configs
@@ -372,3 +454,17 @@ HumanoidScene/
 ├── PROJECT_REFERENCE.md       # 기존 상세 project 설명
 └── *.sh                       # root launch wrappers
 ```
+
+기존 `./run_scene.sh`, `./run_manager_env.sh`, Quest·평가 `.sh` 실행법은 그대로다.
+직접 Python 모듈을 import하거나 `python -m`으로 실행할 때는 새 하위 패키지 경로를
+사용한다. 파일별 역할과 이전 경로 변경 예시는
+[코드 구조 가이드](docs/CODE_STRUCTURE.md)에 정리되어 있다.
+기존 robustness 환경은 `envs/manager_env.py`, `envs/manager_mdp.py`에서 수정한다.
+새 하위 task별 학습은 `rl/tasks/`, `rl/managers/`, `rl/mdp/`를 사용한다.
+
+```bash
+python -m pip install -e '.[rl]'
+./train_rl.sh --task approach_rack --num-envs 2 --headless
+```
+
+Task별 초기 상태 준비, checkpoint 평가와 설정 수정은 [RL 학습 가이드](docs/RL_TRAINING.md)를 참고한다.

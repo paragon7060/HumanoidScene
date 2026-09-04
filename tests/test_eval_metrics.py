@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from kuavo_isaaclab_scene.eval_metrics import (
+from kuavo_isaaclab_scene.evaluation.eval_metrics import (
     action_comparison_metrics,
     control_decimation,
     percentile_nearest_rank,

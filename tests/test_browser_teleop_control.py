@@ -4,13 +4,13 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from kuavo_isaaclab_scene.browser_teleop_bridge import (
+from kuavo_isaaclab_scene.teleop.browser_teleop_bridge import (
     BrowserTeleopBridge, PROTOCOL_VERSION, parse_tracking_message,
 )
-from kuavo_isaaclab_scene.browser_teleop_control import browser_body_action, compose_browser_action
-from kuavo_isaaclab_scene.paths import ASSET_DIR
-from kuavo_isaaclab_scene.teleop_body import TeleopBodyMapper
-from kuavo_isaaclab_scene.teleop_safety import TrackingLossGuard
+from kuavo_isaaclab_scene.teleop.browser_teleop_control import browser_body_action, compose_browser_action
+from kuavo_isaaclab_scene.core.paths import ASSET_DIR
+from kuavo_isaaclab_scene.teleop.teleop_body import TeleopBodyMapper
+from kuavo_isaaclab_scene.teleop.teleop_safety import TrackingLossGuard
 
 
 def packet(left=(0.0, 0.0), right=(0.0, 0.0)):

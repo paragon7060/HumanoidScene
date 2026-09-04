@@ -9,7 +9,7 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": (
-            "kuavo_isaaclab_scene.manager_env:KuavoRobustWorkcellEnvCfg"
+            "kuavo_isaaclab_scene.envs.manager_env:KuavoRobustWorkcellEnvCfg"
         ),
     },
 )
@@ -20,7 +20,7 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": (
-            "kuavo_isaaclab_scene.teleop_env:KuavoQuestTeleopEnvCfg"
+            "kuavo_isaaclab_scene.envs.teleop_env:KuavoQuestTeleopEnvCfg"
         ),
     },
 )

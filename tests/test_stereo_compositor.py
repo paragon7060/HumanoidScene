@@ -1,6 +1,6 @@
 import numpy as np
 
-from kuavo_isaaclab_scene.stereo_compositor import compose_stereo_atlas
+from kuavo_isaaclab_scene.display.stereo_compositor import compose_stereo_atlas
 
 
 def test_stereo_atlas_keeps_left_and_right_scene_separate():

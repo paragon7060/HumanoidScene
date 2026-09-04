@@ -40,4 +40,4 @@ fi
 ISAACLAB_PYTHON="$(resolve_isaaclab_python)"
 PACKAGE_PATH="${PROJECT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}"
 env PYTHONPATH="${PACKAGE_PATH}" "${ISAACLAB_PYTHON}" \
-  -m kuavo_isaaclab_scene.quest_runtime "${QUEST_ARGS[@]}"
+  -m kuavo_isaaclab_scene.teleop.quest_runtime "${QUEST_ARGS[@]}"

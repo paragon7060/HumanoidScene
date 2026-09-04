@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from kuavo_isaaclab_scene import workcell_layout as layout
+from kuavo_isaaclab_scene.workcell import workcell_layout as layout
 
 
 def test_anchor_origin_maps_to_captured_position() -> None:

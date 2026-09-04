@@ -5,7 +5,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from kuavo_isaaclab_scene.eval_video import (
+from kuavo_isaaclab_scene.display.eval_video import (
     FfmpegVideoWriter,
     camera_mosaic_rgb,
     episode_video_path,

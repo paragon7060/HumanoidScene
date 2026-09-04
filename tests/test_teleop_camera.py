@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 
-from kuavo_isaaclab_scene.teleop_camera import camera_rgb, camera_depth
+from kuavo_isaaclab_scene.display.camera_frames import camera_rgb, camera_depth
 
 
 class Camera:

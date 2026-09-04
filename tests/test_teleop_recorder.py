@@ -4,8 +4,8 @@ import pytest
 import subprocess
 import sys
 
-from kuavo_isaaclab_scene.teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopHdf5Recorder, new_session_path
-from kuavo_isaaclab_scene.teleop_lerobot_recorder import build_lerobot_features, sample_to_lerobot_frame
+from kuavo_isaaclab_scene.recording.teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopHdf5Recorder, new_session_path
+from kuavo_isaaclab_scene.recording.teleop_lerobot_recorder import build_lerobot_features, sample_to_lerobot_frame
 
 
 def test_recorder_streams_episode_to_hdf5(tmp_path):
@@ -49,7 +49,7 @@ def test_empty_recording_file_survives_exit_without_python_cleanup(tmp_path):
     path = tmp_path / "interrupted.hdf5"
     subprocess.run(
         [sys.executable, "-c",
-         "import os, sys; from kuavo_isaaclab_scene.teleop_recorder import TeleopHdf5Recorder; "
+         "import os, sys; from kuavo_isaaclab_scene.recording.teleop_recorder import TeleopHdf5Recorder; "
          "recorder = TeleopHdf5Recorder(sys.argv[1]); os._exit(0)", str(path)],
         check=True,
     )

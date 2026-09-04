@@ -9,4 +9,4 @@ RUNTIME_CONFIG_DIR="${KUAVO_CONFIG_DIR:-${PROJECT_DIR}/configs}"
 
 # Pure geometry/JSON utility: do not start Isaac Sim or require a GPU.
 exec env PYTHONPATH="${PACKAGE_PATH}" KUAVO_CONFIG_DIR="${RUNTIME_CONFIG_DIR}" \
-  "${ISAACLAB_PYTHON}" -m kuavo_isaaclab_scene.workcell_gap "$@"
+  "${ISAACLAB_PYTHON}" -m kuavo_isaaclab_scene.workcell.workcell_gap "$@"
