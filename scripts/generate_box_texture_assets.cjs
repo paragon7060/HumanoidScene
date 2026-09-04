@@ -194,8 +194,11 @@ function faceUv(rect, faceIndex) {
   const layouts = {
     0: [bl, br, tr, tl],
     1: [bl, tl, tr, br],
-    2: [bl, tl, tr, br],
-    3: [br, bl, tl, tr],
+    // Looking at +Y from outside makes world -X screen-right, while looking
+    // at -Y makes world +X screen-right.  Reverse U accordingly so the wide
+    // front/back labels remain readable rather than mirrored.
+    2: [br, tr, tl, bl],
+    3: [bl, br, tr, tl],
     4: [br, tr, tl, bl],
     5: [bl, br, tr, tl],
   };
@@ -226,11 +229,11 @@ function flapSurface(name, outerTile, innerTile, uvRects) {
   const definitions = {
     front: {
       points: "(-0.5, 0.501, -0.5), (-0.5, 0.501, 0.5), (0.5, 0.501, 0.5), (0.5, 0.501, -0.5), (-0.5, -0.501, -0.5), (0.5, -0.501, -0.5), (0.5, -0.501, 0.5), (-0.5, -0.501, 0.5)",
-      uv: [outer.bl, outer.tl, outer.tr, outer.br, inner.br, inner.bl, inner.tl, inner.tr],
+      uv: [outer.br, outer.tr, outer.tl, outer.bl, inner.bl, inner.br, inner.tr, inner.tl],
     },
     back: {
       points: "(-0.5, -0.501, -0.5), (0.5, -0.501, -0.5), (0.5, -0.501, 0.5), (-0.5, -0.501, 0.5), (-0.5, 0.501, -0.5), (-0.5, 0.501, 0.5), (0.5, 0.501, 0.5), (0.5, 0.501, -0.5)",
-      uv: [outer.br, outer.bl, outer.tl, outer.tr, inner.bl, inner.tl, inner.tr, inner.br],
+      uv: [outer.bl, outer.br, outer.tr, outer.tl, inner.br, inner.tr, inner.tl, inner.bl],
     },
     right: {
       points: "(0.501, -0.5, -0.5), (0.501, 0.5, -0.5), (0.501, 0.5, 0.5), (0.501, -0.5, 0.5), (-0.501, -0.5, -0.5), (-0.501, -0.5, 0.5), (-0.501, 0.5, 0.5), (-0.501, 0.5, -0.5)",
