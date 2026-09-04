@@ -249,7 +249,7 @@ from ..robots.gripper_runtime import (
     build_gripper_attachment_cfg,
     build_gripper_group_cfg,
 )
-from ..core.paths import ASSET_DIR
+from ..core.paths import ASSET_DIR, BOX_ATLAS_ASSETS
 from .scene_physics import build_box_flap_actuator, build_contact_box_spawn, configure_robot_asset_physics
 from ..robots.robot_model import resolve_robot_model
 
@@ -265,10 +265,10 @@ OPEN_TOTE_USD = ASSET_DIR / "open_tote.usda"
 BUTTON_STATION_USD = ASSET_DIR / "button_station.usda"
 WORKCELL_GROUPS_USD = ASSET_DIR / "workcell_groups.usda"
 RACK_USD_LOCAL = ASSET_DIR / "Rack.usd"
-SMALL_BOX_USD = ASSET_DIR / "SmallBox_atlas.usda"
-MEDIUM_BOX_USD = ASSET_DIR / "MediumBox_atlas.usda"
-LARGE_BOX_USD = ASSET_DIR / "LargeBox_atlas.usda"
-XLARGE_BOX_USD = ASSET_DIR / "XLargeBox_atlas.usda"
+SMALL_BOX_USD = BOX_ATLAS_ASSETS["small"]
+MEDIUM_BOX_USD = BOX_ATLAS_ASSETS["medium"]
+LARGE_BOX_USD = BOX_ATLAS_ASSETS["large"]
+XLARGE_BOX_USD = BOX_ATLAS_ASSETS["xlarge"]
 FACTORY_USD = f"{NUCLEUS_ASSET_ROOT_DIR}/Isaac/Environments/Simple_Warehouse/warehouse.usd"
 RACK_USD = str(RACK_USD_LOCAL)
 CONVEYOR_USD = (

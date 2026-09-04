@@ -16,15 +16,24 @@ from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils.math import quat_apply
-from kuavo_isaaclab_scene.core.paths import ASSET_DIR
+from kuavo_isaaclab_scene.core.paths import ASSET_DIR, BOX_ATLAS_ASSETS
 from kuavo_isaaclab_scene.teleop.teleop_body import TeleopBodyMapper
 from kuavo_isaaclab_scene.envs.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
+from kuavo_isaaclab_scene.workcell.rack_box_layout import BOX_DIMENSIONS_M, BOX_FLAP_LENGTH_M
+
+
+TEST_BOX_WIDTH, TEST_BOX_DEPTH, TEST_BOX_HEIGHT = BOX_DIMENSIONS_M["small"]
+TEST_BOX_FLAP = BOX_FLAP_LENGTH_M["small"]
 
 
 def body_bottom(box):
-    # Body is a hollow 0.2 x 0.2 x 0.18m box with 2mm walls and a 1.8mm floor.
-    points = torch.tensor([[x, y, z] for x in (-.101, .101) for y in (-.101, .101)
-                           for z in (-.0009, .18)])
+    # The final SmallBox atlas wrapper is already authored at measured size.
+    points = torch.tensor([
+        [x, y, z]
+        for x in (-TEST_BOX_WIDTH / 2, TEST_BOX_WIDTH / 2)
+        for y in (-TEST_BOX_DEPTH / 2, TEST_BOX_DEPTH / 2)
+        for z in (-0.005 * TEST_BOX_HEIGHT, TEST_BOX_HEIGHT)
+    ])
     rotation = box.data.root_quat_w.expand(len(points), -1)
     return float((quat_apply(rotation, points) + box.data.root_pos_w)[:, 2].min())
 
@@ -40,14 +49,15 @@ def main():
     cfg.actions.left_arm.controller.use_relative_mode = cfg.actions.right_arm.controller.use_relative_mode = False
     cfg.scene.test_box = cfg.scene.small_box_0.copy()
     cfg.scene.test_box.prim_path = "{ENV_REGEX_NS}/GraspBox"
-    cfg.scene.test_box.spawn.scale = (.2, .2, .18)
+    cfg.scene.test_box.spawn.usd_path = str(BOX_ATLAS_ASSETS["small"])
+    cfg.scene.test_box.spawn.scale = (1.0, 1.0, 1.0)
     cfg.scene.test_box.init_state.pos = (0., -9., 1.)
     # Authored support position for the known FK pose below. Do not teleport
     # a kinematic support at reset: its USD transform can supersede tensor writes.
     support_z = .31735087
     cfg.scene.platform = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/GraspPlatform",
-        spawn=sim.CuboidCfg(size=(.24, .24, .04),
+        spawn=sim.CuboidCfg(size=(TEST_BOX_WIDTH + .04, TEST_BOX_DEPTH + .04, .04),
                            rigid_props=sim.RigidBodyPropertiesCfg(kinematic_enabled=True),
                            collision_props=sim.CollisionPropertiesCfg(contact_offset=.001, rest_offset=0)),
         init_state=RigidObjectCfg.InitialStateCfg(pos=(.34146118, -4.74729967, support_z)),
@@ -87,7 +97,9 @@ def main():
 
         tool = arms[0]._compute_frame_pose()[0] + robot.data.root_pos_w
         pose = box.data.root_pose_w.clone()
-        pose[:, :3] = tool + torch.tensor([[-.10, 0., -.225]])
+        pose[:, :3] = tool + torch.tensor([
+            [-TEST_BOX_WIDTH / 2, 0., -(TEST_BOX_HEIGHT + TEST_BOX_FLAP - .005)]
+        ])
         pose[:, 3:] = torch.tensor([[1., 0., 0., 0.]])
         steps(3)
         assert abs(float(platform.data.root_pos_w[0, 2]) - support_z) < 1e-5

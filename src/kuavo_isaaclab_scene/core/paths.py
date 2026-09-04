@@ -18,6 +18,16 @@ PACKAGE_IMPORT_ROOT = PACKAGE_ROOT.parent
 ASSET_DIR = PACKAGE_ROOT / "assets"
 PACKAGE_CONFIG_DIR = PACKAGE_ROOT / "configs"
 
+# Every runtime and example should spawn the final measured, photo-textured
+# wrappers.  The original *.usd and intermediate *_physical.usda files remain
+# implementation dependencies of these composed assets only.
+BOX_ATLAS_ASSETS: dict[str, Path] = {
+    "small": ASSET_DIR / "SmallBox_atlas.usda",
+    "medium": ASSET_DIR / "MediumBox_atlas.usda",
+    "large": ASSET_DIR / "LargeBox_atlas.usda",
+    "xlarge": ASSET_DIR / "XLargeBox_atlas.usda",
+}
+
 
 def _runtime_config_dir() -> Path:
     """Resolve mutable deployment config before packaged fallback defaults."""

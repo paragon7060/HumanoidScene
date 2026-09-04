@@ -16,7 +16,7 @@ cd HumanoidScene
 ## 1. 현재 사용하는 에셋과 좌표 기준
 
 - 랙: `src/kuavo_isaaclab_scene/assets/Rack.usd`
-- 박스: `src/kuavo_isaaclab_scene/assets/{Small,Medium,Large,XLarge}Box.usd`, 종류별 2개
+- 박스: `src/kuavo_isaaclab_scene/assets/{Small,Medium,Large,XLarge}Box_atlas.usda`, 종류별 2개
 - 랙 기준 prim: `/World/envs/env_0/Workcell/Racks/Rack`
 - 랙 USD visual: `/World/envs/env_0/Workcell/Racks/Rack/Visual`
 - 박스 root prim: `/World/envs/env_0/Workcell/StagingBoxes/<BoxName>`

@@ -3,7 +3,12 @@
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from kuavo_isaaclab_scene.core.paths import ASSET_DIR, CONFIG_DIR, PACKAGE_CONFIG_DIR
+from kuavo_isaaclab_scene.core.paths import (
+    ASSET_DIR,
+    BOX_ATLAS_ASSETS,
+    CONFIG_DIR,
+    PACKAGE_CONFIG_DIR,
+)
 
 
 def test_required_assets_are_packaged() -> None:
@@ -41,6 +46,16 @@ def test_required_assets_are_packaged() -> None:
     assert all(path.is_file() for path in required)
     assert not (ASSET_DIR / "s200049_gripper").exists()
     assert not (ASSET_DIR / "kuavo_s62").exists()
+
+
+def test_runtime_box_asset_mapping_uses_final_atlas_wrappers() -> None:
+    assert {box_type: path.name for box_type, path in BOX_ATLAS_ASSETS.items()} == {
+        "small": "SmallBox_atlas.usda",
+        "medium": "MediumBox_atlas.usda",
+        "large": "LargeBox_atlas.usda",
+        "xlarge": "XLargeBox_atlas.usda",
+    }
+    assert all(path.is_file() for path in BOX_ATLAS_ASSETS.values())
 
 
 def test_packaged_robot_and_gripper_assets_have_no_remote_references() -> None:

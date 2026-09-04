@@ -24,7 +24,7 @@ fi
 env PYTHONPATH="${PACKAGE_PATH}" "${ISAACLAB_PYTHON}" -c \
   'import gymnasium, h5py, isaaclab, numpy, websockets; print("Python dependencies: OK")'
 env PYTHONPATH="${PACKAGE_PATH}" "${ISAACLAB_PYTHON}" -c \
-  'from kuavo_isaaclab_scene.core.paths import ASSET_DIR; required=("Rack.usd", "SmallBox.usd", "MediumBox.usd", "LargeBox.usd", "XLargeBox.usd"); missing=[name for name in required if not (ASSET_DIR/name).is_file()]; assert not missing, f"Missing assets: {missing}"; print(f"Packaged USD assets: OK ({ASSET_DIR})")'
+  'from kuavo_isaaclab_scene.core.paths import ASSET_DIR, BOX_ATLAS_ASSETS; required=(ASSET_DIR/"Rack.usd", *BOX_ATLAS_ASSETS.values()); missing=[str(path) for path in required if not path.is_file()]; assert not missing, f"Missing assets: {missing}"; print(f"Packaged atlas box assets: OK ({ASSET_DIR})")'
 env PYTHONPATH="${PACKAGE_PATH}" "${ISAACLAB_PYTHON}" -c \
   'from kuavo_isaaclab_scene.robots.gripper_config import load_gripper_settings; cfg=load_gripper_settings(); print(f"Gripper config: OK ({cfg.name}, {cfg.active_sides})")'
 
