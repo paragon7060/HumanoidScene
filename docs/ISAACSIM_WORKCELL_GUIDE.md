@@ -91,9 +91,17 @@ DEFAULT_RACK_BOX_LAYOUT = {
 }
 ```
 
-자동 박스 목표 크기는 같은 파일의 `BOX_DIMENSIONS_M`에서 metre 단위로
-조절할 수 있다. Isaac Sim에서 캡처하면 각 박스 root의 실제 scale이 이
-자동값보다 우선한다.
+자동 박스의 `(W, D, body H)` 실측 크기는 같은 파일의
+`BOX_DIMENSIONS_M`, flap 길이는 `BOX_FLAP_LENGTH_M`에서 metre 단위로
+관리한다. `scripts/generate_physical_box_assets.py`가 이 값으로
+`*_physical.usda` wrapper를 생성하며 런타임 instance scale은 `(1, 1, 1)`이다.
+`scripts/generate_box_texture_assets.cjs`는 펼친 박스 사진의 본체/플랩 영역을
+실측 비율로 보정한 2048 px UV atlas와 `*_atlas.usda` visual wrapper를 만든다.
+아랫면에는 `textures/boxes/bottom.png`, 안쪽 면에는 같은 사진의 깨끗한
+골판지 영역을 사용한다. 텍스처 wrapper는 원본 collision/rigid-body prim을
+그대로 참조하므로 물리 형상에는 영향을 주지 않는다. 크기나 원본 사진을
+변경한 뒤에는 두 생성 스크립트를 차례로 실행하고 기존 rack-box pose를 다시
+캡처하는 것이 안전하다.
 
 ## 4. Isaac Sim에서 랙과 박스를 직접 배치하기
 

@@ -1,0 +1,64 @@
+#usda 1.0
+(
+    defaultPrim = "Root"
+    upAxis = "Z"
+    customLayerData = {
+        string sourceTemplate = "XLargeBox.usd"
+        string dimensions = "W=0.400m D=0.320m bodyH=0.285m flap=0.155m"
+    }
+)
+
+def Xform "Root" (
+    prepend references = @./XLargeBox.usd@</Root>
+)
+{
+    over Xform "XLargeBox"
+    {
+        float3 xformOp:scale = (0.396039604, 0.316831683, 0.285)
+
+        over Cube "flap_front"
+        {
+            double3 xformOp:scale = (0.98, 0.01, 0.543859649)
+            double3 xformOp:translate = (0, 0.5, 1.276929825)
+
+            over PhysicsRevoluteJoint "joint_front"
+            {
+                point3f physics:localPos0 = (0, 0.5, 1.005)
+                point3f physics:localPos1 = (0, 0, -0.5)
+            }
+        }
+        over Cube "flap_back"
+        {
+            double3 xformOp:scale = (0.98, 0.01, 0.543859649)
+            double3 xformOp:translate = (0, -0.5, 1.276929825)
+
+            over PhysicsRevoluteJoint "joint_back"
+            {
+                point3f physics:localPos0 = (0, -0.5, 1.005)
+                point3f physics:localPos1 = (0, 0, -0.5)
+            }
+        }
+        over Cube "flap_right"
+        {
+            double3 xformOp:scale = (0.01, 0.98, 0.543859649)
+            double3 xformOp:translate = (0.5, 0, 1.276929825)
+
+            over PhysicsRevoluteJoint "joint_right"
+            {
+                point3f physics:localPos0 = (0.5, 0, 1.005)
+                point3f physics:localPos1 = (0, 0, -0.5)
+            }
+        }
+        over Cube "flap_left"
+        {
+            double3 xformOp:scale = (0.01, 0.98, 0.543859649)
+            double3 xformOp:translate = (-0.5, 0, 1.276929825)
+
+            over PhysicsRevoluteJoint "joint_left"
+            {
+                point3f physics:localPos0 = (-0.5, 0, 1.005)
+                point3f physics:localPos1 = (0, 0, -0.5)
+            }
+        }
+    }
+}

@@ -62,16 +62,21 @@ DEFAULT_RACK_BOX_LAYOUT: Mapping[int, Sequence[str] | Mapping[str, int]] = {
     3: [],
 }
 
-# All four supplied USD files currently have the same authored bounding box.
-# These editable target dimensions make the named variants useful while
-# retaining their original flap articulation.  Order is native (X, Y, Z):
-# rack-width, rack-depth, height after the rack-aligned spawn rotation.
-BOX_NATIVE_SIZE_M: Vec3 = (1.01, 1.01, 1.515)
+# All four supplied USD files use the same normalized template.  The physical
+# wrappers keep the template's 1.01 x 1.01 body footprint but scale its 1.0
+# wall height independently from the flap length.  Order is (W, D, body H).
+BOX_TEMPLATE_BODY_SIZE_M: Vec3 = (1.01, 1.01, 1.0)
 BOX_DIMENSIONS_M: dict[str, Vec3] = {
-    "small": (0.26, 0.22, 0.18),
-    "medium": (0.32, 0.25, 0.22),
-    "large": (0.37, 0.29, 0.26),
-    "xlarge": (0.42, 0.33, 0.30),
+    "small": (0.266, 0.185, 0.130),
+    "medium": (0.320, 0.220, 0.185),
+    "large": (0.380, 0.260, 0.230),
+    "xlarge": (0.400, 0.320, 0.285),
+}
+BOX_FLAP_LENGTH_M: dict[str, float] = {
+    "small": 0.100,
+    "medium": 0.110,
+    "large": 0.130,
+    "xlarge": 0.155,
 }
 
 # Two instances of each supplied USD are always spawned.  Instances omitted
@@ -363,10 +368,9 @@ def format_rack_box_layout(layout: RackBoxLayout) -> str:
 
 
 def _box_scale(box_type: str) -> Vec3:
-    dimensions = BOX_DIMENSIONS_M[box_type]
-    return tuple(
-        dimensions[axis] / BOX_NATIVE_SIZE_M[axis] for axis in range(3)
-    )  # type: ignore[return-value]
+    # Type-specific *_physical.usda wrappers are authored at their final
+    # dimensions, so instance-level non-uniform scaling is intentionally off.
+    return (1.0, 1.0, 1.0)
 
 
 def _row_lateral_offsets(box_types: Sequence[str]) -> list[float]:
@@ -445,7 +449,8 @@ def build_box_spawn_plan(
                 label = BOX_TYPE_LABELS[box_type]
                 instance_name = f"{label}_{instance_index}"
                 scale = _box_scale(box_type)
-                bottom_offset = 0.005 * scale[2]
+                # The normalized template bottom is 0.01 body-height thick.
+                bottom_offset = 0.005 * BOX_DIMENSIONS_M[box_type][2]
                 position = rack_shelf_point(
                     shelf,
                     depth_raw,

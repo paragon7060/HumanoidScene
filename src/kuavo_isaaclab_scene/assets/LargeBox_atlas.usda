@@ -1,0 +1,154 @@
+#usda 1.0
+(
+    defaultPrim = "Root"
+    upAxis = "Z"
+    customLayerData = {
+        string sourceGeometry = "LargeBox_physical.usda"
+        string sourcePhoto = "textures/boxes/large.png"
+        string textureAtlas = "textures/boxes/generated/large_atlas.png"
+    }
+)
+
+def Xform "Root" (
+    prepend references = @./LargeBox_physical.usda@</Root>
+)
+{
+    def Scope "Looks"
+    {
+        def Material "BoxMaterial"
+        {
+            token outputs:surface.connect = </Root/Looks/BoxMaterial/PreviewSurface.outputs:surface>
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor.connect = </Root/Looks/BoxMaterial/Albedo.outputs:rgb>
+                float inputs:metallic = 0
+                float inputs:roughness = 0.82
+                token outputs:surface
+            }
+
+            def Shader "Albedo"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @./textures/boxes/generated/large_atlas.png@
+                token inputs:sourceColorSpace = "sRGB"
+                float2 inputs:st.connect = </Root/Looks/BoxMaterial/PrimvarReader.outputs:result>
+                float3 outputs:rgb
+            }
+
+            def Shader "PrimvarReader"
+            {
+                uniform token info:id = "UsdPrimvarReader_float2"
+                token inputs:varname = "st"
+                float2 outputs:result
+            }
+        }
+    }
+
+    over Xform "LargeBox"
+    {
+        over Xform "Body"
+        {
+            over Mesh "bottom"
+            {
+                rel material:binding = </Root/Looks/BoxMaterial>
+                texCoord2f[] primvars:st = [(0.75585938, 0.29345703), (0.99414063, 0.29345703), (0.99414063, 0.45654297), (0.75585938, 0.45654297), (0.00585938, 0.54345703), (0.00585938, 0.70654297), (0.24414063, 0.70654297), (0.24414063, 0.54345703), (0.50585938, 0.00585938), (0.50585938, 0.24414063), (0.74414063, 0.24414063), (0.74414063, 0.00585938), (0.74414063, 0.00585938), (0.50585938, 0.00585938), (0.50585938, 0.24414063), (0.74414063, 0.24414063), (0.74414063, 0.00585938), (0.74414063, 0.24414063), (0.50585938, 0.24414063), (0.50585938, 0.00585938), (0.50585938, 0.00585938), (0.74414063, 0.00585938), (0.74414063, 0.24414063), (0.50585938, 0.24414063)] (
+                    interpolation = "faceVarying"
+                )
+            }
+
+            over Mesh "wall_front"
+            {
+                rel material:binding = </Root/Looks/BoxMaterial>
+                texCoord2f[] primvars:st = [(0.50585938, 0.00585938), (0.74414063, 0.00585938), (0.74414063, 0.24414063), (0.50585938, 0.24414063), (0.50585938, 0.00585938), (0.50585938, 0.24414063), (0.74414063, 0.24414063), (0.74414063, 0.00585938), (0.00585938, 0.80322266), (0.00585938, 0.94726563), (0.24414063, 0.94726563), (0.24414063, 0.80322266), (0.49414063, 0.30322266), (0.25585938, 0.30322266), (0.25585938, 0.44726563), (0.49414063, 0.44726563), (0.74414063, 0.00585938), (0.74414063, 0.24414063), (0.50585938, 0.24414063), (0.50585938, 0.00585938), (0.50585938, 0.00585938), (0.74414063, 0.00585938), (0.74414063, 0.24414063), (0.50585938, 0.24414063)] (
+                    interpolation = "faceVarying"
+                )
+            }
+
+            over Mesh "wall_back"
+            {
+                rel material:binding = </Root/Looks/BoxMaterial>
+                texCoord2f[] primvars:st = [(0.50585938, 0.00585938), (0.74414063, 0.00585938), (0.74414063, 0.24414063), (0.50585938, 0.24414063), (0.50585938, 0.00585938), (0.50585938, 0.24414063), (0.74414063, 0.24414063), (0.74414063, 0.00585938), (0.25585938, 0.30322266), (0.25585938, 0.44726563), (0.49414063, 0.44726563), (0.49414063, 0.30322266), (0.49414063, 0.80322266), (0.25585938, 0.80322266), (0.25585938, 0.94726563), (0.49414063, 0.94726563), (0.74414063, 0.00585938), (0.74414063, 0.24414063), (0.50585938, 0.24414063), (0.50585938, 0.00585938), (0.50585938, 0.00585938), (0.74414063, 0.00585938), (0.74414063, 0.24414063), (0.50585938, 0.24414063)] (
+                    interpolation = "faceVarying"
+                )
+            }
+
+            over Mesh "wall_left"
+            {
+                rel material:binding = </Root/Looks/BoxMaterial>
+                texCoord2f[] primvars:st = [(0.50585938, 0.00585938), (0.74414063, 0.00585938), (0.74414063, 0.24414063), (0.50585938, 0.24414063), (0.50585938, 0.00585938), (0.50585938, 0.24414063), (0.74414063, 0.24414063), (0.74414063, 0.00585938), (0.50585938, 0.00585938), (0.50585938, 0.24414063), (0.74414063, 0.24414063), (0.74414063, 0.00585938), (0.74414063, 0.00585938), (0.50585938, 0.00585938), (0.50585938, 0.24414063), (0.74414063, 0.24414063), (0.74414063, 0.26953125), (0.74414063, 0.48046875), (0.50585938, 0.48046875), (0.50585938, 0.26953125), (0.50585938, 0.76953125), (0.74414063, 0.76953125), (0.74414063, 0.98046875), (0.50585938, 0.98046875)] (
+                    interpolation = "faceVarying"
+                )
+            }
+
+            over Mesh "wall_right"
+            {
+                rel material:binding = </Root/Looks/BoxMaterial>
+                texCoord2f[] primvars:st = [(0.50585938, 0.00585938), (0.74414063, 0.00585938), (0.74414063, 0.24414063), (0.50585938, 0.24414063), (0.50585938, 0.00585938), (0.50585938, 0.24414063), (0.74414063, 0.24414063), (0.74414063, 0.00585938), (0.50585938, 0.00585938), (0.50585938, 0.24414063), (0.74414063, 0.24414063), (0.74414063, 0.00585938), (0.74414063, 0.00585938), (0.50585938, 0.00585938), (0.50585938, 0.24414063), (0.74414063, 0.24414063), (0.99414063, 0.76953125), (0.99414063, 0.98046875), (0.75585938, 0.98046875), (0.75585938, 0.76953125), (0.50585938, 0.26953125), (0.74414063, 0.26953125), (0.74414063, 0.48046875), (0.50585938, 0.48046875)] (
+                    interpolation = "faceVarying"
+                )
+            }
+        }
+
+        over Cube "flap_front"
+        {
+            def Mesh "texture_surfaces"
+            {
+                uniform bool doubleSided = 0
+                int[] faceVertexCounts = [4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7]
+                point3f[] points = [(-0.5, 0.501, -0.5), (-0.5, 0.501, 0.5), (0.5, 0.501, 0.5), (0.5, 0.501, -0.5), (-0.5, -0.501, -0.5), (0.5, -0.501, -0.5), (0.5, -0.501, 0.5), (-0.5, -0.501, 0.5)]
+                rel material:binding = </Root/Looks/BoxMaterial>
+                texCoord2f[] primvars:st = [(0.25585938, 0.58447266), (0.25585938, 0.66601563), (0.49414063, 0.66601563), (0.49414063, 0.58447266), (0.24414063, 0.08447266), (0.00585938, 0.08447266), (0.00585938, 0.16601563), (0.24414063, 0.16601563)] (
+                    interpolation = "faceVarying"
+                )
+            }
+        }
+
+        over Cube "flap_back"
+        {
+            def Mesh "texture_surfaces"
+            {
+                uniform bool doubleSided = 0
+                int[] faceVertexCounts = [4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7]
+                point3f[] points = [(-0.5, -0.501, -0.5), (0.5, -0.501, -0.5), (0.5, -0.501, 0.5), (-0.5, -0.501, 0.5), (-0.5, 0.501, -0.5), (-0.5, 0.501, 0.5), (0.5, 0.501, 0.5), (0.5, 0.501, -0.5)]
+                rel material:binding = </Root/Looks/BoxMaterial>
+                texCoord2f[] primvars:st = [(0.74414063, 0.58447266), (0.50585938, 0.58447266), (0.50585938, 0.66601563), (0.74414063, 0.66601563), (0.00585938, 0.08447266), (0.00585938, 0.16601563), (0.24414063, 0.16601563), (0.24414063, 0.08447266)] (
+                    interpolation = "faceVarying"
+                )
+            }
+        }
+
+        over Cube "flap_right"
+        {
+            def Mesh "texture_surfaces"
+            {
+                uniform bool doubleSided = 0
+                int[] faceVertexCounts = [4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7]
+                point3f[] points = [(0.501, -0.5, -0.5), (0.501, 0.5, -0.5), (0.501, 0.5, 0.5), (0.501, -0.5, 0.5), (-0.501, -0.5, -0.5), (-0.501, -0.5, 0.5), (-0.501, 0.5, 0.5), (-0.501, 0.5, -0.5)]
+                rel material:binding = </Root/Looks/BoxMaterial>
+                texCoord2f[] primvars:st = [(0.75585938, 0.56542969), (0.99414063, 0.56542969), (0.99414063, 0.68457031), (0.75585938, 0.68457031), (0.49414063, 0.06542969), (0.49414063, 0.18457031), (0.25585938, 0.18457031), (0.25585938, 0.06542969)] (
+                    interpolation = "faceVarying"
+                )
+            }
+        }
+
+        over Cube "flap_left"
+        {
+            def Mesh "texture_surfaces"
+            {
+                uniform bool doubleSided = 0
+                int[] faceVertexCounts = [4, 4]
+                int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7]
+                point3f[] points = [(-0.501, -0.5, -0.5), (-0.501, -0.5, 0.5), (-0.501, 0.5, 0.5), (-0.501, 0.5, -0.5), (0.501, -0.5, -0.5), (0.501, 0.5, -0.5), (0.501, 0.5, 0.5), (0.501, -0.5, 0.5)]
+                rel material:binding = </Root/Looks/BoxMaterial>
+                texCoord2f[] primvars:st = [(0.24414063, 0.31542969), (0.24414063, 0.43457031), (0.00585938, 0.43457031), (0.00585938, 0.31542969), (0.25585938, 0.06542969), (0.49414063, 0.06542969), (0.49414063, 0.18457031), (0.25585938, 0.18457031)] (
+                    interpolation = "faceVarying"
+                )
+            }
+        }
+    }
+}
