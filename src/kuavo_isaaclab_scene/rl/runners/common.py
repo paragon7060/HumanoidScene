@@ -5,6 +5,7 @@ from dataclasses import asdict
 from datetime import datetime
 import importlib.metadata
 import json
+import math
 import os
 from pathlib import Path
 import runpy
@@ -25,6 +26,8 @@ def parse_args(mode):
                         help="arms-only locks the reset base/body/head and learns 14 arm + 2 gripper actions.")
     parser.add_argument("--boxes", default="small_box_0", help="Ordered comma-separated scene keys, or all captured rack boxes")
     parser.add_argument("--num-envs", type=int, default=8 if mode == "train" else 1)
+    parser.add_argument("--env-spacing", type=float, default=8.0,
+                        help="Distance in meters between independent RL cell origins (minimum 5).")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-iterations", type=int, default=2000)
     parser.add_argument("--episodes", type=int, default=20)
@@ -50,6 +53,8 @@ def parse_args(mode):
     args = parser.parse_args()
     if min(args.num_envs, args.max_iterations, args.episodes, args.max_snapshots) < 1:
         parser.error("Environment/iteration/episode/snapshot counts must be positive.")
+    if not math.isfinite(args.env_spacing) or args.env_spacing < 5.0:
+        parser.error("--env-spacing must be finite and >= 5 meters.")
     if args.task in REQUIRES_RESET_BANK and not args.reset_bank:
         parser.error(f"{args.task} needs --reset-bank with successful {PREDECESSOR[args.task]} states.")
     for name in ("checkpoint", "reset_bank", "config", "workcell_layout", "rack_box_poses", "initial_states_file"):
@@ -80,10 +85,10 @@ def parse_args(mode):
 
 
 def build_configs(args):
-    from ..tasks.env_cfg import WorkcellRLEnvCfg
+    from ..envs.env_cfg import WorkcellRLEnvCfg
     from ..agents.ppo_cfg import WorkcellPPOCfg
-    from ...envs.manager_env import ACTIVE_RACK_BOX_SCENE_KEYS
-    box_names = ACTIVE_RACK_BOX_SCENE_KEYS if args.boxes == "all" else tuple(s.strip() for s in args.boxes.split(",") if s.strip())
+    from ..scenes.layout import active_rack_box_scene_keys
+    box_names = active_rack_box_scene_keys() if args.boxes == "all" else tuple(s.strip() for s in args.boxes.split(",") if s.strip())
     spec = task_spec(args.task, box_names=box_names, control_mode=args.control_mode,
         reset_bank=str(args.reset_bank.expanduser().resolve()) if args.reset_bank else None,
         snapshot_dir=str(args.snapshot_dir.expanduser().resolve()) if args.snapshot_dir else None,
@@ -100,13 +105,19 @@ def build_configs(args):
         args.initial_state = pinned_state
     if "configure_task" in customization:
         spec = customization["configure_task"](spec)
-    cfg = WorkcellRLEnvCfg(task=spec, num_envs=args.num_envs, cameras=args.enable_cameras)
+    cfg = WorkcellRLEnvCfg(task=spec, num_envs=args.num_envs, env_spacing=args.env_spacing,
+                         cameras=args.enable_cameras)
     cfg.seed = args.seed
     cfg.sim.device = args.device or "cuda:0"
     agent = WorkcellPPOCfg(seed=args.seed, device=cfg.sim.device, max_iterations=args.max_iterations,
                            experiment_name=f"kuavo_{args.task}")
     if "configure" in customization:
         customization["configure"](cfg, agent)
+    # Keep isolation constraints even when a trusted customization edits the scene.
+    from ..envs.parallel_cfg import ParallelEnvCfg
+    ParallelEnvCfg(num_envs=cfg.scene.num_envs, env_spacing=cfg.scene.env_spacing,
+        replicate_physics=cfg.scene.replicate_physics, filter_collisions=cfg.scene.filter_collisions,
+        clone_in_fabric=cfg.scene.clone_in_fabric).validate()
     if cfg.commands.workcell.task != cfg.task:
         raise ValueError("Change task fields in configure_task(), not after environment assembly.")
     configure_initial_state(cfg, args)
@@ -120,6 +131,9 @@ def build_configs(args):
         print("[RL] arms-only: 14 arm + 2 gripper actions; base fixed; body/head latched after each reset.", flush=True)
     if cfg.scene.num_envs * agent.num_steps_per_env < agent.algorithm.num_mini_batches:
         raise ValueError("PPO has more mini-batches than rollout samples.")
+    print(f"[RL] scene={cfg.scene_profile}; num_envs={cfg.scene.num_envs}; "
+          f"spacing={cfg.scene.env_spacing} m; device={cfg.sim.device}; "
+          "factory/movers=off; collision-filtering=on", flush=True)
     return cfg, agent
 
 
@@ -140,6 +154,11 @@ def write_run_config(path, cfg, agent, env):
                 "action_config": cfg.actions.to_dict(),
                 "observations": env.observation_manager.group_obs_dim,
                 "robot_model": metadata["robot"], "gripper": metadata["gripper"],
+                "parallel_scene": {"profile": cfg.scene_profile, "num_envs": cfg.scene.num_envs,
+                    "env_spacing": cfg.scene.env_spacing, "device": cfg.sim.device,
+                    "replicate_physics": cfg.scene.replicate_physics,
+                    "filter_collisions": cfg.scene.filter_collisions,
+                    "clone_in_fabric": cfg.scene.clone_in_fabric},
                 "initial_state": getattr(cfg, "initial_state_metadata", None)}
     (path / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False))
     dump_yaml(str(path / "env.yaml"), cfg)

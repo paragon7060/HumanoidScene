@@ -7,8 +7,18 @@ from .geometry import rotate, slot_offsets
 from .reset_bank import restore_bank
 
 
+def _env_ids(env, env_ids, device=None):
+    """Resolve only the manager-selected environments, including all/empty resets."""
+    device = env.device if device is None else device
+    if env_ids is None:
+        return torch.arange(env.num_envs, device=device, dtype=torch.long)
+    return torch.as_tensor(env_ids, device=device, dtype=torch.long)
+
+
 def reset_episode(env, env_ids):
-    ids = torch.as_tensor(env_ids, device=env.device, dtype=torch.long)
+    ids = _env_ids(env, env_ids)
+    if not len(ids):
+        return
     base_mdp.reset_scene_to_default(env, ids)
     spec = env.cfg.task
     if spec.reset_bank:
@@ -66,19 +76,44 @@ def reset_episode(env, env_ids):
         item.write_root_pose_to_sim(pose, env_ids=ids)
 
 
+def randomize_box_flap_joint_friction(
+    env,
+    env_ids: torch.Tensor | None,
+    asset_names: tuple[str, ...],
+    static_friction_range: tuple[float, float],
+    dynamic_friction_range: tuple[float, float],
+) -> None:
+    """Randomize flap DOF friction independently in the selected RL environments."""
+    for asset_name in asset_names:
+        box = env.scene[asset_name]
+        ids = _env_ids(env, env_ids, box.device)
+        if not len(ids):
+            continue
+        joint_ids, _ = box.find_joints("joint_(front|back|left|right)")
+        shape = (len(ids), len(joint_ids))
+        static = torch.empty(shape, device=box.device).uniform_(*static_friction_range)
+        dynamic = torch.empty(shape, device=box.device).uniform_(*dynamic_friction_range)
+        # PhysX requires static friction >= dynamic friction for every DOF.
+        dynamic = torch.minimum(dynamic, static)
+        box.write_joint_friction_coefficient_to_sim(static, joint_ids=joint_ids, env_ids=ids)
+        box.write_joint_dynamic_friction_coefficient_to_sim(dynamic, joint_ids=joint_ids, env_ids=ids)
+
+
 def conveyor_motion(env, env_ids):
     """Approximate belt drive via velocity on supported objects, only after valid press.
 
     This is an explicit simulation conveyor abstraction, not a material surface
     velocity extension. It never transports a grasped/airborne box by pose writes.
     """
-    del env_ids
+    selected_ids = _env_ids(env, env_ids)
+    if not len(selected_ids):
+        return
     command = env.command_manager.get_term("workcell")
     spec = env.cfg.task
     direction = torch.zeros(env.num_envs, 3, device=env.device); direction[:, 0] = spec.conveyor_speed
     velocity = rotate(env.scene["conveyor_surface"].data.root_quat_w, direction)
     for box_id, name in enumerate(spec.box_names):
-        ids = (command.belt_running & command.supported[:, box_id]).nonzero().flatten()
+        ids = selected_ids[(command.belt_running & command.supported[:, box_id])[selected_ids]]
         if not len(ids):
             continue
         box = env.scene[name]
@@ -90,7 +125,7 @@ def conveyor_motion(env, env_ids):
             state = cargo.data.root_vel_w[ids].clone(); state[:, :3] = velocity[ids]
             cargo.write_root_velocity_to_sim(state, env_ids=ids)
     for index in range(spec.prefill_count):
-        ids = command.belt_running.nonzero().flatten()
+        ids = selected_ids[command.belt_running[selected_ids]]
         if len(ids):
             foreign = env.scene[f"prefill_{index}"]
             state = foreign.data.root_vel_w[ids].clone(); state[:, :3] = velocity[ids]

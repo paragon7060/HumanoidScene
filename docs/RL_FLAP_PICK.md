@@ -3,6 +3,8 @@
 이 단계는 고정된 베이스·허리·머리에서 양팔과 그리퍼만 학습한다.
 랙 밖 인출, 베이스 이동, waist 회전, 컨베이어 배치는 다음 단계다.
 구현은 manager-based이고 시작 설정은 `configs/rl_pick_arms_only.py`에 있다.
+Scene은 일반/teleop 환경과 독립적인 `rl/scenes/`에서 생성한다.
+[RL 전용 병렬 환경](RL_PARALLEL_ENVS.md)에 배경 제거·복제·충돌 격리 구조를 정리했다.
 
 ## 작업 정의
 
@@ -101,6 +103,7 @@ python -m pip install -e '.[rl]'
 
 ```bash
 ./train_flap_pick.sh --num-envs 4 --max-iterations 4000 --seed 42
+./train_flap_pick.sh --num-envs 8 --env-spacing 8.0 --device cuda:0
 ./train_flap_pick.sh --help
 ```
 
@@ -149,8 +152,10 @@ root 위치 및 tool offset을 먼저 확인한다.
 | 초기 자세의 root 및 관절 값 | `configs/initial_states.json` → `states.quest_ready_02` |
 | 실험 기본값, 대상 flap, 높이·기울기·유지 시간 | `configs/rl_pick_arms_only.py` |
 | 공통 task 필드 및 검증 | `rl/tasks/specs.py` |
-| composed USD 크기·flap geometry | `rl/tasks/asset_geometry.py` |
-| flap 제한, 센서 배치 | `rl/tasks/flap_spawn.py`, `rl/tasks/scene_cfg.py` |
+| 병렬 복제, 충돌 격리 기본값 | `rl/envs/parallel_cfg.py` |
+| RL 전용 manager 환경 조립 | `rl/envs/env_cfg.py` |
+| composed USD 크기·flap geometry | `rl/scenes/asset_geometry.py` |
+| flap 제한, 센서 배치 | `rl/scenes/flap_spawn.py`, `rl/scenes/sensors.py` |
 | 상단/양면 접촉 판정 | `rl/mdp/flap_grasp.py` |
 | 성공 유지 조건 | `rl/mdp/commands.py` |
 | 관측 항목·계산 | `rl/managers/observations.py`, `rl/mdp/observations.py` |

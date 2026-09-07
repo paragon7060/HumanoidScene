@@ -3,8 +3,7 @@
 from isaaclab.envs import mdp
 from isaaclab.managers import EventTermCfg as Event, SceneEntityCfg
 from isaaclab.utils import configclass
-from ..mdp.events import reset_episode, conveyor_motion
-from ...envs.manager_mdp import randomize_box_flap_joint_friction
+from ..mdp.events import reset_episode, conveyor_motion, randomize_box_flap_joint_friction
 
 
 @configclass

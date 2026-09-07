@@ -21,7 +21,8 @@ def contract(env):
     cfg = env.cfg
     spec = cfg.task
     names = ["robot", "rack", "button_station", "conveyor_surface", *spec.box_names]
-    return {"robot": resolve_robot_model().name, "gripper": resolve_gripper_settings().name,
+    return {"scene_profile": cfg.scene_profile,
+        "robot": resolve_robot_model().name, "gripper": resolve_gripper_settings().name,
         "box_names": list(spec.box_names), "cargo_per_box": spec.cargo_per_box,
         "cargo_radius": spec.cargo_radius, "prefill_count": spec.prefill_count,
         "slot_count": spec.slot_count, "slot_pitch": spec.slot_pitch,

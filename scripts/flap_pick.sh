@@ -18,7 +18,7 @@ for argument in "$@"; do
         'Pose: INITIAL_STATE in configs/rl_pick_arms_only.py (quest_ready_02).' \
         'Train defaults: --num-envs 2 --max-iterations 2000 --headless.' \
         'Play defaults: --num-envs 1 --episodes 20; --checkpoint PATH is required.' \
-        'Allowed examples: --num-envs N --seed N --device cuda:0 --log-dir PATH --checkpoint PATH.' \
+        'Allowed examples: --num-envs N --env-spacing M --seed N --device cuda:0 --log-dir PATH --checkpoint PATH.' \
         'Train --checkpoint resumes; play --checkpoint evaluates. Use generic train_rl.sh/play_rl.sh for another experiment.'
       exit 0 ;;
     --task|--robot-model|--gripper|--boxes|--control-mode|--config|--initial-state|--initial-states-file|--reset-bank|--workcell-layout|--rack-box-poses|--rack-boxes|--ignore-captured-box-poses|--cargo-per-box|--prefill)

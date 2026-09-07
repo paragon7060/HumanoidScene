@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 pytest.importorskip("pxr.Usd")
-from kuavo_isaaclab_scene.rl.tasks.asset_geometry import box_geometry
+from kuavo_isaaclab_scene.rl.scenes.asset_geometry import box_geometry
 
 
 def test_physical_wrapper_nested_scale_and_flap_size():

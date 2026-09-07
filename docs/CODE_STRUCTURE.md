@@ -10,7 +10,7 @@ Isaac Lab scene key를 변경하지 않는다.
 | 폴더 | 책임 | 주요 파일 |
 |---|---|---|
 | `envs/` | Scene 생성, manager 환경, MDP, 공통 물리 설정 | `scene.py`, `manager_env.py`, `manager_mdp.py`, `teleop_env.py`, `scene_physics.py`, `contact_physics.py`, `task_system.py` |
-| `rl/` | 하위 task별 manager 환경, PPO 학습/평가 | `tasks/`, `managers/`, `mdp/`, `agents/`, `runners/` |
+| `rl/` | 독립적인 병렬 학습 scene, 하위 task별 manager 환경, PPO 학습/평가 | `envs/`, `scenes/`, `tasks/`, `managers/`, `mdp/`, `agents/`, `runners/` |
 | `teleop/` | Meta Quest 연결, tracking → action 변환, 안전 제어, 수집 실행 | `quest_openxr.py`, `quest_runtime.py`, `teleop_mapping.py`, `teleop_body_action.py`, `collect_quest_teleop.py` |
 | `robots/` | Robot/gripper asset 선택과 설정, 관성, linkage, 물리 카메라 장착 위치 | `robot_model.py`, `gripper_config.py`, `gripper_runtime.py`, `robot_inertials.py`, `twofinger_linkage.py`, `wrist_camera_mount.py` |
 | `workcell/` | Rack/box 배치, 좌표 변환, pose 캡처, rack–conveyor 간격, flap 마찰 설정 | `workcell_layout.py`, `rack_box_layout.py`, `capture_layout.py`, `capture_rack_box_poses.py`, `workcell_gap.py`, `box_flap_friction.py` |
@@ -35,7 +35,12 @@ Isaac Lab scene key를 변경하지 않는다.
 - 공통 robot/box 물리 설정: [`envs/scene_physics.py`](../src/kuavo_isaaclab_scene/envs/scene_physics.py), [`envs/contact_physics.py`](../src/kuavo_isaaclab_scene/envs/contact_physics.py)
 - Standalone conveyor/button task 상태 전이: [`envs/task_system.py`](../src/kuavo_isaaclab_scene/envs/task_system.py)
 
-새 하위 task별 RL 작업은 `rl/tasks/`, `rl/managers/`, `rl/mdp/`에서 시작한다.
+새 하위 task별 RL 작업은 `rl/envs/`, `rl/scenes/`, `rl/tasks/`, `rl/managers/`, `rl/mdp/`에서 시작한다.
+RL은 `rl/scenes/scene_cfg.py`의 독립적인 scene을 사용하며 일반 manager scene을
+import하거나 상속하지 않는다. 공장/이동 로봇/장식용 네트워크 conveyor는 생성하지 않는다.
+병렬 설정과 수정 대응표는 [RL 전용 병렬 환경](RL_PARALLEL_ENVS.md)을 참고한다.
+기존 `rl/tasks/env_cfg.py`, `scene_cfg.py`, `asset_geometry.py`, `flap_spawn.py`는
+import 호환용이며 구현은 각각 `rl/envs/`와 `rl/scenes/`로 이동했다.
 [RL 학습 가이드](RL_TRAINING.md)에 각 manager의 수정 위치와 PPO 실행법이 있다.
 기존 robustness 환경은 `envs/manager_env.py`와 `envs/manager_mdp.py`를 유지하며,
 standalone도 별도 실행 방식이다.

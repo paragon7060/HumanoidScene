@@ -65,6 +65,10 @@ reset distribution을 확보한 뒤 전체 task 학습에 활용하는 출발 �
 
 ## 3. 설치와 첫 학습
 
+학습/평가는 [배경 없는 RL 전용 병렬 scene](RL_PARALLEL_ENVS.md)을 사용한다.
+일반/VR 환경과 분리되어 있으며 `--num-envs N --env-spacing 8.0`으로
+하나의 GPU에서 동작하는 독립적인 N개 task cell을 구성한다.
+
 저장된 VR 자세의 베이스·허리·머리를 고정한 **양팔 전용 학습**은
 전용 `./train_flap_pick.sh`로 실행한다. 초기 자세는 `quest_ready_02`로 고정되어 있다.
 초기 자세 수정 위치는 [RL 초기 상태 가이드](RL_INITIAL_STATES.md)에 정리되어 있다.
@@ -217,8 +221,9 @@ Conveyor 후보 slot은 실제 surface의 로컬 X축 기준이다. Box의 회�
 | 고칠 내용 | 설정 파일 | 실제 계산/동작 구현 |
 |---|---|---|
 | Task 시간 제한, 거리/각도/lift/접촉 threshold, cargo/prefill | [`tasks/specs.py`](../src/kuavo_isaaclab_scene/rl/tasks/specs.py) | `mdp/commands.py` |
-| Scene asset 선택, sensor 추가, cargo 크기/배치 | [`tasks/scene_cfg.py`](../src/kuavo_isaaclab_scene/rl/tasks/scene_cfg.py) | `mdp/events.py` |
-| 모든 manager 조립, simulation dt/decimation | [`tasks/env_cfg.py`](../src/kuavo_isaaclab_scene/rl/tasks/env_cfg.py) | `ManagerBasedRLEnv` |
+| Scene asset 선택, sensor 추가, cargo 크기/배치 | [`scenes/scene_cfg.py`](../src/kuavo_isaaclab_scene/rl/scenes/scene_cfg.py), `scenes/boxes.py`, `scenes/sensors.py` | `mdp/events.py` |
+| 모든 manager 조립, simulation dt/decimation | [`envs/env_cfg.py`](../src/kuavo_isaaclab_scene/rl/envs/env_cfg.py) | `ManagerBasedRLEnv` |
+| 병렬 환경 복제와 충돌 격리 | [`envs/parallel_cfg.py`](../src/kuavo_isaaclab_scene/rl/envs/parallel_cfg.py) | `--num-envs`, `--env-spacing` |
 | 팔/허리 action joint 순서·scale, base 속도/가속도, 손 속도 | [`managers/actions.py`](../src/kuavo_isaaclab_scene/rl/managers/actions.py) | [`mdp/actions.py`](../src/kuavo_isaaclab_scene/rl/mdp/actions.py) |
 | Observation 구성·noise·scale | [`managers/observations.py`](../src/kuavo_isaaclab_scene/rl/managers/observations.py) | `mdp/observations.py` |
 | 목표 위치, 접촉 body, phase 관리 | [`managers/commands.py`](../src/kuavo_isaaclab_scene/rl/managers/commands.py) | [`mdp/commands.py`](../src/kuavo_isaaclab_scene/rl/mdp/commands.py) |

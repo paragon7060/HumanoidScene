@@ -11,11 +11,10 @@
 
 ## 코드 개발
 
-- [하위 task별 RL 학습](RL_TRAINING.md): approach/pick/carry/place/button, PPO,
-  성공 상태 bank와 manager별 설정 수정
 - [코드 구조와 개발 위치](CODE_STRUCTURE.md): scene/env, Quest, robot/asset,
   display, recording, evaluation 경계와 Python 경로 변경 안내
-- 새 하위 task별 학습은 `rl/managers/`와 `rl/mdp/`, 기존 robustness 환경은
+- RL 장면·병렬 환경은 `rl/scenes/`와 `rl/envs/`, manager 설정과 계산은
+  `rl/managers/`와 `rl/mdp/`, 기존 robustness 환경은
   `envs/manager_env.py`와 `envs/manager_mdp.py`에서 수정한다.
   Standalone 화면 구성과 실행은 `envs/scene.py`다.
 
@@ -43,12 +42,23 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 - 상세 가이드: controller/hand mapping, episode 제어, LeRobot schema, 세부 문제 해결
 - 화면·성능: VR 화면, head/wrist panel, PC observer viewport와 GPU 부하
 
+## RL 학습
+
+루트 README의 [RL 구현·사용법 요약](../README.md#10-rl-구현과-사용법-요약)에서
+시작하고, 목적에 따라 다음 문서를 읽는다.
+
+| 상황 | 읽을 문서 |
+|---|---|
+| 지금 양손 flap 집기를 학습·재개·평가한다 | [1단계 flap pick](RL_FLAP_PICK.md) |
+| 일반 환경과의 차이, 병렬 복제·좌표·충돌 격리를 수정한다 | [배경 없는 RL 병렬 환경](RL_PARALLEL_ENVS.md) |
+| `quest_ready_02` 관절/base 값을 수정하거나 VR로 다시 캡처한다 | [RL 초기 상태](RL_INITIAL_STATES.md) |
+| 다른 하위 task, observation/action/reward 또는 PPO를 수정한다 | [하위 task별 RL 학습](RL_TRAINING.md) |
+
+각 문서의 역할은 실행·task 정의, 장면·병렬 구조, 초기 자세, 범용 manager 개발로
+구분한다. 공통 폴더와 import 경계는 [코드 구조 가이드](CODE_STRUCTURE.md)에 있다.
+
 ## Policy와 평가
 
-- [1단계 RL: flap 상단 파지·들기·유지](RL_FLAP_PICK.md): 양팔 전용 action,
-  flap 접촉, 고정 hinge, pose 관측, 실행 준비 및 설정 위치
-- [RL 초기 자세 저장과 복원](RL_INITIAL_STATES.md): `quest_ready_02` 관절/base 수정,
-  Debug Console 재캡처와 arms-only 몸통 고정
 - [GR00T N1.7 평가](GROOT_N1_7_EVAL_GUIDE.md)
 - [RwH-Kuavo V2 GR00T N1.5를 S56에서 평가](RWH_KUAVO_V2_S56_EVAL.md):
   별도 Conda worker, 16-D arm/claw 변환, headless 3-view MP4, VRAM과 배포 설정
