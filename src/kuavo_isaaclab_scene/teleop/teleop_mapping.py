@@ -11,13 +11,16 @@ import numpy as np
 Pose = np.ndarray  # [x, y, z, qw, qx, qy, qz]
 
 
-def controller_gripper_orientation(grip_quat, aim_quat=None, tool_forward_sign=-1, mode="pointing"):
+def controller_gripper_orientation(grip_quat, aim_quat=None, tool_forward_sign=-1, mode="pointing", side="left"):
     """Map controller axes to the model's signed tool-Z approach and tool +X.
 
-    Downward uses aim -Y as approach and aim +X as the closing axis.
+    Downward uses aim -Y as approach. The anatomical thumb/closing axis is
+    aim +X for the left controller and aim -X for the mirrored right one.
     Legacy pointing uses aim -Z (fallback grip -Y) and projected grip -Z
     (thumb direction). These are controller-frame mappings, not finger joints.
     """
+    if side not in {"left", "right"}:
+        raise ValueError(f"Unknown controller side: {side}")
     if mode == "downward":
         # Fixed 90-degree local offset: a level forward-pointing aim frame
         # maps to a downward approach. Controller pitch/roll still rotate
@@ -26,7 +29,7 @@ def controller_gripper_orientation(grip_quat, aim_quat=None, tool_forward_sign=-
             c = math.sqrt(.5)
             aim_quat = _quat_multiply(grip_quat, [c, -c, 0., 0.])
         forward = _quat_rotate(aim_quat, [0., -1., 0.])
-        thumb = _quat_rotate(aim_quat, [1., 0., 0.])
+        thumb = _quat_rotate(aim_quat, [1. if side == "left" else -1., 0., 0.])
     elif mode == "pointing":
         forward = _quat_rotate(aim_quat, [0., 0., -1.]) if aim_quat is not None else _quat_rotate(grip_quat, [0., -1., 0.])
         thumb = _quat_rotate(grip_quat, [0., 0., -1.])
@@ -84,7 +87,7 @@ class AbsoluteControllerMapper:
                 # while continuing to follow the live grip orientation.
                 aim_quat = _quat_multiply(packet[0, 3:], self._aim_from_grip[side])
         return np.concatenate((packet[0, :3], controller_gripper_orientation(
-            packet[0, 3:], aim_quat, self._tool_forward_sign, self.orientation_mode)))
+            packet[0, 3:], aim_quat, self._tool_forward_sign, self.orientation_mode, side)))
 
     def target(self, side, controller, tool_pose_w, root_pose_w, *, following, aim_pose=None,
                reference_pose_w=None):

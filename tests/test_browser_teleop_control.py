@@ -71,13 +71,13 @@ def test_controller_values_are_clamped():
 def test_browser_base_direction(left, right, axis, sign):
     command = browser_body_action(sample(left=left, right=right), mapper(), 1 / 30, control_allowed=True)
     assert np.sign(command[axis]) == sign
-    assert np.linalg.norm(command[:2]) <= .250001
-    assert abs(command[2]) <= 1.200001
+    assert np.linalg.norm(command[:2]) <= .750001
+    assert abs(command[2]) <= 3.600001
 
 
 def test_browser_lift_lower_pause_and_missing_controller():
     body = mapper()
-    for _ in range(60):
+    for _ in range(20):
         raised = browser_body_action(sample(right=(0, -1)), body, 1 / 30, control_allowed=True)
     assert body.height == pytest.approx(.24)
     assert abs(raised[3:].sum()) < 1e-6
@@ -87,7 +87,7 @@ def test_browser_lift_lower_pause_and_missing_controller():
     np.testing.assert_allclose(stopped[:3], 0)
     np.testing.assert_allclose(stopped[3:], raised[3:])
     np.testing.assert_allclose(paused, stopped)
-    for _ in range(30):
+    for _ in range(10):
         browser_body_action(sample(right=(0, 1)), body, 1 / 30, control_allowed=True)
     assert body.height == pytest.approx(.12)
 

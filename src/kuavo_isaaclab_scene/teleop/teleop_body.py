@@ -8,6 +8,9 @@ import numpy as np
 
 BODY_JOINTS = ["knee_joint", "leg_joint", "waist_pitch_joint", "waist_yaw_joint"]
 BODY_ACTION_NAMES = ("base_forward_m_s", "base_left_m_s", "base_yaw_rad_s", *BODY_JOINTS[:3])
+BASE_LINEAR_SPEED_M_S = 0.75
+BASE_YAW_SPEED_RAD_S = 3.6
+TORSO_HEIGHT_SPEED_M_S = 0.36
 
 
 def controller_axis(packet, index, deadzone=0.15):
@@ -54,12 +57,14 @@ class TeleopBodyMapper:
         yaw_rate = 0.0
         if enabled:
             # Native OpenXR axes: +Y is up, unlike the WebXR Gamepad API.
-            velocity = .25 * np.array([controller_axis(left, 1), -controller_axis(left, 0)])
-            velocity /= max(1.0, np.linalg.norm(velocity) / .25)
-            yaw_rate = -1.2 * controller_axis(right, 0)
+            velocity = BASE_LINEAR_SPEED_M_S * np.array(
+                [controller_axis(left, 1), -controller_axis(left, 0)]
+            )
+            velocity /= max(1.0, np.linalg.norm(velocity) / BASE_LINEAR_SPEED_M_S)
+            yaw_rate = -BASE_YAW_SPEED_RAD_S * controller_axis(right, 0)
             if self.has_wheel_base:
                 requested_height = float(np.clip(
-                    self.height + .12 * controller_axis(right, 1) * dt, 0.0, .40
+                    self.height + TORSO_HEIGHT_SPEED_M_S * controller_axis(right, 1) * dt, 0.0, .40
                 ))
                 target = self.links.sum(axis=0) + [0., requested_height]
                 q = self.joints[:2].copy()

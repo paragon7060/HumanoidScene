@@ -160,11 +160,12 @@ def test_invalid_quaternion_is_rejected(tmp_path) -> None:
         load_gripper_settings(config_path=path)
 
 
-def test_high_friction_is_only_enabled_for_s56_twofinger() -> None:
+def test_twofinger_presets_use_explicit_contact_friction() -> None:
     settings = load_gripper_settings("s56_twofinger")
-    assert settings.finger_contact == FingerContactSettings(3.0, 2.0, "average")
+    assert settings.finger_contact == FingerContactSettings(5.0, 4.0, "average")
     assert settings.actuator.friction == 0.02
-    for preset in ("s200062_integrated", "s56_qiangnao", "robotiq_2f85", "none"):
+    assert load_gripper_settings("s200062_integrated").finger_contact == FingerContactSettings(5.0, 4.0, "average")
+    for preset in ("s56_qiangnao", "robotiq_2f85", "none"):
         assert load_gripper_settings(preset).finger_contact == FingerContactSettings()
 
 

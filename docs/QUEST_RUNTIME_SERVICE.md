@@ -315,7 +315,7 @@ openssl x509 -in "$CLOUDXR_CERTIFICATE" -noout -dates -fingerprint -sha256
 
 ### 현재 조작·성능 기본값
 
-왼쪽 스틱은 베이스 전후/좌우 이동, 오른쪽 스틱은 베이스 yaw(최대 1.2rad/s)/몸통 높이 조절이다.
+왼쪽 스틱은 베이스 전후/좌우 이동, 오른쪽 스틱은 베이스 yaw(최대 3.6rad/s)/몸통 높이 조절이다.
 A/B로 따라오기를 켠 뒤 사용한다. 베이스는 simulation fixed-root 이동·회전이며 바퀴 회전을 동기화한다. 접촉력 기반 주행은 아니다.
 시점은 robot head에 붙으며 왼쪽 아래 그립을 누르는 동안 room-scale 자유 시점이다.
 자유 시점에서는 새 팔·몸통 명령을 멈추고 기존 팔 목표를 유지한다.

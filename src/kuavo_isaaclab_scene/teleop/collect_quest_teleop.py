@@ -1216,7 +1216,10 @@ def main() -> None:
                 profile = None
             if time.perf_counter() - report_time >= 5.0:
                 elapsed = time.perf_counter() - report_time
-                print(f"[PERF] loop={report_steps / elapsed:.1f} Hz, {1000 * elapsed / report_steps:.0f} ms/frame; "
+                actual_hz = report_steps / elapsed
+                realtime_ratio = actual_hz * float(env.step_dt)
+                print(f"[PERF] loop={actual_hz:.1f}/{1.0 / float(env.step_dt):.0f} Hz, "
+                      f"realtime={realtime_ratio:.2f}x, {1000 * elapsed / report_steps:.0f} ms/frame; "
                       f"recording={recorder.recording}", flush=True)
                 report_steps = 0
                 report_time = time.perf_counter()
