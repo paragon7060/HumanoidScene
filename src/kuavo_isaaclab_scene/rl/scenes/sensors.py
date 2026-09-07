@@ -21,6 +21,21 @@ def add_contacts(scene, spec, geometry):
               if spec.grasp_mode == "flap_top" else "waist_yaw_link|zarm_[lr][1-6]_link")
     scene.robot_contact = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Kuavo/(" + bodies + ")",
         update_period=0., history_length=1)
+    if spec.grasp_mode == "flap_top":
+        from .asset_geometry import robot_rigid_body_paths
+        # Filtered reports require one sensor body per environment. Include
+        # every link, especially fingers omitted by the old robot_contact mask.
+        # Each filter must resolve to exactly one rigid body per environment.
+        obstacles = [scene.rack_visual.prim_path, scene.fence.prim_path,
+                     scene.button_station.prim_path + "/Base",
+                     scene.button_station.prim_path + "/Plunger",
+                     scene.conveyor_surface.prim_path]
+        obstacles.extend(getattr(scene, f"prefill_{i}").prim_path for i in range(spec.prefill_count))
+        for index, path in enumerate(robot_rigid_body_paths(scene.robot.spawn.usd_path)):
+            prim_path = scene.robot.prim_path + ("/" + path if path != "." else "")
+            setattr(scene, f"obstacle_contact_{index}", ContactSensorCfg(
+                prim_path=prim_path, update_period=0., history_length=4,
+                filter_prim_paths_expr=list(obstacles)))
 
 
 def add_cameras(scene):

@@ -26,6 +26,7 @@ class TaskSpec:
     grasp_force: float = 0.20
     required_grasp_hands: int = 1
     grasp_mode: str = "body"
+    grasp_hand: str = "right"
     # Left robot hand -> +X flap; right robot hand -> -X flap. Configurable.
     grasp_flaps: tuple[str, str] = ("flap_right", "flap_left")
     flap_grasp_depth: float = 0.015
@@ -33,6 +34,15 @@ class TaskSpec:
     flap_contact_margin: float = 0.004
     flap_lock_degrees: float = 0.5
     unexpected_contact_limit: float = 10.0
+    obstacle_contact_force: float = 0.1
+    reset_settle_seconds: float = 0.0
+    reset_settle_hold_seconds: float = 0.2
+    reset_settle_timeout: float = 2.0
+    prelift_position_scale: float = 0.02
+    prelift_speed_scale: float = 0.05
+    prelift_angular_scale: float = 0.5
+    prelift_rotation_scale: float = math.radians(10)
+    grasp_lift_clearance: float = 0.01
     max_tilt: float = 0.30
     settle_speed: float = 0.08
     settle_angular_speed: float = 0.35
@@ -71,19 +81,35 @@ class TaskSpec:
         if self.grasp_mode not in ("body", "flap_top"):
             raise ValueError("grasp_mode must be body or flap_top.")
         if self.grasp_mode == "flap_top":
-            if self.name != "pick" or self.control_mode != "arms-only" or self.required_grasp_hands != 2:
-                raise ValueError("flap_top currently requires a stationary arms-only pick with two hands.")
+            if self.name != "pick" or self.control_mode != "arms-only":
+                raise ValueError("flap_top currently requires a stationary arms-only pick.")
+            if self.grasp_hand not in ("left", "right"):
+                raise ValueError("grasp_hand must be left or right.")
             if (len(self.grasp_flaps) != 2 or len(set(self.grasp_flaps)) != 2
                     or any(n not in ("flap_front", "flap_back", "flap_left", "flap_right") for n in self.grasp_flaps)):
                 raise ValueError("Choose two distinct flap body names in left-hand/right-hand order.")
             dimensions = (self.flap_grasp_depth, self.flap_top_band, self.flap_contact_margin,
-                          self.flap_lock_degrees, self.unexpected_contact_limit)
+                          self.flap_lock_degrees, self.unexpected_contact_limit, self.obstacle_contact_force,
+                          self.prelift_position_scale, self.prelift_speed_scale, self.prelift_angular_scale,
+                          self.prelift_rotation_scale, self.grasp_lift_clearance)
             if not all(math.isfinite(v) and v > 0 for v in dimensions):
                 raise ValueError("Flap grasp/contact/lock settings must be finite and positive.")
             if self.flap_grasp_depth >= self.flap_top_band or self.flap_lock_degrees > 5:
                 raise ValueError("Grasp depth must be inside top band; flap lock half-range must be <= 5 degrees.")
+            if self.grasp_lift_clearance >= self.lift_height:
+                raise ValueError("Grasp lift clearance must be smaller than the success lift height.")
         if len(self.finger_bodies) != 4:
             raise ValueError("Provide two opposing finger bodies per hand (left then right).")
+        if not math.isfinite(self.reset_settle_seconds) or self.reset_settle_seconds < 0:
+            raise ValueError("reset_settle_seconds must be finite and nonnegative.")
+        if self.reset_settle_seconds:
+            if self.grasp_mode != "flap_top":
+                raise ValueError("Reset settling currently requires flap_top.")
+            if (not all(math.isfinite(v) and v > 0 for v in
+                        (self.reset_settle_hold_seconds, self.reset_settle_timeout))
+                    or self.reset_settle_timeout <= self.reset_settle_seconds + self.reset_settle_hold_seconds
+                    or self.reset_settle_timeout >= self.episode_length_s):
+                raise ValueError("Settling needs positive hold time and a timeout inside the episode.")
         if self.name in REQUIRES_RESET_BANK and not self.reset_bank:
             raise ValueError(f"{self.name} requires --reset-bank from a successful {PREDECESSOR[self.name]} rollout.")
         if self.reset_bank and self.name not in PREDECESSOR:
@@ -96,6 +122,10 @@ class TaskSpec:
             raise ValueError("cargo_per_box currently supports 0, 1 or 2.")
         if min(self.episode_length_s, self.hold_seconds, self.slot_pitch, self.cargo_radius) <= 0:
             raise ValueError("Durations, slot pitch and cargo radius must be positive.")
+
+    @property
+    def grasp_hand_indices(self) -> tuple[int, ...]:
+        return (0, 1) if self.required_grasp_hands == 2 else ((0,) if self.grasp_hand == "left" else (1,))
 
 
 def task_spec(name: str, **overrides) -> TaskSpec:

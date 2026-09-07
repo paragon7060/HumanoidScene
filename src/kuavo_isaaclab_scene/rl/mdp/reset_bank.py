@@ -23,6 +23,7 @@ def contract(env):
     names = ["robot", "rack", "button_station", "conveyor_surface", *spec.box_names]
     return {"scene_profile": cfg.scene_profile,
         "robot": resolve_robot_model().name, "gripper": resolve_gripper_settings().name,
+        "finger_contact": asdict(resolve_gripper_settings().finger_contact),
         "box_names": list(spec.box_names), "cargo_per_box": spec.cargo_per_box,
         "cargo_radius": spec.cargo_radius, "prefill_count": spec.prefill_count,
         "slot_count": spec.slot_count, "slot_pitch": spec.slot_pitch,
@@ -35,8 +36,12 @@ def contract(env):
         "joints": {name: list(asset.joint_names) for name, asset in env.scene.articulations.items()},
         "geometry": {n: asdict(g) for n, g in cfg.commands.workcell.geometry.items()},
         "grasp_definition": {name: getattr(spec, name) for name in (
-            "grasp_mode", "grasp_flaps", "flap_top_band", "flap_grasp_depth",
-            "flap_lock_degrees", "flap_contact_margin")}}
+            "grasp_mode", "grasp_hand", "required_grasp_hands", "grasp_force",
+            "grasp_flaps", "flap_top_band", "flap_grasp_depth",
+            "flap_lock_degrees", "flap_contact_margin", "obstacle_contact_force",
+            "reset_settle_seconds", "reset_settle_hold_seconds", "reset_settle_timeout",
+            "prelift_position_scale", "prelift_speed_scale", "prelift_angular_scale",
+            "prelift_rotation_scale", "grasp_lift_clearance")}}
 
 
 def signature(value):

@@ -18,6 +18,14 @@ def upper_band_contacts(points, centers, halves, normal_axes, *, band, margin):
     return valid, opposed
 
 
+def grasp_status(valid, opposed, contact_force, spec):
+    """Require opposed jaws on each selected hand; the other hand may support."""
+    fingers = valid & (contact_force.reshape(-1, 2, 2) > spec.grasp_force)
+    hands = fingers.all(-1) & opposed
+    grasped = hands[:, spec.grasp_hand_indices].all(-1)
+    return fingers, hands, grasped
+
+
 class FlapGrasp:
     """Measure designated flap links and filtered finger contact positions."""
 
@@ -57,7 +65,7 @@ class FlapGrasp:
         targets[..., 2] += halves[..., 2] - t.spec.flap_grasp_depth
         t.grips = t.flap_pos + rotate(t.flap_quat, targets)
         t.hand_target_distance = (t.tools - t.grips).norm(dim=-1)
-        t.reach_distance = t.hand_target_distance.mean(-1)
+        t.reach_distance = t.hand_target_distance[:, t.spec.grasp_hand_indices].mean(-1)
         normal = torch.nn.functional.one_hot(axes, 3).float()
         normal = rotate(t.flap_quat, normal)
         fingers = t.robot.data.body_link_pos_w[:, self.finger_ids].reshape(t.num_envs, 2, 2, 3)
@@ -71,14 +79,16 @@ class FlapGrasp:
                 raise RuntimeError("flap_top needs track_contact_points=True on each filtered finger sensor.")
             points.append(sensor.contact_pos_w[t.ids, 0, t.active_box])
             assigned = sensor.force_matrix_w[t.ids, 0, t.active_box]
-            residuals.append((sensor.net_forces_w[:, 0] - assigned).norm(dim=-1))
+            residual = (sensor.net_forces_w[:, 0] - assigned).norm(dim=-1)
+            # The support hand may touch any part of the box. Obstacle contacts
+            # are measured independently on every robot body.
+            residuals.append(residual if i // 2 in t.spec.grasp_hand_indices else torch.zeros_like(residual))
         points = torch.stack(points, dim=1).reshape(t.num_envs, 2, 2, 3)
         local = unrotate(t.flap_quat[:, :, None].expand(-1, -1, 2, -1),
                          points - t.flap_pos[:, :, None])
         valid, opposed = upper_band_contacts(local, centers, halves, axes,
             band=t.spec.flap_top_band, margin=t.spec.flap_contact_margin)
-        t.finger_grasp_contacts = valid & (t.contact_force.reshape(t.num_envs, 2, 2) > t.spec.grasp_force)
-        t.hand_grasp_flags = t.finger_grasp_contacts.all(-1) & opposed
+        t.finger_grasp_contacts, t.hand_grasp_flags, t.grasped = grasp_status(
+            valid, opposed, t.contact_force, t.spec)
         t.unexpected_finger_force = torch.stack(residuals, dim=-1)
-        t.grasped = t.hand_grasp_flags.all(-1)
         t.released = (t.contact_force < t.spec.grasp_force).all(-1)

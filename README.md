@@ -27,7 +27,7 @@ Kuavo humanoid가 경사진 랙의 열린 박스를 컨베이어의 빈 공간�
 | 기능별 코드 위치·Python import 경로 | [코드 구조와 개발 위치](docs/CODE_STRUCTURE.md) |
 | 하위 task별 PPO 학습·manager 수정 | [RL 학습 가이드](docs/RL_TRAINING.md) |
 | RL 전용 환경 구조·병렬 복제 설정 | [배경 없는 병렬 환경](docs/RL_PARALLEL_ENVS.md) |
-| 양손 flap 파지·들기 학습과 평가 | [1단계 flap pick](docs/RL_FLAP_PICK.md) |
+| 한 손 flap 파지·들기 학습과 평가 | [1단계 flap pick](docs/RL_FLAP_PICK.md) |
 | RL 초기 자세 수정·VR 재캡처 | [quest_ready_02 초기 상태](docs/RL_INITIAL_STATES.md) |
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |
 | Meta Quest를 처음 연결하고 수집 | [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md) |
@@ -86,7 +86,7 @@ export ISAACLAB_PYTHON="$(command -v python)"
 | 일반 scene | `./run_scene.sh` |
 | 컨베이어에 기존 상자 2개 배치 | `./run_scene.sh --prefill 2` |
 | manager-based 환경 | `./run_manager_env.sh --num-envs 1 --steps 240` |
-| 양팔 flap pick PPO 학습 | `./train_flap_pick.sh` |
+| 한 손 flap pick PPO 학습 | `./train_flap_pick.sh` |
 | 8개 RL 환경에서 병렬 학습 | `./train_flap_pick.sh --num-envs 8 --env-spacing 8.0` |
 | RL checkpoint 평가 | `./play_flap_pick.sh --checkpoint /path/model_1999.pt --headless` |
 | Quest 없이 카메라·로봇 확인 | `./preview_quest_local.sh --robot-model s200062` |
@@ -455,8 +455,9 @@ staging box는 생성하지 않는다. 실제 rack·버튼·fence와 단순한 c
 
 현재 전용 실험은 `s200062` + 내장 two-finger로 `medium_box_0`를 집는다.
 `quest_ready_02`로 reset하고 베이스·허리·머리를 고정한 채,
-양팔 14개 관절과 두 gripper를 제어한다. 성공 목표는 **양손 flap 상단 파지 →
-6cm 상승 → 0.5초 유지**이며 랙 밖 인출은 다음 단계다.
+양팔 14개 관절과 두 gripper를 제어한다. 오른손은 flap을 집고 왼손의 받침은 허용한다. 성공 목표는 **오른손 flap 상단 파지 →
+6cm 상승 → 0.5초 유지**이며 랙 밖 인출은 다음 단계다. 로봇과 주변 장애물의 접촉력이
+0.1N을 초과하면 초기 유예 없이 실패 처리한다.
 
 ```bash
 conda activate env_isaaclab_232
@@ -466,7 +467,9 @@ python -m pip install -e '.[rl]'
 ./train_flap_pick.sh
 
 # 메모리 상황에 맞춰 병렬 환경 수 조절
-./train_flap_pick.sh --num-envs 8 --env-spacing 8.0 --device cuda:0
+CUDA_VISIBLE_DEVICES=1 ./train_flap_pick.sh --num-envs 16384 --device cuda:0 \
+  --save-interval 1000 \
+  --kit_args "--/renderer/activeGpu=1 --/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false"
 
 # 학습 checkpoint 평가 (checkpoint 옆 manifest.json도 필요)
 ./play_flap_pick.sh --checkpoint /absolute/path/model_1999.pt --episodes 100 --headless
@@ -478,8 +481,12 @@ python -m pip install -e '.[rl]'
 재개·TensorBoard·수정 항목은 [flap pick 가이드](docs/RL_FLAP_PICK.md),
 복제·좌표·충돌 격리는 [병렬 환경 가이드](docs/RL_PARALLEL_ENVS.md)를 참고한다.
 
-이 RL 구현은 문법만 정적으로 확인했다. 학습·시뮬레이션·테스트는 실행하지 않았으며,
-파지 성공률·처리량·최대 환경 수는 아직 검증하지 않았다.
+2026-09-07: 고정 버전 conda 환경과 PPO 의존성을 설치하고, 관련 테스트 117개 및
+GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.0/4.0을 적용하며,
+박스가 랙에 안착한 높이를 lift 기준으로 저장하고, 파지 전 밀림·흔들림을 억제하는 보상을 적용한다.
+현재 학습은 16384 env로 실행하며 Checkpoint는 기본 1000회마다 저장한다.
+병렬 환경별 메모리·처리량은 [측정 기록](docs/RL_PARALLEL_ENVS.md)을 참고한다.
+짧은 실행은 학습 수렴이나 파지 성공률 검증을 뜻하지 않는다.
 
 ## 저장소 구조
 

@@ -1,4 +1,4 @@
-"""Stage 1: pinch two flap upper edges, lift 6 cm and hold. No rack extraction."""
+"""Stage 1: pinch one flap with the right hand, lift 6 cm and hold."""
 
 from dataclasses import replace
 import math
@@ -11,13 +11,15 @@ INITIAL_STATE = "quest_ready_02"
 def configure_task(spec):
     return replace(spec,
         control_mode="arms-only",
-        required_grasp_hands=2,
+        required_grasp_hands=1,
+        grasp_hand="right",
         grasp_mode="flap_top",
         # Robot left/right hand assignment; change if the workcell is rotated.
         grasp_flaps=("flap_right", "flap_left"),
         flap_grasp_depth=0.015,
         flap_top_band=0.030,
         flap_lock_degrees=0.5,
+        reset_settle_seconds=0.5,
         lift_height=0.06,
         max_tilt=math.radians(40),
         hold_seconds=0.5,

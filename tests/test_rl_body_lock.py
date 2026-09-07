@@ -101,7 +101,8 @@ def test_stationary_pick_example_configures_requested_thresholds():
     custom = runpy.run_path(str(path))
     spec = custom["configure_task"](task_spec("pick"))
     spec.validate()
-    assert spec.control_mode == "arms-only" and spec.required_grasp_hands == 2
+    assert spec.control_mode == "arms-only" and spec.required_grasp_hands == 1
+    assert spec.grasp_hand == "right" and spec.grasp_hand_indices == (1,)
     assert spec.lift_height == 0.06 and spec.cargo_per_box == 0
     actions = SimpleNamespace(upper_body=SimpleNamespace(), left_gripper=SimpleNamespace(),
                               right_gripper=SimpleNamespace())

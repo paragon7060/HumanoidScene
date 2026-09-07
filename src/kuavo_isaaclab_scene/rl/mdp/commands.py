@@ -33,6 +33,9 @@ class WorkcellCommand(CommandTerm):
         self.slot = self.phase.clone()
         self.done_boxes = torch.zeros(self.num_envs, self.n, dtype=torch.bool, device=self.device)
         self.initial_z = torch.zeros(self.num_envs, self.n, device=self.device)
+        self.initial_centers = torch.zeros(self.num_envs, self.n, 3, device=self.device)
+        self.initial_quats = torch.zeros(self.num_envs, self.n, 4, device=self.device)
+        self.initial_quats[..., 0] = 1
         self.dwell = torch.zeros(self.num_envs, device=self.device)
         self.belt_time = torch.zeros_like(self.dwell)
         self.belt_running = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
@@ -44,6 +47,10 @@ class WorkcellCommand(CommandTerm):
         self.metrics = {name: torch.zeros(self.num_envs, device=self.device)
                         for name in ("success", "boxes_placed", "phase", "cargo_retained")}
         self.flap_grasp = None
+        self.settling = None
+        if self.spec.reset_settle_seconds and not self.spec.reset_bank:
+            from .settling import ResetSettling
+            self.settling = ResetSettling(self.num_envs, self.device, self.spec)
         if self.spec.grasp_mode == "flap_top":
             from .flap_grasp import FlapGrasp
             self.flap_grasp = FlapGrasp(self)
@@ -77,8 +84,12 @@ class WorkcellCommand(CommandTerm):
         self.failure[ids] = False
         self.transition[ids] = False
         self.last_step[ids] = self._env.common_step_counter
+        if self.settling is not None:
+            self.settling.reset(ids)
         self._measure()
         self.initial_z[ids] = self.centers[ids, :, 2] - self._env.scene.env_origins[ids, None, 2]
+        self.initial_centers[ids] = self.centers[ids] - self._env.scene.env_origins[ids, None]
+        self.initial_quats[ids] = self.poses[ids, :, 3:]
         saved = getattr(self._env, "_rl_reset_metadata", {})
         for env_id in ids.tolist():
             if env_id in saved:
@@ -163,6 +174,8 @@ class WorkcellCommand(CommandTerm):
         self.released = (self.contact_force < self.spec.grasp_force).all(-1) & ~nearby.any(-1)
         if self.flap_grasp is not None:
             self.flap_grasp.measure()
+            from .collisions import obstacle_forces
+            self.obstacle_forces = obstacle_forces(self._env)
         self.cargo_ok = torch.ones(self.num_envs, self.n, dtype=torch.bool, device=self.device)
         for box_id, name in enumerate(self.spec.box_names):
             for item in range(self.spec.cargo_per_box):
@@ -210,6 +223,12 @@ class WorkcellCommand(CommandTerm):
         self.transition[:] = False
         self._measure()
         self._goals()
+        if self.settling is not None:
+            completed = self.settling.advance(self.velocities, update, self._env.step_dt)
+            self.initial_z[completed] = (self.centers[..., 2]
+                - self._env.scene.env_origins[:, None, 2])[completed]
+            self.initial_centers[completed] = (self.centers - self._env.scene.env_origins[:, None])[completed]
+            self.initial_quats[completed] = self.poses[completed, :, 3:]
         target = self.centers[self.ids, self.active_box]
         lifted = target[:, 2] - self._env.scene.env_origins[:, 2] > self.initial_z[self.ids, self.active_box] + self.spec.lift_height
         upright = self.upright[self.ids, self.active_box] > math.cos(self.spec.max_tilt)
@@ -228,6 +247,8 @@ class WorkcellCommand(CommandTerm):
                                 & ((self.tools - self.button_point[:, None]).norm(dim=-1).amin(-1)
                                    < self.spec.button_hand_distance)))))
         condition &= self.cargo_ok.all(-1)
+        if self.settling is not None:
+            condition &= self.settling.ready
         self.dwell[update] = torch.where(condition[update], self.dwell[update] + self._env.step_dt, 0.0)
         reached = (self.dwell >= self.spec.hold_seconds) & update & ~self.success
         self.transition[:] = reached & ~self.belt_running
@@ -251,10 +272,17 @@ class WorkcellCommand(CommandTerm):
             self.success |= reached
         floor_drop = (self.centers[..., 2] - self._env.scene.env_origins[:, None, 2] < 0.12).any(-1)
         outside = (self.robot.data.root_pos_w[:, :2] - self._env.scene.env_origins[:, :2]).abs().amax(-1) > 3.0
-        collision = self._env.scene["robot_contact"].data.net_forces_w.norm(dim=-1).amax(-1) > self.cfg.collision_force
+        if self.flap_grasp is not None:
+            collision = self.obstacle_forces.amax(-1) > self.spec.obstacle_contact_force
+        else:
+            collision = self._env.scene["robot_contact"].data.net_forces_w.norm(dim=-1).amax(-1) > self.cfg.collision_force
         grace = self._env.episode_length_buf > 3
-        self.failure |= (floor_drop | outside | ((~self.cargo_ok.all(-1) | collision) & grace)) & update
+        collision_failure = collision if self.flap_grasp is not None else collision & grace
+        self.failure |= (floor_drop | outside | collision_failure | (~self.cargo_ok.all(-1) & grace)) & update
+        if self.settling is not None:
+            self.failure |= self.settling.failed & update
         self.success &= ~self.failure
+        self.transition &= ~self.failure
         self.metrics["success"][:] = self.success.float()
         self.metrics["boxes_placed"][:] = self.supported.float().sum(-1)
         self.metrics["phase"][:] = self.phase.float()

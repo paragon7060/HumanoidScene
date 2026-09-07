@@ -25,8 +25,8 @@ Quest teleop, GR00T 평가의 환경 설정을 덮어쓰지 않고, 공통 workc
   제외하고 선택한 실제 USD 박스와 그 내부의 자유 물체를 사용한다. 기존 scene/Quest의
   해당 기능은 그대로 유지된다. 카메라는 `--enable_cameras`로 추가할 수 있지만
   PPO observation에 이미지를 넣어주지는 않는다.
-- 이 변경에서 GPU rollout/학습은 실행하지 않았다. 성공률 80%, 3개/11초 성능은
-  아직 검증된 결과가 아니며 reset·grasp·reward 튜닝과 별도 평가가 필요하다.
+- Flap pick은 GPU 1번에서 실제 PPO 검사를 실행했다. [병렬 측정 기록](RL_PARALLEL_ENVS.md)을 참고한다.
+  성공률 80%, 3개/11초 성능은 검증된 결과가 아니며 별도 평가가 필요하다.
 
 ## 2. 학습할 task 선택
 
@@ -69,11 +69,11 @@ reset distribution을 확보한 뒤 전체 task 학습에 활용하는 출발 �
 일반/VR 환경과 분리되어 있으며 `--num-envs N --env-spacing 8.0`으로
 하나의 GPU에서 동작하는 독립적인 N개 task cell을 구성한다.
 
-저장된 VR 자세의 베이스·허리·머리를 고정한 **양팔 전용 학습**은
+저장된 VR 자세의 베이스·허리·머리를 고정한 **한 손 flap 파지 학습**은
 전용 `./train_flap_pick.sh`로 실행한다. 초기 자세는 `quest_ready_02`로 고정되어 있다.
 초기 자세 수정 위치는 [RL 초기 상태 가이드](RL_INITIAL_STATES.md)에 정리되어 있다.
-`configs/rl_pick_arms_only.py` 예제는 양손 접촉·6cm 상승·내용물 없는 시작 설정이다.
-이 예제의 현재 목표는 [flap 상단 양손 파지·들기·유지](RL_FLAP_PICK.md)이며,
+`configs/rl_pick_arms_only.py` 예제는 오른손 접촉·6cm 상승·내용물 없는 시작 설정이다.
+이 예제의 현재 목표는 [flap 상단 한 손 파지·들기·유지](RL_FLAP_PICK.md)이며,
 랙 밖 인출은 다음 단계로 분리한다.
 
 기존 Isaac Sim 5.1.0 / Isaac Lab v2.3.2 환경을 사용한다. 새 conda 환경은 필요 없다.

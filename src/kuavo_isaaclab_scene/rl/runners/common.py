@@ -18,6 +18,18 @@ from ...core.paths import default_artifacts_dir
 from ...robots.initial_states import add_initial_state_args, configure_initial_state
 
 
+def install_stop_handlers():
+    """Kit's quit flag alone does not stop RSL-RL's Python learning loop."""
+    import signal
+
+    def stop(signum, _frame):
+        print(f"[RL] Stopping on signal {signum}; closing the environment.", flush=True)
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+
+
 def parse_args(mode):
     from isaaclab.app import AppLauncher
     parser = argparse.ArgumentParser(description=f"Kuavo manager-based subtask PPO {mode}", allow_abbrev=False)
@@ -30,6 +42,7 @@ def parse_args(mode):
                         help="Distance in meters between independent RL cell origins (minimum 5).")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-iterations", type=int, default=2000)
+    parser.add_argument("--save-interval", type=int, help="PPO checkpoint interval in iterations (default: 1000).")
     parser.add_argument("--episodes", type=int, default=20)
     parser.add_argument("--reset-bank", type=Path)
     parser.add_argument("--snapshot-dir", type=Path)
@@ -53,6 +66,8 @@ def parse_args(mode):
     args = parser.parse_args()
     if min(args.num_envs, args.max_iterations, args.episodes, args.max_snapshots) < 1:
         parser.error("Environment/iteration/episode/snapshot counts must be positive.")
+    if args.save_interval is not None and args.save_interval < 1:
+        parser.error("--save-interval must be positive.")
     if not math.isfinite(args.env_spacing) or args.env_spacing < 5.0:
         parser.error("--env-spacing must be finite and >= 5 meters.")
     if args.task in REQUIRES_RESET_BANK and not args.reset_bank:
@@ -113,6 +128,8 @@ def build_configs(args):
                            experiment_name=f"kuavo_{args.task}")
     if "configure" in customization:
         customization["configure"](cfg, agent)
+    if args.save_interval is not None:
+        agent.save_interval = args.save_interval
     # Keep isolation constraints even when a trusted customization edits the scene.
     from ..envs.parallel_cfg import ParallelEnvCfg
     ParallelEnvCfg(num_envs=cfg.scene.num_envs, env_spacing=cfg.scene.env_spacing,
@@ -134,6 +151,10 @@ def build_configs(args):
     print(f"[RL] scene={cfg.scene_profile}; num_envs={cfg.scene.num_envs}; "
           f"spacing={cfg.scene.env_spacing} m; device={cfg.sim.device}; "
           "factory/movers=off; collision-filtering=on", flush=True)
+    from ...robots.gripper_config import resolve_gripper_settings
+    gripper = resolve_gripper_settings()
+    print(f"[RL] finger contact from {gripper.config_path} [{gripper.name}]: "
+          f"{asdict(gripper.finger_contact)}; checkpoint interval={agent.save_interval}", flush=True)
     return cfg, agent
 
 

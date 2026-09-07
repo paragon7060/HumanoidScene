@@ -34,3 +34,8 @@ class FlapPickRewardsCfg(RewardsCfg):
     lift = Reward(func=rewards.lift, weight=5.0)
     holding = Reward(func=rewards.flap_hold, weight=5.0)
     collision = Reward(func=rewards.unwanted_contact, weight=-2.0)
+    action_rate = Reward(func=rewards.settled_action_rate, weight=-0.01)
+    joint_speed = Reward(func=rewards.settled_joint_speed, weight=-1e-4)
+    time_cost = Reward(func=rewards.settled_time, weight=-0.10)
+    prelift_disturbance = Reward(func=rewards.prelift_disturbance, weight=-4.0)
+    stable_grasp = Reward(func=rewards.stable_flap_grasp, weight=2.0)

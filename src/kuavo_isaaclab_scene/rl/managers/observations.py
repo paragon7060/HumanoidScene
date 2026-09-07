@@ -33,6 +33,8 @@ class FlapPickPolicyCfg(ObservationGroupCfg):
     joint_pos = ObsTerm(func=mdp.joint_pos_rel)
     joint_vel = ObsTerm(func=mdp.joint_vel_rel, scale=0.1)
     box_pose = ObsTerm(func=observations.box_pose_only)
+    box_velocity = ObsTerm(func=observations.box_velocity)
+    box_rest_relation = ObsTerm(func=observations.box_rest_relation)
     hand_flap = ObsTerm(func=observations.hand_flap_relation)
     contacts_and_hold = ObsTerm(func=observations.flap_pick_state)
     actuator_state = ObsTerm(func=observations.actuator_state)

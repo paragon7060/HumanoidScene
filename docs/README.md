@@ -49,7 +49,7 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 
 | 상황 | 읽을 문서 |
 |---|---|
-| 지금 양손 flap 집기를 학습·재개·평가한다 | [1단계 flap pick](RL_FLAP_PICK.md) |
+| 지금 한 손 flap 집기를 학습·재개·평가한다 | [1단계 flap pick](RL_FLAP_PICK.md) |
 | 일반 환경과의 차이, 병렬 복제·좌표·충돌 격리를 수정한다 | [배경 없는 RL 병렬 환경](RL_PARALLEL_ENVS.md) |
 | `quest_ready_02` 관절/base 값을 수정하거나 VR로 다시 캡처한다 | [RL 초기 상태](RL_INITIAL_STATES.md) |
 | 다른 하위 task, observation/action/reward 또는 PPO를 수정한다 | [하위 task별 RL 학습](RL_TRAINING.md) |

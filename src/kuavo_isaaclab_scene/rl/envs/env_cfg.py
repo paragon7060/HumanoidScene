@@ -46,6 +46,12 @@ class WorkcellRLEnvCfg(ManagerBasedRLEnvCfg):
         if self.task.grasp_mode == "flap_top":
             self.observations = FlapPickObservationsCfg()
             self.rewards = FlapPickRewardsCfg()
+            # Sample contacts at every physics substep, including impacts that
+            # have ended before the next policy action.
+            self.scene.lazy_sensor_update = False
+            for name, sensor in vars(self.scene).items():
+                if name.startswith("obstacle_contact_"):
+                    sensor.history_length = self.decimation
         self.commands.workcell.task = self.task
         self.commands.workcell.geometry = geometry
         self.events.flap_friction.params["asset_names"] = self.task.box_names

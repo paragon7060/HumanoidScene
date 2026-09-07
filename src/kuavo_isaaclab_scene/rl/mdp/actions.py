@@ -9,6 +9,7 @@ from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
 from ...robots.gripper_runtime import InterpolatedJointPositionAction, InterpolatedJointPositionActionCfg
 from ...robots.gripper_action import interpolate_signed_gripper_action
 from .body_lock import FixedBody, ARM_JOINT_NAMES
+from .settling import gate_actions
 
 
 class PlanarDrive(ActionTerm):
@@ -103,6 +104,7 @@ class ArmsOnlyJointTargets(JointDeltaTargets):
         self.body_lock = FixedBody(self._asset, tolerance=cfg.body_lock_tolerance)
 
     def process_actions(self, actions):
+        actions = gate_actions(self._env, actions)
         self._raw_actions[:] = actions.clamp(-1, 1)
         self._targets += self._raw_actions * self._scale
         # VR measured poses can lie outside the softer training margin. Preserve
@@ -136,6 +138,7 @@ class IncrementalGripper(InterpolatedJointPositionAction):
         self._signed_target = torch.ones(self.num_envs, 1, device=self.device)
 
     def process_actions(self, actions):
+        actions = gate_actions(self._env, actions)
         self._raw_actions[:] = actions.clamp(-1, 1)
         self._signed_target.add_(self._raw_actions * self.cfg.delta_scale).clamp_(-1, 1)
         self._processed_actions[:] = interpolate_signed_gripper_action(
