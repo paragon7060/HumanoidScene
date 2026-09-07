@@ -12,6 +12,8 @@
 - [처음 연결하고 첫 HDF5 저장](QUEST3_QUICKSTART.md)
 - [준비된 Runtime과 웹 서버 재실행](QUEST_RUNTIME_SERVICE.md)
 - [PC 관찰자 화면, camera preview와 성능](QUEST3_DISPLAY_AND_PERFORMANCE.md)
+- [팔 위치·방향·응답 옵션 비교와 실행 예제](QUEST_ARM_CONTROL.md)
+- [URDF bounded IK, 준비 자세와 실제 실행 확인](QUEST_URDF_IK.md)
 - [Isaac Sim workcell 배치 편집](ISAACSIM_WORKCELL_GUIDE.md)
 
 ## 1. 구현 구조
@@ -313,7 +315,7 @@ A로 정지한 뒤 손을 편한 위치·방향으로 옮기고 A를 다시 누�
 반복할 수 있다. 회전은 몸통 기준 grip quaternion의 보정 시점 대비 변화량을 1:1로 적용한다.
 aim pose 유무에 따라 회전 기준을 바꾸지 않으며 컨트롤러와 gripper의 절대 방향이 일치할 필요도 없다.
 **녹화 중 A 정지는 현재 시도를 종료한다. 같은 녹화를 유지하는 일시정지 기능은 아니다.**
-추적이 잠깐 끊기는 것만으로 기준을 바꾸지는 않는다. 몸통 좌표계에서 변위를
+추적 손실로 safety guard가 따라오기를 끄면, 복구 후 기준을 다시 잡는다. 몸통 좌표계에서 변위를
 계산하므로 베이스 이동·회전이나 몸통 높이 변경은 배율만큼 과장되지 않는다.
 `--position-gain 1.8`처럼 1.0~3.0 범위에서 조절할 수 있지만, gain이 크면 손 떨림도 커진다.
 현재 기본값은 1.1이며 팔 속도·가속도 제한과 필터는 유지한다.
@@ -331,19 +333,55 @@ aim pose 유무에 따라 회전 기준을 바꾸지 않으며 컨트롤러와 g
 
 확대 모드에서는 VR 컨트롤러와 손끝이 항상 같은 위치일 수 없다. 기존 1:1 위치 일치를 원하면
 `--controller-mapping absolute`를 사용한다. X는 시점·머리 기준을 재설정하고 따라오기를 정지한다.
-absolute 모드에서는 S200062의 tool -Z(접근 방향)는 OpenXR aim -Z(검지 pointing), tool +X(집게 닫힘 축)는
-그 방향에 수직으로 투영한 grip -Z(엄지 쪽)에 맞춘다. X를 누를 때마다 임의의 회전 오프셋을
-저장하지 않는다(scaled 모드는 A 재개 시 방향 오프셋도 잡는다). 실제 손가락 관절 측정은 아니며, 컨트롤러 좌표계로 검지·엄지 방향을 근사한다.
-aim이 없으면 grip -Y를 접근 방향으로 쓴다. 좌표 규약은
-[OpenXR specification](https://registry.khronos.org/OpenXR/specs/1.0-khr/html/xrspec.html)을 참고한다.
+absolute의 기본 방향은 `--absolute-orientation downward`다. 컨트롤러를 수평으로 정면에 향하면
+그리퍼 접근 방향이 아래를 향한다. 접근 방향은 OpenXR aim -Y, 집게 닫힘 축(tool +X)은 aim +X다.
+모델의 접근 축(S200062/S56은 tool -Z, S63은 tool +Z)을 반영하며 양팔에 동일하게 적용한다.
+이는 고정된 로컬 회전 오프셋이므로 컨트롤러를 기울이거나 돌리면 그리퍼도 함께 회전한다.
+항상 월드 아래를 향하도록 잠그는 기능은 아니다. aim 추적이 일시적으로 없으면 마지막 grip→aim
+회전 관계를 사용하고, 처음부터 aim이 없으면 nominal grip 축 관계로 근사한다.
+이전 정면 접근 매핑은 `--absolute-orientation pointing`으로 선택한다(aim -Z 접근, 투영한 grip -Z 닫힘 축).
+scaled/맨손은 이 옵션의 영향을 받지 않는다. X 재보정 시 임의의 tool 회전 오프셋을 저장하지 않는다.
 기본 `--arm-orientation-weight 0.5`는 위치와 방향을 함께 추종하며, 0은 방향 추종을 끄는 진단 옵션이다.
 
 팔 IK는 제어 tick마다 한 번 계산하고 물리 substep 사이에는 같은 관절 목표를 유지한다.
-입력 필터 시정수는 45ms, 관절 속도/가속도 제한은 1.5rad/s, 12rad/s²다.
+현재 기본 `--arm-ik auto`는 scaled/absolute/맨손에 URDF bounded IK를 선택한다.
+새 준비 자세·live USD 검증·관절 제한은 [URDF IK 가이드](QUEST_URDF_IK.md),
+기본 켜짐인 경량 충돌 검사의 설치·지원 모델·한계는 [자기충돌 가이드](QUEST_SELF_COLLISION.md)를 참고한다.
+`--arm-response auto`가 기본이며 scaled/absolute **컨트롤러**에는 responsive,
+맨손/relative에는 기존 smooth를 적용한다. 옵션별 적용 범위와 기본값은
+[팔 제어 옵션](QUEST_ARM_CONTROL.md)에 한곳에 정리되어 있다.
+
+| 응답 설정 | 입력 필터 시정수 | 위치·회전 오차 보정 이득 | DLS damping | 관절 속도 / 가속도 상한 |
+| --- | --- | --- | --- | --- |
+| `responsive` | 15ms | 10/s | 0.05 | 2.5rad/s / 20rad/s² |
+| `smooth` (기존) | 45ms | 2.5/s | 0.08 | 1.5rad/s / 12rad/s² |
+
 중력 보상과 제한된 목표 누적으로 처짐을 줄이되, 관절 목표가 실제 값보다 0.1rad 이상
-앞서 누적되지 않게 한다. 도달 범위·관절 제한·물체 접촉 때문에 오차가 남을 수 있다.
-컨트롤러를 멈추거나 추적을 잃어도 남은 목표를 유지하며, A/B 정지 또는 X 보정 때만 현재 자세로 바뀐다.
+앞서 누적되지 않게 한다. 관절 위치·기존 actuator 토크 제한과 추적 손실 정지는 유지한다.
+도달 범위·관절 제한·물체 접촉 때문에 오차가 남을 수 있다. 위 수치는 시뮬레이션용 설정이며
+실제 하드웨어 설정이나 Quest 체감 지연 측정값이 아니다. CPU 단위 테스트만 수행했으며,
+실제 파지·접촉 안정성은 사용자가 확인해야 한다.
+컨트롤러를 멈추면 목표를 유지한다. 추적 유효성 상실 시에는 safety guard가 양팔을 정지시키며,
+재개 시 실제 자세를 기준으로 제어를 재시작한다.
 기존 상대 이동은 `--controller-mapping relative`; 이 모드에도 `--position-gain`이 적용된다.
+
+수집기 설정과 runtime/web 실행을 완료한 상태에서 다음처럼 실행한다. 기존 scene/robot/dataset
+옵션이 있으면 그대로 덧붙인다.
+
+```bash
+./quest_collector.sh collect \
+  --input-mode controllers \
+  --controller-mapping absolute \
+  --absolute-orientation downward \
+  --arm-response responsive
+```
+
+이전 방향·응답으로 비교: `--absolute-orientation pointing --arm-response smooth`.
+우선 녹화 없이 A로 따라오기를 켜고, 물체와 떨어진 곳에서 천천히 전후/좌우 이동 및 회전을 확인한다.
+`[MOTION] target error`는 로봇의 목표-실제 손 위치 오차이고 `[PERF]`는 실제 loop 속도다.
+렌더링/스트리밍 병목은 이 제어 변경만으로 해결되지 않는다. 예를 들어 설정 60Hz에 실제 loop가
+30Hz이면 제어의 시뮬레이션 시간도 벽시계보다 느리게 진행되므로 `--control-hz 30`으로 비교할 수 있다.
+30/60Hz 모두 단위 테스트 대상이지만 실제 loop 속도 보장은 아니다.
 
 스틱은 A/B로 따라오기를 켠 상태에서 작동한다. 최대 베이스 속도 0.25m/s,
 베이스 yaw 최대 1.2rad/s(약 69°/s, 누적 회전 제한 없음), 몸통 높이는 초기 대비 0~+40cm·최대 0.12m/s다.
@@ -577,17 +615,22 @@ GPU 렌더가 단독 원인이라고 판단하지 않는다. Quest 연결을 유
 
 ## 8. 제어 감도
 
-손 1 m 이동당 robot command 비율은 position gain으로 조정한다.
+**이동 거리 배율과 추종 속도는 별개**다. scaled에서 목표 이동 거리는 `--position-gain`,
+팔이 목표를 따라가는 응답은 `--arm-response`로 선택한다.
 
 ```bash
-# 더 천천히
-./collect_quest_teleop.sh --position-gain 1.0 ...
+# 기준 자세에서 손 이동 거리 1:1, 빠른 응답
+./quest_collector.sh collect --controller-mapping scaled --position-gain 1.0 --arm-response auto
 
-# 더 빠르게
-./collect_quest_teleop.sh --position-gain 2.0 ...
+# 목표 이동 거리 2배 (지연 보정 옵션이 아님)
+./quest_collector.sh collect --controller-mapping scaled --position-gain 2.0 --arm-response auto
 ```
 
-기본 안전 제한은 control step마다 translation 2.5 cm, rotation 0.12 rad이다. 이 제한과 smoothing은 `TeleopMappingCfg`에 모여 있다.
+`auto`는 scaled/absolute 컨트롤러에서 responsive를 사용한다. 기존 응답은 `--arm-response smooth`.
+프레임당 translation 2.5cm·rotation 0.12rad 제한은 구형 relative/브라우저 매핑의
+`TeleopMappingCfg` 설정이며 scaled/absolute에는 적용되지 않는다.
+공통 IK의 관절 속도·가속도 제한은 유지한다. 기본값·적용 모드·진단 방법은
+[팔 제어 옵션 사전](QUEST_ARM_CONTROL.md#3-옵션-사전)을 참고한다.
 
 ## 9. LeRobot Dataset v3 수집
 

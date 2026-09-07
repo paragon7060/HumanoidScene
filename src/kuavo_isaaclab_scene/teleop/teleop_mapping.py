@@ -11,16 +11,27 @@ import numpy as np
 Pose = np.ndarray  # [x, y, z, qw, qx, qy, qz]
 
 
-def controller_gripper_orientation(grip_quat, aim_quat=None, tool_forward_sign=-1):
-    """Tool -Z points along index/aim; tool +X points toward the thumb.
+def controller_gripper_orientation(grip_quat, aim_quat=None, tool_forward_sign=-1, mode="pointing"):
+    """Map controller axes to the model's signed tool-Z approach and tool +X.
 
-    OpenXR grip -Z runs from little finger toward thumb. Its -Y is the
-    fallback forward direction when aim is unavailable. Project the thumb
-    axis perpendicular to aim so the gripper closes in the thumb/index plane.
-    This is a controller-frame approximation, not tracked finger joints.
+    Downward uses aim -Y as approach and aim +X as the closing axis.
+    Legacy pointing uses aim -Z (fallback grip -Y) and projected grip -Z
+    (thumb direction). These are controller-frame mappings, not finger joints.
     """
-    forward = _quat_rotate(aim_quat, [0., 0., -1.]) if aim_quat is not None else _quat_rotate(grip_quat, [0., -1., 0.])
-    thumb = _quat_rotate(grip_quat, [0., 0., -1.])
+    if mode == "downward":
+        # Fixed 90-degree local offset: a level forward-pointing aim frame
+        # maps to a downward approach. Controller pitch/roll still rotate
+        # the tool; this is NOT a world-down orientation lock.
+        if aim_quat is None:
+            c = math.sqrt(.5)
+            aim_quat = _quat_multiply(grip_quat, [c, -c, 0., 0.])
+        forward = _quat_rotate(aim_quat, [0., -1., 0.])
+        thumb = _quat_rotate(aim_quat, [1., 0., 0.])
+    elif mode == "pointing":
+        forward = _quat_rotate(aim_quat, [0., 0., -1.]) if aim_quat is not None else _quat_rotate(grip_quat, [0., -1., 0.])
+        thumb = _quat_rotate(grip_quat, [0., 0., -1.])
+    else:
+        raise ValueError(f"Unknown controller orientation mapping: {mode}")
     x = thumb - np.dot(thumb, forward) * forward
     if np.linalg.norm(x) < 1e-5:
         x = _quat_rotate(grip_quat, [1., 0., 0.])
@@ -45,23 +56,35 @@ def controller_gripper_orientation(grip_quat, aim_quat=None, tool_forward_sign=-
 class AbsoluteControllerMapper:
     """Use absolute grip position and a fixed anatomical tool-axis convention."""
 
-    def __init__(self, tool_forward_sign=-1):
+    def __init__(self, tool_forward_sign=-1, orientation_mode="downward"):
         if tool_forward_sign not in (-1, 1):
             raise ValueError(
                 "Tool forward sign must be -1 or +1"
             )
         self._tool_forward_sign = tool_forward_sign
+        if orientation_mode not in {"downward", "pointing"}:
+            raise ValueError(f"Unknown controller orientation mapping: {orientation_mode}")
+        self.orientation_mode = orientation_mode
         self.reset()
 
     def reset(self):
         self._goals_w = {}
+        self._aim_from_grip = {}
 
     def hold(self, side, tool_pose_w):
         self._goals_w[side] = np.asarray(tool_pose_w, dtype=float).copy()
 
     def _pose_target(self, side, packet, tool, reference, aim_quat):
+        if self.orientation_mode == "downward":
+            if aim_quat is not None:
+                self._aim_from_grip[side] = _quat_multiply(
+                    _quat_conjugate(_normalized_quat(packet[0, 3:])), aim_quat)
+            elif side in self._aim_from_grip:
+                # Keep the last device-specific offset through aim dropout,
+                # while continuing to follow the live grip orientation.
+                aim_quat = _quat_multiply(packet[0, 3:], self._aim_from_grip[side])
         return np.concatenate((packet[0, :3], controller_gripper_orientation(
-            packet[0, 3:], aim_quat, self._tool_forward_sign)))
+            packet[0, 3:], aim_quat, self._tool_forward_sign, self.orientation_mode)))
 
     def target(self, side, controller, tool_pose_w, root_pose_w, *, following, aim_pose=None,
                reference_pose_w=None):

@@ -33,6 +33,9 @@ Kuavo humanoid가 경사진 랙의 열린 박스를 컨베이어의 빈 공간�
 | Meta Quest를 처음 연결하고 수집 | [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md) |
 | 실제 수집기 SDK·인증서 준비 및 간편 실행 | [수집기 설치·실행](docs/QUEST_COLLECTOR_SETUP.md) |
 | Quest 전체 옵션과 조작법 | [Quest 상세 가이드](docs/QUEST3_KUAVO_TELEOP_GUIDE.md) |
+| scaled/absolute 위치·방향·팔 응답 옵션 | [Quest 팔 제어 옵션](docs/QUEST_ARM_CONTROL.md) |
+| URDF 기반 IK·준비 자세·관절 한계 진단 | [Quest URDF IK](docs/QUEST_URDF_IK.md) |
+| 속도 우선 자기충돌 검사·설치·한계 | [Quest 자기충돌 검사](docs/QUEST_SELF_COLLISION.md) |
 | 관찰자 화면과 성능 설정 | [Quest 화면·성능](docs/QUEST3_DISPLAY_AND_PERFORMANCE.md) |
 | 준비된 CloudXR 환경 재실행 | [Quest Runtime 실행](docs/QUEST_RUNTIME_SERVICE.md) |
 | GR00T N1.7 범용 평가 | [GR00T 평가](docs/GROOT_N1_7_EVAL_GUIDE.md) |

@@ -51,6 +51,7 @@ def build_lerobot_features(
     use_videos: bool,
     action_names: Sequence[str] = ACTION_NAMES,
     record_controllers: bool = False,
+    self_collision_joint_names: Sequence[str] = (),
 ) -> dict[str, dict]:
     """Return the fixed schema used for every episode in one dataset."""
     image_dtype = "video" if use_videos else "image"
@@ -82,6 +83,11 @@ def build_lerobot_features(
         "next.done": _vector_feature(1, ["done"]),
         "next.success": _vector_feature(1, ["success"]),
     }
+    if self_collision_joint_names:
+        features["observation.self_collision.safe_joint_target"] = _vector_feature(
+            len(self_collision_joint_names), self_collision_joint_names)
+        features["observation.self_collision.modified"] = _vector_feature(1, ["modified"])
+        features["observation.self_collision.minimum_distance"] = _vector_feature(1, ["meters"])
     if record_controllers:
         names = POSE_NAMES + ["stick_x", "stick_y", "trigger", "squeeze", "button_0", "button_1", "reserved"]
         for side in ("left", "right"):
@@ -132,6 +138,9 @@ def sample_to_lerobot_frame(sample: dict[str, Any], features: dict[str, dict]) -
         "observation.images.right_wrist": "right_wrist_rgb",
         "observation.box_root_pose": "box_root_pose_w",
         "observation.button_joint_position": "button_joint_position",
+        "observation.self_collision.safe_joint_target": "self_collision_safe_joint_target",
+        "observation.self_collision.modified": "self_collision_modified",
+        "observation.self_collision.minimum_distance": "self_collision_minimum_distance_m",
     }
     for feature_name, sample_name in optional_mappings.items():
         if feature_name in features:
@@ -162,6 +171,7 @@ class LeRobotTeleopRecorder:
         writer_python: str | Path | None = None,
         action_names: Sequence[str] = ACTION_NAMES,
         record_controllers: bool = False,
+        self_collision_joint_names: Sequence[str] = (),
     ):
         if fps <= 0:
             raise ValueError("LeRobot fps must be positive.")
@@ -178,6 +188,7 @@ class LeRobotTeleopRecorder:
         if not self.writer_python.is_file():
             raise FileNotFoundError(f"LeRobot v3 Python does not exist: {self.writer_python}")
         self.features = build_lerobot_features(
+            self_collision_joint_names=self_collision_joint_names,
             record_controllers=record_controllers,
             joint_names=joint_names,
             hand_joint_names=hand_joint_names,

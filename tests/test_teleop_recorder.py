@@ -84,7 +84,8 @@ def test_multiple_attempts_close_separate_files_without_closing_the_session(tmp_
 
 
 @pytest.mark.parametrize("record_controllers", [False, True])
-def test_lerobot_v3_feature_mapping_uses_policy_and_camera_keys(record_controllers):
+@pytest.mark.parametrize("self_collision", [False, True])
+def test_lerobot_v3_feature_mapping_uses_policy_and_camera_keys(record_controllers, self_collision):
     features = build_lerobot_features(
         joint_names=["left_joint", "right_joint"],
         hand_joint_names=["wrist", "index_tip"],
@@ -95,6 +96,7 @@ def test_lerobot_v3_feature_mapping_uses_policy_and_camera_keys(record_controlle
         record_wrist_cameras=True,
         use_videos=True,
         record_controllers=record_controllers,
+        self_collision_joint_names=["left_joint", "right_joint"] if self_collision else (),
     )
     sample = {
         "robot_joint_position": np.zeros(2, dtype=np.float32),
@@ -115,6 +117,10 @@ def test_lerobot_v3_feature_mapping_uses_policy_and_camera_keys(record_controlle
         "button_joint_position": np.zeros(1, dtype=np.float32),
     }
 
+    if self_collision:
+        sample["self_collision_safe_joint_target"] = np.array([.1, .2], dtype=np.float32)
+        sample["self_collision_modified"] = np.uint8(1)
+        sample["self_collision_minimum_distance_m"] = np.float32(.01)
     if record_controllers:
         sample["openxr_left_controller"] = np.arange(14, dtype=np.float32).reshape(2, 7)
         sample["openxr_right_controller"] = np.arange(14, 28, dtype=np.float32).reshape(2, 7)
@@ -124,6 +130,9 @@ def test_lerobot_v3_feature_mapping_uses_policy_and_camera_keys(record_controlle
         np.testing.assert_array_equal(frame["observation.openxr.right_controller"], np.arange(14, 28))
 
     assert set(frame) == set(features)
+    if self_collision:
+        np.testing.assert_allclose(frame["observation.self_collision.safe_joint_target"], [.1, .2])
+        assert frame["observation.self_collision.modified"].item() == 1
     assert frame["observation.state"].shape == (2,)
     assert frame["observation.openxr.left_hand"].shape == (14,)
     assert frame["observation.images.head"].shape == (8, 12, 3)

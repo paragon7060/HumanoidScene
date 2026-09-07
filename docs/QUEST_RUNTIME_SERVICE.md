@@ -322,7 +322,13 @@ A/B로 따라오기를 켠 뒤 사용한다. 베이스는 simulation fixed-root 
 양쪽 위 검지 트리거는 놓으면 open, 당기면 close이며 생성·R 리셋도 open이다.
 기본은 보정 기준 대비 1.1배 scaled 위치 매핑(1:1 절대 위치는 `--controller-mapping absolute`), depth OFF, 추가 PC 렌더는 센서 사용 시에만 160×90로 유지, CPU 물리/IK와 GPU RTX 렌더다.
 `--arm-orientation-weight 0.5`가 기본이다. scaled 모드는 A 재개 시 실제 손끝 방향을 기준으로 잡고
-이후 컨트롤러의 회전 변화를 1:1로 적용한다. 검지 pointing/엄지 축의 절대 대응은 absolute 모드에서 사용한다.
+이후 컨트롤러의 회전 변화를 1:1로 적용한다. absolute의 기본은 수평 정면 컨트롤러→아래 방향 그리퍼
+(`--absolute-orientation downward`)이며, 이후 회전은 컨트롤러를 따라간다.
+`--arm-response auto`는 scaled/absolute 컨트롤러에서 빠른 responsive 설정,
+맨손/relative에서는 기존 smooth 설정을 사용한다. 기존 scaled 응답은 `--arm-response smooth`로 비교한다.
+배율·방향·응답·관절 drive 옵션의 차이와 기본값은 [팔 제어 옵션](QUEST_ARM_CONTROL.md)에 정리되어 있다.
+현재 기본 URDF IK의 준비 자세와 시작 시 모델 일치 검사는 [URDF IK 실행 확인](QUEST_URDF_IK.md)을 따른다.
+이전 absolute 동작 비교는 `--absolute-orientation pointing --arm-response smooth`로 실행한다.
 머리는 보정된 HMD 로컬 기준으로 좌우/상하를 계산한다. 팔 제어·질량 보완 내용은
 [조작·물리 설정](QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)을 참고한다.
 `--scene-detail compact`로 불필요한 배경 props와 legacy bodies를 제거하되 재질은 유지한다.
@@ -334,3 +340,9 @@ RTX 3060 대기 상태 실측은 주로 약 24Hz(녹화 OFF)였다. Quest 외부
 60Hz를 보장하는 설정이 아니다. 고정 컨베이어는 collider를 유지하되 속도 reset 대상에서
 제외해 `Body must be non-kinematic` 오류를 방지한다.
 프로파일: `--profile-steps 120`; XR PNG 캡처: `--capture-xr`.
+
+## 자기충돌 필터 설치 안내
+
+수집기 실행 전 새 PC에서는 `./setup_self_collision.sh`를 한 번 실행한다.
+기본 켜짐인 S200062 integrated 손용 경량 검사의 범위·비용·해제 옵션은
+[자기충돌 가이드](QUEST_SELF_COLLISION.md)를 참고한다. Runtime/웹 서버에는 변경이 없다.

@@ -34,8 +34,22 @@ parser.add_argument("--xr-resolution-scale", type=float, default=1.0,
                     help="XR render-buffer scale (0.1–2.0); lower values reduce sharpness, not material quality.")
 parser.add_argument("--controller-mapping", choices=("scaled", "absolute", "relative"), default="scaled",
                     help="Scaled amplifies hand displacement from a comfortable reference; absolute is 1:1; relative is legacy.")
-parser.add_argument("--arm-stiffness", type=float, default=800.0)
-parser.add_argument("--arm-damping", type=float, default=50.0)
+parser.add_argument("--absolute-orientation", choices=("downward", "pointing"), default="downward",
+                    help="Absolute controllers only: level forward controller -> downward gripper (default), or legacy pointing.")
+parser.add_argument("--arm-response", choices=("auto", "smooth", "responsive"), default="auto",
+                    help="Simulation IK response: auto uses responsive for scaled/absolute controllers and smooth for hands/relative.")
+parser.add_argument("--arm-ik", choices=("auto", "urdf", "legacy"), default="auto",
+                    help="Auto: URDF bounded IK for scaled/absolute/hands, legacy for relative. URDF validates the live USD first.")
+parser.add_argument("--arm-start-pose", choices=("auto", "ready", "scene"), default="auto",
+                    help="Auto: URDF elbow-bent ready pose unless a custom scene-config is supplied. Scene preserves configured joints.")
+parser.add_argument("--self-collision", action=argparse.BooleanOptionalAction, default=True,
+                    help="Light endpoint guard once per control tick (default ON), not swept/physics-step checks. S200062 integrated grippers only.")
+parser.add_argument("--self-collision-clearance", type=float, default=.003,
+                    help="Minimum modeled non-allowed self-pair clearance in meters (default 0.003).")
+parser.add_argument("--arm-stiffness", type=float, default=800.0,
+                    help="Simulation arm joint-drive stiffness, not the Cartesian IK response gain (default: 800).")
+parser.add_argument("--arm-damping", type=float, default=50.0,
+                    help="Simulation arm joint-drive damping, not DLS IK damping (default: 50).")
 parser.add_argument("--arm-orientation-weight", type=float, default=0.5,
                     help="Rotation weight in pose IK; 0 disables controller rotation, 0.5 balances position and orientation.")
 parser.add_argument("--control-hz", type=int, choices=(30, 60), default=60,
@@ -156,7 +170,8 @@ parser.add_argument(
 )
 parser.add_argument("--position-gain", type=float, default=1.1,
                     help="Hand displacement multiplier for scaled/relative mode; scaled accepts 1.0–3.0.")
-parser.add_argument("--rotation-gain", type=float, default=1.0)
+parser.add_argument("--rotation-gain", type=float, default=1.0,
+                    help="Legacy relative arm rotation multiplier only; scaled/absolute/hands use 1:1 rotation.")
 parser.add_argument(
     "--tracking-recovery-frames",
     type=int,
@@ -296,6 +311,8 @@ from ..envs.teleop_env import (
 from .teleop_mapping import (AbsoluteControllerMapper, ScaledControllerMapper, BimanualTeleopMapper, TeleopMappingCfg,
                              _quat_multiply, _quat_conjugate, _quat_to_pitch_yaw)
 from .teleop_body import BODY_ACTION_NAMES, TeleopBodyMapper, controller_axis
+from .teleop_servo import arm_response_profile
+from .urdf_arm_ik import UrdfArm
 from .teleop_hand_mode import (HandModeSwitch, HandCommands, HandGripper, HandTrackingGuard,
                                hand_packet, controller_squeeze)
 from .teleop_scene import configure_scene_detail
@@ -343,6 +360,9 @@ def main() -> None:
     cfg.decimation = 120 // args_cli.control_hz
     cfg.sim.render_interval = cfg.decimation
     absolute_control = active_mode == "hands" or args_cli.controller_mapping in {"absolute", "scaled"}
+    use_urdf_ik = args_cli.arm_ik == "urdf" or (args_cli.arm_ik == "auto" and absolute_control)
+    if use_urdf_ik and not absolute_control:
+        raise ValueError("--arm-ik urdf requires scaled/absolute controllers or hands")
     arm_action_size = 14 if absolute_control else 12
     if absolute_control:
         cfg.actions.left_arm.controller.use_relative_mode = False
@@ -383,6 +403,29 @@ def main() -> None:
     # PhysX tensor views. Editing stage topology after env.reset invalidates them.
     from .teleop_scene_config import apply_scene_config
     extra_recording_objects = apply_scene_config(args_cli.scene_config, cfg)
+    if args_cli.self_collision:
+        if robot_model.name != "s200062" or not GRIPPER_SETTINGS.integrated:
+            raise ValueError("Full self-collision policy currently covers S200062 with integrated grippers. "
+                             "Other models/attached grippers need a reviewed collision policy; not silently skipped. "
+                             "--no-self-collision explicitly opts out for legacy comparisons.")
+        from .self_collision_action import SelfCollisionActionCfg
+        cfg.actions.self_collision = SelfCollisionActionCfg(
+            urdf_path=robot_model.urdf_path,
+            allowed_pairs=str(Path(__file__).resolve().parents[1] / "configs/self_collision_s200062.json"),
+            clearance=args_cli.self_collision_clearance,
+        )
+    else:
+        print("[WARNING] Self-collision avoidance is explicitly DISABLED.", flush=True)
+
+    urdf_arms = {side: UrdfArm(robot_model.urdf_path, side) for side in ("left", "right")} if (
+        use_urdf_ik or args_cli.arm_start_pose == "ready") else {}
+    use_ready_pose = args_cli.arm_start_pose == "ready" or (
+        args_cli.arm_start_pose == "auto" and use_urdf_ik and args_cli.scene_config is None)
+    if use_ready_pose:
+        for arm in urdf_arms.values():
+            cfg.scene.robot.init_state.joint_pos.update(dict(zip(arm.names, arm.ready_pose().tolist())))
+    print(f"[URDF IK] solver={'urdf' if use_urdf_ik else 'legacy'}; "
+          f"initial arms={'URDF ready' if use_ready_pose else 'scene (preserved)'}", flush=True)
 
     env = ManagerBasedRLEnv(cfg=cfg)
     env.reset(seed=args_cli.seed)
@@ -401,6 +444,22 @@ def main() -> None:
         )
 
     robot = env.scene["robot"]
+    collision_guard = env.action_manager.get_term("self_collision") if args_cli.self_collision else None
+    if collision_guard is not None:
+        try:
+            collision_guard.validate_live()
+        except Exception:
+            env.close()
+            simulation_app.close()
+            raise
+    if use_urdf_ik:
+        try:
+            for side, arm in urdf_arms.items():
+                env.action_manager.get_term(f"{side}_arm").configure_urdf(arm)
+        except Exception:
+            env.close()
+            simulation_app.close()
+            raise
     head_body_id = robot.find_bodies(robot_model.head_camera_body)[0][0]
     torso_body_id = robot.find_bodies("waist_yaw_link")[0][0]
     camera_offset = cfg.scene.robustness_camera.offset
@@ -475,7 +534,8 @@ def main() -> None:
         )
     )
     mapper_type = ScaledControllerMapper if args_cli.controller_mapping == "scaled" else AbsoluteControllerMapper
-    mapper_options = {"position_gain": args_cli.position_gain} if args_cli.controller_mapping == "scaled" else {}
+    mapper_options = ({"position_gain": args_cli.position_gain} if args_cli.controller_mapping == "scaled"
+                      else {"orientation_mode": args_cli.absolute_orientation})
     absolute_mapper = mapper_type(
         tool_forward_sign=robot_model.tool_forward_sign,
         **mapper_options,
@@ -557,6 +617,7 @@ def main() -> None:
             )
         recorders["lerobot"] = LeRobotTeleopRecorder(
             lerobot_root,
+            self_collision_joint_names=collision_guard.model.names if collision_guard is not None else (),
             repo_id=args_cli.lerobot_repo_id,
             fps=lerobot_fps,
             task=args_cli.lerobot_task,
@@ -598,6 +659,11 @@ def main() -> None:
     arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
     for term in arm_terms:
         term.orientation_weight = args_cli.arm_orientation_weight
+        term.response = arm_response_profile(args_cli.arm_response, args_cli.controller_mapping, active_mode)
+    print(f"[CONTROL] Arm response={arm_terms[0].response.name}; "
+          f"pose gain={arm_terms[0].response.pose_gain:g}/s; "
+          f"filter={arm_terms[0].response.smoothing_s * 1000:g} ms; "
+          f"joint speed limit={arm_terms[0].response.max_velocity:g} rad/s", flush=True)
     last_motion_report = time.perf_counter()
     last_ee_positions = _to_numpy(robot.data.body_pos_w[0, [left_body_ids[0], right_body_ids[0]]]).copy()
 
@@ -608,6 +674,8 @@ def main() -> None:
     def reset_simulation() -> None:
         nonlocal episode_steps, free_view, view_initialized, last_base_quat, tracking_pause_active
         env.reset()
+        if collision_guard is not None:
+            collision_guard.validate_live()
         xr_device.reset()
         mapper.reset()
         absolute_mapper.reset()
@@ -659,7 +727,7 @@ def main() -> None:
                       else "absolute VR grip position") if absolute_control else "persistent relative pose"
     orientation_label = ("clutched wrist rotation, 1:1 angular displacement" if active_mode == "hands"
                          else "clutched grip rotation, 1:1 angular displacement" if absolute_control and args_cli.controller_mapping == "scaled"
-                         else "index/aim forward, thumb closing axis" if absolute_control else "relative rotation")
+                         else f"absolute {args_cli.absolute_orientation} tool orientation" if absolute_control else "relative rotation")
     print(f"[CONTROL] Arm mapping: {position_label}; {orientation_label}; "
           f"orientation weight={args_cli.arm_orientation_weight:.2f} (0=position only). "
           "While following, the last valid goal is retained on tracking loss; A explicitly stops motion.")
@@ -934,16 +1002,30 @@ def main() -> None:
                         "input_mode": active_mode,
                         "arm_control": ("scaled_hand_pose_v1" if active_mode == "hands"
                                         else "scaled_controller_pose_v2" if absolute_control and args_cli.controller_mapping == "scaled"
-                                        else "absolute_controller_pose_v2" if absolute_control else "persistent_relative_pose_v1"),
+                                        else "absolute_controller_pose_v3" if absolute_control else "persistent_relative_pose_v1"),
                         "controller_mapping": "scaled" if active_mode == "hands" else args_cli.controller_mapping,
                         "position_gain": args_cli.position_gain if active_mode == "hands" or args_cli.controller_mapping != "absolute" else 1.0,
-                        "workspace_reference": "waist_yaw_link; first valid sample after explicit pause",
+                        "workspace_reference": ("XR virtual world grip position; robot-head view anchor"
+                                                if active_mode == "controllers" and args_cli.controller_mapping == "absolute"
+                                                else "waist_yaw_link; first valid sample after explicit pause"),
                         "arm_orientation_weight": args_cli.arm_orientation_weight,
+                        "arm_ik": "urdf_bounded_v1" if use_urdf_ik else "legacy_dls",
+                        "self_collision": bool(collision_guard is not None),
+                        "self_collision_mode": "light_control_endpoints" if collision_guard is not None else "off",
+                        "self_collision_clearance_m": args_cli.self_collision_clearance,
+                        "self_collision_joint_names": collision_guard.model.names if collision_guard is not None else [],
+                        "self_collision_exclusions": collision_guard.model.exclusions if collision_guard is not None else [],
+                        "arm_urdf": robot_model.urdf_path if use_urdf_ik else "",
+                        "arm_start_pose": "urdf_ready" if use_ready_pose else "scene",
+                        "arm_reference_joint_positions": ({side: env.action_manager.get_term(f"{side}_arm")._urdf_rest.tolist()
+                                                           for side in urdf_arms} if use_urdf_ik else {}),
+                        "arm_response": vars(arm_response_profile(args_cli.arm_response, args_cli.controller_mapping, active_mode)),
                         "tool_orientation_mapping": ("torso-relative wrist delta applied to tool orientation captured after explicit pause"
                                                      if active_mode == "hands"
                                                      else "torso-relative grip delta applied to tool orientation captured after explicit pause"
                                                      if absolute_control and args_cli.controller_mapping == "scaled"
-                                                     else "approach=-aimZ; jaw_X=projected_-gripZ"
+                                                     else ("approach=-aimY; jaw_X=aimX" if args_cli.absolute_orientation == "downward"
+                                                           else "approach=-aimZ; jaw_X=projected_-gripZ")
                                                      if absolute_control else "relative_rotation"),
                         "xr_resolution_scale": args_cli.xr_resolution_scale,
                         "render_quality": args_cli.render_quality,
@@ -1041,6 +1123,7 @@ def main() -> None:
                                                and not mode_switch.pending)
             action_np = np.concatenate((action_np, body_action))
             for side, term in zip(("left", "right"), arm_terms):
+                term.response = arm_response_profile(args_cli.arm_response, args_cli.controller_mapping, active_mode)
                 follow = (recorder.recording or preview_enabled) and safety.control_allowed
                 if active_mode == "hands":
                     follow = follow and hand_packets[side] is not None and mapped.head_valid and not hand_commands.active[side]
@@ -1102,10 +1185,20 @@ def main() -> None:
                     movement = np.linalg.norm(positions - last_ee_positions, axis=1) * 1000.0
                     errors = [float(term.target_position_error()[0]) * 1000.0 for term in arm_terms]
                     print(f"[MOTION] input={active_mode} tracking={mapped.left_valid}/{mapped.right_valid}; "
-                          f"hand displacement L/R={movement[0]:.1f}/{movement[1]:.1f} mm; "
+                          f"robot hand displacement L/R={movement[0]:.1f}/{movement[1]:.1f} mm; "
                           f"target error L/R={errors[0]:.1f}/{errors[1]:.1f} mm; "
                           f"rotation error L/R={np.rad2deg(float(arm_terms[0].target_orientation_error()[0])):.1f}/"
                           f"{np.rad2deg(float(arm_terms[1].target_orientation_error()[0])):.1f} deg", flush=True)
+                    if use_urdf_ik:
+                        for side, term in zip(("left", "right"), arm_terms):
+                            status = term.ik_status
+                            if status:
+                                print(f"[IK] {side}: target projection={1000 * status['projection_m']:.1f}mm; "
+                                      f"effective position error={1000 * status['position_error_m']:.1f}mm; "
+                                      f"joint limit margin={np.rad2deg(status['limit_margin_rad']):.1f}deg; "
+                                      f"rotation weight={status['orientation_weight']:.3f}; "
+                                      f"parent-frame requested xyz={np.round(status['requested_parent_m'], 3).tolist()}; "
+                                      f"actual xyz={np.round(status['actual_parent_m'], 3).tolist()}", flush=True)
                 if active_mode == "controllers":
                     body_term = env.action_manager.get_term("body")
                     actual_body = _to_numpy(robot.data.joint_pos[0, body_term._joint_ids])
@@ -1195,6 +1288,10 @@ def main() -> None:
                     assert right_wrist_rgb is not None
                     sample["left_wrist_rgb"] = left_wrist_rgb
                     sample["right_wrist_rgb"] = right_wrist_rgb
+                if collision_guard is not None:
+                    sample["self_collision_safe_joint_target"] = np.asarray(collision_guard.last_safe_target, dtype=np.float32)
+                    sample["self_collision_modified"] = np.uint8(collision_guard.step_modified)
+                    sample["self_collision_minimum_distance_m"] = np.float32(collision_guard.step_minimum_distance)
                 if active_mode == "controllers":
                     # No finger tracking is requested in controller mode.
                     # Preserve that absence instead of writing fake hand poses.
