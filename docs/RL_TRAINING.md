@@ -3,6 +3,8 @@
 새 학습 코드는 `src/kuavo_isaaclab_scene/rl/`에 있다. 기존 standalone,
 Quest teleop, GR00T 평가의 환경 설정을 덮어쓰지 않고, 공통 workcell asset만
 재사용한다. 환경은 `isaaclab.envs.ManagerBasedRLEnv`, 학습기는 RSL-RL PPO다.
+같은 환경에서 SAC 또는 Diffusion Policy→DPPO를 실행하는 방법은
+[대체 RL 학습 경로](RL_ALTERNATIVES.md)에 정리했다.
 구성 API는 저장소의 Isaac Lab v2.3.2와
 [공식 RSL-RL 실행 예제](https://github.com/isaac-sim/IsaacLab/tree/v2.3.2/scripts/reinforcement_learning/rsl_rl)를 기준으로 한다.
 

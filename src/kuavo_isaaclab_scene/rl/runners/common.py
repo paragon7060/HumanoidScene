@@ -30,7 +30,7 @@ def install_stop_handlers():
     signal.signal(signal.SIGINT, stop)
 
 
-def parse_args(mode):
+def parse_args(mode, add_arguments=None):
     from isaaclab.app import AppLauncher
     parser = argparse.ArgumentParser(description=f"Kuavo manager-based subtask PPO {mode}", allow_abbrev=False)
     parser.add_argument("--task", choices=TASKS, default="approach_rack")
@@ -62,6 +62,8 @@ def parse_args(mode):
     add_initial_state_args(parser)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
+    if add_arguments is not None:
+        add_arguments(parser)
     AppLauncher.add_app_launcher_args(parser)
     args = parser.parse_args()
     if min(args.num_envs, args.max_iterations, args.episodes, args.max_snapshots) < 1:

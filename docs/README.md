@@ -53,6 +53,7 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 | 일반 환경과의 차이, 병렬 복제·좌표·충돌 격리를 수정한다 | [배경 없는 RL 병렬 환경](RL_PARALLEL_ENVS.md) |
 | `quest_ready_02` 관절/base 값을 수정하거나 VR로 다시 캡처한다 | [RL 초기 상태](RL_INITIAL_STATES.md) |
 | 다른 하위 task, observation/action/reward 또는 PPO를 수정한다 | [하위 task별 RL 학습](RL_TRAINING.md) |
+| SAC / diffusion 사전학습 / DPPO를 실행한다 | [대체 RL 학습 경로](RL_ALTERNATIVES.md) |
 
 각 문서의 역할은 실행·task 정의, 장면·병렬 구조, 초기 자세, 범용 manager 개발로
 구분한다. 공통 폴더와 import 경계는 [코드 구조 가이드](CODE_STRUCTURE.md)에 있다.

@@ -28,6 +28,7 @@ Kuavo humanoid가 경사진 랙의 열린 박스를 컨베이어의 빈 공간�
 | 하위 task별 PPO 학습·manager 수정 | [RL 학습 가이드](docs/RL_TRAINING.md) |
 | RL 전용 환경 구조·병렬 복제 설정 | [배경 없는 병렬 환경](docs/RL_PARALLEL_ENVS.md) |
 | 한 손 flap 파지·들기 학습과 평가 | [1단계 flap pick](docs/RL_FLAP_PICK.md) |
+| SAC 또는 diffusion 사전학습 → DPPO 실험 | [대체 RL 학습 경로](docs/RL_ALTERNATIVES.md) |
 | RL 초기 자세 수정·VR 재캡처 | [quest_ready_02 초기 상태](docs/RL_INITIAL_STATES.md) |
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |
 | Meta Quest를 처음 연결하고 수집 | [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md) |
@@ -494,13 +495,15 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 HumanoidScene/
 ├── src/kuavo_isaaclab_scene/
 │   ├── envs/                  # standalone/manager/teleop 환경, MDP, task, physics
-│   ├── rl/                    # 일반 환경과 독립된 병렬 PPO 학습
+│   ├── rl/                    # 일반 환경과 독립된 PPO/SAC/DPPO 학습
 │   │   ├── envs/             # manager 환경 조립·병렬 복제 설정
 │   │   ├── scenes/           # RL 전용 robot/workcell/box/sensor 구성
 │   │   ├── tasks/            # 하위 task 정의·이전 import 경로 호환
 │   │   ├── managers/         # action/observation/reward/event 등 설정
 │   │   ├── mdp/              # 상태·보상·성공 판정·환경별 reset 계산
 │   │   ├── agents/           # PPO network·optimizer 설정
+│   │   ├── algorithms/       # SAC·DDPM·DPPO PyTorch 계산
+│   │   ├── data/             # RL 관측/action episode 데이터셋
 │   │   └── runners/          # 학습·평가 실행기
 │   ├── teleop/                # Meta Quest 입력·제어·수집 실행기
 │   ├── robots/                # 로봇 모델, gripper, 관성, 카메라 장착 위치
