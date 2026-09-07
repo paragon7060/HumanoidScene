@@ -45,6 +45,10 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 
 ## Policy와 평가
 
+- [1단계 RL: flap 상단 파지·들기·유지](RL_FLAP_PICK.md): 양팔 전용 action,
+  flap 접촉, 고정 hinge, pose 관측, 실행 준비 및 설정 위치
+- [RL 초기 자세 저장과 복원](RL_INITIAL_STATES.md): `quest_ready_02` 관절/base 수정,
+  Debug Console 재캡처와 arms-only 몸통 고정
 - [GR00T N1.7 평가](GROOT_N1_7_EVAL_GUIDE.md)
 - [RwH-Kuavo V2 GR00T N1.5를 S56에서 평가](RWH_KUAVO_V2_S56_EVAL.md):
   별도 Conda worker, 16-D arm/claw 변환, headless 3-view MP4, VRAM과 배포 설정

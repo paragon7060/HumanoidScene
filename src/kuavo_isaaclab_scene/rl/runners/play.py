@@ -33,6 +33,7 @@ def main():
         outcomes = outcomes[:args.episodes]
         successes = sum(o["success"] for o in outcomes)
         report = {"task": args.task, "requested_episodes": args.episodes, "episodes": len(outcomes),
+                  "initial_state": manifest["initial_state"],
                   "successes": successes, "success_rate": successes / len(outcomes) if outcomes else None,
                   "outcomes": outcomes}
         (directory / "metrics.json").write_text(json.dumps(report, indent=2, allow_nan=False))

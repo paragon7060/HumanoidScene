@@ -21,3 +21,16 @@ class RewardsCfg:
     stage_completed = Reward(func=rewards.stage_completed, weight=30.0)
     success = Reward(func=rewards.success, weight=150.0)
     failure = Reward(func=rewards.failure, weight=-60.0)
+
+
+@configclass
+class FlapPickRewardsCfg(RewardsCfg):
+    navigation = None
+    carrying = None
+    placement = None
+    button_reach = None
+    reaching = Reward(func=rewards.flap_reaching, weight=4.0)
+    flap_contact = Reward(func=rewards.flap_contact, weight=3.0)
+    lift = Reward(func=rewards.lift, weight=5.0)
+    holding = Reward(func=rewards.flap_hold, weight=5.0)
+    collision = Reward(func=rewards.unwanted_contact, weight=-2.0)

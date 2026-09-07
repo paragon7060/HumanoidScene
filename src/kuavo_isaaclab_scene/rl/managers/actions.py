@@ -3,7 +3,8 @@
 from isaaclab.utils import configclass
 from ...robots.gripper_config import resolve_gripper_settings
 from ...robots.robot_model import resolve_robot_model
-from ..mdp.actions import PlanarDriveCfg, JointDeltaTargetsCfg, IncrementalGripperCfg
+from ..mdp.actions import PlanarDriveCfg, JointDeltaTargetsCfg, IncrementalGripperCfg, ArmsOnlyJointTargetsCfg
+from ..mdp.body_lock import ARM_JOINT_NAMES
 
 
 def hand_action(side):
@@ -24,5 +25,14 @@ class ActionsCfg:
         joint_names=["knee_joint", "leg_joint", "waist_pitch_joint"],
         scale=0.015, preserve_order=True)
         if resolve_robot_model().has_wheel_base else None)
+    left_gripper = hand_action("left")
+    right_gripper = hand_action("right")
+
+
+@configclass
+class ArmsOnlyActionsCfg:
+    # No dummy base/head/waist channels: the policy really has 14 + 1 + 1 actions.
+    upper_body = ArmsOnlyJointTargetsCfg(asset_name="robot",
+        joint_names=list(ARM_JOINT_NAMES), scale=0.035, preserve_order=True)
     left_gripper = hand_action("left")
     right_gripper = hand_action("right")

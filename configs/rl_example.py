@@ -19,7 +19,8 @@ def configure(env_cfg, agent_cfg):
     """Edit individual manager terms and the PPO algorithm AFTER assembly."""
     env_cfg.rewards.reaching.weight = 3.0
     env_cfg.rewards.action_rate.weight = -0.015
-    env_cfg.actions.base.velocity_limits = (0.20, 0.20, 0.60)
+    if getattr(env_cfg.actions, "base", None) is not None:
+        env_cfg.actions.base.velocity_limits = (0.20, 0.20, 0.60)
     env_cfg.actions.left_gripper.delta_scale = 0.08
     env_cfg.actions.right_gripper.delta_scale = 0.08
     agent_cfg.algorithm.learning_rate = 2e-4

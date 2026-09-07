@@ -43,6 +43,13 @@ class WorkcellCommand(CommandTerm):
         self.goal = torch.zeros(self.num_envs, 3, device=self.device)  # world x, y, yaw
         self.metrics = {name: torch.zeros(self.num_envs, device=self.device)
                         for name in ("success", "boxes_placed", "phase", "cargo_retained")}
+        self.flap_grasp = None
+        if self.spec.grasp_mode == "flap_top":
+            from .flap_grasp import FlapGrasp
+            self.flap_grasp = FlapGrasp(self)
+            self.metrics.update({name: torch.zeros(self.num_envs, device=self.device)
+                                 for name in ("grasp_left", "grasp_right", "lift_height", "hold_fraction",
+                                              "left_target_distance", "right_target_distance")})
         self._measure()
         self._goals()
 
@@ -154,6 +161,8 @@ class WorkcellCommand(CommandTerm):
         nearby = (self.tools - target[:, None]).norm(dim=-1) < half.norm(dim=-1)[:, None] + self.spec.grasp_distance
         self.grasped = (pairs & nearby).sum(-1) >= self.spec.required_grasp_hands
         self.released = (self.contact_force < self.spec.grasp_force).all(-1) & ~nearby.any(-1)
+        if self.flap_grasp is not None:
+            self.flap_grasp.measure()
         self.cargo_ok = torch.ones(self.num_envs, self.n, dtype=torch.bool, device=self.device)
         for box_id, name in enumerate(self.spec.box_names):
             for item in range(self.spec.cargo_per_box):
@@ -208,6 +217,8 @@ class WorkcellCommand(CommandTerm):
         held = self.grasped & lifted & upright
         velocity = self.velocities[self.ids, self.active_box]
         settled = (velocity[:, :3].norm(dim=-1) < self.spec.settle_speed) & (velocity[:, 3:].norm(dim=-1) < self.spec.settle_angular_speed)
+        if self.flap_grasp is not None:
+            held &= settled & (self.unexpected_finger_force.amax(-1) < self.spec.unexpected_contact_limit)
         placed = self.supported[self.ids, self.active_box] & settled & self.released
         condition = torch.where(self.phase == 0, navigated,
                     torch.where(self.phase == 1, held,
@@ -248,6 +259,13 @@ class WorkcellCommand(CommandTerm):
         self.metrics["boxes_placed"][:] = self.supported.float().sum(-1)
         self.metrics["phase"][:] = self.phase.float()
         self.metrics["cargo_retained"][:] = self.cargo_ok.float().mean(-1)
+        if self.flap_grasp is not None:
+            self.metrics["grasp_left"][:] = self.hand_grasp_flags[:, 0].float()
+            self.metrics["grasp_right"][:] = self.hand_grasp_flags[:, 1].float()
+            self.metrics["lift_height"][:] = target[:, 2] - self._env.scene.env_origins[:, 2] - self.initial_z[self.ids, self.active_box]
+            self.metrics["hold_fraction"][:] = (self.dwell / self.spec.hold_seconds).clamp(0, 1)
+            self.metrics["left_target_distance"][:] = self.hand_target_distance[:, 0]
+            self.metrics["right_target_distance"][:] = self.hand_target_distance[:, 1]
 
     def _update_command(self):
         self.refresh()

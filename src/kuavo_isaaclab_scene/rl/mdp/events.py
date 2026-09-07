@@ -22,11 +22,12 @@ def reset_episode(env, env_ids):
     robot = env.scene["robot"]
     pose = robot.data.default_root_state[ids, :7].clone()
     pose[:, :3] += env.scene.env_origins[ids]
-    if spec.name == "pick":
+    if spec.name == "pick" and spec.control_mode != "arms-only":
         pose[:, :2] = command.goal[ids, :2]
         angle = command.goal[ids, 2]
         pose[:, 3:] = quat_from_euler_xyz(torch.zeros_like(angle), torch.zeros_like(angle), angle)
-    difficulty = 0.1 + 0.9 * float(getattr(env, "_rl_difficulty", 0.0)) if spec.randomization else 0.0
+    difficulty = (0.1 + 0.9 * float(getattr(env, "_rl_difficulty", 0.0))
+                  if spec.randomization and spec.control_mode != "arms-only" else 0.0)
     # Rack/box poses are deliberately not jittered independently through shelves.
     pose[:, :2] += torch.empty(len(ids), 2, device=env.device).uniform_(-1, 1) * spec.reset_xy_jitter * difficulty
     angle = torch.empty(len(ids), device=env.device).uniform_(-1, 1) * spec.reset_yaw_jitter * difficulty

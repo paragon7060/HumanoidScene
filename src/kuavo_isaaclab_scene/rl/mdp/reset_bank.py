@@ -5,6 +5,7 @@ ordered box set, geometry and layout to prevent silently invalid grasp resets.
 """
 
 import hashlib
+from dataclasses import asdict
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -31,8 +32,10 @@ def contract(env):
                        "scale": list(getattr(getattr(cfg.scene, n).spawn, "scale", None) or (1, 1, 1))}
                    for n in names},
         "joints": {name: list(asset.joint_names) for name, asset in env.scene.articulations.items()},
-        "geometry": {n: {"center": list(g.center), "half_size": list(g.half_size), "body_path": g.body_path}
-                     for n, g in cfg.commands.workcell.geometry.items()}}
+        "geometry": {n: asdict(g) for n, g in cfg.commands.workcell.geometry.items()},
+        "grasp_definition": {name: getattr(spec, name) for name in (
+            "grasp_mode", "grasp_flaps", "flap_top_band", "flap_grasp_depth",
+            "flap_lock_degrees", "flap_contact_margin")}}
 
 
 def signature(value):

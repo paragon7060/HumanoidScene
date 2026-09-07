@@ -8,6 +8,7 @@ from isaaclab.envs.mdp.actions.joint_actions import JointPositionAction
 from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
 from ...robots.gripper_runtime import InterpolatedJointPositionAction, InterpolatedJointPositionActionCfg
 from ...robots.gripper_action import interpolate_signed_gripper_action
+from .body_lock import FixedBody, ARM_JOINT_NAMES
 
 
 class PlanarDrive(ActionTerm):
@@ -89,6 +90,42 @@ class JointDeltaTargets(JointPositionAction):
 class JointDeltaTargetsCfg(JointPositionActionCfg):
     class_type: type = JointDeltaTargets
     use_default_offset: bool = False
+
+
+class ArmsOnlyJointTargets(JointDeltaTargets):
+    """14 arm actions; latch the non-arm body after reset and hold at each substep."""
+
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        actual = tuple(self._asset.joint_names[i] for i in self._joint_ids)
+        if actual != ARM_JOINT_NAMES:
+            raise ValueError("arms-only action order must be left joints 1..7 then right joints 1..7.")
+        self.body_lock = FixedBody(self._asset, tolerance=cfg.body_lock_tolerance)
+
+    def process_actions(self, actions):
+        self._raw_actions[:] = actions.clamp(-1, 1)
+        self._targets += self._raw_actions * self._scale
+        # VR measured poses can lie outside the softer training margin. Preserve
+        # zero-action hold at those poses while respecting actual physical limits.
+        limits = self._asset.data.joint_pos_limits[:, self._joint_ids]
+        self._targets[:] = self._targets.clamp(limits[..., 0], limits[..., 1])
+        self._processed_actions[:] = self._targets
+
+    def reset(self, env_ids=None):
+        super().reset(env_ids)
+        # ManagerBasedRLEnv invokes this after all reset events, including the
+        # named initial-state event, and before command observations are reset.
+        self.body_lock.reset(env_ids)
+
+    def apply_actions(self):
+        self.body_lock.apply()
+        super().apply_actions()
+
+
+@configclass
+class ArmsOnlyJointTargetsCfg(JointDeltaTargetsCfg):
+    class_type: type = ArmsOnlyJointTargets
+    body_lock_tolerance: float = 1e-4
 
 
 class IncrementalGripper(InterpolatedJointPositionAction):

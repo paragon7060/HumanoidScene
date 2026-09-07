@@ -65,6 +65,13 @@ reset distribution을 확보한 뒤 전체 task 학습에 활용하는 출발 �
 
 ## 3. 설치와 첫 학습
 
+저장된 VR 자세의 베이스·허리·머리를 고정한 **양팔 전용 학습**은
+전용 `./train_flap_pick.sh`로 실행한다. 초기 자세는 `quest_ready_02`로 고정되어 있다.
+초기 자세 수정 위치는 [RL 초기 상태 가이드](RL_INITIAL_STATES.md)에 정리되어 있다.
+`configs/rl_pick_arms_only.py` 예제는 양손 접촉·6cm 상승·내용물 없는 시작 설정이다.
+이 예제의 현재 목표는 [flap 상단 양손 파지·들기·유지](RL_FLAP_PICK.md)이며,
+랙 밖 인출은 다음 단계로 분리한다.
+
 기존 Isaac Sim 5.1.0 / Isaac Lab v2.3.2 환경을 사용한다. 새 conda 환경은 필요 없다.
 
 ```bash

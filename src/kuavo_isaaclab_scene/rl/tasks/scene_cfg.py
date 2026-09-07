@@ -1,8 +1,5 @@
 """Reuse the measured workcell; replace legacy cargo with cargo in real task boxes."""
 
-from dataclasses import dataclass
-
-from pxr import Usd, UsdGeom, UsdPhysics
 import isaaclab.sim as sim_utils
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.sensors import ContactSensorCfg
@@ -11,33 +8,8 @@ from ...envs.manager_env import LOCAL_BOX_SCENE_KEYS, RACK_BOX_SPAWN_PLAN, Robus
 from ...robots.robot_model import resolve_robot_model
 from ...robots.gripper_config import resolve_gripper_settings
 from ...robots.robot_inertials import spawn_teleop_robot, spawn_s56_twofinger_robot
-
-
-@dataclass(frozen=True)
-class BoxGeometry:
-    center: tuple[float, float, float]
-    half_size: tuple[float, float, float]
-    body_path: str
-
-
-def box_geometry(asset_cfg) -> BoxGeometry:
-    """Measure only the rigid Body, excluding movable flaps, in its own frame."""
-    stage = Usd.Stage.Open(asset_cfg.spawn.usd_path)
-    if stage is None:
-        raise ValueError(f"Unable to open box USD: {asset_cfg.spawn.usd_path}")
-    bodies = [p for p in stage.Traverse() if p.GetName() == "Body" and p.HasAPI(UsdPhysics.RigidBodyAPI)]
-    if len(bodies) != 1:
-        raise ValueError("Box asset must have one rigid Body; adapt box_geometry() for a different USD.")
-    body = bodies[0]
-    bounds = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render", "proxy"]).ComputeUntransformedBound(body).ComputeAlignedRange()
-    scale = asset_cfg.spawn.scale
-    low = tuple(float(bounds.GetMin()[i]) * scale[i] for i in range(3))
-    high = tuple(float(bounds.GetMax()[i]) * scale[i] for i in range(3))
-    half = tuple((high[i] - low[i]) / 2 for i in range(3))
-    if min(half) <= 0:
-        raise ValueError("Invalid box Body bounds.")
-    return BoxGeometry(tuple((high[i] + low[i]) / 2 for i in range(3)), half,
-                       str(body.GetPath().MakeRelativePath(stage.GetDefaultPrim().GetPath())))
+from .asset_geometry import BoxGeometry, box_geometry
+from .flap_spawn import spawn_locked_flap_box
 
 
 def build_scene(spec, num_envs=8, env_spacing=8.0, cameras=False):
@@ -70,7 +42,12 @@ def build_scene(spec, num_envs=8, env_spacing=8.0, cameras=False):
         if name not in plans or not plans[name].on_rack:
             raise ValueError(f"{name} is not a captured/configured rack box. Set --rack-boxes or --rack-box-poses first.")
         cfg = getattr(scene, name)
-        geometry[name] = box_geometry(cfg)
+        geometry[name] = box_geometry(cfg, spec.grasp_flaps if spec.grasp_mode == "flap_top" else ())
+        if spec.grasp_mode == "flap_top":
+            cfg.spawn.func = spawn_locked_flap_box
+            cfg.spawn.flap_lock_degrees = spec.flap_lock_degrees
+            cfg.actuators["flaps"].stiffness = 2.0
+            cfg.actuators["flaps"].damping = 0.2
         if min(geometry[name].half_size) <= 2 * spec.cargo_radius:
             raise ValueError(f"Cargo radius is too large for {name}.")
         for item in range(spec.cargo_per_box):
@@ -96,10 +73,18 @@ def build_scene(spec, num_envs=8, env_spacing=8.0, cameras=False):
                ("/" + geometry[name].body_path if geometry[name].body_path != "." else "")
                for name in spec.box_names]
     for index, body in enumerate(spec.finger_bodies):
+        if spec.grasp_mode == "flap_top":
+            flap = spec.grasp_flaps[index // 2]
+            targets = [getattr(scene, name).prim_path + "/" + geometry[name].flaps[flap].body_path
+                       for name in spec.box_names]
         setattr(scene, f"grasp_contact_{index}", ContactSensorCfg(
             prim_path=f"{{ENV_REGEX_NS}}/Kuavo/{body}", update_period=0.0, history_length=1,
+            track_contact_points=spec.grasp_mode == "flap_top", max_contact_data_count_per_prim=32,
             filter_prim_paths_expr=targets))
+    collision_bodies = "waist_yaw_link|zarm_[lr][1-6]_link"
+    if spec.grasp_mode == "flap_top":
+        collision_bodies = "waist_yaw_link|zarm_[lr][1-7]_link|[lr]_twofinger_base"
     scene.robot_contact = ContactSensorCfg(
-        prim_path="{ENV_REGEX_NS}/Kuavo/(waist_yaw_link|zarm_[lr][1-6]_link)",
+        prim_path="{ENV_REGEX_NS}/Kuavo/(" + collision_bodies + ")",
         update_period=0.0, history_length=1)
     return scene, geometry

@@ -14,12 +14,15 @@ from ..tasks.specs import TASKS, PREDECESSOR, REQUIRES_RESET_BANK, task_spec
 from ...robots.robot_model import add_robot_model_cli_args, export_robot_model_cli
 from ...robots.gripper_config import add_gripper_cli_args, export_gripper_cli
 from ...core.paths import default_artifacts_dir
+from ...robots.initial_states import add_initial_state_args, configure_initial_state
 
 
 def parse_args(mode):
     from isaaclab.app import AppLauncher
-    parser = argparse.ArgumentParser(description=f"Kuavo manager-based subtask PPO {mode}")
+    parser = argparse.ArgumentParser(description=f"Kuavo manager-based subtask PPO {mode}", allow_abbrev=False)
     parser.add_argument("--task", choices=TASKS, default="approach_rack")
+    parser.add_argument("--control-mode", choices=("whole-body", "arms-only"), default="whole-body",
+                        help="arms-only locks the reset base/body/head and learns 14 arm + 2 gripper actions.")
     parser.add_argument("--boxes", default="small_box_0", help="Ordered comma-separated scene keys, or all captured rack boxes")
     parser.add_argument("--num-envs", type=int, default=8 if mode == "train" else 1)
     parser.add_argument("--seed", type=int, default=42)
@@ -40,6 +43,7 @@ def parse_args(mode):
     parser.add_argument("--rack-boxes")
     parser.add_argument("--ignore-captured-box-poses", action="store_true")
     parser.add_argument("--log-dir", type=Path)
+    add_initial_state_args(parser)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
     AppLauncher.add_app_launcher_args(parser)
@@ -48,7 +52,7 @@ def parse_args(mode):
         parser.error("Environment/iteration/episode/snapshot counts must be positive.")
     if args.task in REQUIRES_RESET_BANK and not args.reset_bank:
         parser.error(f"{args.task} needs --reset-bank with successful {PREDECESSOR[args.task]} states.")
-    for name in ("checkpoint", "reset_bank", "config", "workcell_layout", "rack_box_poses"):
+    for name in ("checkpoint", "reset_bank", "config", "workcell_layout", "rack_box_poses", "initial_states_file"):
         value = getattr(args, name)
         if value and not value.expanduser().exists():
             parser.error(f"Missing --{name.replace('_', '-')}: {value}")
@@ -80,13 +84,20 @@ def build_configs(args):
     from ..agents.ppo_cfg import WorkcellPPOCfg
     from ...envs.manager_env import ACTIVE_RACK_BOX_SCENE_KEYS
     box_names = ACTIVE_RACK_BOX_SCENE_KEYS if args.boxes == "all" else tuple(s.strip() for s in args.boxes.split(",") if s.strip())
-    spec = task_spec(args.task, box_names=box_names,
+    spec = task_spec(args.task, box_names=box_names, control_mode=args.control_mode,
         reset_bank=str(args.reset_bank.expanduser().resolve()) if args.reset_bank else None,
         snapshot_dir=str(args.snapshot_dir.expanduser().resolve()) if args.snapshot_dir else None,
         max_snapshots=args.max_snapshots, prefill_count=args.prefill, cargo_per_box=args.cargo_per_box,
         slot_count=args.slots, slot_pitch=args.slot_pitch,
         randomization=not args.no_randomization)
     customization = runpy.run_path(str(args.config.expanduser().resolve())) if args.config else {}
+    pinned_state = customization.get("INITIAL_STATE")
+    if pinned_state is not None:
+        if not isinstance(pinned_state, str) or not pinned_state.strip():
+            raise ValueError("Config INITIAL_STATE must be a nonempty preset name.")
+        if args.initial_state is not None and args.initial_state != pinned_state:
+            raise ValueError(f"This experiment pins INITIAL_STATE={pinned_state!r}; change the config for another pose.")
+        args.initial_state = pinned_state
     if "configure_task" in customization:
         spec = customization["configure_task"](spec)
     cfg = WorkcellRLEnvCfg(task=spec, num_envs=args.num_envs, cameras=args.enable_cameras)
@@ -98,6 +109,15 @@ def build_configs(args):
         customization["configure"](cfg, agent)
     if cfg.commands.workcell.task != cfg.task:
         raise ValueError("Change task fields in configure_task(), not after environment assembly.")
+    configure_initial_state(cfg, args)
+    if cfg.task.control_mode == "arms-only":
+        if not cfg.scene.robot.spawn.articulation_props.fix_root_link:
+            raise ValueError("arms-only needs a fixed root; do not unset fix_root_link in configure().")
+        from ..mdp.actions import ArmsOnlyJointTargets
+        if (cfg.actions.upper_body.class_type is not ArmsOnlyJointTargets
+                or any(getattr(cfg.actions, name, None) is not None for name in ("base", "height", "head"))):
+            raise ValueError("arms-only requires its arm action and no base/height/head policy actions.")
+        print("[RL] arms-only: 14 arm + 2 gripper actions; base fixed; body/head latched after each reset.", flush=True)
     if cfg.scene.num_envs * agent.num_steps_per_env < agent.algorithm.num_mini_batches:
         raise ValueError("PPO has more mini-batches than rollout samples.")
     return cfg, agent
@@ -119,7 +139,8 @@ def write_run_config(path, cfg, agent, env):
                 "contract_hash": signature(metadata), "actions": action_schema,
                 "action_config": cfg.actions.to_dict(),
                 "observations": env.observation_manager.group_obs_dim,
-                "robot_model": metadata["robot"], "gripper": metadata["gripper"]}
+                "robot_model": metadata["robot"], "gripper": metadata["gripper"],
+                "initial_state": getattr(cfg, "initial_state_metadata", None)}
     (path / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False))
     dump_yaml(str(path / "env.yaml"), cfg)
     dump_yaml(str(path / "agent.yaml"), agent)

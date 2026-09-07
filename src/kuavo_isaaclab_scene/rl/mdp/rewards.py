@@ -56,3 +56,27 @@ def success(env):
 
 def failure(env):
     return task(env).failure.float() / env.step_dt
+
+
+def flap_reaching(env):
+    t = task(env)
+    # Both tools must approach their assigned flap; align closing axes to plate normals.
+    return (torch.exp(-12 * t.hand_target_distance) * (0.25 + 0.75 * t.grasp_alignment)).mean(-1)
+
+
+def flap_contact(env):
+    t = task(env)
+    # Partial shaping leads from first valid upper-band contact to two opposed jaws.
+    return 0.25 * t.finger_grasp_contacts.float().mean((1, 2)) + t.hand_grasp_flags.float().mean(-1)
+
+
+def flap_hold(env):
+    t = task(env)
+    return (t.dwell / t.spec.hold_seconds).clamp(0, 1)
+
+
+def unwanted_contact(env):
+    t = task(env)
+    other_finger = (t.unexpected_finger_force / t.spec.unexpected_contact_limit).clamp(0, 5).mean(-1)
+    arm_contact = env.scene["robot_contact"].data.net_forces_w.norm(dim=-1).amax(-1)
+    return other_finger + (arm_contact / 20).clamp(0, 5)

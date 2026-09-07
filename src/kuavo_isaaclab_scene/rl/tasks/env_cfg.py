@@ -6,10 +6,10 @@ from isaaclab.sim import SimulationCfg, PhysxCfg
 from isaaclab.utils import configclass
 from .specs import TaskSpec
 from .scene_cfg import build_scene
-from ..managers.actions import ActionsCfg
-from ..managers.observations import ObservationsCfg
+from ..managers.actions import ActionsCfg, ArmsOnlyActionsCfg
+from ..managers.observations import ObservationsCfg, FlapPickObservationsCfg
 from ..managers.commands import CommandsCfg
-from ..managers.rewards import RewardsCfg
+from ..managers.rewards import RewardsCfg, FlapPickRewardsCfg
 from ..managers.events import EventsCfg
 from ..managers.terminations import TerminationsCfg
 from ..managers.curriculum import CurriculumCfg
@@ -41,6 +41,12 @@ class WorkcellRLEnvCfg(ManagerBasedRLEnvCfg):
         self.decimation = 4
         self.episode_length_s = self.task.episode_length_s
         self.scene, geometry = build_scene(self.task, self.num_envs, self.env_spacing, self.cameras)
+        if self.task.control_mode == "arms-only":
+            self.actions = ArmsOnlyActionsCfg()
+            self.scene.robot.spawn.articulation_props.fix_root_link = True
+        if self.task.grasp_mode == "flap_top":
+            self.observations = FlapPickObservationsCfg()
+            self.rewards = FlapPickRewardsCfg()
         self.commands.workcell.task = self.task
         self.commands.workcell.geometry = geometry
         self.events.flap_friction.params["asset_names"] = self.task.box_names
