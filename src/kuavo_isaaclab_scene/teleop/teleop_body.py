@@ -9,8 +9,9 @@ import numpy as np
 BODY_JOINTS = ["knee_joint", "leg_joint", "waist_pitch_joint", "waist_yaw_joint"]
 BODY_ACTION_NAMES = ("base_forward_m_s", "base_left_m_s", "base_yaw_rad_s", *BODY_JOINTS[:3])
 BASE_LINEAR_SPEED_M_S = 0.75
-BASE_YAW_SPEED_RAD_S = 3.6
-TORSO_HEIGHT_SPEED_M_S = 0.36
+BASE_YAW_SPEED_RAD_S = 1.8
+BASE_YAW_ACCEL_RAD_S2 = 6.0
+TORSO_HEIGHT_SPEED_M_S = 1.0
 
 
 def controller_axis(packet, index, deadzone=0.15):
@@ -46,6 +47,7 @@ class TeleopBodyMapper:
     def reset(self):
         self.height = 0.0
         self.joints = np.zeros(4)
+        self._yaw_rate = 0.0
 
     def _planar_position(self, q):
         angles = (q[0], q[0] + q[1])
@@ -54,14 +56,17 @@ class TeleopBodyMapper:
 
     def advance(self, left, right, dt, *, enabled):
         velocity = np.zeros(2)
-        yaw_rate = 0.0
         if enabled:
             # Native OpenXR axes: +Y is up, unlike the WebXR Gamepad API.
             velocity = BASE_LINEAR_SPEED_M_S * np.array(
                 [controller_axis(left, 1), -controller_axis(left, 0)]
             )
             velocity /= max(1.0, np.linalg.norm(velocity) / BASE_LINEAR_SPEED_M_S)
-            yaw_rate = -BASE_YAW_SPEED_RAD_S * controller_axis(right, 0)
+            target_yaw_rate = -BASE_YAW_SPEED_RAD_S * controller_axis(right, 0)
+            # Ramp toward the commanded yaw rate instead of snapping instantly;
+            # a sudden yaw jump is what flings a grasped box during a fast turn.
+            step = BASE_YAW_ACCEL_RAD_S2 * dt
+            self._yaw_rate += np.clip(target_yaw_rate - self._yaw_rate, -step, step)
             if self.has_wheel_base:
                 requested_height = float(np.clip(
                     self.height + TORSO_HEIGHT_SPEED_M_S * controller_axis(right, 1) * dt, 0.0, .40
@@ -92,4 +97,7 @@ class TeleopBodyMapper:
                     self.height = requested_height
                     self.joints[:3] = [*q, pitch]
             self.joints[3] = 0.0
-        return np.concatenate((velocity, [yaw_rate], self.joints[:3])).astype(np.float32)
+        else:
+            # Safety stop stays instantaneous; smoothing must never delay it.
+            self._yaw_rate = 0.0
+        return np.concatenate((velocity, [self._yaw_rate], self.joints[:3])).astype(np.float32)

@@ -9,7 +9,9 @@ from kuavo_isaaclab_scene.teleop.browser_teleop_bridge import (
 )
 from kuavo_isaaclab_scene.teleop.browser_teleop_control import browser_body_action, compose_browser_action
 from kuavo_isaaclab_scene.core.paths import ASSET_DIR
-from kuavo_isaaclab_scene.teleop.teleop_body import TeleopBodyMapper
+from kuavo_isaaclab_scene.teleop.teleop_body import (
+    BASE_YAW_SPEED_RAD_S, TORSO_HEIGHT_SPEED_M_S, TeleopBodyMapper,
+)
 from kuavo_isaaclab_scene.teleop.teleop_safety import TrackingLossGuard
 
 
@@ -72,14 +74,15 @@ def test_browser_base_direction(left, right, axis, sign):
     command = browser_body_action(sample(left=left, right=right), mapper(), 1 / 30, control_allowed=True)
     assert np.sign(command[axis]) == sign
     assert np.linalg.norm(command[:2]) <= .750001
-    assert abs(command[2]) <= 3.600001
+    assert abs(command[2]) <= BASE_YAW_SPEED_RAD_S + 1e-6
 
 
 def test_browser_lift_lower_pause_and_missing_controller():
     body = mapper()
     for _ in range(20):
         raised = browser_body_action(sample(right=(0, -1)), body, 1 / 30, control_allowed=True)
-    assert body.height == pytest.approx(.24)
+    reached_height = min(20 * (1 / 30) * TORSO_HEIGHT_SPEED_M_S, .40)
+    assert body.height == pytest.approx(reached_height)
     assert abs(raised[3:].sum()) < 1e-6
     lost = replace(sample(left=(0, -1), right=(1, -1)), left_controller=None)
     stopped = browser_body_action(lost, body, 1 / 30, control_allowed=True)
@@ -89,7 +92,7 @@ def test_browser_lift_lower_pause_and_missing_controller():
     np.testing.assert_allclose(paused, stopped)
     for _ in range(10):
         browser_body_action(sample(right=(0, 1)), body, 1 / 30, control_allowed=True)
-    assert body.height == pytest.approx(.12)
+    assert body.height == pytest.approx(max(reached_height - 10 * (1 / 30) * TORSO_HEIGHT_SPEED_M_S, 0.0))
 
 
 def test_stale_bridge_removes_controller_inputs_and_recovery_stops_base():
