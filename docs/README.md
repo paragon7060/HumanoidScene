@@ -61,6 +61,8 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 ## Policy와 평가
 
 - [GR00T N1.7 평가](GROOT_N1_7_EVAL_GUIDE.md)
+- [VR 자세 저장과 eval 초기 상태](INITIAL_STATES.md): 이름 있는 자세 캡처·복원,
+  GR00T 몸체 고정과 RL 초기 상태 안내
 - [RwH-Kuavo V2 GR00T N1.5를 S56에서 평가](RWH_KUAVO_V2_S56_EVAL.md):
   별도 Conda worker, 16-D arm/claw 변환, headless 3-view MP4, VRAM과 배포 설정
 - [로봇 모델 평가 파이프라인](ROBOT_MODEL_EVAL_PIPELINE.md): 공통 계층, 호환성

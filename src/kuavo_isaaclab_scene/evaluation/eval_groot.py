@@ -16,6 +16,7 @@ from pathlib import Path
 from isaaclab.app import AppLauncher
 
 from ..core.paths import default_artifacts_dir
+from .policy_profiles import ARM_CLAW_PROFILES, POLICY_PROFILES
 from .eval_metrics import (
     control_decimation,
     percentile_nearest_rank,
@@ -24,6 +25,7 @@ from .eval_metrics import (
 )
 from ..robots.gripper_config import add_gripper_cli_args, export_gripper_cli, resolve_gripper_settings
 from ..robots.robot_model import add_robot_model_cli_args, export_robot_model_cli, resolve_robot_model
+from ..robots.initial_states import add_initial_state_args, configure_initial_state
 from ..workcell.rack_box_layout import resolve_rack_box_pose_path
 
 
@@ -38,7 +40,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--policy-profile",
-    choices=("default", "rwh-kuavo-v2-s56"),
+    choices=POLICY_PROFILES,
     default="default",
     help="Policy-specific state/action/camera adapter.",
 )
@@ -75,7 +77,23 @@ parser.add_argument(
         "(default: environment configuration)."
     ),
 )
+parser.add_argument(
+    "--initial-settle-seconds",
+    type=float,
+    default=1.0,
+    metavar="SECONDS",
+    help=(
+        "After reset, hold the measured initial arm/claw state for this duration before "
+        "policy inference, recording, and rollout accounting begin (default: 1.0; 0 disables)."
+    ),
+)
 parser.add_argument("--seed", type=int, default=42)
+parser.add_argument(
+    "--body-mode", choices=("fixed", "pd"), default=None,
+    help="Body constraint: arm/claw profiles default to fixed root and locked "
+         "wheel/leg/waist/head joints at the reset pose; legacy profiles default "
+         "to pd (previous unconstrained body drives).",
+)
 parser.add_argument(
     "--task",
     type=str,
@@ -118,7 +136,7 @@ parser.add_argument(
     default=None,
     help=(
         "Clamp manager actions to +/-VALUE; use 0 to disable clipping. Defaults to 0 "
-        "for the RwH S56 profile and 1 otherwise. S56 joint limits are always enforced."
+        "for arm/claw profiles and 1 otherwise. Arm/claw profiles enforce robot joint limits."
     ),
 )
 parser.add_argument(
@@ -250,11 +268,23 @@ rack_group.add_argument("--rack-box-layout", type=Path, default=None, metavar="J
 pose_group = parser.add_mutually_exclusive_group()
 pose_group.add_argument("--rack-box-poses", type=Path, default=None, metavar="JSON")
 pose_group.add_argument("--ignore-captured-box-poses", action="store_true")
+parser.add_argument(
+    "--rack-boxes-only", action="store_true",
+    help="Spawn only selected rack boxes; omit spare staging boxes and legacy "
+         "tote/cargo collections and their auxiliary manager terms.",
+)
 
 add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
+add_initial_state_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+if args_cli.initial_state:
+    if args_cli.initial_pose not in (None, "default"):
+        parser.error("--initial-state cannot be combined with --initial-pose checkpoint-q50/dataset-medoid.")
+    if any(value == "--initial-head-pitch-deg" or value.startswith("--initial-head-pitch-deg=") for value in sys.argv[1:]):
+        parser.error("Set head joints in the named state instead of combining it with --initial-head-pitch-deg.")
+    args_cli.initial_pose = "default"
 has_robot_arg = any(
     value == "--robot-model" or value.startswith("--robot-model=") for value in sys.argv[1:]
 )
@@ -275,18 +305,23 @@ if args_cli.policy_profile == "rwh-kuavo-v2-s56":
         )
     args_cli.robot_model = "s56"
     args_cli.gripper = args_cli.gripper if has_gripper_arg else "s56_twofinger"
+if args_cli.policy_profile in ARM_CLAW_PROFILES:
     args_cli.state_mode = args_cli.state_mode or "joint_position"
     args_cli.action_mode = args_cli.action_mode or "joint_position"
     if args_cli.state_mode != "joint_position" or args_cli.action_mode != "joint_position":
         parser.error(
-            "--policy-profile rwh-kuavo-v2-s56 requires --state-mode joint_position "
+            "Arm/claw profiles require --state-mode joint_position "
             "and --action-mode joint_position."
         )
     args_cli.camera_width = args_cli.camera_width or 848
     args_cli.camera_height = args_cli.camera_height or 480
     args_cli.action_clip = 0.0 if args_cli.action_clip is None else args_cli.action_clip
     args_cli.initial_pose = args_cli.initial_pose or "checkpoint-q50"
-    if args_cli.initial_pose == "dataset-medoid" and not has_head_pitch_arg:
+    if (
+        args_cli.initial_pose == "dataset-medoid"
+        and not has_head_pitch_arg
+        and args_cli.robot_model == "s56"
+    ):
         args_cli.initial_head_pitch_deg = 25.0
 else:
     args_cli.state_mode = args_cli.state_mode or "manager"
@@ -295,6 +330,9 @@ else:
     args_cli.initial_pose = args_cli.initial_pose or "default"
 export_robot_model_cli(args_cli)
 export_gripper_cli(args_cli)
+args_cli.body_mode = args_cli.body_mode or (
+    "fixed" if args_cli.policy_profile in ARM_CLAW_PROFILES else "pd"
+)
 
 if not args_cli.mock_policy and not args_cli.checkpoint:
     parser.error("--checkpoint is required unless --mock-policy is selected.")
@@ -304,6 +342,8 @@ if args_cli.max_steps < 0:
     parser.error("--max-steps must be zero or positive.")
 if args_cli.control_hz is not None and args_cli.control_hz <= 0:
     parser.error("--control-hz must be positive.")
+if not math.isfinite(args_cli.initial_settle_seconds) or args_cli.initial_settle_seconds < 0:
+    parser.error("--initial-settle-seconds must be finite and zero or positive.")
 if args_cli.actions_per_inference is not None and args_cli.actions_per_inference <= 0:
     parser.error("--actions-per-inference must be positive.")
 if args_cli.action_clip < 0:
@@ -360,6 +400,11 @@ try:
     )
     ACTIVE_ROBOT_MODEL = resolve_robot_model()
     GRIPPER_SETTINGS = resolve_gripper_settings()
+    if (
+        args_cli.policy_profile in ARM_CLAW_PROFILES
+        and GRIPPER_SETTINGS.active_sides != ("left", "right")
+    ):
+        raise ValueError("Arm/claw profiles require two active grippers with configured open/close commands.")
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
 if captured_pose_path is not None:
@@ -385,13 +430,13 @@ from .groot_lerobot_bridge import (
     KuavoLeRobotBridge,
     LeRobotGrootRunner,
     RWH_KUAVO_V2_CAMERA_MAP,
-    RWH_KUAVO_V2_S56_PROFILE,
     SubprocessLeRobotGrootRunner,
     ZeroLeRobotPolicyRunner,
     parse_camera_map,
 )
 from ..envs.manager_env import (
     ACTIVE_RACK_BOX_SCENE_KEYS,
+    LOCAL_BOX_SCENE_KEYS,
     KuavoRobustWorkcellEnvCfg,
     TASK_OBJECT_PARAMS,
 )
@@ -448,7 +493,7 @@ def _configure_rwh_ready_pose(
     cfg: KuavoRobustWorkcellEnvCfg,
     checkpoint: str | None,
 ) -> list[float]:
-    """Set the S56 arms to the checkpoint median while keeping both claws open."""
+    """Set the robot arms to the checkpoint median while keeping both claws open."""
     state = _checkpoint_state_q50(checkpoint)
     arm_values = torch.cat((state[:7], state[8:15]))
     arm_names = (
@@ -557,7 +602,7 @@ def main() -> None:
     try:
         default_camera_map = (
             RWH_KUAVO_V2_CAMERA_MAP
-            if args_cli.policy_profile == RWH_KUAVO_V2_S56_PROFILE
+            if args_cli.policy_profile in ARM_CLAW_PROFILES
             else None
         )
         camera_map = parse_camera_map(args_cli.camera_map, default_map=default_camera_map)
@@ -577,7 +622,7 @@ def main() -> None:
     )
     ready_state: list[float] | None = None
     initial_state_source = args_cli.initial_pose
-    if args_cli.policy_profile == RWH_KUAVO_V2_S56_PROFILE:
+    if args_cli.policy_profile in ARM_CLAW_PROFILES:
         cfg.actions.left_gripper = build_gripper_action_cfg(
             GRIPPER_SETTINGS, "left", continuous=True
         )
@@ -598,11 +643,17 @@ def main() -> None:
         except ValueError as exc:
             parser.error(str(exc))
         cfg.sim.render_interval = cfg.decimation
-    if args_cli.max_steps:
-        # An explicit evaluator horizon must not be cut short by the task's
-        # default TimeOutTerm (24 s in the current workcell configuration).
-        requested_episode_s = args_cli.max_steps * cfg.sim.dt * cfg.decimation
-        cfg.episode_length_s = max(cfg.episode_length_s, requested_episode_s)
+    # The environment timer advances during stabilization. Extend its horizon
+    # so neither an explicit rollout nor the configured default is shortened.
+    requested_rollout_s = (
+        args_cli.max_steps * cfg.sim.dt * cfg.decimation
+        if args_cli.max_steps
+        else cfg.episode_length_s
+    )
+    cfg.episode_length_s = max(
+        cfg.episode_length_s,
+        requested_rollout_s + args_cli.initial_settle_seconds,
+    )
     if args_cli.camera_width is not None:
         for scene_camera in camera_map.values():
             camera_cfg = getattr(cfg.scene, scene_camera, None)
@@ -634,7 +685,26 @@ def main() -> None:
     if not args_cli.domain_randomization:
         _disable_domain_randomization(cfg)
 
+    box_filter_metadata = None
+    if args_cli.rack_boxes_only:
+        from .box_filter import configure_rack_boxes_only
+        box_filter_metadata = configure_rack_boxes_only(
+            cfg, ACTIVE_RACK_BOX_SCENE_KEYS, LOCAL_BOX_SCENE_KEYS,
+        )
+        print(f"[BOX FILTER] {box_filter_metadata}", flush=True)
+
+    initial_state_metadata = configure_initial_state(cfg, args_cli)
+    if initial_state_metadata is not None:
+        initial_state_source = f"preset:{args_cli.initial_state}"
+    from .body_lock import configure_eval_body_lock, body_lock_snapshot
+    configure_eval_body_lock(cfg, args_cli.body_mode)
     env = ManagerBasedRLEnv(cfg=cfg)
+    if args_cli.rack_boxes_only:
+        actual_boxes = sorted(set(env.scene.articulations).intersection(LOCAL_BOX_SCENE_KEYS))
+        if actual_boxes != sorted(ACTIVE_RACK_BOX_SCENE_KEYS):
+            env.close()
+            raise RuntimeError(f"Unexpected spawned box set: {actual_boxes}")
+        print(f"[BOX FILTER] Verified actual box articulations: {actual_boxes}", flush=True)
     scene_video_camera = (
         env.scene[EVAL_SCENE_CAMERA_NAME]
         if args_cli.video_out is not None and args_cli.video_scene_view
@@ -701,7 +771,8 @@ def main() -> None:
         env.close()
         raise
 
-    max_steps = args_cli.max_steps or math.ceil(cfg.episode_length_s / env.step_dt)
+    max_steps = args_cli.max_steps or math.ceil(requested_rollout_s / env.step_dt)
+    settle_steps = math.ceil(args_cli.initial_settle_seconds / env.step_dt - 1.0e-9)
     print(
         f"[INFO] Eval ready: episodes={args_cli.episodes}, max_steps={max_steps}, "
         f"control_hz={1.0 / env.step_dt:.1f}, "
@@ -713,10 +784,14 @@ def main() -> None:
     print(
         f"[INFO] Initial pose: {args_cli.initial_pose}; "
         "gripper action: continuous signed interpolation"
-        if args_cli.policy_profile == RWH_KUAVO_V2_S56_PROFILE
+        if args_cli.policy_profile in ARM_CLAW_PROFILES
         else f"[INFO] Initial pose: {args_cli.initial_pose}"
     )
     print(f"[INFO] Initial head pitch: {args_cli.initial_head_pitch_deg:.1f} deg")
+    print(
+        f"[INFO] Initial stabilization: requested={args_cli.initial_settle_seconds:.3f}s, "
+        f"steps={settle_steps}, effective={settle_steps * env.step_dt:.3f}s"
+    )
     print(f"[INFO] Camera map: {camera_map}")
     video_fps = args_cli.video_fps or (1.0 / env.step_dt)
     video_camera_keys = tuple(camera_map) + (
@@ -738,6 +813,25 @@ def main() -> None:
                 break
             env.reset(seed=args_cli.seed + episode_index)
             runner.reset()
+            body_initial = body_lock_snapshot(env) if args_cli.body_mode == "fixed" else None
+            body_max_error = 0.0
+            body_root_max_displacement = 0.0
+            if body_initial is not None:
+                print(f"[BODY LOCK] Fixed root; locked joints: {body_initial['joint_names']}")
+            hold_action = bridge.hold_action().action
+            for settle_index in range(settle_steps):
+                if not simulation_app.is_running():
+                    break
+                if body_initial is not None:
+                    env._eval_body_lock.apply()
+                _, _, terminated, truncated, _ = env.step(hold_action)
+                if bool((terminated[0] | truncated[0]).item()):
+                    raise RuntimeError(
+                        "Environment ended during initial stabilization at "
+                        f"step {settle_index + 1}/{settle_steps}. Check the reset pose and collisions."
+                    )
+                if body_initial is not None:
+                    body_max_error = max(body_max_error, body_lock_snapshot(env)["max_joint_error_rad"])
             reward_sum = 0.0
             max_progress = 0.0
             saturation_sum = 0.0
@@ -786,10 +880,18 @@ def main() -> None:
                         inference_latencies.append(sample.inference_ms)
                     adapted = bridge.action(sample.action)
                     saturation_sum += adapted.saturation_fraction
+                    if body_initial is not None:
+                        env._eval_body_lock.apply()
                     _, reward, terminated, truncated, extras = env.step(adapted.action)
                     completed_steps = step_index + 1
                     reward_sum += float(reward[0].item())
                     done = bool((terminated[0] | truncated[0]).item())
+                    body_after = None
+                    if body_initial is not None and not done:
+                        body_after = body_lock_snapshot(env)
+                        body_max_error = max(body_max_error, body_after["max_joint_error_rad"])
+                        body_root_max_displacement = max(body_root_max_displacement, math.dist(
+                            body_initial["root_pose_w"][:3], body_after["root_pose_w"][:3]))
                     if args_cli.trace_out is not None:
                         rollout_trace.append(
                             {
@@ -814,6 +916,7 @@ def main() -> None:
                                 "terminated": bool(terminated[0].item()),
                                 "truncated": bool(truncated[0].item()),
                                 "state_after_is_auto_reset": done,
+                                "body_after": body_after,
                             }
                         )
                     success = done and _episode_termination_value(extras, "success") > 0.5
@@ -849,6 +952,12 @@ def main() -> None:
                     statistics.fmean(inference_latencies) if inference_latencies else 0.0
                 ),
                 "p95_inference_ms": percentile_nearest_rank(inference_latencies, 95.0),
+                "body_lock": ({
+                    "initial": body_initial,
+                    "max_joint_error_rad": body_max_error,
+                    "max_root_displacement_m": body_root_max_displacement,
+                    "measurement": "control-step samples; auto-reset samples excluded",
+                } if body_initial is not None else None),
             }
             if written_video is not None:
                 episode_result["video_path"] = written_video
@@ -900,7 +1009,7 @@ def main() -> None:
     }
     payload = {
         "format": "kuavo_groot_n1_7_eval",
-        "format_version": 2,
+        "format_version": 3,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "checkpoint": checkpoint_label,
         "robot_model": ACTIVE_ROBOT_MODEL.name,
@@ -908,8 +1017,12 @@ def main() -> None:
         "state_mode": args_cli.state_mode,
         "action_mode": args_cli.action_mode,
         "action_clip": None if args_cli.action_clip == 0 else args_cli.action_clip,
-        "joint_limit_clamp": args_cli.policy_profile == RWH_KUAVO_V2_S56_PROFILE,
+        "joint_limit_clamp": args_cli.policy_profile in ARM_CLAW_PROFILES,
         "initial_pose": args_cli.initial_pose,
+        "initial_state": initial_state_metadata,
+        "body_mode": args_cli.body_mode,
+        "box_filter": box_filter_metadata,
+        "task_box_scene_keys": list(ACTIVE_RACK_BOX_SCENE_KEYS),
         "initial_state_16d": ready_state,
         "initial_state_source": initial_state_source,
         "initial_state_dataset": (
@@ -917,9 +1030,15 @@ def main() -> None:
         ),
         "initial_state_q50": ready_state if args_cli.initial_pose == "checkpoint-q50" else None,
         "initial_head_pitch_deg": args_cli.initial_head_pitch_deg,
+        "initial_settle_seconds_requested": args_cli.initial_settle_seconds,
+        "initial_settle_steps": settle_steps,
+        "initial_settle_seconds_effective": settle_steps * env.step_dt,
         "policy_profile": args_cli.policy_profile,
         "controlled_joint_names": list(CONTROLLED_JOINT_NAMES),
         "state_names": list(bridge.state_names),
+        "policy_action_names": list(bridge.action_names),
+        "manager_action_names": list(bridge.manager_action_names),
+        "gripper_views": {side: view.metadata() for side, view in bridge.grippers.items()},
         "gripper_preset": GRIPPER_SETTINGS.name,
         "gripper_sides": list(GRIPPER_SETTINGS.active_sides),
         "camera_map": camera_map,
@@ -950,16 +1069,10 @@ def main() -> None:
             json.dumps(
                 {
                     "format": "kuavo_groot_rollout_trace",
-                    "format_version": 1,
+                    "format_version": 2,
                     "state_names": list(bridge.state_names),
                     "policy_action_names": list(bridge.action_names),
-                    "manager_action_names": [
-                        "waist_yaw",
-                        *(f"zarm_l{index}" for index in range(1, 8)),
-                        *(f"zarm_r{index}" for index in range(1, 8)),
-                        "left_gripper",
-                        "right_gripper",
-                    ],
+                    "manager_action_names": list(bridge.manager_action_names),
                     "steps": rollout_trace,
                 },
                 indent=2,
@@ -983,7 +1096,15 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    exit_code = 0
+    try:
+        main()
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        exit_code = 1
     sys.stdout.flush()
     sys.stderr.flush()
-    os._exit(0)
+    # Preserve failure status instead of letting Kit's shutdown report exit 0.
+    os._exit(exit_code)

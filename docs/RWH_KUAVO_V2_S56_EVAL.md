@@ -104,6 +104,11 @@ override the preset with `--initial-head-pitch-deg DEGREES`.
 This option changes only `robot.init_state.joint_pos`. It does not adjust the
 head or wrist camera extrinsics, FOV, link hierarchy, or gripper geometry.
 
+After every reset, evaluation holds the measured initial arm and claw state for
+1 second by default. Policy inference, video recording, reward accumulation, and
+the requested rollout step count begin after this stabilization interval. Set
+`--initial-settle-seconds 0` to disable it or pass another non-negative duration.
+
 Images are supplied in this checkpoint-key order:
 
 ```text
@@ -438,9 +443,14 @@ calibration, or end-effector physics.
 Evaluation artifacts are written below ignored `artifacts/eval/` and are not
 committed. Metrics and trace JSON are intended to accompany experiment reports.
 
-For a new robot or checkpoint, follow
-[Robot model evaluation pipeline](ROBOT_MODEL_EVAL_PIPELINE.md) instead of
-weakening the S56 profile validation.
+For S200062 or another registered Kuavo with the same 16D arm/claw contract,
+use `eval_groot.sh --policy-profile kuavo-arm-claw --robot-model s200062
+--gripper s200062_integrated` with the checkpoint/runtime arguments above.
+The S56 launcher remains S56-specific. The common profile uses independent
+logical hand views for both integrated and external grippers; physical USD
+joint ownership and camera mounts are unchanged. Follow the
+[Robot model evaluation pipeline](ROBOT_MODEL_EVAL_PIPELINE.md) for compatibility
+checks; shared tensor dimensions alone do not guarantee policy transfer.
 
 ## GPU memory
 

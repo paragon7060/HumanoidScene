@@ -22,6 +22,13 @@ from typing import Any, Mapping, Protocol, Sequence
 import torch
 
 from ..core.paths import PACKAGE_IMPORT_ROOT
+from ..robots.gripper_io import claw_fraction, resolve_gripper_views
+from .policy_profiles import (
+    ARM_CLAW_PROFILES,
+    DEFAULT_POLICY_PROFILE,
+    POLICY_PROFILES,
+    RWH_KUAVO_V2_S56_PROFILE,
+)
 
 
 CONTROLLED_JOINT_NAMES = (
@@ -32,9 +39,6 @@ CONTROLLED_JOINT_NAMES = (
 MANAGER_ACTION_SCALES = (1.0, *(0.45 for _ in range(14)))
 STATE_KEY = "observation.state"
 ACTION_KEY = "action"
-DEFAULT_POLICY_PROFILE = "default"
-RWH_KUAVO_V2_S56_PROFILE = "rwh-kuavo-v2-s56"
-POLICY_PROFILES = (DEFAULT_POLICY_PROFILE, RWH_KUAVO_V2_S56_PROFILE)
 RWH_KUAVO_V2_NAMES = (
     *(f"zarm_l{index}" for index in range(1, 8)),
     "left_claw",
@@ -216,31 +220,6 @@ def adapt_manager_action(
     return ActionAdaptation(action, unclipped, saturation_fraction)
 
 
-def claw_fraction(
-    joint_pos: torch.Tensor,
-    *,
-    open_pos: torch.Tensor,
-    close_pos: torch.Tensor,
-) -> torch.Tensor:
-    """Compress an articulated hand pose into the dataset's 0=open, 1=closed scalar."""
-    if (
-        joint_pos.ndim < 1
-        or open_pos.ndim < 1
-        or close_pos.ndim < 1
-        or joint_pos.shape[-1] != open_pos.shape[-1]
-        or joint_pos.shape[-1] != close_pos.shape[-1]
-    ):
-        raise ValueError("Hand position/open/close tensors must have the same joint dimension.")
-    span = close_pos - open_pos
-    movable = torch.abs(span) > 1.0e-6
-    if not bool(torch.any(movable)):
-        raise ValueError("At least one hand joint must differ between open and close poses.")
-    safe_span = torch.where(movable, span, torch.ones_like(span))
-    fraction = (joint_pos - open_pos) / safe_span
-    fraction = torch.where(movable, fraction, torch.zeros_like(fraction)).clamp(0.0, 1.0)
-    return fraction.sum(dim=-1, keepdim=True) / movable.sum(dim=-1, keepdim=True)
-
-
 def adapt_rwh_kuavo_v2_action(
     policy_action: Any,
     *,
@@ -250,7 +229,7 @@ def adapt_rwh_kuavo_v2_action(
     joint_limits: torch.Tensor | None = None,
     clip: float | None = 1.0,
 ) -> ActionAdaptation:
-    """Map the RwH 16-D raw-joint schema onto S56's 17-D manager action.
+    """Map the RwH 16-D raw-joint schema onto the Kuavo 17-D manager action.
 
     The policy order is left arm 7, left claw, right arm 7, right claw.  The
     manager order is waist, left arm 7, right arm 7, left gripper, right
@@ -327,26 +306,6 @@ def adapt_rwh_kuavo_v2_action(
     return ActionAdaptation(manager_action, unclipped, saturation_fraction)
 
 
-def _command_tensor(
-    names: Sequence[str], command_expr: Mapping[str, float], *, device: Any, dtype: Any
-) -> torch.Tensor:
-    import re
-
-    values: list[float] = []
-    for name in names:
-        matches = [
-            float(value)
-            for pattern, value in command_expr.items()
-            if re.fullmatch(pattern, name)
-        ]
-        if len(matches) != 1:
-            raise ValueError(
-                f"Expected exactly one hand command expression to match {name!r}; got {len(matches)}."
-            )
-        values.append(matches[0])
-    return torch.tensor(values, device=device, dtype=dtype).unsqueeze(0)
-
-
 class KuavoLeRobotBridge:
     """Build LeRobot observations and apply its decoded action convention."""
 
@@ -369,10 +328,10 @@ class KuavoLeRobotBridge:
             raise ValueError(
                 f"Unknown policy profile {policy_profile!r}; choose one of {POLICY_PROFILES}."
             )
-        if policy_profile == RWH_KUAVO_V2_S56_PROFILE:
+        if policy_profile in ARM_CLAW_PROFILES:
             if state_mode != "joint_position" or action_mode != "joint_position":
                 raise ValueError(
-                    "The rwh-kuavo-v2-s56 profile requires raw joint_position state and actions."
+                    "Arm/claw profiles require raw joint_position state and actions."
                 )
         self.env = env
         self.robot = env.scene["robot"]
@@ -393,7 +352,10 @@ class KuavoLeRobotBridge:
                 f"Expected {CONTROLLED_JOINT_NAMES}, resolved {tuple(joint_names)}."
             )
         self.joint_ids = list(joint_ids)
-        self.camera_map = dict(camera_map or DEFAULT_CAMERA_MAP)
+        default_camera_map = (
+            RWH_KUAVO_V2_CAMERA_MAP if policy_profile in ARM_CLAW_PROFILES else DEFAULT_CAMERA_MAP
+        )
+        self.camera_map = dict(default_camera_map if camera_map is None else camera_map)
         if not self.camera_map:
             raise ValueError("At least one camera must be mapped for GR00T evaluation.")
         for policy_key, scene_key in self.camera_map.items():
@@ -415,78 +377,46 @@ class KuavoLeRobotBridge:
             device=self.robot.device,
             dtype=self.robot.data.joint_pos.dtype,
         )
-        self.hand_state_sources: dict[str, tuple[list[int], torch.Tensor, torch.Tensor]] = {}
-        if self.policy_profile == RWH_KUAVO_V2_S56_PROFILE:
+        self.grippers = resolve_gripper_views(env, gripper_settings)
+        self.manager_action_names = (
+            *CONTROLLED_JOINT_NAMES, *(f"{side}_gripper" for side in self.grippers)
+        )
+        if len(self.manager_action_names) != self.manager_action_dim:
+            raise RuntimeError(
+                f"Manager action dimension {self.manager_action_dim} does not match "
+                f"upper body plus configured grippers: {self.manager_action_names}."
+            )
+        if self.policy_profile in ARM_CLAW_PROFILES:
             if self.manager_action_dim != 17:
                 raise RuntimeError(
-                    "The rwh-kuavo-v2-s56 profile requires the 17-D S56 manager "
+                    "Arm/claw profiles require the 17-D Kuavo manager "
                     f"(waist + 14 arm + 2 claw), received {self.manager_action_dim}."
                 )
-            if (
-                gripper_settings is None
-                or getattr(gripper_settings, "name", None)
-                not in ("s56_qiangnao", "s56_twofinger")
-                or not getattr(gripper_settings, "integrated", False)
-            ):
+            if gripper_settings is None or tuple(self.grippers) != ("left", "right"):
                 raise RuntimeError(
-                    "The rwh-kuavo-v2-s56 profile requires an integrated S56 gripper preset "
-                    "(s56_qiangnao or s56_twofinger)."
+                    "Arm/claw profiles require two configured grippers with open/close commands."
                 )
-            for side in ("left", "right"):
-                names = tuple(gripper_settings.joint_names_for(side))
-                try:
-                    ids, resolved_names = self.robot.find_joints(list(names), preserve_order=True)
-                except TypeError:
-                    ids, resolved_names = self.robot.find_joints(list(names))
-                if tuple(resolved_names) != names:
-                    raise RuntimeError(
-                        f"S56 {side} hand joint order mismatch: expected {names}, got {tuple(resolved_names)}."
-                    )
-                open_pos = _command_tensor(
-                    names,
-                    gripper_settings.command_for(side, gripper_settings.open_command),
-                    device=self.robot.device,
-                    dtype=self.robot.data.joint_pos.dtype,
-                )
-                close_pos = _command_tensor(
-                    names,
-                    gripper_settings.command_for(side, gripper_settings.close_command),
-                    device=self.robot.device,
-                    dtype=self.robot.data.joint_pos.dtype,
-                )
-                self.hand_state_sources[side] = (list(ids), open_pos, close_pos)
-        self.gripper_state_sources: list[tuple[str, Any, list[int], tuple[str, ...]]] = []
-        for side in (() if self.policy_profile == RWH_KUAVO_V2_S56_PROFILE else ("left", "right")):
-            try:
-                gripper = env.scene[f"{side}_gripper"]
-            except KeyError:
-                continue
-            try:
-                ids, names = gripper.find_joints([".*"], preserve_order=True)
-            except TypeError:
-                ids, names = gripper.find_joints([".*"])
-            self.gripper_state_sources.append((side, gripper, list(ids), tuple(names)))
 
     @property
     def action_dim(self) -> int:
-        if self.policy_profile == RWH_KUAVO_V2_S56_PROFILE:
+        if self.policy_profile in ARM_CLAW_PROFILES:
             return len(RWH_KUAVO_V2_NAMES)
         return self.manager_action_dim if self.action_mode == "manager" else len(self.joint_ids)
 
     @property
     def state_names(self) -> tuple[str, ...]:
-        if self.policy_profile == RWH_KUAVO_V2_S56_PROFILE:
+        if self.policy_profile in ARM_CLAW_PROFILES:
             return RWH_KUAVO_V2_NAMES
         names = list(CONTROLLED_JOINT_NAMES)
-        for side, _, _, joint_names in self.gripper_state_sources:
-            names.extend(f"{side}_{name}" for name in joint_names)
+        for gripper in self.grippers.values():
+            names.extend(gripper.state_names)
         return tuple(names)
 
     @property
     def action_names(self) -> tuple[str, ...]:
-        if self.policy_profile == RWH_KUAVO_V2_S56_PROFILE:
+        if self.policy_profile in ARM_CLAW_PROFILES:
             return RWH_KUAVO_V2_NAMES
-        return self.state_names[: self.action_dim]
+        return self.manager_action_names if self.action_mode == "manager" else CONTROLLED_JOINT_NAMES
 
     def _joint_tensors(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         current = self.robot.data.joint_pos[:, self.joint_ids]
@@ -497,16 +427,10 @@ class KuavoLeRobotBridge:
     def state(self) -> torch.Tensor:
         """Return the policy state without copying any camera observations."""
         current, defaults, scales = self._joint_tensors()
-        if self.policy_profile == RWH_KUAVO_V2_S56_PROFILE:
-            left_ids, left_open, left_close = self.hand_state_sources["left"]
-            right_ids, right_open, right_close = self.hand_state_sources["right"]
-            left_claw = claw_fraction(
-                self.robot.data.joint_pos[:, left_ids], open_pos=left_open, close_pos=left_close
-            )
-            right_claw = claw_fraction(
-                self.robot.data.joint_pos[:, right_ids], open_pos=right_open, close_pos=right_close
-            )
-            state = torch.cat(
+        if self.policy_profile in ARM_CLAW_PROFILES:
+            left_claw = self.grippers["left"].claw_state()
+            right_claw = self.grippers["right"].claw_state()
+            return torch.cat(
                 (current[:, 1:8], left_claw, current[:, 8:15], right_claw), dim=-1
             )
         elif self.state_mode == "manager":
@@ -514,11 +438,8 @@ class KuavoLeRobotBridge:
         else:
             state = current
         gripper_states = []
-        for _, gripper, joint_ids, _ in self.gripper_state_sources:
-            values = gripper.data.joint_pos[:, joint_ids]
-            if self.state_mode == "manager":
-                values = values - gripper.data.default_joint_pos[:, joint_ids]
-            gripper_states.append(values)
+        for gripper in self.grippers.values():
+            gripper_states.append(gripper.joint_state(relative=self.state_mode == "manager"))
         if gripper_states:
             state = torch.cat((state, *gripper_states), dim=-1)
         return state.clone()
@@ -532,7 +453,7 @@ class KuavoLeRobotBridge:
         return observation
 
     def action(self, policy_action: Any) -> ActionAdaptation:
-        if self.policy_profile == RWH_KUAVO_V2_S56_PROFILE:
+        if self.policy_profile in ARM_CLAW_PROFILES:
             current, defaults, scales = self._joint_tensors()
             return adapt_rwh_kuavo_v2_action(
                 policy_action,
@@ -578,6 +499,42 @@ class KuavoLeRobotBridge:
             torch.cat((converted.unclipped_action, extra), dim=-1),
             converted.saturation_fraction,
         )
+
+    def hold_action(self) -> ActionAdaptation:
+        """Build a manager command that holds the robot's current arm state.
+
+        This is intended for a short post-reset stabilization interval before
+        policy rollout. Arm/claw profiles retain their measured claw
+        fraction; legacy manager configurations keep any extra grippers open.
+        """
+        current, defaults, scales = self._joint_tensors()
+        if self.policy_profile in ARM_CLAW_PROFILES:
+            return self.action(self.state())
+        if self.action_mode == "joint_position":
+            return self.action(current)
+        if self.action_mode == "joint_delta":
+            return self.action(torch.zeros_like(current))
+
+        manager_action = (current - defaults) / scales
+        extra_dim = self.manager_action_dim - manager_action.shape[1]
+        if extra_dim < 0:
+            raise RuntimeError(
+                f"Manager exposes {self.manager_action_dim} actions, fewer than the required "
+                f"{manager_action.shape[1]} Kuavo joints."
+            )
+        if extra_dim:
+            manager_action = torch.cat(
+                (
+                    manager_action,
+                    torch.ones(
+                        (manager_action.shape[0], extra_dim),
+                        device=manager_action.device,
+                        dtype=manager_action.dtype,
+                    ),
+                ),
+                dim=-1,
+            )
+        return ActionAdaptation(manager_action, manager_action.clone(), 0.0)
 
 
 class LeRobotGrootRunner:
