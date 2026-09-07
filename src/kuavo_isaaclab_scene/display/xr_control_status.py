@@ -17,7 +17,7 @@ class QuestControlStatus:
             def __init__(self):
                 super().__init__(width=440, height=110)
                 with self, ui.ZStack(width=440, height=110):
-                    ui.Rectangle(style={"background_color": 0xB0202020})
+                    self.background = ui.Rectangle(style={"background_color": 0xB0202020})
                     self.label = ui.Label("HAND SWITCH READY", word_wrap=True, alignment=ui.Alignment.CENTER,
                                           style={"font_size": 18, "color": 0xFFFFFFFF})
 
@@ -43,12 +43,24 @@ class QuestControlStatus:
         )
         self.container.visible = True
         self.text = None
+        self.alert = None
 
-    def update(self, text):
+    def update(self, text, *, alert=False):
         widget = self.component.widget
-        if widget is not None and self.text != text:
+        if widget is None:
+            return
+        if self.text != text:
             widget.label.text = text
             self.text = text
+        if self.alert != alert:
+            widget.label.style = {
+                "font_size": 30 if alert else 18,
+                "color": 0xFFFFFFFF,
+            }
+            widget.background.style = {
+                "background_color": 0xD0202020 if alert else 0xB0202020,
+            }
+            self.alert = alert
 
     def close(self):
         self.container.hide()

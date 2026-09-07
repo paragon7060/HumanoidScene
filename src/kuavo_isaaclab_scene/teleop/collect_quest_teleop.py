@@ -43,7 +43,8 @@ parser.add_argument("--arm-ik", choices=("auto", "urdf", "legacy"), default="aut
 parser.add_argument("--arm-start-pose", choices=("auto", "ready", "scene"), default="auto",
                     help="Auto: URDF elbow-bent ready pose unless a custom scene-config is supplied. Scene preserves configured joints.")
 parser.add_argument("--self-collision", action=argparse.BooleanOptionalAction, default=True,
-                    help="Light endpoint guard once per control tick (default ON), not swept/physics-step checks. S200062 integrated grippers only.")
+                    help="Monitor endpoint clearance every control tick; a hit ends only an active recording. "
+                         "S200062 integrated grippers only.")
 parser.add_argument("--self-collision-clearance", type=float, default=.003,
                     help="Minimum modeled non-allowed self-pair clearance in meters (default 0.003).")
 parser.add_argument("--arm-stiffness", type=float, default=800.0,
@@ -513,7 +514,8 @@ def main() -> None:
     xr_device = RawQuestOpenXRDevice(device_cfg, input_mode=active_mode, allow_switch=args_cli.hand_switch)
     hand_controls = args_cli.hand_switch or active_mode == "hands"
     try:
-        start_quest_xr_session(simulation_app, enable_ui=args_cli.quest_camera_overlay or hand_controls,
+        start_quest_xr_session(simulation_app, enable_ui=args_cli.quest_camera_overlay or hand_controls
+                               or collision_guard is not None,
                                resolution_scale=args_cli.xr_resolution_scale,
                                render_quality=args_cli.render_quality)
     except Exception:
@@ -557,7 +559,7 @@ def main() -> None:
         abort_after_s=args_cli.tracking_loss_abort_seconds,
     )
     control_status = None
-    if hand_controls:
+    if hand_controls or collision_guard is not None:
         from ..display.xr_control_status import QuestControlStatus
         control_status = QuestControlStatus()
     body_mapper = TeleopBodyMapper(
@@ -641,6 +643,7 @@ def main() -> None:
         )
     recorder = TeleopRecorderGroup(recorders)
     completed_this_run = 0
+    episodes_toward_limit = 0
     episode_steps = 0
     pending_start = False
     manual_pause = False
@@ -648,6 +651,8 @@ def main() -> None:
     last_tracking_state: tuple[bool, bool, bool] | None = None
     tracking_pause_active = False
     preview_enabled = False
+    collision_notice_until = 0.0
+    last_collision_message = None
     camera_reported = False
     camera_wait_reported = False
     held_absolute_targets = np.zeros(len(action_names) - arm_action_size, dtype=np.float32)
@@ -673,6 +678,8 @@ def main() -> None:
 
     def reset_simulation() -> None:
         nonlocal episode_steps, free_view, view_initialized, last_base_quat, tracking_pause_active
+        if collision_guard is not None:
+            collision_guard.set_recording(False)
         env.reset()
         if collision_guard is not None:
             collision_guard.validate_live()
@@ -693,12 +700,15 @@ def main() -> None:
         last_base_quat = _to_numpy(robot.data.root_quat_w[0]).copy()
         episode_steps = 0
 
-    def finish_episode(success: bool, reason: str) -> None:
-        nonlocal completed_this_run
+    def finish_episode(success: bool, reason: str, *, count_toward_limit: bool = True) -> None:
+        nonlocal completed_this_run, episodes_toward_limit
         name = recorder.finish_episode(success=success, reason=reason)
         if name is not None:
             completed_this_run += 1
+            episodes_toward_limit += int(count_toward_limit)
             print(f"[DATA] Finished {name}: success={success}, reason={reason}")
+        if collision_guard is not None:
+            collision_guard.set_recording(False)
         hold_arms()
         mapper.reset(head_target=held_absolute_targets[:2])
         print("[CONTROL] Recording closed. Scene stays open; A=follow, B=new recording, R=reset.")
@@ -765,7 +775,7 @@ def main() -> None:
         profile.enable()
     try:
         while not stop_requested and simulation_app.is_running():
-            if args_cli.max_episodes and completed_this_run >= args_cli.max_episodes:
+            if args_cli.max_episodes and episodes_toward_limit >= args_cli.max_episodes:
                 print(f"[CONTROL] Exiting because --max-episodes {args_cli.max_episodes} was reached.")
                 break
 
@@ -1011,7 +1021,8 @@ def main() -> None:
                         "arm_orientation_weight": args_cli.arm_orientation_weight,
                         "arm_ik": "urdf_bounded_v1" if use_urdf_ik else "legacy_dls",
                         "self_collision": bool(collision_guard is not None),
-                        "self_collision_mode": "light_control_endpoints" if collision_guard is not None else "off",
+                        "self_collision_mode": ("light_endpoints_monitor_idle_stop_recording"
+                                                if collision_guard is not None else "off"),
                         "self_collision_clearance_m": args_cli.self_collision_clearance,
                         "self_collision_joint_names": collision_guard.model.names if collision_guard is not None else [],
                         "self_collision_exclusions": collision_guard.model.exclusions if collision_guard is not None else [],
@@ -1129,15 +1140,20 @@ def main() -> None:
                     follow = follow and hand_packets[side] is not None and mapped.head_valid and not hand_commands.active[side]
                 term.set_following(follow)
             if control_status is not None:
-                status = mode_switch.status(now)
-                if not mode_switch.pending:
-                    status += (f" | FOLLOW {'ON' if recorder.recording or preview_enabled else 'OFF'}"
-                               f" | REC {'ON' if recorder.recording else 'WAIT' if pending_start else 'OFF'}")
-                    status += ("\nL middle pinch: follow | R: record/stop" if active_mode == "hands"
-                               else "\nRight lower grip 1.2s: hands")
-                    if active_mode == "hands" and not mapped.bimanual_valid:
-                        status += "\nCHECK HANDS: wrist + thumb/index must be tracked"
-                control_status.update(status)
+                if now < collision_notice_until:
+                    control_status.update("Collision", alert=True)
+                elif collision_guard is not None and collision_guard.step_collision:
+                    control_status.update("Self collision")
+                else:
+                    status = mode_switch.status(now)
+                    if not mode_switch.pending:
+                        status += (f" | FOLLOW {'ON' if recorder.recording or preview_enabled else 'OFF'}"
+                                   f" | REC {'ON' if recorder.recording else 'WAIT' if pending_start else 'OFF'}")
+                        status += ("\nL middle pinch: follow | R: record/stop" if active_mode == "hands"
+                                   else "\nRight lower grip 1.2s: hands")
+                        if active_mode == "hands" and not mapped.bimanual_valid:
+                            status += "\nCHECK HANDS: wrist + thumb/index must be tracked"
+                    control_status.update(status)
             base_delta = _quat_multiply(root_quat, _quat_conjugate(last_base_quat))
             base_yaw_delta = _quat_to_pitch_yaw(base_delta)[1]
             if head_pose is not None and not free_view:
@@ -1150,7 +1166,32 @@ def main() -> None:
                 # this does not change either XR eye or recording resolution.
                 desktop_viewport.updates_enabled = bool(recorder.recording or quest_overlay is not None
                                                         or not camera_reported)
+            if collision_guard is not None:
+                collision_guard.set_recording(recorder.recording)
             env.step(action)
+            collision_event = collision_guard.consume_collision_event() if collision_guard is not None else None
+            if collision_event is None:
+                last_collision_message = None
+            else:
+                message = collision_event["message"]
+                if message != last_collision_message:
+                    phase = "recording" if collision_event["recording"] else "monitor"
+                    print(f"[SELF COLLISION] {phase}: {message}", flush=True)
+                last_collision_message = message
+                if collision_event["recording"]:
+                    # The action term already held the arm command for this
+                    # physics step. End only this attempt and keep XR alive.
+                    preview_enabled = False
+                    pending_start = False
+                    manual_pause = True
+                    finish_episode(False, "self_collision", count_toward_limit=False)
+                    collision_notice_until = time.monotonic() + 2.0
+                    if control_status is not None:
+                        control_status.update("Collision", alert=True)
+                    print("[CONTROL] Collision ended this recording only; Quest session remains open.", flush=True)
+                    continue
+                if control_status is not None and time.monotonic() >= collision_notice_until:
+                    control_status.update("Self collision")
             if button is not None:
                 travel = float(button.data.joint_pos[0, 0])
                 pressed = travel >= (.002 if button_pressed_state else .006)

@@ -45,10 +45,16 @@ def action(monkeypatch):
                                action_manager=SimpleNamespace(get_term=lambda name: arms[name.removesuffix("_arm")]))
     term._cached_target = None
     term._cached_velocity = None
+    term._recording = True
+    term._collision_event = None
+    term.step_collision = False
+    term._checked_this_tick = False
+    term._test_clearance_violation = module.ClearanceViolation
     term.guard = SimpleNamespace(filter_light=lambda *args: np.full(14, .02),
                                  check_state=lambda *args: np.array([.01]),
                                  cached_path_safe=lambda *args: True,
-                                 status={"modified": True, "minimum_distance_m": .01})
+                                 status={"modified": True, "minimum_distance_m": .01,
+                                         "pair": "left / right", "scale": 1.})
     return term, outputs, arms
 
 
@@ -71,6 +77,55 @@ def test_collision_failure_overrides_pending_drives_and_raises_before_physics(ac
         term.apply_actions()
     assert outputs["position"].count_nonzero() == 0
     assert outputs["velocity"].count_nonzero() == 0
+
+
+def test_recording_clearance_violation_holds_without_terminating_process(action):
+    term, outputs, _ = action
+    term.guard.filter_light = lambda *args: (_ for _ in ()).throw(
+        term._test_clearance_violation("current pose collision")
+    )
+    term.apply_actions()
+    assert outputs["position"].count_nonzero() == 0
+    assert outputs["velocity"].count_nonzero() == 0
+    assert term.consume_collision_event() == {
+        "message": "current pose collision",
+        "recording": True,
+    }
+
+
+def test_nonrecording_clearance_violation_is_monitor_only(action):
+    term, outputs, _ = action
+    term.set_recording(False)
+    term.guard.filter_light = lambda *args: (_ for _ in ()).throw(
+        term._test_clearance_violation("current pose collision")
+    )
+    term.apply_actions()
+    assert outputs == {}
+    assert term.step_collision
+    assert term.consume_collision_event()["recording"] is False
+
+
+def test_nonrecording_monitor_queries_only_once_per_control_tick(action):
+    term, outputs, _ = action
+    term.set_recording(False)
+    calls = []
+    term.guard.filter_light = lambda *args: calls.append("query") or np.full(14, .02)
+    term.apply_actions()
+    term.apply_actions()
+    assert calls == ["query"]
+    assert outputs == {}
+
+
+def test_blocked_recording_target_reports_collision_event(action):
+    term, outputs, _ = action
+    term.guard.status["scale"] = 0.0
+    term.guard.filter_light = lambda *args: np.zeros(14)
+    term.apply_actions()
+    assert outputs["position"].count_nonzero() == 0
+    assert term.consume_collision_event() == {
+        "message": "Command would violate self-collision clearance",
+        "recording": True,
+    }
 
 
 def test_reset_requires_revalidation(action):

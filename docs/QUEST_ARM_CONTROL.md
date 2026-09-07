@@ -64,8 +64,8 @@ gain을 높여 추종 지연을 보정하면 목표 위치와 떨림도 확대�
 | `--arm-response` | `auto`; `responsive`, `smooth` | IK 필터·오차 보정 이득·DLS damping·관절 속도/가속도 상한을 묶어서 선택. 명시한 프로필은 입력 모드 전환 후에도 유지 |
 | `--arm-ik` | `auto`; `urdf`, `legacy` | auto는 scaled/absolute/맨손에 URDF bounded IK, relative에 기존 IK. URDF 모드는 시작 시 USD 일치 검사 |
 | `--arm-start-pose` | `auto`; `ready`, `scene` | auto는 URDF 모드이며 custom scene-config가 없을 때 준비 자세 생성. scene은 장면의 초기 팔 관절 보존 |
-| `--self-collision` / `--no-self-collision` | 켜짐 | S200062 integrated 손 전용. 제어 tick마다 가까운 후보의 현재·목표 자세만 검사. 연속 경로 검사 없음. [범위·설치·성능](QUEST_SELF_COLLISION.md) |
-| `--self-collision-clearance` | `0.003` m | 허용 접촉 제외 모델 형상의 최소 간격. 간격 위반 목표는 해당 tick에서 보류 |
+| `--self-collision` / `--no-self-collision` | 켜짐 | S200062 integrated 손 전용. 제어 tick마다 가까운 후보의 현재·목표 자세만 검사. 녹화 중 충돌은 episode만 실패 종료하며 Quest/프로그램은 유지. 미녹화 중에는 VR 알림만 표시. [범위·설치·성능](QUEST_SELF_COLLISION.md) |
+| `--self-collision-clearance` | `0.003` m | 허용 접촉 제외 모델 형상의 최소 간격. 녹화 중 간격 위반 목표는 해당 tick에서 보류 |
 | `--arm-orientation-weight` | `0.5`, 범위 0~1 | IK에서 회전 추종 비중. `0`은 위치만 추종하는 진단 설정. 회전 배율이나 고정 방향 잠금이 아님 |
 | `--arm-stiffness` | `800`, 양수 | 물리엔진 팔 관절 drive의 위치 강성. Cartesian IK의 오차 보정 이득과 별개 |
 | `--arm-damping` | `50`, 0 이상 | 물리엔진 관절 drive의 감쇠. 아래 DLS damping과 별개 |

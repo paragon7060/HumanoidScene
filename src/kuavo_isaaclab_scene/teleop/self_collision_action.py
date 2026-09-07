@@ -4,7 +4,7 @@ import torch
 from isaaclab.managers import ActionTerm, ActionTermCfg
 from isaaclab.utils import configclass
 
-from .self_collision import CollisionStop, RobotCollisionModel, SelfCollisionFilter
+from .self_collision import ClearanceViolation, CollisionStop, RobotCollisionModel, SelfCollisionFilter
 from .urdf_arm_ik import quat_matrix, rotation_error
 
 
@@ -31,6 +31,10 @@ class SelfCollisionAction(ActionTerm):
         self.step_minimum_distance = float("inf")
         self._cached_target = None
         self._cached_velocity = None
+        self._recording = False
+        self._collision_event = None
+        self.step_collision = False
+        self._checked_this_tick = False
 
     @property
     def action_dim(self):
@@ -47,7 +51,31 @@ class SelfCollisionAction(ActionTerm):
     def process_actions(self, actions):
         self.step_modified = False
         self.step_minimum_distance = float("inf")
+        self.step_collision = False
         self._cached_target = None
+        self._checked_this_tick = False
+
+    def set_recording(self, recording: bool) -> None:
+        """Select enforce-and-stop (recording) or monitor-only behavior."""
+        recording = bool(recording)
+        if recording != self._recording:
+            self._cached_target = None
+            self._cached_velocity = None
+        self._recording = recording
+
+    def consume_collision_event(self):
+        event = self._collision_event
+        self._collision_event = None
+        return event
+
+    def _report_collision(self, message: str) -> None:
+        self.step_collision = True
+        self._collision_event = {"message": message, "recording": self._recording}
+
+    def _hold_current(self) -> None:
+        q = self._asset.data.joint_pos[:, self._joint_ids].clone()
+        self._asset.set_joint_position_target(q, self._joint_ids)
+        self._asset.set_joint_velocity_target(torch.zeros_like(q), self._joint_ids)
 
     def _array(self, tensor):
         return tensor.detach().cpu().numpy().astype(float, copy=True)
@@ -74,7 +102,13 @@ class SelfCollisionAction(ActionTerm):
             rot = quat_matrix(self._array(self._asset.data.body_quat_w[0, i]))
             if np.linalg.norm(predicted[:3, 3] - pos) > .01 or np.linalg.norm(rotation_error(predicted[:3, :3], rot)) > .03:
                 raise ValueError(f"Full-body URDF/USD mismatch: {name}; self-collision not enabled")
-        self.guard.filter_light(q, q, self._env.step_dt)
+        distances, _ = self.model.distances(q, self.cfg.clearance)
+        nearest = int(np.argmin(distances))
+        if distances[nearest] < self.cfg.clearance:
+            message = (f"Current pose violates clearance: {self.model.pair_name(nearest)} "
+                       f"distance={distances[nearest]:.5f}m")
+            self._report_collision(message)
+            print(f"[SELF COLLISION] startup monitor: {message}; collector remains open", flush=True)
         self.last_safe_target = q.copy()
         self.validated = True
         print(f"[SELF COLLISION] validated {len(self.model.shapes)} shapes, {len(self.model.pairs)} pairs; "
@@ -84,22 +118,42 @@ class SelfCollisionAction(ActionTerm):
     def apply_actions(self):
         if not self.validated:
             raise CollisionStop("Self-collision model not validated; refusing physics step")
+        if self._checked_this_tick and not self._recording:
+            return
+        if self._checked_this_tick and self.step_collision:
+            self._hold_current()
+            return
         continuous = [e.index for e in self.model.edges if e.kind == "continuous"]
         try:
             if self._cached_target is None:
+                self._checked_this_tick = True
                 q = self._array(self._asset.data.joint_pos[0, self._joint_ids])
                 desired = self._array(self._asset.data.joint_pos_target[0, self._joint_ids])
                 desired[continuous] = q[continuous]
                 safe = self.guard.filter_light(q, desired, self._env.step_dt)
+                blocked = not bool(self.guard.status["scale"])
+                if blocked:
+                    self._report_collision("Command would violate self-collision clearance")
+                if not self._recording:
+                    # Outside a recording the guard is diagnostic only. The
+                    # operator must remain able to move away from the pose.
+                    self.last_safe_target = desired.copy()
+                    return
                 self._cached_target = safe.copy()
                 self._cached_velocity = (safe-q) / self._env.step_dt
             safe = self._cached_target
+        except ClearanceViolation as error:
+            self._report_collision(str(error))
+            if self._recording:
+                # Fail closed for this physics step. The collector consumes
+                # the event and closes only the active episode.
+                self._hold_current()
+            return
         except Exception as error:
-            # Do not take another physics step on an unverified command.
-            q = self._asset.data.joint_pos[:, self._joint_ids].clone()
-            self._asset.set_joint_position_target(q, self._joint_ids)
-            self._asset.set_joint_velocity_target(torch.zeros_like(q), self._joint_ids)
-            print(f"[SELF COLLISION STOP] {error}", flush=True)
+            # Invalid states and implementation errors still fail closed and
+            # propagate; they are not recoverable operator collisions.
+            self._hold_current()
+            print(f"[SELF COLLISION ERROR] {error}", flush=True)
             raise
         safe_tensor = torch.as_tensor(safe[None], device=self.device, dtype=torch.float32)
         # Preserve wheel phase/velocity on intervening physics steps. This
@@ -132,6 +186,10 @@ class SelfCollisionAction(ActionTerm):
         self.last_safe_target = None
         self._cached_target = None
         self._cached_velocity = None
+        self._recording = False
+        self._collision_event = None
+        self.step_collision = False
+        self._checked_this_tick = False
 
 
 @configclass

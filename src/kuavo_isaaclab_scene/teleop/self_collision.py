@@ -68,6 +68,10 @@ class CollisionStop(RuntimeError):
     pass
 
 
+class ClearanceViolation(CollisionStop):
+    """A modeled clearance violation that the collector can recover from."""
+
+
 class RobotCollisionModel:
     def __init__(self, urdf, allowed_pairs=None):
         self.fcl = load_fcl()
@@ -275,8 +279,8 @@ class SelfCollisionFilter:
         d0, _ = self.model.distances(q, self.clearance)
         nearest = int(np.argmin(d0))
         if d0[nearest] < self.clearance:
-            raise CollisionStop(f"Current pose violates clearance: {self.model.pair_name(nearest)} "
-                                f"distance={d0[nearest]:.5f}m; reset/reposition while stopped")
+            raise ClearanceViolation(f"Current pose violates clearance: {self.model.pair_name(nearest)} "
+                                     f"distance={d0[nearest]:.5f}m; reset/reposition while stopped")
         step = np.minimum(self.model.velocity, 2.5) * dt
         lower = np.maximum(-step, self.model.lower - q)
         upper = np.minimum(step, self.model.upper - q)
@@ -300,13 +304,13 @@ class SelfCollisionFilter:
         d0, _ = self.model.distances(q, self.influence)
         nearest = int(np.argmin(d0))
         if d0[nearest] < self.clearance:
-            raise CollisionStop(f"Current pose violates clearance: {self.model.pair_name(nearest)} "
-                                f"distance={d0[nearest]:.5f}m; reset/reposition while stopped")
+            raise ClearanceViolation(f"Current pose violates clearance: {self.model.pair_name(nearest)} "
+                                     f"distance={d0[nearest]:.5f}m; reset/reposition while stopped")
         if np.any(np.asarray(measured_velocity) != 0):
             coast = q + np.asarray(measured_velocity) * dt
             dc, _ = self.model.distances(coast, self.influence)
             if not self._swept_safe(q, coast, d0, dc):
-                raise CollisionStop("Measured joint velocity predicts self-collision in next physics step")
+                raise ClearanceViolation("Measured joint velocity predicts self-collision in next physics step")
         return d0
 
     def cached_path_safe(self, q, target, d0):
@@ -337,13 +341,13 @@ class SelfCollisionFilter:
         d0, rows = self.model.distances(q, self.influence, gradients=True)
         nearest = int(np.argmin(d0))
         if d0[nearest] < self.clearance:
-            raise CollisionStop(f"Current pose violates clearance: {self.model.pair_name(nearest)} "
-                                f"distance={d0[nearest]:.5f}m; reset/reposition while stopped")
+            raise ClearanceViolation(f"Current pose violates clearance: {self.model.pair_name(nearest)} "
+                                     f"distance={d0[nearest]:.5f}m; reset/reposition while stopped")
         if measured_velocity is not None and np.any(np.asarray(measured_velocity) != 0):
             coast = q + np.asarray(measured_velocity) * dt
             dc, _ = self.model.distances(coast, self.influence)
             if not self._swept_safe(q, coast, d0, dc):
-                raise CollisionStop("Measured joint velocity predicts self-collision in next physics step")
+                raise ClearanceViolation("Measured joint velocity predicts self-collision in next physics step")
         step = np.minimum(self.model.velocity, 2.5) * dt
         lower = np.maximum(-step, self.model.lower - q)
         upper = np.minimum(step, self.model.upper - q)
