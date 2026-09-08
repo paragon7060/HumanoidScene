@@ -3,17 +3,25 @@ draft: true
 dataset_fps: 10
 target_format: lerobot_v3
 write_strategy: null  # direct / raw_then_convert: 기존 writer 검증 후 결정
-save_hdf5: null
-save_raw_control: null
-episodes: null  # 목표 성공 에피소드 수
-max_attempts: null  # 실패 반복의 상한; 모든 시도 결과는 기록
+save_hdf5: true
+save_raw_control: true
+episodes: 10  # first smoke target: ten successful episodes
+max_attempts: 20  # retain failed attempts while collecting the ten successes
 output_root: /home/work/mntvol/data/outputs
 run_name: null  # output_root/<run_name>/; 기존 run 덮어쓰기 금지
 resume: false
 cameras:
-  head: {enabled: true, width: null, height: null}
-  left_wrist: {enabled: true, width: null, height: null}
-  right_wrist: {enabled: true, width: null, height: null}
+  # Matches the existing Kuavo policy-camera contract: RGB CHW = [3, 480, 848].
+  head: {feature: observation.images.head_cam_h, enabled: true, width: 848, height: 480}
+  left_wrist: {feature: observation.images.wrist_cam_l, enabled: true, width: 848, height: 480}
+  right_wrist: {feature: observation.images.wrist_cam_r, enabled: true, width: 848, height: 480}
+video:
+  dtype: video
+  channels: 3
+  fps: 10
+  codec: av1
+  pix_fmt: yuv420p
+  has_audio: false
 extra_modalities:
   depth: null
   segmentation: null

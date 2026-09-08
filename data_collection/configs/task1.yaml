@@ -4,8 +4,11 @@ task: task1_box_pick
 stage: pregrasp
 num_envs: 1
 box_types: [small, medium, large, xlarge]
-target_box_type: null
-target_box_id: null
+# First validation target: the captured middle-shelf, eye-level medium box.
+# This resolves to `MediumBox_0` in the packaged rack-box pose capture.
+target_box_type: medium
+target_box_id: MediumBox_0
+target_rack_shelf: 2  # one-based: middle shelf in configs/rack_box_poses.json
 scene_config: null
 seed: 0
 initial_state: quest_ready_02  # existing captured preset; no asset/model substitution

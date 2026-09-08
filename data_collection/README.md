@@ -26,7 +26,7 @@ HumanoidScene/Isaac 환경에서 box GT 6D를 이용해 양손 접근 경로를 
 
 ## 결정과 미확정 값
 
-확정: Task1은 꺼내 안정적으로 들기까지, HumanoidScene 유지, 10Hz 데이터, 풍부한 관측/GT, action 3종 분리. LeRobot v3를 저장 목표로 두되 실제 writer 연결과 저장 경로는 검증한다.
+확정: Task1은 꺼내 안정적으로 들기까지, HumanoidScene 유지, 10Hz 데이터, 풍부한 관측/GT, action 3종 분리다. 첫 검증은 중간 랙·눈높이의 `medium` `MediumBox_0`(shelf 2), 랜덤화 없음, IK-first로 진행한다. RGB 정책 카메라는 `3x480x848`이며 목표 feature는 `head_cam_h`, `wrist_cam_l`, `wrist_cam_r`다. 첫 수집 목표는 성공 10개(최대 20회 시도)다. LeRobot v3/AV1 저장을 목표로 두되 실제 writer 연결과 인코더는 검증한다.
 
 코드 조사로 해결: 현재 robot/hand, 관절 순서·차원, TCP, asset/scene, planner 호환 버전, control/physics 주기.
 

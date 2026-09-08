@@ -24,7 +24,7 @@ Planning world는 rack 선반·기둥·턱, target/주변 box와 flap, 몸통·�
 
 ## 실행과 통과 기준
 
-cuRobo의 joint trajectory를 관절 drive에 전달한다. EE로 변환한 뒤 teleop IK로 다른 경로를 만들지 않는다. 재표본화/clamp/smoothing으로 바뀐 명령은 다시 한계·충돌 검증하고 계획값과 전달값을 분리한다.
+초기 구현은 box 6D 목표를 양팔 IK로 joint target으로 바꾸고 Isaac 관절 drive에 전달한다. 이후 cuRobo를 붙이더라도 EE로 변환한 뒤 teleop IK로 다른 경로를 만들지 않는다. 재표본화/clamp/smoothing으로 바뀐 명령은 다시 한계·충돌 검증하고 계획값과 전달값을 분리한다.
 
 양팔 동시 목표 지원은 실제 backend에서 확인한다. 미지원이면 1단계 비접촉 접근에 한해 반대팔 충돌을 포함한 순차 계획을 검토한다. 이를 양팔 협응 파지 지원으로 보고하지 않는다.
 

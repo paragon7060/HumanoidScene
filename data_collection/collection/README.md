@@ -24,7 +24,7 @@ GT 저장과 policy 입력은 별개다. 학습 loader는 명시적 feature allo
 
 학습용 저장 주기는 10Hz다. Physics/control을 10Hz로 낮춘다는 뜻은 아니다. 명령 전 관측 o_t와 해당 구간의 실제 명령 u_t, 다음 관측/결과를 구분한다. Camera/state/action timestamp와 갱신 주기를 보존하고 raw control 기록과 10Hz resampling을 구분한다.
 
-LeRobot v3를 목표로 기존 recorder/worker를 확장한다. HDF5 원본 병행 여부, raw 고주파 기록 범위, v3 직접 기록 또는 변환 경로는 writer 호환성·I/O 검증 후 확정한다. 현재 이 설정만으로 v3 자동 수집을 실행할 수 있는 상태는 아니다.
+LeRobot v3를 목표로 기존 recorder/worker를 확장한다. RGB 정책 카메라는 `head_cam_h`, `wrist_cam_l`, `wrist_cam_r` 각각 `3x480x848`, 10Hz다. 영상 metadata 목표는 AV1/yuv420p/no-audio이며, 현재 공용 preview writer는 H.264이므로 AV1 encoder와 v3 writer 호환성을 먼저 검증해야 한다. HDF5 원본과 raw control을 병행하도록 초안 값을 기록했지만, 현재 이 설정만으로 v3 자동 수집을 실행할 수 있는 상태는 아니다.
 
 Writer가 표준 `meta/info.json`을 생성하도록 하고 vector dtype/정수 shape/실제 dim names를 검사한다. `meta/feature_semantics.json`과 기존 episode sidecar에 의미·provenance를 저장한다. Resume은 dtype/shape뿐 아니라 dim 순서·단위·frame·robot/hand/schema도 비교해 불일치를 거부한다.
 

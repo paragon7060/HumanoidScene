@@ -6,6 +6,8 @@ Ready → 양손 pregrasp → 접근·파지 → rack 밖 인출 → 필요시 l
 
 뒤돌기, 이동, 내려놓기, 버튼 누르기는 제외한다. Pull-first/lift-first 순서는 고정하지 않고 실제 box 전체 형상과 선반·턱의 여유 공간으로 정한다.
 
+초기 검증 대상은 캡처된 중간 랙·눈높이 선반(1-based shelf 2)의 `MediumBox_0`이다. 첫 실행은 이 한 위치에서 랜덤화를 끄고, 이후 검증된 범위만 YAML로 확장한다.
+
 ## 단계별 검증
 
 1단계는 현재 robot/hand 조합, 한 환경, 한 box 종류·위치에서 양손 pregrasp까지만 한다. 손을 닫거나 box를 꺼내지 않는다. 계획 성공과 실제 도달 성공을 분리하고, target box 비접촉·settling 이후 비의도 이동도 검사한다.
