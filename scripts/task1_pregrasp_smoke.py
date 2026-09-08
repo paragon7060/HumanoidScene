@@ -159,6 +159,17 @@ def _action_with_targets(env, left_target, right_target, left_quat, right_quat):
     return action
 
 
+def _world_targets_to_root_frame(robot, positions_w, orientations_w):
+    """Convert world-frame target poses to the root-frame pose expected by IK."""
+    from isaaclab.utils.math import subtract_frame_transforms
+
+    root_pos_w = robot.data.root_pos_w
+    root_quat_w = robot.data.root_quat_w
+    root_pos_w = root_pos_w.expand(positions_w.shape[0], -1)
+    root_quat_w = root_quat_w.expand(positions_w.shape[0], -1)
+    return subtract_frame_transforms(root_pos_w, root_quat_w, positions_w, orientations_w)
+
+
 def _save_rgb(env, name: str, output_dir: Path):
     from PIL import Image
 
@@ -226,8 +237,8 @@ def run(args, configs):
         )
         if len(ee_ids) != 2:
             raise RuntimeError(f"TCP body lookup failed: {robot_cfg['left_tcp_link']}, {robot_cfg['right_tcp_link']}")
-        left_quat = robot.data.body_link_quat_w[0, ee_ids[0]].clone()
-        right_quat = robot.data.body_link_quat_w[0, ee_ids[1]].clone()
+        left_quat_w = robot.data.body_link_quat_w[0, ee_ids[0]].clone()
+        right_quat_w = robot.data.body_link_quat_w[0, ee_ids[1]].clone()
         box = env.scene["medium_box_0"]
         box_start = box.data.root_pose_w[0].clone()
         targets, geometry = _pregrasp_targets(
@@ -240,7 +251,23 @@ def run(args, configs):
             "ee_pose_w": robot.data.body_link_pose_w[0, ee_ids].detach().cpu().tolist(),
             "box_root_pose_w": box_start.detach().cpu().tolist(),
         }
-        command = _action_with_targets(env, targets[0], targets[1], left_quat, right_quat)
+        # DifferentialInverseKinematicsAction computes its frame pose in the
+        # articulation root frame.  The box geometry is world-frame, so both
+        # the position and the held orientation must be converted before
+        # sending an absolute pose command.  Passing world coordinates here
+        # creates a large, systematic root translation error.
+        world_targets = targets
+        world_orientations = torch.stack((left_quat_w, right_quat_w))
+        root_targets, root_orientations = _world_targets_to_root_frame(
+            robot, world_targets, world_orientations
+        )
+        command = _action_with_targets(
+            env,
+            root_targets[0],
+            root_targets[1],
+            root_orientations[0],
+            root_orientations[1],
+        )
         for _ in range(args.steps):
             env.step(command)
 
