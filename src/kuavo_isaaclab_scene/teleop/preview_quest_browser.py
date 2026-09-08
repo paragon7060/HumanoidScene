@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import os
 from pathlib import Path
 import sys
@@ -40,6 +41,14 @@ parser.add_argument("--wrist-camera-width", type=int, default=240)
 parser.add_argument("--wrist-camera-height", type=int, default=180)
 parser.add_argument("--position-gain", type=float, default=1.5)
 parser.add_argument("--rotation-gain", type=float, default=1.0)
+parser.add_argument(
+    "--pregrasp",
+    action="store_true",
+    help="Move both open end-effectors to the fixed-box pregrasp targets once after startup.",
+)
+parser.add_argument("--pregrasp-distance-m", type=float, default=0.10)
+parser.add_argument("--pregrasp-grasp-depth-m", type=float, default=0.015)
+parser.add_argument("--pregrasp-steps", type=int, default=300)
 parser.add_argument("--camera-preview", action=argparse.BooleanOptionalAction, default=True)
 parser.add_argument("--domain-randomization", action=argparse.BooleanOptionalAction, default=False)
 parser.add_argument("--rack-boxes", type=str, default=None, metavar="SPEC")
@@ -66,6 +75,12 @@ if not 1 <= args_cli.bridge_port <= 65535:
     parser.error("--bridge-port must be between 1 and 65535.")
 if args_cli.stream_fps <= 0.0:
     parser.error("--stream-fps must be positive.")
+if args_cli.pregrasp and args_cli.pregrasp_steps <= 0:
+    parser.error("--pregrasp-steps must be positive.")
+if args_cli.pregrasp_distance_m <= 0.0 or not math.isfinite(args_cli.pregrasp_distance_m):
+    parser.error("--pregrasp-distance-m must be finite and positive.")
+if args_cli.pregrasp_grasp_depth_m <= 0.0 or not math.isfinite(args_cli.pregrasp_grasp_depth_m):
+    parser.error("--pregrasp-grasp-depth-m must be finite and positive.")
 if not 1 <= args_cli.jpeg_quality <= 100:
     parser.error("--jpeg-quality must be between 1 and 100.")
 if min(
@@ -159,6 +174,154 @@ def _pose_to_world(pose: np.ndarray, root_pos: np.ndarray, root_quat: np.ndarray
     return np.concatenate([position, orientation]).astype(np.float32)
 
 
+def _pregrasp_targets(env, *, distance_m: float, grasp_depth_m: float):
+    """Compute the two flap-normal pregrasp points from the live box pose."""
+    import torch
+    from ..rl.scenes.asset_geometry import box_geometry
+
+    if not np.isfinite(distance_m) or distance_m <= 0.0:
+        raise ValueError("pregrasp distance must be finite and positive")
+    if not np.isfinite(grasp_depth_m) or grasp_depth_m <= 0.0:
+        raise ValueError("grasp depth must be finite and positive")
+
+    box = env.scene["medium_box_0"]
+    geometry = box_geometry(env.cfg.scene.medium_box_0, ("flap_right", "flap_left"))
+    flap_ids, flap_names = box.find_bodies(("flap_right", "flap_left"), preserve_order=True)
+    body_ids, body_names = box.find_bodies("Body")
+    if len(flap_ids) != 2 or len(body_ids) != 1:
+        raise RuntimeError(
+            f"MediumBox_0 body lookup failed: flaps={flap_names}, body={body_names}"
+        )
+
+    flap_pos = box.data.body_link_pos_w[0, flap_ids]
+    flap_quat = box.data.body_link_quat_w[0, flap_ids]
+    body_pos = box.data.body_link_pos_w[0, body_ids[0]]
+    targets = []
+    diagnostics = []
+    for index, flap_name in enumerate(("flap_right", "flap_left")):
+        flap = geometry.flaps[flap_name]
+        local_grasp = torch.tensor(flap.center, device=env.device, dtype=flap_pos.dtype)
+        local_grasp[2] += flap.half_size[2] - grasp_depth_m
+        # Isaac's quat_apply keeps the wxyz convention used by the USD asset.
+        from isaaclab.utils.math import quat_apply
+        grasp = flap_pos[index] + quat_apply(flap_quat[index], local_grasp)
+        local_normal = torch.tensor(
+            (1.0, 0.0, 0.0) if flap_name == "flap_right" else (-1.0, 0.0, 0.0),
+            device=env.device,
+            dtype=flap_pos.dtype,
+        )
+        outward = quat_apply(flap_quat[index], local_normal)
+        outward = outward / outward.norm().clamp_min(1.0e-6)
+        if torch.dot(outward, flap_pos[index] - body_pos) < 0:
+            outward = -outward
+        pregrasp = grasp + outward * distance_m
+        targets.append(pregrasp)
+        diagnostics.append(
+            {
+                "flap": flap_name,
+                "grasp_position_w": grasp.detach().cpu().tolist(),
+                "outward_normal_w": outward.detach().cpu().tolist(),
+                "pregrasp_position_w": pregrasp.detach().cpu().tolist(),
+            }
+        )
+    return torch.stack(targets), diagnostics
+
+
+def _absolute_pose_action(env, robot, positions_w, orientations_w):
+    """Build the arm absolute-pose action in the IK root frame."""
+    import torch
+    from isaaclab.utils.math import subtract_frame_transforms
+
+    root_pos = robot.data.root_pos_w.expand(positions_w.shape[0], -1)
+    root_quat = robot.data.root_quat_w.expand(positions_w.shape[0], -1)
+    positions_b, orientations_b = subtract_frame_transforms(
+        root_pos, root_quat, positions_w, orientations_w
+    )
+    action = torch.zeros((1, env.action_manager.total_action_dim), device=env.device)
+    offset = 0
+    for name, dimension in zip(env.action_manager.active_terms, env.action_manager.action_term_dim):
+        if name == "left_arm":
+            action[0, offset : offset + dimension] = torch.cat((positions_b[0], orientations_b[0]))
+        elif name == "right_arm":
+            action[0, offset : offset + dimension] = torch.cat((positions_b[1], orientations_b[1]))
+        offset += dimension
+    return action
+
+
+class _LivePregraspRunner:
+    """One-shot bimanual position move used by the remote browser preview."""
+
+    def __init__(self, env, *, distance_m: float, grasp_depth_m: float, steps: int):
+        import torch
+
+        if steps <= 0:
+            raise ValueError("pregrasp steps must be positive")
+        self.env = env
+        self.robot = env.scene["robot"]
+        self.arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
+        self.ee_ids, _ = self.robot.find_bodies(
+            ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
+        )
+        if len(self.ee_ids) != 2:
+            raise RuntimeError("Could not resolve both Kuavo TCP links for pregrasp.")
+        self.targets_w, self.geometry = _pregrasp_targets(
+            env, distance_m=distance_m, grasp_depth_m=grasp_depth_m
+        )
+        self.initial_q7 = self.robot.data.joint_pos[0, [
+            self.robot.find_joints("zarm_l7_joint", preserve_order=True)[0][0],
+            self.robot.find_joints("zarm_r7_joint", preserve_order=True)[0][0],
+        ]].clone()
+        orientations_w = self.robot.data.body_link_quat_w[0, self.ee_ids].clone()
+        self.action = _absolute_pose_action(env, self.robot, self.targets_w, orientations_w)
+        # Keep the current redundancy posture, including q7, as a soft
+        # null-space target. No direct q7 command is issued by this preview.
+        for term in self.arm_terms:
+            term.set_posture_target(
+                self.robot.data.joint_pos[:, term._joint_ids].clone(), weight=0.60
+            )
+            term.orientation_weight = 0.5
+            term.set_following(True)
+        self.remaining = int(steps)
+        self.total = int(steps)
+        self.finished = False
+        print(
+            f"[PREGRASP] targets_w={self.geometry}; steps={self.total}; "
+            "q7 direct command=disabled",
+            flush=True,
+        )
+
+    def next_action(self):
+        if self.finished:
+            return None
+        action = self.action
+        self.remaining -= 1
+        if self.remaining <= 0:
+            self.finished = True
+        return action
+
+    def finish(self):
+        if not self.finished:
+            return
+        final_pos = self.robot.data.body_link_pos_w[0, self.ee_ids]
+        errors = (self.targets_w - final_pos).norm(dim=-1)
+        joint_ids = [
+            self.robot.find_joints("zarm_l7_joint", preserve_order=True)[0][0],
+            self.robot.find_joints("zarm_r7_joint", preserve_order=True)[0][0],
+        ]
+        final_q7 = self.robot.data.joint_pos[0, joint_ids]
+        print(
+            f"[PREGRASP] done position_error_m={errors.detach().cpu().tolist()} "
+            f"q7_start={self.initial_q7.detach().cpu().tolist()} "
+            f"q7_end={final_q7.detach().cpu().tolist()}",
+            flush=True,
+        )
+        for term in self.arm_terms:
+            term.clear_posture_target()
+            term.cfg.controller.use_relative_mode = True
+            term.hold_current_pose()
+            term.orientation_weight = 0.5
+
+
 def _sample_to_world(
     sample: BrowserTrackingSample, root_pos: np.ndarray, root_quat: np.ndarray
 ) -> tuple[dict[str, np.ndarray] | None, dict[str, np.ndarray] | None, np.ndarray | None]:
@@ -173,6 +336,11 @@ def _sample_to_world(
 
 def main() -> None:
     cfg = KuavoQuestTeleopEnvCfg()
+    if args_cli.pregrasp:
+        # The one-shot pregrasp action is an absolute root-frame pose.  The
+        # terms are switched back to relative teleop after the move finishes.
+        cfg.actions.left_arm.controller.use_relative_mode = False
+        cfg.actions.right_arm.controller.use_relative_mode = False
     cfg.seed = args_cli.seed
     cfg.scene.robustness_camera.width = args_cli.head_camera_width
     cfg.scene.robustness_camera.height = args_cli.head_camera_height
@@ -212,6 +380,16 @@ def main() -> None:
     body_mapper = TeleopBodyMapper(robot_model.urdf_path, has_wheel_base=robot_model.has_wheel_base)
     arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
     robot = env.scene["robot"]
+    pregrasp_runner = (
+        _LivePregraspRunner(
+            env,
+            distance_m=args_cli.pregrasp_distance_m,
+            grasp_depth_m=args_cli.pregrasp_grasp_depth_m,
+            steps=args_cli.pregrasp_steps,
+        )
+        if args_cli.pregrasp
+        else None
+    )
     stream_interval = max(1, int(round((1.0 / float(env.step_dt)) / args_cli.stream_fps)))
     previous_clients = -1
     previous_tracking = None
@@ -309,10 +487,23 @@ def main() -> None:
             action_np = compose_browser_action(mapped.action, safe_gripper, body_action)
             if not safety.control_allowed:
                 action_np[:12] = 0.0
-            for term in arm_terms:
-                term.set_following(safety.control_allowed)
-            action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
+            pregrasp_action = (
+                None if pregrasp_runner is None else pregrasp_runner.next_action()
+            )
+            if pregrasp_action is not None:
+                # Suppress browser hand motion while the deterministic
+                # bimanual pregrasp is in flight.
+                for term in arm_terms:
+                    term.set_following(True)
+                action = pregrasp_action
+            else:
+                for term in arm_terms:
+                    term.set_following(safety.control_allowed)
+                action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
             env.step(action)
+            if pregrasp_runner is not None and pregrasp_runner.finished:
+                pregrasp_runner.finish()
+                pregrasp_runner = None
             metrics_steps += 1
 
             clients = bridge.client_count
