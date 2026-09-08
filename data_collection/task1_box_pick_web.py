@@ -52,7 +52,17 @@ parser.add_argument(
     action="store_true",
     help="Move both open end-effectors to the fixed-box pregrasp targets once after startup.",
 )
-parser.add_argument("--pregrasp-distance-m", type=float, default=0.10)
+parser.add_argument(
+    "--pregrasp-height-m",
+    "--pregrasp-distance-m",
+    dest="pregrasp_height_m",
+    type=float,
+    default=0.10,
+    help=(
+        "Height above the selected left/right upper grasp pair, measured along "
+        "the robot-base +Z axis. --pregrasp-distance-m is a compatibility alias."
+    ),
+)
 parser.add_argument("--pregrasp-grasp-depth-m", type=float, default=0.015)
 parser.add_argument("--pregrasp-steps", type=int, default=300)
 parser.add_argument("--pregrasp-initial-state", default="quest_ready_02")
@@ -87,8 +97,8 @@ if args_cli.pregrasp and args_cli.pregrasp_steps <= 0:
     parser.error("--pregrasp-steps must be positive.")
 if args_cli.pregrasp and args_cli.pregrasp_settle_steps < 0:
     parser.error("--pregrasp-settle-steps must be nonnegative.")
-if args_cli.pregrasp_distance_m <= 0.0 or not math.isfinite(args_cli.pregrasp_distance_m):
-    parser.error("--pregrasp-distance-m must be finite and positive.")
+if args_cli.pregrasp_height_m <= 0.0 or not math.isfinite(args_cli.pregrasp_height_m):
+    parser.error("--pregrasp-height-m must be finite and positive.")
 if args_cli.pregrasp_grasp_depth_m <= 0.0 or not math.isfinite(args_cli.pregrasp_grasp_depth_m):
     parser.error("--pregrasp-grasp-depth-m must be finite and positive.")
 if not 1 <= args_cli.jpeg_quality <= 100:
@@ -184,28 +194,30 @@ def _pose_to_world(pose: np.ndarray, root_pos: np.ndarray, root_quat: np.ndarray
     return np.concatenate([position, orientation]).astype(np.float32)
 
 
-def _pregrasp_targets(env, *, distance_m: float, grasp_depth_m: float):
-    """Compute the two flap-normal pregrasp points from the live box pose."""
+def _pregrasp_targets(env, *, height_m: float, grasp_depth_m: float):
+    """Compute pregrasp points above the live box's left/right upper grasp pair."""
     import torch
     from kuavo_isaaclab_scene.rl.scenes.asset_geometry import box_geometry
 
-    if not np.isfinite(distance_m) or distance_m <= 0.0:
-        raise ValueError("pregrasp distance must be finite and positive")
+    if not np.isfinite(height_m) or height_m <= 0.0:
+        raise ValueError("pregrasp height must be finite and positive")
     if not np.isfinite(grasp_depth_m) or grasp_depth_m <= 0.0:
         raise ValueError("grasp depth must be finite and positive")
 
     box = env.scene["medium_box_0"]
+    robot = env.scene["robot"]
     geometry = box_geometry(env.cfg.scene.medium_box_0, ("flap_right", "flap_left"))
     flap_ids, flap_names = box.find_bodies(("flap_right", "flap_left"), preserve_order=True)
-    body_ids, body_names = box.find_bodies("Body")
-    if len(flap_ids) != 2 or len(body_ids) != 1:
-        raise RuntimeError(
-            f"MediumBox_0 body lookup failed: flaps={flap_names}, body={body_names}"
-        )
+    if len(flap_ids) != 2:
+        raise RuntimeError(f"MediumBox_0 flap lookup failed: flaps={flap_names}")
 
     flap_pos = box.data.body_link_pos_w[0, flap_ids]
     flap_quat = box.data.body_link_quat_w[0, flap_ids]
-    body_pos = box.data.body_link_pos_w[0, body_ids[0]]
+    from isaaclab.utils.math import quat_apply
+
+    base_up_local = torch.tensor((0.0, 0.0, 1.0), device=env.device, dtype=flap_pos.dtype)
+    base_up_w = quat_apply(robot.data.root_quat_w[0], base_up_local)
+    base_up_w = base_up_w / base_up_w.norm().clamp_min(1.0e-6)
     targets = []
     diagnostics = []
     for index, flap_name in enumerate(("flap_right", "flap_left")):
@@ -213,24 +225,14 @@ def _pregrasp_targets(env, *, distance_m: float, grasp_depth_m: float):
         local_grasp = torch.tensor(flap.center, device=env.device, dtype=flap_pos.dtype)
         local_grasp[2] += flap.half_size[2] - grasp_depth_m
         # Isaac's quat_apply keeps the wxyz convention used by the USD asset.
-        from isaaclab.utils.math import quat_apply
         grasp = flap_pos[index] + quat_apply(flap_quat[index], local_grasp)
-        local_normal = torch.tensor(
-            (1.0, 0.0, 0.0) if flap_name == "flap_right" else (-1.0, 0.0, 0.0),
-            device=env.device,
-            dtype=flap_pos.dtype,
-        )
-        outward = quat_apply(flap_quat[index], local_normal)
-        outward = outward / outward.norm().clamp_min(1.0e-6)
-        if torch.dot(outward, flap_pos[index] - body_pos) < 0:
-            outward = -outward
-        pregrasp = grasp + outward * distance_m
+        pregrasp = grasp + base_up_w * height_m
         targets.append(pregrasp)
         diagnostics.append(
             {
                 "flap": flap_name,
                 "grasp_position_w": grasp.detach().cpu().tolist(),
-                "outward_normal_w": outward.detach().cpu().tolist(),
+                "base_up_w": base_up_w.detach().cpu().tolist(),
                 "pregrasp_position_w": pregrasp.detach().cpu().tolist(),
             }
         )
@@ -265,7 +267,7 @@ class _LivePregraspRunner:
         self,
         env,
         *,
-        distance_m: float,
+        height_m: float,
         grasp_depth_m: float,
         steps: int,
         initial_state: str,
@@ -298,7 +300,7 @@ class _LivePregraspRunner:
         )
         apply_initial_state(env, None, state, initial_state)
         env.scene.write_data_to_sim()
-        self.distance_m = distance_m
+        self.height_m = height_m
         self.grasp_depth_m = grasp_depth_m
         self.initial_state = initial_state
         self.remaining = 0
@@ -331,7 +333,7 @@ class _LivePregraspRunner:
 
     def _start_motion(self, initial_state):
         self.targets_w, self.geometry = _pregrasp_targets(
-            self.env, distance_m=self.distance_m, grasp_depth_m=self.grasp_depth_m
+            self.env, height_m=self.height_m, grasp_depth_m=self.grasp_depth_m
         )
         self.initial_q7 = self.robot.data.joint_pos[0, [
             self.robot.find_joints("zarm_l7_joint", preserve_order=True)[0][0],
@@ -573,7 +575,7 @@ def main() -> None:
                     print("[PREGRASP] browser client detected; starting live sequence", flush=True)
                     pregrasp_runner = _LivePregraspRunner(
                         env,
-                        distance_m=args_cli.pregrasp_distance_m,
+                        height_m=args_cli.pregrasp_height_m,
                         grasp_depth_m=args_cli.pregrasp_grasp_depth_m,
                         steps=args_cli.pregrasp_steps,
                         initial_state=args_cli.pregrasp_initial_state,
