@@ -306,7 +306,7 @@ def _absolute_pose_action(env, robot, positions_w, orientations_w):
     return action
 
 
-def _task_q6_constraints(robot, arm_terms):
+def _task_q6_constraints(robot, arm_terms, *, exact_maximum: bool = False):
     """Keep both physical wrist pitches in the 45--75 degree bent band."""
     q6_ids, q6_names = robot.find_joints(
         ("zarm_l6_joint", "zarm_r6_joint"), preserve_order=True
@@ -320,8 +320,12 @@ def _task_q6_constraints(robot, arm_terms):
         physical = robot.data.joint_pos_limits[0, joint_id]
         if side == "left":
             lower, upper, target = float(physical[0]), -math.radians(45.0), float(physical[0])
+            if exact_maximum:
+                upper = lower
         else:
             lower, upper, target = math.radians(45.0), float(physical[1]), float(physical[1])
+            if exact_maximum:
+                lower = upper
         term.set_control_joint_bounds((local_index,), (lower,), (upper,))
         posture = robot.data.joint_pos[:, term._joint_ids].clone()
         posture[:, local_index] = target
@@ -357,7 +361,7 @@ def _camera_forward_tcp_orientations(robot, ee_ids, camera_body_ids):
     )
 
 
-def _prepare_task_ready(env, initial_state: str, steps: int = 120):
+def _prepare_task_ready(env, initial_state: str, steps: int = 240):
     """Create the bent, forward-camera Task1 reset pose before browser streaming."""
     from isaaclab.utils.math import quat_apply
     from kuavo_isaaclab_scene.robots.gripper_config import resolve_gripper_settings
@@ -386,7 +390,9 @@ def _prepare_task_ready(env, initial_state: str, steps: int = 120):
     )
     if len(camera_ids) != 2:
         raise RuntimeError(f"Could not resolve wrist camera bodies: {camera_names}")
-    q6_ids, q6_names, _, q6_targets = _task_q6_constraints(robot, arm_terms)
+    q6_ids, q6_names, _, q6_targets = _task_q6_constraints(
+        robot, arm_terms, exact_maximum=True
+    )
     orientations = _camera_forward_tcp_orientations(robot, ee_ids, camera_ids)
     positions = robot.data.body_link_pos_w[0, ee_ids].clone()
     action = _absolute_pose_action(env, robot, positions, orientations)
@@ -406,12 +412,17 @@ def _prepare_task_ready(env, initial_state: str, steps: int = 120):
     )
     alignment = (camera_forward * base_forward).sum(-1)
     q6 = robot.data.joint_pos[0, q6_ids]
+    arm_state = {
+        name: float(robot.data.joint_pos[0, index].item())
+        for index, name in enumerate(robot.joint_names)
+        if name.startswith("zarm_")
+    }
     for term in arm_terms:
         term.hold_current_pose()
     print(
         f"[TASK_READY] q6_names={q6_names} target_rad={q6_targets.cpu().tolist()} "
         f"actual_rad={q6.detach().cpu().tolist()} camera_forward_dot_base_forward="
-        f"{alignment.detach().cpu().tolist()}",
+        f"{alignment.detach().cpu().tolist()} arm_joint_positions={arm_state}",
         flush=True,
     )
 
@@ -508,7 +519,7 @@ class _LivePregraspRunner:
         )
 
     def _start_motion(self, initial_state):
-        self.targets_w, self.grasps_w, _, self.geometry = _pregrasp_targets(
+        self.targets_w, self.grasps_w, inward_normals_w, self.geometry = _pregrasp_targets(
             self.env, height_m=self.height_m, grasp_depth_m=self.grasp_depth_m
         )
         self.initial_q7 = self.robot.data.joint_pos[0, [
@@ -516,7 +527,10 @@ class _LivePregraspRunner:
             self.robot.find_joints("zarm_r7_joint", preserve_order=True)[0][0],
         ]].clone()
         self.pregrasp_orientations_w = self.robot.data.body_link_quat_w[0, self.ee_ids].clone()
-        self.readygrasp_orientations_w = self.pregrasp_orientations_w.clone()
+        grasp_directions = torch.nn.functional.normalize(self.grasps_w - self.targets_w, dim=-1)
+        self.readygrasp_orientations_w = _orientation_from_closing_and_forward(
+            inward_normals_w, grasp_directions
+        )
         self.action = _absolute_pose_action(
             self.env, self.robot, self.targets_w, self.pregrasp_orientations_w
         )
@@ -524,14 +538,16 @@ class _LivePregraspRunner:
         # null-space target. No direct q7 command is issued by this preview.
         _task_q6_constraints(self.robot, self.arm_terms)
         for term in self.arm_terms:
-            term.orientation_weight = 1.0
+            # Camera-forward is an initial-state contract, not a hard
+            # orientation constraint throughout the Cartesian approach.
+            term.orientation_weight = 0.20
             term.set_following(True)
         self.remaining = self.total
         self.phase = "move"
         print(
             f"[PREGRASP] targets_ready initial_state={initial_state} "
             f"targets_w={self.geometry} orientation_contract="
-            "wrist_camera_body_+X=robot_base_+X,q6_bend_band=45_to_75_deg",
+            "initial_camera_body_+X=robot_base_+X,q6_bend_band=45_to_75_deg",
             flush=True,
         )
 
@@ -551,9 +567,9 @@ class _LivePregraspRunner:
                 posture,
                 weight=0.60,
                 direct_indices=(self.q6_local_indices[index],),
-                direct_gain=4.0,
+                direct_gain=2.0,
             )
-            term.orientation_weight = 1.0
+            term.orientation_weight = 0.35
             term.set_following(True)
         self.remaining = self.wrist6_test_steps
         self.phase = "grasp_approach"
@@ -562,7 +578,7 @@ class _LivePregraspRunner:
             f"start_rad={current.detach().cpu().tolist()} "
             f"target_rad={targets.detach().cpu().tolist()} "
             f"limits_rad={limits.detach().cpu().tolist()} steps={self.remaining} "
-            "motion=pregrasp_to_live_grasp camera_axis_held_forward",
+            "motion=pregrasp_to_live_grasp closing_axis=flap_normal forward_axis=grasp_direction",
             flush=True,
         )
 
@@ -578,7 +594,7 @@ class _LivePregraspRunner:
         # Follow a moving flap in its own frame, but freeze the last few
         # approach steps so contact cannot create a chase/oscillation loop.
         if self.phase in ("move", "grasp_approach") and self.remaining > 12:
-            live_pregrasp, live_grasps, _, _ = _pregrasp_targets(
+            live_pregrasp, live_grasps, live_normals, _ = _pregrasp_targets(
                 self.env, height_m=self.height_m, grasp_depth_m=self.grasp_depth_m
             )
             if self.phase == "move":
@@ -587,6 +603,13 @@ class _LivePregraspRunner:
             else:
                 self.grasps_w = live_grasps
                 positions = self.grasps_w
+                grasp_directions = torch.nn.functional.normalize(
+                    live_grasps - live_pregrasp, dim=-1
+                )
+                self.readygrasp_orientations_w = _orientation_from_closing_and_forward(
+                    live_normals, grasp_directions
+                )
+                self.pregrasp_orientations_w = self.readygrasp_orientations_w
             self.action = _absolute_pose_action(
                 self.env, self.robot, positions, self.pregrasp_orientations_w
             )
