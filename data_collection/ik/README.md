@@ -5,7 +5,9 @@ Task1의 기본 실행기는 IsaacLab DLS를 유지한다. Kuavo와 같은 IK를
 
 ## 원칙
 
-- 로봇 모델은 중복하지 않는다. Kuavo5W의 `src/kuavo_isaaclab_scene/assets/kuavo5/kuavo5.urdf`를 그대로 읽는다.
+- 시뮬레이터는 Kuavo5W의 `src/kuavo_isaaclab_scene/assets/kuavo5/kuavo5.urdf`를
+  사용하고, solver에는 같은 URDF에서 arm link/joint만 추출한 외부 runtime용
+  adapter를 생성한다. 별도의 손으로 작성한 kinematic 모델은 두지 않는다.
 - ROS, LeTools, `kuavo_humanoid_sdk`는 이 경로의 필수 의존성이 아니다.
 - Kuavo 저장소에서 가져오는 것은 `plantIK.h`와 `libplantIK.so`뿐이다.
 - solver/runtime은 Git repo나 episode output에 넣지 않는다. Kanu의 별도 runtime root
@@ -25,17 +27,18 @@ data_collection/ik/
 │   └── src/kuavo_plantik_server.cpp
 └── scripts/
     ├── fetch_kuavo_plantik.sh  # pinned header/.so만 외부 runtime에 설치
+    ├── make_kuavo5w_arm_urdf.py # scene URDF에서 14-DoF arm adapter 생성
     └── build_kuavo_plantik.sh
 ```
 
-`native` worker는 한 번 모델을 로드한 뒤 stdin 한 줄마다 다음 43개 값을 받는다.
+`native` worker는 한 번 모델을 로드한 뒤 stdin 한 줄마다 다음 28개 값을 받는다.
 
 ```text
-q0[29], left_pos[3], left_quat_xyzw[4], right_pos[3], right_quat_xyzw[4]
+q0[14], left_pos[3], left_quat_xyzw[4], right_pos[3], right_quat_xyzw[4]
 ```
 
-`q0`/반환 `q`는 Kuavo5W 전체 plant 순서이며, arm schema는 `q[13:27]`이다.
-stdout에는 `1 q[29]`(성공) 또는 `0`(실패)을 한 줄로 반환한다. 따라서 Isaac
+`q0`/반환 `q`는 Kuavo5W arm 순서(`zarm_l1..7`, `zarm_r1..7`)이다.
+stdout에는 `1 q[14]`(성공) 또는 `0`(실패)을 한 줄로 반환한다. 따라서 Isaac
 simulation loop 안에서 매번 프로세스를 새로 띄우지 않는다.
 
 ## 준비/실행
@@ -44,6 +47,9 @@ simulation loop 안에서 매번 프로세스를 새로 띄우지 않는다.
 cd /home/seonho/HumanoidScene
 export KUAVO_IK_RUNTIME=/home/seonho/.cache/humanoidscene/kuavo_plantik/1797481d4639a76afbdc035f705acbf522fceafa
 data_collection/ik/scripts/fetch_kuavo_plantik.sh "$KUAVO_IK_RUNTIME"
+python data_collection/ik/scripts/make_kuavo5w_arm_urdf.py \
+  --source src/kuavo_isaaclab_scene/assets/kuavo5/kuavo5.urdf \
+  --output "$KUAVO_IK_RUNTIME/model/kuavo5w_arm.urdf"
 data_collection/ik/scripts/build_kuavo_plantik.sh "$KUAVO_IK_RUNTIME"
 ```
 

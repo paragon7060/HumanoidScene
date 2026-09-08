@@ -7,9 +7,10 @@ solver_header: src/manipulation_nodes/motion_capture_ik/include/plantIK.h
 solver_library: src/manipulation_nodes/motion_capture_ik/lib/libplantIK.so
 robot_model: kuavo5w
 scene_urdf: ../../src/kuavo_isaaclab_scene/assets/kuavo5/kuavo5.urdf
+solver_urdf: ${KUAVO_IK_RUNTIME}/model/kuavo5w_arm.urdf
 frames: [base_link, zarm_l7_end_effector, zarm_r7_end_effector]
-plant_dof: 29
-arm_slice: [13, 27]
+plant_dof: 14
+arm_slice: [0, 14]
 arm_dof: 14
 pose_encoding: [position_xyz, quaternion_xyzw]
 eef_z_bias_m: -0.17

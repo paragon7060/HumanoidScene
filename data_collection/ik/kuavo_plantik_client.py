@@ -14,9 +14,9 @@ import subprocess
 from typing import Iterable, Sequence
 
 
-PLANT_DOF = 29
+PLANT_DOF = 14
 ARM_DOF = 14
-ARM_SLICE = slice(13, 27)
+ARM_SLICE = slice(0, 14)
 
 
 def _finite_values(values: Iterable[float], expected: int, name: str) -> list[float]:

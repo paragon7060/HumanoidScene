@@ -17,10 +17,9 @@
 
 namespace {
 
-// Kuavo 5W's plant contains 12 leg joints, one waist joint, 14 arm joints,
-// and two head joints. plantIK solves the complete 29-position plant; the
-// collection schema can take the arm slice [13:27] from the response.
-constexpr int kPlantDof = 29;
+// The generated Kuavo5W arm adapter keeps the exact arm chain but fixes the
+// waist-yaw base, leaving the 14 arm positions expected by plantIK.
+constexpr int kPlantDof = 14;
 constexpr int kPoseValues = 7;  // xyz + xyzw
 constexpr int kInputValues = kPlantDof + 2 * kPoseValues;
 
@@ -52,7 +51,7 @@ void print_failure() {
 
 int main(int argc, char** argv) {
   if (argc != 2) {
-    std::cerr << "usage: kuavo_plantik_server <kuavo5.urdf>\n";
+    std::cerr << "usage: kuavo_plantik_server <kuavo5w_arm.urdf>\n";
     return 2;
   }
 
@@ -65,7 +64,7 @@ int main(int argc, char** argv) {
     plant->Finalize();
 
     if (plant->num_positions() != kPlantDof) {
-      throw std::runtime_error("expected the 29-DoF Kuavo 5W Drake URDF");
+      throw std::runtime_error("expected the 14-DoF Kuavo 5W arm adapter URDF");
     }
 
     auto diagram = builder.Build();
@@ -88,7 +87,7 @@ int main(int argc, char** argv) {
       try {
         const auto values = parse_line(line);
         if (values.size() != kInputValues) {
-          throw std::runtime_error("expected 43 numeric values");
+          throw std::runtime_error("expected 28 numeric values");
         }
         for (const double value : values) {
           if (!std::isfinite(value)) {
