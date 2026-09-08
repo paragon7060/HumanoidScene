@@ -7,7 +7,7 @@ from pathlib import Path
 import pickle
 import struct
 import subprocess
-from typing import Any, BinaryIO, Sequence
+from typing import Any, BinaryIO, Mapping, Sequence
 
 import numpy as np
 
@@ -51,11 +51,27 @@ def build_lerobot_features(
     use_videos: bool,
     action_names: Sequence[str] = ACTION_NAMES,
     record_controllers: bool = False,
+    camera_feature_names: Mapping[str, str] | None = None,
+    camera_layout: str = "hwc",
 ) -> dict[str, dict]:
     """Return the fixed schema used for every episode in one dataset."""
+    if camera_layout not in {"hwc", "chw"}:
+        raise ValueError("camera_layout must be 'hwc' or 'chw'.")
+    camera_feature_names = dict(camera_feature_names or {
+        "head": "observation.images.head",
+        "left_wrist": "observation.images.left_wrist",
+        "right_wrist": "observation.images.right_wrist",
+    })
+    required_camera_names = {"head", "left_wrist", "right_wrist"}
+    if not required_camera_names.issubset(camera_feature_names):
+        missing = sorted(required_camera_names.difference(camera_feature_names))
+        raise ValueError(f"camera_feature_names is missing: {missing}")
     image_dtype = "video" if use_videos else "image"
     head_width, head_height = head_resolution
     wrist_width, wrist_height = wrist_resolution
+    head_shape = (3, head_height, head_width) if camera_layout == "chw" else (head_height, head_width, 3)
+    wrist_shape = (3, wrist_height, wrist_width) if camera_layout == "chw" else (wrist_height, wrist_width, 3)
+    channel_names = ["channels", "height", "width"] if camera_layout == "chw" else ["height", "width", "channels"]
     ee_names = [f"{side}_{field}" for side in ("left", "right") for field in POSE_NAMES]
     features: dict[str, dict] = {
         "observation.state": _vector_feature(len(joint_names), joint_names),
@@ -73,10 +89,10 @@ def build_lerobot_features(
         "observation.pinch_distance": _vector_feature(2, ["left_m", "right_m"]),
         "observation.tracking_valid": _vector_feature(3, ["left", "right", "head"]),
         "observation.sim_time": _vector_feature(1, ["seconds"]),
-        "observation.images.head": {
+        camera_feature_names["head"]: {
             "dtype": image_dtype,
-            "shape": (head_height, head_width, 3),
-            "names": ["height", "width", "channels"],
+            "shape": head_shape,
+            "names": channel_names,
         },
         "action": _vector_feature(len(action_names), action_names),
         "next.done": _vector_feature(1, ["done"]),
@@ -88,10 +104,10 @@ def build_lerobot_features(
             features[f"observation.openxr.{side}_controller"] = _vector_feature(14, names)
     if record_wrist_cameras:
         for side in ("left", "right"):
-            features[f"observation.images.{side}_wrist"] = {
+            features[camera_feature_names[f"{side}_wrist"]] = {
                 "dtype": image_dtype,
-                "shape": (wrist_height, wrist_width, 3),
-                "names": ["height", "width", "channels"],
+                "shape": wrist_shape,
+                "names": channel_names,
             }
     if box_count:
         features["observation.box_root_pose"] = _vector_feature(
@@ -120,11 +136,21 @@ def sample_to_lerobot_frame(sample: dict[str, Any], features: dict[str, dict]) -
         "observation.pinch_distance": np.asarray(sample["pinch_distance_m"], dtype=np.float32),
         "observation.tracking_valid": np.asarray(sample["tracking_valid"], dtype=np.float32),
         "observation.sim_time": np.asarray([sample["sim_time_s"]], dtype=np.float32),
-        "observation.images.head": np.asarray(sample["head_rgb"], dtype=np.uint8),
         "action": np.asarray(sample["action"], dtype=np.float32),
         "next.done": np.zeros(1, dtype=np.float32),
         "next.success": np.zeros(1, dtype=np.float32),
     }
+    camera_samples = {
+        "observation.images.head": "head_rgb",
+        "observation.images.head_cam_h": "head_rgb",
+        "observation.images.left_wrist": "left_wrist_rgb",
+        "observation.images.wrist_cam_l": "left_wrist_rgb",
+        "observation.images.right_wrist": "right_wrist_rgb",
+        "observation.images.wrist_cam_r": "right_wrist_rgb",
+    }
+    for feature_name, sample_name in camera_samples.items():
+        if feature_name in features:
+            frame[feature_name] = np.asarray(sample[sample_name], dtype=np.uint8)
     optional_mappings = {
         "observation.openxr.left_controller": "openxr_left_controller",
         "observation.openxr.right_controller": "openxr_right_controller",
@@ -162,6 +188,9 @@ class LeRobotTeleopRecorder:
         writer_python: str | Path | None = None,
         action_names: Sequence[str] = ACTION_NAMES,
         record_controllers: bool = False,
+        camera_feature_names: Mapping[str, str] | None = None,
+        camera_layout: str = "hwc",
+        video_config: Mapping[str, Any] | None = None,
     ):
         if fps <= 0:
             raise ValueError("LeRobot fps must be positive.")
@@ -170,6 +199,7 @@ class LeRobotTeleopRecorder:
         self.fps = int(fps)
         self.task = task
         self.save_failed = bool(save_failed)
+        self.video_config = dict(video_config or {})
         if writer_python is None:
             writer_python = os.environ.get("LEROBOT_PYTHON")
         if writer_python is None:
@@ -188,6 +218,8 @@ class LeRobotTeleopRecorder:
             record_wrist_cameras=record_wrist_cameras,
             use_videos=use_videos,
             action_names=action_names,
+            camera_feature_names=camera_feature_names,
+            camera_layout=camera_layout,
         )
         self.root.parent.mkdir(parents=True, exist_ok=True)
         self._process, self._commands, self._responses = self._start_worker()
@@ -203,6 +235,7 @@ class LeRobotTeleopRecorder:
                 "features": self.features,
                 "use_videos": bool(use_videos),
                 "save_failed": self.save_failed,
+                "video_config": self.video_config,
             }
         )
         self._episode_count = int(init["total_episodes"])

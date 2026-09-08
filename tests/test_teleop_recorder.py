@@ -148,3 +148,45 @@ def test_lerobot_action_schema_accepts_gripper_channels():
     )
     assert features["action"]["shape"] == (4,)
     assert features["action"]["names"] == action_names
+
+
+def test_task1_camera_schema_can_use_policy_keys_and_chw_metadata():
+    features = build_lerobot_features(
+        joint_names=["joint"],
+        hand_joint_names=["wrist"],
+        head_resolution=(848, 480),
+        wrist_resolution=(848, 480),
+        box_count=0,
+        button_joint_count=0,
+        record_wrist_cameras=True,
+        use_videos=True,
+        camera_feature_names={
+            "head": "observation.images.head_cam_h",
+            "left_wrist": "observation.images.wrist_cam_l",
+            "right_wrist": "observation.images.wrist_cam_r",
+        },
+        camera_layout="chw",
+    )
+    sample = {
+        "robot_joint_position": np.zeros(1, dtype=np.float32),
+        "robot_joint_velocity": np.zeros(1, dtype=np.float32),
+        "left_end_effector_pose_w": np.zeros(7, dtype=np.float32),
+        "right_end_effector_pose_w": np.zeros(7, dtype=np.float32),
+        "openxr_head_pose": np.zeros(7, dtype=np.float32),
+        "openxr_left_hand": np.zeros((1, 7), dtype=np.float32),
+        "openxr_right_hand": np.zeros((1, 7), dtype=np.float32),
+        "pinch_distance_m": np.zeros(2, dtype=np.float32),
+        "tracking_valid": np.ones(3, dtype=np.uint8),
+        "sim_time_s": np.float64(0.1),
+        "head_rgb": np.zeros((480, 848, 3), dtype=np.uint8),
+        "left_wrist_rgb": np.zeros((480, 848, 3), dtype=np.uint8),
+        "right_wrist_rgb": np.zeros((480, 848, 3), dtype=np.uint8),
+        "action": np.zeros(14, dtype=np.float32),
+    }
+    frame = sample_to_lerobot_frame(sample, features)
+    assert set(frame) == set(features)
+    assert features["observation.images.head_cam_h"]["shape"] == (3, 480, 848)
+    assert features["observation.images.head_cam_h"]["names"] == ["channels", "height", "width"]
+    # LeRobot accepts HWC input while retaining the requested CHW metadata.
+    assert frame["observation.images.head_cam_h"].shape == (480, 848, 3)
+    assert frame["observation.images.wrist_cam_l"].shape == (480, 848, 3)

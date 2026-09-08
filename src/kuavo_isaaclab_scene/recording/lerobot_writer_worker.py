@@ -82,6 +82,7 @@ def main() -> int:
             try:
                 if op == "init":
                     import lerobot
+                    from lerobot.configs.video import RGBEncoderConfig
                     from lerobot.datasets import CODEBASE_VERSION, LeRobotDataset
 
                     if str(CODEBASE_VERSION) != "v3.0":
@@ -103,6 +104,12 @@ def main() -> int:
                                 f"LeRobot root exists without meta/info.json: {root}. "
                                 "Select a new path or move the incomplete directory."
                             )
+                        video_config = dict(message.get("video_config") or {})
+                        if "codec" in video_config and "vcodec" not in video_config:
+                            video_config["vcodec"] = video_config.pop("codec")
+                        # ``fps`` belongs to the dataset, not the encoder.
+                        video_config.pop("fps", None)
+                        rgb_encoder = RGBEncoderConfig(**video_config) if video_config else None
                         dataset = LeRobotDataset.create(
                             repo_id=message["repo_id"],
                             fps=int(message["fps"]),
@@ -110,6 +117,7 @@ def main() -> int:
                             root=root,
                             robot_type="kuavo_s63",
                             use_videos=bool(message["use_videos"]),
+                            rgb_encoder=rgb_encoder,
                             batch_encoding_size=1,
                         )
                     _validate_schema(dataset, message["features"], int(message["fps"]))
