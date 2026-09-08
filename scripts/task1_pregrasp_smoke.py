@@ -127,8 +127,21 @@ def _pregrasp_targets(env, *, distance_m: float, grasp_depth_m: float):
         local_grasp = torch.tensor(flap.center, device=env.device, dtype=flap_pos.dtype)
         local_grasp[2] += flap.half_size[2] - grasp_depth_m
         grasp = flap_pos[index] + _quat_rotate(flap_quat[index], local_grasp)
-        outward = flap_pos[index] - body_pos
+        # The flap's thin local X axis is its grasp-facing normal.  The
+        # flap-to-body centre vector is not a surface normal for an opened
+        # hinge: it includes the hinge elevation and would incorrectly lift
+        # the hand above the box.  Use the current flap pose so a free hinge
+        # is handled from its measured state, then orient the sign away from
+        # the Body link defensively.
+        local_normal = torch.tensor(
+            (1.0, 0.0, 0.0) if flap_name == "flap_right" else (-1.0, 0.0, 0.0),
+            device=env.device,
+            dtype=flap_pos.dtype,
+        )
+        outward = _quat_rotate(flap_quat[index], local_normal)
         outward = outward / outward.norm().clamp_min(1e-6)
+        if torch.dot(outward, flap_pos[index] - body_pos) < 0:
+            outward = -outward
         pregrasp = grasp + outward * distance_m
         targets.append(pregrasp)
         diagnostics.append({
