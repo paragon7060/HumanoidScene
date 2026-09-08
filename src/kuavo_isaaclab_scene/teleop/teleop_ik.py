@@ -35,6 +35,8 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._posture_weight = 0.15
         self._posture_direct_indices = None
         self._posture_direct_gain = 0.0
+        self._control_joint_lower = None
+        self._control_joint_upper = None
         self.orientation_weight = 0.5
         self._following = True
         self._held_joints = None
@@ -118,6 +120,38 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._posture_direct_indices = None
         self._posture_direct_gain = 0.0
 
+    def set_control_joint_bounds(self, indices, lower, upper):
+        """Apply task-local command bounds without changing the URDF limits."""
+        indices = tuple(int(index) for index in indices)
+        if len(set(indices)) != len(indices) or any(index < 0 or index >= self._num_joints for index in indices):
+            raise ValueError(f"control-bound indices must be unique arm-joint indices, got {indices}")
+        physical = self._asset.data.joint_pos_limits[:, self._joint_ids]
+        task_lower = physical[..., 0].clone()
+        task_upper = physical[..., 1].clone()
+        lower = torch.as_tensor(lower, device=self.device, dtype=task_lower.dtype).flatten()
+        upper = torch.as_tensor(upper, device=self.device, dtype=task_upper.dtype).flatten()
+        if lower.numel() != len(indices) or upper.numel() != len(indices):
+            raise ValueError("control-bound values must match the number of indices")
+        for offset, index in enumerate(indices):
+            if lower[offset] > upper[offset]:
+                raise ValueError(f"control lower exceeds upper at arm index {index}")
+            if lower[offset] < physical[0, index, 0] or upper[offset] > physical[0, index, 1]:
+                raise ValueError(f"control bounds exceed physical limits at arm index {index}")
+            task_lower[:, index] = lower[offset]
+            task_upper[:, index] = upper[offset]
+        self._control_joint_lower = task_lower
+        self._control_joint_upper = task_upper
+
+    def clear_control_joint_bounds(self):
+        self._control_joint_lower = None
+        self._control_joint_upper = None
+
+    def _joint_control_limits(self):
+        physical = self._asset.data.joint_pos_limits[:, self._joint_ids]
+        if self._control_joint_lower is None:
+            return physical
+        return torch.stack((self._control_joint_lower, self._control_joint_upper), dim=-1)
+
     def process_actions(self, actions):
         super().process_actions(actions)
         missing = torch.nonzero(~self._target_ready, as_tuple=False).flatten()
@@ -154,7 +188,7 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         error = torch.cat((ep * 2.5, er * (2.5 * self.orientation_weight)), -1)
         ident = torch.eye(6, device=self.device).expand(self.num_envs, -1, -1)
         joints = self._asset.data.joint_pos[:, self._joint_ids]
-        limits = self._asset.data.joint_pos_limits[:, self._joint_ids]
+        limits = self._joint_control_limits()
         rest = self._asset.data.default_joint_pos[:, self._joint_ids]
         posture = rest if self._posture_target is None else self._posture_target
         inverse = jac.transpose(1, 2) @ torch.linalg.solve(
@@ -183,7 +217,7 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
     def apply_actions(self):
         command = self._held_joints if not self._following and self._held_joints is not None else self._joint_command
         self._asset.set_joint_velocity_target(self._joint_velocity if self._following else torch.zeros_like(self._joint_velocity), self._joint_ids)
-        limits = self._asset.data.joint_pos_limits[:, self._joint_ids]
+        limits = self._joint_control_limits()
         self._asset.set_joint_position_target(torch.clamp(command + self._gravity_bias, limits[..., 0], limits[..., 1]), self._joint_ids)
 
     def target_orientation_error(self):
