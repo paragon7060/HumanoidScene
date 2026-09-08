@@ -371,7 +371,9 @@ def _solve_downward_ready(env, steps: int = 240):
         ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
     )
     camera_ids, _ = robot.find_bodies(("l_d405_camera", "r_d405_camera"), preserve_order=True)
-    q6_ids, _, _, _ = _task_q6_constraints(robot, arm_terms, exact_maximum=True)
+    # Prefer the physical 75-degree stop, but permit only the agreed
+    # one-sided 30-degree relaxation while generating the static preset.
+    q6_ids, _, _, _ = _task_q6_constraints(robot, arm_terms)
     root_quat = robot.data.root_quat_w[0]
     dtype = robot.data.body_link_pos_w.dtype
     base_y = quat_apply(
