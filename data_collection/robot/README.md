@@ -99,6 +99,14 @@ master가 없어 이 backend를 아직 live simulator에 연결하지 않았다.
 순서 검증 → 실행 backend 활성화. 그 전까지 현재 IsaacLab DLS는 baseline으로
 유지하고, SDK IK 결과가 실제로 반환된 경우에만 비교 결과를 기록한다.
 
+단, 모델/scene 자산 자체는 이미 HumanoidScene에 있다. `assets/kuavo_s200062/urdf`
+아래의 `biped_s200062.source.urdf`, `urdf/drake/biped_v3_arm.urdf`,
+`biped_v3_full.urdf`, `Larm.urdf`, `Rarm.urdf`를 Kuavo ROS 저장소의 같은 경로와
+대조했고 SHA-256이 일치했다. 따라서 standalone 경로에서는 ROS/LeTools 없이
+이 scene의 Drake URDF를 그대로 읽고 Kuavo `plantIK` 솔버와 Drake runtime만
+붙이면 된다. 현재 scene에 없는 것은 `plantIK` 구현/공유 라이브러리와 Drake
+runtime이며, 이를 받기 전에는 Kuavo IK를 사용했다고 기록하지 않는다.
+
 Kanu GPU4의 `task1_wrist_schedule_smoke_20260908_directq7` 실행은 최대 위치 오차
 `0.01210 m`와 full-stage q7 오차 `0.01298/0.02836 rad`를 기록해 위치 실행
 게이트를 통과했다. 이 smoke에는 contact 센서와 claw/pull/lift가 없으므로 물리적
