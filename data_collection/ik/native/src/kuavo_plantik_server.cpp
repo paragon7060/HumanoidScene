@@ -2,6 +2,7 @@
 #include <Eigen/Geometry>
 
 #include <cmath>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -56,7 +57,7 @@ int main(int argc, char** argv) {
     drake::systems::DiagramBuilder<double> builder;
     auto* plant = builder.AddSystem<drake::multibody::MultibodyPlant<double>>(0.001);
     drake::multibody::Parser parser(plant);
-    parser.AddModelFromFile(argv[1]);
+    parser.AddModels(std::filesystem::path(argv[1]));
     plant->WeldFrames(plant->world_frame(), plant->GetFrameByName("torso"));
     plant->Finalize();
 
@@ -132,4 +133,3 @@ int main(int argc, char** argv) {
 
   return 0;
 }
-
