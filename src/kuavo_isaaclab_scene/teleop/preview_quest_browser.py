@@ -292,24 +292,47 @@ class _LivePregraspRunner:
         )
         apply_initial_state(env, None, state, initial_state)
         env.scene.write_data_to_sim()
-        hold_action = _absolute_pose_action(
-            env,
+        self.distance_m = distance_m
+        self.grasp_depth_m = grasp_depth_m
+        self.initial_state = initial_state
+        self.remaining = 0
+        self.total = int(steps)
+        self.settle_remaining = int(settle_steps)
+        self.phase = "settle" if self.settle_remaining else "move"
+        self.targets_w = None
+        self.geometry = None
+        self.initial_q7 = None
+        self.action = None
+        self.finished = False
+        self.finalized = False
+        self.hold_action = self._make_hold_action()
+        if self.phase == "move":
+            self._start_motion(initial_state)
+        print(
+            f"[PREGRASP] browser_connected initial_state={initial_state} "
+            f"settle_steps={settle_steps}; motion_steps={self.total}; "
+            "q7 direct command=disabled",
+            flush=True,
+        )
+
+    def _make_hold_action(self):
+        return _absolute_pose_action(
+            self.env,
             self.robot,
             self.robot.data.body_link_pos_w[0, self.ee_ids].clone(),
             self.robot.data.body_link_quat_w[0, self.ee_ids].clone(),
         )
-        for _ in range(settle_steps):
-            env.step(hold_action)
 
+    def _start_motion(self, initial_state):
         self.targets_w, self.geometry = _pregrasp_targets(
-            env, distance_m=distance_m, grasp_depth_m=grasp_depth_m
+            self.env, distance_m=self.distance_m, grasp_depth_m=self.grasp_depth_m
         )
         self.initial_q7 = self.robot.data.joint_pos[0, [
             self.robot.find_joints("zarm_l7_joint", preserve_order=True)[0][0],
             self.robot.find_joints("zarm_r7_joint", preserve_order=True)[0][0],
         ]].clone()
         orientations_w = self.robot.data.body_link_quat_w[0, self.ee_ids].clone()
-        self.action = _absolute_pose_action(env, self.robot, self.targets_w, orientations_w)
+        self.action = _absolute_pose_action(self.env, self.robot, self.targets_w, orientations_w)
         # Keep the current redundancy posture, including q7, as a soft
         # null-space target. No direct q7 command is issued by this preview.
         for term in self.arm_terms:
@@ -318,20 +341,23 @@ class _LivePregraspRunner:
             )
             term.orientation_weight = 0.5
             term.set_following(True)
-        self.remaining = int(steps)
-        self.total = int(steps)
-        self.finished = False
-        self.finalized = False
-        self.hold_action = self.action
+        self.remaining = self.total
+        self.phase = "move"
         print(
-            f"[PREGRASP] initial_state={initial_state} settle_steps={settle_steps} "
-            f"targets_w={self.geometry}; steps={self.total}; q7 direct command=disabled",
+            f"[PREGRASP] targets_ready initial_state={initial_state} "
+            f"targets_w={self.geometry}",
             flush=True,
         )
 
     def next_action(self):
         if self.finished:
             return self.hold_action
+        if self.phase == "settle":
+            action = self.hold_action
+            self.settle_remaining -= 1
+            if self.settle_remaining <= 0:
+                self._start_motion(self.initial_state)
+            return action
         action = self.action
         self.remaining -= 1
         if self.remaining <= 0:
@@ -340,6 +366,8 @@ class _LivePregraspRunner:
 
     def finish(self):
         if not self.finished or self.finalized:
+            return
+        if self.targets_w is None or self.initial_q7 is None:
             return
         final_pos = self.robot.data.body_link_pos_w[0, self.ee_ids]
         errors = (self.targets_w - final_pos).norm(dim=-1)
@@ -427,18 +455,16 @@ def main() -> None:
     body_mapper = TeleopBodyMapper(robot_model.urdf_path, has_wheel_base=robot_model.has_wheel_base)
     arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
     robot = env.scene["robot"]
-    pregrasp_runner = (
-        _LivePregraspRunner(
-            env,
-            distance_m=args_cli.pregrasp_distance_m,
-            grasp_depth_m=args_cli.pregrasp_grasp_depth_m,
-            steps=args_cli.pregrasp_steps,
-            initial_state=args_cli.pregrasp_initial_state,
-            settle_steps=args_cli.pregrasp_settle_steps,
-        )
-        if args_cli.pregrasp
-        else None
+    pregrasp_ee_ids, pregrasp_ee_names = robot.find_bodies(
+        ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
     )
+    if len(pregrasp_ee_ids) != 2:
+        raise RuntimeError(
+            f"Could not resolve both Kuavo TCP links for pregrasp: {pregrasp_ee_names}"
+        )
+    # Do not reset or move the robot until the browser has an active bridge
+    # client. This keeps the full pregrasp motion visible in the live view.
+    pregrasp_runner = None
     stream_interval = max(1, int(round((1.0 / float(env.step_dt)) / args_cli.stream_fps)))
     previous_clients = -1
     previous_tracking = None
@@ -536,15 +562,32 @@ def main() -> None:
             action_np = compose_browser_action(mapped.action, safe_gripper, body_action)
             if not safety.control_allowed:
                 action_np[:12] = 0.0
-            pregrasp_action = (
-                None if pregrasp_runner is None else pregrasp_runner.next_action()
-            )
-            if pregrasp_action is not None:
-                # Suppress browser hand motion while the deterministic
-                # bimanual pregrasp is in flight.
+            if args_cli.pregrasp:
+                if pregrasp_runner is None and bridge.client_count > 0:
+                    print("[PREGRASP] browser client detected; starting live sequence", flush=True)
+                    pregrasp_runner = _LivePregraspRunner(
+                        env,
+                        distance_m=args_cli.pregrasp_distance_m,
+                        grasp_depth_m=args_cli.pregrasp_grasp_depth_m,
+                        steps=args_cli.pregrasp_steps,
+                        initial_state=args_cli.pregrasp_initial_state,
+                        settle_steps=args_cli.pregrasp_settle_steps,
+                    )
+                # Before the browser connects, hold the current pose with a
+                # valid absolute action. Once connected, the runner returns
+                # one action per loop so each step can be streamed.
                 for term in arm_terms:
                     term.set_following(True)
-                action = pregrasp_action
+                action = (
+                    _absolute_pose_action(
+                        env,
+                        robot,
+                        robot.data.body_link_pos_w[0, pregrasp_ee_ids].clone(),
+                        robot.data.body_link_quat_w[0, pregrasp_ee_ids].clone(),
+                    )
+                    if pregrasp_runner is None
+                    else pregrasp_runner.next_action()
+                )
             else:
                 for term in arm_terms:
                     term.set_following(safety.control_allowed)
