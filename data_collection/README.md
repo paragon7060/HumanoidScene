@@ -28,7 +28,7 @@ CUDA_VISIBLE_DEVICES=4 OMNI_KIT_ACCEPT_EULA=Y PYTHONPATH=src \
   --wrist-camera-width 848 --wrist-camera-height 480 \
   --jpeg-quality 95 --stream-fps 10 --pregrasp \
   --pregrasp-distance-m 0.10 --pregrasp-grasp-depth-m 0.015 \
-  --pregrasp-steps 300 --pregrasp-initial-state quest_ready_02 \
+  --pregrasp-steps 300 --pregrasp-initial-state task1_ready_bent \
   --pregrasp-settle-steps 120
 ```
 

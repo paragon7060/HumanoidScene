@@ -37,7 +37,6 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._posture_direct_gain = 0.0
         self._control_joint_lower = None
         self._control_joint_upper = None
-        self.position_weight = 1.0
         self.orientation_weight = 0.5
         self._following = True
         self._held_joints = None
@@ -183,13 +182,10 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         ep, er = compute_pose_error(position, orientation, self._filtered_position, self._filtered_orientation,
                                     rot_error_type="axis_angle")
         jac = self._compute_frame_jacobian().clone()
-        jac[:, :3] *= self.position_weight
         jac[:, 3:] *= self.orientation_weight
         # Cartesian feedback becomes a joint velocity, not an unscaled pose
         # jump. Damping stays continuous near singularities and joint stops.
-        error = torch.cat(
-            (ep * (2.5 * self.position_weight), er * (2.5 * self.orientation_weight)), -1
-        )
+        error = torch.cat((ep * 2.5, er * (2.5 * self.orientation_weight)), -1)
         ident = torch.eye(6, device=self.device).expand(self.num_envs, -1, -1)
         joints = self._asset.data.joint_pos[:, self._joint_ids]
         limits = self._joint_control_limits()

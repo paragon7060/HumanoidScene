@@ -65,7 +65,7 @@ parser.add_argument(
 )
 parser.add_argument("--pregrasp-grasp-depth-m", type=float, default=0.015)
 parser.add_argument("--pregrasp-steps", type=int, default=300)
-parser.add_argument("--pregrasp-initial-state", default="quest_ready_02")
+parser.add_argument("--pregrasp-initial-state", default="task1_ready_bent")
 parser.add_argument("--pregrasp-settle-steps", type=int, default=120)
 parser.add_argument(
     "--wrist6-limit-test",
@@ -306,7 +306,7 @@ def _absolute_pose_action(env, robot, positions_w, orientations_w):
     return action
 
 
-def _task_q6_constraints(robot, arm_terms, *, exact_maximum: bool = False):
+def _task_q6_constraints(robot, arm_terms):
     """Keep both physical wrist pitches in the 45--75 degree bent band."""
     q6_ids, q6_names = robot.find_joints(
         ("zarm_l6_joint", "zarm_r6_joint"), preserve_order=True
@@ -320,12 +320,8 @@ def _task_q6_constraints(robot, arm_terms, *, exact_maximum: bool = False):
         physical = robot.data.joint_pos_limits[0, joint_id]
         if side == "left":
             lower, upper, target = float(physical[0]), -math.radians(45.0), float(physical[0])
-            if exact_maximum:
-                upper = lower
         else:
             lower, upper, target = math.radians(45.0), float(physical[1]), float(physical[1])
-            if exact_maximum:
-                lower = upper
         term.set_control_joint_bounds((local_index,), (lower,), (upper,))
         posture = robot.data.joint_pos[:, term._joint_ids].clone()
         posture[:, local_index] = target
@@ -338,95 +334,22 @@ def _task_q6_constraints(robot, arm_terms, *, exact_maximum: bool = False):
     )
 
 
-def _camera_forward_tcp_orientations(robot, ee_ids, camera_body_ids):
-    """Orient physical wrist-camera body +X forward and body +Z upward."""
-    from isaaclab.utils.math import quat_apply, quat_from_matrix, quat_inv, quat_mul
-
-    root_quat = robot.data.root_quat_w[0]
-    dtype = robot.data.body_link_pos_w.dtype
-    device = robot.data.body_link_pos_w.device
-    forward = quat_apply(root_quat, torch.tensor((1.0, 0.0, 0.0), device=device, dtype=dtype))
-    upward = quat_apply(root_quat, torch.tensor((0.0, 0.0, 1.0), device=device, dtype=dtype))
-    forward = forward / forward.norm().clamp_min(1.0e-6)
-    upward = upward - torch.dot(upward, forward) * forward
-    upward = upward / upward.norm().clamp_min(1.0e-6)
-    camera_y = torch.cross(upward, forward, dim=-1)
-    desired_camera_rotation = torch.stack((forward, camera_y, upward), dim=-1)
-    desired_camera_quat = quat_from_matrix(desired_camera_rotation).expand(2, -1)
-    tcp_quat = robot.data.body_link_quat_w[0, ee_ids]
-    camera_quat = robot.data.body_link_quat_w[0, camera_body_ids]
-    tcp_to_camera = quat_mul(quat_inv(tcp_quat), camera_quat)
-    return torch.nn.functional.normalize(
-        quat_mul(desired_camera_quat, quat_inv(tcp_to_camera)), dim=-1
-    )
-
-
-def _prepare_task_ready(env, initial_state: str, steps: int = 240):
-    """Create the bent, forward-camera Task1 reset pose before browser streaming."""
-    from isaaclab.utils.math import quat_apply
+def _load_task_ready(env, initial_state: str):
+    """Load the precomputed bent Task1 pose without a runtime preparation move."""
     from kuavo_isaaclab_scene.robots.gripper_config import resolve_gripper_settings
     from kuavo_isaaclab_scene.robots.initial_states import apply_initial_state, load_initial_state
     from kuavo_isaaclab_scene.robots.robot_model import resolve_robot_model
 
-    robot = env.scene["robot"]
     state = load_initial_state(
         initial_state,
         robot_model=resolve_robot_model().name,
         gripper=resolve_gripper_settings().name,
     )
-    joints = state["assets"]["robot"]["joint_positions"]
-    joints["zarm_l6_joint"] = -math.radians(75.0)
-    joints["zarm_r6_joint"] = math.radians(75.0)
     apply_initial_state(env, None, state, initial_state)
     env.scene.write_data_to_sim()
     env.sim.forward()
     env.scene.update(env.step_dt)
-    arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
-    ee_ids, _ = robot.find_bodies(
-        ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
-    )
-    camera_ids, camera_names = robot.find_bodies(
-        ("l_d405_camera", "r_d405_camera"), preserve_order=True
-    )
-    if len(camera_ids) != 2:
-        raise RuntimeError(f"Could not resolve wrist camera bodies: {camera_names}")
-    q6_ids, q6_names, _, q6_targets = _task_q6_constraints(
-        robot, arm_terms, exact_maximum=True
-    )
-    orientations = _camera_forward_tcp_orientations(robot, ee_ids, camera_ids)
-    positions = robot.data.body_link_pos_w[0, ee_ids].clone()
-    action = _absolute_pose_action(env, robot, positions, orientations)
-    for term in arm_terms:
-        term.position_weight = 0.0
-        term.orientation_weight = 1.0
-        term.set_following(True)
-    for _ in range(int(steps)):
-        env.step(action)
-    camera_quat = robot.data.body_link_quat_w[0, camera_ids]
-    camera_forward = quat_apply(
-        camera_quat,
-        torch.tensor((1.0, 0.0, 0.0), device=env.device, dtype=positions.dtype).expand(2, -1),
-    )
-    base_forward = quat_apply(
-        robot.data.root_quat_w[0],
-        torch.tensor((1.0, 0.0, 0.0), device=env.device, dtype=positions.dtype),
-    )
-    alignment = (camera_forward * base_forward).sum(-1)
-    q6 = robot.data.joint_pos[0, q6_ids]
-    arm_state = {
-        name: float(robot.data.joint_pos[0, index].item())
-        for index, name in enumerate(robot.joint_names)
-        if name.startswith("zarm_")
-    }
-    for term in arm_terms:
-        term.position_weight = 1.0
-        term.hold_current_pose()
-    print(
-        f"[TASK_READY] q6_names={q6_names} target_rad={q6_targets.cpu().tolist()} "
-        f"actual_rad={q6.detach().cpu().tolist()} camera_forward_dot_base_forward="
-        f"{alignment.detach().cpu().tolist()} arm_joint_positions={arm_state}",
-        flush=True,
-    )
+    print(f"[TASK_READY] loaded_initial_state={initial_state}; no runtime wrist preparation", flush=True)
 
 
 class _LivePregraspRunner:
@@ -467,9 +390,8 @@ class _LivePregraspRunner:
             term_joint_ids = [int(joint_id) for joint_id in term._joint_ids]
             self.q6_local_indices.append(term_joint_ids.index(int(q6_joint_id)))
 
-        # Use the same stationary task reset as the smoke runner. This puts
-        # the robot in the captured ready posture; q7 is not commanded by the
-        # pregrasp move itself.
+        # A normal fallback may still load a named stationary pose here. The
+        # web entrypoint preloads Task1 Ready before the browser connects.
         from kuavo_isaaclab_scene.robots.gripper_config import resolve_gripper_settings
         from kuavo_isaaclab_scene.robots.initial_states import apply_initial_state, load_initial_state
         from kuavo_isaaclab_scene.robots.robot_model import resolve_robot_model
@@ -536,8 +458,8 @@ class _LivePregraspRunner:
         self.action = _absolute_pose_action(
             self.env, self.robot, self.targets_w, self.pregrasp_orientations_w
         )
-        # Keep the current redundancy posture, including q7, as a soft
-        # null-space target. No direct q7 command is issued by this preview.
+        # q6 is already bent in the initial state. During motion it remains
+        # inside the mirrored 45--75 degree task band; there is no bend phase.
         _task_q6_constraints(self.robot, self.arm_terms)
         for term in self.arm_terms:
             # Camera-forward is an initial-state contract, not a hard
@@ -705,7 +627,7 @@ def main() -> None:
     env = ManagerBasedRLEnv(cfg=cfg)
     env.reset(seed=args_cli.seed)
     if args_cli.pregrasp:
-        _prepare_task_ready(env, args_cli.pregrasp_initial_state)
+        _load_task_ready(env, args_cli.pregrasp_initial_state)
     if args_cli.camera_preview and not args_cli.headless:
         open_camera_viewports(
             env.scene,
