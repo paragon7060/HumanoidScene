@@ -14,7 +14,9 @@ import subprocess
 from typing import Iterable, Sequence
 
 
+PLANT_DOF = 29
 ARM_DOF = 14
+ARM_SLICE = slice(13, 27)
 
 
 def _finite_values(values: Iterable[float], expected: int, name: str) -> list[float]:
@@ -56,7 +58,7 @@ class KuavoPlantIkClient:
         right_position: Sequence[float],
         right_quat_xyzw: Sequence[float],
     ) -> list[float]:
-        q0_values = _finite_values(q0, ARM_DOF, "q0")
+        q0_values = _finite_values(q0, PLANT_DOF, "q0")
         left_pos = _finite_values(left_position, 3, "left_position")
         left_quat = _finite_values(left_quat_xyzw, 4, "left_quat_xyzw")
         right_pos = _finite_values(right_position, 3, "right_position")
@@ -75,7 +77,7 @@ class KuavoPlantIkClient:
         response = self.process.stdout.readline().strip().split()
         if not response or response[0] != "1":
             raise RuntimeError("Kuavo plantIK reported target as unreachable")
-        return _finite_values(response[1:], ARM_DOF, "plantIK solution")
+        return _finite_values(response[1:], PLANT_DOF, "plantIK solution")
 
     def close(self) -> None:
         if self.process.poll() is None:
@@ -93,5 +95,4 @@ class KuavoPlantIkClient:
         self.close()
 
 
-__all__ = ["ARM_DOF", "KuavoPlantIkClient"]
-
+__all__ = ["ARM_DOF", "ARM_SLICE", "PLANT_DOF", "KuavoPlantIkClient"]

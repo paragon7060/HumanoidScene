@@ -17,9 +17,12 @@
 
 namespace {
 
-constexpr int kArmDof = 14;
+// Kuavo 5W's plant contains 12 leg joints, one waist joint, 14 arm joints,
+// and two head joints. plantIK solves the complete 29-position plant; the
+// collection schema can take the arm slice [13:27] from the response.
+constexpr int kPlantDof = 29;
 constexpr int kPoseValues = 7;  // xyz + xyzw
-constexpr int kInputValues = kArmDof + 2 * kPoseValues;
+constexpr int kInputValues = kPlantDof + 2 * kPoseValues;
 
 std::vector<double> parse_line(const std::string& line) {
   std::istringstream stream(line);
@@ -49,7 +52,7 @@ void print_failure() {
 
 int main(int argc, char** argv) {
   if (argc != 2) {
-    std::cerr << "usage: kuavo_plantik_server <biped_v3_arm.urdf>\n";
+    std::cerr << "usage: kuavo_plantik_server <kuavo5.urdf>\n";
     return 2;
   }
 
@@ -58,11 +61,11 @@ int main(int argc, char** argv) {
     auto* plant = builder.AddSystem<drake::multibody::MultibodyPlant<double>>(0.001);
     drake::multibody::Parser parser(plant);
     parser.AddModels(std::filesystem::path(argv[1]));
-    plant->WeldFrames(plant->world_frame(), plant->GetFrameByName("torso"));
+    plant->WeldFrames(plant->world_frame(), plant->GetFrameByName("base_link"));
     plant->Finalize();
 
-    if (plant->num_positions() != kArmDof) {
-      throw std::runtime_error("expected a 14-DoF arm-only Drake URDF");
+    if (plant->num_positions() != kPlantDof) {
+      throw std::runtime_error("expected the 29-DoF Kuavo 5W Drake URDF");
     }
 
     auto diagram = builder.Build();
@@ -71,7 +74,7 @@ int main(int argc, char** argv) {
     (void)plant_context;
 
     HighlyDynamic::CoMIK solver(
-        plant, {"torso", "l_hand_roll", "r_hand_roll"});
+        plant, {"base_link", "zarm_l7_end_effector", "zarm_r7_end_effector"});
     HighlyDynamic::IKParams params;
     params.pos_cost_weight = 0.0;
     params.constraint_mode = 0;
@@ -85,7 +88,7 @@ int main(int argc, char** argv) {
       try {
         const auto values = parse_line(line);
         if (values.size() != kInputValues) {
-          throw std::runtime_error("expected 28 numeric values");
+          throw std::runtime_error("expected 43 numeric values");
         }
         for (const double value : values) {
           if (!std::isfinite(value)) {
@@ -93,13 +96,13 @@ int main(int argc, char** argv) {
           }
         }
 
-        Eigen::VectorXd q0(kArmDof);
-        for (int i = 0; i < kArmDof; ++i) {
+        Eigen::VectorXd q0(kPlantDof);
+        for (int i = 0; i < kPlantDof; ++i) {
           q0[i] = values[i];
         }
 
-        const int left_offset = kArmDof;
-        const int right_offset = kArmDof + kPoseValues;
+        const int left_offset = kPlantDof;
+        const int right_offset = kPlantDof + kPoseValues;
         Eigen::Vector3d left_position(
             values[left_offset], values[left_offset + 1], values[left_offset + 2]);
         Eigen::Vector3d right_position(
@@ -111,13 +114,13 @@ int main(int argc, char** argv) {
         };
 
         Eigen::VectorXd solution;
-        if (!solver.solve(poses, q0, solution, params) || solution.size() != kArmDof) {
+        if (!solver.solve(poses, q0, solution, params) || solution.size() != kPlantDof) {
           print_failure();
           continue;
         }
 
         std::cout << "1";
-        for (int i = 0; i < kArmDof; ++i) {
+        for (int i = 0; i < kPlantDof; ++i) {
           std::cout << ' ' << solution[i];
         }
         std::cout << '\n' << std::flush;

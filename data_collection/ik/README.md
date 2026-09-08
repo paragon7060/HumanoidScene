@@ -5,7 +5,7 @@ Task1의 기본 실행기는 IsaacLab DLS를 유지한다. Kuavo와 같은 IK를
 
 ## 원칙
 
-- 로봇 모델은 중복하지 않는다. `src/kuavo_isaaclab_scene/assets/kuavo_s200062/urdf/drake/biped_v3_arm.urdf`를 그대로 읽는다.
+- 로봇 모델은 중복하지 않는다. Kuavo5W의 `src/kuavo_isaaclab_scene/assets/kuavo5/kuavo5.urdf`를 그대로 읽는다.
 - ROS, LeTools, `kuavo_humanoid_sdk`는 이 경로의 필수 의존성이 아니다.
 - Kuavo 저장소에서 가져오는 것은 `plantIK.h`와 `libplantIK.so`뿐이다.
 - solver/runtime은 Git repo나 episode output에 넣지 않는다. Kanu의 별도 runtime root
@@ -28,13 +28,14 @@ data_collection/ik/
     └── build_kuavo_plantik.sh
 ```
 
-`native` worker는 한 번 모델을 로드한 뒤 stdin 한 줄마다 다음 28개 값을 받는다.
+`native` worker는 한 번 모델을 로드한 뒤 stdin 한 줄마다 다음 43개 값을 받는다.
 
 ```text
-q0[14], left_pos[3], left_quat_xyzw[4], right_pos[3], right_quat_xyzw[4]
+q0[29], left_pos[3], left_quat_xyzw[4], right_pos[3], right_quat_xyzw[4]
 ```
 
-stdout에는 `1 q[14]`(성공) 또는 `0`(실패)을 한 줄로 반환한다. 따라서 Isaac
+`q0`/반환 `q`는 Kuavo5W 전체 plant 순서이며, arm schema는 `q[13:27]`이다.
+stdout에는 `1 q[29]`(성공) 또는 `0`(실패)을 한 줄로 반환한다. 따라서 Isaac
 simulation loop 안에서 매번 프로세스를 새로 띄우지 않는다.
 
 ## 준비/실행
@@ -47,8 +48,7 @@ data_collection/ik/scripts/build_kuavo_plantik.sh "$KUAVO_IK_RUNTIME"
 ```
 
 빌드는 Drake CMake 패키지(`drake_DIR` 또는 `DRAKE_DIR`)를 요구한다. ROS master가
-없어도 되지만, Drake ABI가 `libplantIK.so`와 맞아야 한다. 첫 smoke는 현재
+없어도 되지만, Drake ABI가 `libplantIK.so`와 맞아야 한다. 첫 smoke는 Kuavo5W
 `MediumBox_0` pregrasp target에 대해 q를 받고, 기존 Isaac FK로 양손 위치·방향
 잔차를 기록한다. 성공 전에는 `task1_box_pick_web.py`의 기본 DLS 경로를 변경하지
 않는다.
-
