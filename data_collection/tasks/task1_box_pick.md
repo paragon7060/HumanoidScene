@@ -22,11 +22,19 @@ S200062에서 손목 pitch는 `zarm_l6_joint`/`zarm_r6_joint`이고, 7번은 han
 따라서 기존 q7 smoke 결과는 손목 pitch 검증 근거로 사용하지 않는다. 좌우 관절의
 부호와 한계가 서로 다르므로 같은 숫자를 넣지 않고 같은 물리 방향이 되도록 정한다.
 
-현재 웹 방향 확인용 테스트는 Ready 자세의 q6 굽힘 부호를 보존한다. 양손이 좌우
-상단 grasp point의 base +Z pregrasp에 도착하면 TCP 위치를 유지하고 orientation
-제약을 풀어 왼쪽 q6는 음의 한계, 오른쪽 q6는 양의 한계까지 천천히 보낸다. 이는
-방향·가동범위 확인용이며 production grasp schedule이나 성공 판정에는 포함하지
-않는다. 위치 유지를 위해 나머지 팔 관절이 IK로 보상할 수 있다.
+현재 웹 방향 확인용 테스트는 Ready 자세의 q6 굽힘 부호를 보존한다. 좌우 손의 TCP
+frame 계약은 `local +X = 해당 flap의 inward 면 법선(집게 닫힘축)`,
+`local -Z = 그리퍼 전진/접근축`이다.
+
+1. Pregrasp에서는 `local -Z`를 robot-base `+X`와 정렬해 박스를 향하게 한다.
+2. 좌우 상단 grasp point의 base `+Z` pregrasp에 도착하면 위치와 `local +X` 면 정렬을
+   유지한다.
+3. Ready-grasp에서는 q6를 현재 굽힘 방향의 한계(왼쪽 음수, 오른쪽 양수)로 보내면서
+   `local -Z`를 `pregrasp → grasp point`, 즉 robot-base `-Z`와 정렬한다.
+
+Ready-grasp에서도 orientation 제약을 끄지 않는다. full TCP pose와 q6를 함께 풀기
+때문에 나머지 팔 관절은 위치·면 정렬을 유지하도록 보상할 수 있다. 현재 한계 동작은
+방향·가동범위 확인용이며 production grasp schedule이나 성공 판정에는 포함하지 않는다.
 
 현재 실행 상태:
 

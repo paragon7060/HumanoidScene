@@ -208,7 +208,7 @@ def _pose_to_world(pose: np.ndarray, root_pos: np.ndarray, root_quat: np.ndarray
 
 
 def _pregrasp_targets(env, *, height_m: float, grasp_depth_m: float):
-    """Compute pregrasp points above the live box's left/right upper grasp pair."""
+    """Compute upper grasp points, pregrasp points, and inward flap normals."""
     import torch
     from kuavo_isaaclab_scene.rl.scenes.asset_geometry import box_geometry
 
@@ -226,12 +226,18 @@ def _pregrasp_targets(env, *, height_m: float, grasp_depth_m: float):
 
     flap_pos = box.data.body_link_pos_w[0, flap_ids]
     flap_quat = box.data.body_link_quat_w[0, flap_ids]
+    body_ids, body_names = box.find_bodies("Body")
+    if len(body_ids) != 1:
+        raise RuntimeError(f"MediumBox_0 body lookup failed: body={body_names}")
+    body_pos = box.data.body_link_pos_w[0, body_ids[0]]
     from isaaclab.utils.math import quat_apply
 
     base_up_local = torch.tensor((0.0, 0.0, 1.0), device=env.device, dtype=flap_pos.dtype)
     base_up_w = quat_apply(robot.data.root_quat_w[0], base_up_local)
     base_up_w = base_up_w / base_up_w.norm().clamp_min(1.0e-6)
     targets = []
+    grasps = []
+    inward_normals = []
     diagnostics = []
     for index, flap_name in enumerate(("flap_right", "flap_left")):
         flap = geometry.flaps[flap_name]
@@ -240,16 +246,43 @@ def _pregrasp_targets(env, *, height_m: float, grasp_depth_m: float):
         # Isaac's quat_apply keeps the wxyz convention used by the USD asset.
         grasp = flap_pos[index] + quat_apply(flap_quat[index], local_grasp)
         pregrasp = grasp + base_up_w * height_m
+        local_normal = torch.tensor(
+            (1.0, 0.0, 0.0) if flap_name == "flap_right" else (-1.0, 0.0, 0.0),
+            device=env.device,
+            dtype=flap_pos.dtype,
+        )
+        outward = quat_apply(flap_quat[index], local_normal)
+        outward = outward / outward.norm().clamp_min(1.0e-6)
+        if torch.dot(outward, flap_pos[index] - body_pos) < 0.0:
+            outward = -outward
+        inward = -outward
         targets.append(pregrasp)
+        grasps.append(grasp)
+        inward_normals.append(inward)
         diagnostics.append(
             {
                 "flap": flap_name,
                 "grasp_position_w": grasp.detach().cpu().tolist(),
                 "base_up_w": base_up_w.detach().cpu().tolist(),
+                "inward_flap_normal_w": inward.detach().cpu().tolist(),
                 "pregrasp_position_w": pregrasp.detach().cpu().tolist(),
             }
         )
-    return torch.stack(targets), diagnostics
+    return torch.stack(targets), torch.stack(grasps), torch.stack(inward_normals), diagnostics
+
+
+def _orientation_from_closing_and_forward(closing_axes_w, forward_axes_w):
+    """Return wxyz TCP quaternions for local +X closing and local -Z forward."""
+    from isaaclab.utils.math import quat_from_matrix
+
+    closing = torch.nn.functional.normalize(closing_axes_w, dim=-1)
+    # Remove any numerical component parallel to the flap normal.
+    forward = forward_axes_w - (forward_axes_w * closing).sum(-1, keepdim=True) * closing
+    forward = torch.nn.functional.normalize(forward, dim=-1)
+    local_z = -forward
+    local_y = torch.nn.functional.normalize(torch.cross(local_z, closing, dim=-1), dim=-1)
+    rotation = torch.stack((closing, local_y, local_z), dim=-1)
+    return torch.nn.functional.normalize(quat_from_matrix(rotation), dim=-1)
 
 
 def _absolute_pose_action(env, robot, positions_w, orientations_w):
@@ -334,6 +367,9 @@ class _LivePregraspRunner:
         self.settle_remaining = int(settle_steps)
         self.phase = "settle" if self.settle_remaining else "move"
         self.targets_w = None
+        self.grasps_w = None
+        self.pregrasp_orientations_w = None
+        self.readygrasp_orientations_w = None
         self.geometry = None
         self.initial_q7 = None
         self.q6_start = None
@@ -360,28 +396,45 @@ class _LivePregraspRunner:
         )
 
     def _start_motion(self, initial_state):
-        self.targets_w, self.geometry = _pregrasp_targets(
+        self.targets_w, self.grasps_w, inward_normals_w, self.geometry = _pregrasp_targets(
             self.env, height_m=self.height_m, grasp_depth_m=self.grasp_depth_m
         )
         self.initial_q7 = self.robot.data.joint_pos[0, [
             self.robot.find_joints("zarm_l7_joint", preserve_order=True)[0][0],
             self.robot.find_joints("zarm_r7_joint", preserve_order=True)[0][0],
         ]].clone()
-        orientations_w = self.robot.data.body_link_quat_w[0, self.ee_ids].clone()
-        self.action = _absolute_pose_action(self.env, self.robot, self.targets_w, orientations_w)
+        from isaaclab.utils.math import quat_apply
+
+        root_quat = self.robot.data.root_quat_w[0]
+        base_forward = quat_apply(
+            root_quat,
+            torch.tensor((1.0, 0.0, 0.0), device=self.env.device, dtype=self.targets_w.dtype),
+        )
+        base_forward = base_forward.expand_as(inward_normals_w)
+        grasp_directions = torch.nn.functional.normalize(self.grasps_w - self.targets_w, dim=-1)
+        self.pregrasp_orientations_w = _orientation_from_closing_and_forward(
+            inward_normals_w, base_forward
+        )
+        self.readygrasp_orientations_w = _orientation_from_closing_and_forward(
+            inward_normals_w, grasp_directions
+        )
+        self.action = _absolute_pose_action(
+            self.env, self.robot, self.targets_w, self.pregrasp_orientations_w
+        )
         # Keep the current redundancy posture, including q7, as a soft
         # null-space target. No direct q7 command is issued by this preview.
         for term in self.arm_terms:
             term.set_posture_target(
                 self.robot.data.joint_pos[:, term._joint_ids].clone(), weight=0.60
             )
-            term.orientation_weight = 0.5
+            term.orientation_weight = 1.0
             term.set_following(True)
         self.remaining = self.total
         self.phase = "move"
         print(
             f"[PREGRASP] targets_ready initial_state={initial_state} "
-            f"targets_w={self.geometry}",
+            f"targets_w={self.geometry} orientation_contract="
+            "local_+X=inward_flap_normal,local_-Z=robot_base_+X",
             flush=True,
         )
 
@@ -396,6 +449,9 @@ class _LivePregraspRunner:
         targets = torch.where(current < 0.0, limits[:, 0], limits[:, 1])
         self.q6_start = current
         self.q6_targets = targets
+        self.action = _absolute_pose_action(
+            self.env, self.robot, self.targets_w, self.readygrasp_orientations_w
+        )
         for index, term in enumerate(self.arm_terms):
             posture = self.robot.data.joint_pos[:, term._joint_ids].clone()
             posture[:, self.q6_local_indices[index]] = targets[index]
@@ -405,7 +461,7 @@ class _LivePregraspRunner:
                 direct_indices=(self.q6_local_indices[index],),
                 direct_gain=4.0,
             )
-            term.orientation_weight = 0.0
+            term.orientation_weight = 1.0
             term.set_following(True)
         self.remaining = self.wrist6_test_steps
         self.phase = "wrist6_limit"
@@ -413,7 +469,8 @@ class _LivePregraspRunner:
             f"[WRIST6] names={self.q6_joint_names} "
             f"start_rad={current.detach().cpu().tolist()} "
             f"target_rad={targets.detach().cpu().tolist()} "
-            f"limits_rad={limits.detach().cpu().tolist()} steps={self.remaining}",
+            f"limits_rad={limits.detach().cpu().tolist()} steps={self.remaining} "
+            "orientation_contract=local_+X=inward_flap_normal,local_-Z=grasp_direction",
             flush=True,
         )
 
