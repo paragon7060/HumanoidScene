@@ -1,0 +1,21 @@
+# 실행용이 아닌 설계 초안. null을 자동 기본값으로 소비하지 않는다.
+draft: true
+dataset_fps: 10
+target_format: lerobot_v3
+write_strategy: null  # direct / raw_then_convert: 기존 writer 검증 후 결정
+save_hdf5: null
+save_raw_control: null
+episodes: null  # 목표 성공 에피소드 수
+max_attempts: null  # 실패 반복의 상한; 모든 시도 결과는 기록
+output_root: /home/work/mntvol/data/outputs
+run_name: null  # output_root/<run_name>/; 기존 run 덮어쓰기 금지
+resume: false
+cameras:
+  head: {enabled: true, width: null, height: null}
+  left_wrist: {enabled: true, width: null, height: null}
+  right_wrist: {enabled: true, width: null, height: null}
+extra_modalities:
+  depth: null
+  segmentation: null
+preserve_privileged_gt: true
+record_failure_metadata: true
