@@ -1,5 +1,7 @@
 """Persistent pose targets with a bounded control-rate joint servo."""
 
+import math
+
 import torch
 from isaaclab.envs.mdp.actions.task_space_actions import DifferentialInverseKinematicsAction
 from isaaclab.utils.math import apply_delta_pose, compute_pose_error
@@ -25,6 +27,12 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._joint_command = self._asset.data.default_joint_pos[:, self._joint_ids].clone()
         self._joint_velocity = torch.zeros_like(self._joint_command)
         self._gravity_bias = torch.zeros_like(self._joint_command)
+        # Optional redundancy/posture target.  The normal teleop path leaves
+        # this unset and therefore keeps the historical default-joint
+        # null-space preference.  Task planners can set only the wrist-pitch
+        # component while still solving the full TCP pose with IK.
+        self._posture_target = None
+        self._posture_weight = 0.15
         self.orientation_weight = 0.5
         self._following = True
         self._held_joints = None
@@ -53,6 +61,37 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._target_ready[ids] = False
         self._joint_velocity[ids] = 0
         self._held_joints = None
+        if env_ids is None:
+            self._posture_target = None
+        elif self._posture_target is not None:
+            self._posture_target[ids] = self._asset.data.default_joint_pos[:, self._joint_ids][ids]
+
+    def set_posture_target(self, target, *, weight: float = 0.15):
+        """Set a joint-space null-space target for this arm's IK.
+
+        ``target`` is the complete arm joint vector in the action term's
+        joint order.  A planner may copy the current vector and replace only
+        ``zarm_*_joint`` pitch, which avoids post-solve joint overwrites that
+        would invalidate the requested TCP pose.
+        """
+        target = torch.as_tensor(target, device=self.device, dtype=self._joint_command.dtype)
+        if target.ndim == 1:
+            target = target.unsqueeze(0).expand(self.num_envs, -1)
+        expected = (self.num_envs, self._num_joints)
+        if tuple(target.shape) != expected:
+            raise ValueError(f"posture target shape must be {expected}, got {tuple(target.shape)}")
+        if not torch.isfinite(target).all():
+            raise ValueError("posture target must contain only finite values")
+        if not math.isfinite(float(weight)) or weight < 0.0:
+            raise ValueError(f"posture weight must be finite and nonnegative, got {weight}")
+        limits = self._asset.data.joint_pos_limits[:, self._joint_ids]
+        self._posture_target = torch.clamp(target, limits[..., 0], limits[..., 1]).clone()
+        self._posture_weight = float(weight)
+
+    def clear_posture_target(self):
+        """Restore the historical default-joint null-space preference."""
+        self._posture_target = None
+        self._posture_weight = 0.15
 
     def process_actions(self, actions):
         super().process_actions(actions)
@@ -92,13 +131,14 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         joints = self._asset.data.joint_pos[:, self._joint_ids]
         limits = self._asset.data.joint_pos_limits[:, self._joint_ids]
         rest = self._asset.data.default_joint_pos[:, self._joint_ids]
+        posture = rest if self._posture_target is None else self._posture_target
         inverse = jac.transpose(1, 2) @ torch.linalg.solve(
             jac @ jac.transpose(1, 2) + .08 ** 2 * ident, ident)
         velocity = (inverse @ error.unsqueeze(-1)).squeeze(-1)
         # Continuous damping and a weak posture preference avoid abrupt
         # solution changes at a joint stop. Hard bounds are enforced below.
         nullspace = torch.eye(joints.shape[-1], device=self.device) - inverse @ jac
-        velocity += .15 * (nullspace @ (rest - joints).unsqueeze(-1)).squeeze(-1)
+        velocity += self._posture_weight * (nullspace @ (posture - joints).unsqueeze(-1)).squeeze(-1)
         velocity *= (1.5 / velocity.abs().amax(-1, keepdim=True).clamp_min(1.5))
         velocity = torch.clamp(velocity, self._joint_velocity - 12. * self._dt,
                                self._joint_velocity + 12. * self._dt)

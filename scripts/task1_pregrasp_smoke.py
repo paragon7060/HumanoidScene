@@ -67,6 +67,21 @@ def _load_configs(config_dir: Path) -> dict[str, dict]:
         camera = collection["cameras"][name]
         if (camera.get("width"), camera.get("height")) != (848, 480):
             raise ValueError(f"{name} must be configured as 848x480 for this smoke.")
+    wrist = task.get("wrist_pitch", {})
+    if wrist.get("enabled", False):
+        full_target = float(wrist.get("full_target_rad", 0.65))
+        transit_fraction = float(wrist.get("transit_fraction", 0.33))
+        posture_weight = float(wrist.get("posture_weight", 0.60))
+        prepare_steps = int(wrist.get("prepare_steps", 30))
+        rotate_steps = int(wrist.get("rotate_steps", 90))
+        if not math.isfinite(full_target) or not 0.0 < full_target < math.radians(40.0):
+            raise ValueError("wrist_pitch.full_target_rad must be finite and inside the +40 degree joint stop.")
+        if not math.isfinite(transit_fraction) or not 0.0 <= transit_fraction <= 1.0:
+            raise ValueError("wrist_pitch.transit_fraction must be in [0, 1].")
+        if not math.isfinite(posture_weight) or posture_weight < 0.0:
+            raise ValueError("wrist_pitch.posture_weight must be finite and nonnegative.")
+        if prepare_steps < 0 or rotate_steps <= 0:
+            raise ValueError("wrist_pitch.prepare_steps must be nonnegative and rotate_steps must be positive.")
     return configs
 
 
@@ -104,6 +119,53 @@ def _quat_rotate(quat, vector):
     from isaaclab.utils.math import quat_apply
 
     return quat_apply(quat, vector)
+
+
+def _quat_axis_angle(axis, angle):
+    """Build wxyz quaternions for rotations around already-world-frame axes."""
+    import torch
+
+    half = angle.unsqueeze(-1) * 0.5
+    return torch.cat((torch.cos(half), axis * torch.sin(half)), dim=-1)
+
+
+def _wrist_pitch_orientations(robot, ee_ids, parent_ids, joint_ids, target_q7):
+    """Return world TCP orientations that request an absolute q7 pitch.
+
+    The q7 joint axis is +Y in the zarm_*6 parent frame.  Rotating the current
+    TCP around that measured world axis preserves the current mirrored left/right
+    hand convention while asking IK to move only the shared wrist-pitch posture.
+    """
+    import torch
+    from isaaclab.utils.math import quat_mul
+
+    current_tcp = robot.data.body_link_quat_w[0, ee_ids]
+    parent_quat = robot.data.body_link_quat_w[0, parent_ids]
+    current_q7 = robot.data.joint_pos[0, joint_ids]
+    # ``Articulation`` exposes the tensor device through its data buffers; use
+    # that public path instead of relying on an implementation-specific
+    # ``robot.device`` attribute.
+    axis_local = torch.zeros((len(parent_ids), 3), device=current_tcp.device, dtype=current_tcp.dtype)
+    axis_local[:, 1] = 1.0
+    axis_world = _quat_rotate(parent_quat, axis_local)
+    axis_world = axis_world / axis_world.norm(dim=-1, keepdim=True).clamp_min(1.0e-6)
+    delta = _quat_axis_angle(axis_world, target_q7 - current_q7)
+    return torch.nn.functional.normalize(quat_mul(delta, current_tcp), dim=-1)
+
+
+def _set_wrist_posture(terms, robot, target_q7, weight):
+    """Set both arm null-space targets while preserving the other current joints."""
+    for index, term in enumerate(terms):
+        target = robot.data.joint_pos[:, term._joint_ids].clone()
+        if target.shape[-1] != 7:
+            raise RuntimeError(f"Expected a 7-DoF arm term, got {tuple(target.shape)}")
+        target[:, -1] = target_q7[index]
+        term.set_posture_target(target, weight=weight)
+
+
+def _clear_wrist_posture(terms):
+    for term in terms:
+        term.clear_posture_target()
 
 
 def _pregrasp_targets(env, *, distance_m: float, grasp_depth_m: float):
@@ -186,6 +248,20 @@ def _world_targets_to_root_frame(robot, positions_w, orientations_w):
     return subtract_frame_transforms(root_pos_w, root_quat_w, positions_w, orientations_w)
 
 
+def _pose_command(env, robot, positions_w, orientations_w):
+    """Build the absolute pose action after converting world targets to root frame."""
+    root_targets, root_orientations = _world_targets_to_root_frame(
+        robot, positions_w, orientations_w
+    )
+    return _action_with_targets(
+        env,
+        root_targets[0],
+        root_targets[1],
+        root_orientations[0],
+        root_orientations[1],
+    )
+
+
 def _save_rgb(env, name: str, output_dir: Path):
     from PIL import Image
 
@@ -203,7 +279,6 @@ def _save_rgb(env, name: str, output_dir: Path):
 
 
 def run(args, configs):
-    import numpy as np
     import torch
     from kuavo_isaaclab_scene.robots.initial_states import apply_initial_state, load_initial_state
     from kuavo_isaaclab_scene.robots.gripper_config import resolve_gripper_settings
@@ -256,39 +331,117 @@ def run(args, configs):
         )
         if len(ee_ids) != 2:
             raise RuntimeError(f"TCP body lookup failed: {robot_cfg['left_tcp_link']}, {robot_cfg['right_tcp_link']}")
-        left_quat_w = robot.data.body_link_quat_w[0, ee_ids[0]].clone()
-        right_quat_w = robot.data.body_link_quat_w[0, ee_ids[1]].clone()
+        parent_ids, parent_names = robot.find_bodies(
+            ("zarm_l6_link", "zarm_r6_link"), preserve_order=True
+        )
+        wrist_joint_ids, wrist_joint_names = robot.find_joints(
+            ("zarm_l7_joint", "zarm_r7_joint"), preserve_order=True
+        )
+        if (
+            tuple(parent_names) != ("zarm_l6_link", "zarm_r6_link")
+            or tuple(wrist_joint_names) != ("zarm_l7_joint", "zarm_r7_joint")
+        ):
+            raise RuntimeError(
+                f"Unexpected wrist order: parents={parent_names}, joints={wrist_joint_names}"
+            )
+        if len(parent_ids) != 2 or len(wrist_joint_ids) != 2:
+            raise RuntimeError("Could not resolve both zarm_*6 parent links and zarm_*7 wrist joints.")
+        arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
+        wrist_cfg = task_cfg.get("wrist_pitch", {})
+        wrist_enabled = bool(wrist_cfg.get("enabled", False))
+        if wrist_enabled:
+            full_q7 = float(wrist_cfg.get("full_target_rad", 0.65))
+            transit_fraction = float(wrist_cfg.get("transit_fraction", 0.33))
+            posture_weight = float(wrist_cfg.get("posture_weight", 0.60))
+            prepare_steps = int(wrist_cfg.get("prepare_steps", 30))
+            rotate_steps = int(wrist_cfg.get("rotate_steps", 90))
+        else:
+            full_q7 = transit_fraction = posture_weight = 0.0
+            prepare_steps = rotate_steps = 0
+        wrist_limits = robot.data.joint_pos_limits[0, wrist_joint_ids]
+        full_below_limit = bool((full_q7 < wrist_limits[:, 0]).any().item())
+        full_above_limit = bool((full_q7 > wrist_limits[:, 1]).any().item())
+        if wrist_enabled and (full_below_limit or full_above_limit):
+            raise RuntimeError(
+                f"wrist_pitch.full_target_rad={full_q7} exceeds q7 limits "
+                f"{wrist_limits.detach().cpu().tolist()}"
+            )
+        transit_q7 = torch.full(
+            (2,), full_q7 * transit_fraction, device=env.device, dtype=robot.data.joint_pos.dtype
+        )
+        full_q7_tensor = torch.full(
+            (2,), full_q7, device=env.device, dtype=robot.data.joint_pos.dtype
+        )
         box = env.scene["medium_box_0"]
         box_start = box.data.root_pose_w[0].clone()
+        initial_q7 = robot.data.joint_pos[0, wrist_joint_ids].clone()
+        report["start"] = {
+            "ee_pose_w": robot.data.body_link_pose_w[0, ee_ids].detach().cpu().tolist(),
+            "box_root_pose_w": box_start.detach().cpu().tolist(),
+            "wrist_pitch_q7_rad": initial_q7.detach().cpu().tolist(),
+        }
+        report["wrist_pitch"] = {
+            "enabled": wrist_enabled,
+            "transit_fraction": transit_fraction,
+            "transit_target_rad": transit_q7.detach().cpu().tolist(),
+            "full_target_rad": full_q7_tensor.detach().cpu().tolist(),
+            "joint_limits_rad": wrist_limits.detach().cpu().tolist(),
+            "posture_weight": posture_weight,
+            "prepare_steps": prepare_steps,
+            "rotate_steps": rotate_steps,
+        }
+
+        phase_records = []
+
+        def run_phase(name, positions_w, target_q7, steps):
+            if steps <= 0:
+                return
+            if wrist_enabled:
+                orientations_w = _wrist_pitch_orientations(
+                    robot, ee_ids, parent_ids, wrist_joint_ids, target_q7
+                )
+                _set_wrist_posture(arm_terms, robot, target_q7, posture_weight)
+            else:
+                _clear_wrist_posture(arm_terms)
+                orientations_w = robot.data.body_link_quat_w[0, ee_ids].clone()
+            command = _pose_command(env, robot, positions_w, orientations_w)
+            for _ in range(steps):
+                env.step(command)
+            measured_q7 = robot.data.joint_pos[0, wrist_joint_ids].clone()
+            phase_records.append({
+                "name": name,
+                "steps": steps,
+                "target_q7_rad": target_q7.detach().cpu().tolist(),
+                "measured_q7_rad": measured_q7.detach().cpu().tolist(),
+                "q7_error_rad": (measured_q7 - target_q7).detach().cpu().tolist(),
+                "position_error_m": (
+                    positions_w - robot.data.body_link_pos_w[0, ee_ids]
+                ).norm(dim=-1).detach().cpu().tolist(),
+            })
+
+        if wrist_enabled:
+            # First make both arms share the narrow-gap pitch at the current
+            # ready pose.  This avoids entering the rack with one wrist at the
+            # captured full angle and the other at a different angle.
+            run_phase(
+                "wrist_prepare_transit_pitch",
+                robot.data.body_link_pos_w[0, ee_ids].clone(),
+                transit_q7,
+                prepare_steps,
+            )
+
         targets, geometry = _pregrasp_targets(
             env,
             distance_m=args.pregrasp_distance_m,
             grasp_depth_m=args.grasp_depth_m,
         )
         report["target_geometry"] = geometry
-        report["start"] = {
-            "ee_pose_w": robot.data.body_link_pose_w[0, ee_ids].detach().cpu().tolist(),
-            "box_root_pose_w": box_start.detach().cpu().tolist(),
-        }
-        # DifferentialInverseKinematicsAction computes its frame pose in the
-        # articulation root frame.  The box geometry is world-frame, so both
-        # the position and the held orientation must be converted before
-        # sending an absolute pose command.  Passing world coordinates here
-        # creates a large, systematic root translation error.
-        world_targets = targets
-        world_orientations = torch.stack((left_quat_w, right_quat_w))
-        root_targets, root_orientations = _world_targets_to_root_frame(
-            robot, world_targets, world_orientations
-        )
-        command = _action_with_targets(
-            env,
-            root_targets[0],
-            root_targets[1],
-            root_orientations[0],
-            root_orientations[1],
-        )
-        for _ in range(args.steps):
-            env.step(command)
+        # Enter the rack gap with the partial pitch, then rotate in place at
+        # pregrasp.  The later grasp runner will keep this full orientation for
+        # the final flap-normal approach and claw close.
+        run_phase("transit_partial_pitch", targets, transit_q7, args.steps)
+        if wrist_enabled:
+            run_phase("pregrasp_full_pitch_staging", targets, full_q7_tensor, rotate_steps)
 
         # Force one final sensor update before writing evidence.
         env.sim.render()
@@ -312,7 +465,12 @@ def run(args, configs):
             "box_root_pose_w": box_end.detach().cpu().tolist(),
             "box_translation_motion_m": float(box_motion.item()),
             "robot_contact_force_max_n": robot_contact_force_max_n,
+            "wrist_pitch_q7_rad": robot.data.joint_pos[0, wrist_joint_ids].detach().cpu().tolist(),
+            "orientation_error_rad": [
+                float(term.target_orientation_error()[0].item()) for term in arm_terms
+            ],
         }
+        report["phases"] = phase_records
         report["camera_outputs"] = {
             "robustness_camera": _save_rgb(env, "robustness_camera", output_dir),
             "left_wrist_camera": _save_rgb(env, "left_wrist_camera", output_dir),

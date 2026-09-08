@@ -14,6 +14,15 @@ seed: 0
 initial_state: quest_ready_02  # existing captured preset; no asset/model substitution
 settle_steps: 120
 grasp_candidates: []  # reference link/pose, approach axis/frame, 거리, hand 목표, 검증 상태
+# Both wrists use the same physical hand-pitch schedule.  The target
+# orientation is mirrored per flap; only the pitch posture is shared.
+wrist_pitch:
+  enabled: true
+  transit_fraction: 0.33  # enter the rack gap with roughly one-third pitch
+  full_target_rad: 0.65  # Stage-3-like target, below the +/-0.698 rad stop
+  posture_weight: 0.60  # IK null-space preference for zarm_*7_joint
+  prepare_steps: 30  # move from the captured ready pose to transit pitch
+  rotate_steps: 90  # turn to full pitch while held at pregrasp
 randomization:
   enabled: false  # 최초 한 종류·한 위치 검증
   box_types: [small, medium, large, xlarge]

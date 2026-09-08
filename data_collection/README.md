@@ -17,7 +17,7 @@ HumanoidScene/Isaac 환경에서 box GT 6D를 이용해 양손 접근 경로를 
 | 단계 | 완료 기준 | 상태 |
 |---|---|---|
 | 문서·설정 | 역할별 문서와 미확정 값 구분 | 작성 완료; YAML은 실행용 아님 |
-| 1. Pregrasp | 모델/FK 일치, 경로 실제 추종, 양손 도달, 금지 접촉 없음 | CPU 사전 검사·Isaac smoke까지 실행; `MediumBox_0` 후보는 위치/접촉 게이트 보정 중 |
+| 1. Pregrasp | 모델/FK 일치, 경로 실제 추종, 양손 도달, 금지 접촉 없음 | CPU 계약·정적 검증 통과; staged wrist smoke 코드는 연결됨; 새 GPU 실행 증거는 아직 없음 |
 | 2. 파지·인출 | 한 종류·한 위치에서 물리 파지, 완전 인출, 안정화 | 후속 |
 | 3. 기록 | 3종 action, 관측/GT, 시간·schema·resume 검증 | LeRobot v3/AV1 writer smoke 통과; 자동 Task1 runner 연결은 후속 |
 | 4. 확대 | 네 종류·배치 변화, 조건별 성공률/실패 원인 기록 | 후속 |
@@ -38,7 +38,18 @@ YAML의 `null`은 미확정이고 `draft: true`는 실행 불가 초안이다. C
 
 ## 현재 구현된 범위 (2026-09-08)
 
-`src/kuavo_isaaclab_scene/planning/`에 CPU 관절 이름 매핑, URDF tree FK, body/flap 기준 pregrasp 변환, YAML/산출물 경로 검증, 소스 사전 검사 CLI를 추가했다. 기존 로봇/손/초기 상태 테스트를 포함해 98개 통과했다. CPU FK는 Pinocchio와 3개 자세 × 양팔에서 비교했다. `scripts/task1_pregrasp_smoke.py`는 flap 로컬 면 법선과 월드→로봇 루트 좌표 변환을 사용해 Isaac headless 검증을 수행하고 PNG/JSON을 남긴다. 기본 orientation weight 0.5 실행에서 두 손 위치 오차는 1.9/5.2 cm, box translation은 0.02 mm였지만 보수적인 3 cm 게이트는 통과하지 못했다. 이는 pregrasp 후보 보정 자료이며 grasp·extraction 성공이나 금지 접촉 부재의 증거가 아니다.
+`src/kuavo_isaaclab_scene/planning/`에 CPU 관절 이름 매핑, URDF tree FK, body/flap 기준 pregrasp 변환, YAML/산출물 경로 검증, 소스 사전 검사 CLI를 추가했다. 전용 IsaacLab 환경에서 전체 테스트는 `387 passed, 1 skipped`(`pxr.Usd` 미설치)였고, CPU FK는 Pinocchio와 3개 자세 × 양팔에서 비교했다. `scripts/task1_pregrasp_smoke.py`는 flap 로컬 면 법선과 월드→로봇 루트 좌표 변환을 사용해 Isaac headless 검증을 수행하고 PNG/JSON을 남긴다. 기존 baseline 실행에서 두 손 위치 오차는 1.9/5.2 cm, box translation은 0.02 mm였지만 보수적인 3 cm 게이트는 통과하지 못했다. 이는 pregrasp 후보 보정 자료이며 grasp·extraction 성공이나 금지 접촉 부재의 증거가 아니다.
+
+현재 smoke에는 `configs/task1.yaml:wrist_pitch` schedule도 연결했다. 양쪽 q7를 먼저
+partial pitch(`0.33×0.65` rad)로 맞춘 뒤 pregrasp까지 이동하고, pregrasp에서
+full pitch(`0.65` rad)로 staging한다. 각 phase의 목표/실제 q7와 위치 오차는
+`pregrasp_smoke.json`에 기록된다. 이 단계는 아직 claw close·pull·lift를 수행하지
+않으므로 데이터셋 성공 episode로 집계하지 않는다.
+
+새 staged smoke를 실제 Isaac Sim으로 실행하려면 첫 실행 시 NVIDIA EULA를
+사용자가 직접 승인해야 한다. 승인 전에는 실행을 중단하며, 승인 후 결과를
+`/home/work/mntvol/data/outputs/<run_name>/`에 기록한다. 현재 이 변경에 대한
+GPU 산출물은 아직 없다.
 
 실행한 사전 검사: `/home/work/mntvol/data/outputs/pregrasp_source_audit_20260908_01/preflight.json`.
 테스트 결과: `/home/work/mntvol/data/outputs/pregrasp_cpu_tests_20260908_03.junit.xml`.
@@ -48,7 +59,7 @@ cuRobo는 현재 Isaac 환경에 미설치이며 조사 시 GPU 0–3은 기존 
 
 ## 보관 및 참고
 
-Repo에는 코드·설정·문서만 둔다. 생성 데이터·영상·로그·진단 결과는 사용자 지정 루트 `/home/work/mntvol/data/outputs` 아래 `<run_name>/`에 저장한다. `configs/collection.yaml`의 `output_root`와 `run_name`으로 경로를 구성하며, 기존 실행을 덮어쓰지 않는다. Kanu에는 현재 `/home/work` mount가 없어 smoke 산출물만 `/home/seonho/outputs/HumanoidScene/`에 저장했다. GPU와 run 이름은 실행 전 확인한다. commit/push는 완료했지만 대량 수집은 아직 하지 않았다.
+Repo에는 코드·설정·문서만 둔다. 생성 데이터·영상·로그·진단 결과는 사용자 지정 루트 `/home/work/mntvol/data/outputs` 아래 `<run_name>/`에 저장한다. `configs/collection.yaml`의 `output_root`와 `run_name`으로 경로를 구성하며, 기존 실행을 덮어쓰지 않는다. GPU와 run 이름은 실행 전 확인한다. 기준 branch의 기존 변경은 push됐지만, 이번 staged wrist 변경은 아직 commit/push 전이며 대량 수집도 하지 않았다.
 
 - HumanoidScene 문서 생성 기준 commit: `753e62d364c95785fc95d038133612470ff40c3a`.
 - [RoboTwin task 예시](https://github.com/RoboTwin-Platform/RoboTwin/blob/main/envs/lift_pot.py)

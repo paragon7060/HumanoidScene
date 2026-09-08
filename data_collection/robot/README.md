@@ -40,6 +40,7 @@ Stale plan, 큰 추종 오차, 예상 밖 접촉, timeout은 중단한다. 양�
 - URDF 기준 root는 `base_link`, 팔은 좌우 `zarm_[lr]1_joint`부터 `7_joint`까지 총 14개. Runtime articulation index는 아직 미검증이다. 손 drive는 좌우 f/b bar_1 총 4관절이며 정책 hand command 차원과 별개다.
 - 팔 체인의 고정 대상 조상은 knee/leg/waist_pitch/waist_yaw 4관절이다. 현재 실제 자세를 가져와 lock해야 하며 임의 0으로 채우지 않는다.
 - 좌우 `zarm_[lr]7_end_effector`는 URDF에서 마지막 손목 링크로부터 z=-0.17m. 기존 teleop는 이 링크를 직접 사용한다. `rl/tasks/specs.py`의 추가 tool offset z=-0.12m와 혼용하지 않는다. 이번 YAML은 teleop 기준 추가 offset=0이며 physical TCP는 미검증이다.
+- `zarm_[lr]7_joint`의 URDF 축은 양쪽 모두 parent `zarm_[lr]6_link`의 +Y이고 범위는 ±0.6981317 rad이다. Task1 pregrasp smoke는 이 축을 월드로 변환해 좌우 공통 pitch schedule을 만들고, IK null-space target에도 같은 q7 목표를 넣는다. 좌우 TCP orientation은 flap 법선에 맞춰 각각 계산한다.
 - 기존 manager 환경은 physics 120Hz / decimation 4 (control 30Hz). 신규 실행기의 주기는 아직 정하지 않았으며 데이터 저장 10Hz와 구별한다.
 - 패키지 URDF에는 collision 요소 없는 링크 49개가 있다. 이것이 USD physics collider 부재를 뜻하지는 않는다. URDF만으로 planner 충돌 모델 완성으로 처리하지 않는다.
 - ROS 원본 `biped_s200062.urdf`는 `camera_base_joint`에서 존재하지 않는 `camera_base` 링크를 참조한다(정의된 링크는 `head_camera_base`). 전체 tree 검증이 실패해 원본과의 동일성은 UNKNOWN으로 남겼다. 원본 저장소는 수정하지 않았다.
@@ -70,4 +71,9 @@ PYTHONDONTWRITEBYTECODE=1 CUDA_VISIBLE_DEVICES= PYTHONPATH=src \
 
 구현 파일: `planning/geometry.py`, `planning/robot_model.py`, `planning/config.py`, `planning/inspect.py`. 임의 torso 0 적용, 잘못된 quaternion/scale, 누락/중복 joint, 잘못된 YAML·범위·산출물 경로를 거부한다.
 
-아직 구현하지 않은 것: cuRobo backend/양팔 방식, live scene collision adapter, 실제 관절 drive executor, grasp annotation loader 및 validator runner. 따라서 `planning_success`, `execution_success`, `pregrasp_verified`는 모두 NOT_RUN이다. GPU 0–3의 기존 작업은 건드리지 않았다.
+현재 구현된 실행 경로는 `scripts/task1_pregrasp_smoke.py`의 고정 `MediumBox_0`
+양팔 IK·관절 drive pregrasp smoke이며, staged q7 pitch와 phase 진단까지 포함한다.
+아직 구현하지 않은 것은 cuRobo backend/양팔 방식, live scene collision adapter,
+grasp annotation loader, claw close·pull·lift executor 및 validator runner다. 따라서
+pregrasp smoke의 위치 추종 결과와 물리적인 `pregrasp_verified`/`pick_success`는
+서로 분리해 기록한다.

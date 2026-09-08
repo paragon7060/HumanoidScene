@@ -6,6 +6,12 @@
 
 실패 시도도 seed·실패 원인·단계별 결과를 남긴다. 성공 시연 선택과 평가 seed 선택은 분리한다. Pregrasp 진단 영상/trajectory는 pick 성공 시연으로 분류하지 않는다.
 
+현재 Task1 pregrasp smoke는 데이터셋 writer와 분리된 진단 실행이다. 한 번의 실행은
+`wrist_prepare_transit_pitch` → `transit_partial_pitch` →
+`pregrasp_full_pitch_staging` phase를 기록하고, 각 phase의 q7 목표/실제값과
+양손 위치 오차를 `pregrasp_smoke.json`에 남긴다. 생성되는 RGB PNG는 시야 확인용이며
+LeRobot episode로 자동 등록하지 않는다.
+
 ## 저장 계약
 
 | 구분 | 저장 대상 |
@@ -34,4 +40,4 @@ Writer가 표준 `meta/info.json`을 생성하도록 하고 vector dtype/정수 
 
 모든 산출물은 `/home/work/mntvol/data/outputs/<run_name>/` 아래 저장한다. 데이터·영상·로그·진단 결과와 실행에 사용한 YAML 사본을 함께 보관한다. Repo에는 코드·설정·문서만 두며 생성 산출물은 넣지 않는다. 기존 run은 덮어쓰지 않고, 명시적인 resume일 때만 schema/config 일치를 검사해 이어간다.
 
-소수 에피소드에서 영상 decode, frame/state/action 개수·시간 정렬, dim names, 결측 처리, LeRobot 읽기, 중단/재시작을 확인한 뒤 대량 수집한다. 현재는 writer smoke만 완료했고, Task1 자동 수집 코드·실행 명령·grasp 성공 검증은 아직 구현 전이다.
+소수 에피소드에서 영상 decode, frame/state/action 개수·시간 정렬, dim names, 결측 처리, LeRobot 읽기, 중단/재시작을 확인한 뒤 대량 수집한다. 현재는 writer smoke와 pregrasp 진단 코드가 있고, Task1 자동 수집 writer 연결·grasp 성공 검증·pull·lift runner는 아직 구현 전이다. GPU 실행이 실패하면 해당 run을 성공 episode로 재사용하지 않고 로그와 실패 원인을 별도로 보관한다.

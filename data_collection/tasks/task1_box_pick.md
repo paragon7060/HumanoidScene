@@ -16,6 +16,31 @@ Ready → 양손 pregrasp → 접근·파지 → rack 밖 인출 → 필요시 l
 
 Reset 이후 teleport, 관절 상태 덮어쓰기, fixed joint/grasp assist로 동작이나 파지를 위조하지 않는다.
 
+## 손목 pitch 접근 규칙
+
+양팔 `zarm_l7_joint`/`zarm_r7_joint`는 같은 물리 pitch 목표를 사용한다. 현재
+`configs/task1.yaml`의 첫 검증 schedule은 `full_target_rad=0.65`와
+`transit_fraction=0.33`이다.
+
+1. Ready 자세에서 양쪽을 약 `0.65×0.33` rad로 먼저 맞춘다.
+2. 그 공통 partial pitch를 유지한 채 flap 법선 방향 pregrasp까지 들어간다.
+3. pregrasp에서 위치를 고정하고 양쪽을 `0.65` rad로 회전시킨다.
+4. 이후 grasp runner는 같은 full-pitch 자세와 각 flap의 실제 법선 방향을 유지한 채
+   grasp point로 접근하고 claw를 닫는다.
+
+공통인 것은 관절 pitch 목표이고, 좌우 TCP quaternion은 flap 법선과 손 방향이
+서로 반대이므로 별도로 계산한다. 현재 `scripts/task1_pregrasp_smoke.py`는
+1–3번과 위치/관절 진단까지만 수행하며, claw close·pull·lift와 성공 판정은 아직
+수집 runner 범위가 아니다.
+
+현재 실행 상태:
+
+- 실행 진입점: `scripts/task1_pregrasp_smoke.py`
+- 산출물: 지정한 output run 아래 `pregrasp_smoke.json`과 3개 RGB PNG
+- 판정 범위: pregrasp 위치 추종과 q7 phase 진단만 기록하며, `execution_success`가
+  true여도 pick 성공이나 dataset episode 성공으로 승격하지 않는다.
+- 실제 grasp·pull·lift와 접촉/인출 검증은 다음 단계로 남아 있다.
+
 ## 설정과 실패 처리
 
 `../configs/task1.yaml`에서 box 종류/위치, grasp annotation, 성공 기준, 랜덤화 활성 여부·종류·범위를 관리한다. 네 종류(small/medium/large/xlarge)를 표현하되 최초 검증은 하나로 제한한다. Randomization의 위치/회전 범위에는 단위와 기준 frame을 명시하고, 활성화할 때 누락 범위를 거부한다.
@@ -24,4 +49,6 @@ Grasp annotation은 candidate ID, asset/scale, 좌우 reference link, pose, 접�
 
 도달 불가, 충돌, 추종 오차, timeout, 미끄러짐/낙하를 구분해 기록한다. 임계값은 실행 전에 설정하며 실패를 성공으로 바꾸려고 완화하지 않는다.
 
-구체적인 대상 box, grasp 수치, 성공 임계값은 아직 미확정이다. 실행 코드·명령·성공 증거는 아직 없다.
+구체적인 grasp 후보, pull/lift 경로, 물리 성공 임계값은 아직 미확정이다. 현재
+pregrasp 실행 코드는 있지만, 이 staged 변경에 대한 GPU 성공 증거가 생기기 전까지
+`pregrasp_verified`와 `pick_success`는 `NOT_RUN`으로 유지한다.
