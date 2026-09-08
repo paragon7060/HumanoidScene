@@ -57,8 +57,11 @@ try:
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
 
+# A remote server can stream the RTX camera/composite frames without exposing
+# an Isaac desktop window.  In that mode the browser bridge remains active and
+# only the local camera viewport panels are skipped.
 if args_cli.headless:
-    parser.error("Browser interaction preview requires the Isaac Sim GUI; do not pass --headless.")
+    args_cli.camera_preview = False
 if not 1 <= args_cli.bridge_port <= 65535:
     parser.error("--bridge-port must be between 1 and 65535.")
 if args_cli.stream_fps <= 0.0:
@@ -188,7 +191,7 @@ def main() -> None:
 
     env = ManagerBasedRLEnv(cfg=cfg)
     env.reset(seed=args_cli.seed)
-    if args_cli.camera_preview:
+    if args_cli.camera_preview and not args_cli.headless:
         open_camera_viewports(
             env.scene,
             ["robustness_camera", "left_wrist_camera", "right_wrist_camera"],
@@ -226,7 +229,10 @@ def main() -> None:
     print("[CONTROL] The first tracked frame calibrates; subsequent motion drives Kuavo head and arms.")
     print("[CONTROL] Left stick=base forward/strafe; right stick=turn/torso lift; index triggers=grippers.")
     print("[CONTROL] Body motion requires both tracked controllers and head; tracking loss stops the base and holds torso height.")
-    print("[VIEW] Browser XR: stereo Isaac scene with small head/left-wrist/right-wrist panels.")
+    if args_cli.headless:
+        print("[VIEW] Headless server mode: browser XR stream enabled; local Isaac viewports disabled.")
+    else:
+        print("[VIEW] Browser XR: stereo Isaac scene with small head/left-wrist/right-wrist panels.")
     print("[LIMIT] Browser JPEG preview has no CloudXR pose reprojection; use collect_quest_teleop.sh for recording.")
     print(f"[GRIPPER] preset={GRIPPER_SETTINGS.name}; controller triggers or tracked-hand pinch drive open/close.")
 
