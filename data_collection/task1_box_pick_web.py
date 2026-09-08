@@ -67,6 +67,15 @@ parser.add_argument("--pregrasp-grasp-depth-m", type=float, default=0.015)
 parser.add_argument("--pregrasp-steps", type=int, default=300)
 parser.add_argument("--pregrasp-initial-state", default="quest_ready_02")
 parser.add_argument("--pregrasp-settle-steps", type=int, default=120)
+parser.add_argument(
+    "--wrist6-limit-test",
+    action="store_true",
+    help=(
+        "After pregrasp, keep the TCP positions and bend each hand-pitch q6 "
+        "toward the joint limit matching its current sign."
+    ),
+)
+parser.add_argument("--wrist6-test-steps", type=int, default=120)
 parser.add_argument("--camera-preview", action=argparse.BooleanOptionalAction, default=True)
 parser.add_argument("--domain-randomization", action=argparse.BooleanOptionalAction, default=False)
 parser.add_argument("--rack-boxes", type=str, default=None, metavar="SPEC")
@@ -97,6 +106,10 @@ if args_cli.pregrasp and args_cli.pregrasp_steps <= 0:
     parser.error("--pregrasp-steps must be positive.")
 if args_cli.pregrasp and args_cli.pregrasp_settle_steps < 0:
     parser.error("--pregrasp-settle-steps must be nonnegative.")
+if args_cli.wrist6_limit_test and not args_cli.pregrasp:
+    parser.error("--wrist6-limit-test requires --pregrasp.")
+if args_cli.wrist6_limit_test and args_cli.wrist6_test_steps <= 0:
+    parser.error("--wrist6-test-steps must be positive.")
 if args_cli.pregrasp_height_m <= 0.0 or not math.isfinite(args_cli.pregrasp_height_m):
     parser.error("--pregrasp-height-m must be finite and positive.")
 if args_cli.pregrasp_grasp_depth_m <= 0.0 or not math.isfinite(args_cli.pregrasp_grasp_depth_m):
@@ -272,6 +285,8 @@ class _LivePregraspRunner:
         steps: int,
         initial_state: str,
         settle_steps: int,
+        wrist6_limit_test: bool,
+        wrist6_test_steps: int,
     ):
         if steps <= 0:
             raise ValueError("pregrasp steps must be positive")
@@ -285,6 +300,15 @@ class _LivePregraspRunner:
         )
         if len(self.ee_ids) != 2:
             raise RuntimeError("Could not resolve both Kuavo TCP links for pregrasp.")
+        self.q6_joint_ids, self.q6_joint_names = self.robot.find_joints(
+            ("zarm_l6_joint", "zarm_r6_joint"), preserve_order=True
+        )
+        if len(self.q6_joint_ids) != 2:
+            raise RuntimeError("Could not resolve both Kuavo hand-pitch q6 joints.")
+        self.q6_local_indices = []
+        for term, q6_joint_id in zip(self.arm_terms, self.q6_joint_ids):
+            term_joint_ids = [int(joint_id) for joint_id in term._joint_ids]
+            self.q6_local_indices.append(term_joint_ids.index(int(q6_joint_id)))
 
         # Use the same stationary task reset as the smoke runner. This puts
         # the robot in the captured ready posture; q7 is not commanded by the
@@ -303,6 +327,8 @@ class _LivePregraspRunner:
         self.height_m = height_m
         self.grasp_depth_m = grasp_depth_m
         self.initial_state = initial_state
+        self.wrist6_limit_test = bool(wrist6_limit_test)
+        self.wrist6_test_steps = int(wrist6_test_steps)
         self.remaining = 0
         self.total = int(steps)
         self.settle_remaining = int(settle_steps)
@@ -310,6 +336,8 @@ class _LivePregraspRunner:
         self.targets_w = None
         self.geometry = None
         self.initial_q7 = None
+        self.q6_start = None
+        self.q6_targets = None
         self.action = None
         self.finished = False
         self.finalized = False
@@ -319,7 +347,7 @@ class _LivePregraspRunner:
         print(
             f"[PREGRASP] browser_connected initial_state={initial_state} "
             f"settle_steps={settle_steps}; motion_steps={self.total}; "
-            "q7 direct command=disabled",
+            f"wrist6_limit_test={self.wrist6_limit_test}",
             flush=True,
         )
 
@@ -357,6 +385,38 @@ class _LivePregraspRunner:
             flush=True,
         )
 
+    def _start_wrist6_motion(self):
+        current = self.robot.data.joint_pos[0, self.q6_joint_ids].clone()
+        if torch.any(current.abs() < 1.0e-3):
+            raise RuntimeError(
+                "q6 is too close to zero to infer the current bend direction: "
+                f"{current.detach().cpu().tolist()}"
+            )
+        limits = self.robot.data.joint_pos_limits[0, self.q6_joint_ids]
+        targets = torch.where(current < 0.0, limits[:, 0], limits[:, 1])
+        self.q6_start = current
+        self.q6_targets = targets
+        for index, term in enumerate(self.arm_terms):
+            posture = self.robot.data.joint_pos[:, term._joint_ids].clone()
+            posture[:, self.q6_local_indices[index]] = targets[index]
+            term.set_posture_target(
+                posture,
+                weight=0.60,
+                direct_indices=(self.q6_local_indices[index],),
+                direct_gain=4.0,
+            )
+            term.orientation_weight = 0.0
+            term.set_following(True)
+        self.remaining = self.wrist6_test_steps
+        self.phase = "wrist6_limit"
+        print(
+            f"[WRIST6] names={self.q6_joint_names} "
+            f"start_rad={current.detach().cpu().tolist()} "
+            f"target_rad={targets.detach().cpu().tolist()} "
+            f"limits_rad={limits.detach().cpu().tolist()} steps={self.remaining}",
+            flush=True,
+        )
+
     def next_action(self):
         if self.finished:
             return self.hold_action
@@ -369,7 +429,10 @@ class _LivePregraspRunner:
         action = self.action
         self.remaining -= 1
         if self.remaining <= 0:
-            self.finished = True
+            if self.phase == "move" and self.wrist6_limit_test:
+                self._start_wrist6_motion()
+            else:
+                self.finished = True
         return action
 
     def finish(self):
@@ -390,6 +453,14 @@ class _LivePregraspRunner:
             f"q7_end={final_q7.detach().cpu().tolist()}",
             flush=True,
         )
+        if self.q6_start is not None and self.q6_targets is not None:
+            final_q6 = self.robot.data.joint_pos[0, self.q6_joint_ids]
+            print(
+                f"[WRIST6] done start_rad={self.q6_start.detach().cpu().tolist()} "
+                f"target_rad={self.q6_targets.detach().cpu().tolist()} "
+                f"end_rad={final_q6.detach().cpu().tolist()}",
+                flush=True,
+            )
         for term in self.arm_terms:
             term.clear_posture_target()
             # Keep absolute-pose mode for the hold action. The normal browser
@@ -493,7 +564,7 @@ def main() -> None:
     if args_cli.headless:
         print("[VIEW] Headless server mode: browser XR stream enabled; local Isaac viewports disabled.")
     else:
-        print("[VIEW] Browser XR: stereo Isaac scene with small head/left-wrist/right-wrist panels.")
+        print("[VIEW] Browser XR: stereo Isaac scene with small left/right wrist panels.")
     print("[LIMIT] Browser JPEG preview has no CloudXR pose reprojection; use collect_quest_teleop.sh for recording.")
     print(f"[GRIPPER] preset={GRIPPER_SETTINGS.name}; controller triggers or tracked-hand pinch drive open/close.")
 
@@ -580,6 +651,8 @@ def main() -> None:
                         steps=args_cli.pregrasp_steps,
                         initial_state=args_cli.pregrasp_initial_state,
                         settle_steps=args_cli.pregrasp_settle_steps,
+                        wrist6_limit_test=args_cli.wrist6_limit_test,
+                        wrist6_test_steps=args_cli.wrist6_test_steps,
                     )
                 # Before the browser connects, hold the current pose with a
                 # valid absolute action. Once connected, the runner returns
