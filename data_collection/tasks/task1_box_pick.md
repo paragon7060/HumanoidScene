@@ -27,8 +27,10 @@ IK가 필요할 때만 최대 30°를 완화한다. 하드 허용 범위는 왼�
 오른쪽 `[+45°, +75°]`다. IK 후 관절을 덮어쓰지 않고 solver command 자체를 이 범위로
 제한한다.
 
-브라우저 스트리밍 전에 Task1 Ready를 준비한다. 물리 wrist-camera body의 `+X`
-(광축)를 robot-base `+X`에, camera body `+Z`(영상 위쪽)를 robot-base `+Z`에 맞춘다.
+`task1_ready_bent`는 검증된 `quest_ready_02`의 나머지 팔 관절을 보존하고 q6 두 개만
+`-75°/+75°`로 바꾼다. 물리 wrist-camera body의 `+X`(광축)를 robot-base `+X`에,
+camera body `+Z`(영상 위쪽)를 robot-base `+Z`에 맞추는 것은 목표 계약이지만 아직
+검증 전이며, 이를 맞추기 위해 초기 TCP 위치나 다른 팔 관절을 자유롭게 바꾸지 않는다.
 q6 band는 전체 접근 동안 유지한다. 카메라 전방 정렬은 초기 자세 계약일 뿐 접근 중
 hard constraint로 유지하지 않는다. 상단 pregrasp 이동에서는 위치를 우선하고,
 grasp point 하강에서는 집게 닫힘축을 flap 면 법선에, 전진축을 grasp point 방향에
