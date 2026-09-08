@@ -29,3 +29,18 @@ def test_stereo_atlas_letterboxes_panels_without_changing_eye_size():
     assert atlas.shape == (300, 800, 3)
     assert atlas.dtype == np.uint8
     assert atlas.flags.c_contiguous
+
+
+def test_stereo_atlas_can_hide_head_panel_without_hiding_wrists():
+    left = np.full((240, 240, 3), [20, 30, 40], dtype=np.uint8)
+    right = np.full((240, 240, 3), [50, 60, 70], dtype=np.uint8)
+    wrist = np.full((120, 160, 3), 180, dtype=np.uint8)
+
+    atlas = compose_stereo_atlas(left, right, None, wrist, wrist)
+
+    # Top-center remains the full stereo scene when the head panel is hidden.
+    np.testing.assert_array_equal(atlas[20, 120], [20, 30, 40])
+    np.testing.assert_array_equal(atlas[20, 360], [50, 60, 70])
+    # Bottom wrist panels remain present in both eyes.
+    np.testing.assert_array_equal(atlas[190, 30], [180, 180, 180])
+    np.testing.assert_array_equal(atlas[190, 270], [180, 180, 180])

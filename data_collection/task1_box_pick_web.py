@@ -615,7 +615,7 @@ def main() -> None:
                 composite = compose_stereo_atlas(
                     _camera_rgb(env.scene["xr_left_eye_camera"]),
                     _camera_rgb(env.scene["xr_right_eye_camera"]),
-                    _camera_rgb(env.scene["robustness_camera"]),
+                    None,
                     _camera_rgb(env.scene["left_wrist_camera"]),
                     _camera_rgb(env.scene["right_wrist_camera"]),
                 )

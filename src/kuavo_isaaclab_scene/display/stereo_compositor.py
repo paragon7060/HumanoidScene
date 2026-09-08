@@ -56,12 +56,12 @@ def _overlay_panel(canvas: np.ndarray, image: np.ndarray, x0: int, y0: int, widt
 def compose_stereo_atlas(
     left_scene: np.ndarray,
     right_scene: np.ndarray,
-    head: np.ndarray,
+    head: np.ndarray | None,
     left_wrist: np.ndarray,
     right_wrist: np.ndarray,
     cfg: StereoPanelLayoutCfg | None = None,
 ) -> np.ndarray:
-    """Return side-by-side eye images with small head and wrist panels.
+    """Return side-by-side eye images with optional head and wrist panels.
 
     The left half is sampled only by the Quest left eye and the right half only
     by the right eye. Scene pixels therefore retain binocular disparity, while
@@ -75,17 +75,20 @@ def compose_stereo_atlas(
         right_scene = cv2.resize(right_scene, (width, height), interpolation=cv2.INTER_AREA)
 
     margin = max(8, int(round(min(width, height) * cfg.margin_fraction)))
-    head_width = max(96, int(round(width * cfg.head_width_fraction)))
     wrist_width = max(80, int(round(width * cfg.wrist_width_fraction)))
-    head_height = max(72, int(round(head_width * 0.5625)))
     wrist_height = max(60, int(round(wrist_width * 0.75)))
-    if head_width + 2 * margin > width or wrist_width + 2 * margin > width:
+    if wrist_width + 2 * margin > width:
         raise ValueError("Stereo eye resolution is too small for the configured camera panels.")
+    head_width = max(96, int(round(width * cfg.head_width_fraction)))
+    head_height = max(72, int(round(head_width * 0.5625)))
+    if head is not None and head_width + 2 * margin > width:
+        raise ValueError("Stereo eye resolution is too small for the configured head panel.")
 
     eyes = []
     for scene in (left_scene, right_scene):
         eye = scene.copy()
-        _overlay_panel(eye, head, (width - head_width) // 2, margin, head_width, head_height)
+        if head is not None:
+            _overlay_panel(eye, head, (width - head_width) // 2, margin, head_width, head_height)
         y0 = height - wrist_height - margin
         _overlay_panel(eye, left_wrist, margin, y0, wrist_width, wrist_height)
         _overlay_panel(eye, right_wrist, width - wrist_width - margin, y0, wrist_width, wrist_height)
