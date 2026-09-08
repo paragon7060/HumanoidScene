@@ -76,6 +76,11 @@ parser.add_argument(
     ),
 )
 parser.add_argument("--wrist6-test-steps", type=int, default=120)
+parser.add_argument(
+    "--solve-downward-ready",
+    action="store_true",
+    help="One-off validation: solve a bent initial pose whose gripper local -Z points base-down.",
+)
 parser.add_argument("--camera-preview", action=argparse.BooleanOptionalAction, default=True)
 parser.add_argument("--domain-randomization", action=argparse.BooleanOptionalAction, default=False)
 parser.add_argument("--rack-boxes", type=str, default=None, metavar="SPEC")
@@ -306,7 +311,7 @@ def _absolute_pose_action(env, robot, positions_w, orientations_w):
     return action
 
 
-def _task_q6_constraints(robot, arm_terms):
+def _task_q6_constraints(robot, arm_terms, *, exact_maximum: bool = False):
     """Keep both physical wrist pitches in the 45--75 degree bent band."""
     q6_ids, q6_names = robot.find_joints(
         ("zarm_l6_joint", "zarm_r6_joint"), preserve_order=True
@@ -320,8 +325,12 @@ def _task_q6_constraints(robot, arm_terms):
         physical = robot.data.joint_pos_limits[0, joint_id]
         if side == "left":
             lower, upper, target = float(physical[0]), -math.radians(45.0), float(physical[0])
+            if exact_maximum:
+                upper = lower
         else:
             lower, upper, target = math.radians(45.0), float(physical[1]), float(physical[1])
+            if exact_maximum:
+                lower = upper
         term.set_control_joint_bounds((local_index,), (lower,), (upper,))
         posture = robot.data.joint_pos[:, term._joint_ids].clone()
         posture[:, local_index] = target
@@ -350,6 +359,63 @@ def _load_task_ready(env, initial_state: str):
     env.sim.forward()
     env.scene.update(env.step_dt)
     print(f"[TASK_READY] loaded_initial_state={initial_state}; no runtime wrist preparation", flush=True)
+
+
+def _solve_downward_ready(env, steps: int = 240):
+    """One-off IK validation for a downward-looking gripper initial pose."""
+    from isaaclab.utils.math import quat_apply
+
+    robot = env.scene["robot"]
+    arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
+    ee_ids, _ = robot.find_bodies(
+        ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
+    )
+    camera_ids, _ = robot.find_bodies(("l_d405_camera", "r_d405_camera"), preserve_order=True)
+    q6_ids, _, _, _ = _task_q6_constraints(robot, arm_terms, exact_maximum=True)
+    root_quat = robot.data.root_quat_w[0]
+    dtype = robot.data.body_link_pos_w.dtype
+    base_y = quat_apply(
+        root_quat, torch.tensor((0.0, 1.0, 0.0), device=env.device, dtype=dtype)
+    )
+    base_down = quat_apply(
+        root_quat, torch.tensor((0.0, 0.0, -1.0), device=env.device, dtype=dtype)
+    )
+    closing = torch.stack((-base_y, base_y))
+    forward = base_down.expand_as(closing)
+    orientations = _orientation_from_closing_and_forward(closing, forward)
+    positions = robot.data.body_link_pos_w[0, ee_ids].clone()
+    action = _absolute_pose_action(env, robot, positions, orientations)
+    for term in arm_terms:
+        term.orientation_weight = 1.0
+        term.set_following(True)
+    for _ in range(int(steps)):
+        env.step(action)
+    tool_forward = quat_apply(
+        robot.data.body_link_quat_w[0, ee_ids],
+        torch.tensor((0.0, 0.0, -1.0), device=env.device, dtype=dtype).expand(2, -1),
+    )
+    camera_forward = quat_apply(
+        robot.data.body_link_quat_w[0, camera_ids],
+        torch.tensor((1.0, 0.0, 0.0), device=env.device, dtype=dtype).expand(2, -1),
+    )
+    base_forward = quat_apply(
+        root_quat, torch.tensor((1.0, 0.0, 0.0), device=env.device, dtype=dtype)
+    )
+    arm_state = {
+        name: float(robot.data.joint_pos[0, index].item())
+        for index, name in enumerate(robot.joint_names)
+        if name.startswith("zarm_")
+    }
+    print(
+        f"[DOWNWARD_READY] q6={robot.data.joint_pos[0, q6_ids].detach().cpu().tolist()} "
+        f"tool_down_dot={(tool_forward * base_down).sum(-1).detach().cpu().tolist()} "
+        f"camera_forward_dot={(camera_forward * base_forward).sum(-1).detach().cpu().tolist()} "
+        f"position_error_m={(positions - robot.data.body_link_pos_w[0, ee_ids]).norm(dim=-1).detach().cpu().tolist()} "
+        f"arm_joint_positions={arm_state}",
+        flush=True,
+    )
+    for term in arm_terms:
+        term.hold_current_pose()
 
 
 class _LivePregraspRunner:
@@ -628,6 +694,8 @@ def main() -> None:
     env.reset(seed=args_cli.seed)
     if args_cli.pregrasp:
         _load_task_ready(env, args_cli.pregrasp_initial_state)
+        if args_cli.solve_downward_ready:
+            _solve_downward_ready(env)
     if args_cli.camera_preview and not args_cli.headless:
         open_camera_viewports(
             env.scene,
