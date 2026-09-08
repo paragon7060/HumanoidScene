@@ -8,9 +8,34 @@ HumanoidScene/Isaac 환경에서 box GT 6D를 이용해 양손 접근 경로를 
 - [robot/README.md](robot/README.md): 로봇 모델, 좌표계, 충돌 환경, planner와 실행.
 - [collection/README.md](collection/README.md): 반복 수집, 저장 항목, 10Hz와 시간 정렬.
 - `configs/`: task1 / robot / collection YAML 설정 초안.
+- `task1_box_pick_web.py`: 기존 텔레옵 preview를 수정하지 않고 Task1 pregrasp를
+  현재 브라우저 화면에 실시간 스트리밍하는 전용 실행 파일.
 - `references/`: 사용자가 제공한 원본 MD 2개. 원문은 수정하지 않는다.
 
-이 폴더는 문서·설정용이다. 구현 코드는 저장소의 `src/kuavo_isaaclab_scene/`, 실행 진입점은 기존 launcher 관례, 테스트는 `tests/`를 따른다. 새 모듈의 실제 위치와 실행 명령은 구현 후 해당 문서에 연결한다.
+기존 범용 웹 preview는 그대로 둔다. Task1 전용 동작처럼 데이터 수집에만
+필요한 로직은 이 폴더의 실행 파일에서 격리한다. 테스트는 `tests/`를 따른다.
+
+Kanu 예시(브라우저 WebSocket은 기존 포트 8765를 사용):
+
+```bash
+cd /home/seonho/HumanoidScene
+CUDA_VISIBLE_DEVICES=4 OMNI_KIT_ACCEPT_EULA=Y PYTHONPATH=src \
+  python data_collection/task1_box_pick_web.py \
+  --headless --device cuda:0 --bridge-host 127.0.0.1 --bridge-port 8765 \
+  --no-camera-preview --no-domain-randomization --robot-model s200062 \
+  --stereo-eye-width 848 --stereo-eye-height 480 \
+  --head-camera-width 848 --head-camera-height 480 \
+  --wrist-camera-width 848 --wrist-camera-height 480 \
+  --jpeg-quality 95 --stream-fps 10 --pregrasp \
+  --pregrasp-distance-m 0.10 --pregrasp-grasp-depth-m 0.015 \
+  --pregrasp-steps 300 --pregrasp-initial-state quest_ready_02 \
+  --pregrasp-settle-steps 120
+```
+
+`--pregrasp`를 켜면 서버가 먼저 대기하고, 브라우저가 연결된 첫 simulation
+step에서 초기 자세·settle·IK 이동을 시작한다. 따라서 연결 전 one-shot으로
+움직여 화면에서 놓치는 구간이 없다. 영상/산출물은 repo가 아니라
+`/home/work/mntvol/data/outputs` 또는 실행 시 지정한 output lane에 둔다.
 
 ## 구현 순서와 현황
 
