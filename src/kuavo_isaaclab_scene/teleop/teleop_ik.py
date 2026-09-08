@@ -33,6 +33,8 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         # component while still solving the full TCP pose with IK.
         self._posture_target = None
         self._posture_weight = 0.15
+        self._posture_direct_indices = None
+        self._posture_direct_gain = 0.0
         self.orientation_weight = 0.5
         self._following = True
         self._held_joints = None
@@ -63,16 +65,27 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._held_joints = None
         if env_ids is None:
             self._posture_target = None
+            self._posture_direct_indices = None
+            self._posture_direct_gain = 0.0
         elif self._posture_target is not None:
             self._posture_target[ids] = self._asset.data.default_joint_pos[:, self._joint_ids][ids]
 
-    def set_posture_target(self, target, *, weight: float = 0.15):
+    def set_posture_target(
+        self,
+        target,
+        *,
+        weight: float = 0.15,
+        direct_indices=None,
+        direct_gain: float = 0.0,
+    ):
         """Set a joint-space null-space target for this arm's IK.
 
         ``target`` is the complete arm joint vector in the action term's
         joint order.  A planner may copy the current vector and replace only
         ``zarm_*_joint`` pitch, which avoids post-solve joint overwrites that
-        would invalidate the requested TCP pose.
+        would invalidate the requested TCP pose.  ``direct_indices`` is an
+        optional small subset (Task1 uses only q7) that receives a bounded
+        joint-velocity correction in addition to the null-space preference.
         """
         target = torch.as_tensor(target, device=self.device, dtype=self._joint_command.dtype)
         if target.ndim == 1:
@@ -84,14 +97,26 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
             raise ValueError("posture target must contain only finite values")
         if not math.isfinite(float(weight)) or weight < 0.0:
             raise ValueError(f"posture weight must be finite and nonnegative, got {weight}")
+        if not math.isfinite(float(direct_gain)) or direct_gain < 0.0:
+            raise ValueError(f"direct gain must be finite and nonnegative, got {direct_gain}")
+        if direct_indices is None:
+            indices = None
+        else:
+            indices = tuple(int(index) for index in direct_indices)
+            if len(set(indices)) != len(indices) or any(index < 0 or index >= self._num_joints for index in indices):
+                raise ValueError(f"direct indices must be unique arm-joint indices, got {indices}")
         limits = self._asset.data.joint_pos_limits[:, self._joint_ids]
         self._posture_target = torch.clamp(target, limits[..., 0], limits[..., 1]).clone()
         self._posture_weight = float(weight)
+        self._posture_direct_indices = indices
+        self._posture_direct_gain = float(direct_gain)
 
     def clear_posture_target(self):
         """Restore the historical default-joint null-space preference."""
         self._posture_target = None
         self._posture_weight = 0.15
+        self._posture_direct_indices = None
+        self._posture_direct_gain = 0.0
 
     def process_actions(self, actions):
         super().process_actions(actions)
@@ -139,6 +164,9 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         # solution changes at a joint stop. Hard bounds are enforced below.
         nullspace = torch.eye(joints.shape[-1], device=self.device) - inverse @ jac
         velocity += self._posture_weight * (nullspace @ (posture - joints).unsqueeze(-1)).squeeze(-1)
+        if self._posture_direct_indices and self._posture_direct_gain > 0.0:
+            direct_error = posture[:, self._posture_direct_indices] - joints[:, self._posture_direct_indices]
+            velocity[:, self._posture_direct_indices] += self._posture_direct_gain * direct_error
         velocity *= (1.5 / velocity.abs().amax(-1, keepdim=True).clamp_min(1.5))
         velocity = torch.clamp(velocity, self._joint_velocity - 12. * self._dt,
                                self._joint_velocity + 12. * self._dt)

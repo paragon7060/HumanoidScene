@@ -72,6 +72,8 @@ def _load_configs(config_dir: Path) -> dict[str, dict]:
         full_target = float(wrist.get("full_target_rad", 0.65))
         transit_fraction = float(wrist.get("transit_fraction", 0.33))
         posture_weight = float(wrist.get("posture_weight", 0.60))
+        direct_q7_gain = float(wrist.get("direct_q7_gain", 0.0))
+        transit_orientation_weight = float(wrist.get("transit_orientation_weight", 0.0))
         prepare_steps = int(wrist.get("prepare_steps", 30))
         rotate_steps = int(wrist.get("rotate_steps", 90))
         if not math.isfinite(full_target) or not 0.0 < full_target < math.radians(40.0):
@@ -80,6 +82,10 @@ def _load_configs(config_dir: Path) -> dict[str, dict]:
             raise ValueError("wrist_pitch.transit_fraction must be in [0, 1].")
         if not math.isfinite(posture_weight) or posture_weight < 0.0:
             raise ValueError("wrist_pitch.posture_weight must be finite and nonnegative.")
+        if not math.isfinite(direct_q7_gain) or direct_q7_gain < 0.0:
+            raise ValueError("wrist_pitch.direct_q7_gain must be finite and nonnegative.")
+        if not math.isfinite(transit_orientation_weight) or not 0.0 <= transit_orientation_weight <= 1.0:
+            raise ValueError("wrist_pitch.transit_orientation_weight must be finite and in [0, 1].")
         if prepare_steps < 0 or rotate_steps <= 0:
             raise ValueError("wrist_pitch.prepare_steps must be nonnegative and rotate_steps must be positive.")
     return configs
@@ -153,14 +159,19 @@ def _wrist_pitch_orientations(robot, ee_ids, parent_ids, joint_ids, target_q7):
     return torch.nn.functional.normalize(quat_mul(delta, current_tcp), dim=-1)
 
 
-def _set_wrist_posture(terms, robot, target_q7, weight):
+def _set_wrist_posture(terms, robot, target_q7, weight, direct_q7_gain):
     """Set both arm null-space targets while preserving the other current joints."""
     for index, term in enumerate(terms):
         target = robot.data.joint_pos[:, term._joint_ids].clone()
         if target.shape[-1] != 7:
             raise RuntimeError(f"Expected a 7-DoF arm term, got {tuple(target.shape)}")
         target[:, -1] = target_q7[index]
-        term.set_posture_target(target, weight=weight)
+        term.set_posture_target(
+            target,
+            weight=weight,
+            direct_indices=(6,),
+            direct_gain=direct_q7_gain,
+        )
 
 
 def _clear_wrist_posture(terms):
@@ -353,10 +364,15 @@ def run(args, configs):
             full_q7 = float(wrist_cfg.get("full_target_rad", 0.65))
             transit_fraction = float(wrist_cfg.get("transit_fraction", 0.33))
             posture_weight = float(wrist_cfg.get("posture_weight", 0.60))
+            direct_q7_gain = float(wrist_cfg.get("direct_q7_gain", 0.0))
+            transit_orientation_weight = float(
+                wrist_cfg.get("transit_orientation_weight", 0.0)
+            )
             prepare_steps = int(wrist_cfg.get("prepare_steps", 30))
             rotate_steps = int(wrist_cfg.get("rotate_steps", 90))
         else:
-            full_q7 = transit_fraction = posture_weight = 0.0
+            full_q7 = transit_fraction = posture_weight = direct_q7_gain = 0.0
+            transit_orientation_weight = 0.0
             prepare_steps = rotate_steps = 0
         wrist_limits = robot.data.joint_pos_limits[0, wrist_joint_ids]
         full_below_limit = bool((full_q7 < wrist_limits[:, 0]).any().item())
@@ -387,20 +403,30 @@ def run(args, configs):
             "full_target_rad": full_q7_tensor.detach().cpu().tolist(),
             "joint_limits_rad": wrist_limits.detach().cpu().tolist(),
             "posture_weight": posture_weight,
+            "direct_q7_gain": direct_q7_gain,
+            "transit_orientation_weight": transit_orientation_weight,
             "prepare_steps": prepare_steps,
             "rotate_steps": rotate_steps,
         }
 
         phase_records = []
 
-        def run_phase(name, positions_w, target_q7, steps):
+        def run_phase(name, positions_w, target_q7, steps, phase_orientation_weight):
             if steps <= 0:
                 return
+            for term in arm_terms:
+                term.orientation_weight = phase_orientation_weight
             if wrist_enabled:
                 orientations_w = _wrist_pitch_orientations(
                     robot, ee_ids, parent_ids, wrist_joint_ids, target_q7
                 )
-                _set_wrist_posture(arm_terms, robot, target_q7, posture_weight)
+                _set_wrist_posture(
+                    arm_terms,
+                    robot,
+                    target_q7,
+                    posture_weight,
+                    direct_q7_gain,
+                )
             else:
                 _clear_wrist_posture(arm_terms)
                 orientations_w = robot.data.body_link_quat_w[0, ee_ids].clone()
@@ -428,6 +454,7 @@ def run(args, configs):
                 robot.data.body_link_pos_w[0, ee_ids].clone(),
                 transit_q7,
                 prepare_steps,
+                args.orientation_weight,
             )
 
         targets, geometry = _pregrasp_targets(
@@ -439,9 +466,27 @@ def run(args, configs):
         # Enter the rack gap with the partial pitch, then rotate in place at
         # pregrasp.  The later grasp runner will keep this full orientation for
         # the final flap-normal approach and claw close.
-        run_phase("transit_partial_pitch", targets, transit_q7, args.steps)
+        run_phase(
+            "transit_partial_pitch",
+            targets,
+            transit_q7,
+            args.steps,
+            transit_orientation_weight,
+        )
         if wrist_enabled:
-            run_phase("pregrasp_full_pitch_staging", targets, full_q7_tensor, rotate_steps)
+            run_phase(
+                "pregrasp_full_pitch_staging",
+                targets,
+                full_q7_tensor,
+                rotate_steps,
+                args.orientation_weight,
+            )
+
+        # Do not leak the transit-only orientation setting into later callers
+        # or the final diagnostics.  The command has already been processed;
+        # this restores the configured default for the action terms.
+        for term in arm_terms:
+            term.orientation_weight = args.orientation_weight
 
         # Force one final sensor update before writing evidence.
         env.sim.render()

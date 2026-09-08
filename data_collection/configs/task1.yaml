@@ -21,6 +21,8 @@ wrist_pitch:
   transit_fraction: 0.33  # enter the rack gap with roughly one-third pitch
   full_target_rad: 0.65  # Stage-3-like target, below the +/-0.698 rad stop
   posture_weight: 0.60  # IK null-space preference for zarm_*7_joint
+  direct_q7_gain: 6.0  # bounded q7 velocity correction; no post-solve overwrite
+  transit_orientation_weight: 0.0  # let position IK enter the narrow gap first
   prepare_steps: 30  # move from the captured ready pose to transit pitch
   rotate_steps: 90  # turn to full pitch while held at pregrasp
 randomization:

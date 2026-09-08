@@ -20,6 +20,8 @@ def test_task1_config_has_shared_partial_then_full_pitch():
     assert wrist["enabled"] is True
     assert wrist["full_target_rad"] == 0.65
     assert wrist["transit_fraction"] == 0.33
+    assert wrist["direct_q7_gain"] > 0.0
+    assert wrist["transit_orientation_weight"] == 0.0
     assert 0.0 < wrist["full_target_rad"] * wrist["transit_fraction"] < wrist["full_target_rad"]
     assert wrist["prepare_steps"] >= 0
     assert wrist["rotate_steps"] > 0
