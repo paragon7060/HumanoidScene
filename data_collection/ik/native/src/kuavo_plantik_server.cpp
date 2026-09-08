@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
     drake::multibody::Parser parser(plant);
     parser.AddModels(std::filesystem::path(argv[1]));
     std::cerr << "[plantIK] parsed model\n";
-    plant->WeldFrames(plant->world_frame(), plant->GetFrameByName("base_link"));
+    plant->WeldFrames(plant->world_frame(), plant->GetFrameByName("torso"));
     std::cerr << "[plantIK] welded base\n";
     plant->Finalize();
     std::cerr << "[plantIK] finalized nq=" << plant->num_positions() << "\n";
@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
     (void)plant_context;
 
     HighlyDynamic::CoMIK solver(
-        plant, {"base_link", "zarm_l7_end_effector", "zarm_r7_end_effector"});
+        plant, {"torso", "l_hand_roll", "r_hand_roll"});
     std::cerr << "[plantIK] constructed CoMIK\n";
     HighlyDynamic::IKParams params;
     // Keep the official default position cost; zero would leave the target

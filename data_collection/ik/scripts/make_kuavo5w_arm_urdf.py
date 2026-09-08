@@ -28,10 +28,17 @@ ARM_JOINTS = {
     "zarm_l7_end_effector_joint",
     "zarm_r7_end_effector_joint",
 }
+SOLVER_NAME_MAP = {
+    "base_link": "torso",
+    "zarm_l7_end_effector": "l_hand_roll",
+    "zarm_r7_end_effector": "r_hand_roll",
+}
 
 
 def _without_geometry(link: ET.Element) -> ET.Element:
     result = deepcopy(link)
+    if result.get("name") in SOLVER_NAME_MAP:
+        result.set("name", SOLVER_NAME_MAP[result.get("name")])
     for tag in ("visual", "collision"):
         for element in result.findall(tag):
             result.remove(element)
@@ -54,12 +61,20 @@ def make_model(source: Path, output: Path) -> None:
     waist_fixed = ET.Element("joint", {"name": "waist_yaw_fixed", "type": "fixed"})
     for child in waist:
         if child.tag in {"origin", "parent", "child"}:
-            waist_fixed.append(deepcopy(child))
+            result = deepcopy(child)
+            if result.tag in {"parent", "child"} and result.get("link") in SOLVER_NAME_MAP:
+                result.set("link", SOLVER_NAME_MAP[result.get("link")])
+            waist_fixed.append(result)
     output_root.append(waist_fixed)
 
     for joint in source_root.findall("joint"):
         if joint.get("name") in ARM_JOINTS:
-            output_root.append(deepcopy(joint))
+            result = deepcopy(joint)
+            for tag in ("parent", "child"):
+                link = result.find(tag)
+                if link is not None and link.get("link") in SOLVER_NAME_MAP:
+                    link.set("link", SOLVER_NAME_MAP[link.get("link")])
+            output_root.append(result)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     ET.indent(output_root, space="  ")
