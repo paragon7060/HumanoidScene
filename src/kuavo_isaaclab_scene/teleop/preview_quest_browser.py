@@ -49,6 +49,8 @@ parser.add_argument(
 parser.add_argument("--pregrasp-distance-m", type=float, default=0.10)
 parser.add_argument("--pregrasp-grasp-depth-m", type=float, default=0.015)
 parser.add_argument("--pregrasp-steps", type=int, default=300)
+parser.add_argument("--pregrasp-initial-state", default="quest_ready_02")
+parser.add_argument("--pregrasp-settle-steps", type=int, default=120)
 parser.add_argument("--camera-preview", action=argparse.BooleanOptionalAction, default=True)
 parser.add_argument("--domain-randomization", action=argparse.BooleanOptionalAction, default=False)
 parser.add_argument("--rack-boxes", type=str, default=None, metavar="SPEC")
@@ -77,6 +79,8 @@ if args_cli.stream_fps <= 0.0:
     parser.error("--stream-fps must be positive.")
 if args_cli.pregrasp and args_cli.pregrasp_steps <= 0:
     parser.error("--pregrasp-steps must be positive.")
+if args_cli.pregrasp and args_cli.pregrasp_settle_steps < 0:
+    parser.error("--pregrasp-settle-steps must be nonnegative.")
 if args_cli.pregrasp_distance_m <= 0.0 or not math.isfinite(args_cli.pregrasp_distance_m):
     parser.error("--pregrasp-distance-m must be finite and positive.")
 if args_cli.pregrasp_grasp_depth_m <= 0.0 or not math.isfinite(args_cli.pregrasp_grasp_depth_m):
@@ -251,11 +255,20 @@ def _absolute_pose_action(env, robot, positions_w, orientations_w):
 class _LivePregraspRunner:
     """One-shot bimanual position move used by the remote browser preview."""
 
-    def __init__(self, env, *, distance_m: float, grasp_depth_m: float, steps: int):
-        import torch
-
+    def __init__(
+        self,
+        env,
+        *,
+        distance_m: float,
+        grasp_depth_m: float,
+        steps: int,
+        initial_state: str,
+        settle_steps: int,
+    ):
         if steps <= 0:
             raise ValueError("pregrasp steps must be positive")
+        if settle_steps < 0:
+            raise ValueError("pregrasp settle steps must be nonnegative")
         self.env = env
         self.robot = env.scene["robot"]
         self.arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
@@ -264,6 +277,30 @@ class _LivePregraspRunner:
         )
         if len(self.ee_ids) != 2:
             raise RuntimeError("Could not resolve both Kuavo TCP links for pregrasp.")
+
+        # Use the same stationary task reset as the smoke runner. This puts
+        # the robot in the captured ready posture; q7 is not commanded by the
+        # pregrasp move itself.
+        from ..robots.gripper_config import resolve_gripper_settings
+        from ..robots.initial_states import apply_initial_state, load_initial_state
+        from ..robots.robot_model import resolve_robot_model
+
+        state = load_initial_state(
+            initial_state,
+            robot_model=resolve_robot_model().name,
+            gripper=resolve_gripper_settings().name,
+        )
+        apply_initial_state(env, None, state, initial_state)
+        env.scene.write_data_to_sim()
+        hold_action = _absolute_pose_action(
+            env,
+            self.robot,
+            self.robot.data.body_link_pos_w[0, self.ee_ids].clone(),
+            self.robot.data.body_link_quat_w[0, self.ee_ids].clone(),
+        )
+        for _ in range(settle_steps):
+            env.step(hold_action)
+
         self.targets_w, self.geometry = _pregrasp_targets(
             env, distance_m=distance_m, grasp_depth_m=grasp_depth_m
         )
@@ -284,15 +321,17 @@ class _LivePregraspRunner:
         self.remaining = int(steps)
         self.total = int(steps)
         self.finished = False
+        self.finalized = False
+        self.hold_action = self.action
         print(
-            f"[PREGRASP] targets_w={self.geometry}; steps={self.total}; "
-            "q7 direct command=disabled",
+            f"[PREGRASP] initial_state={initial_state} settle_steps={settle_steps} "
+            f"targets_w={self.geometry}; steps={self.total}; q7 direct command=disabled",
             flush=True,
         )
 
     def next_action(self):
         if self.finished:
-            return None
+            return self.hold_action
         action = self.action
         self.remaining -= 1
         if self.remaining <= 0:
@@ -300,7 +339,7 @@ class _LivePregraspRunner:
         return action
 
     def finish(self):
-        if not self.finished:
+        if not self.finished or self.finalized:
             return
         final_pos = self.robot.data.body_link_pos_w[0, self.ee_ids]
         errors = (self.targets_w - final_pos).norm(dim=-1)
@@ -317,9 +356,17 @@ class _LivePregraspRunner:
         )
         for term in self.arm_terms:
             term.clear_posture_target()
-            term.cfg.controller.use_relative_mode = True
+            # Keep absolute-pose mode for the hold action. The normal browser
+            # delta mapper is intentionally not resumed in this one-shot run.
             term.hold_current_pose()
             term.orientation_weight = 0.5
+        self.hold_action = _absolute_pose_action(
+            self.env,
+            self.robot,
+            self.robot.data.body_link_pos_w[0, self.ee_ids].clone(),
+            self.robot.data.body_link_quat_w[0, self.ee_ids].clone(),
+        )
+        self.finalized = True
 
 
 def _sample_to_world(
@@ -386,6 +433,8 @@ def main() -> None:
             distance_m=args_cli.pregrasp_distance_m,
             grasp_depth_m=args_cli.pregrasp_grasp_depth_m,
             steps=args_cli.pregrasp_steps,
+            initial_state=args_cli.pregrasp_initial_state,
+            settle_steps=args_cli.pregrasp_settle_steps,
         )
         if args_cli.pregrasp
         else None
@@ -503,7 +552,6 @@ def main() -> None:
             env.step(action)
             if pregrasp_runner is not None and pregrasp_runner.finished:
                 pregrasp_runner.finish()
-                pregrasp_runner = None
             metrics_steps += 1
 
             clients = bridge.client_count
