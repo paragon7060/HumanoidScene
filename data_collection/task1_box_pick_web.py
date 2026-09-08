@@ -397,6 +397,7 @@ def _prepare_task_ready(env, initial_state: str, steps: int = 240):
     positions = robot.data.body_link_pos_w[0, ee_ids].clone()
     action = _absolute_pose_action(env, robot, positions, orientations)
     for term in arm_terms:
+        term.position_weight = 0.0
         term.orientation_weight = 1.0
         term.set_following(True)
     for _ in range(int(steps)):
@@ -418,6 +419,7 @@ def _prepare_task_ready(env, initial_state: str, steps: int = 240):
         if name.startswith("zarm_")
     }
     for term in arm_terms:
+        term.position_weight = 1.0
         term.hold_current_pose()
     print(
         f"[TASK_READY] q6_names={q6_names} target_rad={q6_targets.cpu().tolist()} "
