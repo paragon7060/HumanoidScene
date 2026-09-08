@@ -36,8 +36,11 @@ def bounded_cuboid(local_low, local_high, local_to_world) -> tuple[list, list]:
 def snapshot_colliders(stage, robot_root: str) -> dict:
     from pxr import Usd, UsdGeom, UsdPhysics
     # Collision geometry is often invisible/guide-purpose, unlike its visuals.
-    bounds = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render", "proxy", "guide"],
-                              ignoreVisibility=True)
+    # USD's constructor takes ``useExtentsHint`` before ``ignoreVisibility``;
+    # passing the latter by keyword alone is ambiguous on USD 24.x.
+    bounds = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                               ["default", "render", "proxy", "guide"],
+                               True, True)
     xforms = UsdGeom.XformCache(Usd.TimeCode.Default())
     records, disabled, unsupported = [], [], []
     for prim in Usd.PrimRange(stage.GetPseudoRoot(), Usd.TraverseInstanceProxies()):

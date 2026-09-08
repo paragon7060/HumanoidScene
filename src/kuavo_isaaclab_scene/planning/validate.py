@@ -16,14 +16,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config-dir", type=Path, required=True)
     parser.add_argument("--run-name", required=True)
-    # Keep the CUDA mapping explicit. A different lane needs a deliberate change.
-    if os.environ.get("CUDA_VISIBLE_DEVICES") != "2":
-        parser.error("this validation lane requires CUDA_VISIBLE_DEVICES=2")
+    # Keep the CUDA mapping explicit: Isaac sees the first visible GPU as
+    # logical ``cuda:0``. This works on KT (for example, physical GPU 2) and
+    # on a local workstation (for example, physical GPU 0) without changing
+    # the simulation code below.
+    visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if not visible_devices:
+        parser.error("set CUDA_VISIBLE_DEVICES to the physical GPU for this lane")
+    physical_gpu = visible_devices.split(",", 1)[0].strip()
     from isaaclab.app import AppLauncher
     AppLauncher.add_app_launcher_args(parser)
     args = parser.parse_args(argv)
     if args.device != "cuda:0" or not args.headless:
-        parser.error("use --device cuda:0 --headless (logical 0 is physical GPU 2)")
+        parser.error("use --device cuda:0 --headless; logical cuda:0 is the first visible GPU")
     configs = {name: load_yaml(args.config_dir / f"{name}.yaml")
                for name in ("robot", "task1", "collection")}
     output = output_directory(configs["collection"], args.run_name)
@@ -36,7 +41,7 @@ def main(argv=None):
         " --/renderer/multiGpu/enabled=false --/plugins/carb.tasking.plugin/threadCount=4"
         f" --/log/file={output}/kit.log")
     app = None
-    report = {"physical_gpu": 2, "cuda_visible_devices": "2", "status": "starting",
+    report = {"physical_gpu": physical_gpu, "cuda_visible_devices": visible_devices, "status": "starting",
               "planning_success": "NOT_RUN", "execution_success": "NOT_RUN",
               "pregrasp_verified": "NOT_RUN"}
     try:
