@@ -81,7 +81,9 @@ int main(int argc, char** argv) {
         plant, {"base_link", "zarm_l7_end_effector", "zarm_r7_end_effector"});
     std::cerr << "[plantIK] constructed CoMIK\n";
     HighlyDynamic::IKParams params;
-    params.pos_cost_weight = 0.0;
+    // Keep the official default position cost; zero would leave the target
+    // position unconstrained in the soft-position mode below.
+    params.pos_cost_weight = 100.0;
     params.constraint_mode = 0;
 
     std::cout << std::setprecision(17);
