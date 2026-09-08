@@ -60,20 +60,26 @@ int main(int argc, char** argv) {
     auto* plant = builder.AddSystem<drake::multibody::MultibodyPlant<double>>(0.001);
     drake::multibody::Parser parser(plant);
     parser.AddModels(std::filesystem::path(argv[1]));
+    std::cerr << "[plantIK] parsed model\n";
     plant->WeldFrames(plant->world_frame(), plant->GetFrameByName("base_link"));
+    std::cerr << "[plantIK] welded base\n";
     plant->Finalize();
+    std::cerr << "[plantIK] finalized nq=" << plant->num_positions() << "\n";
 
     if (plant->num_positions() != kPlantDof) {
       throw std::runtime_error("expected the 14-DoF Kuavo 5W arm adapter URDF");
     }
 
     auto diagram = builder.Build();
+    std::cerr << "[plantIK] built diagram\n";
     auto context = diagram->CreateDefaultContext();
+    std::cerr << "[plantIK] created context\n";
     auto& plant_context = diagram->GetMutableSubsystemContext(*plant, context.get());
     (void)plant_context;
 
     HighlyDynamic::CoMIK solver(
         plant, {"base_link", "zarm_l7_end_effector", "zarm_r7_end_effector"});
+    std::cerr << "[plantIK] constructed CoMIK\n";
     HighlyDynamic::IKParams params;
     params.pos_cost_weight = 0.0;
     params.constraint_mode = 0;
