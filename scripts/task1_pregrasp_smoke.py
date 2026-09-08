@@ -32,6 +32,7 @@ def _parse_args(argv=None):
     parser.add_argument("--settle-steps", type=int, default=120)
     parser.add_argument("--pregrasp-distance-m", type=float, default=0.10)
     parser.add_argument("--grasp-depth-m", type=float, default=0.015)
+    parser.add_argument("--orientation-weight", type=float, default=0.5)
     parser.add_argument("--seed", type=int, default=0)
     AppLauncher.add_app_launcher_args(parser)
     args = parser.parse_args(argv)
@@ -45,6 +46,8 @@ def _parse_args(argv=None):
         parser.error("pregrasp-distance-m must be finite and positive")
     if not math.isfinite(args.grasp_depth_m) or args.grasp_depth_m <= 0:
         parser.error("grasp-depth-m must be finite and positive")
+    if not math.isfinite(args.orientation_weight) or not 0.0 <= args.orientation_weight <= 1.0:
+        parser.error("orientation-weight must be finite and in [0, 1]")
     args.enable_cameras = True
     return args
 
@@ -209,6 +212,8 @@ def run(args, configs):
     output_dir = args.output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=False)
     env = _configure_environment(args, configs)
+    for arm_name in ("left_arm", "right_arm"):
+        env.action_manager.get_term(arm_name).orientation_weight = args.orientation_weight
     task_cfg = configs["task1"]
     robot_cfg = configs["robot"]
     report: dict = {
@@ -221,6 +226,7 @@ def run(args, configs):
         "planner_backend": robot_cfg.get("planner_backend"),
         "requested_pregrasp_distance_m": args.pregrasp_distance_m,
         "requested_grasp_depth_m": args.grasp_depth_m,
+        "orientation_weight": args.orientation_weight,
         "steps": args.steps,
         "settle_steps": args.settle_steps,
         "execution_success": "NOT_RUN",
