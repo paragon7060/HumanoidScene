@@ -329,6 +329,10 @@ def main() -> None:
                     _camera_rgb(env.scene["left_wrist_camera"]),
                     _camera_rgb(env.scene["right_wrist_camera"]),
                 )
+                # The remote browser preview currently presents the complete
+                # atlas upside-down. Flip only the published video frame;
+                # tracking and control packets remain unchanged.
+                composite = cv2.flip(composite, 0)
                 encode_started_at = time.perf_counter()
                 ok, encoded = cv2.imencode(
                     ".jpg", cv2.cvtColor(composite, cv2.COLOR_RGB2BGR),
