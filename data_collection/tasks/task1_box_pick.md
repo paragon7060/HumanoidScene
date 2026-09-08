@@ -30,8 +30,9 @@ Reset 이후 teleport, 관절 상태 덮어쓰기, fixed joint/grasp assist로 �
 
 공통인 것은 관절 pitch 목표이고, 좌우 TCP quaternion은 flap 법선과 손 방향이
 서로 반대이므로 별도로 계산한다. 현재 `scripts/task1_pregrasp_smoke.py`는
-1–3번과 위치/관절 진단까지만 수행하며, claw close·pull·lift와 성공 판정은 아직
-수집 runner 범위가 아니다.
+1–3번과 위치/관절 진단까지만 수행한다. transit에서는 orientation weight `0`과
+q7 bounded direct correction을 사용하고, pregrasp staging에서 원래 orientation
+weight를 복원한다. claw close·pull·lift와 성공 판정은 아직 수집 runner 범위가 아니다.
 
 현재 실행 상태:
 
@@ -39,6 +40,8 @@ Reset 이후 teleport, 관절 상태 덮어쓰기, fixed joint/grasp assist로 �
 - 산출물: 지정한 output run 아래 `pregrasp_smoke.json`과 3개 RGB PNG
 - 판정 범위: pregrasp 위치 추종과 q7 phase 진단만 기록하며, `execution_success`가
   true여도 pick 성공이나 dataset episode 성공으로 승격하지 않는다.
+- Kanu GPU4 최신 실행은 `task1_wrist_schedule_smoke_20260908_directq7`에서
+  위치 게이트를 통과했지만 contact 센서가 없어 `pregrasp_verified`는 보류한다.
 - 실제 grasp·pull·lift와 접촉/인출 검증은 다음 단계로 남아 있다.
 
 ## 설정과 실패 처리
@@ -50,5 +53,5 @@ Grasp annotation은 candidate ID, asset/scale, 좌우 reference link, pose, 접�
 도달 불가, 충돌, 추종 오차, timeout, 미끄러짐/낙하를 구분해 기록한다. 임계값은 실행 전에 설정하며 실패를 성공으로 바꾸려고 완화하지 않는다.
 
 구체적인 grasp 후보, pull/lift 경로, 물리 성공 임계값은 아직 미확정이다. 현재
-pregrasp 실행 코드는 있지만, 이 staged 변경에 대한 GPU 성공 증거가 생기기 전까지
+GPU smoke는 위치·q7 추종만 입증했으므로 contact/충돌 검증이 연결되기 전까지
 `pregrasp_verified`와 `pick_success`는 `NOT_RUN`으로 유지한다.

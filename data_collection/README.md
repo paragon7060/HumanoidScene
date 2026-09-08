@@ -17,7 +17,7 @@ HumanoidScene/Isaac 환경에서 box GT 6D를 이용해 양손 접근 경로를 
 | 단계 | 완료 기준 | 상태 |
 |---|---|---|
 | 문서·설정 | 역할별 문서와 미확정 값 구분 | 작성 완료; YAML은 실행용 아님 |
-| 1. Pregrasp | 모델/FK 일치, 경로 실제 추종, 양손 도달, 금지 접촉 없음 | CPU 계약·정적 검증 통과; staged wrist smoke 코드는 연결됨; 새 GPU 실행 증거는 아직 없음 |
+| 1. Pregrasp | 모델/FK 일치, 경로 실제 추종, 양손 도달, 금지 접촉 없음 | CPU 계약·정적 검증 통과; Kanu GPU4 staged smoke에서 위치 게이트 통과; contact 센서 부재로 물리 검증은 보류 |
 | 2. 파지·인출 | 한 종류·한 위치에서 물리 파지, 완전 인출, 안정화 | 후속 |
 | 3. 기록 | 3종 action, 관측/GT, 시간·schema·resume 검증 | LeRobot v3/AV1 writer smoke 통과; 자동 Task1 runner 연결은 후속 |
 | 4. 확대 | 네 종류·배치 변화, 조건별 성공률/실패 원인 기록 | 후속 |
@@ -43,23 +43,33 @@ YAML의 `null`은 미확정이고 `draft: true`는 실행 불가 초안이다. C
 현재 smoke에는 `configs/task1.yaml:wrist_pitch` schedule도 연결했다. 양쪽 q7를 먼저
 partial pitch(`0.33×0.65` rad)로 맞춘 뒤 pregrasp까지 이동하고, pregrasp에서
 full pitch(`0.65` rad)로 staging한다. 각 phase의 목표/실제 q7와 위치 오차는
-`pregrasp_smoke.json`에 기록된다. 이 단계는 아직 claw close·pull·lift를 수행하지
-않으므로 데이터셋 성공 episode로 집계하지 않는다.
+`pregrasp_smoke.json`에 기록된다. transit phase에서는 위치 IK가 손목 방향과
+충돌하지 않도록 orientation weight를 `0`으로 두고, q7에만 bounded direct correction을
+적용한다. 이 단계는 아직 claw close·pull·lift를 수행하지 않으므로 데이터셋 성공
+episode로 집계하지 않는다.
 
-새 staged smoke를 실제 Isaac Sim으로 실행하려면 첫 실행 시 NVIDIA EULA를
-사용자가 직접 승인해야 한다. 승인 전에는 실행을 중단하며, 승인 후 결과를
-`/home/work/mntvol/data/outputs/<run_name>/`에 기록한다. 현재 이 변경에 대한
-GPU 산출물은 아직 없다.
+Kanu 실행은 `OMNI_KIT_ACCEPT_EULA=Y`를 사용해 EULA 질문 없이 수행했다. 최신
+GPU4 산출물은 Kanu의
+`/home/seonho/outputs/HumanoidScene/task1_wrist_schedule_smoke_20260908_directq7/`
+에 그대로 보관한다(로컬로 복사하지 않는다). `pregrasp_smoke.json`에서
+`execution_success=true`, 최대 양손 위치 오차 `0.01210 m`, transit q7 오차
+`0.01899/0.01143 rad`, full-stage q7 오차 `0.01298/0.02836 rad`, box 이동
+`0.000026 m`를 확인했다. gripper는 열림 상태이고 contact 센서가 등록되지 않아
+`pregrasp_verified`/pick 성공으로 승격하지 않는다.
 
 실행한 사전 검사: `/home/work/mntvol/data/outputs/pregrasp_source_audit_20260908_01/preflight.json`.
 테스트 결과: `/home/work/mntvol/data/outputs/pregrasp_cpu_tests_20260908_03.junit.xml`.
 재현 명령과 모델 조사 내용은 [robot/README.md](robot/README.md)에 둔다.
 
-cuRobo는 현재 Isaac 환경에 미설치이며 조사 시 GPU 0–3은 기존 작업이 사용 중이었다. Kanu GPU4에서만 smoke를 실행했다. 다음은 grasp annotation 확정, live USD collider/contact adapter, 관절 drive 기반 grasp·pull·lift runner, 실제 pregrasp 게이트 확정이다.
+cuRobo는 현재 Isaac 환경에 미설치이며 조사 시 GPU 0–3은 기존 작업이 사용 중이었다. Kanu GPU4에서만 smoke를 실행했다. 다음은 grasp annotation 확정, live USD collider/contact adapter, 관절 drive 기반 grasp·pull·lift runner, 실제 contact 포함 pregrasp 게이트 확정이다.
 
 ## 보관 및 참고
 
-Repo에는 코드·설정·문서만 둔다. 생성 데이터·영상·로그·진단 결과는 사용자 지정 루트 `/home/work/mntvol/data/outputs` 아래 `<run_name>/`에 저장한다. `configs/collection.yaml`의 `output_root`와 `run_name`으로 경로를 구성하며, 기존 실행을 덮어쓰지 않는다. GPU와 run 이름은 실행 전 확인한다. 기준 branch의 기존 변경은 push됐지만, 이번 staged wrist 변경은 아직 commit/push 전이며 대량 수집도 하지 않았다.
+Repo에는 코드·설정·문서만 둔다. 기본 출력 루트는 `configs/collection.yaml`의
+`/home/work/mntvol/data/outputs`이며, Kanu smoke처럼 해당 mount가 없는 호스트에서는
+명시한 `/home/seonho/outputs/HumanoidScene/<run_name>/`에 보관한다. 기존 실행을
+덮어쓰지 않고, GPU와 run 이름을 실행 전에 확인한다. 이번 staged wrist 변경은
+`72a619c`로 commit/push됐고 대량 수집은 아직 하지 않았다.
 
 - HumanoidScene 문서 생성 기준 commit: `753e62d364c95785fc95d038133612470ff40c3a`.
 - [RoboTwin task 예시](https://github.com/RoboTwin-Platform/RoboTwin/blob/main/envs/lift_pot.py)

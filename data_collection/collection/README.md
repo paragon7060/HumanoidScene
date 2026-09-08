@@ -10,7 +10,9 @@
 `wrist_prepare_transit_pitch` → `transit_partial_pitch` →
 `pregrasp_full_pitch_staging` phase를 기록하고, 각 phase의 q7 목표/실제값과
 양손 위치 오차를 `pregrasp_smoke.json`에 남긴다. 생성되는 RGB PNG는 시야 확인용이며
-LeRobot episode로 자동 등록하지 않는다.
+LeRobot episode로 자동 등록하지 않는다. 최신 Kanu 산출물은
+`/home/seonho/outputs/HumanoidScene/task1_wrist_schedule_smoke_20260908_directq7/`
+에 있으며, 세 RGB 파일은 각각 `480x848x3`이다.
 
 ## 저장 계약
 
@@ -38,6 +40,11 @@ Writer가 표준 `meta/info.json`을 생성하도록 하고 vector dtype/정수 
 
 카메라 해상도, 에피소드 수, raw/depth/segmentation 보관 범위, 출력 run 이름은 `../configs/collection.yaml`에서 설정한다. 랜덤화 범위는 `../configs/task1.yaml`에서 설정한다. 코드에 이 값을 고정하지 않는다.
 
-모든 산출물은 `/home/work/mntvol/data/outputs/<run_name>/` 아래 저장한다. 데이터·영상·로그·진단 결과와 실행에 사용한 YAML 사본을 함께 보관한다. Repo에는 코드·설정·문서만 두며 생성 산출물은 넣지 않는다. 기존 run은 덮어쓰지 않고, 명시적인 resume일 때만 schema/config 일치를 검사해 이어간다.
+기본 수집 산출물은 `/home/work/mntvol/data/outputs/<run_name>/` 아래 저장한다.
+호스트에 해당 mount가 없으면 실행 시 지정한 호스트 로컬 output root를 사용하며,
+이번 Kanu smoke는 `/home/seonho/outputs/HumanoidScene/<run_name>/`에 남겼다.
+데이터·영상·로그·진단 결과와 실행에 사용한 YAML 사본을 함께 보관한다. Repo에는
+코드·설정·문서만 두며 생성 산출물은 넣지 않는다. 기존 run은 덮어쓰지 않고,
+명시적인 resume일 때만 schema/config 일치를 검사해 이어간다.
 
 소수 에피소드에서 영상 decode, frame/state/action 개수·시간 정렬, dim names, 결측 처리, LeRobot 읽기, 중단/재시작을 확인한 뒤 대량 수집한다. 현재는 writer smoke와 pregrasp 진단 코드가 있고, Task1 자동 수집 writer 연결·grasp 성공 검증·pull·lift runner는 아직 구현 전이다. GPU 실행이 실패하면 해당 run을 성공 episode로 재사용하지 않고 로그와 실패 원인을 별도로 보관한다.
