@@ -1,0 +1,17 @@
+# Standalone Kuavo plantIK runtime contract.
+# The external solver/runtime is intentionally not stored in this repository.
+backend: kuavo_plantik
+source_repo: https://github.com/LejuRobotics/kuavo-ros-opensource.git
+source_commit: 1797481d4639a76afbdc035f705acbf522fceafa
+solver_header: src/manipulation_nodes/motion_capture_ik/include/plantIK.h
+solver_library: src/manipulation_nodes/motion_capture_ik/lib/libplantIK.so
+robot_model: s200062
+scene_urdf: ../../src/kuavo_isaaclab_scene/assets/kuavo_s200062/urdf/drake/biped_v3_arm.urdf
+frames: [torso, l_hand_roll, r_hand_roll]
+arm_dof: 14
+pose_encoding: [position_xyz, quaternion_xyzw]
+eef_z_bias_m: -0.17
+runtime_root_env: KUAVO_IK_RUNTIME
+protocol: line_v1
+default_timeout_s: 5.0
+
