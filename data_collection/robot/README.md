@@ -78,6 +78,27 @@ grasp annotation loader, claw close·pull·lift executor 및 validator runner다
 pregrasp smoke의 위치 추종 결과와 물리적인 `pregrasp_verified`/`pick_success`는
 서로 분리해 기록한다.
 
+## IK backend 결정 (2026-09-08)
+
+로봇과 동일한 IK를 기준으로 삼을 때는 `kuavo-ros-opensource`의
+`motion_capture_ik`/`kuavo_humanoid_sdk.arm_ik`를 source of truth로 사용한다.
+이 경로는 Kuavo의 14-DoF 양팔 모델·버전별 URDF·Drake `plantIK`와 연결되어
+있으며, `/arms_ik_node` 및 IK ROS service가 필요하다.
+
+`letools_opensource`는 이 솔버를 대체하지 않는다. LeTools의
+`check_ik_accessibility`는 ROS의 `/mobile_manipulator_ik_accessibility_check`를
+호출하는 상위 adapter이고, EE world/local 명령도 최종적으로 Kuavo SDK/ROS로
+전달한다. 따라서 수집기의 solver로 직접 선택하지 않고, 실기/ROS runtime에서
+명령을 보낼 때의 선택적 client layer로 둔다.
+
+현재 Kanu IsaacLab 환경에는 `rospy`, `kuavo_humanoid_sdk`, `pydrake`와 ROS
+master가 없어 이 backend를 아직 live simulator에 연결하지 않았다. 검증되지 않은
+호출로 현재 pregrasp를 바꾸지 않으며, ROS `motion_capture_ik` version 62
+(`s200062`) sidecar 또는 Drake standalone adapter가 준비된 뒤 다음 순서로
+전환한다: robot-base pose 입력 → Kuavo IK의 14개 rad 반환 → Isaac FK 잔차/관절
+순서 검증 → 실행 backend 활성화. 그 전까지 현재 IsaacLab DLS는 baseline으로
+유지하고, SDK IK 결과가 실제로 반환된 경우에만 비교 결과를 기록한다.
+
 Kanu GPU4의 `task1_wrist_schedule_smoke_20260908_directq7` 실행은 최대 위치 오차
 `0.01210 m`와 full-stage q7 오차 `0.01298/0.02836 rad`를 기록해 위치 실행
 게이트를 통과했다. 이 smoke에는 contact 센서와 claw/pull/lift가 없으므로 물리적
