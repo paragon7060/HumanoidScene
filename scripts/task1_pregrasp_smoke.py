@@ -250,15 +250,22 @@ def run(args, configs):
         errors = (targets - final_pos).norm(dim=-1)
         box_end = box.data.root_pose_w[0].clone()
         box_motion = (box_end[:3] - box_start[:3]).norm()
+        try:
+            robot_contact_force_max_n = float(
+                env.scene["robot_contact"].data.net_forces_w.norm(dim=-1).max().item()
+            )
+        except KeyError:
+            # The teleop scene intentionally does not register the RL-only
+            # robot_contact sensor.  Keep the field explicit instead of
+            # pretending that an unavailable contact measurement was zero.
+            robot_contact_force_max_n = None
         report["end"] = {
             "ee_pose_w": robot.data.body_link_pose_w[0, ee_ids].detach().cpu().tolist(),
             "position_error_m": errors.detach().cpu().tolist(),
             "max_position_error_m": float(errors.max().item()),
             "box_root_pose_w": box_end.detach().cpu().tolist(),
             "box_translation_motion_m": float(box_motion.item()),
-            "robot_contact_force_max_n": float(
-                env.scene["robot_contact"].data.net_forces_w.norm(dim=-1).max().item()
-            ),
+            "robot_contact_force_max_n": robot_contact_force_max_n,
         }
         report["camera_outputs"] = {
             "robustness_camera": _save_rgb(env, "robustness_camera", output_dir),
