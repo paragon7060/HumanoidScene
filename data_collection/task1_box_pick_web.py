@@ -458,7 +458,12 @@ class _JointPoseEditor:
     def __init__(self, env, *, pregrasp_height_m: float, grasp_depth_m: float):
         import isaaclab.sim as sim_utils
         from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
+        from kuavo_isaaclab_scene.envs.manager_env import RACK_BOX_SPAWN_PLAN
         from kuavo_isaaclab_scene.planning.robot_model import UrdfModel
+        from kuavo_isaaclab_scene.workcell.rack_box_layout import (
+            STAGING_BOX_POSITIONS,
+            same_shelf_instance_names,
+        )
 
         self.env = env
         self.robot = env.scene["robot"]
@@ -481,10 +486,6 @@ class _JointPoseEditor:
         self.limits = self.robot.data.joint_pos_limits[0, self.joint_ids].clone()
         self.reset_targets = self.robot.data.joint_pos[:, self.joint_ids].clone()
         self.targets = self.reset_targets.clone()
-        self.pregrasp_targets_w, _, _, self.pregrasp_geometry = _pregrasp_targets(
-            env, height_m=pregrasp_height_m, grasp_depth_m=grasp_depth_m
-        )
-        self.pregrasp_height_m = float(pregrasp_height_m)
         self.target_box = env.scene["medium_box_0"]
         target_body_ids, target_body_names = self.target_box.find_bodies("Body")
         if len(target_body_ids) != 1:
@@ -495,6 +496,29 @@ class _JointPoseEditor:
         ].clone()
         self.target_box_root_pose_w = self.target_box.data.root_pose_w.clone()
         self.target_box_joint_positions = self.target_box.data.joint_pos.clone()
+        self.cleared_boxes = []
+        for instance_name in same_shelf_instance_names(RACK_BOX_SPAWN_PLAN, "MediumBox_0"):
+            spec = RACK_BOX_SPAWN_PLAN[instance_name]
+            asset = env.scene[spec.scene_key]
+            root_pose_w = asset.data.root_pose_w.clone()
+            root_pose_w[0, :3] = env.scene.env_origins[0] + torch.tensor(
+                STAGING_BOX_POSITIONS[instance_name],
+                device=env.device,
+                dtype=root_pose_w.dtype,
+            )
+            root_pose_w[0, 3:] = torch.tensor(
+                (1.0, 0.0, 0.0, 0.0), device=env.device, dtype=root_pose_w.dtype
+            )
+            self.cleared_boxes.append(
+                (instance_name, asset, root_pose_w, asset.data.joint_pos.clone())
+            )
+        self.hold_cleared_boxes()
+        env.sim.forward()
+        env.scene.update(env.step_dt)
+        self.pregrasp_targets_w, self.grasp_points_w, self.inward_normals_w, self.pregrasp_geometry = (
+            _pregrasp_targets(env, height_m=pregrasp_height_m, grasp_depth_m=grasp_depth_m)
+        )
+        self.pregrasp_height_m = float(pregrasp_height_m)
         model = UrdfModel(resolve_robot_model().urdf_path)
         self.local_axes = torch.tensor(
             [model.joints[name].axis for name in self.joint_names],
@@ -530,6 +554,43 @@ class _JointPoseEditor:
         )
         self.markers = VisualizationMarkers(marker_cfg)
         print("[POSE_EDITOR_INIT] spawned joint-axis cylinder markers", flush=True)
+        grasp_marker_cfg = VisualizationMarkersCfg(
+            prim_path="/Visuals/Task1GraspTargets",
+            markers={
+                "grasp": sim_utils.SphereCfg(
+                    radius=0.026,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.15, 1.0, 0.30), emissive_color=(0.02, 0.25, 0.04)
+                    ),
+                ),
+                "pregrasp": sim_utils.SphereCfg(
+                    radius=0.022,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.62, 0.05), emissive_color=(0.25, 0.08, 0.0)
+                    ),
+                ),
+                "normal": sim_utils.CylinderCfg(
+                    radius=0.008,
+                    height=0.14,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.85, 0.92, 1.0), emissive_color=(0.12, 0.16, 0.22)
+                    ),
+                ),
+                "normal_tip": sim_utils.SphereCfg(
+                    radius=0.018,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.78, 0.36, 1.0), emissive_color=(0.16, 0.02, 0.25)
+                    ),
+                ),
+            },
+        )
+        self.grasp_markers = VisualizationMarkers(grasp_marker_cfg)
+        cleared = [record[0] for record in self.cleared_boxes]
+        print(
+            f"[POSE_EDITOR_INIT] cleared_same_shelf_boxes={cleared}; "
+            "spawned grasp/pregrasp/inward-normal markers",
+            flush=True,
+        )
         self.selected_joint = self.joint_names[5]
         self.view = "rear_left"
         self.last_command_sequence = -1
@@ -605,6 +666,7 @@ class _JointPoseEditor:
         )
         self.robot.set_joint_position_target(self.targets, joint_ids=self.joint_ids)
         self.hold_target_box()
+        self.hold_cleared_boxes()
         self.env.sim.forward()
         self.env.scene.update(self.env.step_dt)
         self.update_markers()
@@ -620,12 +682,21 @@ class _JointPoseEditor:
         self.target_box.set_joint_position_target(self.target_box_joint_positions)
         self.target_box.set_joint_velocity_target(velocities)
 
-    def update_markers(self) -> None:
-        from isaaclab.utils.math import quat_apply
+    def hold_cleared_boxes(self) -> None:
+        """Park same-shelf distractors for this authoring mode only."""
+        for _, asset, root_pose_w, joint_positions in self.cleared_boxes:
+            asset.write_root_pose_to_sim(root_pose_w)
+            asset.write_root_velocity_to_sim(
+                torch.zeros((1, 6), device=self.env.device, dtype=root_pose_w.dtype)
+            )
+            velocities = torch.zeros_like(joint_positions)
+            asset.write_joint_state_to_sim(joint_positions, velocities)
+            asset.set_joint_position_target(joint_positions)
+            asset.set_joint_velocity_target(velocities)
 
-        positions = self.robot.data.body_link_pos_w[0, self.body_ids]
-        body_quats = self.robot.data.body_link_quat_w[0, self.body_ids]
-        axes = torch.nn.functional.normalize(quat_apply(body_quats, self.local_axes), dim=-1)
+    @staticmethod
+    def _z_axis_orientations(axes):
+        axes = torch.nn.functional.normalize(axes, dim=-1)
         z_axis = torch.zeros_like(axes)
         z_axis[:, 2] = 1.0
         vector = torch.cross(z_axis, axes, dim=-1)
@@ -634,16 +705,41 @@ class _JointPoseEditor:
         antiparallel = scalar[:, 0] < 1.0e-5
         if torch.any(antiparallel):
             orientations[antiparallel] = torch.tensor(
-                (0.0, 1.0, 0.0, 0.0), device=self.env.device, dtype=orientations.dtype
+                (0.0, 1.0, 0.0, 0.0), device=axes.device, dtype=axes.dtype
             )
+        return orientations
+
+    def update_markers(self) -> None:
+        from isaaclab.utils.math import quat_apply
+
+        positions = self.robot.data.body_link_pos_w[0, self.body_ids]
+        body_quats = self.robot.data.body_link_quat_w[0, self.body_ids]
+        axes = torch.nn.functional.normalize(quat_apply(body_quats, self.local_axes), dim=-1)
+        orientations = self._z_axis_orientations(axes)
         marker_indices = torch.tensor(
             [0] * 7 + [1] * 7, device=self.env.device, dtype=torch.int32
         )
         marker_indices[self.joint_names.index(self.selected_joint)] = 2
         self.markers.visualize(positions, orientations, marker_indices=marker_indices)
 
+        normal_length_m = 0.14
+        normal_centers = self.grasp_points_w + self.inward_normals_w * (normal_length_m / 2.0)
+        normal_tips = self.grasp_points_w + self.inward_normals_w * normal_length_m
+        grasp_positions = torch.cat(
+            (self.grasp_points_w, self.pregrasp_targets_w, normal_centers, normal_tips), dim=0
+        )
+        grasp_orientations = torch.zeros((8, 4), device=self.env.device, dtype=positions.dtype)
+        grasp_orientations[:, 0] = 1.0
+        grasp_orientations[4:6] = self._z_axis_orientations(self.inward_normals_w)
+        grasp_marker_indices = torch.tensor(
+            (0, 0, 1, 1, 2, 2, 3, 3), device=self.env.device, dtype=torch.int32
+        )
+        self.grasp_markers.visualize(
+            grasp_positions, grasp_orientations, marker_indices=grasp_marker_indices
+        )
+
     def state(self) -> dict:
-        from isaaclab.utils.math import quat_apply, subtract_frame_transforms
+        from isaaclab.utils.math import quat_apply, quat_apply_inverse, subtract_frame_transforms
 
         values = self.targets[0]
         ee_pos = self.robot.data.body_link_pos_w[0, self.ee_ids]
@@ -654,6 +750,17 @@ class _JointPoseEditor:
         pregrasp_pos_b, _ = subtract_frame_transforms(
             root_pos, root_quat, self.pregrasp_targets_w, root_quat
         )
+        grasp_pos_b, _ = subtract_frame_transforms(
+            root_pos, root_quat, self.grasp_points_w, root_quat
+        )
+        inward_normals_b = quat_apply_inverse(root_quat, self.inward_normals_w)
+        shoulder_body_ids = (self.body_ids[0], self.body_ids[7])
+        shoulder_pos_w = self.robot.data.body_link_pos_w[0, shoulder_body_ids]
+        shoulder_quat_w = self.robot.data.body_link_quat_w[0, shoulder_body_ids]
+        shoulder_pos_b, _ = subtract_frame_transforms(
+            root_pos, root_quat, shoulder_pos_w, shoulder_quat_w
+        )
+        shoulder_to_pregrasp = self.pregrasp_targets_w - shoulder_pos_w
         target_box_position_w = self.target_box.data.body_link_pos_w[
             0, self.target_box_body_id
         ]
@@ -690,9 +797,22 @@ class _JointPoseEditor:
             ],
             "tool_down_angle_deg": [math.degrees(math.acos(float(dot))) for dot in dots],
             "tcp_position_b": tcp_pos_b.detach().cpu().tolist(),
+            "shoulder_position_b": shoulder_pos_b.detach().cpu().tolist(),
+            "shoulder_to_pregrasp_distance_m": torch.linalg.vector_norm(
+                shoulder_to_pregrasp, dim=-1
+            ).detach().cpu().tolist(),
+            "pregrasp_above_shoulder_m": shoulder_to_pregrasp[:, 2].detach().cpu().tolist(),
             "pregrasp_position_b": pregrasp_pos_b.detach().cpu().tolist(),
+            "grasp_position_b": grasp_pos_b.detach().cpu().tolist(),
+            "inward_flap_normal_b": inward_normals_b.detach().cpu().tolist(),
             "pregrasp_height_m": self.pregrasp_height_m,
             "pregrasp_source": "medium_box_0 flap_right/flap_left upper grasp pair",
+            "grasp_marker_legend": {
+                "green": "grasp point",
+                "orange": "pregrasp point",
+                "white_purple": "inward flap normal and tip",
+            },
+            "cleared_same_shelf_boxes": [record[0] for record in self.cleared_boxes],
             "target_box_body_position_b": target_box_position_b[0].detach().cpu().tolist(),
             "target_box_displacement_m": float(target_box_displacement_m),
             "authoring_only": True,

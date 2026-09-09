@@ -50,7 +50,7 @@
       <h2>자세</h2>
       <div class="actions"><button id="reset">초기 자세</button><button id="print">서버 로그에 출력</button><button id="copy">JSON 복사</button></div>
       <div id="metrics"></div>
-      <div id="hint">청록=왼팔 축, 분홍=오른팔 축, 노랑=마지막으로 조정한 관절. q6 권장 굽힘 범위는 좌 -75~-45°, 우 +45~+75°입니다.</div>
+      <div id="hint">청록=왼팔 축, 분홍=오른팔 축, 노랑=선택 관절. 초록=grasp, 주황=pregrasp, 흰 선→보라 점=flap 안쪽 법선.</div>
     </aside>
   </main>
   <script>
@@ -125,7 +125,8 @@
         row.className = `joint ${focus === joint.name ? 'selected' : row.dataset.side}`;
         row.querySelector('.joint-degrees').textContent = `${(displayedValue * 180 / Math.PI).toFixed(1)}°`;
       }
-      metrics.textContent = `view: ${state.view}\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${state.tcp_position_b[0].map(v=>v.toFixed(3)).join(' ')}\nR ${state.tcp_position_b[1].map(v=>v.toFixed(3)).join(' ')}`;
+      const vec = value => value.map(v=>v.toFixed(3)).join(' ');
+      metrics.textContent = `view: ${state.view}\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${vec(state.tcp_position_b[0])}\nR ${vec(state.tcp_position_b[1])}\ngrasp base xyz (m):\nL ${vec(state.grasp_position_b[0])}\nR ${vec(state.grasp_position_b[1])}\ninward flap normal (base):\nL ${vec(state.inward_flap_normal_b[0])}\nR ${vec(state.inward_flap_normal_b[1])}\nshoulder → pregrasp (m): L ${state.shoulder_to_pregrasp_distance_m[0].toFixed(3)}  R ${state.shoulder_to_pregrasp_distance_m[1].toFixed(3)}\npregrasp above shoulder (m): L ${state.pregrasp_above_shoulder_m[0].toFixed(3)}  R ${state.pregrasp_above_shoulder_m[1].toFixed(3)}\ncleared: ${state.cleared_same_shelf_boxes.join(', ') || 'none'}`;
     }
     window.addEventListener('pointerup', () => { activeJoint = null; });
     window.addEventListener('pointercancel', () => { activeJoint = null; });

@@ -506,3 +506,19 @@ def build_box_spawn_plan(
 
 def rack_instance_names(plan: Mapping[str, BoxSpawnSpec]) -> tuple[str, ...]:
     return tuple(spec.instance_name for spec in plan.values() if spec.on_rack)
+
+
+def same_shelf_instance_names(
+    plan: Mapping[str, BoxSpawnSpec], target_instance_name: str
+) -> tuple[str, ...]:
+    """Return the other configured box instances sharing the target shelf."""
+    if target_instance_name not in plan:
+        raise KeyError(f"Unknown rack-box instance: {target_instance_name}")
+    target_shelf = plan[target_instance_name].shelf
+    if target_shelf is None:
+        return ()
+    return tuple(
+        spec.instance_name
+        for spec in plan.values()
+        if spec.instance_name != target_instance_name and spec.shelf == target_shelf
+    )

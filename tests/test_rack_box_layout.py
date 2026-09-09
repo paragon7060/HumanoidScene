@@ -27,6 +27,44 @@ def test_physical_box_dimensions_and_spawn_scale() -> None:
     assert all(spec.scale == (1.0, 1.0, 1.0) for spec in plan.values())
 
 
+def test_same_shelf_instance_names_excludes_target_and_other_shelves(tmp_path) -> None:
+    capture_path = tmp_path / "rack_box_poses.json"
+    capture_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "boxes": {
+                    "MediumBox_0": {
+                        "local_pos": [-0.33, -0.21, 1.14],
+                        "local_rot": [1.0, 0.0, 0.0, 0.0],
+                        "scale": [1.0, 1.0, 1.0],
+                        "shelf": 2,
+                    },
+                    "LargeBox_0": {
+                        "local_pos": [-0.75, -0.21, 1.06],
+                        "local_rot": [1.0, 0.0, 0.0, 0.0],
+                        "scale": [1.0, 1.0, 1.0],
+                        "shelf": 2,
+                    },
+                    "SmallBox_0": {
+                        "local_pos": [-0.40, -0.21, 0.64],
+                        "local_rot": [1.0, 0.0, 0.0, 0.0],
+                        "scale": [1.0, 1.0, 1.0],
+                        "shelf": 1,
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    plan = boxes.build_box_spawn_plan({1: [], 2: [], 3: []}, 0.0, capture_path)
+
+    assert boxes.same_shelf_instance_names(plan, "MediumBox_0") == ("LargeBox_0",)
+    assert boxes.same_shelf_instance_names(plan, "MediumBox_1") == ()
+    with pytest.raises(KeyError, match="Unknown rack-box instance"):
+        boxes.same_shelf_instance_names(plan, "MissingBox_0")
+
+
 def test_captured_pose_overrides_spawn_pose_in_rack_frame(tmp_path) -> None:
     capture_path = tmp_path / "rack_box_poses.json"
     capture_path.write_text(
