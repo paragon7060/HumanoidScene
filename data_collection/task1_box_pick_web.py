@@ -898,6 +898,9 @@ def main() -> None:
     cfg.scene.xr_right_eye_camera.height = args_cli.stereo_eye_height
     cfg.scene.joint_editor_camera.width = args_cli.editor_camera_width
     cfg.scene.joint_editor_camera.height = args_cli.editor_camera_height
+    half_baseline = args_cli.stereo_eye_separation * 0.5
+    cfg.scene.xr_left_eye_camera.offset.pos = (0.08, half_baseline, 0.0)
+    cfg.scene.xr_right_eye_camera.offset.pos = (0.08, -half_baseline, 0.0)
     if args_cli.joint_pose_editor:
         # The editor has no XR tracking or policy observations.  Rendering
         # only its third-person camera avoids needlessly paying for five
@@ -910,9 +913,6 @@ def main() -> None:
         cfg.scene.right_wrist_camera = None
     else:
         cfg.scene.joint_editor_camera = None
-    half_baseline = args_cli.stereo_eye_separation * 0.5
-    cfg.scene.xr_left_eye_camera.offset.pos = (0.08, half_baseline, 0.0)
-    cfg.scene.xr_right_eye_camera.offset.pos = (0.08, -half_baseline, 0.0)
     set_domain_randomization(cfg, args_cli.domain_randomization)
 
     env = ManagerBasedRLEnv(cfg=cfg)
