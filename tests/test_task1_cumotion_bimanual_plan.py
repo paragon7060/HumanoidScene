@@ -14,6 +14,7 @@ from data_collection.task1_cumotion_bimanual_plan import (
     rack_width_max_violation_m,
     rack_width_task_space_limits,
     shortcut_path,
+    synchronized_seed_path,
 )
 
 
@@ -78,6 +79,23 @@ def test_shortcut_path_keeps_required_collision_avoidance_knot():
     shortcut = shortcut_path(path, 0.05, in_collision)
 
     np.testing.assert_allclose(shortcut, path)
+
+
+def test_synchronized_seed_path_uses_equal_arm_progress():
+    report = {
+        "arms": {
+            "left": {"sample_q_rad": [[0] * 7, [1] * 7, [2] * 7]},
+            "right": {"sample_q_rad": [[10] * 7, [14] * 7]},
+        }
+    }
+    initial = np.asarray([0] * 7 + [10] * 7, dtype=float)
+    terminal = np.asarray([2] * 7 + [14] * 7, dtype=float)
+
+    path = synchronized_seed_path(report, initial, terminal)
+
+    assert path.shape == (3, 14)
+    np.testing.assert_allclose(path[1], [1] * 7 + [12] * 7)
+    np.testing.assert_allclose(path[[0, -1]], [initial, terminal])
 
 
 def test_rack_width_constraint_is_transformed_to_robot_base():

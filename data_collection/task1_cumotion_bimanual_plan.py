@@ -163,6 +163,38 @@ def shortcut_path(
     return np.asarray(knots)
 
 
+def synchronized_seed_path(
+    seed_report: dict,
+    q_initial: np.ndarray,
+    q_terminal: np.ndarray,
+) -> np.ndarray:
+    """Combine the two optimizer trajectories at equal normalized progress."""
+    q_initial = np.asarray(q_initial, dtype=float)
+    q_terminal = np.asarray(q_terminal, dtype=float)
+    arm_paths = [
+        np.asarray(seed_report["arms"][side]["sample_q_rad"], dtype=float)
+        for side in ("left", "right")
+    ]
+    if (
+        q_initial.shape != (14,)
+        or q_terminal.shape != (14,)
+        or any(path.ndim != 2 or path.shape[1] != 7 or len(path) < 2 for path in arm_paths)
+        or not all(np.isfinite(path).all() for path in arm_paths)
+    ):
+        raise ValueError("seed plan must contain two finite sampled 7-DoF trajectories")
+    progress = np.linspace(0.0, 1.0, max(map(len, arm_paths)))
+    synchronized = []
+    for path in arm_paths:
+        source = np.linspace(0.0, 1.0, len(path))
+        synchronized.append(
+            np.stack([np.interp(progress, source, path[:, joint]) for joint in range(7)], axis=1)
+        )
+    combined = np.concatenate(synchronized, axis=1)
+    combined[0] = q_initial
+    combined[-1] = q_terminal
+    return combined
+
+
 def rack_width_constraint_in_base(
     root_pose_w: np.ndarray,
     rack_constraint: dict,
@@ -435,12 +467,25 @@ def main(argv=None) -> int:
         args.validation_step_rad,
         in_collision,
     )
+    optimizer_seed_path = synchronized_seed_path(seed_report, q_initial, q_terminal)
+    optimizer_seed_path_clear = not any(
+        in_collision(row)
+        for row in densify_path(optimizer_seed_path, args.validation_step_rad)
+    )
     graph_waypoint_count = None
     shortcut_knot_count = 2
     if direct_path_clear:
         path_found = True
         path = densify_path(direct_path, args.planner_step_size)
         selected_strategy = "direct_joint_space_interpolation"
+    elif optimizer_seed_path_clear:
+        path_found = True
+        shortcut_knots = shortcut_path(
+            optimizer_seed_path, args.validation_step_rad, in_collision
+        )
+        shortcut_knot_count = len(shortcut_knots)
+        path = densify_path(shortcut_knots, args.planner_step_size)
+        selected_strategy = "synchronized_optimizer_seed_shortcut"
     else:
         config = cumotion.create_motion_planner_config_from_file(
             output / "planner.yaml", robot, TOOL_FRAMES[0], world_view
@@ -494,6 +539,8 @@ def main(argv=None) -> int:
             "planner_left_eef_task_space_limits_b_m": task_space_limits,
         },
         "direct_path_collision_free": direct_path_clear,
+        "synchronized_optimizer_seed_collision_free": optimizer_seed_path_clear,
+        "synchronized_optimizer_seed_waypoint_count": len(optimizer_seed_path),
         "direct_joint_space_path_length_rad": joint_space_path_length(direct_path),
         "graph_waypoint_count": graph_waypoint_count,
         "shortcut_knot_count": shortcut_knot_count,
