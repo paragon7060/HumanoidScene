@@ -566,7 +566,10 @@ class _JointPoseEditor:
         self.env.sim.forward()
         self.env.scene.update(self.env.step_dt)
         for term in self.arm_terms:
-            term.hold_current_pose()
+            # Pausing captures the joint hold only on a following -> paused
+            # transition. Re-arm that transition after every editor teleport
+            # so the next manager step cannot restore an older pose.
+            term.set_following(True)
             term.set_following(False)
         self.update_markers()
 
