@@ -523,6 +523,7 @@ class BrowserTeleopBridge:
                         value_rad=editor_command.value_rad,
                         joint_positions=editor_command.joint_positions,
                         view=editor_command.view,
+                        visible=editor_command.visible,
                     )
                 continue
             try:

@@ -139,6 +139,24 @@ def test_websocket_bridge_exchanges_tracking_and_camera_bytes():
                     break
                 await asyncio.sleep(0.01)
             assert bridge.latest().head is not None
+            await client.send(
+                json.dumps(
+                    {
+                        "type": "pose_editor",
+                        "protocol_version": PROTOCOL_VERSION,
+                        "sequence": 1,
+                        "action": "set_grasp_visibility",
+                        "visible": False,
+                    }
+                )
+            )
+            editor_command = None
+            for _ in range(20):
+                editor_command = bridge.latest_pose_editor_command()
+                if editor_command is not None:
+                    break
+                await asyncio.sleep(0.01)
+            assert editor_command is not None and editor_command.visible is False
             bridge.publish_frame(
                 b"jpeg-test",
                 tracking_sequence=1,
