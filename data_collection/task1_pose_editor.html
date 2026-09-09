@@ -157,7 +157,9 @@
     const torsoZ = document.querySelector('#torso-z');
     const torsoZValue = document.querySelector('#torso-z-value');
     let socket = null, sequence = 0, latestState = null, imageUrl = null;
-    let collisionModelTimer = null, regionGeometryTimer = null;
+    let collisionModelTimer = null;
+    const regionGeometryTimers = {pregrasp:null, transit:null};
+    const pendingRegionVisibility = {pregrasp:null, transit:null};
     let activeJoint = null, jointRows = new Map();
     const pendingJointValues = new Map();
     const CONTROL_GROUPS = [
@@ -227,7 +229,9 @@
       const focus = state.selected_control || '';
       graspVisible.checked = state.grasp_visible;
       for (const [region, controls] of Object.entries(regionControls)) {
-        controls.visible.checked = state[`${region}_region_visible`] ?? state.transit_visible;
+        const serverVisible = state[`${region}_region_visible`] ?? state.transit_visible;
+        if (pendingRegionVisibility[region] === serverVisible) pendingRegionVisibility[region] = null;
+        if (pendingRegionVisibility[region] === null) controls.visible.checked = serverVisible;
         for (const field of ['offset', 'size']) {
           const values = state[`${region}_region_${field}_b_m`];
           if (!values) continue;
@@ -275,15 +279,16 @@
       const offset = controls.offset.map(input => Number(input.value));
       const size = controls.size.map(input => Number(input.value));
       if (![...offset, ...size].every(Number.isFinite) || size.some(value => value < 0.01)) return;
-      clearTimeout(regionGeometryTimer);
-      regionGeometryTimer = setTimeout(() => send('set_region_geometry', {
+      clearTimeout(regionGeometryTimers[region]);
+      regionGeometryTimers[region] = setTimeout(() => send('set_region_geometry', {
         region, offset_b_m:offset, size_b_m:size,
       }), 120);
     }
     for (const [region, controls] of Object.entries(regionControls)) {
-      controls.visible.onchange = () => send('set_region_visibility', {
-        region, visible:controls.visible.checked,
-      });
+      controls.visible.onchange = () => {
+        pendingRegionVisibility[region] = controls.visible.checked;
+        send('set_region_visibility', {region, visible:controls.visible.checked});
+      };
       for (const input of [...controls.offset, ...controls.size]) {
         input.oninput = () => sendRegionGeometry(region);
       }
