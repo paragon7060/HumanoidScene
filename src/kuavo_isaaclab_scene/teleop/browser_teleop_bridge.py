@@ -582,6 +582,7 @@ class BrowserTeleopBridge:
                         control_name=editor_command.control_name,
                         control_value=editor_command.control_value,
                         collision_visible=editor_command.collision_visible,
+                        torso_height_m=editor_command.torso_height_m,
                     )
                 continue
             try:

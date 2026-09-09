@@ -238,6 +238,21 @@ def test_websocket_bridge_exchanges_tracking_and_camera_bytes():
                     break
                 await asyncio.sleep(0.01)
             assert editor_command is not None and editor_command.collision_visible is True
+            await client.send(json.dumps({
+                "type": "pose_editor",
+                "protocol_version": PROTOCOL_VERSION,
+                "sequence": 5,
+                "action": "set_torso_height",
+                "height_m": 0.25,
+            }))
+            after_sequence = editor_command.sequence
+            for _ in range(20):
+                editor_command = bridge.latest_pose_editor_command(after_sequence)
+                if editor_command is not None:
+                    break
+                await asyncio.sleep(0.01)
+            assert editor_command is not None
+            assert editor_command.torso_height_m == pytest.approx(0.25)
             bridge.publish_frame(
                 b"jpeg-test",
                 tracking_sequence=1,
