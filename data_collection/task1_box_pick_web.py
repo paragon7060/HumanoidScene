@@ -507,6 +507,16 @@ class _JointPoseEditor:
         "left_gripper": ("l_f_bar_1_joint", "l_b_bar_1_joint"),
         "right_gripper": ("r_f_bar_1_joint", "r_b_bar_1_joint"),
     }
+    _GRIPPER_COLLISION_FRAMES = (
+        "l_twofinger_base",
+        "l_f_finger",
+        "l_b_finger",
+        "r_twofinger_base",
+        "r_f_finger",
+        "r_b_finger",
+    )
+    _COLLISION_SPHERE_CELL_M = 0.055
+    _COLLISION_MARGIN_M = 0.002
     _CONTROL_LABELS = {
         "knee_joint": "승강 knee",
         "leg_joint": "승강 leg",
@@ -609,6 +619,7 @@ class _JointPoseEditor:
             device=env.device,
             dtype=self.targets.dtype,
         )
+        self.prepare_gripper_collision_spheres()
         print(
             "[POSE_EDITOR_INIT] resolved 24 motor joints / 22 logical controls and physical axes",
             flush=True,
@@ -662,6 +673,27 @@ class _JointPoseEditor:
         )
         self.markers = VisualizationMarkers(marker_cfg)
         print("[POSE_EDITOR_INIT] spawned joint-axis cylinder markers", flush=True)
+        collision_marker_cfg = VisualizationMarkersCfg(
+            prim_path="/Visuals/Task1GripperCollisionSpheres",
+            markers={
+                "collision": sim_utils.SphereCfg(
+                    radius=1.0,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.08, 0.04),
+                        emissive_color=(0.20, 0.0, 0.0),
+                        opacity=0.28,
+                    ),
+                ),
+            },
+        )
+        self.gripper_collision_markers = VisualizationMarkers(collision_marker_cfg)
+        self.gripper_collision_visible = False
+        self.gripper_collision_markers.set_visibility(False)
+        print(
+            f"[POSE_EDITOR_INIT] prepared {len(self.gripper_collision_radii_m)} "
+            "cuMotion gripper collision spheres",
+            flush=True,
+        )
         grasp_marker_cfg = VisualizationMarkersCfg(
             prim_path="/Visuals/Task1GraspTargets",
             markers={
@@ -756,6 +788,11 @@ class _JointPoseEditor:
             self.grasp_z_offset_m = command.grasp_z_offset_m
             self.update_grasp_offset()
             self.update_markers()
+        elif command.action == "set_gripper_collision_visibility":
+            self.gripper_collision_visible = command.collision_visible
+            self.gripper_collision_markers.set_visibility(self.gripper_collision_visible)
+            if self.gripper_collision_visible:
+                self.update_gripper_collision_markers()
         elif command.action == "print_pose":
             values = {
                 name: float(value) for name, value in zip(self.joint_names, self.targets[0].tolist())
@@ -1023,6 +1060,10 @@ class _JointPoseEditor:
             "grasp_visible": self.grasp_visible,
             "grasp_z_offset_m": self.grasp_z_offset_m,
             "cleared_same_shelf_boxes": [record[0] for record in self.cleared_boxes],
+            "cleared_box_root_poses_w": {
+                name: asset.data.root_pose_w[0].detach().cpu().tolist()
+                for name, asset, _, _ in self.cleared_boxes
+            },
             "target_box_body_position_b": target_box_position_b[0].detach().cpu().tolist(),
             "target_box_displacement_m": float(target_box_displacement_m),
             "authoring_only": True,
@@ -1280,7 +1321,11 @@ def _sample_to_world(
 
 def _write_planning_snapshot(env, pose_editor: _JointPoseEditor, output_dir: Path) -> None:
     """Persist the exact live collision world before any editor motion."""
-    from kuavo_isaaclab_scene.planning.world import snapshot_colliders, world_config
+    from kuavo_isaaclab_scene.planning.world import (
+        omit_instance_colliders,
+        snapshot_colliders,
+        world_config,
+    )
 
     output_dir = output_dir.expanduser().resolve()
     if output_dir.exists():
@@ -1294,6 +1339,9 @@ def _write_planning_snapshot(env, pose_editor: _JointPoseEditor, output_dir: Pat
         env.sim.stage,
         robot_root,
         include_roots=(robot_root, "/World/envs/env_0/Workcell", "/World/ConveyorSurface"),
+    )
+    collision_snapshot = omit_instance_colliders(
+        collision_snapshot, (record[0] for record in pose_editor.cleared_boxes)
     )
     runtime = {
         "joint_names": list(robot.joint_names),

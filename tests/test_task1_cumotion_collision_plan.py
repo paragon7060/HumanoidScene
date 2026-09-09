@@ -35,13 +35,13 @@ def test_collision_world_allows_only_selected_target_flaps():
             {"robot": False, "path": "/MediumBox_0/box/bottom"},
         ]
     }
-    world = {"cuboid": {f"obstacle_{index}": index for index in range(4)}}
+    world = {"cuboid": {f"obstacle_{index}": index for index in range(1, 5)}}
 
     filtered, allowed = collision_world_config(
         snapshot, world, allow_target_flap_contact=True
     )
 
-    assert filtered == {"cuboid": {"obstacle_0": 0, "obstacle_3": 3}}
+    assert filtered == {"cuboid": {"obstacle_1": 1, "obstacle_4": 4}}
     assert allowed == [
         "/MediumBox_0/box/flap_right",
         "/MediumBox_0/box/flap_left",

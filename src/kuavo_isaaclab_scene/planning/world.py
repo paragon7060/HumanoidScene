@@ -104,6 +104,25 @@ def snapshot_colliders(
             "excluded_enabled_colliders": excluded, "continuous_collision_guarantee": False}
 
 
+def omit_instance_colliders(snapshot: dict, instance_names) -> dict:
+    """Return a snapshot without colliders for explicitly parked instances."""
+    names = tuple(instance_names)
+    if any(not isinstance(name, str) or not name for name in names):
+        raise ValueError("instance names must be nonempty strings")
+    markers = tuple(f"/{name}/" for name in names)
+    removed = [
+        item["path"] for item in snapshot["colliders"]
+        if any(marker in item["path"] for marker in markers)
+    ]
+    result = dict(snapshot)
+    result["colliders"] = [
+        item for item in snapshot["colliders"]
+        if not any(marker in item["path"] for marker in markers)
+    ]
+    result["pose_editor_omitted_colliders"] = removed
+    return result
+
+
 def world_config(snapshot: dict, robot_base_pose_w) -> dict:
     base_inverse = inverse_transform(pose_matrix(robot_base_pose_w))
     return {"cuboid": {f"obstacle_{i}": {

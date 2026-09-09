@@ -4,7 +4,12 @@ import numpy as np
 import pytest
 
 from kuavo_isaaclab_scene.planning.geometry import matrix_pose, pose_matrix, origin_matrix
-from kuavo_isaaclab_scene.planning.world import bounded_cuboid, cover_cuboid, world_config
+from kuavo_isaaclab_scene.planning.world import (
+    bounded_cuboid,
+    cover_cuboid,
+    omit_instance_colliders,
+    world_config,
+)
 
 
 @pytest.mark.parametrize("angles", [[0, 0, 0], [np.pi, 0, 0], [0, np.pi, 0],
@@ -59,3 +64,26 @@ def test_world_keeps_rack_parts_and_excludes_robot_only():
     assert len(world["cuboid"]) == 2
     assert world["cuboid"]["obstacle_1"]["pose"][0] == .5
     assert world["cuboid"]["obstacle_2"]["pose"][0] == 1.5
+
+
+def test_parked_instance_colliders_are_omitted_with_audit_trail():
+    snapshot = {
+        "colliders": [
+            {"path": "/World/MediumBox_0/Body", "robot": False},
+            {"path": "/World/LargeBox_0/Body/bottom", "robot": False},
+            {"path": "/World/LargeBox_0/flap_left", "robot": False},
+            {"path": "/World/Kuavo/link", "robot": True},
+        ],
+        "continuous_collision_guarantee": False,
+    }
+
+    filtered = omit_instance_colliders(snapshot, ("LargeBox_0",))
+
+    assert [item["path"] for item in filtered["colliders"]] == [
+        "/World/MediumBox_0/Body",
+        "/World/Kuavo/link",
+    ]
+    assert filtered["pose_editor_omitted_colliders"] == [
+        "/World/LargeBox_0/Body/bottom",
+        "/World/LargeBox_0/flap_left",
+    ]

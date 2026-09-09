@@ -148,7 +148,9 @@ def collision_world_config(
         raise ValueError("world obstacle count does not match the collider snapshot")
     kept = {}
     allowed = []
-    for index, collider in enumerate(nonrobot):
+    for index, collider in enumerate(snapshot["colliders"]):
+        if collider["robot"]:
+            continue
         key = f"obstacle_{index}"
         path = collider["path"]
         is_target_flap = (
