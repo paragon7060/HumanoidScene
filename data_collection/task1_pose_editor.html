@@ -60,6 +60,7 @@
         <button data-view="right_wrist">Right wrist</button>
       </div>
       <label class="toggle"><input id="grasp-visible" type="checkbox" checked> Grasp point 표시</label>
+      <label class="toggle"><input id="gripper-collision-visible" type="checkbox"> 그리퍼 충돌 sphere 표시</label>
       <div class="control">
         <div class="control-head"><span>객체 로컬 Z 오프셋</span><span id="grasp-z-value">+0.000 m</span></div>
         <input id="grasp-z-offset" type="range" min="-0.15" max="0.15" step="0.005" value="0">
@@ -77,6 +78,7 @@
     const frame = document.querySelector('#frame'), status = document.querySelector('#connection');
     const joints = document.querySelector('#joints'), metrics = document.querySelector('#metrics');
     const graspVisible = document.querySelector('#grasp-visible');
+    const gripperCollisionVisible = document.querySelector('#gripper-collision-visible');
     const graspZOffset = document.querySelector('#grasp-z-offset');
     const graspZValue = document.querySelector('#grasp-z-value');
     let socket = null, sequence = 0, latestState = null, imageUrl = null;
@@ -148,6 +150,7 @@
       }
       const focus = state.selected_control || '';
       graspVisible.checked = state.grasp_visible;
+      gripperCollisionVisible.checked = state.gripper_collision_visible;
       if (document.activeElement !== graspZOffset) graspZOffset.value = state.grasp_z_offset_m;
       graspZValue.textContent = `${Number(graspZOffset.value) >= 0 ? '+' : ''}${Number(graspZOffset.value).toFixed(3)} m`;
       for (const button of document.querySelectorAll('[data-view]')) {
@@ -166,13 +169,15 @@
         row.querySelector('.joint-degrees').textContent = formattedControlValue(control, displayedValue);
       }
       const vec = value => value.map(v=>v.toFixed(3)).join(' ');
-      metrics.textContent = `view: ${state.view}\ngrip object-Z offset: ${state.grasp_z_offset_m.toFixed(3)} m\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${vec(state.tcp_position_b[0])}\nR ${vec(state.tcp_position_b[1])}\ngrasp base xyz (m):\nL ${vec(state.grasp_position_b[0])}\nR ${vec(state.grasp_position_b[1])}\ninward flap normal (base):\nL ${vec(state.inward_flap_normal_b[0])}\nR ${vec(state.inward_flap_normal_b[1])}\nshoulder → pregrasp (m): L ${state.shoulder_to_pregrasp_distance_m[0].toFixed(3)}  R ${state.shoulder_to_pregrasp_distance_m[1].toFixed(3)}\npregrasp above shoulder (m): L ${state.pregrasp_above_shoulder_m[0].toFixed(3)}  R ${state.pregrasp_above_shoulder_m[1].toFixed(3)}\ncleared: ${state.cleared_same_shelf_boxes.join(', ') || 'none'}`;
+      const collisionRadii = state.gripper_collision_radius_range_m.map(value => (value * 1000).toFixed(1));
+      metrics.textContent = `view: ${state.view}\ngrip object-Z offset: ${state.grasp_z_offset_m.toFixed(3)} m\ngripper collision: ${state.gripper_collision_sphere_count} spheres, radius ${collisionRadii[0]}–${collisionRadii[1]} mm, margin ${(state.gripper_collision_margin_m * 1000).toFixed(1)} mm\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${vec(state.tcp_position_b[0])}\nR ${vec(state.tcp_position_b[1])}\ngrasp base xyz (m):\nL ${vec(state.grasp_position_b[0])}\nR ${vec(state.grasp_position_b[1])}\ninward flap normal (base):\nL ${vec(state.inward_flap_normal_b[0])}\nR ${vec(state.inward_flap_normal_b[1])}\nshoulder → pregrasp (m): L ${state.shoulder_to_pregrasp_distance_m[0].toFixed(3)}  R ${state.shoulder_to_pregrasp_distance_m[1].toFixed(3)}\npregrasp above shoulder (m): L ${state.pregrasp_above_shoulder_m[0].toFixed(3)}  R ${state.pregrasp_above_shoulder_m[1].toFixed(3)}\ncleared: ${state.cleared_same_shelf_boxes.join(', ') || 'none'}`;
     }
     window.addEventListener('pointerup', () => { activeJoint = null; });
     window.addEventListener('pointercancel', () => { activeJoint = null; });
     document.querySelector('#connect').onclick = connect;
     for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => send('set_view', {view:button.dataset.view});
     graspVisible.onchange = () => send('set_grasp_visibility', {visible:graspVisible.checked});
+    gripperCollisionVisible.onchange = () => send('set_gripper_collision_visibility', {visible:gripperCollisionVisible.checked});
     graspZOffset.oninput = () => {
       const value = Number(graspZOffset.value);
       graspZValue.textContent = `${value >= 0 ? '+' : ''}${value.toFixed(3)} m`;

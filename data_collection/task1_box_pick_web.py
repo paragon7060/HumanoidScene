@@ -830,6 +830,82 @@ class _JointPoseEditor:
         self.grasp_points_w = self.base_grasp_points_w + delta_w
         self.all_flap_grasp_points_w = self.base_all_flap_grasp_points_w + delta_w
 
+    def prepare_gripper_collision_spheres(self) -> None:
+        """Build the same inflated sphere cover used by the current cuMotion plans."""
+        from kuavo_isaaclab_scene.planning.geometry import inverse_transform, pose_matrix
+        from kuavo_isaaclab_scene.planning.world import cover_cuboid, snapshot_colliders
+
+        robot_root = "/World/envs/env_0/Kuavo"
+        snapshot = snapshot_colliders(
+            self.env.sim.stage, robot_root, include_roots=(robot_root,)
+        )
+        body_ids, resolved = self.robot.find_bodies(
+            self._GRIPPER_COLLISION_FRAMES, preserve_order=True
+        )
+        if tuple(resolved) != self._GRIPPER_COLLISION_FRAMES:
+            raise RuntimeError(f"Gripper collision-frame lookup mismatch: {resolved}")
+        body_poses = self.robot.data.body_link_pose_w[0, body_ids].detach().cpu().numpy()
+        body_pose_by_name = dict(zip(self._GRIPPER_COLLISION_FRAMES, body_poses))
+        body_index_by_name = {
+            name: index for index, name in enumerate(self._GRIPPER_COLLISION_FRAMES)
+        }
+        local_centers = []
+        radii = []
+        owner_indices = []
+        represented_frames = set()
+        for collider in snapshot["colliders"]:
+            owner = (collider["owner"] or "").rsplit("/", 1)[-1]
+            if owner not in body_pose_by_name:
+                continue
+            local_from_world = inverse_transform(pose_matrix(body_pose_by_name[owner]))
+            for sphere in cover_cuboid(
+                collider["pose_w"], collider["dims"], self._COLLISION_SPHERE_CELL_M
+            ):
+                center_w = np.asarray(sphere["center"], dtype=float)
+                local_center = (local_from_world @ np.r_[center_w, 1.0])[:3]
+                local_centers.append(local_center)
+                radii.append(float(sphere["radius"]) + self._COLLISION_MARGIN_M)
+                owner_indices.append(body_index_by_name[owner])
+                represented_frames.add(owner)
+        missing = set(self._GRIPPER_COLLISION_FRAMES) - represented_frames
+        if missing or not local_centers:
+            raise RuntimeError(f"Missing live gripper collision frames: {sorted(missing)}")
+        self.gripper_collision_body_ids = torch.tensor(
+            body_ids, device=self.env.device, dtype=torch.long
+        )
+        self.gripper_collision_owner_indices = torch.tensor(
+            owner_indices, device=self.env.device, dtype=torch.long
+        )
+        self.gripper_collision_local_centers = torch.tensor(
+            np.asarray(local_centers), device=self.env.device, dtype=self.targets.dtype
+        )
+        self.gripper_collision_radii_m = torch.tensor(
+            radii, device=self.env.device, dtype=self.targets.dtype
+        )
+
+    def update_gripper_collision_markers(self) -> None:
+        """Follow each collision sphere with its owning gripper rigid body."""
+        if not self.gripper_collision_visible:
+            return
+        from isaaclab.utils.math import quat_apply
+
+        body_ids = self.gripper_collision_body_ids[
+            self.gripper_collision_owner_indices
+        ]
+        body_positions = self.robot.data.body_link_pos_w[0, body_ids]
+        body_quaternions = self.robot.data.body_link_quat_w[0, body_ids]
+        positions = body_positions + quat_apply(
+            body_quaternions, self.gripper_collision_local_centers
+        )
+        orientations = torch.zeros(
+            (len(positions), 4), device=self.env.device, dtype=positions.dtype
+        )
+        orientations[:, 0] = 1.0
+        scales = self.gripper_collision_radii_m.unsqueeze(-1).expand(-1, 3)
+        self.gripper_collision_markers.visualize(
+            positions, orientations, scales=scales
+        )
+
     def hold_authoring_state(self) -> None:
         """Keep the editor's robot and target at their authored poses."""
         self.robot.write_root_pose_to_sim(self.robot_root_pose_w)
@@ -903,6 +979,7 @@ class _JointPoseEditor:
         for selected_name in selected_names:
             marker_indices[self.joint_names.index(selected_name)] = 5
         self.markers.visualize(positions, orientations, marker_indices=marker_indices)
+        self.update_gripper_collision_markers()
 
         grasp_positions = self.all_flap_grasp_points_w
         grasp_orientations = torch.zeros((4, 4), device=self.env.device, dtype=positions.dtype)
@@ -1059,6 +1136,14 @@ class _JointPoseEditor:
             },
             "grasp_visible": self.grasp_visible,
             "grasp_z_offset_m": self.grasp_z_offset_m,
+            "gripper_collision_visible": self.gripper_collision_visible,
+            "gripper_collision_sphere_count": len(self.gripper_collision_radii_m),
+            "gripper_collision_radius_range_m": [
+                float(self.gripper_collision_radii_m.min()),
+                float(self.gripper_collision_radii_m.max()),
+            ],
+            "gripper_collision_cell_m": self._COLLISION_SPHERE_CELL_M,
+            "gripper_collision_margin_m": self._COLLISION_MARGIN_M,
             "cleared_same_shelf_boxes": [record[0] for record in self.cleared_boxes],
             "cleared_box_root_poses_w": {
                 name: asset.data.root_pose_w[0].detach().cpu().tolist()

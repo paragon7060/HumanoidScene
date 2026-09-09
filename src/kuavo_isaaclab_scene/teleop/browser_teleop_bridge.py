@@ -96,6 +96,7 @@ class PoseEditorCommand:
     grasp_z_offset_m: float | None = None
     control_name: str | None = None
     control_value: float | None = None
+    collision_visible: bool | None = None
 
 
 _ARM_JOINT_PATTERN = re.compile(r"^zarm_[lr][1-7]_joint$")
@@ -202,6 +203,11 @@ def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
         return PoseEditorCommand(
             sequence, action, control_name=control_name, control_value=value
         )
+    if action == "set_gripper_collision_visibility":
+        visible = payload.get("visible")
+        if not isinstance(visible, bool):
+            return None
+        return PoseEditorCommand(sequence, action, collision_visible=visible)
     if action in {"reset", "print_pose"}:
         return PoseEditorCommand(sequence, action)
     return None
@@ -566,6 +572,7 @@ class BrowserTeleopBridge:
                         grasp_z_offset_m=editor_command.grasp_z_offset_m,
                         control_name=editor_command.control_name,
                         control_value=editor_command.control_value,
+                        collision_visible=editor_command.collision_visible,
                     )
                 continue
             try:
