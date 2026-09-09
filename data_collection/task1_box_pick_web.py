@@ -1045,11 +1045,10 @@ def main() -> None:
                 editor_changed = pose_editor.accept(command)
                 for term in arm_terms:
                     term.set_following(False)
-                action = _absolute_pose_action(
-                    env,
-                    robot,
-                    robot.data.body_link_pos_w[0, pregrasp_ee_ids].clone(),
-                    robot.data.body_link_quat_w[0, pregrasp_ee_ids].clone(),
+                action = torch.zeros(
+                    (1, env.action_manager.total_action_dim),
+                    device=env.device,
+                    dtype=robot.data.joint_pos.dtype,
                 )
             elif args_cli.pregrasp:
                 if pregrasp_runner is None and bridge.client_count > 0:
