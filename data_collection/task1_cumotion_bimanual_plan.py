@@ -111,6 +111,12 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--terminal-seed-plan", type=Path, required=True)
     result.add_argument("--output-dir", type=Path, default=None)
     result.add_argument("--sphere-cell-m", type=float, default=0.06)
+    result.add_argument(
+        "--gripper-max-overshoot-m",
+        type=float,
+        choices=(0.002, 0.005, 0.010, 0.020),
+        default=0.002,
+    )
     result.add_argument("--collision-margin-m", type=float, default=0.002)
     result.add_argument("--validation-step-rad", type=float, default=0.01)
     result.add_argument("--target-tolerance-m", type=float, default=0.005)
@@ -130,6 +136,9 @@ def main(argv=None) -> int:
         raise ValueError("--collision-margin-m must be finite and nonnegative")
 
     import cumotion
+    from kuavo_isaaclab_scene.planning.gripper_collision import (
+        load_gripper_collision_spheres,
+    )
 
     snapshot_dir = args.snapshot_dir.expanduser().resolve()
     snapshot = json.loads((snapshot_dir / "collision_snapshot.json").read_text())
@@ -192,11 +201,22 @@ def main(argv=None) -> int:
             )
         ]
     )
+    gripper_mesh_spheres = load_gripper_collision_spheres(
+        args.gripper_max_overshoot_m
+    )
     world_spheres = robot_spheres(
-        snapshot, runtime, args.sphere_cell_m, args.collision_margin_m
+        snapshot,
+        runtime,
+        args.sphere_cell_m,
+        args.collision_margin_m,
+        gripper_mesh_spheres,
     )
     self_spheres = robot_spheres(
-        snapshot, runtime, args.sphere_cell_m, args.collision_margin_m / 2
+        snapshot,
+        runtime,
+        args.sphere_cell_m,
+        args.collision_margin_m / 2,
+        gripper_mesh_spheres,
     )
     xrdf_text = bimanual_xrdf(defaults, world_spheres, self_spheres)
     planner_text = planner_yaml(len(ARM_JOINT_NAMES))
@@ -255,6 +275,10 @@ def main(argv=None) -> int:
             "robot_world_spheres": sum(map(len, world_spheres.values())),
             "robot_self_spheres": sum(map(len, self_spheres.values())),
             "sphere_cover_cell_m": args.sphere_cell_m,
+            "gripper_mesh_max_overshoot_m": args.gripper_max_overshoot_m,
+            "gripper_mesh_sphere_count": sum(
+                map(len, gripper_mesh_spheres.values())
+            ),
             "world_margin_m": args.collision_margin_m,
             "self_pair_margin_m": args.collision_margin_m,
             "allow_target_flap_contact": allow_target_flap_contact,
