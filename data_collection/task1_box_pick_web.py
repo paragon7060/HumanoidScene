@@ -297,6 +297,31 @@ def _pregrasp_targets(env, *, height_m: float, grasp_depth_m: float):
     return torch.stack(targets), torch.stack(grasps), torch.stack(inward_normals), diagnostics
 
 
+def _flap_grasp_points(env, flap_names: tuple[str, ...], *, grasp_depth_m: float):
+    """Return one upper-edge grasp point for each requested box flap."""
+    from kuavo_isaaclab_scene.rl.scenes.asset_geometry import box_geometry
+    from isaaclab.utils.math import quat_apply
+
+    if not flap_names:
+        raise ValueError("at least one flap name is required")
+    if not np.isfinite(grasp_depth_m) or grasp_depth_m <= 0.0:
+        raise ValueError("grasp depth must be finite and positive")
+    box = env.scene["medium_box_0"]
+    geometry = box_geometry(env.cfg.scene.medium_box_0, flap_names)
+    flap_ids, resolved_names = box.find_bodies(flap_names, preserve_order=True)
+    if tuple(resolved_names) != flap_names:
+        raise RuntimeError(f"MediumBox_0 flap lookup mismatch: flaps={resolved_names}")
+    flap_pos = box.data.body_link_pos_w[0, flap_ids]
+    flap_quat = box.data.body_link_quat_w[0, flap_ids]
+    points = []
+    for index, flap_name in enumerate(flap_names):
+        flap = geometry.flaps[flap_name]
+        local_grasp = torch.tensor(flap.center, device=env.device, dtype=flap_pos.dtype)
+        local_grasp[2] += flap.half_size[2] - grasp_depth_m
+        points.append(flap_pos[index] + quat_apply(flap_quat[index], local_grasp))
+    return torch.stack(points)
+
+
 def _orientation_from_closing_and_forward(closing_axes_w, forward_axes_w):
     """Return wxyz TCP quaternions for local +X closing and local -Z forward."""
     from isaaclab.utils.math import quat_from_matrix
@@ -523,6 +548,15 @@ class _JointPoseEditor:
         self.pregrasp_targets_w, self.grasp_points_w, self.inward_normals_w, self.pregrasp_geometry = (
             _pregrasp_targets(env, height_m=pregrasp_height_m, grasp_depth_m=grasp_depth_m)
         )
+        self.all_flap_names = (
+            "flap_front",
+            "flap_back",
+            "flap_right",
+            "flap_left",
+        )
+        self.all_flap_grasp_points_w = _flap_grasp_points(
+            env, self.all_flap_names, grasp_depth_m=grasp_depth_m
+        )
         self.pregrasp_height_m = float(pregrasp_height_m)
         model = UrdfModel(resolve_robot_model().urdf_path)
         self.local_axes = torch.tensor(
@@ -562,29 +596,16 @@ class _JointPoseEditor:
         grasp_marker_cfg = VisualizationMarkersCfg(
             prim_path="/Visuals/Task1GraspTargets",
             markers={
-                "grasp": sim_utils.SphereCfg(
-                    radius=0.026,
-                    visual_material=sim_utils.PreviewSurfaceCfg(
-                        diffuse_color=(0.15, 1.0, 0.30), emissive_color=(0.02, 0.25, 0.04)
-                    ),
-                ),
-                "pregrasp": sim_utils.SphereCfg(
+                "candidate": sim_utils.SphereCfg(
                     radius=0.022,
                     visual_material=sim_utils.PreviewSurfaceCfg(
-                        diffuse_color=(1.0, 0.62, 0.05), emissive_color=(0.25, 0.08, 0.0)
+                        diffuse_color=(0.22, 0.62, 1.0), emissive_color=(0.02, 0.10, 0.24)
                     ),
                 ),
-                "normal": sim_utils.CylinderCfg(
-                    radius=0.008,
-                    height=0.14,
+                "selected": sim_utils.SphereCfg(
+                    radius=0.028,
                     visual_material=sim_utils.PreviewSurfaceCfg(
-                        diffuse_color=(0.85, 0.92, 1.0), emissive_color=(0.12, 0.16, 0.22)
-                    ),
-                ),
-                "normal_tip": sim_utils.SphereCfg(
-                    radius=0.018,
-                    visual_material=sim_utils.PreviewSurfaceCfg(
-                        diffuse_color=(0.78, 0.36, 1.0), emissive_color=(0.16, 0.02, 0.25)
+                        diffuse_color=(0.18, 1.0, 0.30), emissive_color=(0.02, 0.28, 0.05)
                     ),
                 ),
             },
@@ -594,7 +615,7 @@ class _JointPoseEditor:
         cleared = [record[0] for record in self.cleared_boxes]
         print(
             f"[POSE_EDITOR_INIT] cleared_same_shelf_boxes={cleared}; "
-            "spawned grasp/pregrasp/inward-normal markers",
+            "spawned four flap grasp-point markers",
             flush=True,
         )
         self.selected_joint = self.joint_names[5]
@@ -738,17 +759,13 @@ class _JointPoseEditor:
         marker_indices[self.joint_names.index(self.selected_joint)] = 2
         self.markers.visualize(positions, orientations, marker_indices=marker_indices)
 
-        normal_length_m = 0.14
-        normal_centers = self.grasp_points_w + self.inward_normals_w * (normal_length_m / 2.0)
-        normal_tips = self.grasp_points_w + self.inward_normals_w * normal_length_m
-        grasp_positions = torch.cat(
-            (self.grasp_points_w, self.pregrasp_targets_w, normal_centers, normal_tips), dim=0
-        )
-        grasp_orientations = torch.zeros((8, 4), device=self.env.device, dtype=positions.dtype)
+        grasp_positions = self.all_flap_grasp_points_w
+        grasp_orientations = torch.zeros((4, 4), device=self.env.device, dtype=positions.dtype)
         grasp_orientations[:, 0] = 1.0
-        grasp_orientations[4:6] = self._z_axis_orientations(self.inward_normals_w)
         grasp_marker_indices = torch.tensor(
-            (0, 0, 1, 1, 2, 2, 3, 3), device=self.env.device, dtype=torch.int32
+            tuple(1 if name in {"flap_right", "flap_left"} else 0 for name in self.all_flap_names),
+            device=self.env.device,
+            dtype=torch.int32,
         )
         self.grasp_markers.visualize(
             grasp_positions, grasp_orientations, marker_indices=grasp_marker_indices
@@ -824,9 +841,8 @@ class _JointPoseEditor:
             "pregrasp_height_m": self.pregrasp_height_m,
             "pregrasp_source": "medium_box_0 flap_right/flap_left upper grasp pair",
             "grasp_marker_legend": {
-                "green": "grasp point",
-                "orange": "pregrasp point",
-                "white_purple": "inward flap normal and tip",
+                "green": "selected base-Y-parallel grasp pair",
+                "blue": "other flap grasp candidates",
             },
             "grasp_visible": self.grasp_visible,
             "cleared_same_shelf_boxes": [record[0] for record in self.cleared_boxes],
