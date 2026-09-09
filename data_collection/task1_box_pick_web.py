@@ -972,23 +972,31 @@ class _JointPoseEditor:
         base_positions = body_positions + quat_apply(
             body_quaternions, self.gripper_collision_local_centers
         )
-        positions = torch.cat((base_positions, base_positions), dim=0)
+        show_inflated = self.gripper_collision_margin_m > 0.0
+        positions = (
+            torch.cat((base_positions, base_positions), dim=0)
+            if show_inflated
+            else base_positions
+        )
         orientations = torch.zeros(
             (len(positions), 4), device=self.env.device, dtype=positions.dtype
         )
         orientations[:, 0] = 1.0
-        scales = torch.cat(
-            (
-                self.gripper_collision_base_radii_m,
-                self.gripper_collision_radii_m,
+        scales = (
+            torch.cat(
+                (
+                    self.gripper_collision_base_radii_m,
+                    self.gripper_collision_radii_m,
+                )
             )
+            if show_inflated
+            else self.gripper_collision_base_radii_m
         ).unsqueeze(-1).expand(-1, 3)
-        marker_indices = torch.cat(
-            (
-                torch.zeros(len(base_positions), device=self.env.device, dtype=torch.int32),
-                torch.ones(len(base_positions), device=self.env.device, dtype=torch.int32),
-            )
+        marker_indices = torch.zeros(
+            len(positions), device=self.env.device, dtype=torch.int32
         )
+        if show_inflated:
+            marker_indices[len(base_positions) :] = 1
         self.gripper_collision_markers.visualize(
             positions, orientations, marker_indices=marker_indices, scales=scales
         )
