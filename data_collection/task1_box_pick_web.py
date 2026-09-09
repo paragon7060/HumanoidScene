@@ -919,7 +919,12 @@ def _write_planning_snapshot(env, pose_editor: _JointPoseEditor, output_dir: Pat
 
     robot = env.scene["robot"]
     root_pose_w = robot.data.root_pose_w[0].detach().cpu().tolist()
-    collision_snapshot = snapshot_colliders(env.sim.stage, "/World/envs/env_0/Kuavo")
+    robot_root = "/World/envs/env_0/Kuavo"
+    collision_snapshot = snapshot_colliders(
+        env.sim.stage,
+        robot_root,
+        include_roots=(robot_root, "/World/envs/env_0/Workcell", "/World/ConveyorSurface"),
+    )
     runtime = {
         "joint_names": list(robot.joint_names),
         "joint_positions": robot.data.joint_pos[0].detach().cpu().tolist(),

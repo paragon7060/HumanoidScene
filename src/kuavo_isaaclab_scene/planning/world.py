@@ -45,7 +45,12 @@ def bounded_cuboid(
     return matrix_pose(rigid), dimensions.tolist()
 
 
-def snapshot_colliders(stage, robot_root: str) -> dict:
+def snapshot_colliders(
+    stage,
+    robot_root: str,
+    *,
+    include_roots: tuple[str, ...] | None = None,
+) -> dict:
     from pxr import Usd, UsdGeom, UsdPhysics
     # Collision geometry is often invisible/guide-purpose, unlike its visuals.
     # USD's constructor takes ``useExtentsHint`` before ``ignoreVisibility``;
@@ -54,11 +59,16 @@ def snapshot_colliders(stage, robot_root: str) -> dict:
                                ["default", "render", "proxy", "guide"],
                                True, True)
     xforms = UsdGeom.XformCache(Usd.TimeCode.Default())
-    records, disabled, unsupported = [], [], []
+    records, disabled, unsupported, excluded = [], [], [], []
     for prim in Usd.PrimRange(stage.GetPseudoRoot(), Usd.TraverseInstanceProxies()):
         if not prim.IsActive() or not prim.HasAPI(UsdPhysics.CollisionAPI):
             continue
         path = str(prim.GetPath())
+        if include_roots is not None and not any(
+            path == root or path.startswith(root + "/") for root in include_roots
+        ):
+            excluded.append({"path": path, "reason": "outside requested planning roots"})
+            continue
         if UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Get() is False:
             disabled.append(path)
             continue
@@ -91,7 +101,7 @@ def snapshot_colliders(stage, robot_root: str) -> dict:
     if not records or not any(r["robot"] for r in records):
         raise ValueError("empty collision scene or no robot colliders")
     return {"colliders": records, "disabled_colliders": disabled,
-            "excluded_enabled_colliders": [], "continuous_collision_guarantee": False}
+            "excluded_enabled_colliders": excluded, "continuous_collision_guarantee": False}
 
 
 def world_config(snapshot: dict, robot_base_pose_w) -> dict:
