@@ -20,6 +20,8 @@
     aside { overflow: auto; padding: 12px; border-left: 1px solid #263246; background: #101722; }
     h2 { margin: 8px 0; font-size: 14px; color: #9fb0c8; text-transform: uppercase; letter-spacing: .08em; }
     .views, .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .views button.active { border-color: #ffd44a; color: #ffd44a; background: #2e3440; }
+    .toggle { display: flex; align-items: center; gap: 8px; margin: 8px 0 14px; font-size: 13px; color: #c7d3e5; }
     .joint { padding: 8px 0; border-top: 1px solid #273246; }
     .joint-head { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; font-size: 13px; }
     .joint input { width: 100%; }
@@ -44,7 +46,10 @@
       <div class="views">
         <button data-view="rear_left">후방 좌측</button><button data-view="rear_right">후방 우측</button>
         <button data-view="front_left">전방 좌측</button><button data-view="front_right">전방 우측</button>
+        <button data-view="head">Head</button><button data-view="left_wrist">Left wrist</button>
+        <button data-view="right_wrist">Right wrist</button>
       </div>
+      <label class="toggle"><input id="grasp-visible" type="checkbox" checked> Grasp point 표시</label>
       <h2>팔 관절</h2>
       <div id="joints">Connect 후 q1~q7 슬라이더가 표시됩니다.</div>
       <h2>자세</h2>
@@ -57,6 +62,7 @@
     const PROTOCOL_VERSION = 2, HEADER_BYTES = 32;
     const frame = document.querySelector('#frame'), status = document.querySelector('#connection');
     const joints = document.querySelector('#joints'), metrics = document.querySelector('#metrics');
+    const graspVisible = document.querySelector('#grasp-visible');
     let socket = null, sequence = 0, latestState = null, imageUrl = null;
     let activeJoint = null, jointRows = new Map();
     const pendingJointValues = new Map();
@@ -113,6 +119,10 @@
         buildJointRows(state);
       }
       const focus = state.selected_joint || '';
+      graspVisible.checked = state.grasp_visible;
+      for (const button of document.querySelectorAll('[data-view]')) {
+        button.classList.toggle('active', button.dataset.view === state.view);
+      }
       for (const joint of state.joints) {
         const row = jointRows.get(joint.name), input = row.querySelector('input');
         const pending = pendingJointValues.get(joint.name);
@@ -132,6 +142,7 @@
     window.addEventListener('pointercancel', () => { activeJoint = null; });
     document.querySelector('#connect').onclick = connect;
     for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => send('set_view', {view:button.dataset.view});
+    graspVisible.onchange = () => send('set_grasp_visibility', {visible:graspVisible.checked});
     document.querySelector('#reset').onclick = () => send('reset');
     document.querySelector('#print').onclick = () => send('print_pose');
     document.querySelector('#copy').onclick = async () => {

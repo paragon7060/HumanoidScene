@@ -454,6 +454,11 @@ class _JointPoseEditor:
         "front_left": ((2.0, 1.8, 1.65), (0.20, 0.0, 1.15)),
         "front_right": ((2.0, -1.8, 1.65), (0.20, 0.0, 1.15)),
     }
+    _FIRST_PERSON_CAMERAS = {
+        "head": "robustness_camera",
+        "left_wrist": "left_wrist_camera",
+        "right_wrist": "right_wrist_camera",
+    }
 
     def __init__(self, env, *, pregrasp_height_m: float, grasp_depth_m: float):
         import isaaclab.sim as sim_utils
@@ -585,6 +590,7 @@ class _JointPoseEditor:
             },
         )
         self.grasp_markers = VisualizationMarkers(grasp_marker_cfg)
+        self.grasp_visible = True
         cleared = [record[0] for record in self.cleared_boxes]
         print(
             f"[POSE_EDITOR_INIT] cleared_same_shelf_boxes={cleared}; "
@@ -602,6 +608,9 @@ class _JointPoseEditor:
     def set_view(self, name: str) -> None:
         from isaaclab.utils.math import quat_apply
 
+        if name in self._FIRST_PERSON_CAMERAS:
+            self.view = name
+            return
         if name not in self._VIEWS:
             raise ValueError(f"Unknown editor camera view: {name}")
         eye_b, target_b = self._VIEWS[name]
@@ -618,6 +627,10 @@ class _JointPoseEditor:
             eye.unsqueeze(0), target.unsqueeze(0)
         )
         self.view = name
+
+    @property
+    def active_camera_scene_key(self) -> str:
+        return self._FIRST_PERSON_CAMERAS.get(self.view, "joint_editor_camera")
 
     def accept(self, command) -> bool:
         if command is None or command.sequence <= self.last_command_sequence:
@@ -642,6 +655,9 @@ class _JointPoseEditor:
             self.apply_targets()
         elif command.action == "set_view":
             self.set_view(command.view)
+        elif command.action == "set_grasp_visibility":
+            self.grasp_visible = command.visible
+            self.grasp_markers.set_visibility(self.grasp_visible)
         elif command.action == "print_pose":
             values = {
                 name: float(value) for name, value in zip(self.joint_names, self.targets[0].tolist())
@@ -812,6 +828,7 @@ class _JointPoseEditor:
                 "orange": "pregrasp point",
                 "white_purple": "inward flap normal and tip",
             },
+            "grasp_visible": self.grasp_visible,
             "cleared_same_shelf_boxes": [record[0] for record in self.cleared_boxes],
             "target_box_body_position_b": target_box_position_b[0].detach().cpu().tolist(),
             "target_box_displacement_m": float(target_box_displacement_m),
@@ -1132,14 +1149,11 @@ def main() -> None:
     cfg.scene.xr_right_eye_camera.offset.pos = (0.08, -half_baseline, 0.0)
     if args_cli.joint_pose_editor:
         # The editor has no XR tracking or policy observations.  Rendering
-        # only its third-person camera avoids needlessly paying for five
-        # additional RGB sensors on the shared preview GPU.
+        # its third-person, head, and wrist cameras supports pose inspection
+        # without paying for the unused stereo XR pair or waist view.
         cfg.scene.xr_left_eye_camera = None
         cfg.scene.xr_right_eye_camera = None
-        cfg.scene.robustness_camera = None
         cfg.scene.waist_camera = None
-        cfg.scene.left_wrist_camera = None
-        cfg.scene.right_wrist_camera = None
     else:
         cfg.scene.joint_editor_camera = None
     set_domain_randomization(cfg, args_cli.domain_randomization)
@@ -1360,7 +1374,7 @@ def main() -> None:
                     mapper.reset()
             if clients and step % stream_interval == 0:
                 if pose_editor is not None:
-                    composite = _camera_rgb(env.scene["joint_editor_camera"])
+                    composite = _camera_rgb(env.scene[pose_editor.active_camera_scene_key])
                 else:
                     composite = compose_stereo_atlas(
                         _camera_rgb(env.scene["xr_left_eye_camera"]),

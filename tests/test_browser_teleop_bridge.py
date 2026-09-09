@@ -35,6 +35,13 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
     assert parse_pose_editor_message(json.dumps({
         **base, "action": "set_view", "view": "rear_left",
     })).view == "rear_left"
+    assert parse_pose_editor_message(json.dumps({
+        **base, "action": "set_view", "view": "head",
+    })).view == "head"
+    visibility = parse_pose_editor_message(json.dumps({
+        **base, "action": "set_grasp_visibility", "visible": False,
+    }))
+    assert visibility is not None and visibility.visible is False
     for invalid in (
         {**base, "action": "set_joint", "joint_name": "waist_yaw_joint", "value_rad": 0},
         {**base, "action": "set_joint", "joint_name": "zarm_l8_joint", "value_rad": 0},
@@ -43,6 +50,7 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         {**base, "action": "set_pose", "joint_positions": {"waist_yaw_joint": 0.0}},
         {**base, "action": "set_pose", "joint_positions": {"zarm_l2_joint": "nan"}},
         {**base, "action": "set_view", "view": "free"},
+        {**base, "action": "set_grasp_visibility", "visible": 0},
     ):
         assert parse_pose_editor_message(json.dumps(invalid)) is None
 

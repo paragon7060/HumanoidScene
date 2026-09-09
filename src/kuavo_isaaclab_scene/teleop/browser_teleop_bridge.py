@@ -92,10 +92,19 @@ class PoseEditorCommand:
     value_rad: float | None = None
     joint_positions: dict[str, float] | None = None
     view: str | None = None
+    visible: bool | None = None
 
 
 _ARM_JOINT_PATTERN = re.compile(r"^zarm_[lr][1-7]_joint$")
-_EDITOR_VIEWS = {"rear_left", "rear_right", "front_left", "front_right"}
+_EDITOR_VIEWS = {
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right",
+    "head",
+    "left_wrist",
+    "right_wrist",
+}
 
 
 def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
@@ -149,6 +158,11 @@ def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
         if view not in _EDITOR_VIEWS:
             return None
         return PoseEditorCommand(sequence, action, view=view)
+    if action == "set_grasp_visibility":
+        visible = payload.get("visible")
+        if not isinstance(visible, bool):
+            return None
+        return PoseEditorCommand(sequence, action, visible=visible)
     if action in {"reset", "print_pose"}:
         return PoseEditorCommand(sequence, action)
     return None
