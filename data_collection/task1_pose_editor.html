@@ -109,6 +109,7 @@
     const torsoZ = document.querySelector('#torso-z');
     const torsoZValue = document.querySelector('#torso-z-value');
     let socket = null, sequence = 0, latestState = null, imageUrl = null, collisionModelTimer = null;
+    let pendingTransitVisible = null;
     let activeJoint = null, jointRows = new Map();
     const pendingJointValues = new Map();
     const CONTROL_GROUPS = [
@@ -177,7 +178,10 @@
       }
       const focus = state.selected_control || '';
       graspVisible.checked = state.grasp_visible;
-      transitVisible.checked = state.transit_visible;
+      if (pendingTransitVisible !== null && state.transit_visible === pendingTransitVisible) {
+        pendingTransitVisible = null;
+      }
+      if (pendingTransitVisible === null) transitVisible.checked = state.transit_visible;
       gripperCollisionVisible.checked = state.gripper_collision_visible;
       if (document.activeElement !== collisionOvershoot) collisionOvershoot.value = state.gripper_collision_max_overshoot_m.toFixed(3);
       collisionOvershootValue.textContent = `${Math.round(Number(collisionOvershoot.value) * 1000)} mm`;
@@ -212,7 +216,10 @@
     document.querySelector('#connect').onclick = connect;
     for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => send('set_view', {view:button.dataset.view});
     graspVisible.onchange = () => send('set_grasp_visibility', {visible:graspVisible.checked});
-    transitVisible.onchange = () => send('set_transit_visibility', {visible:transitVisible.checked});
+    transitVisible.onchange = () => {
+      pendingTransitVisible = transitVisible.checked;
+      send('set_transit_visibility', {visible:pendingTransitVisible});
+    };
     gripperCollisionVisible.onchange = () => send('set_gripper_collision_visibility', {visible:gripperCollisionVisible.checked});
     function updateCollisionModel() {
       const maxOvershootM = Number(collisionOvershoot.value), marginM = Number(collisionMargin.value);
