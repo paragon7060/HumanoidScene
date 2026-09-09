@@ -74,7 +74,9 @@ def bimanual_xrdf(
     return yaml.safe_dump(data, sort_keys=False), controllers
 
 
-def rmpflow_yaml(joint_count: int, controllers: list[dict]) -> str:
+def rmpflow_yaml(
+    joint_count: int, controllers: list[dict], *, cspace_metric_scalar: float = 2.0
+) -> str:
     """Return a conservative multi-target RMPflow policy configuration."""
     data = {
         "format": "rmpflow",
@@ -82,7 +84,7 @@ def rmpflow_yaml(joint_count: int, controllers: list[dict]) -> str:
         "joint_limit_buffers": [0.01] * joint_count,
         "rmp_params": {
             "cspace_target_rmp": {
-                "metric_scalar": 2.0,
+                "metric_scalar": cspace_metric_scalar,
                 "position_gain": 80.0,
                 "damping_gain": 40.0,
                 "robust_position_term_thresh": 0.5,
@@ -174,6 +176,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--duration-s", type=float, default=12.0)
     result.add_argument("--validation-samples", type=int, default=121)
     result.add_argument("--target-tolerance-m", type=float, default=0.005)
+    result.add_argument("--cspace-attractor-weight", type=float, default=2.0)
     result.add_argument(
         "--terminal-seed-plan",
         type=Path,
@@ -190,6 +193,7 @@ def main(argv=None) -> int:
         ("--dt", args.dt),
         ("--duration-s", args.duration_s),
         ("--target-tolerance-m", args.target_tolerance_m),
+        ("--cspace-attractor-weight", args.cspace_attractor_weight),
     ):
         if not math.isfinite(value) or value <= 0:
             raise ValueError(f"{name} must be finite and positive")
@@ -240,7 +244,11 @@ def main(argv=None) -> int:
         snapshot, runtime, args.sphere_cell_m, args.collision_margin_m / 2
     )
     xrdf_text, controllers = bimanual_xrdf(defaults, world_spheres, self_spheres)
-    rmp_text = rmpflow_yaml(len(ARM_JOINT_NAMES), controllers)
+    rmp_text = rmpflow_yaml(
+        len(ARM_JOINT_NAMES),
+        controllers,
+        cspace_metric_scalar=args.cspace_attractor_weight,
+    )
     (output / "bimanual.xrdf").write_text(xrdf_text)
     (output / "rmpflow.yaml").write_text(rmp_text)
 
@@ -313,6 +321,7 @@ def main(argv=None) -> int:
             if args.terminal_seed_plan is None
             else str(args.terminal_seed_plan.expanduser().resolve())
         ),
+        "cspace_attractor_weight": args.cspace_attractor_weight,
         "duration_s": float(times[-1]),
         "sample_times_s": times.tolist(),
         "sample_q_rad": samples.tolist(),
