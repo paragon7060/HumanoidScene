@@ -138,6 +138,30 @@ def robot_spheres(snapshot, runtime, cell_m: float, radius_inflation_m: float) -
     return spheres
 
 
+def collision_world_config(
+    snapshot: dict, world_config: dict, *, allow_target_flap_contact: bool
+) -> tuple[dict, list[str]]:
+    """Optionally omit the two grasped flaps while keeping the rest of the box."""
+    nonrobot = [item for item in snapshot["colliders"] if not item["robot"]]
+    cuboids = world_config["cuboid"]
+    if len(cuboids) != len(nonrobot):
+        raise ValueError("world obstacle count does not match the collider snapshot")
+    kept = {}
+    allowed = []
+    for index, collider in enumerate(nonrobot):
+        key = f"obstacle_{index}"
+        path = collider["path"]
+        is_target_flap = (
+            "/MediumBox_0/" in path
+            and path.endswith(("/flap_right", "/flap_left"))
+        )
+        if allow_target_flap_contact and is_target_flap:
+            allowed.append(path)
+        else:
+            kept[key] = cuboids[key]
+    return {"cuboid": kept}, allowed
+
+
 def xrdf(
     *,
     side: str,
@@ -181,6 +205,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--target", choices=("pregrasp", "grasp"), default="pregrasp")
     result.add_argument("--target-tolerance-m", type=float, default=0.005)
     result.add_argument("--closing-axis-tolerance-deg", type=float, default=None)
+    result.add_argument("--independent-arm-seeds", action="store_true")
+    result.add_argument("--allow-target-flap-contact", action="store_true")
     return result
 
 
@@ -213,6 +239,11 @@ def main(argv=None) -> int:
     snapshot = json.loads((snapshot_dir / "collision_snapshot.json").read_text())
     runtime = json.loads((snapshot_dir / "runtime.json").read_text())
     world_config = json.loads((snapshot_dir / "world.json").read_text())
+    world_config, allowed_contact_colliders = collision_world_config(
+        snapshot,
+        world_config,
+        allow_target_flap_contact=args.allow_target_flap_contact,
+    )
     urdf_text = args.urdf.expanduser().resolve().read_text()
 
     world_spheres = robot_spheres(
@@ -270,6 +301,8 @@ def main(argv=None) -> int:
             "world_margin_m": args.collision_margin_m,
             "self_pair_margin_m": args.collision_margin_m,
             "excluded_stage_colliders": len(snapshot["excluded_enabled_colliders"]),
+            "allow_target_flap_contact": args.allow_target_flap_contact,
+            "allowed_contact_colliders": allowed_contact_colliders,
         },
         "arms": {},
     }
@@ -277,7 +310,7 @@ def main(argv=None) -> int:
     left_terminal = None
     for side, letter, target_index in (("left", "l", 0), ("right", "r", 1)):
         arm_defaults = dict(defaults)
-        if left_terminal is not None:
+        if left_terminal is not None and not args.independent_arm_seeds:
             arm_defaults.update(
                 {f"zarm_l{index}_joint": float(value) for index, value in enumerate(left_terminal, 1)}
             )
@@ -327,7 +360,11 @@ def main(argv=None) -> int:
             "joint_names": names,
             "target_position_b_m": target_position.tolist(),
             "target_inward_flap_normal_b": inward_normal.tolist(),
-            "fixed_other_arm": "main_initial" if side == "left" else "left_terminal",
+            "fixed_other_arm": (
+                "main_initial"
+                if side == "left" or args.independent_arm_seeds
+                else "left_terminal"
+            ),
         }
         report["arms"][side] = arm_report
         if status != "SUCCESS":

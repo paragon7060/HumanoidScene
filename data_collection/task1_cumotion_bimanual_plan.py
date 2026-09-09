@@ -16,6 +16,7 @@ import yaml
 from data_collection.task1_cumotion_collision_plan import (
     SELF_COLLISION_IGNORE,
     axis_alignment_error_deg,
+    collision_world_config,
     normalized_axis,
     pose_matrix,
     robot_spheres,
@@ -140,6 +141,14 @@ def main(argv=None) -> int:
     if target_kind not in {"pregrasp", "grasp"}:
         raise ValueError(f"unsupported seed target: {target_kind}")
     orientation_constraint = seed_report.get("orientation_constraint", {"type": "none"})
+    allow_target_flap_contact = bool(
+        seed_report.get("collision_model", {}).get("allow_target_flap_contact", False)
+    )
+    world_config, allowed_contact_colliders = collision_world_config(
+        snapshot,
+        world_config,
+        allow_target_flap_contact=allow_target_flap_contact,
+    )
     closing_axis_tolerance_deg = None
     if (
         isinstance(orientation_constraint, dict)
@@ -248,6 +257,8 @@ def main(argv=None) -> int:
             "sphere_cover_cell_m": args.sphere_cell_m,
             "world_margin_m": args.collision_margin_m,
             "self_pair_margin_m": args.collision_margin_m,
+            "allow_target_flap_contact": allow_target_flap_contact,
+            "allowed_contact_colliders": allowed_contact_colliders,
         },
     }
     if path_found:

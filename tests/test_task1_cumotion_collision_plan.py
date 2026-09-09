@@ -6,6 +6,7 @@ import yaml
 
 from data_collection.task1_cumotion_collision_plan import (
     axis_alignment_error_deg,
+    collision_world_config,
     cover_cuboid,
     xrdf,
 )
@@ -22,6 +23,29 @@ def test_axis_alignment_error_uses_rotated_local_axis():
     )
 
     assert axis_alignment_error_deg(rotation, [1, 0, 0], [1, 0, 0]) == pytest.approx(15.0)
+
+
+def test_collision_world_allows_only_selected_target_flaps():
+    snapshot = {
+        "colliders": [
+            {"robot": True, "path": "/robot"},
+            {"robot": False, "path": "/rack"},
+            {"robot": False, "path": "/MediumBox_0/box/flap_right"},
+            {"robot": False, "path": "/MediumBox_0/box/flap_left"},
+            {"robot": False, "path": "/MediumBox_0/box/bottom"},
+        ]
+    }
+    world = {"cuboid": {f"obstacle_{index}": index for index in range(4)}}
+
+    filtered, allowed = collision_world_config(
+        snapshot, world, allow_target_flap_contact=True
+    )
+
+    assert filtered == {"cuboid": {"obstacle_0": 0, "obstacle_3": 3}}
+    assert allowed == [
+        "/MediumBox_0/box/flap_right",
+        "/MediumBox_0/box/flap_left",
+    ]
 
 
 def test_collision_sphere_cover_contains_oriented_cuboid():
