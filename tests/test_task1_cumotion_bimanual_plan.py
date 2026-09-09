@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import yaml
 
 from data_collection.task1_cumotion_bimanual_plan import (
@@ -6,7 +7,9 @@ from data_collection.task1_cumotion_bimanual_plan import (
     TOOL_FRAMES,
     bimanual_xrdf,
     densify_path,
+    joint_space_path_length,
     planner_yaml,
+    shortcut_path,
 )
 
 
@@ -43,3 +46,23 @@ def test_densify_path_limits_each_joint_step():
     assert np.allclose(dense[0], path[0])
     assert np.allclose(dense[-1], path[-1])
     assert np.max(np.abs(np.diff(dense, axis=0))) <= 0.01 + 1e-12
+
+
+def test_shortcut_path_prefers_direct_segment_when_clear():
+    path = np.asarray([[0.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
+
+    shortcut = shortcut_path(path, 0.1, lambda _q: False)
+
+    np.testing.assert_allclose(shortcut, [[0.0, 0.0], [1.0, 1.0]])
+    assert joint_space_path_length(shortcut) == pytest.approx(np.sqrt(2.0))
+
+
+def test_shortcut_path_keeps_required_collision_avoidance_knot():
+    path = np.asarray([[0.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
+
+    def in_collision(q):
+        return 0.35 < q[0] < 0.65 and 0.35 < q[1] < 0.65
+
+    shortcut = shortcut_path(path, 0.05, in_collision)
+
+    np.testing.assert_allclose(shortcut, path)

@@ -107,6 +107,52 @@ def densify_path(path: np.ndarray, max_joint_step_rad: float) -> np.ndarray:
     return np.asarray(dense)
 
 
+def joint_space_path_length(path: np.ndarray) -> float:
+    """Return Euclidean length through the 14-DoF joint space."""
+    path = np.asarray(path, dtype=float)
+    if path.ndim != 2 or len(path) < 2 or not np.isfinite(path).all():
+        raise ValueError("path must contain at least two finite c-space waypoints")
+    return float(np.linalg.norm(np.diff(path, axis=0), axis=1).sum())
+
+
+def segment_is_collision_free(
+    start: np.ndarray,
+    end: np.ndarray,
+    max_joint_step_rad: float,
+    in_collision,
+) -> bool:
+    """Validate one joint-space line segment at the requested resolution."""
+    dense = densify_path(np.stack((start, end)), max_joint_step_rad)
+    return not any(bool(in_collision(row)) for row in dense)
+
+
+def shortcut_path(
+    path: np.ndarray,
+    max_joint_step_rad: float,
+    in_collision,
+) -> np.ndarray:
+    """Remove graph detours while preserving sampled collision freedom."""
+    path = np.asarray(path, dtype=float)
+    if path.ndim != 2 or len(path) < 2 or not np.isfinite(path).all():
+        raise ValueError("path must contain at least two finite c-space waypoints")
+    knots = [path[0]]
+    start_index = 0
+    while start_index < len(path) - 1:
+        for end_index in range(len(path) - 1, start_index, -1):
+            if segment_is_collision_free(
+                path[start_index],
+                path[end_index],
+                max_joint_step_rad,
+                in_collision,
+            ):
+                knots.append(path[end_index])
+                start_index = end_index
+                break
+        else:
+            raise RuntimeError("graph path contains no collision-free next segment")
+    return np.asarray(knots)
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--snapshot-dir", type=Path, required=True)
@@ -275,19 +321,51 @@ def main(argv=None) -> int:
             f"terminal_self_pairs={inspector.frames_in_self_collision(q_terminal)}"
         )
 
-    config = cumotion.create_motion_planner_config_from_file(
-        output / "planner.yaml", robot, TOOL_FRAMES[0], world_view
-    )
-    planner = cumotion.create_motion_planner(config)
+    def in_collision(q) -> bool:
+        return bool(
+            inspector.in_collision_with_obstacle(q)
+            or inspector.in_self_collision(q)
+        )
+
     started = time.perf_counter()
-    result = planner.plan_to_cspace_target(q_initial, q_terminal, True)
+    direct_path = np.stack((q_initial, q_terminal))
+    direct_path_clear = segment_is_collision_free(
+        q_initial,
+        q_terminal,
+        args.validation_step_rad,
+        in_collision,
+    )
+    graph_waypoint_count = None
+    shortcut_knot_count = 2
+    if direct_path_clear:
+        path_found = True
+        path = densify_path(direct_path, args.planner_step_size)
+        selected_strategy = "direct_joint_space_interpolation"
+    else:
+        config = cumotion.create_motion_planner_config_from_file(
+            output / "planner.yaml", robot, TOOL_FRAMES[0], world_view
+        )
+        planner = cumotion.create_motion_planner(config)
+        result = planner.plan_to_cspace_target(q_initial, q_terminal, True)
+        path_found = bool(result.path_found)
+        path = None
+        selected_strategy = "graph_plan_failed"
+        if path_found:
+            graph_path = np.asarray(result.interpolated_path, dtype=float)
+            graph_waypoint_count = len(graph_path)
+            shortcut_knots = shortcut_path(
+                graph_path,
+                args.validation_step_rad,
+                in_collision,
+            )
+            shortcut_knot_count = len(shortcut_knots)
+            path = densify_path(shortcut_knots, args.planner_step_size)
+            selected_strategy = "collision_aware_graph_shortcut"
     planning_wall_s = time.perf_counter() - started
-    path_found = bool(result.path_found)
-    path = np.asarray(result.interpolated_path, dtype=float) if path_found else None
 
     report = {
         "planner": "NVIDIA cuMotion 1.1.0 MotionPlanner",
-        "strategy": "simultaneous_bimanual_14dof_graph_plan",
+        "strategy": selected_strategy,
         "target": target_kind,
         "status": "PLANNING_FAILURE",
         "snapshot_dir": str(snapshot_dir),
@@ -300,6 +378,10 @@ def main(argv=None) -> int:
         "planning_wall_s": planning_wall_s,
         "planner_seed": args.planner_seed,
         "planner_step_size": args.planner_step_size,
+        "direct_path_collision_free": direct_path_clear,
+        "direct_joint_space_path_length_rad": joint_space_path_length(direct_path),
+        "graph_waypoint_count": graph_waypoint_count,
+        "shortcut_knot_count": shortcut_knot_count,
         "collision_model": {
             "world_obstacles": len(world_config["cuboid"]),
             "robot_world_spheres": sum(map(len, world_spheres.values())),
@@ -342,6 +424,7 @@ def main(argv=None) -> int:
         moving = (left_delta > 1e-7) | (right_delta > 1e-7)
         overlap = (left_delta > 1e-7) & (right_delta > 1e-7)
         overlap_fraction = float(overlap.sum() / max(1, moving.sum()))
+        path_length = joint_space_path_length(path)
         success = bool(
             np.all(terminal_errors <= args.target_tolerance_m)
             and (
@@ -370,6 +453,9 @@ def main(argv=None) -> int:
                 "sampled_min_world_distance_m": float(min(distances)),
                 "terminal_self_collision_pairs": inspector.frames_in_self_collision(path[-1]),
                 "simultaneous_motion_overlap_fraction": overlap_fraction,
+                "joint_space_path_length_rad": path_length,
+                "path_length_over_direct": path_length
+                / joint_space_path_length(direct_path),
             }
         )
     else:
