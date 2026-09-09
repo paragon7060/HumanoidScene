@@ -18,6 +18,9 @@ import sys
 import time
 
 from isaaclab.app import AppLauncher
+from kuavo_isaaclab_scene.planning.gripper_collision import (
+    GRIPPER_COLLISION_FRAMES as S200062_GRIPPER_COLLISION_FRAMES,
+)
 from kuavo_isaaclab_scene.robots.gripper_config import (
     add_gripper_cli_args,
     export_gripper_cli,
@@ -507,27 +510,7 @@ class _JointPoseEditor:
         "left_gripper": ("l_f_bar_1_joint", "l_b_bar_1_joint"),
         "right_gripper": ("r_f_bar_1_joint", "r_b_bar_1_joint"),
     }
-    _GRIPPER_LINK_SUFFIXES = (
-        "twofinger_base",
-        "f_bar_1",
-        "f_bar_2",
-        "f_bar_3",
-        "f_finger",
-        "f_bar_4",
-        "b_bar_1",
-        "b_bar_2",
-        "b_bar_3",
-        "b_finger",
-        "b_bar_4",
-        "d405_camera_connect",
-        "d405_camera_base",
-        "d405_camera",
-    )
-    _GRIPPER_COLLISION_FRAMES = tuple(
-        f"{side}_{suffix}"
-        for side in ("l", "r")
-        for suffix in _GRIPPER_LINK_SUFFIXES
-    )
+    _GRIPPER_COLLISION_FRAMES = S200062_GRIPPER_COLLISION_FRAMES
     _COLLISION_MAX_OVERSHOOT_M = 0.002
     _COLLISION_MARGIN_M = 0.004
     _CONTROL_LABELS = {
