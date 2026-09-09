@@ -2,10 +2,15 @@ import pytest
 
 from kuavo_isaaclab_scene.planning.gripper_collision import (
     GRIPPER_COLLISION_FRAMES,
+    SPHERE_COORDINATE_FRAME,
     SUPPORTED_MAX_OVERSHOOT_M,
     load_gripper_collision_spheres,
     load_gripper_mesh_bounds,
 )
+
+
+def test_generated_spheres_use_urdf_link_coordinates():
+    assert SPHERE_COORDINATE_FRAME == "urdf_link_frame"
 
 
 @pytest.mark.parametrize("max_overshoot_m", SUPPORTED_MAX_OVERSHOOT_M)

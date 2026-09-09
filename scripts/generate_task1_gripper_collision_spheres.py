@@ -65,6 +65,7 @@ def main() -> None:
             for frame, (vertices, _) in meshes.items()
         },
         "robot_model": "s200062",
+        "sphere_coordinate_frame": "urdf_link_frame",
         "presets": {},
     }
     for max_overshoot_m in SUPPORTED_MAX_OVERSHOOT_M:

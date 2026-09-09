@@ -174,6 +174,7 @@ def load_gripper_mesh_spheres(max_overshoot_m: float) -> dict[str, list[dict]]:
     if (
         payload.get("schema_version") != 1
         or payload.get("robot_model") != "s200062"
+        or payload.get("sphere_coordinate_frame") != "urdf_link_frame"
         or not isinstance(preset, dict)
         or not math.isclose(
             float(preset.get("max_overshoot_m", float("nan"))),

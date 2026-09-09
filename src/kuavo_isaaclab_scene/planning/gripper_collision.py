@@ -18,6 +18,7 @@ GRIPPER_COLLISION_FRAMES = (
     "r_b_finger",
 )
 SUPPORTED_MAX_OVERSHOOT_M = (0.002, 0.005, 0.010, 0.020)
+SPHERE_COORDINATE_FRAME = "urdf_link_frame"
 DEFAULT_GRIPPER_COLLISION_SPHERES = (
     PACKAGE_CONFIG_DIR / "task1_s200062_gripper_collision_spheres.json"
 )
@@ -27,7 +28,11 @@ def _load_payload(path: Path) -> dict:
     payload = json.loads(
         require_resource(path, "S200062 gripper collision spheres").read_text()
     )
-    if payload.get("schema_version") != 1 or payload.get("robot_model") != "s200062":
+    if (
+        payload.get("schema_version") != 1
+        or payload.get("robot_model") != "s200062"
+        or payload.get("sphere_coordinate_frame") != SPHERE_COORDINATE_FRAME
+    ):
         raise ValueError(f"unsupported gripper collision-sphere config: {path}")
     return payload
 
@@ -35,7 +40,7 @@ def _load_payload(path: Path) -> dict:
 def load_gripper_mesh_bounds(
     path: Path = DEFAULT_GRIPPER_COLLISION_SPHERES,
 ) -> dict[str, tuple[list[float], list[float]]]:
-    """Load the source-mesh bounds used to align USD and URDF link frames."""
+    """Load the source-mesh bounds recorded when the spheres were generated."""
     raw = _load_payload(path).get("mesh_bounds")
     if not isinstance(raw, dict) or set(raw) != set(GRIPPER_COLLISION_FRAMES):
         raise ValueError(f"gripper mesh bounds do not match S200062: {path}")

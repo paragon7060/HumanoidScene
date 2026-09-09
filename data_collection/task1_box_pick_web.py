@@ -878,16 +878,6 @@ class _JointPoseEditor:
 
     def prepare_gripper_collision_spheres(self) -> None:
         """Resolve hand bodies and load the generated mesh-fitted sphere preset."""
-        from kuavo_isaaclab_scene.planning.geometry import (
-            inverse_transform,
-            pose_matrix,
-        )
-        from kuavo_isaaclab_scene.planning.gripper_collision import (
-            load_gripper_mesh_bounds,
-        )
-        from kuavo_isaaclab_scene.planning.world import snapshot_colliders
-
-        robot_root = "/World/envs/env_0/Kuavo"
         body_ids, resolved = self.robot.find_bodies(
             self._GRIPPER_COLLISION_FRAMES, preserve_order=True
         )
@@ -896,33 +886,6 @@ class _JointPoseEditor:
         self.gripper_collision_body_ids = torch.tensor(
             body_ids, device=self.env.device, dtype=torch.long
         )
-        body_poses = self.robot.data.body_link_pose_w[0, body_ids].detach().cpu().numpy()
-        colliders = snapshot_colliders(
-            self.env.sim.stage, robot_root, include_roots=(robot_root,)
-        )["colliders"]
-        collider_by_frame = {}
-        for collider in colliders:
-            owner = (collider["owner"] or "").rsplit("/", 1)[-1]
-            if owner in self._GRIPPER_COLLISION_FRAMES:
-                if owner in collider_by_frame:
-                    raise RuntimeError(f"Multiple live gripper colliders for {owner}")
-                collider_by_frame[owner] = collider
-        missing = set(self._GRIPPER_COLLISION_FRAMES) - collider_by_frame.keys()
-        if missing:
-            raise RuntimeError(f"Missing live gripper collision frames: {sorted(missing)}")
-        mesh_bounds = load_gripper_mesh_bounds()
-        mesh_to_body = []
-        for frame_name, body_pose in zip(
-            self._GRIPPER_COLLISION_FRAMES, body_poses, strict=True
-        ):
-            collider_pose = pose_matrix(collider_by_frame[frame_name]["pose_w"])
-            low, high = mesh_bounds[frame_name]
-            mesh_center = 0.5 * (np.asarray(low) + np.asarray(high))
-            collider_pose[:3, 3] -= collider_pose[:3, :3] @ mesh_center
-            mesh_to_body.append(
-                inverse_transform(pose_matrix(body_pose)) @ collider_pose
-            )
-        self.gripper_collision_mesh_to_body = mesh_to_body
         self.rebuild_gripper_collision_spheres()
 
     def rebuild_gripper_collision_spheres(self) -> None:
@@ -938,11 +901,8 @@ class _JointPoseEditor:
             self.gripper_collision_max_overshoot_m
         )
         for owner_index, frame_name in enumerate(self._GRIPPER_COLLISION_FRAMES):
-            mesh_to_body = self.gripper_collision_mesh_to_body[owner_index]
             for sphere in frames[frame_name]:
-                local_centers.append(
-                    (mesh_to_body @ np.r_[sphere["center"], 1.0])[:3]
-                )
+                local_centers.append(sphere["center"])
                 base_radii.append(float(sphere["radius"]))
                 owner_indices.append(owner_index)
         self.gripper_collision_owner_indices = torch.tensor(
