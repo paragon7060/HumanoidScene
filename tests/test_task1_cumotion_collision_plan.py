@@ -9,6 +9,7 @@ from data_collection.task1_cumotion_collision_plan import (
     ROBOT_COLLISION_FRAMES,
     SELF_COLLISION_IGNORE,
     axis_alignment_error_deg,
+    box_region_goal_points,
     collision_world_config,
     cover_cuboid,
     robot_spheres,
@@ -38,6 +39,17 @@ def test_axis_alignment_error_uses_rotated_local_axis():
     )
 
     assert axis_alignment_error_deg(rotation, [1, 0, 0], [1, 0, 0]) == pytest.approx(15.0)
+
+
+def test_box_region_goal_points_cover_box_and_prefer_center():
+    center = np.array([0.6, 0.2, 1.4])
+    points = box_region_goal_points(center, np.full(3, 0.1), 5)
+
+    assert points.shape == (125, 3)
+    np.testing.assert_allclose(points[0], center)
+    np.testing.assert_allclose(points.min(axis=0), center - 0.05)
+    np.testing.assert_allclose(points.max(axis=0), center + 0.05)
+    assert len(np.unique(points, axis=0)) == 125
 
 
 def test_collision_world_allows_only_selected_target_flaps():

@@ -110,6 +110,35 @@ def axis_alignment_error_deg(rotation_matrix, tool_axis, target_axis) -> float:
     return math.degrees(math.acos(float(np.clip(world_axis @ target, -1.0, 1.0))))
 
 
+def box_region_goal_points(
+    center: np.ndarray,
+    size_m: np.ndarray,
+    points_per_axis: int,
+) -> np.ndarray:
+    """Sample a base-aligned box goalset, preferring its center and near points."""
+    center = np.asarray(center, dtype=float)
+    size_m = np.asarray(size_m, dtype=float)
+    if center.shape != (3,) or size_m.shape != (3,):
+        raise ValueError("region center and size must be xyz vectors")
+    if not np.isfinite(center).all() or not np.isfinite(size_m).all():
+        raise ValueError("region center and size must be finite")
+    if np.any(size_m < 0):
+        raise ValueError("region size must be nonnegative")
+    if points_per_axis not in {3, 5}:
+        raise ValueError("points_per_axis must be 3 or 5")
+    if not np.any(size_m):
+        return center[None]
+    fractions = (
+        (0.0, -1.0, 1.0)
+        if points_per_axis == 3
+        else (0.0, -0.5, 0.5, -1.0, 1.0)
+    )
+    half = size_m / 2
+    return np.stack(
+        [center + np.asarray(offset) * half for offset in product(fractions, repeat=3)]
+    )
+
+
 def cover_cuboid(pose, dimensions, cell_m: float) -> list[tuple[np.ndarray, float]]:
     dimensions = np.asarray(dimensions, dtype=float)
     if dimensions.shape != (3,) or np.any(dimensions <= 0):
@@ -291,6 +320,26 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--self-pair-margin-m", type=float, default=None)
     result.add_argument("--validation-samples", type=int, default=101)
     result.add_argument("--target", choices=("pregrasp", "grasp"), default="pregrasp")
+    result.add_argument(
+        "--target-offset-b-m",
+        type=float,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=(0.0, 0.0, 0.0),
+    )
+    result.add_argument(
+        "--target-region-size-m",
+        type=float,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=(0.0, 0.0, 0.0),
+    )
+    result.add_argument(
+        "--target-region-grid-points-per-axis",
+        type=int,
+        choices=(3, 5),
+        default=5,
+    )
     result.add_argument("--target-tolerance-m", type=float, default=0.005)
     result.add_argument("--closing-axis-tolerance-deg", type=float, default=None)
     result.add_argument("--independent-arm-seeds", action="store_true")
@@ -320,6 +369,12 @@ def main(argv=None) -> int:
         or not 0 < args.closing_axis_tolerance_deg < 180
     ):
         raise ValueError("--closing-axis-tolerance-deg must be between zero and 180")
+    target_offset_b_m = np.asarray(args.target_offset_b_m, dtype=float)
+    target_region_size_m = np.asarray(args.target_region_size_m, dtype=float)
+    if not np.isfinite(target_offset_b_m).all():
+        raise ValueError("--target-offset-b-m must be finite")
+    if not np.isfinite(target_region_size_m).all() or np.any(target_region_size_m < 0):
+        raise ValueError("--target-region-size-m must be finite and nonnegative")
     output = args.output_dir or Path("/home/seonho/outputs/HumanoidScene") / (
         f"cumotion_collision_{args.target}_" + datetime.now().strftime("%Y%m%d_%H%M%S")
     )
@@ -388,6 +443,12 @@ def main(argv=None) -> int:
         "snapshot_dir": str(snapshot_dir),
         "initial_pose_source": runtime.get("initial_state", "snapshot runtime joint state"),
         "orientation_constraint": orientation_report,
+        "target_region": {
+            "reference": args.target,
+            "center_offset_b_m": target_offset_b_m.tolist(),
+            "size_b_m": target_region_size_m.tolist(),
+            "goalset_grid_points_per_axis": args.target_region_grid_points_per_axis,
+        },
         "collision_model": {
             "world_obstacles": len(world_config["cuboid"]),
             "robot_world_spheres": sum(map(len, world_spheres.values())),
@@ -435,29 +496,65 @@ def main(argv=None) -> int:
         optimizer = cumotion.create_trajectory_optimizer(
             cumotion.create_default_trajectory_optimizer_config(robot, tool, world_view)
         )
-        target_position = np.asarray(targets[target_index], dtype=float)
+        target_center = (
+            np.asarray(targets[target_index], dtype=float) + target_offset_b_m
+        )
+        target_goal_points = box_region_goal_points(
+            target_center,
+            target_region_size_m,
+            args.target_region_grid_points_per_axis,
+        )
         inward_normal = normalized_axis(
             inward_normals[target_index], name=f"{side} inward flap normal"
         )
-        orientation_constraint = cumotion.TrajectoryOptimizer.OrientationConstraint.none()
-        if args.closing_axis_tolerance_deg is not None:
+        if len(target_goal_points) == 1:
             orientation_constraint = (
-                cumotion.TrajectoryOptimizer.OrientationConstraint.terminal_axis(
-                    np.asarray((1.0, 0.0, 0.0)),
-                    inward_normal,
-                    math.radians(args.closing_axis_tolerance_deg),
-                )
+                cumotion.TrajectoryOptimizer.OrientationConstraint.none()
             )
-        target = cumotion.TrajectoryOptimizer.TaskSpaceTarget(
-            cumotion.TrajectoryOptimizer.TranslationConstraint.target(target_position),
-            orientation_constraint,
-        )
-        result = optimizer.plan_to_task_space_target(q_initial, target)
+            if args.closing_axis_tolerance_deg is not None:
+                orientation_constraint = (
+                    cumotion.TrajectoryOptimizer.OrientationConstraint.terminal_axis(
+                        np.asarray((1.0, 0.0, 0.0)),
+                        inward_normal,
+                        math.radians(args.closing_axis_tolerance_deg),
+                    )
+                )
+            target = cumotion.TrajectoryOptimizer.TaskSpaceTarget(
+                cumotion.TrajectoryOptimizer.TranslationConstraint.target(target_center),
+                orientation_constraint,
+            )
+            result = optimizer.plan_to_task_space_target(q_initial, target)
+            selected_target_index = 0
+        else:
+            orientation_constraint = (
+                cumotion.TrajectoryOptimizer.OrientationConstraintGoalset.none()
+            )
+            if args.closing_axis_tolerance_deg is not None:
+                count = len(target_goal_points)
+                orientation_constraint = (
+                    cumotion.TrajectoryOptimizer.OrientationConstraintGoalset.terminal_axis(
+                        [np.asarray((1.0, 0.0, 0.0))] * count,
+                        [inward_normal] * count,
+                        math.radians(args.closing_axis_tolerance_deg),
+                    )
+                )
+            target = cumotion.TrajectoryOptimizer.TaskSpaceTargetGoalset(
+                cumotion.TrajectoryOptimizer.TranslationConstraintGoalset.target(
+                    target_goal_points
+                ),
+                orientation_constraint,
+            )
+            result = optimizer.plan_to_task_space_goalset(q_initial, target)
+            selected_target_index = result.target_index()
         status = str(result.status()).split(".")[-1]
+        target_position = target_goal_points[selected_target_index]
         arm_report = {
             "status": status,
             "joint_names": names,
             "target_position_b_m": target_position.tolist(),
+            "target_region_center_b_m": target_center.tolist(),
+            "target_region_size_b_m": target_region_size_m.tolist(),
+            "selected_goalset_index": int(selected_target_index),
             "target_inward_flap_normal_b": inward_normal.tolist(),
             "fixed_other_arm": (
                 "main_initial"

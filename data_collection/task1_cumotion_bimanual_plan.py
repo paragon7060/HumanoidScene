@@ -478,7 +478,15 @@ def main(argv=None) -> int:
     if q_terminal.shape != q_initial.shape or not np.isfinite(q_terminal).all():
         raise ValueError("terminal seed plan does not contain one finite 14-DoF target")
     editor_state = runtime["pose_editor_state"]
-    targets = np.asarray(editor_state[f"{target_kind}_position_b"], dtype=float)
+    targets = np.asarray(
+        [
+            seed_report.get("arms", {}).get(side, {}).get(
+                "target_position_b_m", editor_state[f"{target_kind}_position_b"][index]
+            )
+            for index, side in enumerate(("left", "right"))
+        ],
+        dtype=float,
+    )
     inward_normals = np.asarray(
         [
             normalized_axis(axis, name=f"{side} inward flap normal")
@@ -669,6 +677,7 @@ def main(argv=None) -> int:
         "target_positions_b_m": targets.tolist(),
         "target_inward_flap_normals_b": inward_normals.tolist(),
         "orientation_constraint": orientation_constraint,
+        "target_region": seed_report.get("target_region"),
         "planning_wall_s": planning_wall_s,
         "planner_seed": args.planner_seed,
         "planner_step_size": args.planner_step_size,
