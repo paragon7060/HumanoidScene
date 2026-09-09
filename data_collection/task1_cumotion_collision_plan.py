@@ -258,18 +258,20 @@ def xrdf(
 
 def runtime_joint_defaults(runtime: dict) -> dict[str, float]:
     """Keep the captured full-body posture fixed outside the planned arm c-space."""
+    arm_chain_joints = {"knee_joint", "leg_joint", "waist_pitch_joint", "waist_yaw_joint"}
     defaults = {
         name: float(value)
         for name, value in zip(
             runtime["joint_names"], runtime["joint_positions"], strict=True
         )
+        if name in arm_chain_joints or name.startswith(("zarm_", "l_", "r_"))
     }
-    defaults.update(
-        {
-            item["name"]: float(item["value"])
-            for item in runtime["pose_editor_state"]["joints"]
-        }
-    )
+    defaults.update({
+        item["name"]: float(item["value"])
+        for item in runtime["pose_editor_state"]["joints"]
+        if item["name"] in arm_chain_joints
+        or item["name"].startswith(("zarm_", "l_", "r_"))
+    })
     return defaults
 
 

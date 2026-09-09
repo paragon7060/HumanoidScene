@@ -158,10 +158,19 @@ def test_xrdf_keeps_world_and_self_collision_models_separate():
 
 def test_runtime_joint_defaults_preserve_body_posture_and_apply_editor_overrides():
     runtime = {
-        "joint_names": ["knee_joint", "waist_pitch_joint", "zarm_l1_joint"],
-        "joint_positions": [0.25, 0.30, 0.10],
+        "joint_names": [
+            "wheel_left_front_joint",
+            "knee_joint",
+            "waist_pitch_joint",
+            "zhead_1_joint",
+            "zarm_l1_joint",
+        ],
+        "joint_positions": [1.0, 0.25, 0.30, -0.20, 0.10],
         "pose_editor_state": {
-            "joints": [{"name": "zarm_l1_joint", "value": 0.40}]
+            "joints": [
+                {"name": "zhead_1_joint", "value": 0.50},
+                {"name": "zarm_l1_joint", "value": 0.40},
+            ]
         },
     }
 
