@@ -219,7 +219,7 @@ def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
             return None
         if (
             not math.isfinite(cell_m)
-            or not 0.055 <= cell_m <= 0.080
+            or not 0.020 <= cell_m <= 0.080
             or not math.isfinite(margin_m)
             or not 0.0 <= margin_m <= 0.010
         ):
