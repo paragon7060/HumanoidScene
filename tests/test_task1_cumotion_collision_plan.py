@@ -12,6 +12,7 @@ from data_collection.task1_cumotion_collision_plan import (
     collision_world_config,
     cover_cuboid,
     robot_spheres,
+    runtime_joint_defaults,
     xrdf,
 )
 
@@ -153,3 +154,19 @@ def test_xrdf_keeps_world_and_self_collision_models_separate():
     assert value["self_collision"]["geometry"] == "kuavo_self_spheres"
     assert value["geometry"]["kuavo_world_spheres"]["spheres"] == world_spheres
     assert value["geometry"]["kuavo_self_spheres"]["spheres"] == self_spheres
+
+
+def test_runtime_joint_defaults_preserve_body_posture_and_apply_editor_overrides():
+    runtime = {
+        "joint_names": ["knee_joint", "waist_pitch_joint", "zarm_l1_joint"],
+        "joint_positions": [0.25, 0.30, 0.10],
+        "pose_editor_state": {
+            "joints": [{"name": "zarm_l1_joint", "value": 0.40}]
+        },
+    }
+
+    assert runtime_joint_defaults(runtime) == {
+        "knee_joint": 0.25,
+        "waist_pitch_joint": 0.30,
+        "zarm_l1_joint": 0.40,
+    }

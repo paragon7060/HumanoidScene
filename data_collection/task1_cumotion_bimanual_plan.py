@@ -21,6 +21,7 @@ from data_collection.task1_cumotion_collision_plan import (
     normalized_axis,
     pose_matrix,
     robot_spheres,
+    runtime_joint_defaults,
 )
 
 
@@ -458,14 +459,7 @@ def main(argv=None) -> int:
         raise FileExistsError(f"output already exists: {output}")
     output.mkdir(parents=True)
 
-    defaults = {
-        name: float(value)
-        for name, value in zip(runtime["joint_names"], runtime["joint_positions"], strict=True)
-        if name.startswith(("zarm_", "l_", "r_"))
-    }
-    defaults.update(
-        {item["name"]: float(item["value"]) for item in runtime["pose_editor_state"]["joints"]}
-    )
+    defaults = runtime_joint_defaults(runtime)
     q_initial = np.asarray([defaults[name] for name in ARM_JOINT_NAMES], dtype=float)
     joint_limits = {
         name: limits

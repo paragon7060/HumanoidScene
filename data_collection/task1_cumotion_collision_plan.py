@@ -256,6 +256,23 @@ def xrdf(
     return yaml.safe_dump(data, sort_keys=False)
 
 
+def runtime_joint_defaults(runtime: dict) -> dict[str, float]:
+    """Keep the captured full-body posture fixed outside the planned arm c-space."""
+    defaults = {
+        name: float(value)
+        for name, value in zip(
+            runtime["joint_names"], runtime["joint_positions"], strict=True
+        )
+    }
+    defaults.update(
+        {
+            item["name"]: float(item["value"])
+            for item in runtime["pose_editor_state"]["joints"]
+        }
+    )
+    return defaults
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--snapshot-dir", type=Path, required=True)
@@ -349,18 +366,7 @@ def main(argv=None) -> int:
         world.add_obstacle(obstacle, cumotion.Pose3(pose_matrix(obstacle_data["pose"])))
     world_view = world.add_world_view()
 
-    defaults = {
-        name: float(value)
-        for name, value in zip(
-            runtime["joint_names"], runtime["joint_positions"], strict=True
-        )
-        if name.startswith(("zarm_", "l_", "r_"))
-    }
-    editor_joints = {
-        item["name"]: float(item["value"])
-        for item in runtime["pose_editor_state"]["joints"]
-    }
-    defaults.update(editor_joints)
+    defaults = runtime_joint_defaults(runtime)
     editor_state = runtime["pose_editor_state"]
     targets = editor_state[f"{args.target}_position_b"]
     inward_normals = editor_state["inward_flap_normal_b"]
