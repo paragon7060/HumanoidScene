@@ -14,13 +14,20 @@ import numpy as np
 from .geometry import inverse_transform, matrix_pose, pose_matrix
 
 
-def bounded_cuboid(local_low, local_high, local_to_world) -> tuple[list, list]:
+def bounded_cuboid(
+    local_low,
+    local_high,
+    local_to_world,
+    *,
+    minimum_dimension_m: float = 0.0,
+) -> tuple[list, list]:
     """Include all inherited scale exactly once; reject sheared colliders."""
     low, high = np.asarray(local_low, float), np.asarray(local_high, float)
     transform = np.asarray(local_to_world, float)
     if (low.shape != (3,) or high.shape != (3,) or transform.shape != (4, 4)
             or not np.isfinite(transform).all() or not np.isfinite(low).all()
-            or not np.isfinite(high).all() or np.any(high <= low)):
+            or not np.isfinite(high).all() or np.any(high < low)
+            or not math.isfinite(minimum_dimension_m) or minimum_dimension_m < 0):
         raise ValueError("collider requires finite nonempty bounds and a 4x4 transform")
     scale = np.linalg.norm(transform[:3, :3], axis=0)
     if np.any(scale <= 0):
@@ -30,7 +37,12 @@ def bounded_cuboid(local_low, local_high, local_to_world) -> tuple[list, list]:
     if np.linalg.det(rigid[:3, :3]) < 0:
         rigid[:3, 2] *= -1  # A centred symmetric box tolerates reflected axes.
     rigid[:3, 3] = (transform @ np.r_[.5 * (low + high), 1])[:3]
-    return matrix_pose(rigid), ((high - low) * scale).tolist()
+    dimensions = (high - low) * scale
+    if np.any(dimensions <= 0):
+        if minimum_dimension_m == 0:
+            raise ValueError("collider requires finite nonempty bounds and a 4x4 transform")
+        dimensions = np.maximum(dimensions, minimum_dimension_m)
+    return matrix_pose(rigid), dimensions.tolist()
 
 
 def snapshot_colliders(stage, robot_root: str) -> dict:
@@ -66,6 +78,7 @@ def snapshot_colliders(stage, robot_root: str) -> dict:
                 local.GetMin(),
                 local.GetMax(),
                 np.asarray(xforms.GetLocalToWorldTransform(prim)).T,
+                minimum_dimension_m=0.001,
             )
         except ValueError as exc:
             raise ValueError(f"invalid enabled collider bounds at {path}: {exc}") from exc

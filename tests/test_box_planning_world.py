@@ -29,6 +29,17 @@ def test_sheared_collider_is_not_silently_approximated():
         bounded_cuboid([0, 0, 0], [1, 1, 1], transform)
 
 
+def test_flat_physics_collider_gets_explicit_minimum_thickness():
+    pose, dims = bounded_cuboid(
+        [0, 0, 0],
+        [2, 3, 0],
+        np.eye(4),
+        minimum_dimension_m=.001,
+    )
+    np.testing.assert_allclose(pose, [1, 1.5, 0, 1, 0, 0, 0])
+    np.testing.assert_allclose(dims, [2, 3, .001])
+
+
 def test_sphere_cover_contains_corners_and_interior():
     pose = matrix_pose(origin_matrix([1, 2, 3], [.4, .1, .2]))
     dims = np.array([.12, .08, .15])
