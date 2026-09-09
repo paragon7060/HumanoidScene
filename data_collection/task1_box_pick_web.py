@@ -589,19 +589,24 @@ class _JointPoseEditor:
         return True
 
     def apply_targets(self) -> None:
-        velocities = torch.zeros_like(self.targets)
-        self.robot.write_joint_state_to_sim(
-            self.targets, velocities, joint_ids=self.joint_ids
-        )
-        self.robot.set_joint_position_target(self.targets, joint_ids=self.joint_ids)
-        self.env.sim.forward()
-        self.env.scene.update(self.env.step_dt)
+        self.hold_authoring_state()
         for term in self.arm_terms:
             # Pausing captures the joint hold only on a following -> paused
             # transition. Re-arm that transition after every editor teleport
             # so the next manager step cannot restore an older pose.
             term.set_following(True)
             term.set_following(False)
+
+    def hold_authoring_state(self) -> None:
+        """Keep the editor's robot and target at their authored poses."""
+        velocities = torch.zeros_like(self.targets)
+        self.robot.write_joint_state_to_sim(
+            self.targets, velocities, joint_ids=self.joint_ids
+        )
+        self.robot.set_joint_position_target(self.targets, joint_ids=self.joint_ids)
+        self.hold_target_box()
+        self.env.sim.forward()
+        self.env.scene.update(self.env.step_dt)
         self.update_markers()
 
     def hold_target_box(self) -> None:
@@ -1218,13 +1223,9 @@ def main() -> None:
                 action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
             env.step(action)
             if pose_editor is not None:
-                # Re-assert static joint targets after the manager action and
-                # keep the authoring target from falling before refreshing the markers.
-                pose_editor.robot.set_joint_position_target(
-                    pose_editor.targets, joint_ids=pose_editor.joint_ids
-                )
-                pose_editor.hold_target_box()
-                pose_editor.update_markers()
+                # Physics advances only to refresh the preview. Keep the editor's
+                # authored robot and box transforms exact between UI commands.
+                pose_editor.hold_authoring_state()
                 if editor_changed or step % max(1, stream_interval) == 0:
                     bridge.publish_pose_editor_state(pose_editor.state())
             if pregrasp_runner is not None and pregrasp_runner.finished:
