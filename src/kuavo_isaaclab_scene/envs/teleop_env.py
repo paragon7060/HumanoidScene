@@ -56,12 +56,30 @@ def _browser_eye_camera(name: str, lateral_offset_m: float) -> CameraCfg:
     )
 
 
+def _joint_editor_camera() -> CameraCfg:
+    """Fixed third-person RGB camera used only by the manual pose editor."""
+    return CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Workcell/Cameras/JointPoseEditorCamera",
+        update_period=1.0 / 30.0,
+        height=720,
+        width=1280,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=18.0,
+            focus_distance=3.0,
+            horizontal_aperture=24.0,
+            clipping_range=(0.08, 12.0),
+        ),
+    )
+
+
 @configclass
 class QuestTeleopSceneCfg(RobustWorkcellSceneCfg):
     """Workcell plus a virtual stereo pair used only by browser preview."""
 
     xr_left_eye_camera = _browser_eye_camera("XrLeftEyeCamera", 0.032)
     xr_right_eye_camera = _browser_eye_camera("XrRightEyeCamera", -0.032)
+    joint_editor_camera = _joint_editor_camera()
 
 
 @configclass

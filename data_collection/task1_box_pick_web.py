@@ -81,6 +81,13 @@ parser.add_argument(
     action="store_true",
     help="One-off validation: solve a bent initial pose whose gripper local -Z points base-down.",
 )
+parser.add_argument(
+    "--joint-pose-editor",
+    action="store_true",
+    help="Serve a static third-person browser editor for the fourteen arm joints.",
+)
+parser.add_argument("--editor-camera-width", type=int, default=1280)
+parser.add_argument("--editor-camera-height", type=int, default=720)
 parser.add_argument("--camera-preview", action=argparse.BooleanOptionalAction, default=True)
 parser.add_argument("--domain-randomization", action=argparse.BooleanOptionalAction, default=False)
 parser.add_argument("--rack-boxes", type=str, default=None, metavar="SPEC")
@@ -113,6 +120,8 @@ if args_cli.pregrasp and args_cli.pregrasp_settle_steps < 0:
     parser.error("--pregrasp-settle-steps must be nonnegative.")
 if args_cli.wrist6_limit_test and not args_cli.pregrasp:
     parser.error("--wrist6-limit-test requires --pregrasp.")
+if args_cli.joint_pose_editor and args_cli.pregrasp:
+    parser.error("--joint-pose-editor and --pregrasp are separate modes.")
 if args_cli.wrist6_limit_test and args_cli.wrist6_test_steps <= 0:
     parser.error("--wrist6-test-steps must be positive.")
 if args_cli.pregrasp_height_m <= 0.0 or not math.isfinite(args_cli.pregrasp_height_m):
@@ -128,6 +137,8 @@ if min(
     args_cli.wrist_camera_height,
     args_cli.stereo_eye_width,
     args_cli.stereo_eye_height,
+    args_cli.editor_camera_width,
+    args_cli.editor_camera_height,
 ) <= 0:
     parser.error("Camera width/height values must be positive.")
 if not 0.05 <= args_cli.stereo_eye_separation <= 0.075:
@@ -420,6 +431,200 @@ def _solve_downward_ready(env, steps: int = 240):
         term.hold_current_pose()
 
 
+class _JointPoseEditor:
+    """Static arm-pose authoring with third-person camera and joint-axis markers.
+
+    This mode teleports only the robot arm joints for pose authoring.  It is
+    deliberately separate from collection and must never produce expert data.
+    """
+
+    _VIEWS = {
+        "rear_left": ((-2.2, 1.8, 1.65), (0.45, 0.0, 1.15)),
+        "rear_right": ((-2.2, -1.8, 1.65), (0.45, 0.0, 1.15)),
+        "front_left": ((2.0, 1.8, 1.65), (0.20, 0.0, 1.15)),
+        "front_right": ((2.0, -1.8, 1.65), (0.20, 0.0, 1.15)),
+    }
+
+    def __init__(self, env):
+        import isaaclab.sim as sim_utils
+        from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
+        from kuavo_isaaclab_scene.planning.robot_model import UrdfModel
+
+        self.env = env
+        self.robot = env.scene["robot"]
+        self.arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
+        self.joint_names = tuple(
+            f"zarm_{side}{index}_joint" for side in ("l", "r") for index in range(1, 8)
+        )
+        self.joint_ids, resolved = self.robot.find_joints(self.joint_names, preserve_order=True)
+        if tuple(resolved) != self.joint_names:
+            raise RuntimeError(f"Pose editor arm-joint lookup mismatch: {resolved}")
+        body_names = tuple(
+            f"zarm_{side}{index}_link" for side in ("l", "r") for index in range(1, 8)
+        )
+        self.body_ids, resolved_bodies = self.robot.find_bodies(body_names, preserve_order=True)
+        if tuple(resolved_bodies) != body_names:
+            raise RuntimeError(f"Pose editor arm-body lookup mismatch: {resolved_bodies}")
+        self.ee_ids, _ = self.robot.find_bodies(
+            ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
+        )
+        self.limits = self.robot.data.joint_pos_limits[0, self.joint_ids].clone()
+        self.reset_targets = self.robot.data.joint_pos[:, self.joint_ids].clone()
+        self.targets = self.reset_targets.clone()
+        model = UrdfModel(resolve_robot_model().urdf_path)
+        self.local_axes = torch.tensor(
+            [model.joints[name].axis for name in self.joint_names],
+            device=env.device,
+            dtype=self.targets.dtype,
+        )
+        marker_cfg = VisualizationMarkersCfg(
+            prim_path="/Visuals/Task1JointPoseEditor",
+            markers={
+                "left": sim_utils.CylinderCfg(
+                    radius=0.012,
+                    height=0.16,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.05, 0.72, 1.0), emissive_color=(0.0, 0.08, 0.16)
+                    ),
+                ),
+                "right": sim_utils.CylinderCfg(
+                    radius=0.012,
+                    height=0.16,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.12, 0.70), emissive_color=(0.14, 0.0, 0.08)
+                    ),
+                ),
+                "selected": sim_utils.CylinderCfg(
+                    radius=0.019,
+                    height=0.22,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.72, 0.04), emissive_color=(0.20, 0.10, 0.0)
+                    ),
+                ),
+            },
+        )
+        self.markers = VisualizationMarkers(marker_cfg)
+        self.selected_joint = self.joint_names[5]
+        self.view = "rear_left"
+        self.last_command_sequence = -1
+        self.set_view(self.view)
+        self.apply_targets()
+
+    def set_view(self, name: str) -> None:
+        from isaaclab.utils.math import quat_apply
+
+        if name not in self._VIEWS:
+            raise ValueError(f"Unknown editor camera view: {name}")
+        eye_b, target_b = self._VIEWS[name]
+        root_pos = self.robot.data.root_pos_w[0]
+        root_quat = self.robot.data.root_quat_w[0]
+        dtype = root_pos.dtype
+        eye = root_pos + quat_apply(
+            root_quat, torch.tensor(eye_b, device=self.env.device, dtype=dtype)
+        )
+        target = root_pos + quat_apply(
+            root_quat, torch.tensor(target_b, device=self.env.device, dtype=dtype)
+        )
+        self.env.scene["joint_editor_camera"].set_world_poses_from_view(
+            eye.unsqueeze(0), target.unsqueeze(0)
+        )
+        self.view = name
+
+    def accept(self, command) -> bool:
+        if command is None or command.sequence <= self.last_command_sequence:
+            return False
+        self.last_command_sequence = command.sequence
+        if command.action == "set_joint":
+            index = self.joint_names.index(command.joint_name)
+            value = torch.tensor(command.value_rad, device=self.env.device, dtype=self.targets.dtype)
+            self.targets[0, index] = torch.clamp(value, self.limits[index, 0], self.limits[index, 1])
+            self.selected_joint = command.joint_name
+            self.apply_targets()
+        elif command.action == "reset":
+            self.targets.copy_(self.reset_targets)
+            self.selected_joint = self.joint_names[5]
+            self.apply_targets()
+        elif command.action == "set_view":
+            self.set_view(command.view)
+        elif command.action == "print_pose":
+            values = {
+                name: float(value) for name, value in zip(self.joint_names, self.targets[0].tolist())
+            }
+            print(f"[POSE_EDITOR_EXPORT] arm_joint_positions={values}", flush=True)
+        return True
+
+    def apply_targets(self) -> None:
+        velocities = torch.zeros_like(self.targets)
+        self.robot.write_joint_state_to_sim(
+            self.targets, velocities, joint_ids=self.joint_ids
+        )
+        self.robot.set_joint_position_target(self.targets, joint_ids=self.joint_ids)
+        self.env.sim.forward()
+        self.env.scene.update(self.env.step_dt)
+        for term in self.arm_terms:
+            term.hold_current_pose()
+            term.set_following(False)
+        self.update_markers()
+
+    def update_markers(self) -> None:
+        from isaaclab.utils.math import quat_apply
+
+        positions = self.robot.data.body_link_pos_w[0, self.body_ids]
+        body_quats = self.robot.data.body_link_quat_w[0, self.body_ids]
+        axes = torch.nn.functional.normalize(quat_apply(body_quats, self.local_axes), dim=-1)
+        z_axis = torch.zeros_like(axes)
+        z_axis[:, 2] = 1.0
+        vector = torch.cross(z_axis, axes, dim=-1)
+        scalar = 1.0 + (z_axis * axes).sum(-1, keepdim=True)
+        orientations = torch.nn.functional.normalize(torch.cat((scalar, vector), dim=-1), dim=-1)
+        antiparallel = scalar[:, 0] < 1.0e-5
+        if torch.any(antiparallel):
+            orientations[antiparallel] = torch.tensor(
+                (0.0, 1.0, 0.0, 0.0), device=self.env.device, dtype=orientations.dtype
+            )
+        marker_indices = torch.tensor(
+            [0] * 7 + [1] * 7, device=self.env.device, dtype=torch.int32
+        )
+        marker_indices[self.joint_names.index(self.selected_joint)] = 2
+        self.markers.visualize(positions, orientations, marker_indices=marker_indices)
+
+    def state(self) -> dict:
+        from isaaclab.utils.math import quat_apply, subtract_frame_transforms
+
+        values = self.targets[0]
+        ee_pos = self.robot.data.body_link_pos_w[0, self.ee_ids]
+        ee_quat = self.robot.data.body_link_quat_w[0, self.ee_ids]
+        root_pos = self.robot.data.root_pos_w.expand(2, -1)
+        root_quat = self.robot.data.root_quat_w.expand(2, -1)
+        tcp_pos_b, _ = subtract_frame_transforms(root_pos, root_quat, ee_pos, ee_quat)
+        tool_forward = quat_apply(
+            ee_quat,
+            torch.tensor((0.0, 0.0, -1.0), device=self.env.device, dtype=ee_pos.dtype).expand(2, -1),
+        )
+        base_down = quat_apply(
+            root_quat,
+            torch.tensor((0.0, 0.0, -1.0), device=self.env.device, dtype=ee_pos.dtype).expand(2, -1),
+        )
+        dots = (tool_forward * base_down).sum(-1).clamp(-1.0, 1.0)
+        return {
+            "view": self.view,
+            "selected_joint": self.selected_joint,
+            "joints": [
+                {
+                    "name": name,
+                    "value": float(value),
+                    "degrees": math.degrees(float(value)),
+                    "lower": float(limit[0]),
+                    "upper": float(limit[1]),
+                }
+                for name, value, limit in zip(self.joint_names, values, self.limits)
+            ],
+            "tool_down_angle_deg": [math.degrees(math.acos(float(dot))) for dot in dots],
+            "tcp_position_b": tcp_pos_b.detach().cpu().tolist(),
+            "authoring_only": True,
+        }
+
+
 class _LivePregraspRunner:
     """One-shot bimanual position move used by the remote browser preview."""
 
@@ -687,6 +892,10 @@ def main() -> None:
     cfg.scene.xr_left_eye_camera.height = args_cli.stereo_eye_height
     cfg.scene.xr_right_eye_camera.width = args_cli.stereo_eye_width
     cfg.scene.xr_right_eye_camera.height = args_cli.stereo_eye_height
+    cfg.scene.joint_editor_camera.width = args_cli.editor_camera_width
+    cfg.scene.joint_editor_camera.height = args_cli.editor_camera_height
+    if not args_cli.joint_pose_editor:
+        cfg.scene.joint_editor_camera = None
     half_baseline = args_cli.stereo_eye_separation * 0.5
     cfg.scene.xr_left_eye_camera.offset.pos = (0.08, half_baseline, 0.0)
     cfg.scene.xr_right_eye_camera.offset.pos = (0.08, -half_baseline, 0.0)
@@ -694,9 +903,9 @@ def main() -> None:
 
     env = ManagerBasedRLEnv(cfg=cfg)
     env.reset(seed=args_cli.seed)
-    if args_cli.pregrasp:
+    if args_cli.pregrasp or args_cli.joint_pose_editor:
         _load_task_ready(env, args_cli.pregrasp_initial_state)
-        if args_cli.solve_downward_ready:
+        if args_cli.pregrasp and args_cli.solve_downward_ready:
             _solve_downward_ready(env)
     if args_cli.camera_preview and not args_cli.headless:
         open_camera_viewports(
@@ -719,6 +928,7 @@ def main() -> None:
     body_mapper = TeleopBodyMapper(robot_model.urdf_path, has_wheel_base=robot_model.has_wheel_base)
     arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
     robot = env.scene["robot"]
+    pose_editor = _JointPoseEditor(env) if args_cli.joint_pose_editor else None
     pregrasp_ee_ids, pregrasp_ee_names = robot.find_bodies(
         ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
     )
@@ -742,6 +952,9 @@ def main() -> None:
     server_fps = 0.0
 
     print(f"[READY] Browser bridge: ws://{args_cli.bridge_host}:{args_cli.bridge_port}")
+    if pose_editor is not None:
+        print("[POSE_EDITOR] authoring-only mode; dataset recording and pregrasp are disabled.")
+        print("[POSE_EDITOR] Open data_collection/task1_pose_editor.html through the HTTP server.")
     print("[CONTROL] In Chrome/IWER, move the HMD and left/right controllers.")
     print("[CONTROL] The first tracked frame calibrates; subsequent motion drives Kuavo head and arms.")
     print("[CONTROL] Left stick=base forward/strafe; right stick=turn/torso lift; index triggers=grippers.")
@@ -826,7 +1039,19 @@ def main() -> None:
             action_np = compose_browser_action(mapped.action, safe_gripper, body_action)
             if not safety.control_allowed:
                 action_np[:12] = 0.0
-            if args_cli.pregrasp:
+            editor_changed = False
+            if pose_editor is not None:
+                command = bridge.latest_pose_editor_command(pose_editor.last_command_sequence)
+                editor_changed = pose_editor.accept(command)
+                for term in arm_terms:
+                    term.set_following(False)
+                action = _absolute_pose_action(
+                    env,
+                    robot,
+                    robot.data.body_link_pos_w[0, pregrasp_ee_ids].clone(),
+                    robot.data.body_link_quat_w[0, pregrasp_ee_ids].clone(),
+                )
+            elif args_cli.pregrasp:
                 if pregrasp_runner is None and bridge.client_count > 0:
                     print("[PREGRASP] browser client detected; starting live sequence", flush=True)
                     pregrasp_runner = _LivePregraspRunner(
@@ -860,6 +1085,15 @@ def main() -> None:
                     term.set_following(safety.control_allowed)
                 action = torch.from_numpy(action_np).to(device=env.device).unsqueeze(0)
             env.step(action)
+            if pose_editor is not None:
+                # Re-assert static joint targets after the manager action and
+                # refresh the visible joint-axis cylinders.
+                pose_editor.robot.set_joint_position_target(
+                    pose_editor.targets, joint_ids=pose_editor.joint_ids
+                )
+                pose_editor.update_markers()
+                if editor_changed or step % max(1, stream_interval) == 0:
+                    bridge.publish_pose_editor_state(pose_editor.state())
             if pregrasp_runner is not None and pregrasp_runner.finished:
                 pregrasp_runner.finish()
             metrics_steps += 1
@@ -871,17 +1105,20 @@ def main() -> None:
                 if clients == 0:
                     mapper.reset()
             if clients and step % stream_interval == 0:
-                composite = compose_stereo_atlas(
-                    _camera_rgb(env.scene["xr_left_eye_camera"]),
-                    _camera_rgb(env.scene["xr_right_eye_camera"]),
-                    None,
-                    _camera_rgb(env.scene["left_wrist_camera"]),
-                    _camera_rgb(env.scene["right_wrist_camera"]),
-                )
-                # The remote browser preview currently presents the complete
-                # atlas upside-down. Flip only the published video frame;
-                # tracking and control packets remain unchanged.
-                composite = cv2.flip(composite, 0)
+                if pose_editor is not None:
+                    composite = _camera_rgb(env.scene["joint_editor_camera"])
+                else:
+                    composite = compose_stereo_atlas(
+                        _camera_rgb(env.scene["xr_left_eye_camera"]),
+                        _camera_rgb(env.scene["xr_right_eye_camera"]),
+                        None,
+                        _camera_rgb(env.scene["left_wrist_camera"]),
+                        _camera_rgb(env.scene["right_wrist_camera"]),
+                    )
+                    # The remote browser preview currently presents the complete
+                    # atlas upside-down. Flip only the published video frame;
+                    # tracking and control packets remain unchanged.
+                    composite = cv2.flip(composite, 0)
                 encode_started_at = time.perf_counter()
                 ok, encoded = cv2.imencode(
                     ".jpg", cv2.cvtColor(composite, cv2.COLOR_RGB2BGR),

@@ -37,6 +37,28 @@ step에서 초기 자세·settle·IK 이동을 시작한다. 따라서 연결 �
 움직여 화면에서 놓치는 구간이 없다. 영상/산출물은 repo가 아니라
 `/home/work/mntvol/data/outputs` 또는 실행 시 지정한 output lane에 둔다.
 
+### Task1 수동 관절 자세 편집기
+
+이 모드는 정적인 initial pose만 만들고 검사한다. 수집 episode를 기록하지 않으며,
+직접 joint state를 적용하므로 여기서 생긴 이동을 expert action으로 사용하지 않는다.
+고정 3인칭 카메라에 q1~q7 물리축을 실린더로 표시한다(왼팔 청록, 오른팔 분홍,
+마지막 선택 관절 노랑).
+
+```bash
+CUDA_VISIBLE_DEVICES=4 OMNI_KIT_ACCEPT_EULA=Y PYTHONPATH=src \
+  python data_collection/task1_box_pick_web.py \
+  --headless --device cuda:0 --robot-model s200062 \
+  --joint-pose-editor --pregrasp-initial-state task1_ready_bent \
+  --bridge-host 127.0.0.1 --bridge-port 8765
+python -m http.server 8080 --directory data_collection
+```
+
+`http://127.0.0.1:8080/task1_pose_editor.html`에서 전후·좌우 4개 시점을 바꾸고
+양팔 q1~q7을 하나씩 조정한다. 화면에는 gripper local `-Z`와 robot-base 하향축
+사이의 각도 및 TCP base-frame 위치가 계속 표시된다. `서버 로그에 출력`은 현재
+14개 arm 값을 로그로 내보내고, `JSON 복사`는 preset 파일을 수정하지 않고 값을
+클립보드에 복사한다.
+
 ## 구현 순서와 현황
 
 | 단계 | 완료 기준 | 상태 |

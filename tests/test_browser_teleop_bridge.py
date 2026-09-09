@@ -10,10 +10,31 @@ from kuavo_isaaclab_scene.teleop.browser_teleop_bridge import (
     BrowserTeleopBridge,
     PROTOCOL_VERSION,
     pack_frame_packet,
+    parse_pose_editor_message,
     parse_tracking_message,
     unpack_frame_packet,
     webxr_pose_to_kuavo,
 )
+
+
+def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
+    base = {"type": "pose_editor", "protocol_version": 2, "sequence": 7}
+    command = parse_pose_editor_message(json.dumps({
+        **base, "action": "set_joint", "joint_name": "zarm_l6_joint", "value_rad": -1.1,
+    }))
+    assert command is not None
+    assert command.joint_name == "zarm_l6_joint"
+    assert command.value_rad == pytest.approx(-1.1)
+    assert parse_pose_editor_message(json.dumps({
+        **base, "action": "set_view", "view": "rear_left",
+    })).view == "rear_left"
+    for invalid in (
+        {**base, "action": "set_joint", "joint_name": "waist_yaw_joint", "value_rad": 0},
+        {**base, "action": "set_joint", "joint_name": "zarm_l8_joint", "value_rad": 0},
+        {**base, "action": "set_joint", "joint_name": "zarm_l6_joint", "value_rad": "nan"},
+        {**base, "action": "set_view", "view": "free"},
+    ):
+        assert parse_pose_editor_message(json.dumps(invalid)) is None
 
 
 def test_webxr_position_axes_convert_to_kuavo_base():

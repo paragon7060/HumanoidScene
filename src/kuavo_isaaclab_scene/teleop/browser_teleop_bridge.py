@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import json
+import math
+import re
 import struct
 import threading
 import time
@@ -78,6 +80,61 @@ class BrowserClientMetrics:
     decode_ms: float = float("nan")
     dropped_frames: int = 0
     received_at: float = 0.0
+
+
+@dataclass(frozen=True)
+class PoseEditorCommand:
+    """One validated command from the standalone Task1 pose-editor page."""
+
+    sequence: int
+    action: str
+    joint_name: str | None = None
+    value_rad: float | None = None
+    view: str | None = None
+
+
+_ARM_JOINT_PATTERN = re.compile(r"^zarm_[lr][1-7]_joint$")
+_EDITOR_VIEWS = {"rear_left", "rear_right", "front_left", "front_right"}
+
+
+def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
+    """Parse the small, allow-listed pose editor control protocol."""
+    try:
+        payload = json.loads(message)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if (
+        not isinstance(payload, dict)
+        or payload.get("type") != "pose_editor"
+        or payload.get("protocol_version") != PROTOCOL_VERSION
+    ):
+        return None
+    try:
+        sequence = int(payload.get("sequence"))
+    except (TypeError, ValueError):
+        return None
+    if sequence < 0:
+        return None
+    action = payload.get("action")
+    if action == "set_joint":
+        joint_name = payload.get("joint_name")
+        try:
+            value_rad = float(payload.get("value_rad"))
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(joint_name, str) or not _ARM_JOINT_PATTERN.fullmatch(joint_name):
+            return None
+        if not math.isfinite(value_rad):
+            return None
+        return PoseEditorCommand(sequence, action, joint_name=joint_name, value_rad=value_rad)
+    if action == "set_view":
+        view = payload.get("view")
+        if view not in _EDITOR_VIEWS:
+            return None
+        return PoseEditorCommand(sequence, action, view=view)
+    if action in {"reset", "print_pose"}:
+        return PoseEditorCommand(sequence, action)
+    return None
 
 
 def _normalized_quat(quat: np.ndarray) -> np.ndarray:
@@ -278,6 +335,10 @@ class BrowserTeleopBridge:
         self._frame_packet: bytes | None = None
         self._frame_sequence = 0
         self._client_metrics = BrowserClientMetrics()
+        self._pose_editor_command: PoseEditorCommand | None = None
+        self._pose_editor_command_sequence = 0
+        self._pose_editor_state: str | None = None
+        self._pose_editor_state_sequence = 0
         self._clients = 0
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stop_event: asyncio.Event | None = None
@@ -337,6 +398,23 @@ class BrowserTeleopBridge:
                 encode_ms=encode_ms,
                 server_fps=server_fps,
             )
+
+    def latest_pose_editor_command(self, after_sequence: int = -1) -> PoseEditorCommand | None:
+        """Return the newest editor command once, using its client sequence."""
+        with self._lock:
+            command = self._pose_editor_command
+        if command is None or command.sequence <= after_sequence:
+            return None
+        return command
+
+    def publish_pose_editor_state(self, state: dict[str, Any]) -> None:
+        """Publish a JSON state snapshot to every connected editor client."""
+        payload = dict(state)
+        payload.update(type="pose_editor_state", protocol_version=PROTOCOL_VERSION)
+        encoded = json.dumps(payload, allow_nan=False, separators=(",", ":"))
+        with self._lock:
+            self._pose_editor_state = encoded
+            self._pose_editor_state_sequence += 1
 
     def _thread_main(self) -> None:
         try:
@@ -401,6 +479,20 @@ class BrowserTeleopBridge:
                 with self._lock:
                     self._sample = sample
                 continue
+            editor_command = parse_pose_editor_message(message)
+            if editor_command is not None:
+                with self._lock:
+                    # Use a server-side monotonic sequence so a browser reload
+                    # may safely restart its own packet counter from zero.
+                    self._pose_editor_command_sequence += 1
+                    self._pose_editor_command = PoseEditorCommand(
+                        self._pose_editor_command_sequence,
+                        editor_command.action,
+                        joint_name=editor_command.joint_name,
+                        value_rad=editor_command.value_rad,
+                        view=editor_command.view,
+                    )
+                continue
             try:
                 payload = json.loads(message)
             except json.JSONDecodeError:
@@ -426,11 +518,17 @@ class BrowserTeleopBridge:
 
     async def _send_camera(self, websocket) -> None:
         sent_sequence = -1
+        sent_editor_sequence = -1
         while True:
             with self._lock:
                 packet = self._frame_packet
                 sequence = self._frame_sequence
+                editor_state = self._pose_editor_state
+                editor_sequence = self._pose_editor_state_sequence
             if packet is not None and sequence != sent_sequence:
                 await websocket.send(packet)
                 sent_sequence = sequence
+            if editor_state is not None and editor_sequence != sent_editor_sequence:
+                await websocket.send(editor_state)
+                sent_editor_sequence = editor_sequence
             await asyncio.sleep(1.0 / 30.0)

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kuavo Task1 Joint Pose Editor</title>
+  <style>
+    :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0b1017; color: #e8eef7; }
+    header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #121a25; }
+    header strong { margin-right: auto; }
+    button, input { accent-color: #ffd44a; }
+    button { border: 1px solid #445168; border-radius: 7px; padding: 7px 11px; color: #e8eef7; background: #202b3b; cursor: pointer; }
+    button:hover { background: #2b3a50; }
+    #connection { color: #ff8c8c; font-size: 13px; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 390px; height: calc(100vh - 52px); }
+    #viewer { min-width: 0; display: grid; place-items: center; background: #05080d; overflow: hidden; }
+    #frame { width: 100%; height: 100%; object-fit: contain; }
+    aside { overflow: auto; padding: 12px; border-left: 1px solid #263246; background: #101722; }
+    h2 { margin: 8px 0; font-size: 14px; color: #9fb0c8; text-transform: uppercase; letter-spacing: .08em; }
+    .views, .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .joint { padding: 8px 0; border-top: 1px solid #273246; }
+    .joint-head { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; font-size: 13px; }
+    .joint input { width: 100%; }
+    .left { color: #57d7ff; }
+    .right { color: #ff62cb; }
+    .selected { color: #ffd44a; font-weight: 700; }
+    #metrics, #hint { white-space: pre-wrap; font: 12px/1.45 ui-monospace, monospace; color: #b9c6d8; }
+    #hint { color: #8fa1b8; margin-top: 8px; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; height: auto; } #viewer { height: 52vh; } aside { border-left: 0; } }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Task1 3인칭 관절 자세 편집기</strong>
+    <span id="connection">연결 안 됨</span>
+    <button id="connect">Connect</button>
+  </header>
+  <main>
+    <section id="viewer"><img id="frame" alt="Isaac Sim third-person view"></section>
+    <aside>
+      <h2>3인칭 시점</h2>
+      <div class="views">
+        <button data-view="rear_left">후방 좌측</button><button data-view="rear_right">후방 우측</button>
+        <button data-view="front_left">전방 좌측</button><button data-view="front_right">전방 우측</button>
+      </div>
+      <h2>팔 관절</h2>
+      <div id="joints">Connect 후 q1~q7 슬라이더가 표시됩니다.</div>
+      <h2>자세</h2>
+      <div class="actions"><button id="reset">초기 자세</button><button id="print">서버 로그에 출력</button><button id="copy">JSON 복사</button></div>
+      <div id="metrics"></div>
+      <div id="hint">청록=왼팔 축, 분홍=오른팔 축, 노랑=마지막으로 조정한 관절. q6 권장 굽힘 범위는 좌 -75~-45°, 우 +45~+75°입니다.</div>
+    </aside>
+  </main>
+  <script>
+    const PROTOCOL_VERSION = 2, HEADER_BYTES = 32;
+    const frame = document.querySelector('#frame'), status = document.querySelector('#connection');
+    const joints = document.querySelector('#joints'), metrics = document.querySelector('#metrics');
+    let socket = null, sequence = 0, latestState = null, imageUrl = null;
+    function send(action, extra = {}) {
+      if (!socket || socket.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify({type:'pose_editor', protocol_version:PROTOCOL_VERSION, sequence:++sequence, action, ...extra}));
+    }
+    function connect() {
+      socket?.close();
+      const host = location.hostname || '127.0.0.1';
+      socket = new WebSocket(`ws://${host}:8765`); socket.binaryType = 'arraybuffer';
+      status.textContent = '연결 중…';
+      socket.onopen = () => socket.send(JSON.stringify({type:'client_hello', protocol_version:PROTOCOL_VERSION}));
+      socket.onclose = () => { status.textContent = '연결 끊김'; status.style.color = '#ff8c8c'; };
+      socket.onerror = () => { status.textContent = '연결 오류'; };
+      socket.onmessage = async event => {
+        if (typeof event.data === 'string') {
+          const value = JSON.parse(event.data);
+          if (value.type === 'server_hello') { status.textContent = '연결됨'; status.style.color = '#77e89a'; }
+          if (value.type === 'pose_editor_state') renderState(value);
+          return;
+        }
+        const data = event.data instanceof Blob ? await event.data.arrayBuffer() : event.data;
+        if (data.byteLength <= HEADER_BYTES) return;
+        const next = URL.createObjectURL(new Blob([data.slice(HEADER_BYTES)], {type:'image/jpeg'}));
+        frame.onload = () => { if (imageUrl) URL.revokeObjectURL(imageUrl); imageUrl = next; };
+        frame.src = next;
+      };
+    }
+    function renderState(state) {
+      latestState = state;
+      const focus = state.selected_joint || '';
+      joints.innerHTML = state.joints.map(j => {
+        const side = j.name.includes('_l') ? 'left' : 'right';
+        const label = j.name.match(/[lr](\d)_joint/)[1];
+        return `<div class="joint ${focus === j.name ? 'selected' : side}" data-name="${j.name}">
+          <div class="joint-head"><span>${side === 'left' ? 'L' : 'R'} q${label}</span><span>${j.degrees.toFixed(1)}°</span></div>
+          <input type="range" min="${j.lower}" max="${j.upper}" step="0.005" value="${j.value}">
+        </div>`;
+      }).join('');
+      for (const row of joints.querySelectorAll('.joint')) {
+        row.querySelector('input').oninput = event => send('set_joint', {joint_name:row.dataset.name, value_rad:Number(event.target.value)});
+      }
+      metrics.textContent = `view: ${state.view}\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${state.tcp_position_b[0].map(v=>v.toFixed(3)).join(' ')}\nR ${state.tcp_position_b[1].map(v=>v.toFixed(3)).join(' ')}`;
+    }
+    document.querySelector('#connect').onclick = connect;
+    for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => send('set_view', {view:button.dataset.view});
+    document.querySelector('#reset').onclick = () => send('reset');
+    document.querySelector('#print').onclick = () => send('print_pose');
+    document.querySelector('#copy').onclick = async () => {
+      if (!latestState) return;
+      const pose = Object.fromEntries(latestState.joints.map(j => [j.name, j.value]));
+      await navigator.clipboard.writeText(JSON.stringify(pose, null, 2));
+    };
+    connect();
+  </script>
+</body>
+</html>
