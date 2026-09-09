@@ -196,6 +196,8 @@ async def replay_and_record(args, joint_names: list[str], waypoints: np.ndarray)
                         )
                         if not cv_writer.isOpened():
                             raise RuntimeError("OpenCV could not open the MP4 video writer")
+                    elif frame.shape[1] != width or frame.shape[0] != height:
+                        frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
                     cv_writer.write(frame)
                 frame_count += 1
                 frame_sequence = int(metadata["frame_sequence"])
