@@ -1,6 +1,7 @@
 """Joystick mapping and planar lift kinematics, independent of Isaac Sim."""
 
 from pathlib import Path
+import math
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -54,7 +55,11 @@ class TeleopBodyMapper:
 
     def set_height(self, height_m: float) -> bool:
         """Set an absolute lift offset while keeping the torso pitch upright."""
-        if not np.isfinite(height_m):
+        try:
+            height_m = float(height_m)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("torso height must be a finite scalar") from exc
+        if not math.isfinite(height_m):
             raise ValueError("torso height must be finite")
         if not self.has_wheel_base:
             return False
