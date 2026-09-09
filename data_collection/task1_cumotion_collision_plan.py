@@ -308,7 +308,28 @@ def main(argv=None) -> int:
 
     plan_path = output / "plan.json"
     plan_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
-    print(json.dumps({"plan": str(plan_path), "arms": report["arms"]}, indent=2))
+    print(
+        json.dumps(
+            {
+                "plan": str(plan_path),
+                "arms": {
+                    side: {
+                        key: arm.get(key)
+                        for key in (
+                            "status",
+                            "duration_s",
+                            "terminal_error_m",
+                            "sampled_world_collision",
+                            "sampled_self_collision",
+                            "sampled_min_world_distance_m",
+                        )
+                    }
+                    for side, arm in report["arms"].items()
+                },
+            },
+            indent=2,
+        )
+    )
     success = len(report["arms"]) == 2 and all(
         arm["status"] == "SUCCESS"
         and not arm["sampled_world_collision"]

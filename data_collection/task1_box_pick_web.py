@@ -485,6 +485,14 @@ class _JointPoseEditor:
             env, height_m=pregrasp_height_m, grasp_depth_m=grasp_depth_m
         )
         self.pregrasp_height_m = float(pregrasp_height_m)
+        self.target_box = env.scene["medium_box_0"]
+        target_body_ids, target_body_names = self.target_box.find_bodies("Body")
+        if len(target_body_ids) != 1:
+            raise RuntimeError(f"MediumBox_0 body lookup failed: body={target_body_names}")
+        self.target_box_body_id = target_body_ids[0]
+        self.target_box_initial_position_w = self.target_box.data.body_link_pos_w[
+            0, self.target_box_body_id
+        ].clone()
         model = UrdfModel(resolve_robot_model().urdf_path)
         self.local_axes = torch.tensor(
             [model.joints[name].axis for name in self.joint_names],
@@ -628,6 +636,18 @@ class _JointPoseEditor:
         pregrasp_pos_b, _ = subtract_frame_transforms(
             root_pos, root_quat, self.pregrasp_targets_w, root_quat
         )
+        target_box_position_w = self.target_box.data.body_link_pos_w[
+            0, self.target_box_body_id
+        ]
+        target_box_position_b, _ = subtract_frame_transforms(
+            root_pos[:1],
+            root_quat[:1],
+            target_box_position_w.unsqueeze(0),
+            root_quat[:1],
+        )
+        target_box_displacement_m = torch.linalg.vector_norm(
+            target_box_position_w - self.target_box_initial_position_w
+        )
         tool_forward = quat_apply(
             ee_quat,
             torch.tensor((0.0, 0.0, -1.0), device=self.env.device, dtype=ee_pos.dtype).expand(2, -1),
@@ -655,6 +675,8 @@ class _JointPoseEditor:
             "pregrasp_position_b": pregrasp_pos_b.detach().cpu().tolist(),
             "pregrasp_height_m": self.pregrasp_height_m,
             "pregrasp_source": "medium_box_0 flap_right/flap_left upper grasp pair",
+            "target_box_body_position_b": target_box_position_b[0].detach().cpu().tolist(),
+            "target_box_displacement_m": float(target_box_displacement_m),
             "authoring_only": True,
         }
 
