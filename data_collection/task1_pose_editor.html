@@ -58,6 +58,8 @@
     const frame = document.querySelector('#frame'), status = document.querySelector('#connection');
     const joints = document.querySelector('#joints'), metrics = document.querySelector('#metrics');
     let socket = null, sequence = 0, latestState = null, imageUrl = null;
+    let activeJoint = null, jointRows = new Map();
+    const pendingJointValues = new Map();
     function send(action, extra = {}) {
       if (!socket || socket.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({type:'pose_editor', protocol_version:PROTOCOL_VERSION, sequence:++sequence, action, ...extra}));
@@ -84,22 +86,49 @@
         frame.src = next;
       };
     }
-    function renderState(state) {
-      latestState = state;
-      const focus = state.selected_joint || '';
+    function buildJointRows(state) {
       joints.innerHTML = state.joints.map(j => {
         const side = j.name.includes('_l') ? 'left' : 'right';
         const label = j.name.match(/[lr](\d)_joint/)[1];
-        return `<div class="joint ${focus === j.name ? 'selected' : side}" data-name="${j.name}">
-          <div class="joint-head"><span>${side === 'left' ? 'L' : 'R'} q${label}</span><span>${j.degrees.toFixed(1)}°</span></div>
+        return `<div class="joint ${side}" data-name="${j.name}" data-side="${side}">
+          <div class="joint-head"><span>${side === 'left' ? 'L' : 'R'} q${label}</span><span class="joint-degrees">${j.degrees.toFixed(1)}°</span></div>
           <input type="range" min="${j.lower}" max="${j.upper}" step="0.005" value="${j.value}">
         </div>`;
       }).join('');
+      jointRows = new Map(Array.from(joints.querySelectorAll('.joint'), row => [row.dataset.name, row]));
       for (const row of joints.querySelectorAll('.joint')) {
-        row.querySelector('input').oninput = event => send('set_joint', {joint_name:row.dataset.name, value_rad:Number(event.target.value)});
+        const input = row.querySelector('input');
+        input.onpointerdown = () => { activeJoint = row.dataset.name; };
+        input.oninput = event => {
+          const value = Number(event.target.value);
+          pendingJointValues.set(row.dataset.name, {value, sentAt:performance.now()});
+          row.querySelector('.joint-degrees').textContent = `${(value * 180 / Math.PI).toFixed(1)}°`;
+          send('set_joint', {joint_name:row.dataset.name, value_rad:value});
+        };
+      }
+    }
+    function renderState(state) {
+      latestState = state;
+      if (jointRows.size !== state.joints.length || state.joints.some(j => !jointRows.has(j.name))) {
+        buildJointRows(state);
+      }
+      const focus = state.selected_joint || '';
+      for (const joint of state.joints) {
+        const row = jointRows.get(joint.name), input = row.querySelector('input');
+        const pending = pendingJointValues.get(joint.name);
+        const acknowledged = pending && Math.abs(joint.value - pending.value) <= 0.003;
+        if (acknowledged) pendingJointValues.delete(joint.name);
+        const awaiting = pending && !acknowledged && performance.now() - pending.sentAt < 2000;
+        const holdLocalValue = activeJoint === joint.name || awaiting;
+        if (!holdLocalValue) input.value = joint.value;
+        const displayedValue = holdLocalValue ? Number(input.value) : joint.value;
+        row.className = `joint ${focus === joint.name ? 'selected' : row.dataset.side}`;
+        row.querySelector('.joint-degrees').textContent = `${(displayedValue * 180 / Math.PI).toFixed(1)}°`;
       }
       metrics.textContent = `view: ${state.view}\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${state.tcp_position_b[0].map(v=>v.toFixed(3)).join(' ')}\nR ${state.tcp_position_b[1].map(v=>v.toFixed(3)).join(' ')}`;
     }
+    window.addEventListener('pointerup', () => { activeJoint = null; });
+    window.addEventListener('pointercancel', () => { activeJoint = null; });
     document.querySelector('#connect').onclick = connect;
     for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => send('set_view', {view:button.dataset.view});
     document.querySelector('#reset').onclick = () => send('reset');
