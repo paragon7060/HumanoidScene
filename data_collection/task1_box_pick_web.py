@@ -533,6 +533,7 @@ class _JointPoseEditor:
         from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
         from kuavo_isaaclab_scene.envs.manager_env import RACK_BOX_SPAWN_PLAN
         from kuavo_isaaclab_scene.planning.robot_model import UrdfModel
+        from kuavo_isaaclab_scene.teleop.teleop_body import TeleopBodyMapper
         from kuavo_isaaclab_scene.workcell.rack_box_layout import same_shelf_instance_names
 
         self.env = env
@@ -542,7 +543,9 @@ class _JointPoseEditor:
         self.joint_ids, resolved = self.robot.find_joints(self.joint_names, preserve_order=True)
         if tuple(resolved) != self.joint_names:
             raise RuntimeError(f"Pose editor joint lookup mismatch: {resolved}")
-        model = UrdfModel(resolve_robot_model().urdf_path)
+        robot_urdf = resolve_robot_model().urdf_path
+        model = UrdfModel(robot_urdf)
+        self.body_mapper = TeleopBodyMapper(robot_urdf)
         body_names = tuple(model.joints[name].child for name in self.joint_names)
         self.body_ids, resolved_bodies = self.robot.find_bodies(body_names, preserve_order=True)
         if tuple(resolved_bodies) != body_names:
@@ -553,6 +556,7 @@ class _JointPoseEditor:
         self.limits = self.robot.data.joint_pos_limits[0, self.joint_ids].clone()
         self.reset_targets = self.robot.data.joint_pos[:, self.joint_ids].clone()
         self.targets = self.reset_targets.clone()
+        self.sync_body_mapper_from_targets()
         self.robot_root_pose_w = self.robot.data.root_pose_w.clone()
         self.target_box = env.scene["medium_box_0"]
         target_body_ids, target_body_names = self.target_box.find_bodies("Body")
@@ -777,6 +781,7 @@ class _JointPoseEditor:
             self.apply_targets()
         elif command.action == "reset":
             self.targets.copy_(self.reset_targets)
+            self.sync_body_mapper_from_targets()
             self.selected_control = self.joint_names[5]
             self.apply_targets()
         elif command.action == "set_view":
@@ -793,6 +798,14 @@ class _JointPoseEditor:
             self.gripper_collision_markers.set_visibility(self.gripper_collision_visible)
             if self.gripper_collision_visible:
                 self.update_gripper_collision_markers()
+        elif command.action == "set_torso_height":
+            if not self.body_mapper.set_height(command.torso_height_m):
+                raise ValueError(f"Unreachable torso height: {command.torso_height_m:.3f} m")
+            for joint_name, value in zip(self._BODY_JOINTS[:3], self.body_mapper.joints[:3]):
+                index = self.joint_names.index(joint_name)
+                self.targets[0, index] = value
+            self.selected_control = "torso_height"
+            self.apply_targets()
         elif command.action == "print_pose":
             values = {
                 name: float(value) for name, value in zip(self.joint_names, self.targets[0].tolist())
@@ -813,6 +826,21 @@ class _JointPoseEditor:
         self.targets[0, index] = torch.clamp(
             target, self.limits[index, 0], self.limits[index, 1]
         )
+        if name in self._BODY_JOINTS[:3]:
+            self.sync_body_mapper_from_targets()
+
+    def sync_body_mapper_from_targets(self) -> None:
+        """Keep the Cartesian height helper aligned with direct joint edits."""
+        indices = [self.joint_names.index(name) for name in self._BODY_JOINTS[:3]]
+        joints = self.targets[0, indices].detach().cpu().numpy().astype(float)
+        self.body_mapper.joints[:3] = joints
+        reference_height = self.body_mapper.links.sum(axis=0)[1]
+        height = self.body_mapper._planar_position(joints[:2])[1] - reference_height
+        self.body_mapper.height = float(np.clip(
+            height,
+            self.body_mapper.MIN_HEIGHT_M,
+            self.body_mapper.MAX_HEIGHT_M,
+        ))
 
     def apply_targets(self) -> None:
         self.hold_authoring_state()
@@ -973,9 +1001,11 @@ class _JointPoseEditor:
             device=self.env.device,
             dtype=torch.int32,
         )
-        selected_names = set(self._GRIPPER_PAIRS.get(
-            self.selected_control, (self.selected_control,)
-        ))
+        selected_names = set(
+            self._BODY_JOINTS[:3]
+            if self.selected_control == "torso_height"
+            else self._GRIPPER_PAIRS.get(self.selected_control, (self.selected_control,))
+        )
         for selected_name in selected_names:
             marker_indices[self.joint_names.index(selected_name)] = 5
         self.markers.visualize(positions, orientations, marker_indices=marker_indices)
@@ -1115,6 +1145,11 @@ class _JointPoseEditor:
                 for name, value, limit in zip(self._ARM_JOINTS, arm_values, arm_limits)
             ],
             "controls": self.control_state(),
+            "torso_height_m": self.body_mapper.height,
+            "torso_height_range_m": [
+                self.body_mapper.MIN_HEIGHT_M,
+                self.body_mapper.MAX_HEIGHT_M,
+            ],
             "editable_joint_positions": {
                 name: float(value) for name, value in zip(self.joint_names, values)
             },

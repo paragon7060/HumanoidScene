@@ -23,6 +23,9 @@ def controller_axis(packet, index, deadzone=0.15):
 class TeleopBodyMapper:
     """Move the base in its XY plane and lift the torso without pitching it."""
 
+    MIN_HEIGHT_M = 0.0
+    MAX_HEIGHT_M = 0.40
+
     def __init__(self, urdf: str | Path, *, has_wheel_base: bool = True):
         self.has_wheel_base = has_wheel_base
         if has_wheel_base:
@@ -49,6 +52,43 @@ class TeleopBodyMapper:
         return sum(np.array([[np.cos(a), np.sin(a)], [-np.sin(a), np.cos(a)]]) @ link
                    for a, link in zip(angles, self.links))
 
+    def set_height(self, height_m: float) -> bool:
+        """Set an absolute lift offset while keeping the torso pitch upright."""
+        if not np.isfinite(height_m):
+            raise ValueError("torso height must be finite")
+        if not self.has_wheel_base:
+            return False
+        requested_height = float(np.clip(height_m, self.MIN_HEIGHT_M, self.MAX_HEIGHT_M))
+        target = self.links.sum(axis=0) + [0.0, requested_height]
+        q = self.joints[:2].copy()
+        # The joystick path normally changes height by only a few millimetres,
+        # while the pose-editor slider can jump directly across the full range.
+        for _ in range(64):
+            error = target - self._planar_position(q)
+            if np.linalg.norm(error) < 1e-5:
+                break
+            jac = np.column_stack([
+                (self._planar_position(q + np.eye(2)[i] * 1e-5)
+                 - self._planar_position(q)) / 1e-5
+                for i in range(2)
+            ])
+            q += np.clip(
+                np.linalg.solve(
+                    jac.T @ jac + np.eye(2) * 1e-5,
+                    jac.T @ error,
+                ),
+                -.05,
+                .05,
+            )
+            q = np.clip(q, self.limits[:2, 0], self.limits[:2, 1])
+        pitch = -q.sum()
+        if (self.limits[2, 0] <= pitch <= self.limits[2, 1]
+                and np.linalg.norm(self._planar_position(q) - target) < .002):
+            self.height = requested_height
+            self.joints[:3] = [*q, pitch]
+            return True
+        return False
+
     def advance(self, left, right, dt, *, enabled):
         velocity = np.zeros(2)
         yaw_rate = 0.0
@@ -58,33 +98,6 @@ class TeleopBodyMapper:
             velocity /= max(1.0, np.linalg.norm(velocity) / .25)
             yaw_rate = -1.2 * controller_axis(right, 0)
             if self.has_wheel_base:
-                requested_height = float(np.clip(
-                    self.height + .12 * controller_axis(right, 1) * dt, 0.0, .40
-                ))
-                target = self.links.sum(axis=0) + [0., requested_height]
-                q = self.joints[:2].copy()
-                for _ in range(12):
-                    error = target - self._planar_position(q)
-                    if np.linalg.norm(error) < 1e-5:
-                        break
-                    jac = np.column_stack([
-                        (self._planar_position(q + np.eye(2)[i] * 1e-5)
-                         - self._planar_position(q)) / 1e-5
-                        for i in range(2)
-                    ])
-                    q += np.clip(
-                        np.linalg.solve(
-                            jac.T @ jac + np.eye(2) * 1e-5,
-                            jac.T @ error,
-                        ),
-                        -.05,
-                        .05,
-                    )
-                    q = np.clip(q, self.limits[:2, 0], self.limits[:2, 1])
-                pitch = -q.sum()
-                if (self.limits[2, 0] <= pitch <= self.limits[2, 1]
-                        and np.linalg.norm(self._planar_position(q) - target) < .002):
-                    self.height = requested_height
-                    self.joints[:3] = [*q, pitch]
+                self.set_height(self.height + .12 * controller_axis(right, 1) * dt)
             self.joints[3] = 0.0
         return np.concatenate((velocity, [yaw_rate], self.joints[:3])).astype(np.float32)

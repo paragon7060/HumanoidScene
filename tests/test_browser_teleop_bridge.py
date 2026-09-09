@@ -63,6 +63,10 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         **base, "action": "set_gripper_collision_visibility", "visible": True,
     }))
     assert collision is not None and collision.collision_visible is True
+    torso = parse_pose_editor_message(json.dumps({
+        **base, "action": "set_torso_height", "height_m": 0.25,
+    }))
+    assert torso is not None and torso.torso_height_m == pytest.approx(0.25)
     for invalid in (
         {**base, "action": "set_joint", "joint_name": "waist_yaw_joint", "value_rad": 0},
         {**base, "action": "set_joint", "joint_name": "zarm_l8_joint", "value_rad": 0},
@@ -79,6 +83,9 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         {**base, "action": "set_control", "control_name": "right_gripper", "value": 1.01},
         {**base, "action": "set_control", "control_name": "zhead_1_joint", "value": "nan"},
         {**base, "action": "set_gripper_collision_visibility", "visible": 1},
+        {**base, "action": "set_torso_height", "height_m": "nan"},
+        {**base, "action": "set_torso_height", "height_m": -0.001},
+        {**base, "action": "set_torso_height", "height_m": 0.401},
     ):
         assert parse_pose_editor_message(json.dumps(invalid)) is None
 

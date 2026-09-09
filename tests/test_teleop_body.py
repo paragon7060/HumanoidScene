@@ -22,6 +22,24 @@ def test_native_openxr_up_moves_forward_and_lifts_torso_without_pitch():
     assert abs(command[3:6].sum()) < 1e-6
 
 
+def test_absolute_height_reuses_upright_lift_kinematics():
+    m = mapper()
+    assert m.set_height(.25)
+    assert m.height == .25
+    np.testing.assert_allclose(
+        m._planar_position(m.joints[:2]), m.links.sum(axis=0) + [0, .25], atol=2e-5
+    )
+    assert abs(m.joints[:3].sum()) < 1e-6
+
+
+def test_absolute_height_clamps_to_existing_range_and_rejects_nonfinite():
+    m = mapper()
+    assert m.set_height(1.0)
+    assert m.height == m.MAX_HEIGHT_M
+    with np.testing.assert_raises(ValueError):
+        m.set_height(float("nan"))
+
+
 def test_deadzone_loss_and_pause_stop_base_and_hold_waist():
     m = mapper()
     np.testing.assert_allclose(m.advance(packet(.1, -.1), packet(.1, -.1), .1, enabled=True), 0)
@@ -43,3 +61,4 @@ def test_s56_fixed_biped_keeps_height_channels_zero():
     assert command[0] > 0 and command[2] < 0
     np.testing.assert_allclose(command[3:], 0)
     assert m.height == 0.0
+    assert not m.set_height(.2)

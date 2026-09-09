@@ -97,6 +97,7 @@ class PoseEditorCommand:
     control_name: str | None = None
     control_value: float | None = None
     collision_visible: bool | None = None
+    torso_height_m: float | None = None
 
 
 _ARM_JOINT_PATTERN = re.compile(r"^zarm_[lr][1-7]_joint$")
@@ -208,6 +209,14 @@ def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
         if not isinstance(visible, bool):
             return None
         return PoseEditorCommand(sequence, action, collision_visible=visible)
+    if action == "set_torso_height":
+        try:
+            height_m = float(payload.get("height_m"))
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(height_m) or not 0.0 <= height_m <= 0.40:
+            return None
+        return PoseEditorCommand(sequence, action, torso_height_m=height_m)
     if action in {"reset", "print_pose"}:
         return PoseEditorCommand(sequence, action)
     return None

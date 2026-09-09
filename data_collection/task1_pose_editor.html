@@ -65,6 +65,11 @@
         <div class="control-head"><span>객체 로컬 Z 오프셋</span><span id="grasp-z-value">+0.000 m</span></div>
         <input id="grasp-z-offset" type="range" min="-0.15" max="0.15" step="0.005" value="0">
       </div>
+      <h2>몸통 높이</h2>
+      <div class="control">
+        <div class="control-head"><span>Torso Z (관절 자동 연동)</span><span id="torso-z-value">+0.000 m</span></div>
+        <input id="torso-z" type="range" min="0" max="0.4" step="0.005" value="0">
+      </div>
       <h2>제어 축</h2>
       <div id="joints">Connect 후 22개 제어 슬라이더가 표시됩니다.</div>
       <h2>자세</h2>
@@ -81,6 +86,8 @@
     const gripperCollisionVisible = document.querySelector('#gripper-collision-visible');
     const graspZOffset = document.querySelector('#grasp-z-offset');
     const graspZValue = document.querySelector('#grasp-z-value');
+    const torsoZ = document.querySelector('#torso-z');
+    const torsoZValue = document.querySelector('#torso-z-value');
     let socket = null, sequence = 0, latestState = null, imageUrl = null;
     let activeJoint = null, jointRows = new Map();
     const pendingJointValues = new Map();
@@ -153,6 +160,8 @@
       gripperCollisionVisible.checked = state.gripper_collision_visible;
       if (document.activeElement !== graspZOffset) graspZOffset.value = state.grasp_z_offset_m;
       graspZValue.textContent = `${Number(graspZOffset.value) >= 0 ? '+' : ''}${Number(graspZOffset.value).toFixed(3)} m`;
+      if (document.activeElement !== torsoZ) torsoZ.value = state.torso_height_m;
+      torsoZValue.textContent = `+${Number(torsoZ.value).toFixed(3)} m`;
       for (const button of document.querySelectorAll('[data-view]')) {
         button.classList.toggle('active', button.dataset.view === state.view);
       }
@@ -182,6 +191,11 @@
       const value = Number(graspZOffset.value);
       graspZValue.textContent = `${value >= 0 ? '+' : ''}${value.toFixed(3)} m`;
       send('set_grasp_z_offset', {offset_m:value});
+    };
+    torsoZ.oninput = () => {
+      const value = Number(torsoZ.value);
+      torsoZValue.textContent = `+${value.toFixed(3)} m`;
+      send('set_torso_height', {height_m:value});
     };
     document.querySelector('#reset').onclick = () => send('reset');
     document.querySelector('#print').onclick = () => send('print_pose');
