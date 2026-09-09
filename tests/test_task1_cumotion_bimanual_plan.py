@@ -33,7 +33,7 @@ def test_planner_config_weights_all_14_joints():
         planner_yaml(len(ARM_JOINT_NAMES), seed=42, step_size=0.03)
     )
 
-    assert data["distance_metric_weights"] == [1.0] * 14
+    assert data["distance_metric_weights"] == [8.0] + [1.0] * 6 + [8.0] + [1.0] * 6
     assert data["cspace_planning_params"]["exploration_fraction"] == 0.5
     assert data["seed"] == 42
     assert data["step_size"] == 0.03

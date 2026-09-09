@@ -58,15 +58,23 @@ def bimanual_xrdf(
 
 
 def planner_yaml(
-    joint_count: int, *, seed: int = 123456, step_size: float = 0.05
+    joint_count: int,
+    *,
+    seed: int = 123456,
+    step_size: float = 0.05,
+    shoulder_sweep_weight: float = 8.0,
 ) -> str:
     """Return deterministic cuMotion graph-planner parameters for the workcell."""
+    distance_weights = [1.0] * joint_count
+    for index in (0, 7):
+        if index < joint_count:
+            distance_weights[index] = shoulder_sweep_weight
     data = {
         "seed": seed,
         "step_size": step_size,
         "max_iterations": 100000,
         "max_sampling": 30000,
-        "distance_metric_weights": [1.0] * joint_count,
+        "distance_metric_weights": distance_weights,
         "task_space_limits": [[-1.5, 1.5], [-1.5, 1.5], [-0.5, 2.5]],
         "cuda_tree_params": {
             "max_buffer_size": 30,
@@ -172,6 +180,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--target-tolerance-m", type=float, default=0.005)
     result.add_argument("--planner-seed", type=int, default=123456)
     result.add_argument("--planner-step-size", type=float, default=0.05)
+    result.add_argument("--shoulder-sweep-weight", type=float, default=8.0)
     return result
 
 
@@ -182,6 +191,7 @@ def main(argv=None) -> int:
         ("--validation-step-rad", args.validation_step_rad),
         ("--target-tolerance-m", args.target_tolerance_m),
         ("--planner-step-size", args.planner_step_size),
+        ("--shoulder-sweep-weight", args.shoulder_sweep_weight),
     ):
         if not math.isfinite(value) or value <= 0:
             raise ValueError(f"{name} must be finite and positive")
@@ -282,6 +292,7 @@ def main(argv=None) -> int:
         len(ARM_JOINT_NAMES),
         seed=args.planner_seed,
         step_size=args.planner_step_size,
+        shoulder_sweep_weight=args.shoulder_sweep_weight,
     )
     (output / "bimanual.xrdf").write_text(xrdf_text)
     (output / "planner.yaml").write_text(planner_text)
@@ -353,14 +364,20 @@ def main(argv=None) -> int:
         if path_found:
             graph_path = np.asarray(result.interpolated_path, dtype=float)
             graph_waypoint_count = len(graph_path)
-            shortcut_knots = shortcut_path(
-                graph_path,
-                args.validation_step_rad,
-                in_collision,
-            )
-            shortcut_knot_count = len(shortcut_knots)
-            path = densify_path(shortcut_knots, args.planner_step_size)
-            selected_strategy = "collision_aware_graph_shortcut"
+            try:
+                shortcut_knots = shortcut_path(
+                    graph_path,
+                    args.validation_step_rad,
+                    in_collision,
+                )
+            except RuntimeError:
+                path = graph_path
+                shortcut_knot_count = None
+                selected_strategy = "graph_plan_unshortened_validation"
+            else:
+                shortcut_knot_count = len(shortcut_knots)
+                path = densify_path(shortcut_knots, args.planner_step_size)
+                selected_strategy = "collision_aware_graph_shortcut"
     planning_wall_s = time.perf_counter() - started
 
     report = {
@@ -378,6 +395,7 @@ def main(argv=None) -> int:
         "planning_wall_s": planning_wall_s,
         "planner_seed": args.planner_seed,
         "planner_step_size": args.planner_step_size,
+        "shoulder_sweep_weight": args.shoulder_sweep_weight,
         "direct_path_collision_free": direct_path_clear,
         "direct_joint_space_path_length_rad": joint_space_path_length(direct_path),
         "graph_waypoint_count": graph_waypoint_count,
