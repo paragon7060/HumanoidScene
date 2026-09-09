@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 
 import pytest
 
@@ -25,6 +26,20 @@ def test_physical_box_dimensions_and_spawn_scale() -> None:
     }
     plan = boxes.build_box_spawn_plan({1: [], 2: [], 3: []}, 0.0)
     assert all(spec.scale == (1.0, 1.0, 1.0) for spec in plan.values())
+
+
+def test_default_task1_medium_box_uses_shelf_supported_height() -> None:
+    captured = boxes.load_captured_box_poses(boxes.DEFAULT_RACK_BOX_POSE_PATH)["MediumBox_0"]
+    local_x, local_y, local_z = captured.local_pos
+    expected_world = boxes.rack_shelf_point(
+        captured.shelf,
+        -local_y,
+        local_x,
+        0.005 * boxes.BOX_DIMENSIONS_M["medium"][2] + boxes.RACK_SURFACE_CLEARANCE_M,
+        math.radians(5.114147010769473),
+    )
+
+    assert local_z == pytest.approx(expected_world[2], abs=1.0e-8)
 
 
 def test_same_shelf_instance_names_excludes_target_and_other_shelves(tmp_path) -> None:
