@@ -57,11 +57,13 @@ def bimanual_xrdf(
     return yaml.safe_dump(data, sort_keys=False)
 
 
-def planner_yaml(joint_count: int) -> str:
+def planner_yaml(
+    joint_count: int, *, seed: int = 123456, step_size: float = 0.05
+) -> str:
     """Return deterministic cuMotion graph-planner parameters for the workcell."""
     data = {
-        "seed": 123456,
-        "step_size": 0.05,
+        "seed": seed,
+        "step_size": step_size,
         "max_iterations": 100000,
         "max_sampling": 30000,
         "distance_metric_weights": [1.0] * joint_count,
@@ -122,6 +124,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--self-pair-margin-m", type=float, default=None)
     result.add_argument("--validation-step-rad", type=float, default=0.01)
     result.add_argument("--target-tolerance-m", type=float, default=0.005)
+    result.add_argument("--planner-seed", type=int, default=123456)
+    result.add_argument("--planner-step-size", type=float, default=0.05)
     return result
 
 
@@ -131,11 +135,14 @@ def main(argv=None) -> int:
         ("--sphere-cell-m", args.sphere_cell_m),
         ("--validation-step-rad", args.validation_step_rad),
         ("--target-tolerance-m", args.target_tolerance_m),
+        ("--planner-step-size", args.planner_step_size),
     ):
         if not math.isfinite(value) or value <= 0:
             raise ValueError(f"{name} must be finite and positive")
     if not math.isfinite(args.collision_margin_m) or args.collision_margin_m < 0:
         raise ValueError("--collision-margin-m must be finite and nonnegative")
+    if args.planner_seed <= 0:
+        raise ValueError("--planner-seed must be positive")
     self_pair_margin_m = (
         args.collision_margin_m
         if args.self_pair_margin_m is None
@@ -225,7 +232,11 @@ def main(argv=None) -> int:
         gripper_mesh_spheres,
     )
     xrdf_text = bimanual_xrdf(defaults, world_spheres, self_spheres)
-    planner_text = planner_yaml(len(ARM_JOINT_NAMES))
+    planner_text = planner_yaml(
+        len(ARM_JOINT_NAMES),
+        seed=args.planner_seed,
+        step_size=args.planner_step_size,
+    )
     (output / "bimanual.xrdf").write_text(xrdf_text)
     (output / "planner.yaml").write_text(planner_text)
 
@@ -287,6 +298,8 @@ def main(argv=None) -> int:
         "target_inward_flap_normals_b": inward_normals.tolist(),
         "orientation_constraint": orientation_constraint,
         "planning_wall_s": planning_wall_s,
+        "planner_seed": args.planner_seed,
+        "planner_step_size": args.planner_step_size,
         "collision_model": {
             "world_obstacles": len(world_config["cuboid"]),
             "robot_world_spheres": sum(map(len, world_spheres.values())),

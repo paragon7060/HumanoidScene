@@ -26,10 +26,14 @@ def test_bimanual_xrdf_has_one_14dof_cspace_and_two_tools():
 
 
 def test_planner_config_weights_all_14_joints():
-    data = yaml.safe_load(planner_yaml(len(ARM_JOINT_NAMES)))
+    data = yaml.safe_load(
+        planner_yaml(len(ARM_JOINT_NAMES), seed=42, step_size=0.03)
+    )
 
     assert data["distance_metric_weights"] == [1.0] * 14
     assert data["cspace_planning_params"]["exploration_fraction"] == 0.5
+    assert data["seed"] == 42
+    assert data["step_size"] == 0.03
 
 
 def test_densify_path_limits_each_joint_step():
