@@ -59,7 +59,7 @@ def _browser_eye_camera(name: str, lateral_offset_m: float) -> CameraCfg:
 def _joint_editor_camera() -> CameraCfg:
     """Fixed third-person RGB camera used only by the manual pose editor."""
     return CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Workcell/Cameras/JointPoseEditorCamera",
+        prim_path="{ENV_REGEX_NS}/JointPoseEditorCamera",
         update_period=1.0 / 30.0,
         height=720,
         width=1280,
