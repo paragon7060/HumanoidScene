@@ -158,6 +158,7 @@
     const torsoZValue = document.querySelector('#torso-z-value');
     let socket = null, sequence = 0, latestState = null, imageUrl = null;
     let collisionModelTimer = null;
+    let pendingGraspVisible = null, pendingGripperCollisionVisible = null;
     const regionGeometryTimers = {pregrasp:null, transit:null};
     const pendingRegionVisibility = {pregrasp:null, transit:null};
     let activeJoint = null, jointRows = new Map();
@@ -227,7 +228,8 @@
         buildJointRows(state);
       }
       const focus = state.selected_control || '';
-      graspVisible.checked = state.grasp_visible;
+      if (pendingGraspVisible === state.grasp_visible) pendingGraspVisible = null;
+      if (pendingGraspVisible === null) graspVisible.checked = state.grasp_visible;
       for (const [region, controls] of Object.entries(regionControls)) {
         const serverVisible = state[`${region}_region_visible`] ?? state.transit_visible;
         if (pendingRegionVisibility[region] === serverVisible) pendingRegionVisibility[region] = null;
@@ -240,7 +242,12 @@
           });
         }
       }
-      gripperCollisionVisible.checked = state.gripper_collision_visible;
+      if (pendingGripperCollisionVisible === state.gripper_collision_visible) {
+        pendingGripperCollisionVisible = null;
+      }
+      if (pendingGripperCollisionVisible === null) {
+        gripperCollisionVisible.checked = state.gripper_collision_visible;
+      }
       if (document.activeElement !== collisionOvershoot) collisionOvershoot.value = state.gripper_collision_max_overshoot_m.toFixed(3);
       collisionOvershootValue.textContent = `${Math.round(Number(collisionOvershoot.value) * 1000)} mm`;
       if (document.activeElement !== collisionMargin) collisionMargin.value = state.gripper_collision_margin_m;
@@ -273,7 +280,10 @@
     window.addEventListener('pointercancel', () => { activeJoint = null; });
     document.querySelector('#connect').onclick = connect;
     for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => send('set_view', {view:button.dataset.view});
-    graspVisible.onchange = () => send('set_grasp_visibility', {visible:graspVisible.checked});
+    graspVisible.onchange = () => {
+      pendingGraspVisible = graspVisible.checked;
+      send('set_grasp_visibility', {visible:graspVisible.checked});
+    };
     function sendRegionGeometry(region) {
       const controls = regionControls[region];
       const offset = controls.offset.map(input => Number(input.value));
@@ -293,13 +303,17 @@
         input.oninput = () => sendRegionGeometry(region);
       }
     }
-    gripperCollisionVisible.onchange = () => send('set_gripper_collision_visibility', {visible:gripperCollisionVisible.checked});
+    gripperCollisionVisible.onchange = () => {
+      pendingGripperCollisionVisible = gripperCollisionVisible.checked;
+      send('set_gripper_collision_visibility', {visible:gripperCollisionVisible.checked});
+    };
     function updateCollisionModel() {
       const maxOvershootM = Number(collisionOvershoot.value), marginM = Number(collisionMargin.value);
       collisionOvershootValue.textContent = `${Math.round(maxOvershootM * 1000)} mm`;
       collisionMarginValue.textContent = `${Math.round(marginM * 1000)} mm`;
       if (!gripperCollisionVisible.checked) {
         gripperCollisionVisible.checked = true;
+        pendingGripperCollisionVisible = true;
         send('set_gripper_collision_visibility', {visible:true});
       }
       clearTimeout(collisionModelTimer);
