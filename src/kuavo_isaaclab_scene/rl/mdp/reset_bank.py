@@ -35,13 +35,18 @@ def contract(env):
                    for n in names},
         "joints": {name: list(asset.joint_names) for name, asset in env.scene.articulations.items()},
         "geometry": {n: asdict(g) for n, g in cfg.commands.workcell.geometry.items()},
+        **({"flap_grasp_revision": 3} if spec.grasp_mode == "flap_top" else {}),
         "grasp_definition": {name: getattr(spec, name) for name in (
             "grasp_mode", "grasp_hand", "required_grasp_hands", "grasp_force",
             "grasp_flaps", "flap_top_band", "flap_grasp_depth",
             "flap_lock_degrees", "flap_contact_margin", "obstacle_contact_force",
             "reset_settle_seconds", "reset_settle_hold_seconds", "reset_settle_timeout",
             "prelift_position_scale", "prelift_speed_scale", "prelift_angular_scale",
-            "prelift_rotation_scale", "grasp_lift_clearance")}}
+            "prelift_rotation_scale", "grasp_lift_clearance") + (("grasp_contact_grace_s",
+            "grasp_hold_slip_m", "grasp_open_tolerance_m", "flap_contact_region", "active_arm",
+            "prelift_position_deadband", "prelift_speed_deadband", "prelift_angular_deadband",
+            "prelift_rotation_deadband", "prelift_grasp_scale", "prelift_penalty_cap")
+            if spec.grasp_mode == "flap_top" else ())}}
 
 
 def signature(value):

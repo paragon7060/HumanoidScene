@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from kuavo_isaaclab_scene.rl.mdp.flap_grasp import upper_band_contacts, grasp_status
+from kuavo_isaaclab_scene.rl.mdp.flap_grasp import upper_band_contacts, grasp_status, closest_flap_surface
 from kuavo_isaaclab_scene.rl.tasks.specs import task_spec
 
 
@@ -42,6 +42,26 @@ def test_contact_outside_plate_width_is_invalid():
     p[0, 0, 0, 1] = .2
     valid, _ = check(p, c, h, a)
     assert not valid[0, 0, 0]
+
+
+def test_entire_flap_surface_accepts_lower_contact_but_not_missing_or_outside():
+    p, c, h, a = sample()
+    p[..., 2] = -.04
+    assert upper_band_contacts(p, c, h, a, band=None, margin=.004)[0].all()
+    assert not check(p, c, h, a)[0].any()
+    p[0, 0, 0] = float('nan')
+    p[0, 1, 1, 1] = .2
+    valid, _ = upper_band_contacts(p, c, h, a, band=None, margin=.004)
+    assert not valid[0, 0, 0] and not valid[0, 1, 1]
+
+
+def test_closest_surface_uses_full_face_not_top_center_or_solid_interior():
+    p = torch.tensor([[.05, .06, -.04], [-.05, -.06, .04], [0., 0., 0.], [.05, .2, .2]])
+    c = torch.zeros_like(p)
+    h = torch.tensor([.002, .1, .055]).expand_as(p)
+    nearest = closest_flap_surface(p, c, h, torch.zeros(4, dtype=torch.long))
+    torch.testing.assert_close(nearest, torch.tensor([[.002, .06, -.04], [-.002, -.06, .04],
+                                                     [.002, 0., 0.], [.002, .1, .055]]))
 
 
 def test_other_flap_normal_and_local_offset():

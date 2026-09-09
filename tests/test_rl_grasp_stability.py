@@ -30,13 +30,23 @@ def test_sliding_stopped_displacement_and_shaking_are_penalized(kwargs):
     assert penalty > 0 and bonus == 0
 
 
-def test_lift_requires_grasp_to_disable_the_resting_pose_penalty():
+def test_airborne_motion_without_grasp_is_penalized_but_not_old_rest_pose():
     penalty, bonus = scores(x=.02, vz=.2, height=.10)
     assert penalty > 0 and bonus == 0  # tossing does not count
+    penalty, bonus = scores(x=.20, height=.10, angle=math.radians(20))
+    assert penalty == 0 and bonus == 0  # no stale shelf-position cost in air
     penalty, bonus = scores(x=.02, grasp=True, height=.005)
     assert penalty > 0 and bonus < 1  # still on the rack
     penalty, bonus = scores(x=.02, grasp=True, height=.02)
     assert penalty == 0 and bonus == 1
+
+
+def test_rest_pose_penalty_fades_continuously_with_height():
+    low, _ = scores(x=.02, grasp=True, height=0.)
+    middle, _ = scores(x=.02, grasp=True, height=.005)
+    lifted, _ = scores(x=.02, grasp=True, height=.01)
+    assert middle == pytest.approx(low.item() * .5)
+    assert lifted == 0
 
 
 def test_genuine_vertical_lift_is_allowed_before_full_clearance():
@@ -48,3 +58,13 @@ def test_shaking_reduces_the_grasp_bonus_even_after_liftoff():
     _, stable = scores(grasp=True, height=.02)
     penalty, shaking = scores(grasp=True, height=.02, vx=.1, angular=.5)
     assert penalty == 0 and 0 < shaking < stable
+
+
+def test_small_contact_adjustments_are_free_and_total_penalty_is_capped():
+    penalty, _ = scores(x=.004, vx=.015, vz=.015, angular=.09, angle=math.radians(4))
+    assert penalty == 0
+    penalty, _ = scores(x=10., vx=10., vz=10., angular=10., angle=math.radians(90))
+    assert penalty == 1
+    free, _ = scores(x=.02)
+    held, _ = scores(x=.02, grasp=True)
+    assert held == pytest.approx(free.item() * .25)

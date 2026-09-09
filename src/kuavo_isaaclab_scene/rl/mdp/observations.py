@@ -85,5 +85,7 @@ def flap_pick_state(env):
     settling = (torch.stack((t.settling.ready.float(), t.settling.elapsed / t.spec.reset_settle_timeout), -1)
                 if t.settling is not None else torch.tensor((1., 0.), device=env.device).expand(env.num_envs, -1))
     return torch.cat((t.contact_force.clamp(0, 50) / 50, t.hand_grasp_flags.float(),
+                      t.raw_hand_grasp_flags.float(), t.grasp_contact_missing_s,
+                      torch.nn.functional.one_hot(t.contact_flap_index, 2).float().flatten(1),
                       t.unexpected_finger_force.clamp(0, 50) / 50, robot_contact,
                       t.half_size[t.active_box], height[:, None], t.dwell[:, None], settling), dim=-1)

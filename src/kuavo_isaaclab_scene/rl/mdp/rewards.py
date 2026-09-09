@@ -62,14 +62,14 @@ def failure(env):
 
 def flap_reaching(env):
     t = task(env)
-    selected = t.spec.grasp_hand_indices
-    return (torch.exp(-12 * t.hand_target_distance[:, selected])
-            * (0.25 + 0.75 * t.grasp_alignment[:, selected])).mean(-1) * ready(t)
+    # Required hand(s) may approach either flap. Alignment remains an observation,
+    # not a distance multiplier: closer must always yield a larger distance reward.
+    return torch.exp(-12 * t.hand_target_distance[:, t.spec.grasp_hand_indices]).mean(-1) * ready(t)
 
 
 def flap_contact(env):
     t = task(env)
-    # Partial shaping leads from first valid upper-band contact to two opposed jaws.
+    # Grasp/contact shaping, like reaching, follows required hands only.
     selected = t.spec.grasp_hand_indices
     return (0.25 * t.finger_grasp_contacts[:, selected].float().mean((1, 2))
             + t.hand_grasp_flags[:, selected].float().mean(-1)) * ready(t)

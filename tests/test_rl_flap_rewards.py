@@ -51,6 +51,11 @@ def test_flap_shaping_uses_only_the_selected_hand(modules):
     t.hand_grasp_flags[:, 0] = False
     torch.testing.assert_close(rewards.flap_reaching(env), reach)
     torch.testing.assert_close(rewards.flap_contact(env), contact)
+    # Alignment no longer reverses the monotonic distance-only reward.
+    t.grasp_alignment[:, 1] = 0
+    torch.testing.assert_close(rewards.flap_reaching(env), reach)
+    t.hand_target_distance[:, 1] = .05
+    assert rewards.flap_reaching(env) > reach
     assert contact.item() == pytest.approx(.125)
     t.finger_grasp_contacts[:, 1] = True
     t.hand_grasp_flags[:, 1] = True

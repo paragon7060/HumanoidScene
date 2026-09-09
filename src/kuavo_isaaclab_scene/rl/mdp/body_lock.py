@@ -19,7 +19,7 @@ ARM_JOINT_NAMES = tuple(f"zarm_{side}{i}_joint" for side in "lr" for i in range(
 class FixedBody:
     """Latch measured post-reset joints and constrain only the selected environments."""
 
-    def __init__(self, asset, *, tolerance=1e-4):
+    def __init__(self, asset, *, tolerance=1e-4, extra_patterns=()):
         if not math.isfinite(tolerance) or tolerance <= 0:
             raise ValueError("Body lock tolerance must be finite and positive (rad).")
         if not asset.is_fixed_base:
@@ -27,7 +27,7 @@ class FixedBody:
         self.asset = asset
         self.tolerance = tolerance
         self.joint_ids = [i for i, name in enumerate(asset.joint_names)
-                          if any(re.fullmatch(pattern, name) for pattern in BODY_JOINT_PATTERNS)]
+                          if any(re.fullmatch(pattern, name) for pattern in (*BODY_JOINT_PATTERNS, *extra_patterns))]
         self.joint_names = [asset.joint_names[i] for i in self.joint_ids]
         required = {"waist_yaw_joint", "zhead_1_joint", "zhead_2_joint"}
         if not required.issubset(self.joint_names):

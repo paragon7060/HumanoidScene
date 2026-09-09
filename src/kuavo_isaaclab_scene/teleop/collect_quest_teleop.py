@@ -23,6 +23,10 @@ from ..recording.teleop_recorder import new_session_path
 
 
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
+parser.add_argument("--rl-reward-debug", action="store_true",
+                    help="Inspect current flap-pick RL rewards in Quest instead of recording a dataset.")
+parser.add_argument("--rl-config", type=Path,
+                    help="Reward inspection only: trusted RL configure_task/configure Python file.")
 parser.add_argument("--input-mode", choices=("controllers", "hands"), default="controllers",
                     help="Arm input: controller grip pose + trigger (default), or bare-hand wrist + pinch.")
 parser.add_argument("--hand-switch", action="store_true",
@@ -206,6 +210,15 @@ add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 parser.set_defaults(device="cpu")
 args_cli = parser.parse_args()
+if args_cli.rl_config is not None and not args_cli.rl_reward_debug:
+    parser.error("--rl-config requires --rl-reward-debug.")
+if args_cli.rl_reward_debug:
+    if args_cli.input_mode != "controllers" or args_cli.hand_switch or args_cli.controller_mapping != "scaled":
+        parser.error("--rl-reward-debug currently uses controllers with scaled mapping; omit --hand-switch.")
+    if args_cli.scene_config is not None or args_cli.domain_randomization:
+        parser.error("Reward inspection uses the RL scene/config; omit --scene-config and use --no-domain-randomization.")
+    if args_cli.arm_ik == "legacy" or args_cli.arm_start_pose == "ready":
+        parser.error("Reward inspection uses existing URDF IK and the RL named initial pose, not legacy/ready.")
 if args_cli.scene_config is not None:
     args_cli.scene_config = args_cli.scene_config.expanduser().resolve()
     if not args_cli.scene_config.is_file() or args_cli.scene_config.suffix != ".py":
@@ -228,7 +241,7 @@ if args_cli.profile_steps < 0:
 if args_cli.profile_steps or args_cli.capture_xr:
     Path("artifacts").mkdir(exist_ok=True)
 args_cli.dataset = (args_cli.dataset or new_session_path()).expanduser().resolve()
-if args_cli.dataset_format in {"hdf5", "both"} and args_cli.dataset.exists():
+if not args_cli.rl_reward_debug and args_cli.dataset_format in {"hdf5", "both"} and args_cli.dataset.exists():
     parser.error(
         f"HDF5 file already exists: {args_cli.dataset}. Existing sessions are never overwritten or appended to. "
         "Omit --dataset for a new session file, or choose a different filename."
@@ -259,7 +272,7 @@ if args_cli.lerobot_fps < 0:
     parser.error("--lerobot-fps must be 0 or greater.")
 if not args_cli.lerobot_repo_id.strip() or not args_cli.lerobot_task.strip():
     parser.error("--lerobot-repo-id and --lerobot-task must not be empty.")
-if args_cli.dataset_format in {"lerobot", "both"} and args_cli.lerobot_python is None:
+if not args_cli.rl_reward_debug and args_cli.dataset_format in {"lerobot", "both"} and args_cli.lerobot_python is None:
     parser.error(
         "LeRobot recording requires --lerobot-python /path/to/python or the LEROBOT_PYTHON environment variable."
     )
@@ -283,7 +296,8 @@ elif args_cli.rack_box_poses is not None:
 # Hand tracking requires the Isaac Lab OpenXR experience. RTX cameras are
 # intentionally retained because the real Kuavo head camera is part of data.
 args_cli.xr = True
-args_cli.enable_cameras = True
+args_cli.enable_cameras = (not args_cli.rl_reward_debug or args_cli.camera_preview
+                           or args_cli.quest_camera_overlay)
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
@@ -347,6 +361,10 @@ def _scene_asset_or_none(scene, name: str):
 
 
 def main() -> None:
+    if args_cli.rl_reward_debug:
+        from ..rl.debug.quest_reward import run
+        run(args_cli, simulation_app)
+        return
     active_mode = args_cli.input_mode
     robot_model = resolve_robot_model()
     cfg = KuavoQuestTeleopEnvCfg()

@@ -35,7 +35,7 @@ def parse_args(mode, add_arguments=None):
     parser = argparse.ArgumentParser(description=f"Kuavo manager-based subtask PPO {mode}", allow_abbrev=False)
     parser.add_argument("--task", choices=TASKS, default="approach_rack")
     parser.add_argument("--control-mode", choices=("whole-body", "arms-only"), default="whole-body",
-                        help="arms-only locks the reset base/body/head and learns 14 arm + 2 gripper actions.")
+                        help="arms-only locks base/body/head; config active_arm selects one or both arms.")
     parser.add_argument("--boxes", default="small_box_0", help="Ordered comma-separated scene keys, or all captured rack boxes")
     parser.add_argument("--num-envs", type=int, default=8 if mode == "train" else 1)
     parser.add_argument("--env-spacing", type=float, default=8.0,
@@ -147,7 +147,9 @@ def build_configs(args):
         if (cfg.actions.upper_body.class_type is not ArmsOnlyJointTargets
                 or any(getattr(cfg.actions, name, None) is not None for name in ("base", "height", "head"))):
             raise ValueError("arms-only requires its arm action and no base/height/head policy actions.")
-        print("[RL] arms-only: 14 arm + 2 gripper actions; base fixed; body/head latched after each reset.", flush=True)
+        print(f"[RL] arms-only: active_arm={spec.active_arm}; "
+              f"{'14 arm + 2 gripper' if spec.active_arm == 'both' else '7 arm + 1 gripper'} actions; "
+              "base fixed; body/head and inactive arm/hand latched after each reset.", flush=True)
     if cfg.scene.num_envs * agent.num_steps_per_env < agent.algorithm.num_mini_batches:
         raise ValueError("PPO has more mini-batches than rollout samples.")
     print(f"[RL] scene={cfg.scene_profile}; num_envs={cfg.scene.num_envs}; "

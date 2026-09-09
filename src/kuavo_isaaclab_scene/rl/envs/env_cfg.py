@@ -42,6 +42,14 @@ class WorkcellRLEnvCfg(ManagerBasedRLEnvCfg):
         self.scene, geometry = build_scene(self.task, self.num_envs, self.env_spacing, self.cameras)
         if self.task.control_mode == "arms-only":
             self.actions = ArmsOnlyActionsCfg()
+            if self.task.active_arm != "both":
+                side = self.task.active_arm
+                inactive = "left" if side == "right" else "right"
+                if getattr(self.actions, inactive + "_gripper").asset_name != "robot":
+                    raise ValueError("Single-arm flap pick needs an integrated robot gripper for the inactive-hand lock.")
+                self.actions.upper_body.active_arm = side
+                self.actions.upper_body.joint_names = [f"zarm_{side[0]}{i}_joint" for i in range(1, 8)]
+                setattr(self.actions, inactive + "_gripper", None)
             self.scene.robot.spawn.articulation_props.fix_root_link = True
         if self.task.grasp_mode == "flap_top":
             self.observations = FlapPickObservationsCfg()

@@ -10,9 +10,10 @@ def add_contacts(scene, spec, geometry):
         targets = []
         for name in spec.box_names:
             geom = geometry[name]
-            if spec.grasp_mode == "flap_top":
-                geom = geom.flaps[spec.grasp_flaps[index // 2]]
-            targets.append(getattr(scene, name).prim_path + ("/" + geom.body_path if geom.body_path != "." else ""))
+            candidates = [geom.flaps[f] for f in spec.grasp_flaps] if spec.grasp_mode == "flap_top" else [geom]
+            for candidate in candidates:
+                targets.append(getattr(scene, name).prim_path +
+                               ("/" + candidate.body_path if candidate.body_path != "." else ""))
         setattr(scene, f"grasp_contact_{index}", ContactSensorCfg(
             prim_path=f"{{ENV_REGEX_NS}}/Kuavo/{body}", update_period=0., history_length=1,
             track_contact_points=spec.grasp_mode == "flap_top", max_contact_data_count_per_prim=32,

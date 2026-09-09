@@ -86,6 +86,8 @@ class WorkcellCommand(CommandTerm):
         self.last_step[ids] = self._env.common_step_counter
         if self.settling is not None:
             self.settling.reset(ids)
+        if self.flap_grasp is not None:
+            self.flap_grasp.reset(ids)
         self._measure()
         self.initial_z[ids] = self.centers[ids, :, 2] - self._env.scene.env_origins[ids, None, 2]
         self.initial_centers[ids] = self.centers[ids] - self._env.scene.env_origins[ids, None]
@@ -164,9 +166,11 @@ class WorkcellCommand(CommandTerm):
         forces = []
         for index in range(4):
             matrix = self._env.scene[f"grasp_contact_{index}"].data.force_matrix_w
-            if matrix is None or matrix.shape[2] != self.n:
+            filters_per_box = len(self.spec.grasp_flaps) if self.flap_grasp is not None else 1
+            if matrix is None or matrix.shape[2] != self.n * filters_per_box:
                 raise RuntimeError("Filtered finger→box contacts are missing; check USD Body paths and sensor filters.")
-            forces.append(matrix[self.ids, 0, self.active_box].norm(dim=-1))
+            matrix = matrix[:, 0].reshape(self.num_envs, self.n, filters_per_box, 3)
+            forces.append(matrix[self.ids, self.active_box].sum(-2).norm(dim=-1))
         self.contact_force = torch.stack(forces, -1)
         pairs = (self.contact_force > self.spec.grasp_force).reshape(self.num_envs, 2, 2).all(-1)
         nearby = (self.tools - target[:, None]).norm(dim=-1) < half.norm(dim=-1)[:, None] + self.spec.grasp_distance
@@ -238,6 +242,11 @@ class WorkcellCommand(CommandTerm):
         settled = (velocity[:, :3].norm(dim=-1) < self.spec.settle_speed) & (velocity[:, 3:].norm(dim=-1) < self.spec.settle_angular_speed)
         if self.flap_grasp is not None:
             held &= settled & (self.unexpected_finger_force.amax(-1) < self.spec.unexpected_contact_limit)
+        self.pick_checks = {
+            "grasp": self.grasped, "height": lifted, "tilt": upright, "speed": settled,
+            "contact": ((self.unexpected_finger_force.amax(-1) < self.spec.unexpected_contact_limit)
+                        if self.flap_grasp is not None else torch.ones_like(held)),
+        }
         placed = self.supported[self.ids, self.active_box] & settled & self.released
         condition = torch.where(self.phase == 0, navigated,
                     torch.where(self.phase == 1, held,
@@ -278,6 +287,11 @@ class WorkcellCommand(CommandTerm):
             collision = self._env.scene["robot_contact"].data.net_forces_w.norm(dim=-1).amax(-1) > self.cfg.collision_force
         grace = self._env.episode_length_buf > 3
         collision_failure = collision if self.flap_grasp is not None else collision & grace
+        self.failure_checks = {"floor_drop": floor_drop, "outside": outside,
+                               "obstacle_collision": collision_failure,
+                               "cargo_lost": ~self.cargo_ok.all(-1) & grace}
+        if self.settling is not None:
+            self.failure_checks["settle_timeout"] = self.settling.failed
         self.failure |= (floor_drop | outside | collision_failure | (~self.cargo_ok.all(-1) & grace)) & update
         if self.settling is not None:
             self.failure |= self.settling.failed & update
