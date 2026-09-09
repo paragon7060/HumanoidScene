@@ -9,7 +9,6 @@ import json
 import math
 from pathlib import Path
 import time
-import xml.etree.ElementTree as ET
 
 import numpy as np
 import yaml
@@ -164,67 +163,71 @@ def shortcut_path(
     return np.asarray(knots)
 
 
-def workspace_corridor_bounds(
-    start_positions: np.ndarray,
-    target_positions: np.ndarray,
-    padding_m: float,
+def rack_width_constraint_in_base(
+    root_pose_w: np.ndarray,
+    rack_constraint: dict,
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """Express the configured rack-width slab in the robot-base frame."""
+    root_pose_w = np.asarray(root_pose_w, dtype=float)
+    center_w = np.asarray(rack_constraint["center_w_m"], dtype=float)
+    axis_w = normalized_axis(rack_constraint["axis_w"], name="rack width axis")
+    half_width_m = float(rack_constraint["half_width_m"])
+    if root_pose_w.shape != (7,) or center_w.shape != (3,):
+        raise ValueError("rack constraint requires one root pose and one world center")
+    if not math.isfinite(half_width_m) or half_width_m <= 0:
+        raise ValueError("rack half width must be finite and positive")
+    world_from_base = pose_matrix(root_pose_w)
+    base_from_world_rotation = world_from_base[:3, :3].T
+    center_b = base_from_world_rotation @ (center_w - world_from_base[:3, 3])
+    axis_b = normalized_axis(
+        base_from_world_rotation @ axis_w, name="rack width axis in robot base"
+    )
+    return center_b, axis_b, half_width_m
+
+
+def rack_width_coordinates_m(
+    positions_b: np.ndarray,
+    center_b: np.ndarray,
+    axis_b: np.ndarray,
 ) -> np.ndarray:
-    """Build one axis-aligned TCP corridor per arm between start and grasp."""
-    start_positions = np.asarray(start_positions, dtype=float)
-    target_positions = np.asarray(target_positions, dtype=float)
-    if (
-        start_positions.shape != (2, 3)
-        or target_positions.shape != (2, 3)
-        or not np.isfinite(start_positions).all()
-        or not np.isfinite(target_positions).all()
-        or not math.isfinite(padding_m)
-        or padding_m < 0
-    ):
-        raise ValueError("corridor inputs must be finite 2x3 positions and nonnegative padding")
-    low = np.minimum(start_positions, target_positions) - padding_m
-    high = np.maximum(start_positions, target_positions) + padding_m
-    return np.stack((low, high), axis=-1)
+    """Project one or more base-frame EEF positions onto the rack width axis."""
+    positions_b = np.asarray(positions_b, dtype=float)
+    center_b = np.asarray(center_b, dtype=float)
+    axis_b = normalized_axis(axis_b, name="rack width axis in robot base")
+    if positions_b.shape[-1] != 3 or center_b.shape != (3,):
+        raise ValueError("EEF positions and rack center must have xyz coordinates")
+    if not np.isfinite(positions_b).all() or not np.isfinite(center_b).all():
+        raise ValueError("EEF positions and rack center must be finite")
+    return np.einsum("...i,i->...", positions_b - center_b, axis_b)
 
 
-def corridor_max_violation_m(positions: np.ndarray, bounds: np.ndarray) -> float:
-    """Return zero inside the TCP corridor, otherwise the largest axis excess."""
-    positions = np.asarray(positions, dtype=float)
-    bounds = np.asarray(bounds, dtype=float)
-    if positions.ndim != 3 or positions.shape[1:] != (2, 3) or bounds.shape != (2, 3, 2):
-        raise ValueError("positions must be Nx2x3 and bounds must be 2x3x2")
-    below = bounds[None, :, :, 0] - positions
-    above = positions - bounds[None, :, :, 1]
-    return float(max(0.0, np.max(below), np.max(above)))
+def rack_width_max_violation_m(coordinates_m: np.ndarray, half_width_m: float) -> float:
+    """Return the largest EEF excess beyond either physical rack side."""
+    coordinates_m = np.asarray(coordinates_m, dtype=float)
+    if not np.isfinite(coordinates_m).all():
+        raise ValueError("rack-width coordinates must be finite")
+    if not math.isfinite(half_width_m) or half_width_m <= 0:
+        raise ValueError("rack half width must be finite and positive")
+    return float(max(0.0, np.max(np.abs(coordinates_m)) - half_width_m))
 
 
-def task_urdf_with_joint_bounds(
-    urdf_text: str,
-    joint_bounds: dict[str, tuple[float, float]],
-) -> str:
-    """Narrow selected URDF limits only for this planning problem."""
-    root = ET.fromstring(urdf_text)
-    found = set()
-    for joint in root.findall("joint"):
-        name = joint.get("name")
-        if name not in joint_bounds:
-            continue
-        limit = joint.find("limit")
-        if limit is None:
-            raise ValueError(f"joint has no URDF limit: {name}")
-        requested_low, requested_high = joint_bounds[name]
-        physical_low = float(limit.get("lower"))
-        physical_high = float(limit.get("upper"))
-        low = max(physical_low, requested_low)
-        high = min(physical_high, requested_high)
-        if not low < high:
-            raise ValueError(f"empty task joint range for {name}: {(low, high)}")
-        limit.set("lower", f"{low:.12g}")
-        limit.set("upper", f"{high:.12g}")
-        found.add(name)
-    missing = set(joint_bounds) - found
-    if missing:
-        raise ValueError(f"task joint bounds reference missing joints: {sorted(missing)}")
-    return ET.tostring(root, encoding="unicode")
+def rack_width_task_space_limits(
+    center_b: np.ndarray,
+    axis_b: np.ndarray,
+    half_width_m: float,
+) -> list[list[float]] | None:
+    """Return cuMotion limits when the rack-width axis matches a base axis."""
+    center_b = np.asarray(center_b, dtype=float)
+    axis_b = normalized_axis(axis_b, name="rack width axis in robot base")
+    dominant_axis = int(np.argmax(np.abs(axis_b)))
+    if abs(axis_b[dominant_axis]) < 1.0 - 1e-6:
+        return None
+    limits = [[-1.5, 1.5], [-1.5, 1.5], [-0.5, 2.5]]
+    limits[dominant_axis] = [
+        float(center_b[dominant_axis] - half_width_m),
+        float(center_b[dominant_axis] + half_width_m),
+    ]
+    return limits
 
 
 def parser() -> argparse.ArgumentParser:
@@ -247,8 +250,6 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--planner-seed", type=int, default=123456)
     result.add_argument("--planner-step-size", type=float, default=0.05)
     result.add_argument("--shoulder-sweep-weight", type=float, default=8.0)
-    result.add_argument("--shoulder-sweep-padding-rad", type=float, default=0.15)
-    result.add_argument("--corridor-padding-m", type=float, default=0.08)
     return result
 
 
@@ -260,12 +261,9 @@ def main(argv=None) -> int:
         ("--target-tolerance-m", args.target_tolerance_m),
         ("--planner-step-size", args.planner_step_size),
         ("--shoulder-sweep-weight", args.shoulder_sweep_weight),
-        ("--shoulder-sweep-padding-rad", args.shoulder_sweep_padding_rad),
     ):
         if not math.isfinite(value) or value <= 0:
             raise ValueError(f"{name} must be finite and positive")
-    if not math.isfinite(args.corridor_padding_m) or args.corridor_padding_m < 0:
-        raise ValueError("--corridor-padding-m must be finite and nonnegative")
     if not math.isfinite(args.collision_margin_m) or args.collision_margin_m < 0:
         raise ValueError("--collision-margin-m must be finite and nonnegative")
     if args.planner_seed <= 0:
@@ -331,15 +329,6 @@ def main(argv=None) -> int:
     )
     if q_terminal.shape != q_initial.shape or not np.isfinite(q_terminal).all():
         raise ValueError("terminal seed plan does not contain one finite 14-DoF target")
-    shoulder_bounds = {
-        name: (
-            min(float(q_initial[index]), float(q_terminal[index]))
-            - args.shoulder_sweep_padding_rad,
-            max(float(q_initial[index]), float(q_terminal[index]))
-            + args.shoulder_sweep_padding_rad,
-        )
-        for name, index in (("zarm_l1_joint", 0), ("zarm_r1_joint", 7))
-    }
     editor_state = runtime["pose_editor_state"]
     targets = np.asarray(editor_state[f"{target_kind}_position_b"], dtype=float)
     inward_normals = np.asarray(
@@ -370,25 +359,26 @@ def main(argv=None) -> int:
     xrdf_text = bimanual_xrdf(defaults, world_spheres, self_spheres)
     (output / "bimanual.xrdf").write_text(xrdf_text)
 
-    planning_urdf = task_urdf_with_joint_bounds(
-        args.urdf.expanduser().resolve().read_text(), shoulder_bounds
+    robot = cumotion.load_robot_from_memory(
+        xrdf_text, args.urdf.expanduser().resolve().read_text()
     )
-    robot = cumotion.load_robot_from_memory(xrdf_text, planning_urdf)
-    endpoint_tcp_positions = np.asarray(
-        [
-            [robot.kinematics().position(q, frame) for frame in TOOL_FRAMES]
-            for q in (q_initial, q_terminal)
-        ]
+    rack_constraint = runtime.get("rack_width_constraint")
+    if not isinstance(rack_constraint, dict):
+        raise ValueError(
+            "runtime.json has no rack_width_constraint; capture a new planning snapshot"
+        )
+    rack_center_b, rack_axis_b, rack_half_width_m = rack_width_constraint_in_base(
+        runtime["root_pose_w"], rack_constraint
     )
-    corridor_bounds = workspace_corridor_bounds(
-        endpoint_tcp_positions[0], endpoint_tcp_positions[1], args.corridor_padding_m
+    task_space_limits = rack_width_task_space_limits(
+        rack_center_b, rack_axis_b, rack_half_width_m
     )
     planner_text = planner_yaml(
         len(ARM_JOINT_NAMES),
         seed=args.planner_seed,
         step_size=args.planner_step_size,
         shoulder_sweep_weight=args.shoulder_sweep_weight,
-        task_space_limits=corridor_bounds[0].tolist(),
+        task_space_limits=task_space_limits,
     )
     (output / "planner.yaml").write_text(planner_text)
 
@@ -425,9 +415,16 @@ def main(argv=None) -> int:
         )
 
     def in_collision(q) -> bool:
+        tcp_positions = np.asarray(
+            [robot.kinematics().position(q, frame) for frame in TOOL_FRAMES]
+        )
+        rack_coordinates = rack_width_coordinates_m(
+            tcp_positions, rack_center_b, rack_axis_b
+        )
         return bool(
             inspector.in_collision_with_obstacle(q)
             or inspector.in_self_collision(q)
+            or rack_width_max_violation_m(rack_coordinates, rack_half_width_m) > 1e-9
         )
 
     started = time.perf_counter()
@@ -488,9 +485,14 @@ def main(argv=None) -> int:
         "planner_seed": args.planner_seed,
         "planner_step_size": args.planner_step_size,
         "shoulder_sweep_weight": args.shoulder_sweep_weight,
-        "task_shoulder_joint_bounds_rad": shoulder_bounds,
-        "tcp_corridor_padding_m": args.corridor_padding_m,
-        "tcp_corridor_bounds_b_m": corridor_bounds.tolist(),
+        "rack_width_constraint": {
+            **rack_constraint,
+            "center_b_m": rack_center_b.tolist(),
+            "axis_b": rack_axis_b.tolist(),
+            "allowed_coordinate_b_m": [-rack_half_width_m, rack_half_width_m],
+            "applies_to": TOOL_FRAMES,
+            "planner_left_eef_task_space_limits_b_m": task_space_limits,
+        },
         "direct_path_collision_free": direct_path_clear,
         "direct_joint_space_path_length_rad": joint_space_path_length(direct_path),
         "graph_waypoint_count": graph_waypoint_count,
@@ -521,8 +523,11 @@ def main(argv=None) -> int:
                 for row in dense
             ]
         )
-        corridor_violation = corridor_max_violation_m(
-            tcp_path_positions, corridor_bounds
+        rack_width_coordinates = rack_width_coordinates_m(
+            tcp_path_positions, rack_center_b, rack_axis_b
+        )
+        rack_width_violation = rack_width_max_violation_m(
+            rack_width_coordinates, rack_half_width_m
         )
         terminal_positions = np.asarray(
             [robot.kinematics().position(path[-1], frame) for frame in TOOL_FRAMES]
@@ -555,7 +560,7 @@ def main(argv=None) -> int:
             )
             and not any(world_collisions)
             and not any(self_collisions)
-            and corridor_violation <= 1e-9
+            and rack_width_violation <= 1e-9
             and overlap_fraction > 0.5
         )
         report.update(
@@ -579,7 +584,14 @@ def main(argv=None) -> int:
                 "joint_space_path_length_rad": path_length,
                 "path_length_over_direct": path_length
                 / joint_space_path_length(direct_path),
-                "tcp_corridor_max_violation_m": corridor_violation,
+                "eef_rack_width_coordinate_range_b_m": [
+                    [
+                        float(rack_width_coordinates[:, arm].min()),
+                        float(rack_width_coordinates[:, arm].max()),
+                    ]
+                    for arm in range(2)
+                ],
+                "eef_rack_width_max_violation_m": rack_width_violation,
                 "tcp_path_axis_range_b_m": [
                     [
                         [float(tcp_path_positions[:, arm, axis].min()),
@@ -612,6 +624,9 @@ def main(argv=None) -> int:
                 "sampled_min_world_distance_m": report.get("sampled_min_world_distance_m"),
                 "simultaneous_motion_overlap_fraction": report.get(
                     "simultaneous_motion_overlap_fraction"
+                ),
+                "eef_rack_width_max_violation_m": report.get(
+                    "eef_rack_width_max_violation_m"
                 ),
             },
             indent=2,

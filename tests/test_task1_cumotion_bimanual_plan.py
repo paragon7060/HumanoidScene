@@ -6,13 +6,14 @@ from data_collection.task1_cumotion_bimanual_plan import (
     ARM_JOINT_NAMES,
     TOOL_FRAMES,
     bimanual_xrdf,
-    corridor_max_violation_m,
     densify_path,
     joint_space_path_length,
     planner_yaml,
+    rack_width_constraint_in_base,
+    rack_width_coordinates_m,
+    rack_width_max_violation_m,
+    rack_width_task_space_limits,
     shortcut_path,
-    task_urdf_with_joint_bounds,
-    workspace_corridor_bounds,
 )
 
 
@@ -79,26 +80,47 @@ def test_shortcut_path_keeps_required_collision_avoidance_knot():
     np.testing.assert_allclose(shortcut, path)
 
 
-def test_workspace_corridor_reports_outward_tcp_excursion():
-    start = np.asarray([[0.15, 0.25, 0.47], [0.15, -0.25, 0.47]])
-    target = np.asarray([[0.69, 0.27, 1.34], [0.69, -0.05, 1.34]])
-    bounds = workspace_corridor_bounds(start, target, 0.08)
-    positions = np.stack((start, target))
+def test_rack_width_constraint_is_transformed_to_robot_base():
+    root_pose_w = np.asarray([1.0, 2.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+    constraint = {
+        "center_w_m": [1.0, 1.5, 1.0],
+        "axis_w": [0.0, 1.0, 0.0],
+        "half_width_m": 0.5,
+    }
 
-    assert corridor_max_violation_m(positions, bounds) == 0.0
-    positions[1, 1, 1] = -0.40
-    assert corridor_max_violation_m(positions, bounds) == pytest.approx(0.07)
+    center_b, axis_b, half_width_m = rack_width_constraint_in_base(
+        root_pose_w, constraint
+    )
+
+    np.testing.assert_allclose(center_b, [0.0, -0.5, 1.0])
+    np.testing.assert_allclose(axis_b, [0.0, 1.0, 0.0])
+    assert half_width_m == 0.5
 
 
-def test_task_urdf_narrows_only_requested_joint_limits():
-    urdf = """<robot name="r">
-      <joint name="q1" type="revolute"><limit lower="-2" upper="2"/></joint>
-      <joint name="q2" type="revolute"><limit lower="-3" upper="3"/></joint>
-    </robot>"""
+def test_rack_width_gate_checks_both_eefs_and_only_width_axis():
+    positions = np.asarray(
+        [
+            [[10.0, 0.25, -5.0], [-8.0, -0.49, 9.0]],
+            [[20.0, 0.50, 12.0], [-6.0, -0.57, -7.0]],
+        ]
+    )
+    coordinates = rack_width_coordinates_m(
+        positions, np.zeros(3), np.asarray([0.0, 1.0, 0.0])
+    )
 
-    bounded = task_urdf_with_joint_bounds(urdf, {"q1": (0.1, 0.9)})
+    np.testing.assert_allclose(coordinates, [[0.25, -0.49], [0.50, -0.57]])
+    assert rack_width_max_violation_m(coordinates[:1], 0.5) == 0.0
+    assert rack_width_max_violation_m(coordinates, 0.5) == pytest.approx(0.07)
 
-    assert 'name="q1"' in bounded
-    assert 'lower="0.1" upper="0.9"' in bounded
-    assert 'name="q2"' in bounded
-    assert 'lower="-3" upper="3"' in bounded
+
+def test_axis_aligned_rack_width_guides_cumotion_task_space():
+    limits = rack_width_task_space_limits(
+        np.asarray([0.5, -0.06, 1.0]), np.asarray([0.0, -1.0, 0.0]), 0.5255
+    )
+
+    np.testing.assert_allclose(
+        limits, [[-1.5, 1.5], [-0.5855, 0.4655], [-0.5, 2.5]]
+    )
+    assert rack_width_task_space_limits(
+        np.zeros(3), np.asarray([np.sqrt(0.5), np.sqrt(0.5), 0.0]), 0.5
+    ) is None

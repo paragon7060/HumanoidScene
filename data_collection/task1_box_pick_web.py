@@ -1480,6 +1480,16 @@ def _write_planning_snapshot(env, pose_editor: _JointPoseEditor, output_dir: Pat
         snapshot_colliders,
         world_config,
     )
+    from kuavo_isaaclab_scene.workcell.rack_box_layout import (
+        RACK_SHELF_CENTER_LOCAL_X_RAW,
+    )
+    from kuavo_isaaclab_scene.workcell.workcell_layout import (
+        RACK_RAW_WIDTH,
+        local_point_to_world,
+        quat_rotate,
+        rotation,
+        scale,
+    )
 
     output_dir = output_dir.expanduser().resolve()
     if output_dir.exists():
@@ -1497,6 +1507,11 @@ def _write_planning_snapshot(env, pose_editor: _JointPoseEditor, output_dir: Pat
     collision_snapshot = omit_instance_colliders(
         collision_snapshot, (record[0] for record in pose_editor.cleared_boxes)
     )
+    rack_scale = scale("rack")
+    rack_width_axis_w = quat_rotate(rotation("rack"), (1.0, 0.0, 0.0))
+    rack_width_center_w = local_point_to_world(
+        "rack", (RACK_SHELF_CENTER_LOCAL_X_RAW, 0.0, 0.0)
+    )
     runtime = {
         "joint_names": list(robot.joint_names),
         "joint_positions": robot.data.joint_pos[0].detach().cpu().tolist(),
@@ -1505,6 +1520,15 @@ def _write_planning_snapshot(env, pose_editor: _JointPoseEditor, output_dir: Pat
         "body_poses_w": robot.data.body_link_pose_w[0].detach().cpu().tolist(),
         "root_pose_w": root_pose_w,
         "pose_editor_state": pose_editor.state(),
+        "rack_width_constraint": {
+            "coordinate_frame": "world",
+            "center_w_m": list(rack_width_center_w),
+            "axis_w": list(rack_width_axis_w),
+            "half_width_m": RACK_RAW_WIDTH * rack_scale[0] / 2.0,
+            "raw_width_m": RACK_RAW_WIDTH,
+            "rack_local_center_x_raw_m": RACK_SHELF_CENTER_LOCAL_X_RAW,
+            "source": "configured rack pose and authored Rack.usd physical width",
+        },
     }
     world = world_config(collision_snapshot, root_pose_w)
     for name, value in (
