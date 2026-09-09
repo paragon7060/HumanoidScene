@@ -486,6 +486,37 @@ class _JointPoseEditor:
         "left_wrist": "left_wrist_camera",
         "right_wrist": "right_wrist_camera",
     }
+    _ARM_JOINTS = tuple(
+        f"zarm_{side}{index}_joint" for side in ("l", "r") for index in range(1, 8)
+    )
+    _BODY_JOINTS = (
+        "knee_joint",
+        "leg_joint",
+        "waist_pitch_joint",
+        "waist_yaw_joint",
+    )
+    _HEAD_JOINTS = ("zhead_1_joint", "zhead_2_joint")
+    _GRIPPER_MOTOR_JOINTS = (
+        "l_f_bar_1_joint",
+        "l_b_bar_1_joint",
+        "r_f_bar_1_joint",
+        "r_b_bar_1_joint",
+    )
+    _EDITABLE_JOINTS = _ARM_JOINTS + _BODY_JOINTS + _HEAD_JOINTS + _GRIPPER_MOTOR_JOINTS
+    _GRIPPER_PAIRS = {
+        "left_gripper": ("l_f_bar_1_joint", "l_b_bar_1_joint"),
+        "right_gripper": ("r_f_bar_1_joint", "r_b_bar_1_joint"),
+    }
+    _CONTROL_LABELS = {
+        "knee_joint": "승강 knee",
+        "leg_joint": "승강 leg",
+        "waist_pitch_joint": "허리 pitch",
+        "waist_yaw_joint": "허리 yaw",
+        "zhead_1_joint": "머리 yaw",
+        "zhead_2_joint": "머리 pitch",
+        "left_gripper": "왼손 개폐",
+        "right_gripper": "오른손 개폐",
+    }
 
     def __init__(self, env, *, pregrasp_height_m: float, grasp_depth_m: float):
         import isaaclab.sim as sim_utils
@@ -500,24 +531,22 @@ class _JointPoseEditor:
         self.env = env
         self.robot = env.scene["robot"]
         self.arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
-        self.joint_names = tuple(
-            f"zarm_{side}{index}_joint" for side in ("l", "r") for index in range(1, 8)
-        )
+        self.joint_names = self._EDITABLE_JOINTS
         self.joint_ids, resolved = self.robot.find_joints(self.joint_names, preserve_order=True)
         if tuple(resolved) != self.joint_names:
-            raise RuntimeError(f"Pose editor arm-joint lookup mismatch: {resolved}")
-        body_names = tuple(
-            f"zarm_{side}{index}_link" for side in ("l", "r") for index in range(1, 8)
-        )
+            raise RuntimeError(f"Pose editor joint lookup mismatch: {resolved}")
+        model = UrdfModel(resolve_robot_model().urdf_path)
+        body_names = tuple(model.joints[name].child for name in self.joint_names)
         self.body_ids, resolved_bodies = self.robot.find_bodies(body_names, preserve_order=True)
         if tuple(resolved_bodies) != body_names:
-            raise RuntimeError(f"Pose editor arm-body lookup mismatch: {resolved_bodies}")
+            raise RuntimeError(f"Pose editor joint-body lookup mismatch: {resolved_bodies}")
         self.ee_ids, _ = self.robot.find_bodies(
             ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
         )
         self.limits = self.robot.data.joint_pos_limits[0, self.joint_ids].clone()
         self.reset_targets = self.robot.data.joint_pos[:, self.joint_ids].clone()
         self.targets = self.reset_targets.clone()
+        self.robot_root_pose_w = self.robot.data.root_pose_w.clone()
         self.target_box = env.scene["medium_box_0"]
         target_body_ids, target_body_names = self.target_box.find_bodies("Body")
         if len(target_body_ids) != 1:
@@ -576,13 +605,15 @@ class _JointPoseEditor:
         self.grasp_z_offset_m = 0.0
         self.update_grasp_offset()
         self.pregrasp_height_m = float(pregrasp_height_m)
-        model = UrdfModel(resolve_robot_model().urdf_path)
         self.local_axes = torch.tensor(
             [model.joints[name].axis for name in self.joint_names],
             device=env.device,
             dtype=self.targets.dtype,
         )
-        print("[POSE_EDITOR_INIT] resolved 14 arm joints and physical axes", flush=True)
+        print(
+            "[POSE_EDITOR_INIT] resolved 24 motor joints / 22 logical controls and physical axes",
+            flush=True,
+        )
         marker_cfg = VisualizationMarkersCfg(
             prim_path="/Visuals/Task1JointPoseEditor",
             markers={
@@ -598,6 +629,27 @@ class _JointPoseEditor:
                     height=0.16,
                     visual_material=sim_utils.PreviewSurfaceCfg(
                         diffuse_color=(1.0, 0.12, 0.70), emissive_color=(0.14, 0.0, 0.08)
+                    ),
+                ),
+                "body": sim_utils.CylinderCfg(
+                    radius=0.014,
+                    height=0.18,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.48, 0.10), emissive_color=(0.16, 0.04, 0.0)
+                    ),
+                ),
+                "head": sim_utils.CylinderCfg(
+                    radius=0.012,
+                    height=0.16,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.63, 0.48, 1.0), emissive_color=(0.07, 0.03, 0.18)
+                    ),
+                ),
+                "gripper": sim_utils.CylinderCfg(
+                    radius=0.010,
+                    height=0.11,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.25, 1.0, 0.45), emissive_color=(0.02, 0.18, 0.05)
                     ),
                 ),
                 "selected": sim_utils.CylinderCfg(
@@ -636,13 +688,13 @@ class _JointPoseEditor:
             "spawned four flap grasp-point markers",
             flush=True,
         )
-        self.selected_joint = self.joint_names[5]
+        self.selected_control = self.joint_names[5]
         self.view = "rear_left"
         self.last_command_sequence = -1
         self.set_view(self.view)
         print("[POSE_EDITOR_INIT] positioned third-person camera", flush=True)
         self.apply_targets()
-        print("[POSE_EDITOR_INIT] static arm pose ready", flush=True)
+        print("[POSE_EDITOR_INIT] static editable pose ready", flush=True)
 
     def set_view(self, name: str) -> None:
         from isaaclab.utils.math import quat_apply
@@ -679,18 +731,22 @@ class _JointPoseEditor:
             index = self.joint_names.index(command.joint_name)
             value = torch.tensor(command.value_rad, device=self.env.device, dtype=self.targets.dtype)
             self.targets[0, index] = torch.clamp(value, self.limits[index, 0], self.limits[index, 1])
-            self.selected_joint = command.joint_name
+            self.selected_control = command.joint_name
+            self.apply_targets()
+        elif command.action == "set_control":
+            self.set_control(command.control_name, command.control_value)
+            self.selected_control = command.control_name
             self.apply_targets()
         elif command.action == "set_pose":
             for joint_name, value_rad in command.joint_positions.items():
                 index = self.joint_names.index(joint_name)
                 value = torch.tensor(value_rad, device=self.env.device, dtype=self.targets.dtype)
                 self.targets[0, index] = torch.clamp(value, self.limits[index, 0], self.limits[index, 1])
-            self.selected_joint = next(iter(command.joint_positions))
+            self.selected_control = next(iter(command.joint_positions))
             self.apply_targets()
         elif command.action == "reset":
             self.targets.copy_(self.reset_targets)
-            self.selected_joint = self.joint_names[5]
+            self.selected_control = self.joint_names[5]
             self.apply_targets()
         elif command.action == "set_view":
             self.set_view(command.view)
@@ -705,8 +761,22 @@ class _JointPoseEditor:
             values = {
                 name: float(value) for name, value in zip(self.joint_names, self.targets[0].tolist())
             }
-            print(f"[POSE_EDITOR_EXPORT] arm_joint_positions={values}", flush=True)
+            print(f"[POSE_EDITOR_EXPORT] editable_joint_positions={values}", flush=True)
         return True
+
+    def set_control(self, name: str, value: float) -> None:
+        """Apply one finite joint or one coupled two-finger closure control."""
+        if name in self._GRIPPER_PAIRS:
+            closure = min(max(float(value), 0.0), 1.0)
+            for joint_name in self._GRIPPER_PAIRS[name]:
+                index = self.joint_names.index(joint_name)
+                self.targets[0, index] = self.reset_targets[0, index] * (1.0 - closure)
+            return
+        index = self.joint_names.index(name)
+        target = torch.tensor(value, device=self.env.device, dtype=self.targets.dtype)
+        self.targets[0, index] = torch.clamp(
+            target, self.limits[index, 0], self.limits[index, 1]
+        )
 
     def apply_targets(self) -> None:
         self.hold_authoring_state()
@@ -726,6 +796,10 @@ class _JointPoseEditor:
 
     def hold_authoring_state(self) -> None:
         """Keep the editor's robot and target at their authored poses."""
+        self.robot.write_root_pose_to_sim(self.robot_root_pose_w)
+        self.robot.write_root_velocity_to_sim(
+            torch.zeros((1, 6), device=self.env.device, dtype=self.robot_root_pose_w.dtype)
+        )
         velocities = torch.zeros_like(self.targets)
         self.robot.write_joint_state_to_sim(
             self.targets, velocities, joint_ids=self.joint_ids
@@ -783,9 +857,15 @@ class _JointPoseEditor:
         axes = torch.nn.functional.normalize(quat_apply(body_quats, self.local_axes), dim=-1)
         orientations = self._z_axis_orientations(axes)
         marker_indices = torch.tensor(
-            [0] * 7 + [1] * 7, device=self.env.device, dtype=torch.int32
+            [0] * 7 + [1] * 7 + [2] * 4 + [3] * 2 + [4] * 4,
+            device=self.env.device,
+            dtype=torch.int32,
         )
-        marker_indices[self.joint_names.index(self.selected_joint)] = 2
+        selected_names = set(self._GRIPPER_PAIRS.get(
+            self.selected_control, (self.selected_control,)
+        ))
+        for selected_name in selected_names:
+            marker_indices[self.joint_names.index(selected_name)] = 5
         self.markers.visualize(positions, orientations, marker_indices=marker_indices)
 
         grasp_positions = self.all_flap_grasp_points_w
@@ -800,10 +880,71 @@ class _JointPoseEditor:
             grasp_positions, grasp_orientations, marker_indices=grasp_marker_indices
         )
 
+    def control_state(self) -> list[dict]:
+        """Return the 22 user-facing controls without exposing passive linkage joints."""
+        records = []
+        for name in (*self._ARM_JOINTS, *self._BODY_JOINTS, *self._HEAD_JOINTS):
+            index = self.joint_names.index(name)
+            value = float(self.targets[0, index])
+            if name in self._ARM_JOINTS:
+                side = "left" if "_l" in name else "right"
+                number = name.split("_joint", 1)[0][-1]
+                group = "arm"
+                label = f"{'L' if side == 'left' else 'R'} q{number}"
+                color = side
+            elif name in self._BODY_JOINTS:
+                group, color = "body", "body"
+                label = self._CONTROL_LABELS[name]
+            else:
+                group, color = "head", "head"
+                label = self._CONTROL_LABELS[name]
+            records.append(
+                {
+                    "name": name,
+                    "label": label,
+                    "group": group,
+                    "color": color,
+                    "value": value,
+                    "display_value": math.degrees(value),
+                    "unit": "deg",
+                    "lower": float(self.limits[index, 0]),
+                    "upper": float(self.limits[index, 1]),
+                    "step": 0.005,
+                    "physical_joint_names": [name],
+                }
+            )
+        for name, joint_names in self._GRIPPER_PAIRS.items():
+            closure_values = []
+            for joint_name in joint_names:
+                index = self.joint_names.index(joint_name)
+                open_value = float(self.reset_targets[0, index])
+                current_value = float(self.targets[0, index])
+                if abs(open_value) > 1.0e-6:
+                    closure_values.append(1.0 - current_value / open_value)
+            closure = min(max(sum(closure_values) / len(closure_values), 0.0), 1.0)
+            records.append(
+                {
+                    "name": name,
+                    "label": self._CONTROL_LABELS[name],
+                    "group": "gripper",
+                    "color": "left" if name.startswith("left") else "right",
+                    "value": closure,
+                    "display_value": closure * 100.0,
+                    "unit": "percent",
+                    "lower": 0.0,
+                    "upper": 1.0,
+                    "step": 0.01,
+                    "physical_joint_names": list(joint_names),
+                }
+            )
+        return records
+
     def state(self) -> dict:
         from isaaclab.utils.math import quat_apply, quat_apply_inverse, subtract_frame_transforms
 
         values = self.targets[0]
+        arm_values = values[: len(self._ARM_JOINTS)]
+        arm_limits = self.limits[: len(self._ARM_JOINTS)]
         ee_pos = self.robot.data.body_link_pos_w[0, self.ee_ids]
         ee_quat = self.robot.data.body_link_quat_w[0, self.ee_ids]
         root_pos = self.robot.data.root_pos_w.expand(2, -1)
@@ -846,7 +987,10 @@ class _JointPoseEditor:
         dots = (tool_forward * base_down).sum(-1).clamp(-1.0, 1.0)
         return {
             "view": self.view,
-            "selected_joint": self.selected_joint,
+            "selected_joint": (
+                self.selected_control if self.selected_control in self._ARM_JOINTS else ""
+            ),
+            "selected_control": self.selected_control,
             "joints": [
                 {
                     "name": name,
@@ -855,8 +999,12 @@ class _JointPoseEditor:
                     "lower": float(limit[0]),
                     "upper": float(limit[1]),
                 }
-                for name, value, limit in zip(self.joint_names, values, self.limits)
+                for name, value, limit in zip(self._ARM_JOINTS, arm_values, arm_limits)
             ],
+            "controls": self.control_state(),
+            "editable_joint_positions": {
+                name: float(value) for name, value in zip(self.joint_names, values)
+            },
             "tool_down_angle_deg": [math.degrees(math.acos(float(dot))) for dot in dots],
             "tcp_position_b": tcp_pos_b.detach().cpu().tolist(),
             "shoulder_position_b": shoulder_pos_b.detach().cpu().tolist(),

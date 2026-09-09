@@ -94,9 +94,21 @@ class PoseEditorCommand:
     view: str | None = None
     visible: bool | None = None
     grasp_z_offset_m: float | None = None
+    control_name: str | None = None
+    control_value: float | None = None
 
 
 _ARM_JOINT_PATTERN = re.compile(r"^zarm_[lr][1-7]_joint$")
+_EDITOR_POSITION_JOINTS = {
+    "knee_joint",
+    "leg_joint",
+    "waist_pitch_joint",
+    "waist_yaw_joint",
+    "zhead_1_joint",
+    "zhead_2_joint",
+    *(f"zarm_{side}{index}_joint" for side in "lr" for index in range(1, 8)),
+}
+_EDITOR_LOGICAL_CONTROLS = {"left_gripper", "right_gripper"}
 _EDITOR_VIEWS = {
     "rear_left",
     "rear_right",
@@ -174,6 +186,22 @@ def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
         if not math.isfinite(offset_m) or not -0.15 <= offset_m <= 0.15:
             return None
         return PoseEditorCommand(sequence, action, grasp_z_offset_m=offset_m)
+    if action == "set_control":
+        control_name = payload.get("control_name")
+        try:
+            value = float(payload.get("value"))
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(control_name, str) or not math.isfinite(value):
+            return None
+        if control_name in _EDITOR_LOGICAL_CONTROLS:
+            if not 0.0 <= value <= 1.0:
+                return None
+        elif control_name not in _EDITOR_POSITION_JOINTS:
+            return None
+        return PoseEditorCommand(
+            sequence, action, control_name=control_name, control_value=value
+        )
     if action in {"reset", "print_pose"}:
         return PoseEditorCommand(sequence, action)
     return None
@@ -535,6 +563,9 @@ class BrowserTeleopBridge:
                         joint_positions=editor_command.joint_positions,
                         view=editor_command.view,
                         visible=editor_command.visible,
+                        grasp_z_offset_m=editor_command.grasp_z_offset_m,
+                        control_name=editor_command.control_name,
+                        control_value=editor_command.control_value,
                     )
                 continue
             try:

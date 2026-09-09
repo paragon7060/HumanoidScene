@@ -28,8 +28,14 @@
     .joint { padding: 8px 0; border-top: 1px solid #273246; }
     .joint-head { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; font-size: 13px; }
     .joint input { width: 100%; }
+    .joint-group { margin: 6px 0; border: 1px solid #29364b; border-radius: 8px; background: #121b28; }
+    .joint-group summary { display: flex; justify-content: space-between; padding: 9px 10px; cursor: pointer; color: #d7e1ef; font-weight: 650; }
+    .joint-group summary span { color: #8192aa; font-size: 12px; font-weight: 500; }
+    .joint-group-body { padding: 0 10px 5px; }
     .left { color: #57d7ff; }
     .right { color: #ff62cb; }
+    .body { color: #ff9d42; }
+    .head { color: #a889ff; }
     .selected { color: #ffd44a; font-weight: 700; }
     #metrics, #hint { white-space: pre-wrap; font: 12px/1.45 ui-monospace, monospace; color: #b9c6d8; }
     #hint { color: #8fa1b8; margin-top: 8px; }
@@ -58,12 +64,12 @@
         <div class="control-head"><span>객체 로컬 Z 오프셋</span><span id="grasp-z-value">+0.000 m</span></div>
         <input id="grasp-z-offset" type="range" min="-0.15" max="0.15" step="0.005" value="0">
       </div>
-      <h2>팔 관절</h2>
-      <div id="joints">Connect 후 q1~q7 슬라이더가 표시됩니다.</div>
+      <h2>제어 축</h2>
+      <div id="joints">Connect 후 22개 제어 슬라이더가 표시됩니다.</div>
       <h2>자세</h2>
       <div class="actions"><button id="reset">초기 자세</button><button id="print">서버 로그에 출력</button><button id="copy">JSON 복사</button></div>
       <div id="metrics"></div>
-      <div id="hint">청록=왼팔 축, 분홍=오른팔 축, 노랑=선택 관절. 초록=사용할 가로 grasp 쌍, 파랑=나머지 flap grasp 후보.</div>
+      <div id="hint">청록=왼쪽, 분홍=오른쪽, 주황=몸통, 보라=머리, 초록=그리퍼 모터, 노랑=선택 축. 바퀴와 passive bar-3/4는 포즈 제어에서 제외됩니다. 초록 구=사용할 가로 grasp 쌍, 파랑 구=나머지 flap 후보.</div>
     </aside>
   </main>
   <script>
@@ -76,6 +82,9 @@
     let socket = null, sequence = 0, latestState = null, imageUrl = null;
     let activeJoint = null, jointRows = new Map();
     const pendingJointValues = new Map();
+    const CONTROL_GROUPS = [
+      ['arm', '팔', 14], ['body', '몸통', 4], ['head', '머리', 2], ['gripper', '그리퍼', 2],
+    ];
     function send(action, extra = {}) {
       if (!socket || socket.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({type:'pose_editor', protocol_version:PROTOCOL_VERSION, sequence:++sequence, action, ...extra}));
@@ -102,14 +111,22 @@
         frame.src = next;
       };
     }
+    function formattedControlValue(control, value) {
+      return control.unit === 'percent'
+        ? `${Math.round(value * 100)}%`
+        : `${(value * 180 / Math.PI).toFixed(1)}°`;
+    }
     function buildJointRows(state) {
-      joints.innerHTML = state.joints.map(j => {
-        const side = j.name.includes('_l') ? 'left' : 'right';
-        const label = j.name.match(/[lr](\d)_joint/)[1];
-        return `<div class="joint ${side}" data-name="${j.name}" data-side="${side}">
-          <div class="joint-head"><span>${side === 'left' ? 'L' : 'R'} q${label}</span><span class="joint-degrees">${j.degrees.toFixed(1)}°</span></div>
-          <input type="range" min="${j.lower}" max="${j.upper}" step="0.005" value="${j.value}">
-        </div>`;
+      joints.innerHTML = CONTROL_GROUPS.map(([key, label, expected]) => {
+        const controls = state.controls.filter(control => control.group === key);
+        return `<details class="joint-group" data-group="${key}" ${key === 'arm' ? 'open' : ''}>
+          <summary>${label}<span>${controls.length}/${expected}</span></summary>
+          <div class="joint-group-body">${controls.map(control => `
+            <div class="joint ${control.color}" data-name="${control.name}" data-color="${control.color}">
+              <div class="joint-head"><span>${control.label}</span><span class="joint-degrees">${formattedControlValue(control, control.value)}</span></div>
+              <input type="range" min="${control.lower}" max="${control.upper}" step="${control.step}" value="${control.value}">
+            </div>`).join('')}</div>
+        </details>`;
       }).join('');
       jointRows = new Map(Array.from(joints.querySelectorAll('.joint'), row => [row.dataset.name, row]));
       for (const row of joints.querySelectorAll('.joint')) {
@@ -118,34 +135,35 @@
         input.oninput = event => {
           const value = Number(event.target.value);
           pendingJointValues.set(row.dataset.name, {value, sentAt:performance.now()});
-          row.querySelector('.joint-degrees').textContent = `${(value * 180 / Math.PI).toFixed(1)}°`;
-          send('set_joint', {joint_name:row.dataset.name, value_rad:value});
+          const control = latestState.controls.find(item => item.name === row.dataset.name);
+          row.querySelector('.joint-degrees').textContent = formattedControlValue(control, value);
+          send('set_control', {control_name:row.dataset.name, value});
         };
       }
     }
     function renderState(state) {
       latestState = state;
-      if (jointRows.size !== state.joints.length || state.joints.some(j => !jointRows.has(j.name))) {
+      if (jointRows.size !== state.controls.length || state.controls.some(control => !jointRows.has(control.name))) {
         buildJointRows(state);
       }
-      const focus = state.selected_joint || '';
+      const focus = state.selected_control || '';
       graspVisible.checked = state.grasp_visible;
       if (document.activeElement !== graspZOffset) graspZOffset.value = state.grasp_z_offset_m;
       graspZValue.textContent = `${Number(graspZOffset.value) >= 0 ? '+' : ''}${Number(graspZOffset.value).toFixed(3)} m`;
       for (const button of document.querySelectorAll('[data-view]')) {
         button.classList.toggle('active', button.dataset.view === state.view);
       }
-      for (const joint of state.joints) {
-        const row = jointRows.get(joint.name), input = row.querySelector('input');
-        const pending = pendingJointValues.get(joint.name);
-        const acknowledged = pending && Math.abs(joint.value - pending.value) <= 0.003;
-        if (acknowledged) pendingJointValues.delete(joint.name);
+      for (const control of state.controls) {
+        const row = jointRows.get(control.name), input = row.querySelector('input');
+        const pending = pendingJointValues.get(control.name);
+        const acknowledged = pending && Math.abs(control.value - pending.value) <= 0.003;
+        if (acknowledged) pendingJointValues.delete(control.name);
         const awaiting = pending && !acknowledged && performance.now() - pending.sentAt < 2000;
-        const holdLocalValue = activeJoint === joint.name || awaiting;
-        if (!holdLocalValue) input.value = joint.value;
-        const displayedValue = holdLocalValue ? Number(input.value) : joint.value;
-        row.className = `joint ${focus === joint.name ? 'selected' : row.dataset.side}`;
-        row.querySelector('.joint-degrees').textContent = `${(displayedValue * 180 / Math.PI).toFixed(1)}°`;
+        const holdLocalValue = activeJoint === control.name || awaiting;
+        if (!holdLocalValue) input.value = control.value;
+        const displayedValue = holdLocalValue ? Number(input.value) : control.value;
+        row.className = `joint ${focus === control.name ? 'selected' : row.dataset.color}`;
+        row.querySelector('.joint-degrees').textContent = formattedControlValue(control, displayedValue);
       }
       const vec = value => value.map(v=>v.toFixed(3)).join(' ');
       metrics.textContent = `view: ${state.view}\ngrip object-Z offset: ${state.grasp_z_offset_m.toFixed(3)} m\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${vec(state.tcp_position_b[0])}\nR ${vec(state.tcp_position_b[1])}\ngrasp base xyz (m):\nL ${vec(state.grasp_position_b[0])}\nR ${vec(state.grasp_position_b[1])}\ninward flap normal (base):\nL ${vec(state.inward_flap_normal_b[0])}\nR ${vec(state.inward_flap_normal_b[1])}\nshoulder → pregrasp (m): L ${state.shoulder_to_pregrasp_distance_m[0].toFixed(3)}  R ${state.shoulder_to_pregrasp_distance_m[1].toFixed(3)}\npregrasp above shoulder (m): L ${state.pregrasp_above_shoulder_m[0].toFixed(3)}  R ${state.pregrasp_above_shoulder_m[1].toFixed(3)}\ncleared: ${state.cleared_same_shelf_boxes.join(', ') || 'none'}`;
@@ -164,7 +182,7 @@
     document.querySelector('#print').onclick = () => send('print_pose');
     document.querySelector('#copy').onclick = async () => {
       if (!latestState) return;
-      const pose = Object.fromEntries(latestState.joints.map(j => [j.name, j.value]));
+      const pose = latestState.editable_joint_positions;
       await navigator.clipboard.writeText(JSON.stringify(pose, null, 2));
     };
     connect();

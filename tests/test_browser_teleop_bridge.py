@@ -49,6 +49,16 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         **base, "action": "set_grasp_z_offset", "offset_m": -0.035,
     }))
     assert offset is not None and offset.grasp_z_offset_m == pytest.approx(-0.035)
+    body = parse_pose_editor_message(json.dumps({
+        **base, "action": "set_control", "control_name": "waist_yaw_joint", "value": 0.2,
+    }))
+    assert body is not None and body.control_name == "waist_yaw_joint"
+    assert body.control_value == pytest.approx(0.2)
+    gripper = parse_pose_editor_message(json.dumps({
+        **base, "action": "set_control", "control_name": "left_gripper", "value": 0.75,
+    }))
+    assert gripper is not None and gripper.control_name == "left_gripper"
+    assert gripper.control_value == pytest.approx(0.75)
     for invalid in (
         {**base, "action": "set_joint", "joint_name": "waist_yaw_joint", "value_rad": 0},
         {**base, "action": "set_joint", "joint_name": "zarm_l8_joint", "value_rad": 0},
@@ -60,6 +70,10 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         {**base, "action": "set_grasp_visibility", "visible": 0},
         {**base, "action": "set_grasp_z_offset", "offset_m": "nan"},
         {**base, "action": "set_grasp_z_offset", "offset_m": 0.151},
+        {**base, "action": "set_control", "control_name": "wheel_left_front_joint", "value": 0},
+        {**base, "action": "set_control", "control_name": "l_f_bar_3_joint", "value": 0},
+        {**base, "action": "set_control", "control_name": "right_gripper", "value": 1.01},
+        {**base, "action": "set_control", "control_name": "zhead_1_joint", "value": "nan"},
     ):
         assert parse_pose_editor_message(json.dumps(invalid)) is None
 
@@ -166,6 +180,38 @@ def test_websocket_bridge_exchanges_tracking_and_camera_bytes():
                     break
                 await asyncio.sleep(0.01)
             assert editor_command is not None and editor_command.visible is False
+            await client.send(json.dumps({
+                "type": "pose_editor",
+                "protocol_version": PROTOCOL_VERSION,
+                "sequence": 2,
+                "action": "set_grasp_z_offset",
+                "offset_m": 0.025,
+            }))
+            after_sequence = editor_command.sequence
+            for _ in range(20):
+                editor_command = bridge.latest_pose_editor_command(after_sequence)
+                if editor_command is not None:
+                    break
+                await asyncio.sleep(0.01)
+            assert editor_command is not None
+            assert editor_command.grasp_z_offset_m == pytest.approx(0.025)
+            await client.send(json.dumps({
+                "type": "pose_editor",
+                "protocol_version": PROTOCOL_VERSION,
+                "sequence": 3,
+                "action": "set_control",
+                "control_name": "left_gripper",
+                "value": 0.6,
+            }))
+            after_sequence = editor_command.sequence
+            for _ in range(20):
+                editor_command = bridge.latest_pose_editor_command(after_sequence)
+                if editor_command is not None:
+                    break
+                await asyncio.sleep(0.01)
+            assert editor_command is not None
+            assert editor_command.control_name == "left_gripper"
+            assert editor_command.control_value == pytest.approx(0.6)
             bridge.publish_frame(
                 b"jpeg-test",
                 tracking_sequence=1,
