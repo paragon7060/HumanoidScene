@@ -174,6 +174,12 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--duration-s", type=float, default=12.0)
     result.add_argument("--validation-samples", type=int, default=121)
     result.add_argument("--target-tolerance-m", type=float, default=0.005)
+    result.add_argument(
+        "--terminal-seed-plan",
+        type=Path,
+        default=None,
+        help="Optional validated sequential plan used only as a terminal c-space attractor.",
+    )
     return result
 
 
@@ -215,6 +221,17 @@ def main(argv=None) -> int:
         {item["name"]: float(item["value"]) for item in runtime["pose_editor_state"]["joints"]}
     )
     q_initial = np.asarray([defaults[name] for name in ARM_JOINT_NAMES], dtype=float)
+    q_attractor = q_initial.copy()
+    if args.terminal_seed_plan is not None:
+        seed_report = json.loads(args.terminal_seed_plan.expanduser().resolve().read_text())
+        q_attractor = np.concatenate(
+            [
+                np.asarray(seed_report["arms"][side]["terminal_q_rad"], dtype=float)
+                for side in ("left", "right")
+            ]
+        )
+        if q_attractor.shape != q_initial.shape or not np.isfinite(q_attractor).all():
+            raise ValueError("terminal seed plan does not contain one finite 14-DoF target")
     targets = np.asarray(runtime["pose_editor_state"]["pregrasp_position_b"], dtype=float)
     world_spheres = robot_spheres(
         snapshot, runtime, args.sphere_cell_m, args.collision_margin_m
@@ -246,7 +263,7 @@ def main(argv=None) -> int:
     for frame, target in zip(TOOL_FRAMES, targets, strict=True):
         policy.add_target_frame(frame)
         policy.set_position_target(frame, target)
-    policy.set_cspace_attractor(q_initial)
+    policy.set_cspace_attractor(q_attractor)
 
     q = q_initial.copy()
     qd = np.zeros_like(q)
@@ -291,6 +308,11 @@ def main(argv=None) -> int:
         "tool_frames": TOOL_FRAMES,
         "target_positions_b_m": targets.tolist(),
         "orientation_constraint": "none",
+        "terminal_seed_plan": (
+            None
+            if args.terminal_seed_plan is None
+            else str(args.terminal_seed_plan.expanduser().resolve())
+        ),
         "duration_s": float(times[-1]),
         "sample_times_s": times.tolist(),
         "sample_q_rad": samples.tolist(),
