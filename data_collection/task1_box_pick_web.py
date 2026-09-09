@@ -523,10 +523,7 @@ class _JointPoseEditor:
         from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
         from kuavo_isaaclab_scene.envs.manager_env import RACK_BOX_SPAWN_PLAN
         from kuavo_isaaclab_scene.planning.robot_model import UrdfModel
-        from kuavo_isaaclab_scene.workcell.rack_box_layout import (
-            STAGING_BOX_POSITIONS,
-            same_shelf_instance_names,
-        )
+        from kuavo_isaaclab_scene.workcell.rack_box_layout import same_shelf_instance_names
 
         self.env = env
         self.robot = env.scene["robot"]
@@ -558,12 +555,14 @@ class _JointPoseEditor:
         self.target_box_root_pose_w = self.target_box.data.root_pose_w.clone()
         self.target_box_joint_positions = self.target_box.data.joint_pos.clone()
         self.cleared_boxes = []
-        for instance_name in same_shelf_instance_names(RACK_BOX_SPAWN_PLAN, "MediumBox_0"):
+        for parking_index, instance_name in enumerate(
+            same_shelf_instance_names(RACK_BOX_SPAWN_PLAN, "MediumBox_0")
+        ):
             spec = RACK_BOX_SPAWN_PLAN[instance_name]
             asset = env.scene[spec.scene_key]
             root_pose_w = asset.data.root_pose_w.clone()
             root_pose_w[0, :3] = env.scene.env_origins[0] + torch.tensor(
-                STAGING_BOX_POSITIONS[instance_name],
+                (5.0, 5.0 + 0.5 * parking_index, 0.02),
                 device=env.device,
                 dtype=root_pose_w.dtype,
             )
