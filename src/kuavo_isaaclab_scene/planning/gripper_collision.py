@@ -9,13 +9,24 @@ from pathlib import Path
 from ..core.paths import PACKAGE_CONFIG_DIR, require_resource
 
 
-GRIPPER_COLLISION_FRAMES = (
-    "l_twofinger_base",
-    "l_f_finger",
-    "l_b_finger",
-    "r_twofinger_base",
-    "r_f_finger",
-    "r_b_finger",
+GRIPPER_LINK_SUFFIXES = (
+    "twofinger_base",
+    "f_bar_1",
+    "f_bar_2",
+    "f_bar_3",
+    "f_finger",
+    "f_bar_4",
+    "b_bar_1",
+    "b_bar_2",
+    "b_bar_3",
+    "b_finger",
+    "b_bar_4",
+    "d405_camera_connect",
+    "d405_camera_base",
+    "d405_camera",
+)
+GRIPPER_COLLISION_FRAMES = tuple(
+    f"{side}_{suffix}" for side in ("l", "r") for suffix in GRIPPER_LINK_SUFFIXES
 )
 SUPPORTED_MAX_OVERSHOOT_M = (0.002, 0.005, 0.010, 0.020)
 SPHERE_COORDINATE_FRAME = "urdf_link_frame"

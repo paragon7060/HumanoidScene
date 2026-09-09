@@ -5,13 +5,25 @@ import pytest
 import yaml
 
 from data_collection.task1_cumotion_collision_plan import (
+    GRIPPER_COLLISION_FRAMES,
     ROBOT_COLLISION_FRAMES,
+    SELF_COLLISION_IGNORE,
     axis_alignment_error_deg,
     collision_world_config,
     cover_cuboid,
     robot_spheres,
     xrdf,
 )
+
+
+def test_collision_model_covers_and_internally_ignores_complete_grippers():
+    assert len(GRIPPER_COLLISION_FRAMES) == 28
+    for side in ("l", "r"):
+        gripper_frames = {
+            frame for frame in GRIPPER_COLLISION_FRAMES if frame.startswith(f"{side}_")
+        }
+        ignored_from_wrist = set(SELF_COLLISION_IGNORE[f"zarm_{side}7_link"])
+        assert ignored_from_wrist == gripper_frames
 
 
 def test_axis_alignment_error_uses_rotated_local_axis():

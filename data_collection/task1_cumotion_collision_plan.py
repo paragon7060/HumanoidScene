@@ -14,30 +14,35 @@ import numpy as np
 import yaml
 
 
+GRIPPER_LINK_SUFFIXES = (
+    "twofinger_base",
+    "f_bar_1",
+    "f_bar_2",
+    "f_bar_3",
+    "f_finger",
+    "f_bar_4",
+    "b_bar_1",
+    "b_bar_2",
+    "b_bar_3",
+    "b_finger",
+    "b_bar_4",
+    "d405_camera_connect",
+    "d405_camera_base",
+    "d405_camera",
+)
+GRIPPER_COLLISION_FRAMES = {
+    f"{side}_{suffix}" for side in ("l", "r") for suffix in GRIPPER_LINK_SUFFIXES
+}
 ROBOT_COLLISION_FRAMES = {
     "waist_yaw_link",
     "zhead_1_link",
     "zarm_l2_link",
     "zarm_l4_link",
     "zarm_l7_link",
-    "l_twofinger_base",
-    "l_f_finger",
-    "l_b_finger",
     "zarm_r2_link",
     "zarm_r4_link",
     "zarm_r7_link",
-    "r_twofinger_base",
-    "r_f_finger",
-    "r_b_finger",
-}
-GRIPPER_COLLISION_FRAMES = {
-    "l_twofinger_base",
-    "l_f_finger",
-    "l_b_finger",
-    "r_twofinger_base",
-    "r_f_finger",
-    "r_b_finger",
-}
+} | GRIPPER_COLLISION_FRAMES
 DEFAULT_GRIPPER_SPHERE_CONFIG = (
     Path(__file__).resolve().parents[1]
     / "src/kuavo_isaaclab_scene/configs/task1_s200062_gripper_collision_spheres.json"
@@ -47,15 +52,14 @@ SELF_COLLISION_IGNORE = {
     "waist_yaw_link": ["zhead_1_link", "zarm_l2_link", "zarm_r2_link"],
     "zarm_l2_link": ["zarm_l4_link"],
     "zarm_l4_link": ["zarm_l7_link"],
-    "zarm_l7_link": ["l_twofinger_base", "l_f_finger", "l_b_finger"],
-    "l_twofinger_base": ["l_f_finger", "l_b_finger"],
-    "l_f_finger": ["l_b_finger"],
     "zarm_r2_link": ["zarm_r4_link"],
     "zarm_r4_link": ["zarm_r7_link"],
-    "zarm_r7_link": ["r_twofinger_base", "r_f_finger", "r_b_finger"],
-    "r_twofinger_base": ["r_f_finger", "r_b_finger"],
-    "r_f_finger": ["r_b_finger"],
 }
+for _side in ("l", "r"):
+    _frames = [f"{_side}_{suffix}" for suffix in GRIPPER_LINK_SUFFIXES]
+    SELF_COLLISION_IGNORE[f"zarm_{_side}7_link"] = list(_frames)
+    for _index, _frame in enumerate(_frames[:-1]):
+        SELF_COLLISION_IGNORE[_frame] = _frames[_index + 1 :]
 
 
 def pose_matrix(pose) -> np.ndarray:

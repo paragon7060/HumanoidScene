@@ -507,13 +507,26 @@ class _JointPoseEditor:
         "left_gripper": ("l_f_bar_1_joint", "l_b_bar_1_joint"),
         "right_gripper": ("r_f_bar_1_joint", "r_b_bar_1_joint"),
     }
-    _GRIPPER_COLLISION_FRAMES = (
-        "l_twofinger_base",
-        "l_f_finger",
-        "l_b_finger",
-        "r_twofinger_base",
-        "r_f_finger",
-        "r_b_finger",
+    _GRIPPER_LINK_SUFFIXES = (
+        "twofinger_base",
+        "f_bar_1",
+        "f_bar_2",
+        "f_bar_3",
+        "f_finger",
+        "f_bar_4",
+        "b_bar_1",
+        "b_bar_2",
+        "b_bar_3",
+        "b_finger",
+        "b_bar_4",
+        "d405_camera_connect",
+        "d405_camera_base",
+        "d405_camera",
+    )
+    _GRIPPER_COLLISION_FRAMES = tuple(
+        f"{side}_{suffix}"
+        for side in ("l", "r")
+        for suffix in _GRIPPER_LINK_SUFFIXES
     )
     _COLLISION_MAX_OVERSHOOT_M = 0.002
     _COLLISION_MARGIN_M = 0.004

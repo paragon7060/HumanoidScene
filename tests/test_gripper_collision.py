@@ -11,6 +11,11 @@ from kuavo_isaaclab_scene.planning.gripper_collision import (
 
 def test_generated_spheres_use_urdf_link_coordinates():
     assert SPHERE_COORDINATE_FRAME == "urdf_link_frame"
+    assert len(GRIPPER_COLLISION_FRAMES) == 28
+    assert "l_f_bar_4" in GRIPPER_COLLISION_FRAMES
+    assert "r_b_bar_4" in GRIPPER_COLLISION_FRAMES
+    assert "l_d405_camera" in GRIPPER_COLLISION_FRAMES
+    assert "r_d405_camera" in GRIPPER_COLLISION_FRAMES
 
 
 @pytest.mark.parametrize("max_overshoot_m", SUPPORTED_MAX_OVERSHOOT_M)
