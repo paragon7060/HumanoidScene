@@ -61,6 +61,7 @@
         <button data-view="right_wrist">Right wrist</button>
       </div>
       <label class="toggle"><input id="grasp-visible" type="checkbox" checked> Grasp point 표시</label>
+      <label class="toggle"><input id="transit-visible" type="checkbox" checked> 중간 통과점/허용영역 표시</label>
       <label class="toggle"><input id="gripper-collision-visible" type="checkbox"> 그리퍼 충돌 sphere 표시</label>
       <div class="control">
         <div class="control-head"><span>Mesh max overshoot</span><span id="collision-overshoot-value">2 mm</span></div>
@@ -89,7 +90,7 @@
       <h2>자세</h2>
       <div class="actions"><button id="reset">초기 자세</button><button id="print">서버 로그에 출력</button><button id="copy">JSON 복사</button></div>
       <div id="metrics"></div>
-      <div id="hint">청록=왼쪽/기본 충돌구, 분홍=오른쪽, 주황=몸통, 보라=머리, 초록=그리퍼 모터, 노랑=선택 축, 빨강=margin 포함 충돌구. 바퀴와 passive bar-3/4는 포즈 제어에서 제외됩니다. 초록 구=사용할 가로 grasp 쌍, 파랑 구=나머지 flap 후보.</div>
+      <div id="hint">청록=왼쪽/기본 충돌구, 분홍=오른쪽, 주황=몸통, 보라=머리, 초록=그리퍼 모터, 노랑=선택 축, 빨강=margin 포함 충돌구. 바퀴와 passive bar-3/4는 포즈 제어에서 제외됩니다. 초록 구=사용할 가로 grasp 쌍, 파랑 구=나머지 flap 후보. 청록/분홍 큰 구와 반투명 박스=좌/우 중간 통과 중심과 ±12 cm 허용영역.</div>
     </aside>
   </main>
   <script>
@@ -97,6 +98,7 @@
     const frame = document.querySelector('#frame'), status = document.querySelector('#connection');
     const joints = document.querySelector('#joints'), metrics = document.querySelector('#metrics');
     const graspVisible = document.querySelector('#grasp-visible');
+    const transitVisible = document.querySelector('#transit-visible');
     const gripperCollisionVisible = document.querySelector('#gripper-collision-visible');
     const collisionOvershoot = document.querySelector('#collision-overshoot');
     const collisionOvershootValue = document.querySelector('#collision-overshoot-value');
@@ -175,6 +177,7 @@
       }
       const focus = state.selected_control || '';
       graspVisible.checked = state.grasp_visible;
+      transitVisible.checked = state.transit_visible;
       gripperCollisionVisible.checked = state.gripper_collision_visible;
       if (document.activeElement !== collisionOvershoot) collisionOvershoot.value = state.gripper_collision_max_overshoot_m.toFixed(3);
       collisionOvershootValue.textContent = `${Math.round(Number(collisionOvershoot.value) * 1000)} mm`;
@@ -202,13 +205,14 @@
       const vec = value => value.map(v=>v.toFixed(3)).join(' ');
       const baseCollisionRadii = state.gripper_collision_base_radius_range_m.map(value => (value * 1000).toFixed(1));
       const inflatedCollisionRadii = state.gripper_collision_radius_range_m.map(value => (value * 1000).toFixed(1));
-      metrics.textContent = `view: ${state.view}\ngrip object-Z offset: ${state.grasp_z_offset_m.toFixed(3)} m\ngripper collision: ${state.gripper_collision_sphere_count} mesh-fit spheres\nmax overshoot ${(state.gripper_collision_max_overshoot_m * 1000).toFixed(0)} mm, base radius ${baseCollisionRadii[0]}–${baseCollisionRadii[1]} mm\nmargin ${(state.gripper_collision_margin_m * 1000).toFixed(0)} mm → red radius ${inflatedCollisionRadii[0]}–${inflatedCollisionRadii[1]} mm\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${vec(state.tcp_position_b[0])}\nR ${vec(state.tcp_position_b[1])}\ngrasp base xyz (m):\nL ${vec(state.grasp_position_b[0])}\nR ${vec(state.grasp_position_b[1])}\ninward flap normal (base):\nL ${vec(state.inward_flap_normal_b[0])}\nR ${vec(state.inward_flap_normal_b[1])}\nshoulder → pregrasp (m): L ${state.shoulder_to_pregrasp_distance_m[0].toFixed(3)}  R ${state.shoulder_to_pregrasp_distance_m[1].toFixed(3)}\npregrasp above shoulder (m): L ${state.pregrasp_above_shoulder_m[0].toFixed(3)}  R ${state.pregrasp_above_shoulder_m[1].toFixed(3)}\ncleared: ${state.cleared_same_shelf_boxes.join(', ') || 'none'}`;
+      metrics.textContent = `view: ${state.view}\ngrip object-Z offset: ${state.grasp_z_offset_m.toFixed(3)} m\ntransit center base xyz (m), grasp -X ${state.transit_robotward_offset_m.toFixed(2)} m:\nL ${vec(state.transit_center_b_m[0])}\nR ${vec(state.transit_center_b_m[1])}\ntransit tolerance: ±${vec(state.transit_half_tolerance_b_m)} m\ngripper collision: ${state.gripper_collision_sphere_count} mesh-fit spheres\nmax overshoot ${(state.gripper_collision_max_overshoot_m * 1000).toFixed(0)} mm, base radius ${baseCollisionRadii[0]}–${baseCollisionRadii[1]} mm\nmargin ${(state.gripper_collision_margin_m * 1000).toFixed(0)} mm → red radius ${inflatedCollisionRadii[0]}–${inflatedCollisionRadii[1]} mm\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${vec(state.tcp_position_b[0])}\nR ${vec(state.tcp_position_b[1])}\ngrasp base xyz (m):\nL ${vec(state.grasp_position_b[0])}\nR ${vec(state.grasp_position_b[1])}\ninward flap normal (base):\nL ${vec(state.inward_flap_normal_b[0])}\nR ${vec(state.inward_flap_normal_b[1])}\nshoulder → pregrasp (m): L ${state.shoulder_to_pregrasp_distance_m[0].toFixed(3)}  R ${state.shoulder_to_pregrasp_distance_m[1].toFixed(3)}\npregrasp above shoulder (m): L ${state.pregrasp_above_shoulder_m[0].toFixed(3)}  R ${state.pregrasp_above_shoulder_m[1].toFixed(3)}\ncleared: ${state.cleared_same_shelf_boxes.join(', ') || 'none'}`;
     }
     window.addEventListener('pointerup', () => { activeJoint = null; });
     window.addEventListener('pointercancel', () => { activeJoint = null; });
     document.querySelector('#connect').onclick = connect;
     for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => send('set_view', {view:button.dataset.view});
     graspVisible.onchange = () => send('set_grasp_visibility', {visible:graspVisible.checked});
+    transitVisible.onchange = () => send('set_transit_visibility', {visible:transitVisible.checked});
     gripperCollisionVisible.onchange = () => send('set_gripper_collision_visibility', {visible:gripperCollisionVisible.checked});
     function updateCollisionModel() {
       const maxOvershootM = Number(collisionOvershoot.value), marginM = Number(collisionMargin.value);

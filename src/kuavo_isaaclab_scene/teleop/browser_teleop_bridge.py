@@ -93,6 +93,7 @@ class PoseEditorCommand:
     joint_positions: dict[str, float] | None = None
     view: str | None = None
     visible: bool | None = None
+    transit_visible: bool | None = None
     grasp_z_offset_m: float | None = None
     control_name: str | None = None
     control_value: float | None = None
@@ -182,6 +183,11 @@ def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
         if not isinstance(visible, bool):
             return None
         return PoseEditorCommand(sequence, action, visible=visible)
+    if action == "set_transit_visibility":
+        visible = payload.get("visible")
+        if not isinstance(visible, bool):
+            return None
+        return PoseEditorCommand(sequence, action, transit_visible=visible)
     if action == "set_grasp_z_offset":
         try:
             offset_m = float(payload.get("offset_m"))
@@ -599,6 +605,7 @@ class BrowserTeleopBridge:
                         joint_positions=editor_command.joint_positions,
                         view=editor_command.view,
                         visible=editor_command.visible,
+                        transit_visible=editor_command.transit_visible,
                         grasp_z_offset_m=editor_command.grasp_z_offset_m,
                         control_name=editor_command.control_name,
                         control_value=editor_command.control_value,

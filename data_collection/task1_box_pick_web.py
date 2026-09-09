@@ -197,6 +197,7 @@ from kuavo_isaaclab_scene.teleop.teleop_safety import GripperCommandLatch, Track
 from kuavo_isaaclab_scene.envs.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
 from kuavo_isaaclab_scene.teleop.teleop_mapping import BimanualTeleopMapper, TeleopMappingCfg
 from kuavo_isaaclab_scene.teleop.teleop_body import TeleopBodyMapper
+from kuavo_isaaclab_scene.workcell.workcell_layout import rack_tier_surface_z
 
 
 def _to_numpy(tensor: torch.Tensor) -> np.ndarray:
@@ -518,6 +519,9 @@ class _JointPoseEditor:
     _GRIPPER_COLLISION_FRAMES = S200062_GRIPPER_COLLISION_FRAMES
     _COLLISION_MAX_OVERSHOOT_M = 0.002
     _COLLISION_MARGIN_M = 0.004
+    _TRANSIT_ROBOTWARD_OFFSET_M = 0.30
+    _TRANSIT_HEIGHT_B_M = rack_tier_surface_z(1)
+    _TRANSIT_HALF_TOLERANCE_B_M = (0.12, 0.12, 0.12)
     _CONTROL_LABELS = {
         "knee_joint": "승강 knee",
         "leg_joint": "승강 leg",
@@ -728,10 +732,41 @@ class _JointPoseEditor:
         )
         self.grasp_markers = VisualizationMarkers(grasp_marker_cfg)
         self.grasp_visible = True
+        transit_marker_cfg = VisualizationMarkersCfg(
+            prim_path="/Visuals/Task1TransitRegion",
+            markers={
+                "left_center": sim_utils.SphereCfg(
+                    radius=0.035,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.05, 0.92, 1.0), emissive_color=(0.0, 0.20, 0.28)
+                    ),
+                ),
+                "right_center": sim_utils.SphereCfg(
+                    radius=0.035,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.20, 0.78), emissive_color=(0.28, 0.0, 0.16)
+                    ),
+                ),
+                "left_region": sim_utils.CuboidCfg(
+                    size=(1.0, 1.0, 1.0),
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.05, 0.92, 1.0), opacity=0.12
+                    ),
+                ),
+                "right_region": sim_utils.CuboidCfg(
+                    size=(1.0, 1.0, 1.0),
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.20, 0.78), opacity=0.12
+                    ),
+                ),
+            },
+        )
+        self.transit_markers = VisualizationMarkers(transit_marker_cfg)
+        self.transit_visible = True
         cleared = [record[0] for record in self.cleared_boxes]
         print(
             f"[POSE_EDITOR_INIT] cleared_same_shelf_boxes={cleared}; "
-            "spawned four flap grasp-point markers",
+            "spawned four flap grasp-point markers and two transit regions",
             flush=True,
         )
         self.selected_control = self.joint_names[5]
@@ -800,6 +835,11 @@ class _JointPoseEditor:
         elif command.action == "set_grasp_visibility":
             self.grasp_visible = command.visible
             self.grasp_markers.set_visibility(self.grasp_visible)
+        elif command.action == "set_transit_visibility":
+            self.transit_visible = command.transit_visible
+            self.transit_markers.set_visibility(self.transit_visible)
+            if self.transit_visible:
+                self.update_transit_markers()
         elif command.action == "set_grasp_z_offset":
             self.grasp_z_offset_m = command.grasp_z_offset_m
             self.update_grasp_offset()
@@ -962,6 +1002,49 @@ class _JointPoseEditor:
             positions, orientations, marker_indices=marker_indices, scales=scales
         )
 
+    def transit_centers_b(self):
+        """Return the validated left/right rack-approach transit centers in base frame."""
+        from isaaclab.utils.math import subtract_frame_transforms
+
+        root_pos = self.robot.data.root_pos_w.expand(2, -1)
+        root_quat = self.robot.data.root_quat_w.expand(2, -1)
+        grasp_pos_b, _ = subtract_frame_transforms(
+            root_pos, root_quat, self.grasp_points_w, root_quat
+        )
+        centers = grasp_pos_b.clone()
+        centers[:, 0] -= self._TRANSIT_ROBOTWARD_OFFSET_M
+        centers[:, 2] = self._TRANSIT_HEIGHT_B_M
+        return centers
+
+    def update_transit_markers(self) -> None:
+        """Draw both transit centers and their base-aligned tolerance boxes."""
+        if not self.transit_visible:
+            return
+        from isaaclab.utils.math import quat_apply
+
+        centers_b = self.transit_centers_b()
+        root_pos = self.robot.data.root_pos_w.expand(2, -1)
+        root_quat = self.robot.data.root_quat_w.expand(2, -1)
+        centers_w = root_pos + quat_apply(root_quat, centers_b)
+        positions = torch.cat((centers_w, centers_w), dim=0)
+        orientations = torch.cat((root_quat, root_quat), dim=0)
+        side_lengths = torch.tensor(
+            tuple(2.0 * value for value in self._TRANSIT_HALF_TOLERANCE_B_M),
+            device=self.env.device,
+            dtype=positions.dtype,
+        )
+        scales = torch.cat(
+            (
+                torch.ones((2, 3), device=self.env.device, dtype=positions.dtype),
+                side_lengths.expand(2, -1),
+            ),
+            dim=0,
+        )
+        marker_indices = torch.arange(4, device=self.env.device, dtype=torch.int32)
+        self.transit_markers.visualize(
+            positions, orientations, marker_indices=marker_indices, scales=scales
+        )
+
     def hold_authoring_state(self) -> None:
         """Keep the editor's robot and target at their authored poses."""
         self.robot.write_root_pose_to_sim(self.robot_root_pose_w)
@@ -1038,6 +1121,7 @@ class _JointPoseEditor:
             marker_indices[self.joint_names.index(selected_name)] = 5
         self.markers.visualize(positions, orientations, marker_indices=marker_indices)
         self.update_gripper_collision_markers()
+        self.update_transit_markers()
 
         grasp_positions = self.all_flap_grasp_points_w
         grasp_orientations = torch.zeros((4, 4), device=self.env.device, dtype=positions.dtype)
@@ -1199,6 +1283,11 @@ class _JointPoseEditor:
             },
             "grasp_visible": self.grasp_visible,
             "grasp_z_offset_m": self.grasp_z_offset_m,
+            "transit_visible": self.transit_visible,
+            "transit_center_b_m": self.transit_centers_b().detach().cpu().tolist(),
+            "transit_robotward_offset_m": self._TRANSIT_ROBOTWARD_OFFSET_M,
+            "transit_half_tolerance_b_m": list(self._TRANSIT_HALF_TOLERANCE_B_M),
+            "transit_height_source": "second rack physical shelf top",
             "gripper_collision_visible": self.gripper_collision_visible,
             "gripper_collision_sphere_count": len(self.gripper_collision_radii_m),
             "gripper_collision_radius_range_m": [

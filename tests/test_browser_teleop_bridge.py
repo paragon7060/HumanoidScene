@@ -45,6 +45,10 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         **base, "action": "set_grasp_visibility", "visible": False,
     }))
     assert visibility is not None and visibility.visible is False
+    transit_visibility = parse_pose_editor_message(json.dumps({
+        **base, "action": "set_transit_visibility", "visible": True,
+    }))
+    assert transit_visibility is not None and transit_visibility.transit_visible is True
     offset = parse_pose_editor_message(json.dumps({
         **base, "action": "set_grasp_z_offset", "offset_m": -0.035,
     }))
@@ -85,6 +89,7 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         {**base, "action": "set_pose", "joint_positions": {"zarm_l2_joint": "nan"}},
         {**base, "action": "set_view", "view": "free"},
         {**base, "action": "set_grasp_visibility", "visible": 0},
+        {**base, "action": "set_transit_visibility", "visible": 0},
         {**base, "action": "set_grasp_z_offset", "offset_m": "nan"},
         {**base, "action": "set_grasp_z_offset", "offset_m": 0.151},
         {**base, "action": "set_control", "control_name": "wheel_left_front_joint", "value": 0},
