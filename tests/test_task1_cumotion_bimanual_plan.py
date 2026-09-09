@@ -6,10 +6,13 @@ from data_collection.task1_cumotion_bimanual_plan import (
     ARM_JOINT_NAMES,
     TOOL_FRAMES,
     bimanual_xrdf,
+    corridor_max_violation_m,
     densify_path,
     joint_space_path_length,
     planner_yaml,
     shortcut_path,
+    task_urdf_with_joint_bounds,
+    workspace_corridor_bounds,
 )
 
 
@@ -39,6 +42,14 @@ def test_planner_config_weights_all_14_joints():
     assert data["step_size"] == 0.03
 
 
+def test_planner_config_accepts_rack_front_workspace_corridor():
+    limits = [[0.1, 0.8], [0.1, 0.35], [0.4, 1.4]]
+
+    data = yaml.safe_load(planner_yaml(14, task_space_limits=limits))
+
+    assert data["task_space_limits"] == limits
+
+
 def test_densify_path_limits_each_joint_step():
     path = np.asarray([[0.0, 0.0], [0.025, -0.011], [0.03, 0.0]])
     dense = densify_path(path, 0.01)
@@ -66,3 +77,28 @@ def test_shortcut_path_keeps_required_collision_avoidance_knot():
     shortcut = shortcut_path(path, 0.05, in_collision)
 
     np.testing.assert_allclose(shortcut, path)
+
+
+def test_workspace_corridor_reports_outward_tcp_excursion():
+    start = np.asarray([[0.15, 0.25, 0.47], [0.15, -0.25, 0.47]])
+    target = np.asarray([[0.69, 0.27, 1.34], [0.69, -0.05, 1.34]])
+    bounds = workspace_corridor_bounds(start, target, 0.08)
+    positions = np.stack((start, target))
+
+    assert corridor_max_violation_m(positions, bounds) == 0.0
+    positions[1, 1, 1] = -0.40
+    assert corridor_max_violation_m(positions, bounds) == pytest.approx(0.07)
+
+
+def test_task_urdf_narrows_only_requested_joint_limits():
+    urdf = """<robot name="r">
+      <joint name="q1" type="revolute"><limit lower="-2" upper="2"/></joint>
+      <joint name="q2" type="revolute"><limit lower="-3" upper="3"/></joint>
+    </robot>"""
+
+    bounded = task_urdf_with_joint_bounds(urdf, {"q1": (0.1, 0.9)})
+
+    assert 'name="q1"' in bounded
+    assert 'lower="0.1" upper="0.9"' in bounded
+    assert 'name="q2"' in bounded
+    assert 'lower="-3" upper="3"' in bounded
