@@ -119,6 +119,7 @@ def parser() -> argparse.ArgumentParser:
         default=0.002,
     )
     result.add_argument("--collision-margin-m", type=float, default=0.002)
+    result.add_argument("--self-pair-margin-m", type=float, default=None)
     result.add_argument("--validation-step-rad", type=float, default=0.01)
     result.add_argument("--target-tolerance-m", type=float, default=0.005)
     return result
@@ -135,6 +136,13 @@ def main(argv=None) -> int:
             raise ValueError(f"{name} must be finite and positive")
     if not math.isfinite(args.collision_margin_m) or args.collision_margin_m < 0:
         raise ValueError("--collision-margin-m must be finite and nonnegative")
+    self_pair_margin_m = (
+        args.collision_margin_m
+        if args.self_pair_margin_m is None
+        else args.self_pair_margin_m
+    )
+    if not math.isfinite(self_pair_margin_m) or self_pair_margin_m < 0:
+        raise ValueError("--self-pair-margin-m must be finite and nonnegative")
 
     import cumotion
 
@@ -213,7 +221,7 @@ def main(argv=None) -> int:
         snapshot,
         runtime,
         args.sphere_cell_m,
-        args.collision_margin_m / 2,
+        self_pair_margin_m / 2,
         gripper_mesh_spheres,
     )
     xrdf_text = bimanual_xrdf(defaults, world_spheres, self_spheres)
@@ -289,7 +297,7 @@ def main(argv=None) -> int:
                 map(len, gripper_mesh_spheres.values())
             ),
             "world_margin_m": args.collision_margin_m,
-            "self_pair_margin_m": args.collision_margin_m,
+            "self_pair_margin_m": self_pair_margin_m,
             "allow_target_flap_contact": allow_target_flap_contact,
             "allowed_contact_colliders": allowed_contact_colliders,
         },

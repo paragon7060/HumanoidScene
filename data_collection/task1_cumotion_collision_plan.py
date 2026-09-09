@@ -261,6 +261,7 @@ def parser() -> argparse.ArgumentParser:
         default=0.002,
     )
     result.add_argument("--collision-margin-m", type=float, default=0.005)
+    result.add_argument("--self-pair-margin-m", type=float, default=None)
     result.add_argument("--validation-samples", type=int, default=101)
     result.add_argument("--target", choices=("pregrasp", "grasp"), default="pregrasp")
     result.add_argument("--target-tolerance-m", type=float, default=0.005)
@@ -276,6 +277,13 @@ def main(argv=None) -> int:
         raise ValueError("--sphere-cell-m must be finite and positive")
     if not math.isfinite(args.collision_margin_m) or args.collision_margin_m < 0:
         raise ValueError("--collision-margin-m must be finite and nonnegative")
+    self_pair_margin_m = (
+        args.collision_margin_m
+        if args.self_pair_margin_m is None
+        else args.self_pair_margin_m
+    )
+    if not math.isfinite(self_pair_margin_m) or self_pair_margin_m < 0:
+        raise ValueError("--self-pair-margin-m must be finite and nonnegative")
     if args.validation_samples < 2:
         raise ValueError("--validation-samples must be at least two")
     if not math.isfinite(args.target_tolerance_m) or args.target_tolerance_m <= 0:
@@ -320,7 +328,7 @@ def main(argv=None) -> int:
         snapshot,
         runtime,
         args.sphere_cell_m,
-        args.collision_margin_m / 2,
+        self_pair_margin_m / 2,
         gripper_mesh_spheres,
     )
     world = cumotion.create_world()
@@ -374,7 +382,7 @@ def main(argv=None) -> int:
                 map(len, gripper_mesh_spheres.values())
             ),
             "world_margin_m": args.collision_margin_m,
-            "self_pair_margin_m": args.collision_margin_m,
+            "self_pair_margin_m": self_pair_margin_m,
             "excluded_stage_colliders": len(snapshot["excluded_enabled_colliders"]),
             "allow_target_flap_contact": args.allow_target_flap_contact,
             "allowed_contact_colliders": allowed_contact_colliders,
