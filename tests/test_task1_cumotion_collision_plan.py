@@ -5,9 +5,11 @@ import pytest
 import yaml
 
 from data_collection.task1_cumotion_collision_plan import (
+    ROBOT_COLLISION_FRAMES,
     axis_alignment_error_deg,
     collision_world_config,
     cover_cuboid,
+    robot_spheres,
     xrdf,
 )
 
@@ -61,6 +63,36 @@ def test_collision_sphere_cover_contains_oriented_cuboid():
     for corner in product(*((-dimension / 2, dimension / 2) for dimension in dimensions)):
         point = (transform @ np.r_[corner, 1])[:3]
         assert np.any(np.linalg.norm(centers - point, axis=1) <= radii + 1e-12)
+
+
+def test_robot_spheres_replace_gripper_cuboid_with_mesh_fit():
+    snapshot = {
+        "colliders": [
+            {
+                "robot": True,
+                "owner": f"/robot/{name}",
+                "pose_w": [index, 0, 0, 1, 0, 0, 0],
+                "dims": [.1, .1, .1],
+            }
+            for index, name in enumerate(sorted(ROBOT_COLLISION_FRAMES))
+        ]
+    }
+    body_names = sorted(ROBOT_COLLISION_FRAMES)
+    runtime = {
+        "body_names": body_names,
+        "body_poses_w": [
+            [index, 0, 0, 1, 0, 0, 0]
+            for index, _ in enumerate(body_names)
+        ],
+    }
+    mesh = {"l_f_finger": [{"center": [.01, .02, .03], "radius": .004}]}
+
+    result = robot_spheres(snapshot, runtime, .05, .002, mesh)
+
+    assert result["l_f_finger"] == [
+        {"center": [.01, .02, .03], "radius": pytest.approx(.006)}
+    ]
+    assert len(result["zarm_l2_link"]) == 8
 
 
 def test_xrdf_keeps_world_and_self_collision_models_separate():

@@ -111,17 +111,24 @@ def cover_cuboid(pose, dimensions, cell_m: float) -> list[tuple[np.ndarray, floa
     ]
 
 
-def robot_spheres(snapshot, runtime, cell_m: float, radius_inflation_m: float) -> dict:
+def robot_spheres(
+    snapshot,
+    runtime,
+    cell_m: float,
+    radius_inflation_m: float,
+    gripper_mesh_spheres: dict[str, list[dict]] | None = None,
+) -> dict:
     body_poses = {
         name: pose_matrix(pose)
         for name, pose in zip(runtime["body_names"], runtime["body_poses_w"], strict=True)
     }
     spheres: dict[str, list[dict]] = {}
+    mesh_frames = set(gripper_mesh_spheres or {})
     for collider in snapshot["colliders"]:
         if not collider["robot"]:
             continue
         owner = (collider["owner"] or "").rsplit("/", 1)[-1]
-        if owner not in ROBOT_COLLISION_FRAMES:
+        if owner not in ROBOT_COLLISION_FRAMES or owner in mesh_frames:
             continue
         local_from_world = inverse_transform(body_poses[owner])
         entries = spheres.setdefault(owner, [])
@@ -132,6 +139,16 @@ def robot_spheres(snapshot, runtime, cell_m: float, radius_inflation_m: float) -
                     "radius": radius + radius_inflation_m,
                 }
             )
+    for owner, entries in (gripper_mesh_spheres or {}).items():
+        if owner not in ROBOT_COLLISION_FRAMES:
+            raise ValueError(f"unexpected mesh collision frame: {owner}")
+        spheres[owner] = [
+            {
+                "center": list(entry["center"]),
+                "radius": float(entry["radius"]) + radius_inflation_m,
+            }
+            for entry in entries
+        ]
     missing = ROBOT_COLLISION_FRAMES - spheres.keys()
     if missing:
         raise ValueError(f"missing live robot collision frames: {sorted(missing)}")
@@ -202,6 +219,12 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--urdf", type=Path, required=True)
     result.add_argument("--output-dir", type=Path, default=None)
     result.add_argument("--sphere-cell-m", type=float, default=0.06)
+    result.add_argument(
+        "--gripper-max-overshoot-m",
+        type=float,
+        choices=(0.002, 0.005, 0.010, 0.020),
+        default=0.002,
+    )
     result.add_argument("--collision-margin-m", type=float, default=0.005)
     result.add_argument("--validation-samples", type=int, default=101)
     result.add_argument("--target", choices=("pregrasp", "grasp"), default="pregrasp")
@@ -236,6 +259,9 @@ def main(argv=None) -> int:
     output.mkdir(parents=True)
 
     import cumotion
+    from kuavo_isaaclab_scene.planning.gripper_collision import (
+        load_gripper_collision_spheres,
+    )
 
     snapshot_dir = args.snapshot_dir.expanduser().resolve()
     snapshot = json.loads((snapshot_dir / "collision_snapshot.json").read_text())
@@ -247,12 +273,23 @@ def main(argv=None) -> int:
         allow_target_flap_contact=args.allow_target_flap_contact,
     )
     urdf_text = args.urdf.expanduser().resolve().read_text()
+    gripper_mesh_spheres = load_gripper_collision_spheres(
+        args.gripper_max_overshoot_m
+    )
 
     world_spheres = robot_spheres(
-        snapshot, runtime, args.sphere_cell_m, args.collision_margin_m
+        snapshot,
+        runtime,
+        args.sphere_cell_m,
+        args.collision_margin_m,
+        gripper_mesh_spheres,
     )
     self_spheres = robot_spheres(
-        snapshot, runtime, args.sphere_cell_m, args.collision_margin_m / 2
+        snapshot,
+        runtime,
+        args.sphere_cell_m,
+        args.collision_margin_m / 2,
+        gripper_mesh_spheres,
     )
     world = cumotion.create_world()
     for obstacle_data in world_config["cuboid"].values():
@@ -300,6 +337,10 @@ def main(argv=None) -> int:
             "robot_world_spheres": sum(map(len, world_spheres.values())),
             "robot_self_spheres": sum(map(len, self_spheres.values())),
             "sphere_cover_cell_m": args.sphere_cell_m,
+            "gripper_mesh_max_overshoot_m": args.gripper_max_overshoot_m,
+            "gripper_mesh_sphere_count": sum(
+                map(len, gripper_mesh_spheres.values())
+            ),
             "world_margin_m": args.collision_margin_m,
             "self_pair_margin_m": args.collision_margin_m,
             "excluded_stage_colliders": len(snapshot["excluded_enabled_colliders"]),
