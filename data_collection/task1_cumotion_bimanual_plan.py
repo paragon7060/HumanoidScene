@@ -43,7 +43,7 @@ def bimanual_xrdf(
                         "joint_type": "fixed",
                         "fixed_transform": {
                             "position": sphere["center"],
-                            "orientation": {"quaternion": [1.0, 0.0, 0.0, 0.0]},
+                            "orientation": {"w": 1.0, "xyz": [0.0, 0.0, 0.0]},
                         },
                     }
                 }
