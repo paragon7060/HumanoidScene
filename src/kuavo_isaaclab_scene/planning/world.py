@@ -61,8 +61,14 @@ def snapshot_colliders(stage, robot_root: str) -> dict:
         while owner and not owner.HasAPI(UsdPhysics.RigidBodyAPI):
             owner = owner.GetParent()
         owner_path = str(owner.GetPath()) if owner else None
-        pose, dims = bounded_cuboid(local.GetMin(), local.GetMax(),
-                                    np.asarray(xforms.GetLocalToWorldTransform(prim)).T)
+        try:
+            pose, dims = bounded_cuboid(
+                local.GetMin(),
+                local.GetMax(),
+                np.asarray(xforms.GetLocalToWorldTransform(prim)).T,
+            )
+        except ValueError as exc:
+            raise ValueError(f"invalid enabled collider bounds at {path}: {exc}") from exc
         is_robot = path.startswith(robot_root + "/")
         records.append({"path": path, "owner": owner_path, "robot": is_robot,
                         "shape": prim.GetTypeName(), "pose_w": pose, "dims": dims,
