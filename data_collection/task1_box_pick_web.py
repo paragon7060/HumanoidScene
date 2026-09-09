@@ -10,6 +10,7 @@ browser client is connected so the whole settle/move sequence is visible.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 from pathlib import Path
@@ -88,6 +89,13 @@ parser.add_argument(
 )
 parser.add_argument("--editor-camera-width", type=int, default=1280)
 parser.add_argument("--editor-camera-height", type=int, default=720)
+parser.add_argument(
+    "--planning-snapshot-output",
+    type=Path,
+    default=None,
+    metavar="DIR",
+    help="Write the live Task1 collision/planning snapshot once after pose-editor startup.",
+)
 parser.add_argument("--camera-preview", action=argparse.BooleanOptionalAction, default=True)
 parser.add_argument("--domain-randomization", action=argparse.BooleanOptionalAction, default=False)
 parser.add_argument("--rack-boxes", type=str, default=None, metavar="SPEC")
@@ -122,6 +130,8 @@ if args_cli.wrist6_limit_test and not args_cli.pregrasp:
     parser.error("--wrist6-limit-test requires --pregrasp.")
 if args_cli.joint_pose_editor and args_cli.pregrasp:
     parser.error("--joint-pose-editor and --pregrasp are separate modes.")
+if args_cli.planning_snapshot_output is not None and not args_cli.joint_pose_editor:
+    parser.error("--planning-snapshot-output requires --joint-pose-editor.")
 if args_cli.wrist6_limit_test and args_cli.wrist6_test_steps <= 0:
     parser.error("--wrist6-test-steps must be positive.")
 if args_cli.pregrasp_height_m <= 0.0 or not math.isfinite(args_cli.pregrasp_height_m):
@@ -898,6 +908,40 @@ def _sample_to_world(
     return hand_to_world(sample.left_hand), hand_to_world(sample.right_hand), head
 
 
+def _write_planning_snapshot(env, pose_editor: _JointPoseEditor, output_dir: Path) -> None:
+    """Persist the exact live collision world before any editor motion."""
+    from kuavo_isaaclab_scene.planning.world import snapshot_colliders, world_config
+
+    output_dir = output_dir.expanduser().resolve()
+    if output_dir.exists():
+        raise FileExistsError(f"Planning snapshot output already exists: {output_dir}")
+    output_dir.mkdir(parents=True)
+
+    robot = env.scene["robot"]
+    root_pose_w = robot.data.root_pose_w[0].detach().cpu().tolist()
+    collision_snapshot = snapshot_colliders(env.sim.stage, "/World/envs/env_0/Kuavo")
+    runtime = {
+        "joint_names": list(robot.joint_names),
+        "joint_positions": robot.data.joint_pos[0].detach().cpu().tolist(),
+        "joint_limits": robot.data.joint_pos_limits[0].detach().cpu().tolist(),
+        "body_names": list(robot.body_names),
+        "body_poses_w": robot.data.body_link_pose_w[0].detach().cpu().tolist(),
+        "root_pose_w": root_pose_w,
+        "pose_editor_state": pose_editor.state(),
+    }
+    world = world_config(collision_snapshot, root_pose_w)
+    for name, value in (
+        ("collision_snapshot.json", collision_snapshot),
+        ("runtime.json", runtime),
+        ("world.json", world),
+    ):
+        (output_dir / name).write_text(
+            json.dumps(value, indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+    print(f"[PLANNING_SNAPSHOT] wrote live scene to {output_dir}", flush=True)
+
+
 def main() -> None:
     cfg = KuavoQuestTeleopEnvCfg()
     if args_cli.pregrasp:
@@ -976,6 +1020,8 @@ def main() -> None:
         if args_cli.joint_pose_editor
         else None
     )
+    if args_cli.planning_snapshot_output is not None:
+        _write_planning_snapshot(env, pose_editor, args_cli.planning_snapshot_output)
     pregrasp_ee_ids, pregrasp_ee_names = robot.find_bodies(
         ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
     )
