@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan a collision-aware sequential Task1 bimanual pregrasp with cuMotion."""
+"""Plan collision-aware sequential Task1 bimanual targets with cuMotion."""
 
 from __future__ import annotations
 
@@ -70,6 +70,28 @@ def inverse_transform(transform: np.ndarray) -> np.ndarray:
     result[:3, :3] = transform[:3, :3].T
     result[:3, 3] = -result[:3, :3] @ transform[:3, 3]
     return result
+
+
+def normalized_axis(axis, *, name: str) -> np.ndarray:
+    """Return one finite unit axis."""
+    axis = np.asarray(axis, dtype=float)
+    if axis.shape != (3,) or not np.isfinite(axis).all():
+        raise ValueError(f"{name} must be a finite 3-vector")
+    norm = float(np.linalg.norm(axis))
+    if norm <= 1e-12:
+        raise ValueError(f"{name} must be nonzero")
+    return axis / norm
+
+
+def axis_alignment_error_deg(rotation_matrix, tool_axis, target_axis) -> float:
+    """Measure the unsigned world-frame alignment error for a local tool axis."""
+    rotation = np.asarray(rotation_matrix, dtype=float)
+    if rotation.shape != (3, 3) or not np.isfinite(rotation).all():
+        raise ValueError("rotation_matrix must be a finite 3x3 matrix")
+    tool = normalized_axis(tool_axis, name="tool_axis")
+    target = normalized_axis(target_axis, name="target_axis")
+    world_axis = normalized_axis(rotation @ tool, name="world tool axis")
+    return math.degrees(math.acos(float(np.clip(world_axis @ target, -1.0, 1.0))))
 
 
 def cover_cuboid(pose, dimensions, cell_m: float) -> list[tuple[np.ndarray, float]]:
@@ -156,6 +178,9 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--sphere-cell-m", type=float, default=0.06)
     result.add_argument("--collision-margin-m", type=float, default=0.005)
     result.add_argument("--validation-samples", type=int, default=101)
+    result.add_argument("--target", choices=("pregrasp", "grasp"), default="pregrasp")
+    result.add_argument("--target-tolerance-m", type=float, default=0.005)
+    result.add_argument("--closing-axis-tolerance-deg", type=float, default=None)
     return result
 
 
@@ -167,8 +192,15 @@ def main(argv=None) -> int:
         raise ValueError("--collision-margin-m must be finite and nonnegative")
     if args.validation_samples < 2:
         raise ValueError("--validation-samples must be at least two")
+    if not math.isfinite(args.target_tolerance_m) or args.target_tolerance_m <= 0:
+        raise ValueError("--target-tolerance-m must be finite and positive")
+    if args.closing_axis_tolerance_deg is not None and (
+        not math.isfinite(args.closing_axis_tolerance_deg)
+        or not 0 < args.closing_axis_tolerance_deg < 180
+    ):
+        raise ValueError("--closing-axis-tolerance-deg must be between zero and 180")
     output = args.output_dir or Path("/home/seonho/outputs/HumanoidScene") / (
-        "cumotion_collision_pregrasp_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+        f"cumotion_collision_{args.target}_" + datetime.now().strftime("%Y%m%d_%H%M%S")
     )
     output = output.expanduser().resolve()
     if output.exists():
@@ -211,13 +243,25 @@ def main(argv=None) -> int:
         for item in runtime["pose_editor_state"]["joints"]
     }
     defaults.update(editor_joints)
-    targets = runtime["pose_editor_state"]["pregrasp_position_b"]
+    editor_state = runtime["pose_editor_state"]
+    targets = editor_state[f"{args.target}_position_b"]
+    inward_normals = editor_state["inward_flap_normal_b"]
+    orientation_report = (
+        {"type": "none"}
+        if args.closing_axis_tolerance_deg is None
+        else {
+            "type": "terminal_axis",
+            "tool_frame_axis": [1.0, 0.0, 0.0],
+            "terminal_axis_deviation_limit_deg": args.closing_axis_tolerance_deg,
+        }
+    )
     report = {
         "planner": "NVIDIA cuMotion 1.1.0 TrajectoryOptimizer",
-        "strategy": "sequential_bimanual_noncontact_approach",
+        "strategy": f"sequential_bimanual_{args.target}",
+        "target": args.target,
         "snapshot_dir": str(snapshot_dir),
         "initial_pose_source": "origin/main KuavoQuestTeleopEnvCfg",
-        "orientation_constraint": "none",
+        "orientation_constraint": orientation_report,
         "collision_model": {
             "world_obstacles": len(world_config["cuboid"]),
             "robot_world_spheres": sum(map(len, world_spheres.values())),
@@ -260,9 +304,21 @@ def main(argv=None) -> int:
             cumotion.create_default_trajectory_optimizer_config(robot, tool, world_view)
         )
         target_position = np.asarray(targets[target_index], dtype=float)
+        inward_normal = normalized_axis(
+            inward_normals[target_index], name=f"{side} inward flap normal"
+        )
+        orientation_constraint = cumotion.TrajectoryOptimizer.OrientationConstraint.none()
+        if args.closing_axis_tolerance_deg is not None:
+            orientation_constraint = (
+                cumotion.TrajectoryOptimizer.OrientationConstraint.terminal_axis(
+                    np.asarray((1.0, 0.0, 0.0)),
+                    inward_normal,
+                    math.radians(args.closing_axis_tolerance_deg),
+                )
+            )
         target = cumotion.TrajectoryOptimizer.TaskSpaceTarget(
             cumotion.TrajectoryOptimizer.TranslationConstraint.target(target_position),
-            cumotion.TrajectoryOptimizer.OrientationConstraint.none(),
+            orientation_constraint,
         )
         result = optimizer.plan_to_task_space_target(q_initial, target)
         status = str(result.status()).split(".")[-1]
@@ -270,6 +326,7 @@ def main(argv=None) -> int:
             "status": status,
             "joint_names": names,
             "target_position_b_m": target_position.tolist(),
+            "target_inward_flap_normal_b": inward_normal.tolist(),
             "fixed_other_arm": "main_initial" if side == "left" else "left_terminal",
         }
         report["arms"][side] = arm_report
@@ -286,6 +343,13 @@ def main(argv=None) -> int:
         )
         terminal = samples[-1]
         terminal_position = np.asarray(robot.kinematics().position(terminal, tool), dtype=float)
+        terminal_rotation = np.asarray(
+            robot.kinematics().orientation(terminal, tool).matrix(), dtype=float
+        )
+        terminal_closing_axis = terminal_rotation @ np.asarray((1.0, 0.0, 0.0))
+        closing_axis_error_deg = axis_alignment_error_deg(
+            terminal_rotation, (1.0, 0.0, 0.0), inward_normal
+        )
         world_collisions = [inspector.in_collision_with_obstacle(q) for q in samples]
         self_collisions = [inspector.in_self_collision(q) for q in samples]
         distances = [inspector.min_distance_to_obstacle(q) for q in samples]
@@ -295,6 +359,8 @@ def main(argv=None) -> int:
                 "terminal_q_rad": terminal.tolist(),
                 "terminal_tcp_position_b_m": terminal_position.tolist(),
                 "terminal_error_m": float(np.linalg.norm(terminal_position - target_position)),
+                "terminal_tcp_local_x_b": terminal_closing_axis.tolist(),
+                "terminal_closing_axis_error_deg": closing_axis_error_deg,
                 "sample_times_s": sample_times.tolist(),
                 "sample_q_rad": samples.tolist(),
                 "sampled_world_collision": any(world_collisions),
@@ -319,6 +385,7 @@ def main(argv=None) -> int:
                             "status",
                             "duration_s",
                             "terminal_error_m",
+                            "terminal_closing_axis_error_deg",
                             "sampled_world_collision",
                             "sampled_self_collision",
                             "sampled_min_world_distance_m",
@@ -332,6 +399,12 @@ def main(argv=None) -> int:
     )
     success = len(report["arms"]) == 2 and all(
         arm["status"] == "SUCCESS"
+        and arm["terminal_error_m"] <= args.target_tolerance_m
+        and (
+            args.closing_axis_tolerance_deg is None
+            or arm["terminal_closing_axis_error_deg"]
+            <= args.closing_axis_tolerance_deg + 1e-3
+        )
         and not arm["sampled_world_collision"]
         and not arm["sampled_self_collision"]
         for arm in report["arms"].values()

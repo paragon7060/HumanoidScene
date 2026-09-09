@@ -1,9 +1,27 @@
 from itertools import product
 
 import numpy as np
+import pytest
 import yaml
 
-from data_collection.task1_cumotion_collision_plan import cover_cuboid, xrdf
+from data_collection.task1_cumotion_collision_plan import (
+    axis_alignment_error_deg,
+    cover_cuboid,
+    xrdf,
+)
+
+
+def test_axis_alignment_error_uses_rotated_local_axis():
+    angle = np.deg2rad(15.0)
+    rotation = np.array(
+        [
+            [np.cos(angle), -np.sin(angle), 0.0],
+            [np.sin(angle), np.cos(angle), 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+
+    assert axis_alignment_error_deg(rotation, [1, 0, 0], [1, 0, 0]) == pytest.approx(15.0)
 
 
 def test_collision_sphere_cover_contains_oriented_cuboid():

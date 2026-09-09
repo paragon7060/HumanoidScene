@@ -15,6 +15,8 @@ import yaml
 
 from data_collection.task1_cumotion_collision_plan import (
     SELF_COLLISION_IGNORE,
+    axis_alignment_error_deg,
+    normalized_axis,
     pose_matrix,
     robot_spheres,
 )
@@ -134,8 +136,20 @@ def main(argv=None) -> int:
     world_config = json.loads((snapshot_dir / "world.json").read_text())
     seed_path = args.terminal_seed_plan.expanduser().resolve()
     seed_report = json.loads(seed_path.read_text())
+    target_kind = seed_report.get("target", "pregrasp")
+    if target_kind not in {"pregrasp", "grasp"}:
+        raise ValueError(f"unsupported seed target: {target_kind}")
+    orientation_constraint = seed_report.get("orientation_constraint", {"type": "none"})
+    closing_axis_tolerance_deg = None
+    if (
+        isinstance(orientation_constraint, dict)
+        and orientation_constraint.get("type") == "terminal_axis"
+    ):
+        closing_axis_tolerance_deg = float(
+            orientation_constraint["terminal_axis_deviation_limit_deg"]
+        )
     output = args.output_dir or Path("/home/seonho/outputs/HumanoidScene") / (
-        "cumotion_bimanual_pregrasp_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+        f"cumotion_bimanual_{target_kind}_" + datetime.now().strftime("%Y%m%d_%H%M%S")
     )
     output = output.expanduser().resolve()
     if output.exists():
@@ -159,7 +173,16 @@ def main(argv=None) -> int:
     )
     if q_terminal.shape != q_initial.shape or not np.isfinite(q_terminal).all():
         raise ValueError("terminal seed plan does not contain one finite 14-DoF target")
-    targets = np.asarray(runtime["pose_editor_state"]["pregrasp_position_b"], dtype=float)
+    editor_state = runtime["pose_editor_state"]
+    targets = np.asarray(editor_state[f"{target_kind}_position_b"], dtype=float)
+    inward_normals = np.asarray(
+        [
+            normalized_axis(axis, name=f"{side} inward flap normal")
+            for side, axis in zip(
+                ("left", "right"), editor_state["inward_flap_normal_b"], strict=True
+            )
+        ]
+    )
     world_spheres = robot_spheres(
         snapshot, runtime, args.sphere_cell_m, args.collision_margin_m
     )
@@ -208,13 +231,15 @@ def main(argv=None) -> int:
     report = {
         "planner": "NVIDIA cuMotion 1.1.0 MotionPlanner",
         "strategy": "simultaneous_bimanual_14dof_graph_plan",
+        "target": target_kind,
         "status": "PLANNING_FAILURE",
         "snapshot_dir": str(snapshot_dir),
         "terminal_seed_plan": str(seed_path),
         "joint_names": ARM_JOINT_NAMES,
         "tool_frames": TOOL_FRAMES,
         "target_positions_b_m": targets.tolist(),
-        "orientation_constraint": "none",
+        "target_inward_flap_normals_b": inward_normals.tolist(),
+        "orientation_constraint": orientation_constraint,
         "planning_wall_s": planning_wall_s,
         "collision_model": {
             "world_obstacles": len(world_config["cuboid"]),
@@ -234,6 +259,19 @@ def main(argv=None) -> int:
             [robot.kinematics().position(path[-1], frame) for frame in TOOL_FRAMES]
         )
         terminal_errors = np.linalg.norm(terminal_positions - targets, axis=1)
+        terminal_rotations = [
+            np.asarray(robot.kinematics().orientation(path[-1], frame).matrix(), dtype=float)
+            for frame in TOOL_FRAMES
+        ]
+        terminal_closing_axes = np.asarray(
+            [rotation @ np.asarray((1.0, 0.0, 0.0)) for rotation in terminal_rotations]
+        )
+        closing_axis_errors_deg = np.asarray(
+            [
+                axis_alignment_error_deg(rotation, (1.0, 0.0, 0.0), normal)
+                for rotation, normal in zip(terminal_rotations, inward_normals, strict=True)
+            ]
+        )
         left_delta = np.linalg.norm(np.diff(path[:, :7], axis=0), axis=1)
         right_delta = np.linalg.norm(np.diff(path[:, 7:], axis=0), axis=1)
         moving = (left_delta > 1e-7) | (right_delta > 1e-7)
@@ -241,6 +279,10 @@ def main(argv=None) -> int:
         overlap_fraction = float(overlap.sum() / max(1, moving.sum()))
         success = bool(
             np.all(terminal_errors <= args.target_tolerance_m)
+            and (
+                closing_axis_tolerance_deg is None
+                or np.all(closing_axis_errors_deg <= closing_axis_tolerance_deg + 1e-3)
+            )
             and not any(world_collisions)
             and not any(self_collisions)
             and overlap_fraction > 0.5
@@ -256,6 +298,8 @@ def main(argv=None) -> int:
                 "terminal_q_rad": path[-1].tolist(),
                 "terminal_tcp_positions_b_m": terminal_positions.tolist(),
                 "terminal_error_m": terminal_errors.tolist(),
+                "terminal_tcp_local_x_b": terminal_closing_axes.tolist(),
+                "terminal_closing_axis_error_deg": closing_axis_errors_deg.tolist(),
                 "sampled_world_collision": any(world_collisions),
                 "sampled_self_collision": any(self_collisions),
                 "sampled_min_world_distance_m": float(min(distances)),
@@ -277,6 +321,9 @@ def main(argv=None) -> int:
                 "waypoint_count": report.get("waypoint_count"),
                 "validation_sample_count": report.get("validation_sample_count"),
                 "terminal_error_m": report.get("terminal_error_m"),
+                "terminal_closing_axis_error_deg": report.get(
+                    "terminal_closing_axis_error_deg"
+                ),
                 "sampled_world_collision": report.get("sampled_world_collision"),
                 "sampled_self_collision": report.get("sampled_self_collision"),
                 "sampled_min_world_distance_m": report.get("sampled_min_world_distance_m"),
