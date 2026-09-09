@@ -627,13 +627,10 @@ def main(argv=None) -> int:
         )
         if rrt_path is not None:
             constrained_rrt_waypoint_count = len(rrt_path)
-            shortcut_knots = shortcut_path(
-                rrt_path, args.validation_step_rad, in_collision
-            )
-            shortcut_knot_count = len(shortcut_knots)
+            shortcut_knot_count = len(rrt_path)
             path_found = True
-            path = densify_path(shortcut_knots, args.planner_step_size)
-            selected_strategy = "rack_width_constrained_rrt_connect_shortcut"
+            path = densify_path(rrt_path, args.planner_step_size)
+            selected_strategy = "rack_width_constrained_rrt_connect"
         else:
             path_found = False
             path = None
