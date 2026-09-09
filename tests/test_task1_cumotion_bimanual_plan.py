@@ -6,6 +6,7 @@ from data_collection.task1_cumotion_bimanual_plan import (
     ARM_JOINT_NAMES,
     TOOL_FRAMES,
     bimanual_xrdf,
+    constrained_rrt_connect,
     densify_path,
     joint_space_path_length,
     planner_yaml,
@@ -13,6 +14,7 @@ from data_collection.task1_cumotion_bimanual_plan import (
     rack_width_coordinates_m,
     rack_width_max_violation_m,
     rack_width_task_space_limits,
+    segment_is_collision_free,
     shortcut_path,
     synchronized_seed_path,
 )
@@ -96,6 +98,28 @@ def test_synchronized_seed_path_uses_equal_arm_progress():
     assert path.shape == (3, 14)
     np.testing.assert_allclose(path[1], [1] * 7 + [12] * 7)
     np.testing.assert_allclose(path[[0, -1]], [initial, terminal])
+
+
+def test_constrained_rrt_connect_routes_around_invalid_region():
+    def in_collision(point):
+        return abs(point[0]) < 0.2 and abs(point[1]) < 0.2
+
+    path, iterations = constrained_rrt_connect(
+        np.asarray([-0.8, 0.0]),
+        np.asarray([0.8, 0.0]),
+        np.asarray([-1.0, -1.0]),
+        np.asarray([1.0, 1.0]),
+        in_collision,
+        seed=42,
+        max_iterations=1000,
+        step_size_rad=0.2,
+        edge_step_rad=0.02,
+    )
+
+    assert path is not None
+    assert iterations <= 1000
+    for start, end in zip(path[:-1], path[1:], strict=True):
+        assert segment_is_collision_free(start, end, 0.01, in_collision)
 
 
 def test_rack_width_constraint_is_transformed_to_robot_base():

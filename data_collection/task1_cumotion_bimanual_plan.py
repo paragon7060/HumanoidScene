@@ -195,6 +195,113 @@ def synchronized_seed_path(
     return combined
 
 
+def constrained_rrt_connect(
+    start: np.ndarray,
+    goal: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray,
+    in_collision,
+    *,
+    seed: int,
+    max_iterations: int,
+    step_size_rad: float,
+    edge_step_rad: float,
+    distance_weights: np.ndarray | None = None,
+) -> tuple[np.ndarray | None, int]:
+    """Bidirectional joint-space RRT whose edges obey the full path gate."""
+    start = np.asarray(start, dtype=float)
+    goal = np.asarray(goal, dtype=float)
+    lower = np.asarray(lower, dtype=float)
+    upper = np.asarray(upper, dtype=float)
+    weights = (
+        np.ones_like(start)
+        if distance_weights is None
+        else np.asarray(distance_weights, dtype=float)
+    )
+    if (
+        start.ndim != 1
+        or goal.shape != start.shape
+        or lower.shape != start.shape
+        or upper.shape != start.shape
+        or weights.shape != start.shape
+        or not all(np.isfinite(value).all() for value in (start, goal, lower, upper, weights))
+        or np.any(lower >= upper)
+        or np.any(weights <= 0)
+        or max_iterations <= 0
+        or not math.isfinite(step_size_rad)
+        or step_size_rad <= 0
+        or not math.isfinite(edge_step_rad)
+        or edge_step_rad <= 0
+    ):
+        raise ValueError("invalid constrained RRT inputs")
+    if in_collision(start) or in_collision(goal):
+        raise ValueError("constrained RRT endpoints must satisfy every path gate")
+
+    rng = np.random.default_rng(seed)
+    trees = [
+        {"nodes": [start.copy()], "parents": [-1], "root": "start"},
+        {"nodes": [goal.copy()], "parents": [-1], "root": "goal"},
+    ]
+
+    def nearest(tree, target) -> int:
+        nodes = np.asarray(tree["nodes"])
+        return int(np.argmin(np.sum((nodes - target) ** 2 * weights, axis=1)))
+
+    def steer(source, target) -> np.ndarray:
+        delta = target - source
+        distance = float(np.sqrt(np.sum(delta * delta * weights)))
+        if distance <= step_size_rad:
+            return target.copy()
+        return source + delta * (step_size_rad / distance)
+
+    def append_toward(tree, target) -> tuple[int | None, bool]:
+        parent = nearest(tree, target)
+        candidate = np.clip(steer(tree["nodes"][parent], target), lower, upper)
+        if np.allclose(candidate, tree["nodes"][parent], atol=1e-12, rtol=0):
+            return None, False
+        if not segment_is_collision_free(
+            tree["nodes"][parent], candidate, edge_step_rad, in_collision
+        ):
+            return None, False
+        tree["nodes"].append(candidate)
+        tree["parents"].append(parent)
+        return len(tree["nodes"]) - 1, np.allclose(candidate, target, atol=1e-9, rtol=0)
+
+    def root_path(tree, node_index) -> list[np.ndarray]:
+        path = []
+        while node_index >= 0:
+            path.append(tree["nodes"][node_index])
+            node_index = tree["parents"][node_index]
+        return list(reversed(path))
+
+    for iteration in range(1, max_iterations + 1):
+        if rng.random() < 0.65:
+            progress = rng.random()
+            sample = (1.0 - progress) * start + progress * goal
+            sample += rng.normal(0.0, 0.30, size=start.shape)
+            sample = np.clip(sample, lower, upper)
+        else:
+            sample = rng.uniform(lower, upper)
+        active_index, reached = append_toward(trees[0], sample)
+        if active_index is not None:
+            meeting = trees[0]["nodes"][active_index]
+            other_index = None
+            while True:
+                other_index, reached = append_toward(trees[1], meeting)
+                if other_index is None or reached:
+                    break
+            if reached and other_index is not None:
+                active_path = root_path(trees[0], active_index)
+                other_path = root_path(trees[1], other_index)
+                if trees[0]["root"] == "start":
+                    path = active_path + list(reversed(other_path[:-1]))
+                else:
+                    path = other_path + list(reversed(active_path[:-1]))
+                return np.asarray(path), iteration
+        trees.reverse()
+    return None, max_iterations
+
+
 def rack_width_constraint_in_base(
     root_pose_w: np.ndarray,
     rack_constraint: dict,
@@ -282,6 +389,9 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--planner-seed", type=int, default=123456)
     result.add_argument("--planner-step-size", type=float, default=0.05)
     result.add_argument("--shoulder-sweep-weight", type=float, default=8.0)
+    result.add_argument("--constrained-rrt-iterations", type=int, default=20000)
+    result.add_argument("--constrained-rrt-step-rad", type=float, default=0.15)
+    result.add_argument("--constrained-rrt-edge-step-rad", type=float, default=0.03)
     return result
 
 
@@ -293,6 +403,8 @@ def main(argv=None) -> int:
         ("--target-tolerance-m", args.target_tolerance_m),
         ("--planner-step-size", args.planner_step_size),
         ("--shoulder-sweep-weight", args.shoulder_sweep_weight),
+        ("--constrained-rrt-step-rad", args.constrained_rrt_step_rad),
+        ("--constrained-rrt-edge-step-rad", args.constrained_rrt_edge_step_rad),
     ):
         if not math.isfinite(value) or value <= 0:
             raise ValueError(f"{name} must be finite and positive")
@@ -300,6 +412,8 @@ def main(argv=None) -> int:
         raise ValueError("--collision-margin-m must be finite and nonnegative")
     if args.planner_seed <= 0:
         raise ValueError("--planner-seed must be positive")
+    if args.constrained_rrt_iterations <= 0:
+        raise ValueError("--constrained-rrt-iterations must be positive")
     self_pair_margin_m = (
         args.collision_margin_m
         if args.self_pair_margin_m is None
@@ -353,6 +467,14 @@ def main(argv=None) -> int:
         {item["name"]: float(item["value"]) for item in runtime["pose_editor_state"]["joints"]}
     )
     q_initial = np.asarray([defaults[name] for name in ARM_JOINT_NAMES], dtype=float)
+    joint_limits = {
+        name: limits
+        for name, limits in zip(
+            runtime["joint_names"], runtime["joint_limits"], strict=True
+        )
+    }
+    q_lower = np.asarray([joint_limits[name][0] for name in ARM_JOINT_NAMES], dtype=float)
+    q_upper = np.asarray([joint_limits[name][1] for name in ARM_JOINT_NAMES], dtype=float)
     q_terminal = np.concatenate(
         [
             np.asarray(seed_report["arms"][side]["terminal_q_rad"], dtype=float)
@@ -473,6 +595,8 @@ def main(argv=None) -> int:
         for row in densify_path(optimizer_seed_path, args.validation_step_rad)
     )
     graph_waypoint_count = None
+    constrained_rrt_iterations = 0
+    constrained_rrt_waypoint_count = None
     shortcut_knot_count = 2
     if direct_path_clear:
         path_found = True
@@ -487,6 +611,34 @@ def main(argv=None) -> int:
         path = densify_path(shortcut_knots, args.planner_step_size)
         selected_strategy = "synchronized_optimizer_seed_shortcut"
     else:
+        distance_weights = np.ones(len(ARM_JOINT_NAMES))
+        distance_weights[[0, 7]] = args.shoulder_sweep_weight
+        rrt_path, constrained_rrt_iterations = constrained_rrt_connect(
+            q_initial,
+            q_terminal,
+            q_lower,
+            q_upper,
+            in_collision,
+            seed=args.planner_seed,
+            max_iterations=args.constrained_rrt_iterations,
+            step_size_rad=args.constrained_rrt_step_rad,
+            edge_step_rad=args.constrained_rrt_edge_step_rad,
+            distance_weights=distance_weights,
+        )
+        if rrt_path is not None:
+            constrained_rrt_waypoint_count = len(rrt_path)
+            shortcut_knots = shortcut_path(
+                rrt_path, args.validation_step_rad, in_collision
+            )
+            shortcut_knot_count = len(shortcut_knots)
+            path_found = True
+            path = densify_path(shortcut_knots, args.planner_step_size)
+            selected_strategy = "rack_width_constrained_rrt_connect_shortcut"
+        else:
+            path_found = False
+            path = None
+            selected_strategy = "constrained_rrt_failed"
+    if not path_found:
         config = cumotion.create_motion_planner_config_from_file(
             output / "planner.yaml", robot, TOOL_FRAMES[0], world_view
         )
@@ -541,6 +693,10 @@ def main(argv=None) -> int:
         "direct_path_collision_free": direct_path_clear,
         "synchronized_optimizer_seed_collision_free": optimizer_seed_path_clear,
         "synchronized_optimizer_seed_waypoint_count": len(optimizer_seed_path),
+        "constrained_rrt_iterations": constrained_rrt_iterations,
+        "constrained_rrt_waypoint_count": constrained_rrt_waypoint_count,
+        "constrained_rrt_step_rad": args.constrained_rrt_step_rad,
+        "constrained_rrt_edge_step_rad": args.constrained_rrt_edge_step_rad,
         "direct_joint_space_path_length_rad": joint_space_path_length(direct_path),
         "graph_waypoint_count": graph_waypoint_count,
         "shortcut_knot_count": shortcut_knot_count,
