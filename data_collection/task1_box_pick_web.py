@@ -445,7 +445,7 @@ class _JointPoseEditor:
         "front_right": ((2.0, -1.8, 1.65), (0.20, 0.0, 1.15)),
     }
 
-    def __init__(self, env):
+    def __init__(self, env, *, pregrasp_height_m: float, grasp_depth_m: float):
         import isaaclab.sim as sim_utils
         from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
         from kuavo_isaaclab_scene.planning.robot_model import UrdfModel
@@ -471,6 +471,10 @@ class _JointPoseEditor:
         self.limits = self.robot.data.joint_pos_limits[0, self.joint_ids].clone()
         self.reset_targets = self.robot.data.joint_pos[:, self.joint_ids].clone()
         self.targets = self.reset_targets.clone()
+        self.pregrasp_targets_w, _, _, self.pregrasp_geometry = _pregrasp_targets(
+            env, height_m=pregrasp_height_m, grasp_depth_m=grasp_depth_m
+        )
+        self.pregrasp_height_m = float(pregrasp_height_m)
         model = UrdfModel(resolve_robot_model().urdf_path)
         self.local_axes = torch.tensor(
             [model.joints[name].axis for name in self.joint_names],
@@ -544,6 +548,13 @@ class _JointPoseEditor:
             self.targets[0, index] = torch.clamp(value, self.limits[index, 0], self.limits[index, 1])
             self.selected_joint = command.joint_name
             self.apply_targets()
+        elif command.action == "set_pose":
+            for joint_name, value_rad in command.joint_positions.items():
+                index = self.joint_names.index(joint_name)
+                value = torch.tensor(value_rad, device=self.env.device, dtype=self.targets.dtype)
+                self.targets[0, index] = torch.clamp(value, self.limits[index, 0], self.limits[index, 1])
+            self.selected_joint = next(iter(command.joint_positions))
+            self.apply_targets()
         elif command.action == "reset":
             self.targets.copy_(self.reset_targets)
             self.selected_joint = self.joint_names[5]
@@ -604,6 +615,9 @@ class _JointPoseEditor:
         root_pos = self.robot.data.root_pos_w.expand(2, -1)
         root_quat = self.robot.data.root_quat_w.expand(2, -1)
         tcp_pos_b, _ = subtract_frame_transforms(root_pos, root_quat, ee_pos, ee_quat)
+        pregrasp_pos_b, _ = subtract_frame_transforms(
+            root_pos, root_quat, self.pregrasp_targets_w, root_quat
+        )
         tool_forward = quat_apply(
             ee_quat,
             torch.tensor((0.0, 0.0, -1.0), device=self.env.device, dtype=ee_pos.dtype).expand(2, -1),
@@ -628,6 +642,9 @@ class _JointPoseEditor:
             ],
             "tool_down_angle_deg": [math.degrees(math.acos(float(dot))) for dot in dots],
             "tcp_position_b": tcp_pos_b.detach().cpu().tolist(),
+            "pregrasp_position_b": pregrasp_pos_b.detach().cpu().tolist(),
+            "pregrasp_height_m": self.pregrasp_height_m,
+            "pregrasp_source": "medium_box_0 flap_right/flap_left upper grasp pair",
             "authoring_only": True,
         }
 
@@ -950,7 +967,15 @@ def main() -> None:
     body_mapper = TeleopBodyMapper(robot_model.urdf_path, has_wheel_base=robot_model.has_wheel_base)
     arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
     robot = env.scene["robot"]
-    pose_editor = _JointPoseEditor(env) if args_cli.joint_pose_editor else None
+    pose_editor = (
+        _JointPoseEditor(
+            env,
+            pregrasp_height_m=args_cli.pregrasp_height_m,
+            grasp_depth_m=args_cli.pregrasp_grasp_depth_m,
+        )
+        if args_cli.joint_pose_editor
+        else None
+    )
     pregrasp_ee_ids, pregrasp_ee_names = robot.find_bodies(
         ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
     )

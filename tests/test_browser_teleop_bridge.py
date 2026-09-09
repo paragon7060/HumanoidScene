@@ -25,6 +25,13 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
     assert command is not None
     assert command.joint_name == "zarm_l6_joint"
     assert command.value_rad == pytest.approx(-1.1)
+    pose = parse_pose_editor_message(json.dumps({
+        **base,
+        "action": "set_pose",
+        "joint_positions": {"zarm_l1_joint": 0.25, "zarm_l7_joint": 0.4},
+    }))
+    assert pose is not None
+    assert pose.joint_positions == {"zarm_l1_joint": 0.25, "zarm_l7_joint": 0.4}
     assert parse_pose_editor_message(json.dumps({
         **base, "action": "set_view", "view": "rear_left",
     })).view == "rear_left"
@@ -32,6 +39,9 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         {**base, "action": "set_joint", "joint_name": "waist_yaw_joint", "value_rad": 0},
         {**base, "action": "set_joint", "joint_name": "zarm_l8_joint", "value_rad": 0},
         {**base, "action": "set_joint", "joint_name": "zarm_l6_joint", "value_rad": "nan"},
+        {**base, "action": "set_pose", "joint_positions": {}},
+        {**base, "action": "set_pose", "joint_positions": {"waist_yaw_joint": 0.0}},
+        {**base, "action": "set_pose", "joint_positions": {"zarm_l2_joint": "nan"}},
         {**base, "action": "set_view", "view": "free"},
     ):
         assert parse_pose_editor_message(json.dumps(invalid)) is None

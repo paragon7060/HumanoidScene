@@ -90,6 +90,7 @@ class PoseEditorCommand:
     action: str
     joint_name: str | None = None
     value_rad: float | None = None
+    joint_positions: dict[str, float] | None = None
     view: str | None = None
 
 
@@ -127,6 +128,22 @@ def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
         if not math.isfinite(value_rad):
             return None
         return PoseEditorCommand(sequence, action, joint_name=joint_name, value_rad=value_rad)
+    if action == "set_pose":
+        values = payload.get("joint_positions")
+        if not isinstance(values, dict) or not values or len(values) > 14:
+            return None
+        joint_positions = {}
+        for joint_name, value in values.items():
+            if not isinstance(joint_name, str) or not _ARM_JOINT_PATTERN.fullmatch(joint_name):
+                return None
+            try:
+                value_rad = float(value)
+            except (TypeError, ValueError):
+                return None
+            if not math.isfinite(value_rad):
+                return None
+            joint_positions[joint_name] = value_rad
+        return PoseEditorCommand(sequence, action, joint_positions=joint_positions)
     if action == "set_view":
         view = payload.get("view")
         if view not in _EDITOR_VIEWS:
@@ -490,6 +507,7 @@ class BrowserTeleopBridge:
                         editor_command.action,
                         joint_name=editor_command.joint_name,
                         value_rad=editor_command.value_rad,
+                        joint_positions=editor_command.joint_positions,
                         view=editor_command.view,
                     )
                 continue
