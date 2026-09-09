@@ -477,6 +477,7 @@ class _JointPoseEditor:
             device=env.device,
             dtype=self.targets.dtype,
         )
+        print("[POSE_EDITOR_INIT] resolved 14 arm joints and physical axes", flush=True)
         marker_cfg = VisualizationMarkersCfg(
             prim_path="/Visuals/Task1JointPoseEditor",
             markers={
@@ -504,11 +505,14 @@ class _JointPoseEditor:
             },
         )
         self.markers = VisualizationMarkers(marker_cfg)
+        print("[POSE_EDITOR_INIT] spawned joint-axis cylinder markers", flush=True)
         self.selected_joint = self.joint_names[5]
         self.view = "rear_left"
         self.last_command_sequence = -1
         self.set_view(self.view)
+        print("[POSE_EDITOR_INIT] positioned third-person camera", flush=True)
         self.apply_targets()
+        print("[POSE_EDITOR_INIT] static arm pose ready", flush=True)
 
     def set_view(self, name: str) -> None:
         from isaaclab.utils.math import quat_apply
@@ -894,7 +898,17 @@ def main() -> None:
     cfg.scene.xr_right_eye_camera.height = args_cli.stereo_eye_height
     cfg.scene.joint_editor_camera.width = args_cli.editor_camera_width
     cfg.scene.joint_editor_camera.height = args_cli.editor_camera_height
-    if not args_cli.joint_pose_editor:
+    if args_cli.joint_pose_editor:
+        # The editor has no XR tracking or policy observations.  Rendering
+        # only its third-person camera avoids needlessly paying for five
+        # additional RGB sensors on the shared preview GPU.
+        cfg.scene.xr_left_eye_camera = None
+        cfg.scene.xr_right_eye_camera = None
+        cfg.scene.robustness_camera = None
+        cfg.scene.waist_camera = None
+        cfg.scene.left_wrist_camera = None
+        cfg.scene.right_wrist_camera = None
+    else:
         cfg.scene.joint_editor_camera = None
     half_baseline = args_cli.stereo_eye_separation * 0.5
     cfg.scene.xr_left_eye_camera.offset.pos = (0.08, half_baseline, 0.0)
