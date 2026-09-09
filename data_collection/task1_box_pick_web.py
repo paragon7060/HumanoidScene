@@ -1519,6 +1519,7 @@ def _write_planning_snapshot(env, pose_editor: _JointPoseEditor, output_dir: Pat
         "body_names": list(robot.body_names),
         "body_poses_w": robot.data.body_link_pose_w[0].detach().cpu().tolist(),
         "root_pose_w": root_pose_w,
+        "initial_state": args_cli.pose_editor_initial_state,
         "pose_editor_state": pose_editor.state(),
         "rack_width_constraint": {
             "coordinate_frame": "world",

@@ -83,6 +83,12 @@ def snapshot_colliders(
         while owner and not owner.HasAPI(UsdPhysics.RigidBodyAPI):
             owner = owner.GetParent()
         owner_path = str(owner.GetPath()) if owner else None
+        is_robot = path.startswith(robot_root + "/")
+        owner_pose_w = (
+            matrix_pose(np.asarray(xforms.GetLocalToWorldTransform(owner)).T)
+            if owner and is_robot
+            else None
+        )
         try:
             pose, dims = bounded_cuboid(
                 local.GetMin(),
@@ -92,8 +98,8 @@ def snapshot_colliders(
             )
         except ValueError as exc:
             raise ValueError(f"invalid enabled collider bounds at {path}: {exc}") from exc
-        is_robot = path.startswith(robot_root + "/")
-        records.append({"path": path, "owner": owner_path, "robot": is_robot,
+        records.append({"path": path, "owner": owner_path,
+                        "owner_pose_w": owner_pose_w, "robot": is_robot,
                         "shape": prim.GetTypeName(), "pose_w": pose, "dims": dims,
                         "approximation": "per-collider oriented bounding box"})
     if unsupported:

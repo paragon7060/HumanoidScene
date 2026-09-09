@@ -107,6 +107,33 @@ def test_robot_spheres_replace_gripper_cuboid_with_mesh_fit():
     assert len(result["zarm_l2_link"]) == 8
 
 
+def test_robot_spheres_use_snapshot_owner_pose_for_local_geometry():
+    body_names = sorted(ROBOT_COLLISION_FRAMES)
+    snapshot = {
+        "colliders": [
+            {
+                "robot": True,
+                "owner": f"/robot/{name}",
+                "owner_pose_w": [float(index), 0, 0, 1, 0, 0, 0],
+                "pose_w": [float(index) + 0.2, 0, 0, 1, 0, 0, 0],
+                "dims": [.02, .02, .02],
+            }
+            for index, name in enumerate(body_names)
+        ]
+    }
+    runtime = {
+        "body_names": body_names,
+        "body_poses_w": [
+            [float(index), 0, 10, 1, 0, 0, 0]
+            for index, _ in enumerate(body_names)
+        ],
+    }
+
+    result = robot_spheres(snapshot, runtime, .05, 0.0)
+
+    np.testing.assert_allclose(result["zarm_l4_link"][0]["center"], [0.2, 0, 0])
+
+
 def test_xrdf_keeps_world_and_self_collision_models_separate():
     defaults = {f"zarm_l{index}_joint": 0.0 for index in range(1, 8)}
     world_spheres = {"zarm_l2_link": [{"center": [0, 0, 0], "radius": .06}]}

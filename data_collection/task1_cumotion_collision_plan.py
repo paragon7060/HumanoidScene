@@ -146,7 +146,10 @@ def robot_spheres(
         owner = (collider["owner"] or "").rsplit("/", 1)[-1]
         if owner not in ROBOT_COLLISION_FRAMES or owner in mesh_frames:
             continue
-        local_from_world = inverse_transform(body_poses[owner])
+        owner_pose_w = collider.get("owner_pose_w")
+        local_from_world = inverse_transform(
+            pose_matrix(owner_pose_w) if owner_pose_w is not None else body_poses[owner]
+        )
         entries = spheres.setdefault(owner, [])
         for center_w, radius in cover_cuboid(collider["pose_w"], collider["dims"], cell_m):
             entries.append(
@@ -375,7 +378,7 @@ def main(argv=None) -> int:
         "strategy": f"sequential_bimanual_{args.target}",
         "target": args.target,
         "snapshot_dir": str(snapshot_dir),
-        "initial_pose_source": "origin/main KuavoQuestTeleopEnvCfg",
+        "initial_pose_source": runtime.get("initial_state", "snapshot runtime joint state"),
         "orientation_constraint": orientation_report,
         "collision_model": {
             "world_obstacles": len(world_config["cuboid"]),
