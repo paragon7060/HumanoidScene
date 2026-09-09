@@ -98,6 +98,8 @@ class PoseEditorCommand:
     control_value: float | None = None
     collision_visible: bool | None = None
     torso_height_m: float | None = None
+    collision_cell_m: float | None = None
+    collision_margin_m: float | None = None
 
 
 _ARM_JOINT_PATTERN = re.compile(r"^zarm_[lr][1-7]_joint$")
@@ -209,6 +211,25 @@ def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
         if not isinstance(visible, bool):
             return None
         return PoseEditorCommand(sequence, action, collision_visible=visible)
+    if action == "set_gripper_collision_model":
+        try:
+            cell_m = float(payload.get("cell_m"))
+            margin_m = float(payload.get("margin_m"))
+        except (TypeError, ValueError):
+            return None
+        if (
+            not math.isfinite(cell_m)
+            or not 0.055 <= cell_m <= 0.080
+            or not math.isfinite(margin_m)
+            or not 0.0 <= margin_m <= 0.010
+        ):
+            return None
+        return PoseEditorCommand(
+            sequence,
+            action,
+            collision_cell_m=cell_m,
+            collision_margin_m=margin_m,
+        )
     if action == "set_torso_height":
         try:
             height_m = float(payload.get("height_m"))
@@ -583,6 +604,8 @@ class BrowserTeleopBridge:
                         control_value=editor_command.control_value,
                         collision_visible=editor_command.collision_visible,
                         torso_height_m=editor_command.torso_height_m,
+                        collision_cell_m=editor_command.collision_cell_m,
+                        collision_margin_m=editor_command.collision_margin_m,
                     )
                 continue
             try:

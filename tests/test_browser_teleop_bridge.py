@@ -63,6 +63,15 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         **base, "action": "set_gripper_collision_visibility", "visible": True,
     }))
     assert collision is not None and collision.collision_visible is True
+    collision_model = parse_pose_editor_message(json.dumps({
+        **base,
+        "action": "set_gripper_collision_model",
+        "cell_m": 0.055,
+        "margin_m": 0.004,
+    }))
+    assert collision_model is not None
+    assert collision_model.collision_cell_m == pytest.approx(0.055)
+    assert collision_model.collision_margin_m == pytest.approx(0.004)
     torso = parse_pose_editor_message(json.dumps({
         **base, "action": "set_torso_height", "height_m": 0.25,
     }))
@@ -83,6 +92,9 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         {**base, "action": "set_control", "control_name": "right_gripper", "value": 1.01},
         {**base, "action": "set_control", "control_name": "zhead_1_joint", "value": "nan"},
         {**base, "action": "set_gripper_collision_visibility", "visible": 1},
+        {**base, "action": "set_gripper_collision_model", "cell_m": 0.054, "margin_m": 0.004},
+        {**base, "action": "set_gripper_collision_model", "cell_m": 0.055, "margin_m": 0.011},
+        {**base, "action": "set_gripper_collision_model", "cell_m": "nan", "margin_m": 0.004},
         {**base, "action": "set_torso_height", "height_m": "nan"},
         {**base, "action": "set_torso_height", "height_m": -0.001},
         {**base, "action": "set_torso_height", "height_m": 0.401},

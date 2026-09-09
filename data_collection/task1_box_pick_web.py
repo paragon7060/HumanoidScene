@@ -516,7 +516,7 @@ class _JointPoseEditor:
         "r_b_finger",
     )
     _COLLISION_SPHERE_CELL_M = 0.055
-    _COLLISION_MARGIN_M = 0.002
+    _COLLISION_MARGIN_M = 0.004
     _CONTROL_LABELS = {
         "knee_joint": "승강 knee",
         "leg_joint": "승강 leg",
@@ -623,6 +623,8 @@ class _JointPoseEditor:
             device=env.device,
             dtype=self.targets.dtype,
         )
+        self.gripper_collision_cell_m = self._COLLISION_SPHERE_CELL_M
+        self.gripper_collision_margin_m = self._COLLISION_MARGIN_M
         self.prepare_gripper_collision_spheres()
         print(
             "[POSE_EDITOR_INIT] resolved 24 motor joints / 22 logical controls and physical axes",
@@ -680,12 +682,20 @@ class _JointPoseEditor:
         collision_marker_cfg = VisualizationMarkersCfg(
             prim_path="/Visuals/Task1GripperCollisionSpheres",
             markers={
-                "collision": sim_utils.SphereCfg(
+                "cover": sim_utils.SphereCfg(
+                    radius=1.0,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.10, 0.86, 1.0),
+                        emissive_color=(0.0, 0.12, 0.18),
+                        opacity=0.22,
+                    ),
+                ),
+                "inflated": sim_utils.SphereCfg(
                     radius=1.0,
                     visual_material=sim_utils.PreviewSurfaceCfg(
                         diffuse_color=(1.0, 0.08, 0.04),
                         emissive_color=(0.20, 0.0, 0.0),
-                        opacity=0.28,
+                        opacity=0.18,
                     ),
                 ),
             },
@@ -798,6 +808,12 @@ class _JointPoseEditor:
             self.gripper_collision_markers.set_visibility(self.gripper_collision_visible)
             if self.gripper_collision_visible:
                 self.update_gripper_collision_markers()
+        elif command.action == "set_gripper_collision_model":
+            self.gripper_collision_cell_m = command.collision_cell_m
+            self.gripper_collision_margin_m = command.collision_margin_m
+            self.rebuild_gripper_collision_spheres()
+            if self.gripper_collision_visible:
+                self.update_gripper_collision_markers()
         elif command.action == "set_torso_height":
             if not self.body_mapper.set_height(command.torso_height_m):
                 raise ValueError(f"Unreachable torso height: {command.torso_height_m:.3f} m")
@@ -859,9 +875,13 @@ class _JointPoseEditor:
         self.all_flap_grasp_points_w = self.base_all_flap_grasp_points_w + delta_w
 
     def prepare_gripper_collision_spheres(self) -> None:
-        """Build the same inflated sphere cover used by the current cuMotion plans."""
-        from kuavo_isaaclab_scene.planning.geometry import inverse_transform, pose_matrix
-        from kuavo_isaaclab_scene.planning.world import cover_cuboid, snapshot_colliders
+        """Cache body-local gripper colliders and build their sphere cover."""
+        from kuavo_isaaclab_scene.planning.geometry import (
+            inverse_transform,
+            matrix_pose,
+            pose_matrix,
+        )
+        from kuavo_isaaclab_scene.planning.world import snapshot_colliders
 
         robot_root = "/World/envs/env_0/Kuavo"
         snapshot = snapshot_colliders(
@@ -877,38 +897,54 @@ class _JointPoseEditor:
         body_index_by_name = {
             name: index for index, name in enumerate(self._GRIPPER_COLLISION_FRAMES)
         }
-        local_centers = []
-        radii = []
-        owner_indices = []
+        geometry = []
         represented_frames = set()
         for collider in snapshot["colliders"]:
             owner = (collider["owner"] or "").rsplit("/", 1)[-1]
             if owner not in body_pose_by_name:
                 continue
             local_from_world = inverse_transform(pose_matrix(body_pose_by_name[owner]))
-            for sphere in cover_cuboid(
-                collider["pose_w"], collider["dims"], self._COLLISION_SPHERE_CELL_M
-            ):
-                center_w = np.asarray(sphere["center"], dtype=float)
-                local_center = (local_from_world @ np.r_[center_w, 1.0])[:3]
-                local_centers.append(local_center)
-                radii.append(float(sphere["radius"]) + self._COLLISION_MARGIN_M)
-                owner_indices.append(body_index_by_name[owner])
-                represented_frames.add(owner)
+            local_pose = matrix_pose(
+                local_from_world @ pose_matrix(collider["pose_w"])
+            )
+            geometry.append(
+                (body_index_by_name[owner], local_pose, collider["dims"])
+            )
+            represented_frames.add(owner)
         missing = set(self._GRIPPER_COLLISION_FRAMES) - represented_frames
-        if missing or not local_centers:
+        if missing or not geometry:
             raise RuntimeError(f"Missing live gripper collision frames: {sorted(missing)}")
         self.gripper_collision_body_ids = torch.tensor(
             body_ids, device=self.env.device, dtype=torch.long
         )
+        self.gripper_collision_geometry = geometry
+        self.rebuild_gripper_collision_spheres()
+
+    def rebuild_gripper_collision_spheres(self) -> None:
+        """Rebuild the visible cover for the selected cell size and margin."""
+        from kuavo_isaaclab_scene.planning.world import cover_cuboid
+
+        local_centers = []
+        base_radii = []
+        owner_indices = []
+        for owner_index, local_pose, dimensions in self.gripper_collision_geometry:
+            for sphere in cover_cuboid(
+                local_pose, dimensions, self.gripper_collision_cell_m
+            ):
+                local_centers.append(sphere["center"])
+                base_radii.append(float(sphere["radius"]))
+                owner_indices.append(owner_index)
         self.gripper_collision_owner_indices = torch.tensor(
             owner_indices, device=self.env.device, dtype=torch.long
         )
         self.gripper_collision_local_centers = torch.tensor(
             np.asarray(local_centers), device=self.env.device, dtype=self.targets.dtype
         )
-        self.gripper_collision_radii_m = torch.tensor(
-            radii, device=self.env.device, dtype=self.targets.dtype
+        self.gripper_collision_base_radii_m = torch.tensor(
+            base_radii, device=self.env.device, dtype=self.targets.dtype
+        )
+        self.gripper_collision_radii_m = (
+            self.gripper_collision_base_radii_m + self.gripper_collision_margin_m
         )
 
     def update_gripper_collision_markers(self) -> None:
@@ -922,16 +958,28 @@ class _JointPoseEditor:
         ]
         body_positions = self.robot.data.body_link_pos_w[0, body_ids]
         body_quaternions = self.robot.data.body_link_quat_w[0, body_ids]
-        positions = body_positions + quat_apply(
+        base_positions = body_positions + quat_apply(
             body_quaternions, self.gripper_collision_local_centers
         )
+        positions = torch.cat((base_positions, base_positions), dim=0)
         orientations = torch.zeros(
             (len(positions), 4), device=self.env.device, dtype=positions.dtype
         )
         orientations[:, 0] = 1.0
-        scales = self.gripper_collision_radii_m.unsqueeze(-1).expand(-1, 3)
+        scales = torch.cat(
+            (
+                self.gripper_collision_base_radii_m,
+                self.gripper_collision_radii_m,
+            )
+        ).unsqueeze(-1).expand(-1, 3)
+        marker_indices = torch.cat(
+            (
+                torch.zeros(len(base_positions), device=self.env.device, dtype=torch.int32),
+                torch.ones(len(base_positions), device=self.env.device, dtype=torch.int32),
+            )
+        )
         self.gripper_collision_markers.visualize(
-            positions, orientations, scales=scales
+            positions, orientations, marker_indices=marker_indices, scales=scales
         )
 
     def hold_authoring_state(self) -> None:
@@ -1177,8 +1225,12 @@ class _JointPoseEditor:
                 float(self.gripper_collision_radii_m.min()),
                 float(self.gripper_collision_radii_m.max()),
             ],
-            "gripper_collision_cell_m": self._COLLISION_SPHERE_CELL_M,
-            "gripper_collision_margin_m": self._COLLISION_MARGIN_M,
+            "gripper_collision_base_radius_range_m": [
+                float(self.gripper_collision_base_radii_m.min()),
+                float(self.gripper_collision_base_radii_m.max()),
+            ],
+            "gripper_collision_cell_m": self.gripper_collision_cell_m,
+            "gripper_collision_margin_m": self.gripper_collision_margin_m,
             "cleared_same_shelf_boxes": [record[0] for record in self.cleared_boxes],
             "cleared_box_root_poses_w": {
                 name: asset.data.root_pose_w[0].detach().cpu().tolist()

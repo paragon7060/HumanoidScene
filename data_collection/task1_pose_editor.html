@@ -62,6 +62,14 @@
       <label class="toggle"><input id="grasp-visible" type="checkbox" checked> Grasp point 표시</label>
       <label class="toggle"><input id="gripper-collision-visible" type="checkbox"> 그리퍼 충돌 sphere 표시</label>
       <div class="control">
+        <div class="control-head"><span>충돌구 cell</span><span id="collision-cell-value">55 mm</span></div>
+        <input id="collision-cell" type="range" min="0.055" max="0.080" step="0.005" value="0.055">
+      </div>
+      <div class="control">
+        <div class="control-head"><span>충돌 margin</span><span id="collision-margin-value">4 mm</span></div>
+        <input id="collision-margin" type="range" min="0" max="0.010" step="0.001" value="0.004">
+      </div>
+      <div class="control">
         <div class="control-head"><span>객체 로컬 Z 오프셋</span><span id="grasp-z-value">+0.000 m</span></div>
         <input id="grasp-z-offset" type="range" min="-0.15" max="0.15" step="0.005" value="0">
       </div>
@@ -75,7 +83,7 @@
       <h2>자세</h2>
       <div class="actions"><button id="reset">초기 자세</button><button id="print">서버 로그에 출력</button><button id="copy">JSON 복사</button></div>
       <div id="metrics"></div>
-      <div id="hint">청록=왼쪽, 분홍=오른쪽, 주황=몸통, 보라=머리, 초록=그리퍼 모터, 노랑=선택 축. 바퀴와 passive bar-3/4는 포즈 제어에서 제외됩니다. 초록 구=사용할 가로 grasp 쌍, 파랑 구=나머지 flap 후보.</div>
+      <div id="hint">청록=왼쪽/기본 충돌구, 분홍=오른쪽, 주황=몸통, 보라=머리, 초록=그리퍼 모터, 노랑=선택 축, 빨강=margin 포함 충돌구. 바퀴와 passive bar-3/4는 포즈 제어에서 제외됩니다. 초록 구=사용할 가로 grasp 쌍, 파랑 구=나머지 flap 후보.</div>
     </aside>
   </main>
   <script>
@@ -84,11 +92,15 @@
     const joints = document.querySelector('#joints'), metrics = document.querySelector('#metrics');
     const graspVisible = document.querySelector('#grasp-visible');
     const gripperCollisionVisible = document.querySelector('#gripper-collision-visible');
+    const collisionCell = document.querySelector('#collision-cell');
+    const collisionCellValue = document.querySelector('#collision-cell-value');
+    const collisionMargin = document.querySelector('#collision-margin');
+    const collisionMarginValue = document.querySelector('#collision-margin-value');
     const graspZOffset = document.querySelector('#grasp-z-offset');
     const graspZValue = document.querySelector('#grasp-z-value');
     const torsoZ = document.querySelector('#torso-z');
     const torsoZValue = document.querySelector('#torso-z-value');
-    let socket = null, sequence = 0, latestState = null, imageUrl = null;
+    let socket = null, sequence = 0, latestState = null, imageUrl = null, collisionModelTimer = null;
     let activeJoint = null, jointRows = new Map();
     const pendingJointValues = new Map();
     const CONTROL_GROUPS = [
@@ -158,6 +170,10 @@
       const focus = state.selected_control || '';
       graspVisible.checked = state.grasp_visible;
       gripperCollisionVisible.checked = state.gripper_collision_visible;
+      if (document.activeElement !== collisionCell) collisionCell.value = state.gripper_collision_cell_m;
+      collisionCellValue.textContent = `${Math.round(Number(collisionCell.value) * 1000)} mm`;
+      if (document.activeElement !== collisionMargin) collisionMargin.value = state.gripper_collision_margin_m;
+      collisionMarginValue.textContent = `${Math.round(Number(collisionMargin.value) * 1000)} mm`;
       if (document.activeElement !== graspZOffset) graspZOffset.value = state.grasp_z_offset_m;
       graspZValue.textContent = `${Number(graspZOffset.value) >= 0 ? '+' : ''}${Number(graspZOffset.value).toFixed(3)} m`;
       if (document.activeElement !== torsoZ) torsoZ.value = state.torso_height_m;
@@ -178,8 +194,9 @@
         row.querySelector('.joint-degrees').textContent = formattedControlValue(control, displayedValue);
       }
       const vec = value => value.map(v=>v.toFixed(3)).join(' ');
-      const collisionRadii = state.gripper_collision_radius_range_m.map(value => (value * 1000).toFixed(1));
-      metrics.textContent = `view: ${state.view}\ngrip object-Z offset: ${state.grasp_z_offset_m.toFixed(3)} m\ngripper collision: ${state.gripper_collision_sphere_count} spheres, radius ${collisionRadii[0]}–${collisionRadii[1]} mm, margin ${(state.gripper_collision_margin_m * 1000).toFixed(1)} mm\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${vec(state.tcp_position_b[0])}\nR ${vec(state.tcp_position_b[1])}\ngrasp base xyz (m):\nL ${vec(state.grasp_position_b[0])}\nR ${vec(state.grasp_position_b[1])}\ninward flap normal (base):\nL ${vec(state.inward_flap_normal_b[0])}\nR ${vec(state.inward_flap_normal_b[1])}\nshoulder → pregrasp (m): L ${state.shoulder_to_pregrasp_distance_m[0].toFixed(3)}  R ${state.shoulder_to_pregrasp_distance_m[1].toFixed(3)}\npregrasp above shoulder (m): L ${state.pregrasp_above_shoulder_m[0].toFixed(3)}  R ${state.pregrasp_above_shoulder_m[1].toFixed(3)}\ncleared: ${state.cleared_same_shelf_boxes.join(', ') || 'none'}`;
+      const baseCollisionRadii = state.gripper_collision_base_radius_range_m.map(value => (value * 1000).toFixed(1));
+      const inflatedCollisionRadii = state.gripper_collision_radius_range_m.map(value => (value * 1000).toFixed(1));
+      metrics.textContent = `view: ${state.view}\ngrip object-Z offset: ${state.grasp_z_offset_m.toFixed(3)} m\ngripper collision: ${state.gripper_collision_sphere_count} spheres\ncell ${(state.gripper_collision_cell_m * 1000).toFixed(0)} mm, base radius ${baseCollisionRadii[0]}–${baseCollisionRadii[1]} mm\nmargin ${(state.gripper_collision_margin_m * 1000).toFixed(0)} mm → red radius ${inflatedCollisionRadii[0]}–${inflatedCollisionRadii[1]} mm\nleft tool-down: ${state.tool_down_angle_deg[0].toFixed(1)}°\nright tool-down: ${state.tool_down_angle_deg[1].toFixed(1)}°\nTCP base xyz (m):\nL ${vec(state.tcp_position_b[0])}\nR ${vec(state.tcp_position_b[1])}\ngrasp base xyz (m):\nL ${vec(state.grasp_position_b[0])}\nR ${vec(state.grasp_position_b[1])}\ninward flap normal (base):\nL ${vec(state.inward_flap_normal_b[0])}\nR ${vec(state.inward_flap_normal_b[1])}\nshoulder → pregrasp (m): L ${state.shoulder_to_pregrasp_distance_m[0].toFixed(3)}  R ${state.shoulder_to_pregrasp_distance_m[1].toFixed(3)}\npregrasp above shoulder (m): L ${state.pregrasp_above_shoulder_m[0].toFixed(3)}  R ${state.pregrasp_above_shoulder_m[1].toFixed(3)}\ncleared: ${state.cleared_same_shelf_boxes.join(', ') || 'none'}`;
     }
     window.addEventListener('pointerup', () => { activeJoint = null; });
     window.addEventListener('pointercancel', () => { activeJoint = null; });
@@ -187,6 +204,19 @@
     for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => send('set_view', {view:button.dataset.view});
     graspVisible.onchange = () => send('set_grasp_visibility', {visible:graspVisible.checked});
     gripperCollisionVisible.onchange = () => send('set_gripper_collision_visibility', {visible:gripperCollisionVisible.checked});
+    function updateCollisionModel() {
+      const cellM = Number(collisionCell.value), marginM = Number(collisionMargin.value);
+      collisionCellValue.textContent = `${Math.round(cellM * 1000)} mm`;
+      collisionMarginValue.textContent = `${Math.round(marginM * 1000)} mm`;
+      if (!gripperCollisionVisible.checked) {
+        gripperCollisionVisible.checked = true;
+        send('set_gripper_collision_visibility', {visible:true});
+      }
+      clearTimeout(collisionModelTimer);
+      collisionModelTimer = setTimeout(() => send('set_gripper_collision_model', {cell_m:cellM, margin_m:marginM}), 120);
+    }
+    collisionCell.oninput = updateCollisionModel;
+    collisionMargin.oninput = updateCollisionModel;
     graspZOffset.oninput = () => {
       const value = Number(graspZOffset.value);
       graspZValue.textContent = `${value >= 0 ? '+' : ''}${value.toFixed(3)} m`;
