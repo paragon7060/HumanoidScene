@@ -493,6 +493,8 @@ class _JointPoseEditor:
         self.target_box_initial_position_w = self.target_box.data.body_link_pos_w[
             0, self.target_box_body_id
         ].clone()
+        self.target_box_root_pose_w = self.target_box.data.root_pose_w.clone()
+        self.target_box_joint_positions = self.target_box.data.joint_pos.clone()
         model = UrdfModel(resolve_robot_model().urdf_path)
         self.local_axes = torch.tensor(
             [model.joints[name].axis for name in self.joint_names],
@@ -601,6 +603,17 @@ class _JointPoseEditor:
             term.set_following(True)
             term.set_following(False)
         self.update_markers()
+
+    def hold_target_box(self) -> None:
+        """Keep the authoring target fixed; collection modes retain live physics."""
+        self.target_box.write_root_pose_to_sim(self.target_box_root_pose_w)
+        self.target_box.write_root_velocity_to_sim(
+            torch.zeros((1, 6), device=self.env.device, dtype=self.target_box_root_pose_w.dtype)
+        )
+        velocities = torch.zeros_like(self.target_box_joint_positions)
+        self.target_box.write_joint_state_to_sim(self.target_box_joint_positions, velocities)
+        self.target_box.set_joint_position_target(self.target_box_joint_positions)
+        self.target_box.set_joint_velocity_target(velocities)
 
     def update_markers(self) -> None:
         from isaaclab.utils.math import quat_apply
@@ -1206,10 +1219,11 @@ def main() -> None:
             env.step(action)
             if pose_editor is not None:
                 # Re-assert static joint targets after the manager action and
-                # refresh the visible joint-axis cylinders.
+                # keep the authoring target from falling before refreshing the markers.
                 pose_editor.robot.set_joint_position_target(
                     pose_editor.targets, joint_ids=pose_editor.joint_ids
                 )
+                pose_editor.hold_target_box()
                 pose_editor.update_markers()
                 if editor_changed or step % max(1, stream_interval) == 0:
                     bridge.publish_pose_editor_state(pose_editor.state())
