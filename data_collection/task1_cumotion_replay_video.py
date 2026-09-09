@@ -122,6 +122,17 @@ async def replay_and_record(args, joint_names: list[str], waypoints: np.ndarray)
                         "type": "pose_editor",
                         "protocol_version": PROTOCOL_VERSION,
                         "sequence": sequence,
+                        "action": "reset",
+                    }
+                )
+            )
+            sequence += 1
+            await socket.send(
+                json.dumps(
+                    {
+                        "type": "pose_editor",
+                        "protocol_version": PROTOCOL_VERSION,
+                        "sequence": sequence,
                         "action": "set_view",
                         "view": args.view,
                     }
