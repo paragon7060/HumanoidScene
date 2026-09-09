@@ -10,11 +10,19 @@ from pathlib import Path
 
 import numpy as np
 
-from kuavo_isaaclab_scene.core.paths import ASSET_DIR, PACKAGE_CONFIG_DIR
-from kuavo_isaaclab_scene.planning.gripper_collision import (
-    GRIPPER_COLLISION_FRAMES,
-    SUPPORTED_MAX_OVERSHOOT_M,
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+ASSET_DIR = REPOSITORY_ROOT / "src/kuavo_isaaclab_scene/assets"
+PACKAGE_CONFIG_DIR = REPOSITORY_ROOT / "src/kuavo_isaaclab_scene/configs"
+GRIPPER_COLLISION_FRAMES = (
+    "l_twofinger_base",
+    "l_f_finger",
+    "l_b_finger",
+    "r_twofinger_base",
+    "r_f_finger",
+    "r_b_finger",
 )
+SUPPORTED_MAX_OVERSHOOT_M = (0.002, 0.005, 0.010, 0.020)
 
 
 def read_binary_stl(path: Path) -> tuple[np.ndarray, np.ndarray]:

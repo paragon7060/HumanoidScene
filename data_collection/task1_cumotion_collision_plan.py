@@ -30,6 +30,18 @@ ROBOT_COLLISION_FRAMES = {
     "r_f_finger",
     "r_b_finger",
 }
+GRIPPER_COLLISION_FRAMES = {
+    "l_twofinger_base",
+    "l_f_finger",
+    "l_b_finger",
+    "r_twofinger_base",
+    "r_f_finger",
+    "r_b_finger",
+}
+DEFAULT_GRIPPER_SPHERE_CONFIG = (
+    Path(__file__).resolve().parents[1]
+    / "src/kuavo_isaaclab_scene/configs/task1_s200062_gripper_collision_spheres.json"
+)
 
 SELF_COLLISION_IGNORE = {
     "waist_yaw_link": ["zhead_1_link", "zarm_l2_link", "zarm_r2_link"],
@@ -155,6 +167,29 @@ def robot_spheres(
     return spheres
 
 
+def load_gripper_mesh_spheres(max_overshoot_m: float) -> dict[str, list[dict]]:
+    """Load one checked-in cuMotion-generated hand-sphere preset."""
+    payload = json.loads(DEFAULT_GRIPPER_SPHERE_CONFIG.read_text())
+    preset = payload.get("presets", {}).get(f"{max_overshoot_m:.3f}")
+    if (
+        payload.get("schema_version") != 1
+        or payload.get("robot_model") != "s200062"
+        or not isinstance(preset, dict)
+        or not math.isclose(
+            float(preset.get("max_overshoot_m", float("nan"))),
+            max_overshoot_m,
+            abs_tol=1e-12,
+            rel_tol=0.0,
+        )
+        or set(preset.get("frames", {})) != GRIPPER_COLLISION_FRAMES
+    ):
+        raise ValueError(
+            f"invalid gripper sphere preset {max_overshoot_m}: "
+            f"{DEFAULT_GRIPPER_SPHERE_CONFIG}"
+        )
+    return preset["frames"]
+
+
 def collision_world_config(
     snapshot: dict, world_config: dict, *, allow_target_flap_contact: bool
 ) -> tuple[dict, list[str]]:
@@ -259,9 +294,6 @@ def main(argv=None) -> int:
     output.mkdir(parents=True)
 
     import cumotion
-    from kuavo_isaaclab_scene.planning.gripper_collision import (
-        load_gripper_collision_spheres,
-    )
 
     snapshot_dir = args.snapshot_dir.expanduser().resolve()
     snapshot = json.loads((snapshot_dir / "collision_snapshot.json").read_text())
@@ -273,7 +305,7 @@ def main(argv=None) -> int:
         allow_target_flap_contact=args.allow_target_flap_contact,
     )
     urdf_text = args.urdf.expanduser().resolve().read_text()
-    gripper_mesh_spheres = load_gripper_collision_spheres(
+    gripper_mesh_spheres = load_gripper_mesh_spheres(
         args.gripper_max_overshoot_m
     )
 

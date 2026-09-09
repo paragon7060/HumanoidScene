@@ -17,6 +17,7 @@ from data_collection.task1_cumotion_collision_plan import (
     SELF_COLLISION_IGNORE,
     axis_alignment_error_deg,
     collision_world_config,
+    load_gripper_mesh_spheres,
     normalized_axis,
     pose_matrix,
     robot_spheres,
@@ -136,9 +137,6 @@ def main(argv=None) -> int:
         raise ValueError("--collision-margin-m must be finite and nonnegative")
 
     import cumotion
-    from kuavo_isaaclab_scene.planning.gripper_collision import (
-        load_gripper_collision_spheres,
-    )
 
     snapshot_dir = args.snapshot_dir.expanduser().resolve()
     snapshot = json.loads((snapshot_dir / "collision_snapshot.json").read_text())
@@ -201,7 +199,7 @@ def main(argv=None) -> int:
             )
         ]
     )
-    gripper_mesh_spheres = load_gripper_collision_spheres(
+    gripper_mesh_spheres = load_gripper_mesh_spheres(
         args.gripper_max_overshoot_m
     )
     world_spheres = robot_spheres(
