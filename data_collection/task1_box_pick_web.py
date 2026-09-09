@@ -519,9 +519,10 @@ class _JointPoseEditor:
     _GRIPPER_COLLISION_FRAMES = S200062_GRIPPER_COLLISION_FRAMES
     _COLLISION_MAX_OVERSHOOT_M = 0.002
     _COLLISION_MARGIN_M = 0.004
-    _TRANSIT_ROBOTWARD_OFFSET_M = 0.30
     _TRANSIT_HEIGHT_B_M = rack_tier_surface_z(1)
-    _TRANSIT_HALF_TOLERANCE_B_M = (0.12, 0.12, 0.12)
+    _PREGRASP_OFFSET_B_M = (-0.10, 0.0, 0.05)
+    _PREGRASP_SIZE_B_M = (0.10, 0.10, 0.10)
+    _TRANSIT_SIZE_B_M = (0.10, 0.24, 0.10)
     _CONTROL_LABELS = {
         "knee_joint": "승강 knee",
         "leg_joint": "승강 leg",
@@ -622,6 +623,31 @@ class _JointPoseEditor:
         self.base_all_flap_grasp_points_w = all_flap_grasp_points_w.clone()
         self.grasp_z_offset_m = 0.0
         self.update_grasp_offset()
+        self.region_offsets_b_m = {
+            "pregrasp": torch.tensor(
+                self._PREGRASP_OFFSET_B_M,
+                device=env.device,
+                dtype=grasp_points_w.dtype,
+            ),
+            "transit": torch.tensor(
+                (-0.30, 0.0, 0.0),
+                device=env.device,
+                dtype=grasp_points_w.dtype,
+            ),
+        }
+        self.region_sizes_b_m = {
+            "pregrasp": torch.tensor(
+                self._PREGRASP_SIZE_B_M,
+                device=env.device,
+                dtype=grasp_points_w.dtype,
+            ),
+            "transit": torch.tensor(
+                self._TRANSIT_SIZE_B_M,
+                device=env.device,
+                dtype=grasp_points_w.dtype,
+            ),
+        }
+        self.region_visibility = {"pregrasp": True, "transit": True}
         self.pregrasp_height_m = float(pregrasp_height_m)
         self.local_axes = torch.tensor(
             [model.joints[name].axis for name in self.joint_names],
@@ -763,6 +789,36 @@ class _JointPoseEditor:
         )
         self.transit_markers = VisualizationMarkers(transit_marker_cfg)
         self.transit_visible = True
+        pregrasp_marker_cfg = VisualizationMarkersCfg(
+            prim_path="/Visuals/Task1PregraspRegion",
+            markers={
+                "left_center": sim_utils.SphereCfg(
+                    radius=0.032,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.35, 1.0, 0.30), emissive_color=(0.02, 0.22, 0.02)
+                    ),
+                ),
+                "right_center": sim_utils.SphereCfg(
+                    radius=0.032,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.68, 0.12), emissive_color=(0.24, 0.08, 0.0)
+                    ),
+                ),
+                "left_region": sim_utils.CuboidCfg(
+                    size=(1.0, 1.0, 1.0),
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(0.35, 1.0, 0.30), opacity=0.14
+                    ),
+                ),
+                "right_region": sim_utils.CuboidCfg(
+                    size=(1.0, 1.0, 1.0),
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.68, 0.12), opacity=0.14
+                    ),
+                ),
+            },
+        )
+        self.pregrasp_markers = VisualizationMarkers(pregrasp_marker_cfg)
         cleared = [record[0] for record in self.cleared_boxes]
         print(
             f"[POSE_EDITOR_INIT] cleared_same_shelf_boxes={cleared}; "
@@ -837,9 +893,18 @@ class _JointPoseEditor:
             self.grasp_markers.set_visibility(self.grasp_visible)
         elif command.action == "set_transit_visibility":
             self.transit_visible = command.transit_visible
+            self.region_visibility["transit"] = command.transit_visible
             self.transit_markers.set_visibility(self.transit_visible)
             if self.transit_visible:
                 self.update_transit_markers()
+        elif command.action == "set_region_visibility":
+            self.set_region_visibility(command.region_name, command.region_visible)
+        elif command.action == "set_region_geometry":
+            self.set_region_geometry(
+                command.region_name,
+                command.region_offset_b_m,
+                command.region_size_b_m,
+            )
         elif command.action == "set_grasp_z_offset":
             self.grasp_z_offset_m = command.grasp_z_offset_m
             self.update_grasp_offset()
@@ -916,6 +981,36 @@ class _JointPoseEditor:
         self.pregrasp_targets_w = self.base_pregrasp_targets_w + delta_w
         self.grasp_points_w = self.base_grasp_points_w + delta_w
         self.all_flap_grasp_points_w = self.base_all_flap_grasp_points_w + delta_w
+
+    def set_region_visibility(self, region: str, visible: bool) -> None:
+        """Toggle one editable planning region and its center markers."""
+        markers = {
+            "pregrasp": self.pregrasp_markers,
+            "transit": self.transit_markers,
+        }
+        if region not in markers:
+            raise ValueError(f"Unknown planning region: {region}")
+        self.region_visibility[region] = bool(visible)
+        if region == "transit":
+            self.transit_visible = bool(visible)
+        markers[region].set_visibility(bool(visible))
+        if visible:
+            self.update_region_markers(region)
+
+    def set_region_geometry(self, region: str, offset_b_m, size_b_m) -> None:
+        """Apply one validated grasp-relative region offset and full XYZ size."""
+        if region not in self.region_offsets_b_m:
+            raise ValueError(f"Unknown planning region: {region}")
+        offset = torch.tensor(
+            offset_b_m, device=self.env.device, dtype=self.targets.dtype
+        )
+        size = torch.tensor(size_b_m, device=self.env.device, dtype=self.targets.dtype)
+        if offset.shape != (3,) or size.shape != (3,):
+            raise ValueError("Planning region offset and size must be xyz vectors")
+        self.region_offsets_b_m[region] = offset
+        self.region_sizes_b_m[region] = size
+        if self.region_visibility[region]:
+            self.update_region_markers(region)
 
     def prepare_gripper_collision_spheres(self) -> None:
         """Resolve hand bodies and load the generated mesh-fitted sphere preset."""
@@ -1002,37 +1097,41 @@ class _JointPoseEditor:
             positions, orientations, marker_indices=marker_indices, scales=scales
         )
 
-    def transit_centers_b(self):
-        """Return the validated left/right rack-approach transit centers in base frame."""
+    def region_centers_b(self, region: str):
+        """Return grasp-relative centers, with transit Z tied to rack tier two."""
         from isaaclab.utils.math import subtract_frame_transforms
 
+        if region not in self.region_offsets_b_m:
+            raise ValueError(f"Unknown planning region: {region}")
         root_pos = self.robot.data.root_pos_w.expand(2, -1)
         root_quat = self.robot.data.root_quat_w.expand(2, -1)
         grasp_pos_b, _ = subtract_frame_transforms(
             root_pos, root_quat, self.grasp_points_w, root_quat
         )
-        centers = grasp_pos_b.clone()
-        centers[:, 0] -= self._TRANSIT_ROBOTWARD_OFFSET_M
-        centers[:, 2] = self._TRANSIT_HEIGHT_B_M
-        return centers
+        centers_b = grasp_pos_b + self.region_offsets_b_m[region].unsqueeze(0)
+        if region == "transit":
+            centers_b[:, 2] = (
+                self._TRANSIT_HEIGHT_B_M + self.region_offsets_b_m[region][2]
+            )
+        return centers_b
 
-    def update_transit_markers(self) -> None:
-        """Draw both transit centers and their base-aligned tolerance boxes."""
-        if not self.transit_visible:
+    def transit_centers_b(self):
+        """Backward-compatible accessor for the editable transit-region centers."""
+        return self.region_centers_b("transit")
+
+    def update_region_markers(self, region: str) -> None:
+        """Draw one pair of editable centers and base-aligned region boxes."""
+        if not self.region_visibility[region]:
             return
         from isaaclab.utils.math import quat_apply
 
-        centers_b = self.transit_centers_b()
         root_pos = self.robot.data.root_pos_w.expand(2, -1)
         root_quat = self.robot.data.root_quat_w.expand(2, -1)
+        centers_b = self.region_centers_b(region)
         centers_w = root_pos + quat_apply(root_quat, centers_b)
         positions = torch.cat((centers_w, centers_w), dim=0)
         orientations = torch.cat((root_quat, root_quat), dim=0)
-        side_lengths = torch.tensor(
-            tuple(2.0 * value for value in self._TRANSIT_HALF_TOLERANCE_B_M),
-            device=self.env.device,
-            dtype=positions.dtype,
-        )
+        side_lengths = self.region_sizes_b_m[region]
         scales = torch.cat(
             (
                 torch.ones((2, 3), device=self.env.device, dtype=positions.dtype),
@@ -1041,9 +1140,14 @@ class _JointPoseEditor:
             dim=0,
         )
         marker_indices = torch.arange(4, device=self.env.device, dtype=torch.int32)
-        self.transit_markers.visualize(
+        markers = self.pregrasp_markers if region == "pregrasp" else self.transit_markers
+        markers.visualize(
             positions, orientations, marker_indices=marker_indices, scales=scales
         )
+
+    def update_transit_markers(self) -> None:
+        """Backward-compatible marker update for the transit region."""
+        self.update_region_markers("transit")
 
     def hold_authoring_state(self) -> None:
         """Keep the editor's robot and target at their authored poses."""
@@ -1121,6 +1225,7 @@ class _JointPoseEditor:
             marker_indices[self.joint_names.index(selected_name)] = 5
         self.markers.visualize(positions, orientations, marker_indices=marker_indices)
         self.update_gripper_collision_markers()
+        self.update_region_markers("pregrasp")
         self.update_transit_markers()
 
         grasp_positions = self.all_flap_grasp_points_w
@@ -1205,12 +1310,11 @@ class _JointPoseEditor:
         root_pos = self.robot.data.root_pos_w.expand(2, -1)
         root_quat = self.robot.data.root_quat_w.expand(2, -1)
         tcp_pos_b, _ = subtract_frame_transforms(root_pos, root_quat, ee_pos, ee_quat)
-        pregrasp_pos_b, _ = subtract_frame_transforms(
-            root_pos, root_quat, self.pregrasp_targets_w, root_quat
-        )
         grasp_pos_b, _ = subtract_frame_transforms(
             root_pos, root_quat, self.grasp_points_w, root_quat
         )
+        pregrasp_pos_b = self.region_centers_b("pregrasp")
+        pregrasp_targets_w = root_pos + quat_apply(root_quat, pregrasp_pos_b)
         inward_normals_b = quat_apply_inverse(root_quat, self.inward_normals_w)
         shoulder_body_ids = (self.body_ids[0], self.body_ids[7])
         shoulder_pos_w = self.robot.data.body_link_pos_w[0, shoulder_body_ids]
@@ -1218,7 +1322,7 @@ class _JointPoseEditor:
         shoulder_pos_b, _ = subtract_frame_transforms(
             root_pos, root_quat, shoulder_pos_w, shoulder_quat_w
         )
-        shoulder_to_pregrasp = self.pregrasp_targets_w - shoulder_pos_w
+        shoulder_to_pregrasp = pregrasp_targets_w - shoulder_pos_w
         target_box_position_w = self.target_box.data.body_link_pos_w[
             0, self.target_box_body_id
         ]
@@ -1283,11 +1387,31 @@ class _JointPoseEditor:
             },
             "grasp_visible": self.grasp_visible,
             "grasp_z_offset_m": self.grasp_z_offset_m,
+            "pregrasp_region_visible": self.region_visibility["pregrasp"],
+            "pregrasp_region_center_b_m": pregrasp_pos_b.detach().cpu().tolist(),
+            "pregrasp_region_offset_b_m": self.region_offsets_b_m[
+                "pregrasp"
+            ].detach().cpu().tolist(),
+            "pregrasp_region_size_b_m": self.region_sizes_b_m[
+                "pregrasp"
+            ].detach().cpu().tolist(),
             "transit_visible": self.transit_visible,
+            "transit_region_visible": self.region_visibility["transit"],
             "transit_center_b_m": self.transit_centers_b().detach().cpu().tolist(),
-            "transit_robotward_offset_m": self._TRANSIT_ROBOTWARD_OFFSET_M,
-            "transit_half_tolerance_b_m": list(self._TRANSIT_HALF_TOLERANCE_B_M),
-            "transit_height_source": "second rack physical shelf top",
+            "transit_region_offset_b_m": self.region_offsets_b_m[
+                "transit"
+            ].detach().cpu().tolist(),
+            "transit_region_size_b_m": self.region_sizes_b_m[
+                "transit"
+            ].detach().cpu().tolist(),
+            "transit_robotward_offset_m": -float(self.region_offsets_b_m["transit"][0]),
+            "transit_half_tolerance_b_m": (
+                self.region_sizes_b_m["transit"] / 2
+            ).detach().cpu().tolist(),
+            "transit_height_source": "second rack physical shelf top plus editable Z offset",
+            "transit_region_reference": (
+                "X/Y from grasp; Z from second rack physical shelf top"
+            ),
             "gripper_collision_visible": self.gripper_collision_visible,
             "gripper_collision_sphere_count": len(self.gripper_collision_radii_m),
             "gripper_collision_radius_range_m": [

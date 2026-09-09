@@ -49,6 +49,26 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         **base, "action": "set_transit_visibility", "visible": True,
     }))
     assert transit_visibility is not None and transit_visibility.transit_visible is True
+    pregrasp_visibility = parse_pose_editor_message(json.dumps({
+        **base,
+        "action": "set_region_visibility",
+        "region": "pregrasp",
+        "visible": True,
+    }))
+    assert pregrasp_visibility is not None
+    assert pregrasp_visibility.region_name == "pregrasp"
+    assert pregrasp_visibility.region_visible is True
+    region = parse_pose_editor_message(json.dumps({
+        **base,
+        "action": "set_region_geometry",
+        "region": "transit",
+        "offset_b_m": [-0.3, 0.0, -0.23],
+        "size_b_m": [0.1, 0.24, 0.1],
+    }))
+    assert region is not None
+    assert region.region_name == "transit"
+    assert region.region_offset_b_m == pytest.approx((-0.3, 0.0, -0.23))
+    assert region.region_size_b_m == pytest.approx((0.1, 0.24, 0.1))
     offset = parse_pose_editor_message(json.dumps({
         **base, "action": "set_grasp_z_offset", "offset_m": -0.035,
     }))
@@ -90,6 +110,11 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         {**base, "action": "set_view", "view": "free"},
         {**base, "action": "set_grasp_visibility", "visible": 0},
         {**base, "action": "set_transit_visibility", "visible": 0},
+        {**base, "action": "set_region_visibility", "region": "approach", "visible": True},
+        {**base, "action": "set_region_visibility", "region": "pregrasp", "visible": 1},
+        {**base, "action": "set_region_geometry", "region": "transit", "offset_b_m": [0, 0], "size_b_m": [0.1, 0.1, 0.1]},
+        {**base, "action": "set_region_geometry", "region": "transit", "offset_b_m": [0, 0, 0], "size_b_m": [0.0, 0.1, 0.1]},
+        {**base, "action": "set_region_geometry", "region": "pregrasp", "offset_b_m": [0, 0, "nan"], "size_b_m": [0.1, 0.1, 0.1]},
         {**base, "action": "set_grasp_z_offset", "offset_m": "nan"},
         {**base, "action": "set_grasp_z_offset", "offset_m": 0.151},
         {**base, "action": "set_control", "control_name": "wheel_left_front_joint", "value": 0},

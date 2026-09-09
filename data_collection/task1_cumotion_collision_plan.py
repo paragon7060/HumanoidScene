@@ -321,6 +321,12 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--validation-samples", type=int, default=101)
     result.add_argument("--target", choices=("pregrasp", "grasp"), default="pregrasp")
     result.add_argument(
+        "--editor-region",
+        choices=("pregrasp", "transit"),
+        default=None,
+        help="Use the editable box region stored in the planning snapshot.",
+    )
+    result.add_argument(
         "--target-offset-b-m",
         type=float,
         nargs=3,
@@ -375,6 +381,12 @@ def main(argv=None) -> int:
         raise ValueError("--target-offset-b-m must be finite")
     if not np.isfinite(target_region_size_m).all() or np.any(target_region_size_m < 0):
         raise ValueError("--target-region-size-m must be finite and nonnegative")
+    if args.editor_region is not None and (
+        np.any(target_offset_b_m) or np.any(target_region_size_m)
+    ):
+        raise ValueError(
+            "--editor-region cannot be combined with target offset/region size overrides"
+        )
     output = args.output_dir or Path("/home/seonho/outputs/HumanoidScene") / (
         f"cumotion_collision_{args.target}_" + datetime.now().strftime("%Y%m%d_%H%M%S")
     )
@@ -426,6 +438,16 @@ def main(argv=None) -> int:
     defaults = runtime_joint_defaults(runtime)
     editor_state = runtime["pose_editor_state"]
     targets = editor_state[f"{args.target}_position_b"]
+    editor_region_centers = None
+    if args.editor_region is not None:
+        editor_region_centers = np.asarray(
+            editor_state[f"{args.editor_region}_region_center_b_m"], dtype=float
+        )
+        target_region_size_m = np.asarray(
+            editor_state[f"{args.editor_region}_region_size_b_m"], dtype=float
+        )
+        if editor_region_centers.shape != (2, 3):
+            raise ValueError("editor region must contain left/right xyz centers")
     inward_normals = editor_state["inward_flap_normal_b"]
     orientation_report = (
         {"type": "none"}
@@ -444,7 +466,8 @@ def main(argv=None) -> int:
         "initial_pose_source": runtime.get("initial_state", "snapshot runtime joint state"),
         "orientation_constraint": orientation_report,
         "target_region": {
-            "reference": args.target,
+            "reference": args.editor_region or args.target,
+            "source": "pose_editor_state" if args.editor_region else "command_line",
             "center_offset_b_m": target_offset_b_m.tolist(),
             "size_b_m": target_region_size_m.tolist(),
             "goalset_grid_points_per_axis": args.target_region_grid_points_per_axis,
@@ -497,7 +520,9 @@ def main(argv=None) -> int:
             cumotion.create_default_trajectory_optimizer_config(robot, tool, world_view)
         )
         target_center = (
-            np.asarray(targets[target_index], dtype=float) + target_offset_b_m
+            editor_region_centers[target_index]
+            if editor_region_centers is not None
+            else np.asarray(targets[target_index], dtype=float) + target_offset_b_m
         )
         target_goal_points = box_region_goal_points(
             target_center,

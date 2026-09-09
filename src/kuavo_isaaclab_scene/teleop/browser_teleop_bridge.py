@@ -101,6 +101,10 @@ class PoseEditorCommand:
     torso_height_m: float | None = None
     collision_max_overshoot_m: float | None = None
     collision_margin_m: float | None = None
+    region_name: str | None = None
+    region_visible: bool | None = None
+    region_offset_b_m: tuple[float, float, float] | None = None
+    region_size_b_m: tuple[float, float, float] | None = None
 
 
 _ARM_JOINT_PATTERN = re.compile(r"^zarm_[lr][1-7]_joint$")
@@ -188,6 +192,46 @@ def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
         if not isinstance(visible, bool):
             return None
         return PoseEditorCommand(sequence, action, transit_visible=visible)
+    if action == "set_region_visibility":
+        region_name = payload.get("region")
+        visible = payload.get("visible")
+        if region_name not in {"pregrasp", "transit"} or not isinstance(visible, bool):
+            return None
+        return PoseEditorCommand(
+            sequence,
+            action,
+            region_name=region_name,
+            region_visible=visible,
+        )
+    if action == "set_region_geometry":
+        region_name = payload.get("region")
+        offset = payload.get("offset_b_m")
+        size = payload.get("size_b_m")
+        if (
+            region_name not in {"pregrasp", "transit"}
+            or not isinstance(offset, list)
+            or not isinstance(size, list)
+            or len(offset) != 3
+            or len(size) != 3
+        ):
+            return None
+        try:
+            offset_b_m = tuple(float(value) for value in offset)
+            size_b_m = tuple(float(value) for value in size)
+        except (TypeError, ValueError):
+            return None
+        if (
+            not all(math.isfinite(value) and -1.0 <= value <= 1.0 for value in offset_b_m)
+            or not all(math.isfinite(value) and 0.01 <= value <= 0.50 for value in size_b_m)
+        ):
+            return None
+        return PoseEditorCommand(
+            sequence,
+            action,
+            region_name=region_name,
+            region_offset_b_m=offset_b_m,
+            region_size_b_m=size_b_m,
+        )
     if action == "set_grasp_z_offset":
         try:
             offset_m = float(payload.get("offset_m"))
@@ -615,6 +659,10 @@ class BrowserTeleopBridge:
                             editor_command.collision_max_overshoot_m
                         ),
                         collision_margin_m=editor_command.collision_margin_m,
+                        region_name=editor_command.region_name,
+                        region_visible=editor_command.region_visible,
+                        region_offset_b_m=editor_command.region_offset_b_m,
+                        region_size_b_m=editor_command.region_size_b_m,
                     )
                 continue
             try:
