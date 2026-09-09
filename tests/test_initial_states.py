@@ -145,3 +145,23 @@ def test_user_pose_packaged_copy_and_all_36_joints():
     assert ready["gripper"] == "s200062_integrated"
     assert len(ready["assets"]["robot"]["root_pose"]) == 7
     assert len(ready["assets"]["robot"]["joint_positions"]) == 36
+
+
+def test_second_rack_pose_preserves_meta_base_and_sets_user_controls():
+    root = Path(__file__).resolve().parents[1]
+    state = read_states(root / "configs/initial_states.json")["states"][
+        "second_rack_pose"
+    ]
+    robot = state["assets"]["robot"]
+    joints = robot["joint_positions"]
+
+    assert "root_pose" not in robot
+    assert len(joints) == 24
+    assert joints["zarm_l1_joint"] == 0.25
+    assert joints["zarm_r4_joint"] == -0.6499999761581421
+    assert joints["knee_joint"] == 0.25423744320869446
+    assert joints["leg_joint"] == -0.5588340163230896
+    assert joints["waist_pitch_joint"] == 0.30459657311439514
+    assert joints["zhead_2_joint"] == 0.5240000486373901
+    assert joints["l_f_bar_1_joint"] == -0.25
+    assert joints["r_b_bar_1_joint"] == 0.25

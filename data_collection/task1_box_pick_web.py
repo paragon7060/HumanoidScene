@@ -90,6 +90,11 @@ parser.add_argument(
     action="store_true",
     help="Serve a static third-person browser editor for the fourteen arm joints.",
 )
+parser.add_argument(
+    "--pose-editor-initial-state",
+    default="second_rack_pose",
+    help="Named initial-state preset loaded before the pose editor captures its reset pose.",
+)
 parser.add_argument("--editor-camera-width", type=int, default=1280)
 parser.add_argument("--editor-camera-height", type=int, default=720)
 parser.add_argument(
@@ -1555,8 +1560,10 @@ def main() -> None:
         if args_cli.solve_downward_ready:
             _solve_downward_ready(env)
     elif args_cli.joint_pose_editor:
+        _load_task_ready(env, args_cli.pose_editor_initial_state)
         print(
-            "[POSE_EDITOR_INIT] using KuavoQuestTeleopEnvCfg default initial pose",
+            f"[POSE_EDITOR_INIT] using named initial pose "
+            f"{args_cli.pose_editor_initial_state!r}",
             flush=True,
         )
     if args_cli.camera_preview and not args_cli.headless:
