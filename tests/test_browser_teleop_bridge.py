@@ -38,10 +38,17 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
     assert parse_pose_editor_message(json.dumps({
         **base, "action": "set_view", "view": "head",
     })).view == "head"
+    assert parse_pose_editor_message(json.dumps({
+        **base, "action": "set_view", "view": "left",
+    })).view == "left"
     visibility = parse_pose_editor_message(json.dumps({
         **base, "action": "set_grasp_visibility", "visible": False,
     }))
     assert visibility is not None and visibility.visible is False
+    offset = parse_pose_editor_message(json.dumps({
+        **base, "action": "set_grasp_z_offset", "offset_m": -0.035,
+    }))
+    assert offset is not None and offset.grasp_z_offset_m == pytest.approx(-0.035)
     for invalid in (
         {**base, "action": "set_joint", "joint_name": "waist_yaw_joint", "value_rad": 0},
         {**base, "action": "set_joint", "joint_name": "zarm_l8_joint", "value_rad": 0},
@@ -51,6 +58,8 @@ def test_pose_editor_protocol_accepts_only_arm_joints_and_known_views():
         {**base, "action": "set_pose", "joint_positions": {"zarm_l2_joint": "nan"}},
         {**base, "action": "set_view", "view": "free"},
         {**base, "action": "set_grasp_visibility", "visible": 0},
+        {**base, "action": "set_grasp_z_offset", "offset_m": "nan"},
+        {**base, "action": "set_grasp_z_offset", "offset_m": 0.151},
     ):
         assert parse_pose_editor_message(json.dumps(invalid)) is None
 

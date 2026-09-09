@@ -93,6 +93,7 @@ class PoseEditorCommand:
     joint_positions: dict[str, float] | None = None
     view: str | None = None
     visible: bool | None = None
+    grasp_z_offset_m: float | None = None
 
 
 _ARM_JOINT_PATTERN = re.compile(r"^zarm_[lr][1-7]_joint$")
@@ -101,6 +102,8 @@ _EDITOR_VIEWS = {
     "rear_right",
     "front_left",
     "front_right",
+    "left",
+    "right",
     "head",
     "left_wrist",
     "right_wrist",
@@ -163,6 +166,14 @@ def parse_pose_editor_message(message: str) -> PoseEditorCommand | None:
         if not isinstance(visible, bool):
             return None
         return PoseEditorCommand(sequence, action, visible=visible)
+    if action == "set_grasp_z_offset":
+        try:
+            offset_m = float(payload.get("offset_m"))
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(offset_m) or not -0.15 <= offset_m <= 0.15:
+            return None
+        return PoseEditorCommand(sequence, action, grasp_z_offset_m=offset_m)
     if action in {"reset", "print_pose"}:
         return PoseEditorCommand(sequence, action)
     return None

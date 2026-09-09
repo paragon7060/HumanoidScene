@@ -478,6 +478,8 @@ class _JointPoseEditor:
         "rear_right": ((-2.2, -1.8, 1.65), (0.45, 0.0, 1.15)),
         "front_left": ((2.0, 1.8, 1.65), (0.20, 0.0, 1.15)),
         "front_right": ((2.0, -1.8, 1.65), (0.20, 0.0, 1.15)),
+        "left": ((0.45, 2.6, 1.55), (0.45, 0.0, 1.15)),
+        "right": ((0.45, -2.6, 1.55), (0.45, 0.0, 1.15)),
     }
     _FIRST_PERSON_CAMERAS = {
         "head": "robustness_camera",
@@ -545,7 +547,7 @@ class _JointPoseEditor:
         self.hold_cleared_boxes()
         env.sim.forward()
         env.scene.update(env.step_dt)
-        self.pregrasp_targets_w, self.grasp_points_w, self.inward_normals_w, self.pregrasp_geometry = (
+        pregrasp_targets_w, grasp_points_w, self.inward_normals_w, self.pregrasp_geometry = (
             _pregrasp_targets(env, height_m=pregrasp_height_m, grasp_depth_m=grasp_depth_m)
         )
         self.all_flap_names = (
@@ -554,9 +556,25 @@ class _JointPoseEditor:
             "flap_right",
             "flap_left",
         )
-        self.all_flap_grasp_points_w = _flap_grasp_points(
+        all_flap_grasp_points_w = _flap_grasp_points(
             env, self.all_flap_names, grasp_depth_m=grasp_depth_m
         )
+        from isaaclab.utils.math import quat_apply
+
+        target_box_quat_w = self.target_box.data.body_link_quat_w[
+            0, self.target_box_body_id
+        ].unsqueeze(0)
+        self.object_z_axis_w = quat_apply(
+            target_box_quat_w,
+            torch.tensor(
+                ((0.0, 0.0, 1.0),), device=env.device, dtype=grasp_points_w.dtype
+            ),
+        )[0]
+        self.base_pregrasp_targets_w = pregrasp_targets_w.clone()
+        self.base_grasp_points_w = grasp_points_w.clone()
+        self.base_all_flap_grasp_points_w = all_flap_grasp_points_w.clone()
+        self.grasp_z_offset_m = 0.0
+        self.update_grasp_offset()
         self.pregrasp_height_m = float(pregrasp_height_m)
         model = UrdfModel(resolve_robot_model().urdf_path)
         self.local_axes = torch.tensor(
@@ -679,6 +697,10 @@ class _JointPoseEditor:
         elif command.action == "set_grasp_visibility":
             self.grasp_visible = command.visible
             self.grasp_markers.set_visibility(self.grasp_visible)
+        elif command.action == "set_grasp_z_offset":
+            self.grasp_z_offset_m = command.grasp_z_offset_m
+            self.update_grasp_offset()
+            self.update_markers()
         elif command.action == "print_pose":
             values = {
                 name: float(value) for name, value in zip(self.joint_names, self.targets[0].tolist())
@@ -694,6 +716,13 @@ class _JointPoseEditor:
             # so the next manager step cannot restore an older pose.
             term.set_following(True)
             term.set_following(False)
+
+    def update_grasp_offset(self) -> None:
+        """Shift every grasp candidate along the target object's local +Z axis."""
+        delta_w = self.object_z_axis_w * self.grasp_z_offset_m
+        self.pregrasp_targets_w = self.base_pregrasp_targets_w + delta_w
+        self.grasp_points_w = self.base_grasp_points_w + delta_w
+        self.all_flap_grasp_points_w = self.base_all_flap_grasp_points_w + delta_w
 
     def hold_authoring_state(self) -> None:
         """Keep the editor's robot and target at their authored poses."""
@@ -845,6 +874,7 @@ class _JointPoseEditor:
                 "blue": "other flap grasp candidates",
             },
             "grasp_visible": self.grasp_visible,
+            "grasp_z_offset_m": self.grasp_z_offset_m,
             "cleared_same_shelf_boxes": [record[0] for record in self.cleared_boxes],
             "target_box_body_position_b": target_box_position_b[0].detach().cpu().tolist(),
             "target_box_displacement_m": float(target_box_displacement_m),
