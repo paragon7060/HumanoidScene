@@ -331,6 +331,42 @@ def _flap_grasp_points(env, flap_names: tuple[str, ...], *, grasp_depth_m: float
     return torch.stack(points)
 
 
+def _robotward_side_flap_endpoints(env):
+    """Return the robot-side endpoint of each selected side flap."""
+    import torch
+    from isaaclab.utils.math import quat_apply
+    from kuavo_isaaclab_scene.rl.scenes.asset_geometry import box_geometry
+
+    flap_names = ("flap_right", "flap_left")
+    box = env.scene["medium_box_0"]
+    robot = env.scene["robot"]
+    geometry = box_geometry(env.cfg.scene.medium_box_0, flap_names)
+    flap_ids, resolved_names = box.find_bodies(flap_names, preserve_order=True)
+    if tuple(resolved_names) != flap_names:
+        raise RuntimeError(f"MediumBox_0 flap lookup mismatch: flaps={resolved_names}")
+
+    flap_pos = box.data.body_link_pos_w[0, flap_ids]
+    flap_quat = box.data.body_link_quat_w[0, flap_ids]
+    base_forward_w = quat_apply(
+        robot.data.root_quat_w[0],
+        torch.tensor((1.0, 0.0, 0.0), device=env.device, dtype=flap_pos.dtype),
+    )
+    endpoints = []
+    for index, flap_name in enumerate(flap_names):
+        flap = geometry.flaps[flap_name]
+        half_size = np.asarray(flap.half_size, dtype=float)
+        long_axis = int(np.argmax(half_size[:2]))
+        candidates = []
+        for sign in (-1.0, 1.0):
+            local = torch.tensor(flap.center, device=env.device, dtype=flap_pos.dtype)
+            local[long_axis] += sign * float(half_size[long_axis])
+            candidates.append(flap_pos[index] + quat_apply(flap_quat[index], local))
+        candidates = torch.stack(candidates)
+        forward_coordinates = (candidates - robot.data.root_pos_w[0]) @ base_forward_w
+        endpoints.append(candidates[int(torch.argmin(forward_coordinates))])
+    return torch.stack(endpoints)
+
+
 def _orientation_from_closing_and_forward(closing_axes_w, forward_axes_w):
     """Return wxyz TCP quaternions for local +X closing and local -Z forward."""
     from isaaclab.utils.math import quat_from_matrix
@@ -520,8 +556,8 @@ class _JointPoseEditor:
     _COLLISION_MAX_OVERSHOOT_M = 0.002
     _COLLISION_MARGIN_M = 0.004
     _TRANSIT_HEIGHT_B_M = rack_tier_surface_z(1)
-    _PREGRASP_OFFSET_B_M = (-0.10, 0.0, 0.05)
-    _PREGRASP_SIZE_B_M = (0.10, 0.10, 0.10)
+    _PREGRASP_OFFSET_B_M = (0.0, 0.0, 0.07)
+    _PREGRASP_SIZE_B_M = (0.15, 0.16, 0.10)
     _TRANSIT_SIZE_B_M = (0.10, 0.24, 0.10)
     _CONTROL_LABELS = {
         "knee_joint": "승강 knee",
@@ -607,6 +643,7 @@ class _JointPoseEditor:
         all_flap_grasp_points_w = _flap_grasp_points(
             env, self.all_flap_names, grasp_depth_m=grasp_depth_m
         )
+        robotward_side_flap_endpoints_w = _robotward_side_flap_endpoints(env)
         from isaaclab.utils.math import quat_apply
 
         target_box_quat_w = self.target_box.data.body_link_quat_w[
@@ -621,6 +658,7 @@ class _JointPoseEditor:
         self.base_pregrasp_targets_w = pregrasp_targets_w.clone()
         self.base_grasp_points_w = grasp_points_w.clone()
         self.base_all_flap_grasp_points_w = all_flap_grasp_points_w.clone()
+        self.base_pregrasp_xy_anchors_w = robotward_side_flap_endpoints_w.clone()
         self.grasp_z_offset_m = 0.0
         self.update_grasp_offset()
         self.region_offsets_b_m = {
@@ -981,6 +1019,7 @@ class _JointPoseEditor:
         self.pregrasp_targets_w = self.base_pregrasp_targets_w + delta_w
         self.grasp_points_w = self.base_grasp_points_w + delta_w
         self.all_flap_grasp_points_w = self.base_all_flap_grasp_points_w + delta_w
+        self.pregrasp_xy_anchors_w = self.base_pregrasp_xy_anchors_w + delta_w
 
     def set_region_visibility(self, region: str, visible: bool) -> None:
         """Toggle one editable planning region and its center markers."""
@@ -1098,7 +1137,7 @@ class _JointPoseEditor:
         )
 
     def region_centers_b(self, region: str):
-        """Return grasp-relative centers, with transit Z tied to rack tier two."""
+        """Return centers using each region's scene-relative reference."""
         from isaaclab.utils.math import subtract_frame_transforms
 
         if region not in self.region_offsets_b_m:
@@ -1108,8 +1147,15 @@ class _JointPoseEditor:
         grasp_pos_b, _ = subtract_frame_transforms(
             root_pos, root_quat, self.grasp_points_w, root_quat
         )
-        centers_b = grasp_pos_b + self.region_offsets_b_m[region].unsqueeze(0)
-        if region == "transit":
+        if region == "pregrasp":
+            anchor_pos_b, _ = subtract_frame_transforms(
+                root_pos, root_quat, self.pregrasp_xy_anchors_w, root_quat
+            )
+            centers_b = anchor_pos_b.clone()
+            centers_b[:, :2] += self.region_offsets_b_m[region][:2].unsqueeze(0)
+            centers_b[:, 2] = grasp_pos_b[:, 2] + self.region_offsets_b_m[region][2]
+        else:
+            centers_b = grasp_pos_b + self.region_offsets_b_m[region].unsqueeze(0)
             centers_b[:, 2] = (
                 self._TRANSIT_HEIGHT_B_M + self.region_offsets_b_m[region][2]
             )
@@ -1313,6 +1359,9 @@ class _JointPoseEditor:
         grasp_pos_b, _ = subtract_frame_transforms(
             root_pos, root_quat, self.grasp_points_w, root_quat
         )
+        pregrasp_anchor_b, _ = subtract_frame_transforms(
+            root_pos, root_quat, self.pregrasp_xy_anchors_w, root_quat
+        )
         pregrasp_pos_b = self.region_centers_b("pregrasp")
         pregrasp_targets_w = root_pos + quat_apply(root_quat, pregrasp_pos_b)
         inward_normals_b = quat_apply_inverse(root_quat, self.inward_normals_w)
@@ -1380,7 +1429,7 @@ class _JointPoseEditor:
             "grasp_position_b": grasp_pos_b.detach().cpu().tolist(),
             "inward_flap_normal_b": inward_normals_b.detach().cpu().tolist(),
             "pregrasp_height_m": self.pregrasp_height_m,
-            "pregrasp_source": "medium_box_0 flap_right/flap_left upper grasp pair",
+            "pregrasp_source": "medium_box_0 robotward side-flap endpoints",
             "grasp_marker_legend": {
                 "green": "selected base-Y-parallel grasp pair",
                 "blue": "other flap grasp candidates",
@@ -1389,12 +1438,16 @@ class _JointPoseEditor:
             "grasp_z_offset_m": self.grasp_z_offset_m,
             "pregrasp_region_visible": self.region_visibility["pregrasp"],
             "pregrasp_region_center_b_m": pregrasp_pos_b.detach().cpu().tolist(),
+            "pregrasp_region_anchor_b_m": pregrasp_anchor_b.detach().cpu().tolist(),
             "pregrasp_region_offset_b_m": self.region_offsets_b_m[
                 "pregrasp"
             ].detach().cpu().tolist(),
             "pregrasp_region_size_b_m": self.region_sizes_b_m[
                 "pregrasp"
             ].detach().cpu().tolist(),
+            "pregrasp_region_reference": (
+                "X/Y from robotward side-flap endpoint; Z from grasp"
+            ),
             "transit_visible": self.transit_visible,
             "transit_region_visible": self.region_visibility["transit"],
             "transit_center_b_m": self.transit_centers_b().detach().cpu().tolist(),
