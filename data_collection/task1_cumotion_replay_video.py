@@ -100,9 +100,21 @@ async def replay_and_record(args, joint_names: list[str], waypoints: np.ndarray)
             raise ValueError(f"--{name.replace('_', '-')} must be finite and nonnegative")
 
     video_path = args.video_out.expanduser().resolve()
-    process = ffmpeg_process(video_path, args.fps)
-    if process.stdin is None:
+    process = ffmpeg_process(video_path, args.fps) if shutil.which("ffmpeg") else None
+    cv2 = None
+    cv_writer = None
+    recorder_backend = "ffmpeg/libx264" if process is not None else "opencv/mp4v"
+    if process is not None and process.stdin is None:
         raise RuntimeError("ffmpeg stdin is unavailable")
+    if process is None:
+        import cv2 as cv2_module
+
+        if video_path.suffix.lower() != ".mp4":
+            raise ValueError("--video-out must use the .mp4 suffix")
+        if video_path.exists():
+            raise FileExistsError(f"video output already exists: {video_path}")
+        video_path.parent.mkdir(parents=True, exist_ok=True)
+        cv2 = cv2_module
     frame_count = 0
     first_frame_sequence = None
     last_frame_sequence = None
@@ -168,7 +180,23 @@ async def replay_and_record(args, joint_names: list[str], waypoints: np.ndarray)
                 if not isinstance(message, bytes):
                     continue
                 metadata, jpeg = unpack_frame_packet(message)
-                process.stdin.write(jpeg)
+                if process is not None:
+                    process.stdin.write(jpeg)
+                else:
+                    frame = cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
+                    if frame is None:
+                        raise RuntimeError("failed to decode one editor JPEG frame")
+                    if cv_writer is None:
+                        height, width = frame.shape[:2]
+                        cv_writer = cv2.VideoWriter(
+                            str(video_path),
+                            cv2.VideoWriter_fourcc(*"mp4v"),
+                            args.fps,
+                            (width, height),
+                        )
+                        if not cv_writer.isOpened():
+                            raise RuntimeError("OpenCV could not open the MP4 video writer")
+                    cv_writer.write(frame)
                 frame_count += 1
                 frame_sequence = int(metadata["frame_sequence"])
                 first_frame_sequence = (
@@ -177,11 +205,18 @@ async def replay_and_record(args, joint_names: list[str], waypoints: np.ndarray)
                 last_frame_sequence = frame_sequence
             await send_task
     finally:
-        process.stdin.close()
-        stderr = process.stderr.read().decode("utf-8", errors="replace") if process.stderr else ""
-        return_code = process.wait(timeout=30)
-        if return_code != 0:
-            raise RuntimeError(f"ffmpeg failed with exit code {return_code}: {stderr}")
+        if process is not None:
+            process.stdin.close()
+            stderr = (
+                process.stderr.read().decode("utf-8", errors="replace")
+                if process.stderr
+                else ""
+            )
+            return_code = process.wait(timeout=30)
+            if return_code != 0:
+                raise RuntimeError(f"ffmpeg failed with exit code {return_code}: {stderr}")
+        elif cv_writer is not None:
+            cv_writer.release()
 
     return {
         "video": str(video_path),
@@ -192,6 +227,7 @@ async def replay_and_record(args, joint_names: list[str], waypoints: np.ndarray)
         "waypoint_count": len(waypoints),
         "command_fps": args.fps,
         "view": args.view,
+        "recorder_backend": recorder_backend,
     }
 
 
