@@ -234,15 +234,26 @@ def main(argv=None) -> int:
         world.add_obstacle(obstacle, cumotion.Pose3(pose_matrix(obstacle_data["pose"])))
     world_view = world.add_world_view()
     inspector = cumotion.create_robot_world_inspector(robot, world_view)
-    initial_collision = (
-        inspector.in_collision_with_obstacle(q_initial) or inspector.in_self_collision(q_initial)
-    )
-    terminal_collision = (
-        inspector.in_collision_with_obstacle(q_terminal) or inspector.in_self_collision(q_terminal)
-    )
-    if initial_collision or terminal_collision:
+    initial_world_collision = inspector.in_collision_with_obstacle(q_initial)
+    initial_self_collision = inspector.in_self_collision(q_initial)
+    terminal_world_collision = inspector.in_collision_with_obstacle(q_terminal)
+    terminal_self_collision = inspector.in_self_collision(q_terminal)
+    if any(
+        (
+            initial_world_collision,
+            initial_self_collision,
+            terminal_world_collision,
+            terminal_self_collision,
+        )
+    ):
         raise RuntimeError(
-            f"invalid endpoint collision: initial={initial_collision}, terminal={terminal_collision}"
+            "invalid endpoint collision: "
+            f"initial_world={initial_world_collision}, "
+            f"initial_self={initial_self_collision}, "
+            f"terminal_world={terminal_world_collision}, "
+            f"terminal_self={terminal_self_collision}, "
+            f"terminal_min_world_distance_m={inspector.min_distance_to_obstacle(q_terminal)}, "
+            f"terminal_self_pairs={inspector.frames_in_self_collision(q_terminal)}"
         )
 
     config = cumotion.create_motion_planner_config_from_file(
