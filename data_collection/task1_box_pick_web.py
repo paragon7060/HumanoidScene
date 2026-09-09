@@ -917,10 +917,15 @@ def main() -> None:
 
     env = ManagerBasedRLEnv(cfg=cfg)
     env.reset(seed=args_cli.seed)
-    if args_cli.pregrasp or args_cli.joint_pose_editor:
+    if args_cli.pregrasp:
         _load_task_ready(env, args_cli.pregrasp_initial_state)
-        if args_cli.pregrasp and args_cli.solve_downward_ready:
+        if args_cli.solve_downward_ready:
             _solve_downward_ready(env)
+    elif args_cli.joint_pose_editor:
+        print(
+            "[POSE_EDITOR_INIT] using KuavoQuestTeleopEnvCfg default initial pose",
+            flush=True,
+        )
     if args_cli.camera_preview and not args_cli.headless:
         open_camera_viewports(
             env.scene,
