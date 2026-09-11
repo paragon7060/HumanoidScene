@@ -13,6 +13,12 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation
 
+from data_collection.task1.contract import (
+    ARM_JOINT_NAMES,
+    WAIST_ARM_JOINT_NAMES,
+    compose_waist_arm,
+)
+
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_DIR / "src"))
@@ -31,6 +37,14 @@ ARM_NAMES = tuple(
     f"zarm_{side}{index}_joint" for side in ("l", "r") for index in range(1, 8)
 )
 TOOL_FRAMES = ORIGINAL_EEF_FRAMES
+
+
+def waist_preserving_retreat(
+    waist_q_rad: list[float] | np.ndarray,
+    arm_waypoints: list[list[float]] | np.ndarray,
+) -> tuple[list[str], np.ndarray]:
+    """Attach one selected waist posture to every lift/pull arm waypoint."""
+    return list(WAIST_ARM_JOINT_NAMES), compose_waist_arm(waist_q_rad, arm_waypoints)
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,8 +74,22 @@ def main() -> int:
         raise ValueError("lift steps must be positive and pull steps nonnegative")
     runtime = json.loads((args.snapshot_dir / "runtime.json").read_text())
     grasp_plan = json.loads(args.grasp_plan.read_text())
-    q_grasp = np.asarray(grasp_plan["terminal_q_rad"], dtype=float)
+    plan_joint_names = list(
+        grasp_plan.get("joint_names", grasp_plan.get("cspace_joint_names", ARM_JOINT_NAMES))
+    )
+    q_grasp_full = np.asarray(grasp_plan["terminal_q_rad"], dtype=float)
+    if plan_joint_names == WAIST_ARM_JOINT_NAMES:
+        waist_q = q_grasp_full[:2]
+        q_grasp = q_grasp_full[2:]
+    elif plan_joint_names == ARM_JOINT_NAMES:
+        waist_q = None
+        q_grasp = q_grasp_full
+    else:
+        raise ValueError("grasp plan has unsupported joint order")
+    if q_grasp.shape != (14,) or not np.isfinite(q_grasp).all():
+        raise ValueError("grasp plan must contain a finite arm endpoint")
     defaults = dict(zip(runtime["joint_names"], runtime["joint_positions"], strict=True))
+    defaults.update(zip(plan_joint_names, q_grasp_full, strict=True))
     inward_normals = np.asarray(
         runtime["pose_editor_state"]["inward_flap_normal_b"], dtype=float
     )
@@ -246,7 +274,12 @@ def main() -> int:
             "closing_axis_error_deg": axis_errors,
             "tool_down_angle_deg": down_angles,
         }
-    rows = lift_rows + pull_rows[1:]
+    arm_rows = np.asarray(lift_rows + pull_rows[1:], dtype=float)
+    if waist_q is None:
+        output_joint_names = list(ARM_JOINT_NAMES)
+        rows = arm_rows
+    else:
+        output_joint_names, rows = waist_preserving_retreat(waist_q, arm_rows)
     max_joint_step = max(
         max(abs(a - b) for a, b in zip(rows[index - 1], rows[index], strict=True))
         for index in range(1, len(rows))
@@ -260,12 +293,13 @@ def main() -> int:
             else "lift_exact_then_pull_to_rack_front_common_translation"
         ),
         "status": "SUCCESS",
-        "joint_names": list(ARM_NAMES),
+        "joint_names": output_joint_names,
         "tool_frames": [CENTER_TOOL_FRAMES[side] for side in ("left", "right")],
         "tcp_frame": CENTER_FRAME_NAME,
         "kinematic_parent_frames": list(TOOL_FRAMES),
         "tcp_offsets_in_parent_m": [offset.tolist() for offset in tcp_offsets],
-        "waypoint_q_rad": rows,
+        "waypoint_q_rad": rows.tolist(),
+        "held_waist_q_rad": None if waist_q is None else waist_q.tolist(),
         "waypoint_count": len(rows),
         "lift_waypoint_count": len(lift_rows),
         "pull_waypoint_count": len(pull_rows),

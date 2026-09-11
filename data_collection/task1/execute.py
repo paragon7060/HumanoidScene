@@ -19,6 +19,8 @@ import sys
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_DIR / "src"))
 
+from data_collection.task1.contract import ARM_JOINT_NAMES, WAIST_ARM_JOINT_NAMES
+
 
 def _parse_args():
     from isaaclab.app import AppLauncher
@@ -130,8 +132,8 @@ def _load_plan(path: Path) -> dict:
         raise ValueError(f"Plan is not successful: {path} status={data.get('status')!r}")
     names = data.get("joint_names")
     waypoints = data.get("waypoint_q_rad")
-    if not isinstance(names, list) or len(names) != 14:
-        raise ValueError(f"Expected 14 joint names in {path}")
+    if names not in (ARM_JOINT_NAMES, WAIST_ARM_JOINT_NAMES):
+        raise ValueError(f"Expected canonical 14DoF or 16DoF joint names in {path}")
     if not isinstance(waypoints, list) or not waypoints:
         raise ValueError(f"Plan has no waypoints: {path}")
     if any(len(row) != len(names) or not all(math.isfinite(float(v)) for v in row) for row in waypoints):
@@ -173,10 +175,14 @@ def _phase_summary(samples: list[dict], phase: str) -> dict:
     rows = [row for row in samples if row["phase"] == phase]
     if not rows:
         return {"sample_count": 0}
-    return {
+    result = {
         "sample_count": len(rows),
         "max_arm_tracking_error_rad": max(row["arm_tracking_error_max_rad"] for row in rows),
     }
+    waist_errors = [row.get("waist_tracking_error_max_rad") for row in rows]
+    if all(value is not None for value in waist_errors):
+        result["max_waist_tracking_error_rad"] = max(waist_errors)
+    return result
 
 
 args = _parse_args()
@@ -206,6 +212,7 @@ from kuavo_isaaclab_scene.workcell.rack_box_layout import same_shelf_instance_na
 
 
 ARM_JOINTS = tuple(f"zarm_{side}{index}_joint" for side in ("l", "r") for index in range(1, 8))
+WAIST_ARM_JOINTS = tuple(WAIST_ARM_JOINT_NAMES)
 MOTOR_JOINTS = (
     "l_f_bar_1_joint",
     "l_b_bar_1_joint",
@@ -267,8 +274,12 @@ def _main() -> None:
     approach = _load_plan(args.approach_plan)
     retreat = _load_plan(args.retreat_plan)
     snapshot_target_pose_b = _snapshot_target_pose_b(approach)
-    if tuple(approach["joint_names"]) != ARM_JOINTS or tuple(retreat["joint_names"]) != ARM_JOINTS:
-        raise ValueError("Approach and retreat plans must use the canonical left-then-right arm joint order.")
+    plan_joint_names = tuple(approach["joint_names"])
+    if plan_joint_names not in (ARM_JOINTS, WAIST_ARM_JOINTS):
+        raise ValueError("Approach plan has an unsupported joint order.")
+    if tuple(retreat["joint_names"]) != plan_joint_names:
+        raise ValueError("Approach and retreat plans must use the same canonical joint order.")
+    waist_count = 2 if plan_joint_names == WAIST_ARM_JOINTS else 0
     approach_last = torch.tensor(approach["waypoint_q_rad"][-1])
     retreat_first = torch.tensor(retreat["waypoint_q_rad"][0])
     junction_error = float(torch.max(torch.abs(approach_last - retreat_first)).item())
@@ -331,11 +342,11 @@ def _main() -> None:
         robot = env.scene["robot"]
         box = env.scene["medium_box_0"]
         camera = env.scene["joint_editor_camera"]
-        arm_ids, arm_names = robot.find_joints(ARM_JOINTS, preserve_order=True)
+        arm_ids, arm_names = robot.find_joints(plan_joint_names, preserve_order=True)
         motor_ids, motor_names = robot.find_joints(MOTOR_JOINTS, preserve_order=True)
         eef_ids, eef_names = robot.find_bodies(EEF_BODIES, preserve_order=True)
         box_body_ids, box_body_names = box.find_bodies("Body")
-        if tuple(arm_names) != ARM_JOINTS or tuple(motor_names) != MOTOR_JOINTS:
+        if tuple(arm_names) != plan_joint_names or tuple(motor_names) != MOTOR_JOINTS:
             raise RuntimeError(f"Joint lookup mismatch: arms={arm_names}, motors={motor_names}")
         if tuple(eef_names) != EEF_BODIES or len(box_body_ids) != 1:
             raise RuntimeError(f"Body lookup mismatch: eef={eef_names}, box={box_body_names}")
@@ -394,6 +405,7 @@ def _main() -> None:
                 )
                 frame_count += 1
             actual = robot.data.joint_pos[0, arm_ids]
+            tracking_error = torch.abs(actual - arm_reference[0])
             box_pos_b, _ = _body_pose_b(robot, box, box_body_id)
             eef_pos_b = _eef_positions_b(robot, eef_ids)
             samples.append(
@@ -401,7 +413,12 @@ def _main() -> None:
                     "step": global_step,
                     "phase": phase,
                     "arm_tracking_error_max_rad": float(
-                        torch.max(torch.abs(actual - arm_reference[0])).item()
+                        torch.max(tracking_error[waist_count:]).item()
+                    ),
+                    "waist_tracking_error_max_rad": (
+                        float(torch.max(tracking_error[:waist_count]).item())
+                        if waist_count
+                        else None
                     ),
                     "box_body_position_b_m": box_pos_b[0].detach().cpu().tolist(),
                     "eef_positions_b_m": eef_pos_b.detach().cpu().tolist(),
@@ -678,6 +695,7 @@ def _main() -> None:
                 "motor_obstruction_rad_min": args.motor_obstruction_min_rad,
             },
             "approach_plan": str(args.approach_plan.expanduser().resolve()),
+            "plan_joint_names": list(plan_joint_names),
             "tcp_frame": CENTER_FRAME_NAME,
             "retreat_plan": str(args.retreat_plan.expanduser().resolve()),
             "video_path": str(args.video_out.expanduser().resolve()),
