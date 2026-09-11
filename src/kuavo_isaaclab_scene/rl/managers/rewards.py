@@ -9,6 +9,7 @@ from ..mdp import rewards
 @configclass
 class RewardsCfg:
     navigation = Reward(func=rewards.navigation, weight=2.0)
+    approach_reaching = Reward(func=rewards.approach_reaching, weight=1.0)
     reaching = Reward(func=rewards.reaching, weight=2.0)
     lift = Reward(func=rewards.lift, weight=3.0)
     carrying = Reward(func=rewards.carrying, weight=1.0)
@@ -26,10 +27,12 @@ class RewardsCfg:
 @configclass
 class FlapPickRewardsCfg(RewardsCfg):
     navigation = None
+    approach_reaching = None  # stationary pick: no base-navigation phase
     carrying = None
     placement = None
     button_reach = None
     reaching = Reward(func=rewards.flap_reaching, weight=4.0)
+    orientation = Reward(func=rewards.flap_orientation, weight=0.5, params={"distance_threshold": 0.10})
     flap_contact = Reward(func=rewards.flap_contact, weight=3.0)
     lift = Reward(func=rewards.lift, weight=5.0)
     holding = Reward(func=rewards.flap_hold, weight=5.0)

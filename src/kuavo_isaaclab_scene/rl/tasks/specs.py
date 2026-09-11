@@ -39,10 +39,10 @@ class TaskSpec:
     grasp_open_tolerance_m: float = 0.008
     flap_lock_degrees: float = 0.5
     unexpected_contact_limit: float = 10.0
-    obstacle_contact_force: float = 0.1
+    obstacle_contact_force: float = 20.0
     reset_settle_seconds: float = 0.0
     reset_settle_hold_seconds: float = 0.2
-    reset_settle_timeout: float = 2.0
+    reset_settle_timeout: float = 0.0  # 0: fixed initial delay, no velocity gate or timeout failure
     prelift_position_scale: float = 0.05
     prelift_speed_scale: float = 0.20
     prelift_angular_scale: float = 1.0
@@ -76,6 +76,7 @@ class TaskSpec:
     # Physical two-finger contacts; change these when onboarding another hand.
     finger_bodies: tuple[str, ...] = ("l_f_finger", "l_b_finger", "r_f_finger", "r_b_finger")
     tool_bodies: tuple[str, str] = ("zarm_l7_end_effector", "zarm_r7_end_effector")
+    # Legacy fallback only. Calibrated S200062 uses robots/end_effector.py TCP instead.
     tool_offset: tuple[float, float, float] = (0.0, 0.0, -0.12)
 
     def validate(self) -> None:
@@ -133,11 +134,13 @@ class TaskSpec:
         if self.reset_settle_seconds:
             if self.grasp_mode != "flap_top":
                 raise ValueError("Reset settling currently requires flap_top.")
-            if (not all(math.isfinite(v) and v > 0 for v in
-                        (self.reset_settle_hold_seconds, self.reset_settle_timeout))
-                    or self.reset_settle_timeout <= self.reset_settle_seconds + self.reset_settle_hold_seconds
-                    or self.reset_settle_timeout >= self.episode_length_s):
-                raise ValueError("Settling needs positive hold time and a timeout inside the episode.")
+            if (not math.isfinite(self.reset_settle_hold_seconds) or self.reset_settle_hold_seconds <= 0
+                    or not math.isfinite(self.reset_settle_timeout) or self.reset_settle_timeout < 0
+                    or self.reset_settle_seconds >= self.episode_length_s):
+                raise ValueError("Settling needs a positive hold, nonnegative timeout and delay inside the episode.")
+            if self.reset_settle_timeout and not (
+                    self.reset_settle_seconds + self.reset_settle_hold_seconds < self.reset_settle_timeout < self.episode_length_s):
+                raise ValueError("Positive settling timeout must follow delay+hold and lie inside the episode.")
         if self.name in REQUIRES_RESET_BANK and not self.reset_bank:
             raise ValueError(f"{self.name} requires --reset-bank from a successful {PREDECESSOR[self.name]} rollout.")
         if self.reset_bank and self.name not in PREDECESSOR:

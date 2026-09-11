@@ -17,6 +17,13 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
     """
 
     def __init__(self, cfg, env):
+        from ..robots.end_effector import center_offset
+        if cfg.body_offset is None and cfg.body_name in ("zarm_l7_end_effector", "zarm_r7_end_effector"):
+            side = "left" if cfg.body_name == "zarm_l7_end_effector" else "right"
+            offset = center_offset(side)
+            if any(offset):
+                cfg = cfg.copy()
+                cfg.body_offset = cfg.OffsetCfg(pos=offset)
         super().__init__(cfg, env)
         if cfg.controller.command_type != "pose":
             raise ValueError("Persistent teleop IK requires pose commands.")
@@ -38,8 +45,8 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
 
     def configure_urdf(self, arm):
         """Validate live USD FK/Jacobian before enabling URDF joint-space IK."""
-        if self.num_envs != 1 or self.cfg.body_offset is not None:
-            raise ValueError("URDF teleop currently requires one environment and the named tool frame (no body_offset)")
+        if self.num_envs != 1:
+            raise ValueError("URDF teleop currently requires one environment")
         if set(self._joint_names) != set(arm.names) or self._body_name != arm.tip:
             raise ValueError("USD action joint/tool names differ from URDF")
         ids, _ = self._asset.find_bodies(arm.parent)
@@ -53,6 +60,15 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         actual_p = parent_r.T @ (self._numpy(self._asset.data.body_pos_w[0, self._body_idx]) - parent_p)
         actual_r = parent_r.T @ quat_matrix(self._numpy(self._asset.data.body_quat_w[0, self._body_idx]))
         actual_jac = self._numpy(self.jacobian_w[0])[:, self._urdf_order].copy()
+        if self.cfg.body_offset is not None:
+            if tuple(self.cfg.body_offset.rot) != (1., 0., 0., 0.):
+                raise ValueError("Calibrated TCP currently retains original EEF orientation")
+            offset = np.asarray(self.cfg.body_offset.pos)
+            body_r = quat_matrix(self._numpy(self._asset.data.body_quat_w[0, self._body_idx]))
+            world_offset = body_r @ offset
+            actual_p += parent_r.T @ world_offset
+            actual_jac[:3] += np.cross(actual_jac[3:].T, world_offset).T
+            arm.set_tool_offset(offset)
         actual_jac[:3] = parent_r.T @ actual_jac[:3]
         actual_jac[3:] = parent_r.T @ actual_jac[3:]
         limits = self._numpy(self._asset.data.joint_pos_limits[0, self._joint_ids])[self._urdf_order]
@@ -65,6 +81,22 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
     @staticmethod
     def _numpy(value):
         return value.detach().cpu().numpy()
+
+    def _compute_frame_jacobian(self):
+        # Translate in WORLD space before rotating into the base frame. The
+        # calibrated offset is expressed in the original EEF's local axes.
+        if self.cfg.body_offset is None or tuple(self.cfg.body_offset.rot) != (1., 0., 0., 0.):
+            return super()._compute_frame_jacobian()
+        from isaaclab.utils.math import quat_apply, matrix_from_quat
+        jac = self.jacobian_w.clone()
+        if self.cfg.body_offset is not None:
+            offset = quat_apply(self._asset.data.body_link_quat_w[:, self._body_idx], self._offset_pos)
+            jac[:, :3] += torch.cross(jac[:, 3:].transpose(1, 2),
+                                     offset[:, None].expand(-1, jac.shape[-1], -1), dim=-1).transpose(1, 2)
+        rotation = matrix_from_quat(self._asset.data.root_quat_w).transpose(1, 2)
+        jac[:, :3] = rotation @ jac[:, :3]
+        jac[:, 3:] = rotation @ jac[:, 3:]
+        return jac
 
     def _process_urdf(self, joints, limits):
         order = self._urdf_order

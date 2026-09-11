@@ -42,22 +42,77 @@ grasp_flaps=("flap_right", "flap_left")  # 손별 배정이 아니라 공유 후
 ```text
 d_right = min(distance(tool_right, surface(flap_right)),
               distance(tool_right, surface(flap_left)))
-reaching raw = exp(-12 * d_right)
-실제 스텝 기여도 = 4 * raw * (1/30)
+score = exp(-12 * d_right)
+progress = max(score - 이전 최고 score, 0)
+최고 score = max(이전 최고 score, score)
+reaching raw = progress / control_dt
+실제 스텝 기여도 = 4 * progress
 ```
 
-| 면까지 거리 | raw | 30Hz 스텝 보상 |
-|---|---:|---:|
-| 20cm | 0.0907 | +0.01210 |
-| 10cm | 0.3012 | +0.04016 |
-| 5cm | 0.5488 | +0.07317 |
-| 0cm | 1 | +0.13333 |
+최초 기준이 10cm인 예: 5cm까지 접근하면 누적 약 +0.99047, 5cm에서 정지하면 0,
+10cm로 후퇴 후 다시 5cm에 와도 0이다. 기존 최고기록보다 가까운 4cm에 도달하면
+추가 약 +0.27989를 받는다. 여러 스텝으로 이동해도 같은 끝 거리면 누적 보상은 같다.
 
-왼손 거리는 측정/표시하지만 reward에 넣지 않는다. 기존 정렬도 배율을 제거해,
-다른 상태가 같을 때 가까울수록 반드시 더 큰 접근 보상을 받는다. 정렬도는 observation에 남는다.
-거리 기준은 손가락 mesh 전체가 아니라 end-effector의 `tool_offset=(0,0,-0.12)` 지점이다.
-화면의 손과 거리값이 어긋나면 `tool_offset`을 조정해야 한다. 접촉 판정은 이 proxy가 아니라
-실제 filtered contact를 쓴다.
+왼손 거리는 측정/표시하지만 기본 오른손 reward에는 넣지 않는다. 정렬도는 별도
+orientation 항으로 유지한다. 이 변경은 현재 flap-pick reaching에만 적용하며,
+approach_rack/navigation·orientation·flap_contact·stable_grasp·lift·시간 비용은 변경하지 않는다.
+정지 상태에서 **전체** reward가 반드시 음수가 되는 것은 아니다.
+
+최고 점수는 환경별·손별로 관리하고, 초기 대기 종료/리셋/대상 박스 변경 때는 보상 없이
+현재 거리로 기준을 잡는다. 같은 박스의 가까운 flap 후보가 바뀌어도 기록을 초기화하지 않는다.
+파지 후에 보상을 끄는 별도 변경은 하지 않았으며, 최고기록을 갱신할 때만 같은 규칙을 적용한다.
+대상 박스의 움직임으로 거리가 줄어든 경우도 기하학적 진전으로 측정된다.
+
+`rl/mdp/reach_progress.py`가 최고기록과 갱신량을 관리한다. 양손 최고 점수 2개를
+`reaching_history` observation으로 제공하므로 **이전 checkpoint는 그대로 재개하지 않는다.**
+reward contract에도 `flap_best_proximity_progress_v1`을 기록한다.
+VR 패널에는 실제 `reaching` 기여도와 `Reach new progress L/R`, `Reach best score L/R`가 표시된다.
+S200062의 거리 기준은 [보정된 closed endeffector_center](ENDEFFECTOR_CENTER.md)다.
+기존 `tool_offset=(0,0,-0.12)`는 이 모델에서 사용하지 않는다. 두 점은 보정 파일에서 수정하며,
+변경 후 재시작해야 한다. 접촉 판정의 힘·접촉점은 계속 실제 filtered contact를 쓴다.
+
+### 약한 orientation 보상과 닫힘 축 확인
+
+거리 보상에 곱하지 않고 `orientation` 항을 별도로 더한다. 기본은 오른손만,
+안착 완료 후 pick 단계·파지 전·면 거리 10cm 이내에서 활성화된다.
+
+```text
+a = abs(dot(두 손가락 link 원점을 잇는 단위축, 최근접 flap의 단위법선))
+orientation = 0.5 * clamp(1-d/0.10,0,1) * a² * 비파지 * dt
+```
+
+30Hz 최대 기여도는 +0.01667로 reaching 최대 +0.13333의 1/8이다.
+법선 부호를 구분하지 않고, 법선 주위 회전은 제한하지 않는다. 파지 유지 조건이나
+성공 조건에 새로운 orientation 임계값을 추가하지 않는다. observation/action 차원은 그대로다.
+`configure()`의 `env_cfg.rewards.orientation.weight`와
+`env_cfg.rewards.orientation.params["distance_threshold"]`를 수정할 수 있다.
+축 검증 전 이 항을 끄려면 weight를 0으로 설정한다.
+
+현재 로컬 코드의 표시 기능을 이용해 다음과 같이 확인한다. Runtime/web 연결 후 검사
+프로세스만 실행하며, 다른 수집/검사 프로세스를 중복 실행하지 않는다.
+
+```bash
+./quest_collector.sh collect --rl-reward-debug --desktop-render \
+  --rl-grasp-markers --no-rl-grasp-targets --rl-collision-view \
+  --rl-grasp-finger-offsets 0 0 0 0 0 0
+```
+
+1. 청록/파랑 구가 각각 `r_f_finger`, `r_b_finger`의 **link 원점**이다.
+   offset이 0이므로 이 두 구를 잇는 방향이 현재 reward의 닫힘 축이다.
+2. collider 윤곽선과 두 안쪽 패드 면을 옆/위 등 서로 다른 시점에서 확인한다.
+   두 구를 잇는 방향이 양쪽 패드 면에 거의 수직이어야 한다.
+   초록 면은 자동 선택된 후보일 뿐이므로 실제 패드인지 직접 확인한다.
+3. 손목 자세를 유지하고 그리퍼를 열고 닫아 본다. 두 원점 사이 간격이 변하는 동안
+   그 방향이 실제 패드가 마주 보는 방향과 계속 일치하는지 본다. linkage가 회전하면
+   원점 연결 방향이 실제 접촉면 법선과 어긋날 수 있다.
+4. flap을 정상적으로 집을 수 있는 자세에서 해당 후보의 `axisErr`가 0°에 가까운지
+   확인한다. 90°이면 코드상 닫힘 축이 flap 면에 평행한 것이다.
+
+`axisErr = acos(abs(dot(axis,normal)))`이며 0~90°다. 물리 스텝 이후 패널/터미널에
+두 flap 각각 표시한다. 일시정지 중에는 마지막 측정값이다. `axisErr`는 원점 연결축과
+flap 법선의 관계만 나타내므로 **패드 면과 축이 맞는지 자체를 입증하지 않는다.**
+맞지 않으면 임계값을 완화하기보다 검증된 패드 법선 또는 보정된 두 기준점으로
+닫힘 축 정의를 변경해야 한다. 표시용 offset/보정 JSON 변경은 reward에 자동 적용되지 않는다.
 
 ## 3. 최초 파지는 어떻게 판정하는가
 
@@ -84,20 +139,27 @@ reaching raw = exp(-12 * d_right)
 손×후보별 latch가 있다. 최초 파지 시 해당 flap 좌표계에서 손가락 두 link 원점의
 중점과 간격을 저장한다. 유지 중에는:
 
-- 중점 이동 `slip <= 0.020m`.
-- 간격 증가 `open+ <= 0.008m`.
 - 같은 후보의 두 접촉점이 허용 영역에 있고, 각 힘 > 0.10N, 양면 배치가 유지되면 정상 접촉.
-- 정상 접촉이 빠져도 상대 배치가 위 범위 안이면 0.10초 미만까지 유예.
-- 너무 벌어지거나 미끄러지면 즉시 해제. 누락이 길어지면 다시 최초 파지 조건이 필요.
+- 정상 접촉이 있으면 link 원점의 중점 이동·간격 증가량만으로 해제하지 않는다.
+- 정상 접촉이 확인될 때마다 해당 중점·간격을 최신 기준으로 갱신한다.
+- 정상 접촉이 빠진 경우에만 마지막 기준 대비 `slip <= 0.020m`, `open+ <= 0.008m`일 때 0.10초 미만까지 유예.
+- 접촉 누락 중 위 범위를 벗어나면 즉시 해제. 긴 누락 뒤에는 다시 최초 파지 조건이 필요.
+
+이 규칙은 `flap_hold_revision=2`로 checkpoint 계약에 기록한다. observation/action 차원은
+변경하지 않았지만 기존 유지 판정과 의미가 달라 이전 계약의 자동 재개는 거부한다.
+`slip`/`open+` 로그는 이제 최초 파지가 아닌 **마지막 유효 접촉 대비** 값이다.
+정상 접촉이 있는 스텝에서는 기준을 갱신하므로 보통 0으로 표시된다.
 
 `top_band`만 유지 접촉 영역을 아래로 2cm 확장하며, 전체 면 모드에서는 판 바깥으로
 확장하지 않는다. 유지 중 근접 목표가 다른 flap으로 바뀌어도 잡고 있는 flap의 이력을
 다른 후보로 넘기지 않는다. 박스를 attach하거나 높이만 보고 파지를 인정하지 않는다.
 
-오른손 `held=1`, 상승 >6cm, 기울기 <40°, 선속도 <0.08m/s, 각속도 <0.35rad/s,
-두 허용 flap 외 손가락 잔여 접촉력 <10N이 준비 완료 후 0.5초 이어져야 성공이다.
+오른손 `held=1`, 상승 >6cm, 기울기 <40°가 초기 대기 완료 후 0.5초 이어져야 성공이다.
+pick 성공의 선속도·각속도·잔여 손가락 접촉력 제한은 제거했다. 실제 파지 판정용 flap
+접촉력과 그 밖의 보상/관측은 유지한다. 이후 carry/place 단계의 안정성 조건은 별도다.
 잔여 힘은 `norm(net_force - sum(두 허용 flap의 force vector))`라는 근사값이다.
-장애물 접촉 >0.1N 등 failure는 여전히 성공보다 우선한다.
+장애물 접촉 >20N 등 failure는 여전히 성공보다 우선한다. 기본 설정은 0.5초 고정 대기 후
+시작하며 `settle_timeout` 실패는 없다.
 
 ## 5. disturbance 완화
 
@@ -133,6 +195,14 @@ reward = -0.25 * raw * dt
 
 ## 6. VR에서 직접 확인
 
+실제 collider·안쪽 면 후보·접촉점·힘 화살표는
+[collision 표시 안내](RL_QUEST_REWARD_DEBUG.md#실제-collider안쪽-면-후보접촉점힘-표시)를 참고한다.
+이는 기존 수동 offset marker와 별개이며 시뮬레이션 정보를 직접 사용한다.
+
+두 기준점과 반대 면 목표점의 3D 표시 및 offset 보정 방법은
+[Quest 검사 표시 안내](RL_QUEST_REWARD_DEBUG.md#오른손-기준점과-목표점의-3d-표시)를 참고한다.
+이 marker는 새 reach 설계 미리보기이며 현재 reward와 파지 판정을 변경하지 않는다.
+
 이미 Runtime/web이 연결되어 있다면 검사 프로세스만 재시작한다.
 
 ```bash
@@ -157,9 +227,9 @@ slip=2.0mm open+=0.2mm
 | F 중 하나가 0에 가까움 | 손가락 collider가 실제 그 flap에 닿는지. 시각 mesh 접촉만으로는 부족 |
 | F는 있는데 region이 01/00 | 평균 접촉점, USD bounds/scale, `flap_contact_region`, `flap_contact_margin` |
 | region=11, F>0.2인데 opp=0 | 두 손가락/접촉점의 판 법선 부호. `opposed_jaws()` 근사가 모델과 맞는지 |
-| raw=1인데 held=0 | 초기 대비 slip/open 제한 초과 또는 이전 후보가 아직 유지 중인지 |
-| held=1인데 CHECK에 speed | 0.08m/s, 0.35rad/s 기준. 잠시 멈춰 유지 |
-| FAIL=obstacle_collision | 모든 robot link의 주변 장애물 센서 >0.1N. 이번 완화 대상이 아님 |
+| raw=1인데 held=0 | 이전 후보가 아직 유지 중인지. 유효한 같은 후보의 접촉은 원점 이동만으로 해제하지 않음 |
+| held=1인데 NEED: Hold | 높이/기울기를 포함한 조건을 연속 0.5초 유지해야 함 |
+| FAIL=obstacle_collision | 모든 robot link의 주변 장애물 센서 >20N |
 
 디버거에서는 `FlapGrasp.measure()`의 `t.grasp_candidate_contact_local`을 확인할 수 있다.
 shape는 `[env, hand, candidate, jaw, xyz]`이고 값은 flap 로컬 m다.

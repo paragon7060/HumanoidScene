@@ -21,6 +21,8 @@ def normalized_delta(target, current, scale):
 class QuestRLControl:
     def __init__(self, env, model, args):
         self.env, self.robot = env, env.scene["robot"]
+        from ...robots.end_effector import get_end_effector_frames
+        self.frames = get_end_effector_frames(self.robot)
         self.sides = ("left", "right") if env.cfg.task.active_arm == "both" else (env.cfg.task.active_arm,)
         if list(env.action_manager.active_terms) != ["upper_body", *[s + "_gripper" for s in self.sides]]:
             raise ValueError("Reward inspection requires arm deltas followed by active gripper actions")
@@ -59,7 +61,8 @@ class QuestRLControl:
         action = torch.zeros((1, self.env.action_manager.total_action_dim), device=self.env.device)
         for hand_index, side in enumerate(self.sides):
             solver = self.solvers[side]
-            goal = self.mapper.target(side, packets[side], self.pose(solver._body_idx), self.pose(),
+            tcp = self.frames.center_pose_w[0, 0 if side == "left" else 1].detach().cpu().numpy()
+            goal = self.mapper.target(side, packets[side], tcp, self.pose(),
                                       following=True, reference_pose_w=self.pose(self.torso))
             # Standalone IK only computes a target. Never call apply_actions():
             # the unchanged RL action manager is the only articulation writer.

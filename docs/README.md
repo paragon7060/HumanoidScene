@@ -52,6 +52,8 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 | 지금 한 손 flap 집기를 학습·재개·평가한다 | [1단계 flap pick](RL_FLAP_PICK.md) |
 | 오른손만 학습하고 양쪽 flap 면의 거리·파지·disturbance를 수정한다 | [오른손 파지 상세와 튜닝](RL_RIGHT_HAND_PICK.md) |
 | Quest로 직접 움직이며 VR에서 항목별 reward를 확인한다 | [Quest reward 검사](RL_QUEST_REWARD_DEBUG.md) |
+| VR 없이 GUI에서 양손의 네 손가락 기준점을 맞추고 저장한다 | [데스크톱 파지 기준점 보정](GRASP_DESKTOP_CALIBRATION.md) |
+| 보정한 TCP 중심, RL/IK/기록 적용 범위와 VR 표시를 확인한다 | [공통 endeffector_center](ENDEFFECTOR_CENTER.md) |
 | 일반 환경과의 차이, 병렬 복제·좌표·충돌 격리를 수정한다 | [배경 없는 RL 병렬 환경](RL_PARALLEL_ENVS.md) |
 | `quest_ready_02` 관절/base 값을 수정하거나 VR로 다시 캡처한다 | [RL 초기 상태](RL_INITIAL_STATES.md) |
 | 다른 하위 task, observation/action/reward 또는 PPO를 수정한다 | [하위 task별 RL 학습](RL_TRAINING.md) |

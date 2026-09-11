@@ -18,6 +18,12 @@ class ResetSettling:
     def advance(self, velocities, update, dt):
         pending = ~self.ready & update
         self.elapsed += pending * dt
+        if self.spec.reset_settle_timeout == 0:
+            # Disabling timeout must not leave actions gated forever. In this
+            # mode capture the baseline once after the configured fixed delay.
+            completed = pending & (self.elapsed >= self.spec.reset_settle_seconds)
+            self.ready |= completed
+            return completed
         stable = ((velocities[..., :3].norm(dim=-1) < .01)
                   & (velocities[..., 3:].norm(dim=-1) < .05)).all(-1)
         stable &= self.elapsed >= self.spec.reset_settle_seconds
@@ -28,6 +34,8 @@ class ResetSettling:
 
     @property
     def failed(self):
+        if self.spec.reset_settle_timeout == 0:
+            return torch.zeros_like(self.ready)
         return ~self.ready & (self.elapsed >= self.spec.reset_settle_timeout)
 
 

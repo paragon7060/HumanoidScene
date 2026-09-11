@@ -98,6 +98,7 @@ class UrdfArm:
         letter = side[0]
         self.names = [f"zarm_{letter}{i}_joint" for i in range(1, 8)]
         self.tip = f"zarm_{letter}7_end_effector"
+        self.tool_offset = np.zeros(3)  # set by configure_urdf to the calibrated closed TCP
         root = ET.parse(self.path).getroot()
         by_name = {j.attrib["name"]: j for j in root.findall("joint")}
         by_child = {j.find("child").attrib["link"]: j for j in root.findall("joint")}
@@ -133,6 +134,13 @@ class UrdfArm:
         self.shoulder = self.joints[0].xyz.copy()
         self.reach = sum(np.linalg.norm(j.xyz) for j in self.joints[1:])
 
+    def set_tool_offset(self, offset):
+        offset = np.asarray(offset, dtype=float)
+        if offset.shape != (3,) or not np.isfinite(offset).all():
+            raise ValueError("Tool offset must contain three finite metre values")
+        self.reach += float(np.linalg.norm(offset) - np.linalg.norm(self.tool_offset))
+        self.tool_offset = offset.copy()
+
     def fk(self, q):
         q = np.asarray(q, dtype=float)
         if q.shape != (7,) or not np.isfinite(q).all():
@@ -146,6 +154,8 @@ class UrdfArm:
                 axes.append(r @ joint.axis)
                 r = r @ axis_rotation(joint.axis, q[len(axes) - 1])
             points[joint.child] = p.copy()
+        p = p + r @ self.tool_offset
+        points["endeffector_center"] = p.copy()
         jac = np.zeros((6, 7))
         for i, (axis, origin) in enumerate(zip(axes, origins)):
             jac[:3, i] = np.cross(axis, p - origin)

@@ -18,6 +18,8 @@ class WorkcellCommand(CommandTerm):
         super().__init__(cfg, env)
         self.spec = cfg.task
         self.robot = env.scene["robot"]
+        from ...robots.end_effector import get_end_effector_frames
+        self.endeffector_center = get_end_effector_frames(self.robot)
         self.boxes = [env.scene[n] for n in self.spec.box_names]
         self.n = len(self.boxes)
         self.ids = torch.arange(self.num_envs, device=self.device)
@@ -47,6 +49,7 @@ class WorkcellCommand(CommandTerm):
         self.metrics = {name: torch.zeros(self.num_envs, device=self.device)
                         for name in ("success", "boxes_placed", "phase", "cargo_retained")}
         self.flap_grasp = None
+        self.reach_progress = None
         self.settling = None
         if self.spec.reset_settle_seconds and not self.spec.reset_bank:
             from .settling import ResetSettling
@@ -54,6 +57,8 @@ class WorkcellCommand(CommandTerm):
         if self.spec.grasp_mode == "flap_top":
             from .flap_grasp import FlapGrasp
             self.flap_grasp = FlapGrasp(self)
+            from .reach_progress import ReachProgress
+            self.reach_progress = ReachProgress(self.num_envs, self.device)
             self.metrics.update({name: torch.zeros(self.num_envs, device=self.device)
                                  for name in ("grasp_left", "grasp_right", "lift_height", "hold_fraction",
                                               "left_target_distance", "right_target_distance")})
@@ -106,6 +111,14 @@ class WorkcellCommand(CommandTerm):
             if not (height[ids] > self.initial_z[ids, self.active_box[ids]] + self.spec.lift_height * 0.5).all():
                 raise ValueError("Reset bank is not a lifted-box state for this task/geometry.")
         self._goals()
+        if self.reach_progress is not None:
+            self.reach_progress.reset(ids)
+            update = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+            update[ids] = True
+            enabled = self.phase == 1
+            if self.settling is not None:
+                enabled &= self.settling.ready
+            self.reach_progress.advance(self.hand_target_distance, self.active_box, enabled, update)
 
     def _measure(self):
         self.poses = torch.stack([b.data.root_pose_w for b in self.boxes], 1)
@@ -153,8 +166,12 @@ class WorkcellCommand(CommandTerm):
                                 & (foreign_local[:, None, 2].abs() < 0.5))
         body_pos = self.robot.data.body_link_pos_w[:, self.tool_ids]
         body_q = self.robot.data.body_link_quat_w[:, self.tool_ids]
-        tool_offset = torch.tensor(self.spec.tool_offset, device=self.device).expand_as(body_pos)
-        self.tools = body_pos + rotate(body_q, tool_offset)
+        if self.endeffector_center.definition:
+            # One stable TCP definition across IK, reward, observations and recording.
+            self.tools = self.endeffector_center.center_pose_w[..., :3]
+        else:
+            tool_offset = torch.tensor(self.spec.tool_offset, device=self.device).expand_as(body_pos)
+            self.tools = body_pos + rotate(body_q, tool_offset)
         target = self.centers[self.ids, self.active_box]
         target_q = self.poses[self.ids, self.active_box, 3:]
         half = self.half_size[self.active_box]
@@ -233,6 +250,11 @@ class WorkcellCommand(CommandTerm):
                 - self._env.scene.env_origins[:, None, 2])[completed]
             self.initial_centers[completed] = (self.centers - self._env.scene.env_origins[:, None])[completed]
             self.initial_quats[completed] = self.poses[completed, :, 3:]
+        if self.reach_progress is not None:
+            enabled = self.reward_phase == 1
+            if self.settling is not None:
+                enabled &= self.settling.ready
+            self.reach_progress.advance(self.hand_target_distance, self.reward_box, enabled, update)
         target = self.centers[self.ids, self.active_box]
         lifted = target[:, 2] - self._env.scene.env_origins[:, 2] > self.initial_z[self.ids, self.active_box] + self.spec.lift_height
         upright = self.upright[self.ids, self.active_box] > math.cos(self.spec.max_tilt)
@@ -240,17 +262,18 @@ class WorkcellCommand(CommandTerm):
         held = self.grasped & lifted & upright
         velocity = self.velocities[self.ids, self.active_box]
         settled = (velocity[:, :3].norm(dim=-1) < self.spec.settle_speed) & (velocity[:, 3:].norm(dim=-1) < self.spec.settle_angular_speed)
+        # Pick success does not require a motion/contact-residual limit. Keep
+        # the existing extra stability requirements for the later carry stage.
+        carry_held = held
         if self.flap_grasp is not None:
-            held &= settled & (self.unexpected_finger_force.amax(-1) < self.spec.unexpected_contact_limit)
+            carry_held = held & settled & (self.unexpected_finger_force.amax(-1) < self.spec.unexpected_contact_limit)
         self.pick_checks = {
-            "grasp": self.grasped, "height": lifted, "tilt": upright, "speed": settled,
-            "contact": ((self.unexpected_finger_force.amax(-1) < self.spec.unexpected_contact_limit)
-                        if self.flap_grasp is not None else torch.ones_like(held)),
+            "grasp": self.grasped, "height": lifted, "tilt": upright,
         }
         placed = self.supported[self.ids, self.active_box] & settled & self.released
         condition = torch.where(self.phase == 0, navigated,
                     torch.where(self.phase == 1, held,
-                    torch.where(self.phase == 2, held & navigated & self.free_slots.any(-1),
+                    torch.where(self.phase == 2, carry_held & navigated & self.free_slots.any(-1),
                     torch.where(self.phase == 3, placed,
                                 self.supported.all(-1) & self.button_pressed
                                 & ((self.tools - self.button_point[:, None]).norm(dim=-1).amin(-1)
@@ -258,7 +281,11 @@ class WorkcellCommand(CommandTerm):
         condition &= self.cargo_ok.all(-1)
         if self.settling is not None:
             condition &= self.settling.ready
+            self.pick_checks["initial_wait"] = self.settling.ready
+        if self.spec.cargo_per_box:
+            self.pick_checks["cargo"] = self.cargo_ok.all(-1)
         self.dwell[update] = torch.where(condition[update], self.dwell[update] + self._env.step_dt, 0.0)
+        self.pick_checks["hold"] = self.dwell >= self.spec.hold_seconds
         reached = (self.dwell >= self.spec.hold_seconds) & update & ~self.success
         self.transition[:] = reached & ~self.belt_running
         button_done = reached & (self.phase == 4)
@@ -290,10 +317,10 @@ class WorkcellCommand(CommandTerm):
         self.failure_checks = {"floor_drop": floor_drop, "outside": outside,
                                "obstacle_collision": collision_failure,
                                "cargo_lost": ~self.cargo_ok.all(-1) & grace}
-        if self.settling is not None:
+        if self.settling is not None and self.spec.reset_settle_timeout > 0:
             self.failure_checks["settle_timeout"] = self.settling.failed
         self.failure |= (floor_drop | outside | collision_failure | (~self.cargo_ok.all(-1) & grace)) & update
-        if self.settling is not None:
+        if self.settling is not None and self.spec.reset_settle_timeout > 0:
             self.failure |= self.settling.failed & update
         self.success &= ~self.failure
         self.transition &= ~self.failure

@@ -1,7 +1,7 @@
 """Pure formatting checks: no Isaac Sim, XR, or training process."""
 
 import unittest
-from kuavo_isaaclab_scene.rl.debug.reward_report import step_contributions, format_report
+from kuavo_isaaclab_scene.rl.debug.reward_report import step_contributions, format_report, reward_summary
 
 
 class RewardReportTests(unittest.TestCase):
@@ -25,6 +25,18 @@ class RewardReportTests(unittest.TestCase):
 
     def test_no_physics_yet(self):
         self.assertIn("Waiting for first physics step", format_report(None, "PAUSED", 0.))
+
+    def test_large_terminal_summary_preserves_reason_and_unmet_hold(self):
+        sample = dict(failure=True, failure_reasons=["obstacle_collision"], obstacle_force=21.5,
+                      obstacle_limit=20., lift_cm=7., hold=.2, tilt_deg=10.,
+                      success_checks=dict(grasp=True, height=True, tilt=True, hold=False))
+        headline, checks = reward_summary(sample, "FAILURE")
+        self.assertEqual(headline, "FAILED: OBSTACLE COLLISION")
+        self.assertTrue(any("21.50 N > 20 N" in line for line in checks))
+        self.assertIn("NEED: Hold 0.20 / 0.5 s", checks)
+        self.assertFalse(any("speed" in line or "contact" in line for line in checks))
+        sample.update(failure=False, failure_reasons=[], success=True)
+        self.assertEqual(reward_summary(sample, "SUCCESS")[0], "SUCCESS")
 
     def test_grasp_diagnostics_and_unmet_success_conditions(self):
         sample = dict(terms={}, total=0., lift_cm=7., hold=0.,

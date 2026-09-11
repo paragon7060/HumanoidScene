@@ -108,12 +108,14 @@ class FlapGrasp:
         t.grasp_candidate_distance = distances
         t.reach_distance = t.hand_target_distance[:, t.spec.grasp_hand_indices].mean(-1)
         normal = rotate(pair_q, torch.nn.functional.one_hot(pair_a, 3).float())
-        fingers = t.robot.data.body_link_pos_w[:, self.finger_ids].reshape(t.num_envs, 2, 2, 3)
+        fingers = (t.endeffector_center.tips_w if t.endeffector_center.definition else
+                   t.robot.data.body_link_pos_w[:, self.finger_ids].reshape(t.num_envs, 2, 2, 3))
         jaw_q = pair_q[:, :, :, None].expand(-1, -1, -1, 2, -1)
         jaw_local = unrotate(jaw_q, fingers[:, :, None] - pair_pos[:, :, :, None])
         closing = fingers[:, :, 0] - fingers[:, :, 1]
         closing /= closing.norm(dim=-1, keepdim=True).clamp_min(1e-6)
         alignment = (closing[:, :, None] * normal).sum(-1).abs().clamp(0, 1)
+        t.grasp_candidate_alignment = alignment
         t.grasp_alignment = alignment[batch, hands, nearest_id]
         points, forces, residuals = [], [], []
         for i in range(4):

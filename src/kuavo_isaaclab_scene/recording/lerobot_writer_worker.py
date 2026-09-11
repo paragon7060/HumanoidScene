@@ -127,9 +127,18 @@ def main() -> int:
                 elif op == "start":
                     if dataset is None or recording:
                         raise RuntimeError("Writer is not initialized or an episode is already active.")
+                    episode_metadata = dict(message.get("metadata") or {})
+                    frame_definition = episode_metadata.get("endeffector_frame")
+                    frame_path = root / "meta" / "kuavo_endeffector_frame.json"
+                    if frame_path.exists():
+                        if json.loads(frame_path.read_text()) != frame_definition:
+                            raise ValueError("Dataset EEF definition differs; use a NEW dataset directory.")
+                    elif frame_definition and frame_definition.get("revision") == 1:
+                        if int(dataset.meta.total_episodes) > 0:
+                            raise ValueError("Existing dataset has no calibrated EEF contract; use a NEW dataset directory.")
+                        frame_path.write_text(json.dumps(frame_definition, indent=2) + "\n")
                     recording = True
                     sample_count = 0
-                    episode_metadata = dict(message.get("metadata") or {})
                     name = f"episode_{int(dataset.meta.total_episodes):06d}"
                     _write_message(responses, {"ok": True, "op": op, "name": name})
                 elif op == "append":

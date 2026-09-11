@@ -19,7 +19,7 @@ from ...teleop.quest_openxr import RawQuestOpenXRDevice, start_quest_xr_session
 from ..runners.common import build_configs
 from .quest_control import QuestRLControl
 from .reward_recorder import RewardProbe
-from .reward_report import format_report
+from .reward_report import format_report, reward_summary
 from .stationary_surface import StationarySurface
 
 
@@ -64,7 +64,7 @@ def _config(args):
 
 
 def run(args, app):
-    env = hud = camera_overlay = None
+    env = hud = camera_overlay = grasp_markers = collision_view = None
     try:
         cfg = _config(args)
         env = ManagerBasedRLEnv(cfg)
@@ -76,6 +76,21 @@ def run(args, app):
                               render_quality=args.render_quality)
         hud = QuestRewardPanel(forward_axis=args.xr_overlay_forward_axis)
         hud.set_visible(True)
+        if args.rl_collision_view:
+            from .collision_overlay import CollisionOverlay
+            collision_view = CollisionOverlay(env)
+        if args.rl_grasp_calibration:
+            from .grasp_calibration import GraspCalibration
+            grasp_markers = GraspCalibration(env, args.rl_grasp_calibration_file,
+                                             model.name, args.rl_grasp_marker_radius)
+        elif args.rl_grasp_markers and args.rl_endeffector_centers and env.command_manager.get_term("workcell").endeffector_center.definition:
+            from .endeffector_markers import EndEffectorMarkers
+            grasp_markers = EndEffectorMarkers(env)
+        elif args.rl_grasp_markers:
+            from .grasp_markers import GraspMarkers
+            grasp_markers = GraspMarkers(env, args.rl_grasp_finger_offsets,
+                                         args.rl_grasp_marker_radius, args.rl_grasp_marker_flap,
+                                         show_targets=args.rl_grasp_targets)
         if args.quest_camera_overlay:
             from ...display.xr_camera_overlay import QuestCameraOverlay, QuestCameraOverlayCfg
             from ...display.camera_frames import camera_rgb
@@ -91,13 +106,14 @@ def run(args, app):
                 names += ["left_wrist_camera", "right_wrist_camera"]
             open_camera_viewports(env.scene, names, headless=args.headless, width=240, height=180, columns=3)
         keyboard = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0., rot_sensitivity=0., sim_device=env.device))
-        requests = {name: False for name in ("toggle", "reset", "recenter", "panel")}
+        requests = {name: False for name in ("toggle", "reset", "recenter", "panel", "markers", "collisions", "save_points")}
         def request(name):
             requests[name] = True
         for hand, button, name in (("right", "a", "toggle"), ("right", "b", "reset"),
                                    ("left", "x", "recenter"), ("left", "y", "panel")):
             xr.bind_button(hand, button, lambda name=name: request(name))
-        for key, name in (("T", "toggle"), ("R", "reset"), ("C", "recenter"), ("H", "panel")):
+        for key, name in (("T", "toggle"), ("R", "reset"), ("C", "recenter"), ("H", "panel"),
+                          ("G", "markers"), ("J", "collisions"), ("K", "save_points")):
             keyboard.add_callback(key, lambda name=name: request(name))
         robot = env.scene["robot"]
         head_id = robot.find_bodies(model.head_camera_body)[0][0]
@@ -121,6 +137,7 @@ def run(args, app):
         sample, episode_return, last_hud = None, 0., 0.
         panel_ready, next_panel_diagnostic = False, time.monotonic() + 3.
         next_grasp_diagnostic = 0.
+        last_collision_draw = 0.
         status = "PAUSED - X then A"
         print("[RL REWARD] No dataset recording. A/T run/pause; B/R reset; X/C recenter; Y/H panel.", flush=True)
         print(f"[RL REWARD] active_arm={cfg.task.active_arm}, actions={env.action_manager.total_action_dim}, "
@@ -131,6 +148,28 @@ def run(args, app):
               "Simulation inspection only; not a real-robot safety controller.", flush=True)
         while app.is_running():
             start = time.monotonic()
+            if requests["save_points"]:
+                requests["save_points"] = False
+                if args.rl_grasp_calibration and grasp_markers is not None:
+                    if running:
+                        print("[GRASP CALIBRATION] Pause with A/T before saving.", flush=True)
+                    else:
+                        grasp_markers.save()
+            if requests["collisions"]:
+                requests["collisions"] = False
+                if collision_view is not None:
+                    collision_view.toggle()
+            if collision_view is not None and start - last_collision_draw >= .1:
+                collision_view.update(contact_sample_valid=sample is not None and not terminal)
+                last_collision_draw = start
+            if requests["markers"]:
+                requests["markers"] = False
+                if grasp_markers is not None:
+                    grasp_markers.toggle()
+            if grasp_markers is not None:
+                # Use live poses before rendering, including paused/reset scenes.
+                # After terminal auto-reset markers show the RESET scene, unlike the retained reward sample.
+                grasp_markers.update()
             raw = xr.advance()
             packets = {side: raw.get(getattr(xr.TrackingTarget, "CONTROLLER_" + side.upper()))
                        for side in ("left", "right")}
@@ -151,6 +190,8 @@ def run(args, app):
                 running = terminal = False
                 sample, episode_return = None, 0.
                 status = "RESET - press A"
+                if collision_view is not None:
+                    collision_view.update(contact_sample_valid=False)
             if requests["recenter"] or (not view_ready and tracked):
                 requests["recenter"] = False
                 if tracked:
@@ -196,15 +237,25 @@ def run(args, app):
                 terminal = sample["success"] or sample["failure"] or sample["timeout"]
                 if terminal:
                     running = False
+                    hud.set_visible(True)  # a hidden panel must not hide the terminal reason
                     control.reset()
                     status = ("SUCCESS" if sample["success"] else "FAILURE" if sample["failure"] else "TIMEOUT")
                     status += " - last step; B to reset"
                     last_hud = 0.
+                    if collision_view is not None:
+                        collision_view.update(contact_sample_valid=False)
             else:
                 # Stop task time/physics while paused, but keep headset rendering and input alive.
                 env.sim.render()
             if start - last_hud >= .1 or not running:
-                ready = hud.update(format_report(sample, status, episode_return))
+                report = format_report(sample, status, episode_return)
+                if grasp_markers is not None and grasp_markers.visible:
+                    report = grasp_markers.legend + "\n" + grasp_markers.info + "\n" + report
+                if collision_view is not None and collision_view.visible:
+                    report = collision_view.info + "\n" + report
+                headline, checks = reward_summary(sample, status)
+                ready = hud.update(report, headline=headline, checks=checks,
+                                   failure=bool(sample and sample["failure"]))
                 if ready and not panel_ready:
                     hud.describe()
                 elif not ready and start >= next_panel_diagnostic:
@@ -224,6 +275,10 @@ def run(args, app):
     except KeyboardInterrupt:
         pass
     finally:
+        if collision_view is not None:
+            collision_view.close()
+        if grasp_markers is not None:
+            grasp_markers.close()
         if camera_overlay is not None:
             camera_overlay.close()
         if hud is not None:

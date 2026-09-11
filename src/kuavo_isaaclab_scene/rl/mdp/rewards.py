@@ -1,5 +1,6 @@
 """Dense shaping is phase-gated; success still requires the physical predicates."""
 
+import math
 import torch
 from .commands import task
 from .settling import ready
@@ -14,6 +15,13 @@ def navigation(env):
 def reaching(env):
     t = task(env)
     return torch.exp(-6 * t.reach_distance) * (t.reward_phase == 1)
+
+
+def approach_reaching(env):
+    """TCP proximity supplements base navigation; does not replace safe base/yaw goals."""
+    t = task(env)
+    distance = (t.tools[:, t.spec.grasp_hand_indices] - t.grips[:, t.spec.grasp_hand_indices]).norm(dim=-1).mean(-1)
+    return torch.exp(-6 * distance) * (t.reward_phase == 0) * ready(t)
 
 
 def lift(env):
@@ -62,9 +70,9 @@ def failure(env):
 
 def flap_reaching(env):
     t = task(env)
-    # Required hand(s) may approach either flap. Alignment remains an observation,
-    # not a distance multiplier: closer must always yield a larger distance reward.
-    return torch.exp(-12 * t.hand_target_distance[:, t.spec.grasp_hand_indices]).mean(-1) * ready(t)
+    # A new best proximity earns once. dt cancellation makes a fixed amount of
+    # progress worth the same at different control rates (RewardManager applies dt).
+    return t.reach_progress.delta[:, t.spec.grasp_hand_indices].mean(-1) * ready(t) / env.step_dt
 
 
 def flap_contact(env):
@@ -73,6 +81,18 @@ def flap_contact(env):
     selected = t.spec.grasp_hand_indices
     return (0.25 * t.finger_grasp_contacts[:, selected].float().mean((1, 2))
             + t.hand_grasp_flags[:, selected].float().mean(-1)) * ready(t)
+
+
+def flap_orientation(env, distance_threshold: float = 0.10):
+    """Weak additive pre-grasp alignment to the same nearest flap as reaching."""
+    if not math.isfinite(distance_threshold) or distance_threshold <= 0:
+        raise ValueError("Orientation distance_threshold must be finite and positive.")
+    t = task(env)
+    selected = t.spec.grasp_hand_indices
+    proximity = (1 - t.hand_target_distance[:, selected] / distance_threshold).clamp(0, 1)
+    alignment = t.grasp_alignment[:, selected].clamp(0, 1).square()
+    before_grasp = ~t.hand_grasp_flags[:, selected]
+    return (proximity * alignment * before_grasp).mean(-1) * ready(t) * (t.reward_phase == 1)
 
 
 def flap_hold(env):

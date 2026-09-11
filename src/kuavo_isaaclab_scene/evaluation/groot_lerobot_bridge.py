@@ -309,6 +309,12 @@ def adapt_rwh_kuavo_v2_action(
 class KuavoLeRobotBridge:
     """Build LeRobot observations and apply its decoded action convention."""
 
+    @property
+    def end_effector_pose_w(self):
+        """[env, left/right, xyz+wxyz] calibrated closed TCP; not added to policy input."""
+        from ..robots.end_effector import get_end_effector_frames
+        return get_end_effector_frames(self.robot).center_pose_w
+
     def __init__(
         self,
         env: Any,
@@ -335,6 +341,8 @@ class KuavoLeRobotBridge:
                 )
         self.env = env
         self.robot = env.scene["robot"]
+        # Joint-action policy schemas remain unchanged. Cartesian consumers can
+        # explicitly query the calibrated TCP through end_effector_pose_w below.
         self.policy_profile = policy_profile
         action_manager = getattr(env, "action_manager", None)
         self.manager_action_dim = int(

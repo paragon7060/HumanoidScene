@@ -9,16 +9,41 @@ from PIL import Image, ImageDraw, ImageFont
 from .xr_control_status import QuestControlStatus
 
 
-@lru_cache(maxsize=1)
-def _font():
+@lru_cache(maxsize=4)
+def _font(size=20):
     try:
-        return ImageFont.truetype("DejaVuSansMono.ttf", 20)
+        return ImageFont.truetype("DejaVuSansMono.ttf", size)
     except OSError:
-        return ImageFont.load_default(size=20)
+        return ImageFont.load_default(size=size)
 
 
-def reward_image(text, width=768, height=864):
+def reward_image(text, width=768, height=864, *, headline=None, checks=(), failure=False):
     """Rasterize all rows, including zeros, without creating an Isaac/Kit context."""
+    if headline is not None:
+        # Reserve a separate header: long diagnostic/reward lists must NEVER
+        # shrink the failure reason or success checklist alongside the body.
+        heading_font, check_font = _font(36), _font(24)
+        heading_lines = textwrap.wrap(headline, max(1, int((width - 32) / heading_font.getlength("M"))))
+        check_lines = [part for line in checks for part in
+                       (textwrap.wrap(line, max(1, int((width - 32) / check_font.getlength("M")))) or [""])]
+        header_height = 28 + len(heading_lines) * 46 + len(check_lines) * 31
+        header_height = min(header_height, height - 100)
+        image = Image.new("RGBA", (width, height), (16, 22, 32, 255))
+        draw = ImageDraw.Draw(image)
+        y = 12
+        for line in heading_lines:
+            color = (255, 90, 90, 255) if failure else ((100, 255, 140, 255) if headline == "SUCCESS" else (90, 235, 255, 255))
+            draw.text((16, y), line, font=heading_font, fill=color)
+            y += 46
+        for line in check_lines:
+            if y + 31 > header_height:
+                break
+            color = ((255, 195, 80, 255) if line.startswith("NEED:") else
+                     (120, 255, 160, 255) if line.startswith("OK:") else (255, 220, 220, 255))
+            draw.text((16, y), line, font=check_font, fill=color)
+            y += 31
+        image.paste(Image.fromarray(reward_image(text, width, height - header_height)), (0, header_height))
+        return np.asarray(image).copy()
     font = _font()
     columns = max(1, int((width - 32) / font.getlength("M")))
     lines = [part for line in text.splitlines()
@@ -61,19 +86,20 @@ class QuestRewardPanel(QuestControlStatus):
         # Share the camera-overlay layer and tracked head path, including when
         # camera sensors themselves are disabled. This adds only one panel.
         super().__init__(layer_name="kuavo_camera_overlay", width=width, height=height,
-                         pixels_per_cm=40., position=(0., -4., -28. if forward_axis == "-z" else 28.),
+                         pixels_per_cm=40., position=(-5., -4., -28. if forward_axis == "-z" else 28.),
                          widget_type=RewardWidget)
         self.update("RL REWARD | READY\nA: start/pause\nY: show/hide reward panel")
 
-    def update(self, text, *, alert=False):
+    def update(self, text, *, alert=False, headline=None, checks=(), failure=False):
         import torch
-        if text != self._last_image_text:
-            rgba = reward_image(text)
+        key = (text, headline, tuple(checks), failure)
+        if key != self._last_image_text:
+            rgba = reward_image(text, headline=headline, checks=checks, failure=failure)
             frame = torch.as_tensor(rgba, device="cuda:0").contiguous()
             self._provider.set_bytes_data_from_gpu(frame.data_ptr(), [rgba.shape[1], rgba.shape[0]])
             # Keep the previous upload alive until the next rendered frame too.
             self._gpu_frames = (self._gpu_frames + [frame])[-2:]
-            self._last_image_text = text
+            self._last_image_text = key
             self.upload_count += 1
             if self.component.scene_widget is not None:
                 self.component.scene_widget.invalidate()

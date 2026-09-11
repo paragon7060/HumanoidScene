@@ -27,6 +27,25 @@ parser.add_argument("--rl-reward-debug", action="store_true",
                     help="Inspect current flap-pick RL rewards in Quest instead of recording a dataset.")
 parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
+parser.add_argument("--rl-grasp-markers", action=argparse.BooleanOptionalAction, default=True,
+                    help="RL reward inspection: show finger references and paired opposite-face targets in 3D.")
+parser.add_argument("--rl-grasp-calibration", action="store_true",
+                    help="Replace grasp markers with four editable finger tip Xforms; pause, move, K to save.")
+parser.add_argument("--rl-endeffector-centers", action=argparse.BooleanOptionalAction, default=True,
+                    help="RL debug: show calibrated four tips, live midpoints and closed TCPs instead of paired goal markers.")
+parser.add_argument("--rl-grasp-calibration-file", type=Path, default=Path("configs/grasp_reference_points.json"),
+                    help="Load/save display-only local finger offsets (K); relative to working directory.")
+parser.add_argument("--rl-grasp-targets", action=argparse.BooleanOptionalAction, default=True,
+                    help="Include paired flap goals; disable to inspect ONLY the two finger reference points.")
+parser.add_argument("--rl-collision-view", action=argparse.BooleanOptionalAction, default=True,
+                    help="RL inspection only: cooked colliders, inward face candidates, mean contact points and force arrows.")
+parser.add_argument("--rl-grasp-finger-offsets", nargs=6, type=float, default=(0.,)*6,
+                    metavar=("F_X", "F_Y", "F_Z", "B_X", "B_Y", "B_Z"),
+                    help="Paired-goal display-only offsets in finger frames; all zero uses calibration if available, else link origins.")
+parser.add_argument("--rl-grasp-marker-flap", choices=("auto", "flap_right", "flap_left"), default="auto",
+                    help="Display target candidate; auto keeps a held flap or chooses the closest paired target.")
+parser.add_argument("--rl-grasp-marker-radius", type=float, default=.004,
+                    help="Display-only finger sphere radius in metres (default 4 mm).")
 parser.add_argument("--input-mode", choices=("controllers", "hands"), default="controllers",
                     help="Arm input: controller grip pose + trigger (default), or bare-hand wrist + pinch.")
 parser.add_argument("--hand-switch", action="store_true",
@@ -438,6 +457,9 @@ def main() -> None:
 
     urdf_arms = {side: UrdfArm(robot_model.urdf_path, side) for side in ("left", "right")} if (
         use_urdf_ik or args_cli.arm_start_pose == "ready") else {}
+    from kuavo_isaaclab_scene.robots.end_effector import center_offset
+    for side, arm in urdf_arms.items():
+        arm.set_tool_offset(center_offset(side))
     use_ready_pose = args_cli.arm_start_pose == "ready" or (
         args_cli.arm_start_pose == "auto" and use_urdf_ik and args_cli.scene_config is None)
     if use_ready_pose:
@@ -520,6 +542,8 @@ def main() -> None:
     right_body_ids, _ = robot.find_bodies("zarm_r7_end_effector")
     if len(left_body_ids) != 1 or len(right_body_ids) != 1:
         raise RuntimeError("Could not resolve both Kuavo end-effector bodies.")
+    from kuavo_isaaclab_scene.robots.end_effector import get_end_effector_frames
+    eef_frames = get_end_effector_frames(robot)
     box_names = [name for name in dict.fromkeys((*LOCAL_BOX_SCENE_KEYS, *extra_recording_objects))
                  if _scene_asset_or_none(env.scene, name) is not None]
     button = _scene_asset_or_none(env.scene, "button_station")
@@ -688,7 +712,7 @@ def main() -> None:
           f"filter={arm_terms[0].response.smoothing_s * 1000:g} ms; "
           f"joint speed limit={arm_terms[0].response.max_velocity:g} rad/s", flush=True)
     last_motion_report = time.perf_counter()
-    last_ee_positions = _to_numpy(robot.data.body_pos_w[0, [left_body_ids[0], right_body_ids[0]]]).copy()
+    last_ee_positions = _to_numpy(eef_frames.center_pose_w[0, :, :3]).copy()
 
     def hold_arms():
         for term in arm_terms:
@@ -1027,6 +1051,7 @@ def main() -> None:
                 episode_name = recorder.start_episode(
                     {
                         "seed": args_cli.seed,
+                        "endeffector_frame": eef_frames.definition or {"center_frame": "original_urdf_eef"},
                         "input_mode": active_mode,
                         "arm_control": ("scaled_hand_pose_v1" if active_mode == "hands"
                                         else "scaled_controller_pose_v2" if absolute_control and args_cli.controller_mapping == "scaled"
@@ -1137,8 +1162,7 @@ def main() -> None:
                     packet = packets[side]
                     if active_mode == "hands" and (hand_commands.active[side] or not mapped.head_valid):
                         packet = None
-                    tool_pose = np.concatenate((_to_numpy(robot.data.body_pos_w[0, body_id]),
-                                                _to_numpy(robot.data.body_quat_w[0, body_id])))
+                    tool_pose = _to_numpy(eef_frames.center_pose_w[0, 0 if side == "left" else 1])
                     arm_goals.append(pose_mapper.target(
                         side, None if free_view else packet, tool_pose, root_pose,
                         following=(recorder.recording or preview_enabled) and safety.control_allowed,
@@ -1242,7 +1266,7 @@ def main() -> None:
                 report_steps = 0
                 report_time = time.perf_counter()
             if time.perf_counter() - last_motion_report >= 3.0:
-                positions = _to_numpy(robot.data.body_pos_w[0, [left_body_ids[0], right_body_ids[0]]])
+                positions = _to_numpy(eef_frames.center_pose_w[0, :, :3])
                 if recorder.recording or preview_enabled:
                     movement = np.linalg.norm(positions - last_ee_positions, axis=1) * 1000.0
                     errors = [float(term.target_position_error()[0]) * 1000.0 for term in arm_terms]
@@ -1314,12 +1338,7 @@ def main() -> None:
                             [_to_numpy(asset.data.root_pos_w[0]), _to_numpy(asset.data.root_quat_w[0])]
                         )
                     )
-                left_ee_pose = np.concatenate(
-                    [_to_numpy(robot.data.body_pos_w[0, left_body_ids[0]]), _to_numpy(robot.data.body_quat_w[0, left_body_ids[0]])]
-                )
-                right_ee_pose = np.concatenate(
-                    [_to_numpy(robot.data.body_pos_w[0, right_body_ids[0]]), _to_numpy(robot.data.body_quat_w[0, right_body_ids[0]])]
-                )
+                left_ee_pose, right_ee_pose = _to_numpy(eef_frames.center_pose_w[0])
                 joint_positions = [_to_numpy(robot.data.joint_pos[0, arm_joint_ids])]
                 joint_velocities = [_to_numpy(robot.data.joint_vel[0, arm_joint_ids])]
                 for _, gripper, gripper_joint_ids in gripper_state_sources:

@@ -1,5 +1,7 @@
 """Capture the terminal step before Isaac Lab's automatic scene reset."""
 
+import math
+
 from isaaclab.managers import RecorderTerm
 from .reward_report import step_contributions
 
@@ -15,6 +17,15 @@ class RewardProbe(RecorderTerm):
             "lift_cm": float((t.centers[0, box, 2] - env.scene.env_origins[0, 2]
                               - t.initial_z[0, box]).item()) * 100,
             "hold": float(t.dwell[0].item()),
+            "required_hold": float(t.spec.hold_seconds),
+            "required_lift_cm": float(t.spec.lift_height) * 100,
+            "tilt_deg": math.degrees(math.acos(float(t.upright[0, box].clamp(-1, 1)))),
+            "max_tilt_deg": math.degrees(t.spec.max_tilt),
+            "obstacle_limit": float(t.spec.obstacle_contact_force),
+            "reach_best": t.reach_progress.best[0].tolist(),
+            "reach_progress": t.reach_progress.delta[0].tolist(),
+            "required_hands": "/".join("L" if i == 0 else "R" for i in t.spec.grasp_hand_indices),
+            "success_checks": {name: bool(values[0].item()) for name, values in t.pick_checks.items()},
             "left_grasp": bool(t.hand_grasp_flags[0, 0].item()),
             "right_grasp": bool(t.hand_grasp_flags[0, 1].item()),
             "left_distance_cm": float(t.hand_target_distance[0, 0].item()) * 100,
@@ -27,6 +38,7 @@ class RewardProbe(RecorderTerm):
             "obstacle_force": float(t.obstacle_forces[0].amax().item()),
             "grasp_debug": [
                 f"{'L' if hand == 0 else 'R'} {flap}: d={100*t.grasp_candidate_distance[0, hand, candidate].item():.1f}cm "
+                f"axisErr={math.degrees(math.acos(float(t.grasp_candidate_alignment[0, hand, candidate].clamp(0, 1)))):.1f}deg "
                 f"raw={int(t.grasp_candidate_raw[0, hand, candidate])} "
                 f"held={int(t.grasp_candidate_held[0, hand, candidate])}\n"
                 f"region={''.join(str(int(v)) for v in t.grasp_candidate_region[0, hand, candidate])} "

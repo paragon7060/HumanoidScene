@@ -29,13 +29,17 @@ def contract(env):
         "slot_count": spec.slot_count, "slot_pitch": spec.slot_pitch,
         "finger_bodies": list(spec.finger_bodies), "tool_bodies": list(spec.tool_bodies),
         "tool_offset": list(spec.tool_offset),
+        "endeffector_center": env.command_manager.get_term("workcell").endeffector_center.definition,
+        "pick_success_revision": 2,
+        "settling_revision": 2,
+        "reaching_revision": "flap_best_proximity_progress_v1",
         "layout": {n: {"pos": list(getattr(cfg.scene, n).init_state.pos),
                        "rot": list(getattr(cfg.scene, n).init_state.rot),
                        "scale": list(getattr(getattr(cfg.scene, n).spawn, "scale", None) or (1, 1, 1))}
                    for n in names},
         "joints": {name: list(asset.joint_names) for name, asset in env.scene.articulations.items()},
         "geometry": {n: asdict(g) for n, g in cfg.commands.workcell.geometry.items()},
-        **({"flap_grasp_revision": 3} if spec.grasp_mode == "flap_top" else {}),
+        **({"flap_grasp_revision": 3, "flap_hold_revision": 2} if spec.grasp_mode == "flap_top" else {}),
         "grasp_definition": {name: getattr(spec, name) for name in (
             "grasp_mode", "grasp_hand", "required_grasp_hands", "grasp_force",
             "grasp_flaps", "flap_top_band", "flap_grasp_depth",

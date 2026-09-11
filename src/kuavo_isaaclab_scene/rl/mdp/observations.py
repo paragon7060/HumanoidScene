@@ -66,6 +66,11 @@ def hand_flap_relation(env):
     return torch.cat((delta, relative, t.grasp_alignment[..., None]), dim=-1).flatten(1)
 
 
+def reaching_history(env):
+    """Expose reward memory so the same pose with different progress is distinguishable."""
+    return task(env).reach_progress.best.clone()
+
+
 def box_rest_relation(env):
     """Expose the latched resting pose used by the pre-lift disturbance cost."""
     from isaaclab.utils.math import quat_mul, quat_conjugate

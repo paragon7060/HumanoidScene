@@ -36,13 +36,15 @@ class GraspContactLatch:
         follows &= gap <= self.reference_gap + self.spec.grasp_open_tolerance_m
         was_active = self.active.clone()
         acquire = strict & finite & ~was_active
-        self.reference_midpoint = torch.where((acquire & update[:, None])[..., None],
-                                             midpoint, self.reference_midpoint)
-        self.reference_gap = torch.where(acquire & update[:, None], gap, self.reference_gap)
-        live = sustained_contact & follows & finite
+        # Verified contacts outrank link-origin drift. Geometry only constrains
+        # the fallback when contacts disappear; reference the LAST verified grasp.
+        live = sustained_contact & finite
         missing = torch.where(live | acquire, 0., self.missing_s + dt)
-        active = acquire | (was_active & follows & finite
-                            & (live | (missing < self.spec.grasp_contact_grace_s)))
+        active = acquire | (was_active & finite
+                            & (live | (follows & (missing < self.spec.grasp_contact_grace_s))))
+        verified = (acquire | (was_active & live)) & update[:, None]
+        self.reference_midpoint = torch.where(verified[..., None], midpoint, self.reference_midpoint)
+        self.reference_gap = torch.where(verified, gap, self.reference_gap)
         self.active[update] = active[update]
         self.missing_s[update] = torch.where(active, missing, 0.)[update]
         self.last_step[update] = step

@@ -44,6 +44,20 @@ def test_opening_or_relative_slip_releases_immediately():
     assert not latch.update(~yes, ~yes, jaw, 1, 1/30).any()
 
 
+def test_verified_contact_overrides_origin_motion_and_updates_dropout_reference():
+    latch, jaw, yes = setup()
+    latch.update(yes, yes, jaw, 0, 1/30)
+    jaw[..., 2] += .08  # Greater than the old 2 cm lifetime limit.
+    jaw[:, :, 0, 0] -= .02  # Opening proxy also exceeds the old 8 mm limit.
+    assert latch.update(~yes, yes, jaw, 1, 1/30).all()
+    torch.testing.assert_close(latch.reference_midpoint, jaw.mean(-2))
+    assert not latch.missing_s.any()
+    # Brief missing contacts use the latest verified geometry, not initial geometry.
+    assert latch.update(~yes, ~yes, jaw, 2, 1/30).all()
+    jaw[..., 2] += .03
+    assert not latch.update(~yes, ~yes, jaw, 3, 1/30).any()
+
+
 def test_partial_reset_does_not_reset_other_environment():
     latch, jaw, yes = setup()
     latch.update(yes, yes, jaw, 0, 1/30)
