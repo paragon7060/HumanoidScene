@@ -11,6 +11,7 @@ from data_collection.task1.approach import (
     joint_space_path_length,
     planner_yaml,
     planner_distance_weights,
+    parser,
     rack_width_constraint_in_base,
     rack_width_coordinates_m,
     rack_width_max_violation_m,
@@ -57,6 +58,18 @@ def test_planner_weights_are_name_driven_for_waist_and_shoulders():
     assert weights[2] == 8.0
     assert weights[9] == 8.0
     assert weights[8] == 1.0
+
+
+def test_rrt_edge_validation_defaults_to_final_validation_resolution():
+    args = parser().parse_args(
+        [
+            "--snapshot-dir", "/tmp/s",
+            "--urdf", "/tmp/r",
+            "--terminal-seed-plan", "/tmp/p",
+        ]
+    )
+
+    assert args.constrained_rrt_edge_step_rad == args.validation_step_rad == 0.01
 
 
 def test_planner_config_accepts_rack_front_workspace_corridor():

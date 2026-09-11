@@ -456,7 +456,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--shoulder-sweep-weight", type=float, default=8.0)
     result.add_argument("--constrained-rrt-iterations", type=int, default=20000)
     result.add_argument("--constrained-rrt-step-rad", type=float, default=0.15)
-    result.add_argument("--constrained-rrt-edge-step-rad", type=float, default=0.03)
+    result.add_argument("--constrained-rrt-edge-step-rad", type=float, default=0.01)
     return result
 
 
