@@ -93,7 +93,10 @@ parser.add_argument(
 parser.add_argument(
     "--pose-editor-initial-state",
     default="second_rack_pose",
-    help="Named initial-state preset loaded before the pose editor captures its reset pose.",
+    help=(
+        "Named initial-state preset loaded before the pose editor captures its reset pose, "
+        "or 'meta_default' to keep the native Quest teleop reset pose."
+    ),
 )
 parser.add_argument("--editor-camera-width", type=int, default=1280)
 parser.add_argument("--editor-camera-height", type=int, default=720)
@@ -103,6 +106,21 @@ parser.add_argument(
     default=None,
     metavar="DIR",
     help="Write the live Task1 collision/planning snapshot once after pose-editor startup.",
+)
+parser.add_argument(
+    "--planning-snapshot-settle-steps",
+    type=int,
+    default=0,
+    metavar="STEPS",
+    help=(
+        "Before writing a planning snapshot, let the target box settle under physics for this "
+        "many steps, then recapture its flap/grasp geometry."
+    ),
+)
+parser.add_argument(
+    "--planning-snapshot-only",
+    action="store_true",
+    help="Exit immediately after writing the requested planning snapshot.",
 )
 parser.add_argument("--camera-preview", action=argparse.BooleanOptionalAction, default=True)
 parser.add_argument("--domain-randomization", action=argparse.BooleanOptionalAction, default=False)
@@ -140,6 +158,12 @@ if args_cli.joint_pose_editor and args_cli.pregrasp:
     parser.error("--joint-pose-editor and --pregrasp are separate modes.")
 if args_cli.planning_snapshot_output is not None and not args_cli.joint_pose_editor:
     parser.error("--planning-snapshot-output requires --joint-pose-editor.")
+if args_cli.planning_snapshot_settle_steps < 0:
+    parser.error("--planning-snapshot-settle-steps must be nonnegative.")
+if args_cli.planning_snapshot_settle_steps and args_cli.planning_snapshot_output is None:
+    parser.error("--planning-snapshot-settle-steps requires --planning-snapshot-output.")
+if args_cli.planning_snapshot_only and args_cli.planning_snapshot_output is None:
+    parser.error("--planning-snapshot-only requires --planning-snapshot-output.")
 if args_cli.wrist6_limit_test and args_cli.wrist6_test_steps <= 0:
     parser.error("--wrist6-test-steps must be positive.")
 if args_cli.pregrasp_height_m <= 0.0 or not math.isfinite(args_cli.pregrasp_height_m):
@@ -605,11 +629,6 @@ class _JointPoseEditor:
         if len(target_body_ids) != 1:
             raise RuntimeError(f"MediumBox_0 body lookup failed: body={target_body_names}")
         self.target_box_body_id = target_body_ids[0]
-        self.target_box_initial_position_w = self.target_box.data.body_link_pos_w[
-            0, self.target_box_body_id
-        ].clone()
-        self.target_box_root_pose_w = self.target_box.data.root_pose_w.clone()
-        self.target_box_joint_positions = self.target_box.data.joint_pos.clone()
         self.cleared_boxes = []
         for parking_index, instance_name in enumerate(
             same_shelf_instance_names(RACK_BOX_SPAWN_PLAN, "MediumBox_0")
@@ -631,62 +650,41 @@ class _JointPoseEditor:
         self.hold_cleared_boxes()
         env.sim.forward()
         env.scene.update(env.step_dt)
-        pregrasp_targets_w, grasp_points_w, self.inward_normals_w, self.pregrasp_geometry = (
-            _pregrasp_targets(env, height_m=pregrasp_height_m, grasp_depth_m=grasp_depth_m)
-        )
+        self.pregrasp_height_m = float(pregrasp_height_m)
+        self.grasp_depth_m = float(grasp_depth_m)
         self.all_flap_names = (
             "flap_front",
             "flap_back",
             "flap_right",
             "flap_left",
         )
-        all_flap_grasp_points_w = _flap_grasp_points(
-            env, self.all_flap_names, grasp_depth_m=grasp_depth_m
-        )
-        robotward_side_flap_endpoints_w = _robotward_side_flap_endpoints(env)
-        from isaaclab.utils.math import quat_apply
-
-        target_box_quat_w = self.target_box.data.body_link_quat_w[
-            0, self.target_box_body_id
-        ].unsqueeze(0)
-        self.object_z_axis_w = quat_apply(
-            target_box_quat_w,
-            torch.tensor(
-                ((0.0, 0.0, 1.0),), device=env.device, dtype=grasp_points_w.dtype
-            ),
-        )[0]
-        self.base_pregrasp_targets_w = pregrasp_targets_w.clone()
-        self.base_grasp_points_w = grasp_points_w.clone()
-        self.base_all_flap_grasp_points_w = all_flap_grasp_points_w.clone()
-        self.base_pregrasp_xy_anchors_w = robotward_side_flap_endpoints_w.clone()
         self.grasp_z_offset_m = 0.0
-        self.update_grasp_offset()
+        self.capture_target_geometry()
         self.region_offsets_b_m = {
             "pregrasp": torch.tensor(
                 self._PREGRASP_OFFSET_B_M,
                 device=env.device,
-                dtype=grasp_points_w.dtype,
+                dtype=self.base_grasp_points_w.dtype,
             ),
             "transit": torch.tensor(
                 (-0.30, 0.0, 0.0),
                 device=env.device,
-                dtype=grasp_points_w.dtype,
+                dtype=self.base_grasp_points_w.dtype,
             ),
         }
         self.region_sizes_b_m = {
             "pregrasp": torch.tensor(
                 self._PREGRASP_SIZE_B_M,
                 device=env.device,
-                dtype=grasp_points_w.dtype,
+                dtype=self.base_grasp_points_w.dtype,
             ),
             "transit": torch.tensor(
                 self._TRANSIT_SIZE_B_M,
                 device=env.device,
-                dtype=grasp_points_w.dtype,
+                dtype=self.base_grasp_points_w.dtype,
             ),
         }
         self.region_visibility = {"pregrasp": True, "transit": True}
-        self.pregrasp_height_m = float(pregrasp_height_m)
         self.local_axes = torch.tensor(
             [model.joints[name].axis for name in self.joint_names],
             device=env.device,
@@ -1212,6 +1210,74 @@ class _JointPoseEditor:
         self.env.scene.update(self.env.step_dt)
         self.update_markers()
 
+    def capture_target_geometry(self) -> None:
+        """Make the current physical target pose the authored planning reference."""
+        from isaaclab.utils.math import quat_apply
+
+        self.target_box_root_pose_w = self.target_box.data.root_pose_w.clone()
+        self.target_box_joint_positions = self.target_box.data.joint_pos.clone()
+        self.target_box_initial_position_w = self.target_box.data.body_link_pos_w[
+            0, self.target_box_body_id
+        ].clone()
+        (
+            pregrasp_targets_w,
+            grasp_points_w,
+            self.inward_normals_w,
+            self.pregrasp_geometry,
+        ) = _pregrasp_targets(
+            self.env,
+            height_m=self.pregrasp_height_m,
+            grasp_depth_m=self.grasp_depth_m,
+        )
+        all_flap_grasp_points_w = _flap_grasp_points(
+            self.env,
+            self.all_flap_names,
+            grasp_depth_m=self.grasp_depth_m,
+        )
+        robotward_side_flap_endpoints_w = _robotward_side_flap_endpoints(self.env)
+        target_box_quat_w = self.target_box.data.body_link_quat_w[
+            0, self.target_box_body_id
+        ].unsqueeze(0)
+        self.object_z_axis_w = quat_apply(
+            target_box_quat_w,
+            torch.tensor(
+                ((0.0, 0.0, 1.0),),
+                device=self.env.device,
+                dtype=grasp_points_w.dtype,
+            ),
+        )[0]
+        self.base_pregrasp_targets_w = pregrasp_targets_w.clone()
+        self.base_grasp_points_w = grasp_points_w.clone()
+        self.base_all_flap_grasp_points_w = all_flap_grasp_points_w.clone()
+        self.base_pregrasp_xy_anchors_w = robotward_side_flap_endpoints_w.clone()
+        self.update_grasp_offset()
+
+    def settle_target_for_snapshot(self, steps: int) -> None:
+        """Settle only the target box while robot and cleared boxes remain fixed."""
+        if steps < 0:
+            raise ValueError("snapshot settle steps must be nonnegative")
+        for _ in range(steps):
+            self.robot.write_root_pose_to_sim(self.robot_root_pose_w)
+            self.robot.write_root_velocity_to_sim(
+                torch.zeros((1, 6), device=self.env.device, dtype=self.robot_root_pose_w.dtype)
+            )
+            self.robot.write_joint_state_to_sim(
+                self.targets,
+                torch.zeros_like(self.targets),
+                joint_ids=self.joint_ids,
+            )
+            self.robot.set_joint_position_target(self.targets, joint_ids=self.joint_ids)
+            self.hold_cleared_boxes()
+            self.env.scene.write_data_to_sim()
+            self.env.sim.step(render=False)
+            self.env.scene.update(self.env.physics_dt)
+        self.capture_target_geometry()
+        print(
+            f"[PLANNING_SNAPSHOT] target settled for {steps} step(s); "
+            f"body_position_w={self.target_box_initial_position_w.detach().cpu().tolist()}",
+            flush=True,
+        )
+
     def hold_target_box(self) -> None:
         """Keep the authoring target fixed; collection modes retain live physics."""
         self.target_box.write_root_pose_to_sim(self.target_box_root_pose_w)
@@ -1375,11 +1441,14 @@ class _JointPoseEditor:
         target_box_position_w = self.target_box.data.body_link_pos_w[
             0, self.target_box_body_id
         ]
-        target_box_position_b, _ = subtract_frame_transforms(
+        target_box_quaternion_w = self.target_box.data.body_link_quat_w[
+            0, self.target_box_body_id
+        ]
+        target_box_position_b, target_box_quaternion_b = subtract_frame_transforms(
             root_pos[:1],
             root_quat[:1],
             target_box_position_w.unsqueeze(0),
-            root_quat[:1],
+            target_box_quaternion_w.unsqueeze(0),
         )
         target_box_displacement_m = torch.linalg.vector_norm(
             target_box_position_w - self.target_box_initial_position_w
@@ -1485,6 +1554,9 @@ class _JointPoseEditor:
                 for name, asset, _, _ in self.cleared_boxes
             },
             "target_box_body_position_b": target_box_position_b[0].detach().cpu().tolist(),
+            "target_box_body_pose_b": torch.cat(
+                (target_box_position_b[0], target_box_quaternion_b[0])
+            ).detach().cpu().tolist(),
             "target_box_displacement_m": float(target_box_displacement_m),
             "authoring_only": True,
         }
@@ -1851,7 +1923,10 @@ def main() -> None:
         if args_cli.solve_downward_ready:
             _solve_downward_ready(env)
     elif args_cli.joint_pose_editor:
-        _load_task_ready(env, args_cli.pose_editor_initial_state)
+        if args_cli.pose_editor_initial_state == "meta_default":
+            print("[TASK_READY] using native Meta/Quest teleop reset pose", flush=True)
+        else:
+            _load_task_ready(env, args_cli.pose_editor_initial_state)
         print(
             f"[POSE_EDITOR_INIT] using named initial pose "
             f"{args_cli.pose_editor_initial_state!r}",
@@ -1887,8 +1962,14 @@ def main() -> None:
         if args_cli.joint_pose_editor
         else None
     )
+    if pose_editor is not None and args_cli.planning_snapshot_settle_steps:
+        pose_editor.settle_target_for_snapshot(args_cli.planning_snapshot_settle_steps)
     if args_cli.planning_snapshot_output is not None:
         _write_planning_snapshot(env, pose_editor, args_cli.planning_snapshot_output)
+        if args_cli.planning_snapshot_only:
+            env.close()
+            print("[RESULT] Planning snapshot complete; exiting snapshot-only mode.", flush=True)
+            return
     pregrasp_ee_ids, pregrasp_ee_names = robot.find_bodies(
         ("zarm_l7_end_effector", "zarm_r7_end_effector"), preserve_order=True
     )

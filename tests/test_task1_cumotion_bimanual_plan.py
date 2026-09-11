@@ -100,6 +100,16 @@ def test_synchronized_seed_path_uses_equal_arm_progress():
     np.testing.assert_allclose(path[[0, -1]], [initial, terminal])
 
 
+def test_synchronized_seed_path_accepts_simultaneous_endpoint_report():
+    initial = np.arange(14, dtype=float)
+    terminal = initial + 0.5
+    report = {"arms": {"left": {}, "right": {}}}
+
+    path = synchronized_seed_path(report, initial, terminal)
+
+    np.testing.assert_allclose(path, np.stack((initial, terminal)))
+
+
 def test_constrained_rrt_connect_routes_around_invalid_region():
     def in_collision(point):
         return abs(point[0]) < 0.2 and abs(point[1]) < 0.2

@@ -7,11 +7,11 @@ urdf_path: null
 base_link: base_link
 left_tcp_link: zarm_l7_end_effector
 right_tcp_link: zarm_r7_end_effector
-# 기존 teleop의 링크 기준. URDF에서 wrist→end_effector -0.17m가 이미 적용됨.
+# S200062 two-finger 접촉대 중심에 맞춘 링크 기준. URDF에서 wrist→end_effector -0.22m가 이미 적용됨.
 # RL task의 추가 -0.12m offset을 여기에 자동 중복 적용하지 않는다.
 left_tcp_offset_pose: [0, 0, 0, 1, 0, 0, 0]
 right_tcp_offset_pose: [0, 0, 0, 1, 0, 0, 0]
-tcp_validation_status: unverified
+tcp_validation_status: calibrated_from_closed_finger_mesh
 arm_joint_names: null
 hand_joint_names: null
 locked_joint_positions: null

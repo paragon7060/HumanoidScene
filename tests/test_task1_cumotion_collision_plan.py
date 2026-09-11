@@ -12,10 +12,29 @@ from data_collection.task1_cumotion_collision_plan import (
     box_region_goal_points,
     collision_world_config,
     cover_cuboid,
+    editor_region_geometry,
+    line_goal_points,
     robot_spheres,
+    rotation_error_deg,
     runtime_joint_defaults,
+    tool_down_angle_deg,
+    tool_down_orientation_targets,
+    target_flap_line_geometry,
     xrdf,
 )
+
+
+def test_editor_region_geometry_accepts_live_transit_state_key():
+    centers, size = editor_region_geometry(
+        {
+            "transit_center_b_m": [[0.3, 0.2, 1.1], [0.3, -0.1, 1.1]],
+            "transit_region_size_b_m": [0.22, 0.28, 0.1],
+        },
+        "transit",
+    )
+
+    np.testing.assert_allclose(centers, [[0.3, 0.2, 1.1], [0.3, -0.1, 1.1]])
+    np.testing.assert_allclose(size, [0.22, 0.28, 0.1])
 
 
 def test_collision_model_covers_and_internally_ignores_complete_grippers():
@@ -41,6 +60,26 @@ def test_axis_alignment_error_uses_rotated_local_axis():
     assert axis_alignment_error_deg(rotation, [1, 0, 0], [1, 0, 0]) == pytest.approx(15.0)
 
 
+def test_tool_down_goalset_keeps_closing_axis_and_spans_requested_angles():
+    rotations, angles = tool_down_orientation_targets(
+        [0.0, -1.0, 0.0], 30.0, 90.0, 5.0
+    )
+
+    np.testing.assert_allclose(angles, np.arange(30.0, 95.0, 5.0))
+    for rotation, angle in zip(rotations, angles, strict=True):
+        np.testing.assert_allclose(rotation.T @ rotation, np.eye(3), atol=1e-12)
+        np.testing.assert_allclose(rotation[:, 0], [0.0, -1.0, 0.0], atol=1e-12)
+        assert np.linalg.det(rotation) == pytest.approx(1.0)
+        assert tool_down_angle_deg(rotation) == pytest.approx(angle)
+        assert rotation_error_deg(rotation, rotation) == pytest.approx(0.0)
+
+
+def test_tool_down_goalset_includes_non_step_aligned_maximum():
+    _, angles = tool_down_orientation_targets([0.0, 1.0, 0.0], 30.0, 88.0, 5.0)
+
+    np.testing.assert_allclose(angles, [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 88])
+
+
 def test_box_region_goal_points_cover_box_and_prefer_center():
     center = np.array([0.6, 0.2, 1.4])
     points = box_region_goal_points(center, np.full(3, 0.1), 5)
@@ -50,6 +89,44 @@ def test_box_region_goal_points_cover_box_and_prefer_center():
     np.testing.assert_allclose(points.min(axis=0), center - 0.05)
     np.testing.assert_allclose(points.max(axis=0), center + 0.05)
     assert len(np.unique(points, axis=0)) == 125
+
+
+def test_line_goal_points_stay_on_axis_and_prefer_center():
+    center = np.array([0.6, 0.2, 1.4])
+    axis = np.array([-1.0, 0.0, -0.1])
+    points = line_goal_points(center, axis, 0.2, 21)
+
+    assert points.shape == (21, 3)
+    np.testing.assert_allclose(points[0], center)
+    displacements = points - center
+    np.testing.assert_allclose(np.cross(displacements, axis), 0.0, atol=1e-12)
+    np.testing.assert_allclose(
+        np.sort(np.linalg.norm(displacements, axis=1)),
+        np.sort(np.abs(np.linspace(-0.1, 0.1, 21))),
+    )
+
+
+def test_target_flap_line_geometry_uses_long_collider_axis_in_base_frame():
+    angle = np.deg2rad(30.0)
+    quaternion = [np.cos(angle / 2), 0.0, np.sin(angle / 2), 0.0]
+    snapshot = {
+        "colliders": [
+            {
+                "robot": False,
+                "path": f"/World/MediumBox_0/MediumBox/{name}",
+                "pose_w": [0.0, 0.0, 0.0, *quaternion],
+                "dims": [0.003, 0.21, 0.11],
+            }
+            for name in ("flap_right", "flap_left")
+        ]
+    }
+
+    axes, lengths = target_flap_line_geometry(
+        snapshot, {"root_pose_w": [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]}
+    )
+
+    np.testing.assert_allclose(axes, [[0.0, 1.0, 0.0]] * 2, atol=1e-12)
+    np.testing.assert_allclose(lengths, [0.21, 0.21])
 
 
 def test_collision_world_allows_only_selected_target_flaps():

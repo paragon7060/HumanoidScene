@@ -22,6 +22,7 @@ from data_collection.task1_cumotion_collision_plan import (
     pose_matrix,
     robot_spheres,
     runtime_joint_defaults,
+    tool_down_angle_deg,
 )
 
 
@@ -172,9 +173,23 @@ def synchronized_seed_path(
     """Combine the two optimizer trajectories at equal normalized progress."""
     q_initial = np.asarray(q_initial, dtype=float)
     q_terminal = np.asarray(q_terminal, dtype=float)
-    arm_paths = [
-        np.asarray(seed_report["arms"][side]["sample_q_rad"], dtype=float)
+    sampled_paths = [
+        seed_report.get("arms", {}).get(side, {}).get("sample_q_rad")
         for side in ("left", "right")
+    ]
+    if all(path is None for path in sampled_paths):
+        if (
+            q_initial.shape != (14,)
+            or q_terminal.shape != (14,)
+            or not np.isfinite(q_initial).all()
+            or not np.isfinite(q_terminal).all()
+        ):
+            raise ValueError("endpoint seed plan requires finite 14-DoF endpoints")
+        return np.stack((q_initial, q_terminal))
+    if any(path is None for path in sampled_paths):
+        raise ValueError("seed plan must provide sampled trajectories for both arms")
+    arm_paths = [
+        np.asarray(path, dtype=float) for path in sampled_paths
     ]
     if (
         q_initial.shape != (14,)
@@ -375,6 +390,12 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--snapshot-dir", type=Path, required=True)
     result.add_argument("--urdf", type=Path, required=True)
     result.add_argument("--terminal-seed-plan", type=Path, required=True)
+    result.add_argument(
+        "--initial-q-plan",
+        type=Path,
+        default=None,
+        help="Start from another successful plan's terminal 14-DoF arm configuration.",
+    )
     result.add_argument("--output-dir", type=Path, default=None)
     result.add_argument("--sphere-cell-m", type=float, default=0.06)
     result.add_argument(
@@ -451,6 +472,25 @@ def main(argv=None) -> int:
         closing_axis_tolerance_deg = float(
             orientation_constraint["terminal_axis_deviation_limit_deg"]
         )
+    elif (
+        isinstance(orientation_constraint, dict)
+        and orientation_constraint.get("type")
+        == "terminal_full_orientation_candidate_set"
+    ):
+        value = orientation_constraint.get(
+            "terminal_closing_axis_deviation_limit_deg"
+        )
+        closing_axis_tolerance_deg = None if value is None else float(value)
+    tool_down_range_deg = (
+        orientation_constraint.get("tool_down_angle_range_deg")
+        if isinstance(orientation_constraint, dict)
+        else None
+    )
+    terminal_orientation_tolerance_deg = float(
+        orientation_constraint.get("terminal_orientation_deviation_limit_deg", 0.0)
+        if isinstance(orientation_constraint, dict)
+        else 0.0
+    )
     output = args.output_dir or Path("/home/seonho/outputs/HumanoidScene") / (
         f"cumotion_bimanual_{target_kind}_" + datetime.now().strftime("%Y%m%d_%H%M%S")
     )
@@ -460,6 +500,20 @@ def main(argv=None) -> int:
     output.mkdir(parents=True)
 
     defaults = runtime_joint_defaults(runtime)
+    initial_pose_source = runtime.get("initial_state", "snapshot runtime joint state")
+    if args.initial_q_plan is not None:
+        initial_plan_path = args.initial_q_plan.expanduser().resolve()
+        initial_plan = json.loads(initial_plan_path.read_text())
+        if initial_plan.get("status") != "SUCCESS":
+            raise ValueError(f"initial q plan is not successful: {initial_plan_path}")
+        initial_q = np.asarray(initial_plan.get("terminal_q_rad"), dtype=float)
+        if initial_q.shape != (len(ARM_JOINT_NAMES),) or not np.isfinite(initial_q).all():
+            raise ValueError(f"initial q plan has no finite 14-DoF terminal: {initial_plan_path}")
+        defaults.update(
+            (name, float(value))
+            for name, value in zip(ARM_JOINT_NAMES, initial_q, strict=True)
+        )
+        initial_pose_source = str(initial_plan_path)
     q_initial = np.asarray([defaults[name] for name in ARM_JOINT_NAMES], dtype=float)
     joint_limits = {
         name: limits
@@ -671,6 +725,7 @@ def main(argv=None) -> int:
         "target": target_kind,
         "status": "PLANNING_FAILURE",
         "snapshot_dir": str(snapshot_dir),
+        "initial_pose_source": initial_pose_source,
         "terminal_seed_plan": str(seed_path),
         "joint_names": ARM_JOINT_NAMES,
         "tool_frames": TOOL_FRAMES,
@@ -749,6 +804,9 @@ def main(argv=None) -> int:
                 for rotation, normal in zip(terminal_rotations, inward_normals, strict=True)
             ]
         )
+        tool_down_angles_deg = np.asarray(
+            [tool_down_angle_deg(rotation) for rotation in terminal_rotations]
+        )
         left_delta = np.linalg.norm(np.diff(path[:, :7], axis=0), axis=1)
         right_delta = np.linalg.norm(np.diff(path[:, 7:], axis=0), axis=1)
         moving = (left_delta > 1e-7) | (right_delta > 1e-7)
@@ -760,6 +818,13 @@ def main(argv=None) -> int:
             and (
                 closing_axis_tolerance_deg is None
                 or np.all(closing_axis_errors_deg <= closing_axis_tolerance_deg + 1e-3)
+            )
+            and (
+                tool_down_range_deg is None
+                or np.all(
+                    (tool_down_angles_deg >= float(tool_down_range_deg[0]) - terminal_orientation_tolerance_deg - 1e-3)
+                    & (tool_down_angles_deg <= float(tool_down_range_deg[1]) + terminal_orientation_tolerance_deg + 1e-3)
+                )
             )
             and not any(world_collisions)
             and not any(self_collisions)
@@ -779,6 +844,7 @@ def main(argv=None) -> int:
                 "terminal_error_m": terminal_errors.tolist(),
                 "terminal_tcp_local_x_b": terminal_closing_axes.tolist(),
                 "terminal_closing_axis_error_deg": closing_axis_errors_deg.tolist(),
+                "terminal_tool_down_angle_deg": tool_down_angles_deg.tolist(),
                 "sampled_world_collision": any(world_collisions),
                 "sampled_self_collision": any(self_collisions),
                 "sampled_min_world_distance_m": float(min(distances)),
@@ -821,6 +887,9 @@ def main(argv=None) -> int:
                 "terminal_error_m": report.get("terminal_error_m"),
                 "terminal_closing_axis_error_deg": report.get(
                     "terminal_closing_axis_error_deg"
+                ),
+                "terminal_tool_down_angle_deg": report.get(
+                    "terminal_tool_down_angle_deg"
                 ),
                 "sampled_world_collision": report.get("sampled_world_collision"),
                 "sampled_self_collision": report.get("sampled_self_collision"),
