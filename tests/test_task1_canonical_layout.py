@@ -32,3 +32,9 @@ def test_legacy_is_history_only_and_has_manifest():
     assert (legacy / "README.md").is_file()
     assert (legacy / "MANIFEST.md").is_file()
     assert not (legacy / "__init__.py").exists()
+
+
+def test_physical_runner_wrapper_calls_the_canonical_entrypoint():
+    source = (ROOT / "scripts/task1_cumotion_grasp_pull_smoke.py").read_text()
+
+    assert "from data_collection.task1.execute import _main as main" in source
