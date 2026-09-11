@@ -429,6 +429,7 @@ def _main() -> None:
 
         for _ in range(args.settle_steps):
             step_once("settle")
+        print("[GRASP_PULL] settle_complete", flush=True)
         settled_box_pos_b, settled_box_quat_b = _body_pose_b(robot, box, box_body_id)
         snapshot_position_error_m = float(
             torch.linalg.vector_norm(
@@ -443,6 +444,12 @@ def _main() -> None:
         snapshot_orientation_error_deg = _quaternion_error_deg(
             settled_box_quat_b[0].detach().cpu().tolist(),
             snapshot_target_pose_b[3:],
+        )
+        print(
+            "[GRASP_PULL] snapshot_gate "
+            f"position_error_m={snapshot_position_error_m:.6f} "
+            f"orientation_error_deg={snapshot_orientation_error_deg:.3f}",
+            flush=True,
         )
         if (
             snapshot_position_error_m > args.snapshot_position_tolerance_m
@@ -745,6 +752,11 @@ def _main() -> None:
         print("[GRASP_PULL]", json.dumps({key: value for key, value in report.items() if key != "samples"}), flush=True)
         if not report["passed"]:
             print("[GRASP_PULL] Physical acceptance failed; keeping video/report for diagnosis.", flush=True)
+    except BaseException:
+        import traceback
+
+        traceback.print_exc()
+        raise
     finally:
         env.close()
         simulation_app.close()
