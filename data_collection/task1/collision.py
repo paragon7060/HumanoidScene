@@ -50,7 +50,7 @@ ROBOT_COLLISION_FRAMES = {
     "zarm_r7_link",
 } | GRIPPER_COLLISION_FRAMES
 DEFAULT_GRIPPER_SPHERE_CONFIG = (
-    Path(__file__).resolve().parents[1]
+    Path(__file__).resolve().parents[2]
     / "src/kuavo_isaaclab_scene/configs/task1_s200062_gripper_collision_spheres.json"
 )
 
@@ -440,4 +440,3 @@ def runtime_joint_defaults(runtime: dict) -> dict[str, float]:
         or item["name"].startswith(("zarm_", "l_", "r_"))
     })
     return defaults
-

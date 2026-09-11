@@ -5,6 +5,7 @@ import pytest
 import yaml
 
 from data_collection.task1.collision import (
+    DEFAULT_GRIPPER_SPHERE_CONFIG,
     GRIPPER_COLLISION_FRAMES,
     ROBOT_COLLISION_FRAMES,
     SELF_COLLISION_IGNORE,
@@ -22,6 +23,10 @@ from data_collection.task1.collision import (
     target_flap_line_geometry,
     xrdf,
 )
+
+
+def test_default_gripper_sphere_config_survives_package_move():
+    assert DEFAULT_GRIPPER_SPHERE_CONFIG.is_file()
 
 
 def test_editor_region_geometry_accepts_live_transit_state_key():
