@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 import yaml
 
-from data_collection.task1_cumotion_bimanual_plan import ARM_JOINT_NAMES
-from data_collection.task1_cumotion_bimanual_rmpflow_endpoint import (
+from data_collection.task1.approach import ARM_JOINT_NAMES
+from data_collection.task1.endpoint import (
     candidate_angles,
     center_out_offsets,
     rmpflow_config,

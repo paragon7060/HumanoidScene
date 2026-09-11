@@ -14,8 +14,9 @@ import numpy as np
 import yaml
 
 from kuavo_isaaclab_scene.robots.end_effector import urdf_with_center_frames
-from data_collection.task1_cumotion_bimanual_plan import ARM_JOINT_NAMES, TOOL_FRAMES
-from data_collection.task1_cumotion_collision_plan import (
+from data_collection.task1.approach import TOOL_FRAMES
+from data_collection.task1.contract import ARM_JOINT_NAMES, WAIST_JOINT_NAMES
+from data_collection.task1.collision import (
     SELF_COLLISION_IGNORE,
     axis_alignment_error_deg,
     collision_world_config,
@@ -28,9 +29,6 @@ from data_collection.task1_cumotion_collision_plan import (
     tool_down_angle_deg,
     tool_down_orientation_targets,
 )
-
-
-WAIST_JOINT_NAMES = ["waist_pitch_joint", "waist_yaw_joint"]
 
 
 def center_out_offsets(length_m: float, point_count: int) -> np.ndarray:

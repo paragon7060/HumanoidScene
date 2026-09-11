@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import yaml
 
-from data_collection.task1_cumotion_bimanual_plan import (
+from data_collection.task1.approach import (
     ARM_JOINT_NAMES,
     TOOL_FRAMES,
     bimanual_xrdf,

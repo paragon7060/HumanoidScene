@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import yaml
 
-from data_collection.task1_cumotion_collision_plan import (
+from data_collection.task1.collision import (
     GRIPPER_COLLISION_FRAMES,
     ROBOT_COLLISION_FRAMES,
     SELF_COLLISION_IGNORE,
@@ -159,7 +159,7 @@ def test_collision_sphere_cover_contains_oriented_cuboid():
     centers = np.stack([center for center, _ in spheres])
     radii = np.asarray([radius for _, radius in spheres])
 
-    from data_collection.task1_cumotion_collision_plan import pose_matrix
+    from data_collection.task1.collision import pose_matrix
 
     transform = pose_matrix(pose)
     for corner in product(*((-dimension / 2, dimension / 2) for dimension in dimensions)):

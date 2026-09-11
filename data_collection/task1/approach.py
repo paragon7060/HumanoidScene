@@ -19,7 +19,8 @@ from kuavo_isaaclab_scene.robots.end_effector import (
     ORIGINAL_EEF_FRAMES,
     urdf_with_center_frames,
 )
-from data_collection.task1_cumotion_collision_plan import (
+from data_collection.task1.contract import ARM_JOINT_NAMES
+from data_collection.task1.collision import (
     SELF_COLLISION_IGNORE,
     axis_alignment_error_deg,
     collision_world_config,
@@ -32,9 +33,6 @@ from data_collection.task1_cumotion_collision_plan import (
 )
 
 
-ARM_JOINT_NAMES = [
-    f"zarm_{side}{index}_joint" for side in ("l", "r") for index in range(1, 8)
-]
 TOOL_FRAMES = [CENTER_TOOL_FRAMES[side] for side in ("left", "right")]
 KINEMATIC_PARENT_FRAMES = list(ORIGINAL_EEF_FRAMES)
 

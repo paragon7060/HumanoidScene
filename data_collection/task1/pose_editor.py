@@ -2011,7 +2011,7 @@ def main() -> None:
     print(f"[READY] Browser bridge: ws://{args_cli.bridge_host}:{args_cli.bridge_port}")
     if pose_editor is not None:
         print("[POSE_EDITOR] authoring-only mode; dataset recording and pregrasp are disabled.")
-        print("[POSE_EDITOR] Open data_collection/task1_pose_editor.html through the HTTP server.")
+        print("[POSE_EDITOR] Open data_collection/task1/ui/editor.html through the HTTP server.")
     print("[CONTROL] In Chrome/IWER, move the HMD and left/right controllers.")
     print("[CONTROL] The first tracked frame calibrates; subsequent motion drives Kuavo head and arms.")
     print("[CONTROL] Left stick=base forward/strafe; right stick=turn/torso lift; index triggers=grippers.")
