@@ -55,8 +55,8 @@ reaching raw = progress / control_dt
 potential-based shaping은 아니다. 할인된 왕복 수익까지 완전히 상쇄한다고 보장하지 않는다.
 
 왼손 거리는 측정/표시하지만 기본 오른손 reward에는 넣지 않는다. 정렬도는 별도
-orientation 항으로 유지한다. 이 변경은 현재 flap-pick reaching에만 적용하며,
-approach_rack/navigation·orientation·flap_contact·stable_grasp·lift·시간 비용은 변경하지 않는다.
+orientation 항으로 분리한다. 현재 flap-pick은 아래의 정렬 개선·일회성 파지·상승 변화량
+보상을 함께 사용한다. approach_rack/navigation과 시간 비용은 변경하지 않는다.
 정지 상태에서 **전체** reward가 반드시 음수가 되는 것은 아니다.
 
 직전 점수는 환경별·손별로 관리하고, 초기 대기 종료/리셋/대상 박스 변경 때는 보상 없이
@@ -85,16 +85,49 @@ S200062의 거리 기준은 [보정된 closed endeffector_center](ENDEFFECTOR_CE
 안착 완료 후 pick 단계·파지 전·면 거리 10cm 이내에서 활성화된다.
 
 ```text
-a = abs(dot(두 손가락 link 원점을 잇는 단위축, 최근접 flap의 단위법선))
-orientation = 0.5 * clamp(1-d/0.10,0,1) * a² * 비파지 * dt
+a = abs(dot(보정된 두 손가락 점을 잇는 단위축, 최근접 flap의 단위법선))
+proximity = clamp(1-max(직전 거리, 현재 거리)/0.10, 0, 1)
+실제 orientation 스텝 보상 = 0.5 * proximity * (현재 a² - 직전 a²)
 ```
 
-30Hz 최대 기여도는 +0.01667로 reaching 최대 +0.13333의 1/8이다.
+각도 개선은 +, 악화는 -, 유지하면 0이다. 각도 변화 없이 가까워지기만 하면 0이다.
+예를 들어 거리 5cm에서 a가 0.5→1이면 +0.1875, 역방향이면 -0.1875다.
+파지 전 연속 스텝·같은 최근접 flap일 때만 차분을 사용한다. 초기 대기/리셋/박스 전환,
+최근접 flap 전환, 파지 획득·유지·상실 첫 스텝에는 기준만 갱신한다.
+거리 경계 진입 스텝은 직전 거리가 10cm 이상이므로 보상이 없다.
 법선 부호를 구분하지 않고, 법선 주위 회전은 제한하지 않는다. 파지 유지 조건이나
-성공 조건에 새로운 orientation 임계값을 추가하지 않는다. observation/action 차원은 그대로다.
+성공 조건에 새로운 orientation 임계값을 추가하지 않는다.
 `configure()`의 `env_cfg.rewards.orientation.weight`와
 `env_cfg.rewards.orientation.params["distance_threshold"]`를 수정할 수 있다.
 축 검증 전 이 항을 끄려면 weight를 0으로 설정한다.
+
+### 일회성 파지와 상승 변화량
+
+현재 flap-pick의 가중치는 `rl/managers/rewards.py::FlapPickRewardsCfg`에서 수정한다.
+
+| 항목 | 실제 스텝 보상 | 정지했을 때 |
+|---|---|---|
+| `flap_contact` | 필요한 손의 최초 유효 파지 시 +3, 에피소드당 한 번 | 0 |
+| `lift` | 파지 중 `5 * (현재 clamp(높이/6cm,0,1) - 직전 값)` | 0 |
+| `stable_grasp` | 비활성화(None) | 0 |
+| `holding` | 기존 성공 높이·기울기·파지 조건의 dwell 비율 ×5×dt | 조건 충족 시에만 양수, 0.5초 후 성공 종료 |
+
+단순 손가락 접촉에는 더 이상 양수 보상이 없다. `flap_contact` 이름은 패널/설정 호환을
+위해 유지하지만 이제 일회성 사건 보상이다. 기본 오른손 파지, 두 손 설정에서는 필요한
+두 손이 모두 파지로 인정돼야 지급한다. 놓았다 다시 잡거나 대상 박스를 바꿔도 다시 지급하지 않는다.
+리셋/초기 대기 완료 시 이미 잡힌 상태라면 보상 없이 사용된 credit으로 표시한다.
+
+파지 획득/상실/리셋/대상 변경 스텝에는 lift 기준만 잡는다. 연속 파지 중 상승은 +,
+하강은 -이며 파지하지 않은 박스의 움직임에는 lift 보상이 없다. 목표 높이 이상에서는
+추가 lift 보상이 없다. 5.9cm에서 멈춰도 지속 점수를 얻지 못한다.
+같은 파지를 유지하는 동안의 왕복은 할인 전 상쇄되지만, release/regrasp 경계나 할인율까지
+포함한 보상 악용 방지를 보장하는 설계는 아니다. 실제 학습에서 왕복/재파지 빈도도 확인한다.
+
+`rl/mdp/flap_progress.py`에서 정렬·높이 차분과 에피소드 credit을 관리하며, command가
+제어 스텝당 한 번 갱신한다. 정렬 기준/후보/유효 여부, 높이 기준/유효 여부, credit 이력
+총 11개를 `flap_progress_history` observation에 추가했다. reward 계약은
+`signed_alignment_lift_once_grasp_v1`이며 **기존 checkpoint 대신 새 학습이 필요하다.**
+고정 대기 모드(timeout=0)의 시간 관측은 timeout 대신 초기 대기 시간으로 나눠 유한값을 유지한다.
 
 현재 로컬 코드의 표시 기능을 이용해 다음과 같이 확인한다. Runtime/web 연결 후 검사
 프로세스만 실행하며, 다른 수집/검사 프로세스를 중복 실행하지 않는다.
@@ -205,8 +238,8 @@ reward = -0.25 * raw * dt
 
 안착 높이에서 1cm 이상 올라가면 초기 위치/자세 벌점은 없다. 비파지 상태로 던진 박스에는
 운동 비용이 남지만, 진짜 파지 중 수직 상승에는 수직속도 벌점을 주지 않는다.
-`stable_grasp`는 같은 deadband/scale을 사용한 `grasped * exp(-수평속도비용-각속도비용-수평변위비용*w)`다.
-작은 떨림으로 이 보상도 급격히 감소하지 않게 한다. 초기 안착 완료 전에는 둘 다 비활성화한다.
+기존 `stable_grasp` 함수는 비교용으로 남아 있지만 기본 reward manager에서는 비활성화했다.
+선반 위에서 잡고만 있는 상태에는 반복 파지 보상을 주지 않는다. disturbance는 초기 대기 중 비활성화한다.
 진단을 위해 disturbance 자체를 잠시 끄려면 config의 `configure()`에서
 `env_cfg.rewards.prelift_disturbance.weight = 0.0`으로 바꿀 수 있다.
 

@@ -37,6 +37,7 @@ class FlapPickPolicyCfg(ObservationGroupCfg):
     box_rest_relation = ObsTerm(func=observations.box_rest_relation)
     hand_flap = ObsTerm(func=observations.hand_flap_relation)
     reaching_history = ObsTerm(func=observations.reaching_history)
+    flap_progress_history = ObsTerm(func=observations.flap_progress_history)
     contacts_and_hold = ObsTerm(func=observations.flap_pick_state)
     actuator_state = ObsTerm(func=observations.actuator_state)
     last_action = ObsTerm(func=mdp.last_action)

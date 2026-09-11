@@ -110,7 +110,9 @@ flap-pick `reaching`은 파지 전 직전 스텝보다 접근하면 +, 후퇴하
 `Reaching last 0.5s | episode`는 모든 제어 스텝의 실제 weighted reaching 보상 합계입니다.
 순간값이 0이어도 최근 합계나 누적에 짧은 접근 보상이 남습니다. 양/음은 서로 상쇄될 수 있습니다.
 최근 구간은 시뮬레이션 시간 기준이며 pause/terminal에서 보존하고 B/reset으로 초기화합니다.
-orientation 등 다른 항목은 기존 규칙입니다. 기존 checkpoint는 reward/관측 의미가 달라 새 학습이 필요합니다.
+정렬·lift도 개선/상승에는 +, 악화/하강에는 -인 변화량 보상이며, 파지는 에피소드당
+한 번만 보상합니다. stable_grasp 지속 보상은 비활성화했습니다. 기존 checkpoint는
+reward/관측 의미·차원이 달라 새 학습이 필요합니다.
 아래의 편집 모드는 저장 후 재시작할 때 반영하며, 실행 중인 RL 정의를 즉시 바꾸지 않습니다.
 
 **마우스로 위치를 맞추는 작업은 [데스크톱 전용 보정 도구](GRASP_DESKTOP_CALIBRATION.md)를
@@ -221,21 +223,26 @@ reward 목표점은 아니다.** HUD의 `PREVIEW`에 후보와 두 기준점–�
 - 상승 높이(cm), 유지 시간(s), 좌/우 파지 판정, 좌/우 flap 목표 거리(cm).
 - 정지 중에는 마지막 스텝 값이며 새 보상이 발생하지 않는다.
 
-예를 들어 30Hz에서 lift raw=1, weight=5라면 `lift: +0.16667`이다.
+예를 들어 파지를 유지하면서 높이가 3→4cm로 증가하면 `lift: +0.83333`이다.
+변화량 보상은 내부에서 dt로 나눈 후 RewardManager에서 곱하므로 스텝 주기에 이중으로 비례하지 않는다.
+최초 유효 파지의 `flap_contact`는 +3이고, 유지/재파지 시에는 0이다.
 성공 보너스 weight=150은 실제 성공 스텝에 `success: +150.00000`으로 표시한다.
 TensorBoard `Episode_Reward/*`의 에피소드 정규화 값과 단위가 다르다.
 0.1초보다 짧은 비종료 접촉은 화면 갱신 사이에 지나갈 수 있다. 이 모드는 전체
 시계열 저장기가 아니며, 종료 보너스는 별도로 마지막 값을 유지한다.
 
 접근 → 접촉 → 파지 → 들어 올리기 → 유지 순으로 `reaching`, `flap_contact`,
-`lift`, `holding`, `stable_grasp`가 변하는지 본다. 밀기·충돌 시에는
+`lift`, `holding`이 변하는지 본다. `stable_grasp`는 기본 비활성화했다. 밀기·충돌 시에는
 `prelift_disturbance`도 함께 확인한다. 현재 기본 preset의 `collision` 보상 항은 제거했고
 장애물 힘은 진단용으로만 표시한다. 패널의 `Collision termination/penalty: OFF`로 확인한다.
 보상은 양손에 각각 독립적으로
 배분되는 것이 아니라 task 전체에 계산되며, 현재 기본 성공 조건은 **오른손 한 손 파지**다.
 
-`orientation`은 오른손이 파지 전 면에서 10cm 이내일 때만 주는 약한 정렬 보상이다
-(weight 0.5). 각 flap 진단의 `axisErr`는 두 손가락 link 원점 연결축과 flap 법선의
+`orientation`은 오른손이 파지 전 면에서 10cm 이내일 때 정렬 점수의 개선/악화에 주는
+signed 보상이다(weight 0.5). 같은 각도를 유지하거나 flap 후보가 전환된 순간에는 0이다.
+`Alignment delta L/R`, `Lift delta (normalized)`, `Grasp credit used / award this step`으로
+차분과 일회성 지급 여부를 확인한다. credit은 B/reset에서만 다시 사용할 수 있다.
+각 flap 진단의 `axisErr`는 보정된 두 손가락 점 연결축과 flap 법선의
 최소 각도(0~90°)다. 0°는 평행 정렬이며, 실제 손가락 패드 방향과의 일치까지
 보장하는 값은 아니다. [닫힘 축 확인 절차](RL_RIGHT_HAND_PICK.md)를 함께 따른다.
 

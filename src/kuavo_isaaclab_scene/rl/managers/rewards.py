@@ -34,11 +34,11 @@ class FlapPickRewardsCfg(RewardsCfg):
     reaching = Reward(func=rewards.flap_reaching, weight=4.0)
     orientation = Reward(func=rewards.flap_orientation, weight=0.5, params={"distance_threshold": 0.10})
     flap_contact = Reward(func=rewards.flap_contact, weight=3.0)
-    lift = Reward(func=rewards.lift, weight=5.0)
+    lift = Reward(func=rewards.flap_lift_progress, weight=5.0)
     holding = Reward(func=rewards.flap_hold, weight=5.0)
     collision = Reward(func=rewards.unwanted_contact, weight=-2.0)
     action_rate = Reward(func=rewards.settled_action_rate, weight=-0.01)
     joint_speed = Reward(func=rewards.settled_joint_speed, weight=-1e-4)
     time_cost = Reward(func=rewards.settled_time, weight=-0.10)
     prelift_disturbance = Reward(func=rewards.prelift_disturbance, weight=-0.25)
-    stable_grasp = Reward(func=rewards.stable_flap_grasp, weight=2.0)
+    stable_grasp = None  # no renewable reward for grasping a box left on the shelf

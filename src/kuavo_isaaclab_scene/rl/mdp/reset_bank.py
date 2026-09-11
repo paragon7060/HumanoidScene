@@ -33,6 +33,7 @@ def contract(env):
         "pick_success_revision": 2,
         "settling_revision": 2,
         "reaching_revision": "flap_signed_pregrasp_progress_v2",
+        "flap_shaping_revision": "signed_alignment_lift_once_grasp_v1",
         "layout": {n: {"pos": list(getattr(cfg.scene, n).init_state.pos),
                        "rot": list(getattr(cfg.scene, n).init_state.rot),
                        "scale": list(getattr(getattr(cfg.scene, n).spawn, "scale", None) or (1, 1, 1))}

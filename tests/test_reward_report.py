@@ -26,6 +26,12 @@ class RewardReportTests(unittest.TestCase):
         output = format_report(sample, "SUCCESS", 154.)
         self.assertIn("500.000 N", output)
         self.assertIn("Collision termination/penalty: OFF", output)
+        sample.update(orientation_progress=[0., -.2], lift_progress=.1,
+                      grasp_bonus_paid=True, grasp_bonus_event=False)
+        output = format_report(sample, "RUN", 154.)
+        self.assertIn("Alignment delta L/R: +0.00000/-0.20000", output)
+        self.assertIn("Lift delta (normalized): +0.10000", output)
+        self.assertIn("Grasp credit used: 1 | award this step: 0", output)
 
     def test_no_physics_yet(self):
         self.assertIn("Waiting for first physics step", format_report(None, "PAUSED", 0.))

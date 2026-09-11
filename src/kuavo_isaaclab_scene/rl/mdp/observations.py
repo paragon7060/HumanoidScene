@@ -71,6 +71,10 @@ def reaching_history(env):
     return task(env).reach_progress.previous.clone()
 
 
+def flap_progress_history(env):
+    return task(env).flap_progress.observation()
+
+
 def box_rest_relation(env):
     """Expose the latched resting pose used by the pre-lift disturbance cost."""
     from isaaclab.utils.math import quat_mul, quat_conjugate
@@ -87,7 +91,8 @@ def flap_pick_state(env):
     robot_contact = t.obstacle_forces.clamp(0, 100) / 100
     height = (t.centers[t.ids, t.active_box, 2] - env.scene.env_origins[:, 2]
               - t.initial_z[t.ids, t.active_box])
-    settling = (torch.stack((t.settling.ready.float(), t.settling.elapsed / t.spec.reset_settle_timeout), -1)
+    settle_duration = t.spec.reset_settle_timeout or max(t.spec.reset_settle_seconds, 1e-6)
+    settling = (torch.stack((t.settling.ready.float(), t.settling.elapsed / settle_duration), -1)
                 if t.settling is not None else torch.tensor((1., 0.), device=env.device).expand(env.num_envs, -1))
     return torch.cat((t.contact_force.clamp(0, 50) / 50, t.hand_grasp_flags.float(),
                       t.raw_hand_grasp_flags.float(), t.grasp_contact_missing_s,

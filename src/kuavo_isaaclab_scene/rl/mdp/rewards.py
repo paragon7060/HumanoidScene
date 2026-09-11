@@ -76,23 +76,25 @@ def flap_reaching(env):
 
 
 def flap_contact(env):
+    """One discrete bonus for the first required-hand grasp in the episode."""
     t = task(env)
-    # Grasp/contact shaping, like reaching, follows required hands only.
-    selected = t.spec.grasp_hand_indices
-    return (0.25 * t.finger_grasp_contacts[:, selected].float().mean((1, 2))
-            + t.hand_grasp_flags[:, selected].float().mean(-1)) * ready(t)
+    return t.flap_progress.grasp_bonus * ready(t) / env.step_dt
+
+
+def flap_lift_progress(env):
+    t = task(env)
+    return t.flap_progress.lift_delta * ready(t) / env.step_dt
 
 
 def flap_orientation(env, distance_threshold: float = 0.10):
-    """Weak additive pre-grasp alignment to the same nearest flap as reaching."""
+    """Signed alignment improvement; no reward for merely approaching/holding."""
     if not math.isfinite(distance_threshold) or distance_threshold <= 0:
         raise ValueError("Orientation distance_threshold must be finite and positive.")
     t = task(env)
     selected = t.spec.grasp_hand_indices
-    proximity = (1 - t.hand_target_distance[:, selected] / distance_threshold).clamp(0, 1)
-    alignment = t.grasp_alignment[:, selected].clamp(0, 1).square()
-    before_grasp = ~t.hand_grasp_flags[:, selected]
-    return (proximity * alignment * before_grasp).mean(-1) * ready(t) * (t.reward_phase == 1)
+    p = t.flap_progress
+    proximity = (1 - p.orientation_distance[:, selected] / distance_threshold).clamp(0, 1)
+    return (proximity * p.orientation_delta[:, selected]).mean(-1) * ready(t) / env.step_dt
 
 
 def flap_hold(env):

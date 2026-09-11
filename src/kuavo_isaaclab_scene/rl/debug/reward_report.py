@@ -98,6 +98,11 @@ def format_report(sample, status, episode_return):
         if "reach_recent_reward" in sample:
             lines.append(f"Reaching last {sample['reach_window_s']:g}s: {sample['reach_recent_reward']:+.5f}"
                          f" | episode: {sample['reach_episode_reward']:+.5f}")
+        if "orientation_progress" in sample:
+            lines.append("Alignment delta L/R: " + "/".join(f"{v:+.5f}" for v in sample["orientation_progress"]))
+            lines.append(f"Lift delta (normalized): {sample['lift_progress']:+.5f}")
+            lines.append(f"Grasp credit used: {int(sample['grasp_bonus_paid'])}"
+                         f" | award this step: {int(sample['grasp_bonus_event'])}")
         lines += [f"TOTAL: {sample['total']:+.5f} | RETURN: {episode_return:+.3f}",
                   f"Lift: {sample['lift_cm']:.1f} cm | Hold: {sample['hold']:.2f} s",
                   f"Grasp L/R: {int(sample['left_grasp'])}/{int(sample['right_grasp'])}",

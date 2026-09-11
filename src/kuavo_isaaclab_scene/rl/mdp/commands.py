@@ -50,6 +50,7 @@ class WorkcellCommand(CommandTerm):
                         for name in ("success", "boxes_placed", "phase", "cargo_retained")}
         self.flap_grasp = None
         self.reach_progress = None
+        self.flap_progress = None
         self.settling = None
         if self.spec.reset_settle_seconds and not self.spec.reset_bank:
             from .settling import ResetSettling
@@ -59,6 +60,8 @@ class WorkcellCommand(CommandTerm):
             self.flap_grasp = FlapGrasp(self)
             from .reach_progress import ReachProgress
             self.reach_progress = ReachProgress(self.num_envs, self.device)
+            from .flap_progress import FlapProgress
+            self.flap_progress = FlapProgress(self.num_envs, self.device)
             self.metrics.update({name: torch.zeros(self.num_envs, device=self.device)
                                  for name in ("grasp_left", "grasp_right", "lift_height", "hold_fraction",
                                               "left_target_distance", "right_target_distance")})
@@ -120,6 +123,12 @@ class WorkcellCommand(CommandTerm):
                 enabled &= self.settling.ready
             self.reach_progress.advance(self.hand_target_distance, self.active_box, enabled, update,
                                         held=self.hand_grasp_flags)
+            self.flap_progress.reset(ids)
+            self.flap_progress.advance(self.grasp_alignment, self.hand_target_distance,
+                self.nearest_flap_index, self.hand_grasp_flags, self.grasped,
+                (self.centers[self.ids, self.active_box, 2] - self._env.scene.env_origins[:, 2]
+                 - self.initial_z[self.ids, self.active_box]) / self.spec.lift_height,
+                self.active_box, enabled, update, prime=True)
 
     def _measure(self):
         self.poses = torch.stack([b.data.root_pose_w for b in self.boxes], 1)
@@ -257,6 +266,11 @@ class WorkcellCommand(CommandTerm):
                 enabled &= self.settling.ready
             self.reach_progress.advance(self.hand_target_distance, self.reward_box, enabled, update,
                                         held=self.hand_grasp_flags)
+            self.flap_progress.advance(self.grasp_alignment, self.hand_target_distance,
+                self.nearest_flap_index, self.hand_grasp_flags, self.grasped,
+                (self.centers[self.ids, self.reward_box, 2] - self._env.scene.env_origins[:, 2]
+                 - self.initial_z[self.ids, self.reward_box]) / self.spec.lift_height,
+                self.reward_box, enabled, update)
         target = self.centers[self.ids, self.active_box]
         lifted = target[:, 2] - self._env.scene.env_origins[:, 2] > self.initial_z[self.ids, self.active_box] + self.spec.lift_height
         upright = self.upright[self.ids, self.active_box] > math.cos(self.spec.max_tilt)

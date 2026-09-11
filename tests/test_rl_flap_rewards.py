@@ -10,6 +10,8 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.tasks.specs import task_spec
+from kuavo_isaaclab_scene.rl.mdp.reach_progress import ReachProgress
+from kuavo_isaaclab_scene.rl.mdp.flap_progress import FlapProgress
 
 
 @pytest.fixture
@@ -44,6 +46,7 @@ def test_flap_shaping_uses_only_the_selected_hand(modules):
         finger_grasp_contacts=torch.tensor([[[True, True], [True, False]]]),
         hand_grasp_flags=torch.tensor([[True, False]]), refresh=lambda: None)
     t.reach_progress = SimpleNamespace(delta=torch.tensor([[.3, .1]]))
+    t.flap_progress = SimpleNamespace(grasp_bonus=torch.zeros(1))
     env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: t), step_dt=1/30)
     reach = rewards.flap_reaching(env)
     contact = rewards.flap_contact(env)
@@ -61,10 +64,11 @@ def test_flap_shaping_uses_only_the_selected_hand(modules):
     torch.testing.assert_close(rewards.flap_reaching(env), reach)
     t.reach_progress.delta[:, 1] = .2
     assert rewards.flap_reaching(env) > reach
-    assert contact.item() == pytest.approx(.125)
+    assert contact.item() == 0
     t.finger_grasp_contacts[:, 1] = True
     t.hand_grasp_flags[:, 1] = True
-    assert rewards.flap_contact(env).item() == pytest.approx(1.25)
+    t.flap_progress.grasp_bonus[:] = 1
+    assert (rewards.flap_contact(env) * env.step_dt).item() == 1
     t.settling = SimpleNamespace(ready=torch.tensor([False]))
     assert rewards.flap_reaching(env).item() == 0
     assert rewards.flap_contact(env).item() == 0
@@ -83,11 +87,15 @@ def test_lift_requires_grasp_and_discrete_bonuses_are_dt_independent(modules):
     env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: t),
         scene=SimpleNamespace(env_origins=torch.zeros(2, 3)))
     assert rewards.lift(env).tolist() == [1., 0.]
+    t.flap_progress = SimpleNamespace(lift_delta=torch.tensor([.5, -.2]),
+                                     grasp_bonus=torch.tensor([1., 0.]))
     for dt in (1/30, 1/60):
         env.step_dt = dt
         for name in ("stage_completed", "success", "failure"):
             expected = t.transition if name == "stage_completed" else getattr(t, name)
             torch.testing.assert_close(getattr(rewards, name)(env) * dt, expected.float())
+        torch.testing.assert_close(rewards.flap_lift_progress(env) * dt, t.flap_progress.lift_delta)
+        torch.testing.assert_close(rewards.flap_contact(env) * dt, t.flap_progress.grasp_bonus)
 
 
 def test_orientation_is_nearby_pregrasp_right_only_and_additive(modules):
@@ -97,19 +105,21 @@ def test_orientation_is_nearby_pregrasp_right_only_and_additive(modules):
         hand_grasp_flags=torch.zeros(1, 2, dtype=torch.bool), reward_phase=torch.ones(1, dtype=torch.long),
         refresh=lambda: None)
     t.reach_progress = SimpleNamespace(delta=torch.zeros(1, 2))
+    t.flap_progress = SimpleNamespace(orientation_delta=torch.tensor([[0., 1.]]),
+                                     orientation_distance=torch.tensor([[0., .05]]))
     env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: t), step_dt=1/30)
-    assert rewards.flap_orientation(env).item() == pytest.approx(.5)
+    assert (rewards.flap_orientation(env) * env.step_dt).item() == pytest.approx(.5)
     reaching = rewards.flap_reaching(env).clone()
     t.hand_target_distance[:, 0] = 100
     t.grasp_alignment[:, 0] = 1
-    assert rewards.flap_orientation(env).item() == pytest.approx(.5)
-    t.grasp_alignment[:, 1] = .5
-    assert rewards.flap_orientation(env).item() == pytest.approx(.125)
+    assert (rewards.flap_orientation(env) * env.step_dt).item() == pytest.approx(.5)
+    t.flap_progress.orientation_delta[:, 1] = -.75
+    assert (rewards.flap_orientation(env) * env.step_dt).item() == pytest.approx(-.375)
     torch.testing.assert_close(rewards.flap_reaching(env), reaching)
-    t.hand_target_distance[:, 1] = .10
+    t.flap_progress.orientation_distance[:, 1] = .10
     assert rewards.flap_orientation(env).item() == 0
-    t.hand_target_distance[:, 1] = 0
-    t.hand_grasp_flags[:, 1] = True
+    t.flap_progress.orientation_distance[:, 1] = 0
+    t.flap_progress.orientation_delta[:, 1] = 0  # tracker masks grasp transitions
     assert rewards.flap_orientation(env).item() == 0
     t.hand_grasp_flags[:, 1] = False
     t.settling = SimpleNamespace(ready=torch.tensor([False]))
@@ -131,7 +141,9 @@ def test_pick_dwell_resets_on_lost_grasp_and_refresh_is_once_per_step(modules, c
         centers=torch.tensor([[[0., 0., .3]], [[0., 0., .3]]]), initial_z=torch.full((n, 1), .2),
         upright=torch.ones(n, 1), nav_distance=zeros(), heading_error=zeros(),
         grasped=torch.ones(n, dtype=torch.bool), velocities=torch.zeros(n, 1, 6),
-        flap_grasp=object(), reach_progress=None, unexpected_finger_force=torch.zeros(n, 4), obstacle_forces=torch.zeros(n, 2),
+        flap_grasp=object(), reach_progress=ReachProgress(n, "cpu"), flap_progress=FlapProgress(n, "cpu"),
+        grasp_alignment=torch.ones(n, 2), nearest_flap_index=torch.zeros(n, 2, dtype=torch.long),
+        unexpected_finger_force=torch.zeros(n, 4), obstacle_forces=torch.zeros(n, 2),
         supported=torch.zeros(n, 1, dtype=torch.bool), released=flags(), free_slots=torch.ones(n, 1, dtype=torch.bool),
         button_pressed=flags(), tools=torch.zeros(n, 2, 3), button_point=torch.zeros(n, 3),
         cargo_ok=torch.ones(n, 1, dtype=torch.bool), dwell=zeros(), success=flags(), failure=flags(),
@@ -191,6 +203,53 @@ def test_disabled_collision_cost_ignores_obstacle_and_residual_finger_forces(mod
     assert rewards.unwanted_contact(env).eq(0).all()
     t.spec = replace(t.spec, collision_constraints_enabled=True)
     assert rewards.unwanted_contact(env).gt(0).all()
+
+
+def test_static_grasp_below_goal_has_no_positive_shaping_after_acquisition(modules):
+    _, rewards = modules
+    p = FlapProgress(1, "cpu")
+    flags = torch.ones(1, dtype=torch.bool)
+    target = torch.zeros(1, dtype=torch.long)
+    hands = torch.ones(1, 2, dtype=torch.bool)
+    t = SimpleNamespace(spec=task_spec("pick"), settling=None, flap_progress=p,
+                        reach_progress=SimpleNamespace(delta=torch.zeros(1, 2)),
+                        dwell=torch.zeros(1), refresh=lambda: None)
+    env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: t), step_dt=1/30)
+    def advance(held, height):
+        p.advance(torch.ones(1, 2), torch.zeros(1, 2), torch.zeros(1, 2, dtype=torch.long),
+                  hands & held, flags & held, torch.full((1,), height), target, flags, flags)
+    advance(False, 0.)
+    advance(True, 0.)
+    assert (rewards.flap_contact(env) * env.step_dt * 3).item() == 3.
+    for height in (0., .99):
+        advance(True, height)
+        for _ in range(3):
+            advance(True, height)
+            for function in (rewards.flap_reaching, rewards.flap_orientation,
+                             rewards.flap_contact, rewards.flap_lift_progress, rewards.flap_hold):
+                assert function(env).item() == 0
+
+
+def test_flap_observation_fixed_wait_is_finite_with_timeout_disabled(modules):
+    path = Path(__file__).resolve().parents[1] / "src/kuavo_isaaclab_scene/rl/mdp/observations.py"
+    spec = importlib.util.spec_from_file_location("kuavo_isaaclab_scene.rl.mdp.observations", path)
+    obs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(obs)
+    t = SimpleNamespace(spec=task_spec("pick", reset_settle_seconds=.5, reset_settle_timeout=0.),
+        obstacle_forces=torch.zeros(1, 2), centers=torch.tensor([[[0., 0., .5]]]), ids=torch.tensor([0]),
+        active_box=torch.tensor([0]), initial_z=torch.tensor([[.5]]), contact_force=torch.zeros(1, 2),
+        hand_grasp_flags=torch.zeros(1, 2, dtype=torch.bool), raw_hand_grasp_flags=torch.zeros(1, 2, dtype=torch.bool),
+        grasp_contact_missing_s=torch.zeros(1, 2), contact_flap_index=torch.zeros(1, 2, dtype=torch.long),
+        unexpected_finger_force=torch.zeros(1, 4), half_size=torch.ones(1, 3), dwell=torch.zeros(1),
+        settling=SimpleNamespace(ready=torch.tensor([False]), elapsed=torch.tensor([0.])), refresh=lambda: None)
+    env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: t),
+                          scene=SimpleNamespace(env_origins=torch.zeros(1, 3)))
+    assert torch.isfinite(obs.flap_pick_state(env)).all()
+    t.settling.ready[:] = True
+    t.settling.elapsed[:] = .5
+    result = obs.flap_pick_state(env)
+    assert torch.isfinite(result).all()
+    assert result[0, -2:].tolist() == [1., 1.]
 
 
 @pytest.mark.parametrize("relative", ["configs", "src/kuavo_isaaclab_scene/configs"])

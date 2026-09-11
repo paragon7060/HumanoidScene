@@ -52,7 +52,7 @@ def configure_task(spec):
 def configure(env_cfg, agent_cfg):
     # At 30 Hz, disturbance contributes at worst -0.25/30 per step.
     env_cfg.rewards.prelift_disturbance.weight = -0.25
-    # Additive orientation shaping only within 10 cm and before grasp acquisition.
+    # Signed alignment improvement only within 10 cm and before grasp acquisition.
     env_cfg.rewards.orientation.weight = 0.5
     env_cfg.rewards.orientation.params["distance_threshold"] = 0.10
     # Actions are normalized incremental joint targets in radians/control step.
