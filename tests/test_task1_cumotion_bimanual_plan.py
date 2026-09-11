@@ -10,6 +10,7 @@ from data_collection.task1.approach import (
     densify_path,
     joint_space_path_length,
     planner_yaml,
+    planner_distance_weights,
     rack_width_constraint_in_base,
     rack_width_coordinates_m,
     rack_width_max_violation_m,
@@ -18,6 +19,7 @@ from data_collection.task1.approach import (
     shortcut_path,
     synchronized_seed_path,
 )
+from data_collection.task1.contract import WAIST_ARM_JOINT_NAMES
 
 
 def test_bimanual_xrdf_has_one_14dof_cspace_and_two_tools():
@@ -44,6 +46,17 @@ def test_planner_config_weights_all_14_joints():
     assert data["cspace_planning_params"]["exploration_fraction"] == 0.5
     assert data["seed"] == 42
     assert data["step_size"] == 0.03
+
+
+def test_planner_weights_are_name_driven_for_waist_and_shoulders():
+    weights = planner_distance_weights(
+        WAIST_ARM_JOINT_NAMES, shoulder_sweep_weight=8.0, waist_weight=4.0
+    )
+
+    assert weights[:2] == [4.0, 4.0]
+    assert weights[2] == 8.0
+    assert weights[9] == 8.0
+    assert weights[8] == 1.0
 
 
 def test_planner_config_accepts_rack_front_workspace_corridor():

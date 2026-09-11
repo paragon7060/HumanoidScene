@@ -19,7 +19,14 @@ from kuavo_isaaclab_scene.robots.end_effector import (
     ORIGINAL_EEF_FRAMES,
     urdf_with_center_frames,
 )
-from data_collection.task1.contract import ARM_JOINT_NAMES
+from data_collection.task1.contract import (
+    ARM_JOINT_NAMES,
+    WAIST_ARM_JOINT_NAMES,
+    WAIST_JOINT_NAMES,
+    layout_for_joint_names,
+    safe_waist_bounds,
+    split_trajectory,
+)
 from data_collection.task1.collision import (
     SELF_COLLISION_IGNORE,
     axis_alignment_error_deg,
@@ -38,17 +45,21 @@ KINEMATIC_PARENT_FRAMES = list(ORIGINAL_EEF_FRAMES)
 
 
 def bimanual_xrdf(
-    defaults: dict[str, float], world_spheres: dict, self_spheres: dict
+    defaults: dict[str, float],
+    world_spheres: dict,
+    self_spheres: dict,
+    joint_names: list[str] | None = None,
 ) -> str:
-    """Build a single 14-DoF robot description with both TCP frames."""
+    """Build one bimanual robot description in the requested c-space."""
+    joint_names = ARM_JOINT_NAMES if joint_names is None else list(joint_names)
     data = {
         "format": "xrdf",
         "format_version": 2.0,
         "default_joint_positions": defaults,
         "cspace": {
-            "joint_names": ARM_JOINT_NAMES,
-            "acceleration_limits": [10.0] * len(ARM_JOINT_NAMES),
-            "jerk_limits": [100.0] * len(ARM_JOINT_NAMES),
+            "joint_names": joint_names,
+            "acceleration_limits": [10.0] * len(joint_names),
+            "jerk_limits": [100.0] * len(joint_names),
         },
         "tool_frames": TOOL_FRAMES,
         "world_collision": {"geometry": "kuavo_world_spheres"},
@@ -64,19 +75,46 @@ def bimanual_xrdf(
     return yaml.safe_dump(data, sort_keys=False)
 
 
+def planner_distance_weights(
+    joint_names: list[str] | tuple[str, ...],
+    *,
+    shoulder_sweep_weight: float,
+    waist_weight: float = 4.0,
+) -> list[float]:
+    """Build planner weights by semantic joint name, never column number."""
+    weights = []
+    shoulder_names = {"zarm_l1_joint", "zarm_r1_joint"}
+    for name in joint_names:
+        if name in WAIST_JOINT_NAMES:
+            weights.append(float(waist_weight))
+        elif name in shoulder_names:
+            weights.append(float(shoulder_sweep_weight))
+        else:
+            weights.append(1.0)
+    return weights
+
+
 def planner_yaml(
     joint_count: int,
     *,
     seed: int = 123456,
     step_size: float = 0.05,
     shoulder_sweep_weight: float = 8.0,
+    joint_names: list[str] | None = None,
     task_space_limits: list[list[float]] | None = None,
 ) -> str:
     """Return deterministic cuMotion graph-planner parameters for the workcell."""
-    distance_weights = [1.0] * joint_count
-    for index in (0, 7):
-        if index < joint_count:
-            distance_weights[index] = shoulder_sweep_weight
+    if joint_names is None:
+        distance_weights = [1.0] * joint_count
+        for index in (0, 7):
+            if index < joint_count:
+                distance_weights[index] = shoulder_sweep_weight
+    else:
+        if len(joint_names) != joint_count:
+            raise ValueError("joint_names must match joint_count")
+        distance_weights = planner_distance_weights(
+            joint_names, shoulder_sweep_weight=shoulder_sweep_weight
+        )
     data = {
         "seed": seed,
         "step_size": step_size,
@@ -184,12 +222,12 @@ def synchronized_seed_path(
     ]
     if all(path is None for path in sampled_paths):
         if (
-            q_initial.shape != (14,)
-            or q_terminal.shape != (14,)
+            q_initial.ndim != 1
+            or q_terminal.shape != q_initial.shape
             or not np.isfinite(q_initial).all()
             or not np.isfinite(q_terminal).all()
         ):
-            raise ValueError("endpoint seed plan requires finite 14-DoF endpoints")
+            raise ValueError("endpoint seed plan requires matching finite endpoints")
         return np.stack((q_initial, q_terminal))
     if any(path is None for path in sampled_paths):
         raise ValueError("seed plan must provide sampled trajectories for both arms")
@@ -505,6 +543,10 @@ def main(argv=None) -> int:
     output.mkdir(parents=True)
 
     defaults = runtime_joint_defaults(runtime)
+    cspace_names = list(seed_report.get("cspace_joint_names", ARM_JOINT_NAMES))
+    layout = layout_for_joint_names(
+        cspace_names, allow_arm_only_baseline=bool(seed_report.get("arm_only_baseline", True))
+    )
     initial_pose_source = runtime.get("initial_state", "snapshot runtime joint state")
     if args.initial_q_plan is not None:
         initial_plan_path = args.initial_q_plan.expanduser().resolve()
@@ -512,28 +554,32 @@ def main(argv=None) -> int:
         if initial_plan.get("status") != "SUCCESS":
             raise ValueError(f"initial q plan is not successful: {initial_plan_path}")
         initial_q = np.asarray(initial_plan.get("terminal_q_rad"), dtype=float)
-        if initial_q.shape != (len(ARM_JOINT_NAMES),) or not np.isfinite(initial_q).all():
-            raise ValueError(f"initial q plan has no finite 14-DoF terminal: {initial_plan_path}")
+        if initial_q.shape != (len(cspace_names),) or not np.isfinite(initial_q).all():
+            raise ValueError(f"initial q plan has no finite matching terminal: {initial_plan_path}")
         defaults.update(
             (name, float(value))
-            for name, value in zip(ARM_JOINT_NAMES, initial_q, strict=True)
+            for name, value in zip(cspace_names, initial_q, strict=True)
         )
         initial_pose_source = str(initial_plan_path)
-    q_initial = np.asarray([defaults[name] for name in ARM_JOINT_NAMES], dtype=float)
+    q_initial = np.asarray([defaults[name] for name in cspace_names], dtype=float)
     joint_limits = {
         name: limits
         for name, limits in zip(
             runtime["joint_names"], runtime["joint_limits"], strict=True
         )
     }
-    q_lower = np.asarray([joint_limits[name][0] for name in ARM_JOINT_NAMES], dtype=float)
-    q_upper = np.asarray([joint_limits[name][1] for name in ARM_JOINT_NAMES], dtype=float)
-    q_terminal = np.concatenate(
-        [
-            np.asarray(seed_report["arms"][side]["terminal_q_rad"], dtype=float)
-            for side in ("left", "right")
-        ]
-    )
+    q_lower = np.asarray([joint_limits[name][0] for name in cspace_names], dtype=float)
+    q_upper = np.asarray([joint_limits[name][1] for name in cspace_names], dtype=float)
+    if layout.waist_indices:
+        q_lower[:2], q_upper[:2] = safe_waist_bounds(joint_limits)
+    q_terminal = np.asarray(seed_report.get("terminal_q_rad"), dtype=float)
+    if q_terminal.shape != q_initial.shape and not layout.waist_indices:
+        q_terminal = np.concatenate(
+            [
+                np.asarray(seed_report["arms"][side]["terminal_q_rad"], dtype=float)
+                for side in ("left", "right")
+            ]
+        )
     if q_terminal.shape != q_initial.shape or not np.isfinite(q_terminal).all():
         raise ValueError("terminal seed plan does not contain one finite 14-DoF target")
     editor_state = runtime["pose_editor_state"]
@@ -571,7 +617,7 @@ def main(argv=None) -> int:
         self_pair_margin_m / 2,
         gripper_mesh_spheres,
     )
-    xrdf_text = bimanual_xrdf(defaults, world_spheres, self_spheres)
+    xrdf_text = bimanual_xrdf(defaults, world_spheres, self_spheres, cspace_names)
     (output / "bimanual.xrdf").write_text(xrdf_text)
 
     robot = cumotion.load_robot_from_memory(
@@ -590,10 +636,11 @@ def main(argv=None) -> int:
         rack_center_b, rack_axis_b, rack_half_width_m
     )
     planner_text = planner_yaml(
-        len(ARM_JOINT_NAMES),
+        len(cspace_names),
         seed=args.planner_seed,
         step_size=args.planner_step_size,
         shoulder_sweep_weight=args.shoulder_sweep_weight,
+        joint_names=cspace_names,
         task_space_limits=task_space_limits,
     )
     (output / "planner.yaml").write_text(planner_text)
@@ -673,8 +720,11 @@ def main(argv=None) -> int:
         path = densify_path(shortcut_knots, args.planner_step_size)
         selected_strategy = "synchronized_optimizer_seed_shortcut"
     else:
-        distance_weights = np.ones(len(ARM_JOINT_NAMES))
-        distance_weights[[0, 7]] = args.shoulder_sweep_weight
+        distance_weights = np.asarray(
+            planner_distance_weights(
+                cspace_names, shoulder_sweep_weight=args.shoulder_sweep_weight
+            )
+        )
         rrt_path, constrained_rrt_iterations = constrained_rrt_connect(
             q_initial,
             q_terminal,
@@ -733,7 +783,7 @@ def main(argv=None) -> int:
         "snapshot_dir": str(snapshot_dir),
         "initial_pose_source": initial_pose_source,
         "terminal_seed_plan": str(seed_path),
-        "joint_names": ARM_JOINT_NAMES,
+        "joint_names": cspace_names,
         "tool_frames": TOOL_FRAMES,
         "tcp_frame": CENTER_FRAME_NAME,
         "kinematic_parent_frames": KINEMATIC_PARENT_FRAMES,
@@ -815,8 +865,9 @@ def main(argv=None) -> int:
         tool_down_angles_deg = np.asarray(
             [tool_down_angle_deg(rotation) for rotation in terminal_rotations]
         )
-        left_delta = np.linalg.norm(np.diff(path[:, :7], axis=0), axis=1)
-        right_delta = np.linalg.norm(np.diff(path[:, 7:], axis=0), axis=1)
+        _, arm_path = split_trajectory(cspace_names, path)
+        left_delta = np.linalg.norm(np.diff(arm_path[:, :7], axis=0), axis=1)
+        right_delta = np.linalg.norm(np.diff(arm_path[:, 7:], axis=0), axis=1)
         moving = (left_delta > 1e-7) | (right_delta > 1e-7)
         overlap = (left_delta > 1e-7) & (right_delta > 1e-7)
         overlap_fraction = float(overlap.sum() / max(1, moving.sum()))
