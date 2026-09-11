@@ -70,8 +70,8 @@ def failure(env):
 
 def flap_reaching(env):
     t = task(env)
-    # A new best proximity earns once. dt cancellation makes a fixed amount of
-    # progress worth the same at different control rates (RewardManager applies dt).
+    # Signed consecutive-step progress; acquisition/held/loss-transition deltas
+    # are zeroed by the tracker. RewardManager's dt cancels this divisor.
     return t.reach_progress.delta[:, t.spec.grasp_hand_indices].mean(-1) * ready(t) / env.step_dt
 
 

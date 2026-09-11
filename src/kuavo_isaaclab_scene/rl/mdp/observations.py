@@ -67,8 +67,8 @@ def hand_flap_relation(env):
 
 
 def reaching_history(env):
-    """Expose reward memory so the same pose with different progress is distinguishable."""
-    return task(env).reach_progress.best.clone()
+    """Latest active score, used as the next step's baseline; zero while held/disabled."""
+    return task(env).reach_progress.previous.clone()
 
 
 def box_rest_relation(env):

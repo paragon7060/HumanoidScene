@@ -1,5 +1,34 @@
 """Format cached RewardManager values without evaluating rewards twice."""
 
+from collections import deque
+
+
+class ReachRewardSummary:
+    """Display-only sums of actual weighted rewards, fed once per env.step.
+
+    Window uses simulation time: pause freezes it. Explicit user reset clears
+    it; terminal samples survive the simulator's automatic reset.
+    """
+
+    def __init__(self, window_s=0.5):
+        self.window_s = window_s
+        self.reset()
+
+    def reset(self):
+        self.elapsed = self.total = 0.
+        self.values = deque()
+
+    def update(self, sample, dt):
+        value = sample["terms"].get("reaching", 0.)
+        self.elapsed += dt
+        self.total += value
+        self.values.append((self.elapsed, value))
+        while self.values and self.values[0][0] <= self.elapsed - self.window_s + 1e-9:
+            self.values.popleft()
+        sample["reach_window_s"] = self.window_s
+        sample["reach_recent_reward"] = sum(value for _, value in self.values)
+        sample["reach_episode_reward"] = self.total
+
 
 def step_contributions(terms, dt):
     # Isaac Lab 2.3.2 exposes weight * raw via get_active_iterable_terms.
@@ -63,8 +92,12 @@ def format_report(sample, status, episode_return):
             lines.extend(sample.get("grasp_debug", []))
         lines += [f"{name}: {value:+.5f}" for name, value in sample["terms"].items()]
         if "reach_progress" in sample:
-            lines.append("Reach new progress L/R: " + "/".join(f"{v:.5f}" for v in sample["reach_progress"]))
-            lines.append("Reach best score L/R: " + "/".join(f"{v:.4f}" for v in sample["reach_best"]))
+            lines.append("Reach signed progress L/R: " + "/".join(f"{v:+.5f}" for v in sample["reach_progress"]))
+            lines.append("Reach baseline score L/R: " + "/".join(f"{v:.4f}" for v in sample["reach_score"]))
+            lines.append("Reach tracking L/R: " + "/".join(str(int(v)) for v in sample["reach_active"]))
+        if "reach_recent_reward" in sample:
+            lines.append(f"Reaching last {sample['reach_window_s']:g}s: {sample['reach_recent_reward']:+.5f}"
+                         f" | episode: {sample['reach_episode_reward']:+.5f}")
         lines += [f"TOTAL: {sample['total']:+.5f} | RETURN: {episode_return:+.3f}",
                   f"Lift: {sample['lift_cm']:.1f} cm | Hold: {sample['hold']:.2f} s",
                   f"Grasp L/R: {int(sample['left_grasp'])}/{int(sample['right_grasp'])}",

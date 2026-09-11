@@ -32,7 +32,7 @@ def contract(env):
         "endeffector_center": env.command_manager.get_term("workcell").endeffector_center.definition,
         "pick_success_revision": 2,
         "settling_revision": 2,
-        "reaching_revision": "flap_best_proximity_progress_v1",
+        "reaching_revision": "flap_signed_pregrasp_progress_v2",
         "layout": {n: {"pos": list(getattr(cfg.scene, n).init_state.pos),
                        "rot": list(getattr(cfg.scene, n).init_state.rot),
                        "scale": list(getattr(getattr(cfg.scene, n).spawn, "scale", None) or (1, 1, 1))}

@@ -104,9 +104,13 @@ collider 로컬 형상·내부 scale을 body 좌표계로 변환해 저장하고
 ### 양팔 손가락 기준점을 드래그해서 맞추기
 
 현재 S200062는 [공통 endeffector_center](ENDEFFECTOR_CENTER.md)가 기본 reward/IK/VR 표시 기준입니다.
-flap-pick `reaching`은 현재 최고 접근 기록 갱신분에만 지급됩니다. 정지하거나 이전에
-도달한 거리로 복귀하면 0이며, `Reach new progress`와 `Reach best score`를 함께 확인하세요.
-거리와 무관하게 0으로 보이는 오류와 혼동하지 마세요. orientation 등 다른 항목은 기존 규칙입니다.
+flap-pick `reaching`은 파지 전 직전 스텝보다 접근하면 +, 후퇴하면 -, 정지하면 0입니다.
+파지 획득/유지 중에는 0이고, 파지를 잃은 첫 스텝에는 현재 거리로 기준만 다시 잡습니다.
+`Reach signed progress`, `Reach baseline score`, `Reach tracking`을 함께 확인하세요.
+`Reaching last 0.5s | episode`는 모든 제어 스텝의 실제 weighted reaching 보상 합계입니다.
+순간값이 0이어도 최근 합계나 누적에 짧은 접근 보상이 남습니다. 양/음은 서로 상쇄될 수 있습니다.
+최근 구간은 시뮬레이션 시간 기준이며 pause/terminal에서 보존하고 B/reset으로 초기화합니다.
+orientation 등 다른 항목은 기존 규칙입니다. 기존 checkpoint는 reward/관측 의미가 달라 새 학습이 필요합니다.
 아래의 편집 모드는 저장 후 재시작할 때 반영하며, 실행 중인 RL 정의를 즉시 바꾸지 않습니다.
 
 **마우스로 위치를 맞추는 작업은 [데스크톱 전용 보정 도구](GRASP_DESKTOP_CALIBRATION.md)를

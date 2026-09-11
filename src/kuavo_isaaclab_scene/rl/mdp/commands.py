@@ -118,7 +118,8 @@ class WorkcellCommand(CommandTerm):
             enabled = self.phase == 1
             if self.settling is not None:
                 enabled &= self.settling.ready
-            self.reach_progress.advance(self.hand_target_distance, self.active_box, enabled, update)
+            self.reach_progress.advance(self.hand_target_distance, self.active_box, enabled, update,
+                                        held=self.hand_grasp_flags)
 
     def _measure(self):
         self.poses = torch.stack([b.data.root_pose_w for b in self.boxes], 1)
@@ -254,7 +255,8 @@ class WorkcellCommand(CommandTerm):
             enabled = self.reward_phase == 1
             if self.settling is not None:
                 enabled &= self.settling.ready
-            self.reach_progress.advance(self.hand_target_distance, self.reward_box, enabled, update)
+            self.reach_progress.advance(self.hand_target_distance, self.reward_box, enabled, update,
+                                        held=self.hand_grasp_flags)
         target = self.centers[self.ids, self.active_box]
         lifted = target[:, 2] - self._env.scene.env_origins[:, 2] > self.initial_z[self.ids, self.active_box] + self.spec.lift_height
         upright = self.upright[self.ids, self.active_box] > math.cos(self.spec.max_tilt)

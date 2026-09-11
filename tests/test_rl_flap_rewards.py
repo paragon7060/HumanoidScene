@@ -68,6 +68,9 @@ def test_flap_shaping_uses_only_the_selected_hand(modules):
     t.settling = SimpleNamespace(ready=torch.tensor([False]))
     assert rewards.flap_reaching(env).item() == 0
     assert rewards.flap_contact(env).item() == 0
+    t.settling = None
+    t.reach_progress.delta[:, 1] = -.2
+    assert (rewards.flap_reaching(env) * env.step_dt * 4).item() == pytest.approx(-.8)
 
 
 def test_lift_requires_grasp_and_discrete_bonuses_are_dt_independent(modules):

@@ -107,7 +107,8 @@ Fabric 사용 중에는 USD transform 읽기보다 위 tensor API가 현재 물�
 
 `approach_reaching = exp(-6*d)`, d는 필요한 손의 TCP와 목표점 거리 평균이며 approach phase에만
 활성화됩니다. 기존 stationary flap pick에서는 이 항목을 비활성화합니다. flap reaching은
-TCP 거리의 `exp(-12*d)` 최고 점수를 갱신할 때만 weight 4로 진전 보상을 줍니다.
+파지 전 TCP 거리 점수 `exp(-12*d)`의 직전 스텝 대비 변화량에 weight 4를 적용합니다.
+접근은 +, 후퇴는 -이며 파지 획득/유지 중과 파지 상실 첫 스텝에는 0입니다.
 자세한 누적 보상·reset 규칙은 [오른손 파지 가이드](RL_RIGHT_HAND_PICK.md)를 따릅니다. 기존 base navigation의
 성공/충돌 조건을 손의 근접성만으로 대체하지 않았습니다.
 

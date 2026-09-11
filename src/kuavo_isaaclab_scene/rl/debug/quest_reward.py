@@ -19,7 +19,7 @@ from ...teleop.quest_openxr import RawQuestOpenXRDevice, start_quest_xr_session
 from ..runners.common import build_configs
 from .quest_control import QuestRLControl
 from .reward_recorder import RewardProbe
-from .reward_report import format_report, reward_summary
+from .reward_report import format_report, reward_summary, ReachRewardSummary
 from .stationary_surface import StationarySurface
 
 
@@ -135,6 +135,7 @@ def run(args, app):
                 viewport.resolution = (160, 90)
         running, terminal, view_ready = False, False, False
         sample, episode_return, last_hud = None, 0., 0.
+        reach_summary = ReachRewardSummary()
         panel_ready, next_panel_diagnostic = False, time.monotonic() + 3.
         next_grasp_diagnostic = 0.
         last_collision_draw = 0.
@@ -189,6 +190,7 @@ def run(args, app):
                 control.reset()
                 running = terminal = False
                 sample, episode_return = None, 0.
+                reach_summary.reset()
                 status = "RESET - press A"
                 if collision_view is not None:
                     collision_view.update(contact_sample_valid=False)
@@ -227,6 +229,7 @@ def run(args, app):
                         status = "SETTLING"
                     env.step(action)
                 sample = env._quest_reward_sample
+                reach_summary.update(sample, env.step_dt)
                 if start >= next_grasp_diagnostic or sample["failure"] or sample["success"] or sample["timeout"]:
                     print(f"[RL GRASP] blocked={','.join(sample['blocked_checks']) or 'none'}; "
                           f"failure={','.join(sample['failure_reasons']) or 'none'}; "

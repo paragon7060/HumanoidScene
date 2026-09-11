@@ -43,30 +43,38 @@ grasp_flaps=("flap_right", "flap_left")  # 손별 배정이 아니라 공유 후
 d_right = min(distance(tool_right, surface(flap_right)),
               distance(tool_right, surface(flap_left)))
 score = exp(-12 * d_right)
-progress = max(score - 이전 최고 score, 0)
-최고 score = max(이전 최고 score, score)
+progress = score - 직전 스텝 score  # 파지 전, 연속 유효 스텝만
 reaching raw = progress / control_dt
 실제 스텝 기여도 = 4 * progress
 ```
 
 최초 기준이 10cm인 예: 5cm까지 접근하면 누적 약 +0.99047, 5cm에서 정지하면 0,
-10cm로 후퇴 후 다시 5cm에 와도 0이다. 기존 최고기록보다 가까운 4cm에 도달하면
-추가 약 +0.27989를 받는다. 여러 스텝으로 이동해도 같은 끝 거리면 누적 보상은 같다.
+10cm로 후퇴하면 -0.99047, 다시 5cm로 접근하면 +0.99047이다. 4cm까지 더 접근하면
+추가 약 +0.27989를 받는다. 같은 활성 구간 안에서 여러 스텝으로 이동해도 같은 끝 거리면
+할인 전 누적 보상은 같다. 이는 단순 signed 차분이며 PPO gamma=0.99에 맞춘 엄밀한
+potential-based shaping은 아니다. 할인된 왕복 수익까지 완전히 상쇄한다고 보장하지 않는다.
 
 왼손 거리는 측정/표시하지만 기본 오른손 reward에는 넣지 않는다. 정렬도는 별도
 orientation 항으로 유지한다. 이 변경은 현재 flap-pick reaching에만 적용하며,
 approach_rack/navigation·orientation·flap_contact·stable_grasp·lift·시간 비용은 변경하지 않는다.
 정지 상태에서 **전체** reward가 반드시 음수가 되는 것은 아니다.
 
-최고 점수는 환경별·손별로 관리하고, 초기 대기 종료/리셋/대상 박스 변경 때는 보상 없이
+직전 점수는 환경별·손별로 관리하고, 초기 대기 종료/리셋/대상 박스 변경 때는 보상 없이
 현재 거리로 기준을 잡는다. 같은 박스의 가까운 flap 후보가 바뀌어도 기록을 초기화하지 않는다.
-파지 후에 보상을 끄는 별도 변경은 하지 않았으며, 최고기록을 갱신할 때만 같은 규칙을 적용한다.
+기존 contact latch의 `hand_grasp_flags`를 사용해 **파지를 획득한 스텝부터 유지 중에는
+해당 손의 reaching을 0**으로 한다. 파지를 잃은 첫 스텝도 보상 없이 기준만 잡고,
+그다음 스텝부터 signed 보상을 재개한다. lifting 중 정상적인 상대 위치 변화는 감점하지 않는다.
 대상 박스의 움직임으로 거리가 줄어든 경우도 기하학적 진전으로 측정된다.
 
-`rl/mdp/reach_progress.py`가 최고기록과 갱신량을 관리한다. 양손 최고 점수 2개를
-`reaching_history` observation으로 제공하므로 **이전 checkpoint는 그대로 재개하지 않는다.**
-reward contract에도 `flap_best_proximity_progress_v1`을 기록한다.
-VR 패널에는 실제 `reaching` 기여도와 `Reach new progress L/R`, `Reach best score L/R`가 표시된다.
+`rl/mdp/reach_progress.py`가 직전 점수와 변화량을 관리한다. `reaching_history` observation은
+양손의 최신 활성 점수 2개(다음 스텝의 기준)이며, 파지 중/비활성일 때는 0이다.
+차원은 같지만 의미가 달라 **이전 checkpoint는 그대로 재개하지 않는다.**
+reward contract에는 `flap_signed_pregrasp_progress_v2`를 기록한다.
+VR 패널은 `Reach signed progress L/R`, `Reach baseline score L/R`, `Reach tracking L/R`를
+표시한다. 왼손 tracking이 켜져 있어도 기본 보상에는 오른손만 들어간다.
+`Reaching last 0.5s | episode`는 모든 제어 스텝의 **실제 가중 보상**을 합산한 값이다.
+짧은 양/음 보상이 10Hz 표시 사이에 지나가도 최근 합계·누적에 포함된다. 서로 상쇄되면
+합계는 0일 수 있다. pause 시 시간이 멈추고 마지막 값을 유지하며, B/reset 시 합계를 비운다.
 S200062의 거리 기준은 [보정된 closed endeffector_center](ENDEFFECTOR_CENTER.md)다.
 기존 `tool_offset=(0,0,-0.12)`는 이 모델에서 사용하지 않는다. 두 점은 보정 파일에서 수정하며,
 변경 후 재시작해야 한다. 접촉 판정의 힘·접촉점은 계속 실제 filtered contact를 쓴다.

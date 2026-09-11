@@ -1,7 +1,7 @@
 """Pure formatting checks: no Isaac Sim, XR, or training process."""
 
 import unittest
-from kuavo_isaaclab_scene.rl.debug.reward_report import step_contributions, format_report, reward_summary
+from kuavo_isaaclab_scene.rl.debug.reward_report import step_contributions, format_report, reward_summary, ReachRewardSummary
 
 
 class RewardReportTests(unittest.TestCase):
@@ -29,6 +29,34 @@ class RewardReportTests(unittest.TestCase):
 
     def test_no_physics_yet(self):
         self.assertIn("Waiting for first physics step", format_report(None, "PAUSED", 0.))
+
+    def test_reaching_window_counts_every_step_and_reset_clears_history(self):
+        summary = ReachRewardSummary(window_s=.5)
+        sample = dict(terms={"reaching": .4}, total=.4, lift_cm=0., hold=0.,
+                      left_grasp=False, right_grasp=False, left_distance_cm=10., right_distance_cm=5.,
+                      reach_progress=[0., .1], reach_score=[.3, .55], reach_active=[True, True])
+        summary.update(sample, .1)
+        sample["terms"] = {"reaching": 0.}
+        sample["reach_progress"] = [0., 0.]
+        summary.update(sample, .1)  # HUD only sees this later zero step
+        output = format_report(sample, "RUN", .4)
+        self.assertIn("Reach signed progress L/R: +0.00000/+0.00000", output)
+        self.assertIn("Reaching last 0.5s: +0.40000 | episode: +0.40000", output)
+        sample["terms"] = {"reaching": -.1}
+        summary.update(sample, .1)
+        self.assertAlmostEqual(sample["reach_episode_reward"], .3)
+        sample["terms"] = {"reaching": 0.}
+        for _ in range(3):
+            summary.update(sample, .1)
+        self.assertAlmostEqual(sample["reach_recent_reward"], -.1)  # first +.4 aged out
+        self.assertAlmostEqual(sample["reach_episode_reward"], .3)
+        # Rendering, pause and terminal auto-reset do not call update/reset.
+        format_report(sample, "SUCCESS - last step", .3)
+        self.assertAlmostEqual(summary.total, .3)
+        summary.reset()
+        summary.update(sample, .1)
+        self.assertEqual(sample["reach_recent_reward"], 0.)
+        self.assertEqual(sample["reach_episode_reward"], 0.)
 
     def test_large_terminal_summary_preserves_reason_and_unmet_hold(self):
         sample = dict(failure=True, failure_reasons=["obstacle_collision"], obstacle_force=21.5,
