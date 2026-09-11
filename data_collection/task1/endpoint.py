@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime
+from itertools import product
 import json
 import math
 from pathlib import Path
@@ -15,7 +16,11 @@ import yaml
 
 from kuavo_isaaclab_scene.robots.end_effector import urdf_with_center_frames
 from data_collection.task1.approach import TOOL_FRAMES
-from data_collection.task1.contract import ARM_JOINT_NAMES, WAIST_JOINT_NAMES
+from data_collection.task1.contract import (
+    ARM_JOINT_NAMES,
+    WAIST_JOINT_NAMES,
+    safe_waist_bounds,
+)
 from data_collection.task1.collision import (
     SELF_COLLISION_IGNORE,
     axis_alignment_error_deg,
@@ -58,6 +63,18 @@ def candidate_angles(
     else:
         angles[-1] = maximum_deg
     return angles
+
+
+def front_target_candidates(
+    x_offsets_m: list[float] | tuple[float, ...], z_offset_m: float
+) -> np.ndarray:
+    """Return robot-base offsets ordered from the front-most grasp inward."""
+    x_values = np.asarray(x_offsets_m, dtype=float)
+    if x_values.ndim != 1 or not len(x_values) or not np.isfinite(x_values).all():
+        raise ValueError("target x offsets must be a non-empty finite list")
+    if np.any(x_values < 0) or not math.isfinite(z_offset_m):
+        raise ValueError("front target offsets must be nonnegative and finite")
+    return np.column_stack((x_values, np.zeros_like(x_values), np.full_like(x_values, z_offset_m)))
 
 
 def rmpflow_xrdf(
@@ -383,7 +400,11 @@ def parser() -> argparse.ArgumentParser:
         default=None,
         help="Initialize the simultaneous solve from an existing bimanual endpoint plan.",
     )
-    result.add_argument("--include-waist", action="store_true")
+    result.add_argument(
+        "--arm-only-baseline",
+        action="store_true",
+        help="Use the historical 14DoF arms-only solve instead of the default 16DoF solve.",
+    )
     result.add_argument(
         "--waist-seed-deg",
         type=float,
@@ -395,12 +416,22 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument(
         "--solver", choices=("rmpflow", "jacobian"), default="rmpflow"
     )
-    result.add_argument("--target-offset-b-m", type=float, nargs=3, default=(0, 0, 0))
+    result.add_argument(
+        "--target-x-offsets-m", type=float, nargs="+", default=[0.03, 0.04, 0.05]
+    )
+    result.add_argument("--target-z-offset-m", type=float, default=0.015)
+    result.add_argument(
+        "--tool-down-angles-deg", type=float, nargs="+", default=[45.0, 50.0, 56.0]
+    )
+    result.add_argument(
+        "--target-offset-b-m",
+        type=float,
+        nargs=3,
+        default=None,
+        help="Explicit single XYZ override for baseline reproduction.",
+    )
     result.add_argument("--flap-line-length-m", type=float, default=0.20)
     result.add_argument("--flap-line-point-count", type=int, default=21)
-    result.add_argument("--maximum-tool-down-angle-deg", type=float, default=30.0)
-    result.add_argument("--minimum-tool-down-angle-deg", type=float, default=0.0)
-    result.add_argument("--tool-down-angle-step-deg", type=float, default=5.0)
     result.add_argument("--position-tolerance-m", type=float, default=0.003)
     result.add_argument("--orientation-tolerance-deg", type=float, default=1.0)
     result.add_argument("--timestep-s", type=float, default=0.002)
@@ -431,14 +462,19 @@ def main(argv=None) -> int:
             raise ValueError(f"--{name.replace('_', '-')} must be finite and nonnegative")
 
     offsets = center_out_offsets(args.flap_line_length_m, args.flap_line_point_count)
-    angles = candidate_angles(
-        args.maximum_tool_down_angle_deg,
-        args.tool_down_angle_step_deg,
-        args.minimum_tool_down_angle_deg,
-    )
-    target_offset = np.asarray(args.target_offset_b_m, dtype=float)
-    if target_offset.shape != (3,) or not np.isfinite(target_offset).all():
-        raise ValueError("--target-offset-b-m must be finite xyz")
+    angles = np.asarray(args.tool_down_angles_deg, dtype=float)
+    if angles.ndim != 1 or not len(angles) or not np.isfinite(angles).all():
+        raise ValueError("--tool-down-angles-deg must be a non-empty finite list")
+    if np.any((angles < 0) | (angles > 90)):
+        raise ValueError("--tool-down-angles-deg values must lie within [0, 90]")
+    if args.target_offset_b_m is None:
+        target_offsets = front_target_candidates(
+            args.target_x_offsets_m, args.target_z_offset_m
+        )
+    else:
+        target_offsets = np.asarray([args.target_offset_b_m], dtype=float)
+        if target_offsets.shape != (1, 3) or not np.isfinite(target_offsets).all():
+            raise ValueError("--target-offset-b-m must be finite xyz")
 
     import cumotion
 
@@ -450,9 +486,8 @@ def main(argv=None) -> int:
         snapshot, world_config, allow_target_flap_contact=False
     )
     defaults = runtime_joint_defaults(runtime)
-    cspace_names = (
-        WAIST_JOINT_NAMES + ARM_JOINT_NAMES if args.include_waist else ARM_JOINT_NAMES
-    )
+    include_waist = not args.arm_only_baseline
+    cspace_names = WAIST_JOINT_NAMES + ARM_JOINT_NAMES if include_waist else ARM_JOINT_NAMES
     joint_limits = {
         name: limits
         for name, limits in zip(
@@ -461,10 +496,12 @@ def main(argv=None) -> int:
     }
     lower = np.asarray([joint_limits[name][0] for name in cspace_names], dtype=float)
     upper = np.asarray([joint_limits[name][1] for name in cspace_names], dtype=float)
+    if include_waist:
+        lower[:2], upper[:2] = safe_waist_bounds(joint_limits)
     q_initial = np.asarray([defaults[name] for name in cspace_names], dtype=float)
     if args.waist_seed_deg is not None:
-        if not args.include_waist:
-            raise ValueError("--waist-seed-deg requires --include-waist")
+        if not include_waist:
+            raise ValueError("--waist-seed-deg is unavailable with --arm-only-baseline")
         waist_seed = np.radians(np.asarray(args.waist_seed_deg, dtype=float))
         if not np.isfinite(waist_seed).all():
             raise ValueError("--waist-seed-deg must be finite")
@@ -520,7 +557,7 @@ def main(argv=None) -> int:
     flow.set_cspace_attractor(q_seed)
 
     editor_state = runtime["pose_editor_state"]
-    centers = np.asarray(editor_state["grasp_position_b"], dtype=float) + target_offset
+    nominal_centers = np.asarray(editor_state["grasp_position_b"], dtype=float)
     normals = np.asarray(editor_state["inward_flap_normal_b"], dtype=float)
     line_axes, full_lengths = target_flap_line_geometry(snapshot, runtime)
     if args.flap_line_length_m > float(np.min(full_lengths)) + 1e-9:
@@ -542,133 +579,133 @@ def main(argv=None) -> int:
     attempts = []
     best = None
     selected = None
-    for angle in angles:
+    for target_offset, angle, offset in product(target_offsets, angles, offsets):
+        centers = nominal_centers + target_offset
         rotations = [
             tool_down_orientation_targets(normal, angle, angle, 1.0)[0][0]
             for normal in normals
         ]
-        for offset in offsets:
-            positions = centers + offset * line_axes
-            for frame, position, rotation in zip(
-                TOOL_FRAMES, positions, rotations, strict=True
-            ):
-                flow.set_pose_target(
-                    frame,
-                    cumotion.Pose3(
-                        cumotion.Rotation3.from_matrix(rotation), position
-                    ),
-                )
-
-            def target_is_converged(q_value: np.ndarray) -> bool:
-                actual_positions = np.asarray(
-                    [kinematics.position(q_value, frame) for frame in TOOL_FRAMES],
-                    dtype=float,
-                )
-                actual_rotations = [
-                    np.asarray(
-                        kinematics.orientation(q_value, frame).matrix(), dtype=float
-                    )
-                    for frame in TOOL_FRAMES
-                ]
-                return bool(
-                    np.all(
-                        np.linalg.norm(actual_positions - positions, axis=1)
-                        <= args.position_tolerance_m
-                    )
-                    and all(
-                        rotation_error_deg(actual, target)
-                        <= args.orientation_tolerance_deg
-                        for actual, target in zip(
-                            actual_rotations, rotations, strict=True
-                        )
-                    )
-                )
-
-            if args.solver == "rmpflow":
-                q, velocity, steps = integrate_rmpflow(
-                    flow,
-                    q_seed,
-                    lower,
-                    upper,
-                    timestep_s=args.timestep_s,
-                    duration_s=args.duration_s,
-                    convergence_check=target_is_converged,
-                )
-            else:
-                q, velocity, steps = solve_simultaneous_jacobian(
-                    kinematics,
-                    q_seed,
-                    lower,
-                    upper,
-                    positions,
-                    rotations,
-                    position_tolerance_m=args.position_tolerance_m,
-                    orientation_tolerance_deg=args.orientation_tolerance_deg,
-                )
-            terminal_positions = np.asarray(
-                [kinematics.position(q, frame) for frame in TOOL_FRAMES], dtype=float
+        positions = centers + offset * line_axes
+        for frame, position, rotation in zip(
+            TOOL_FRAMES, positions, rotations, strict=True
+        ):
+            flow.set_pose_target(
+                frame,
+                cumotion.Pose3(
+                    cumotion.Rotation3.from_matrix(rotation), position
+                ),
             )
-            terminal_rotations = [
-                np.asarray(kinematics.orientation(q, frame).matrix(), dtype=float)
+
+        def target_is_converged(q_value: np.ndarray) -> bool:
+            actual_positions = np.asarray(
+                [kinematics.position(q_value, frame) for frame in TOOL_FRAMES],
+                dtype=float,
+            )
+            actual_rotations = [
+                np.asarray(
+                    kinematics.orientation(q_value, frame).matrix(), dtype=float
+                )
                 for frame in TOOL_FRAMES
             ]
-            position_errors = np.linalg.norm(terminal_positions - positions, axis=1)
-            orientation_errors = np.asarray(
-                [
+            return bool(
+                np.all(
+                    np.linalg.norm(actual_positions - positions, axis=1)
+                    <= args.position_tolerance_m
+                )
+                and all(
                     rotation_error_deg(actual, target)
+                    <= args.orientation_tolerance_deg
                     for actual, target in zip(
-                        terminal_rotations, rotations, strict=True
+                        actual_rotations, rotations, strict=True
                     )
-                ]
+                )
             )
-            world_collision = bool(inspector.in_collision_with_obstacle(q))
-            self_collision = bool(inspector.in_self_collision(q))
-            score = float(
-                np.max(position_errors) / args.position_tolerance_m
-                + np.max(orientation_errors) / args.orientation_tolerance_deg
-                + 1000.0 * (world_collision or self_collision)
+
+        if args.solver == "rmpflow":
+            q, velocity, steps = integrate_rmpflow(
+                flow,
+                q_seed,
+                lower,
+                upper,
+                timestep_s=args.timestep_s,
+                duration_s=args.duration_s,
+                convergence_check=target_is_converged,
             )
-            attempt = {
-                "angle_deg": float(angle),
-                "flap_line_offset_m": float(offset),
-                "steps": steps,
-                "velocity_norm": float(np.linalg.norm(velocity)),
-                "position_error_m": position_errors.tolist(),
-                "orientation_error_deg": orientation_errors.tolist(),
-                "tool_down_angle_deg": [
-                    tool_down_angle_deg(rotation) for rotation in terminal_rotations
-                ],
-                "closing_axis_error_deg": [
-                    axis_alignment_error_deg(rotation, (1, 0, 0), normal)
-                    for rotation, normal in zip(
-                        terminal_rotations, normals, strict=True
-                    )
-                ],
-                "world_collision": world_collision,
-                "self_collision": self_collision,
-                "min_world_distance_m": float(inspector.min_distance_to_obstacle(q)),
-                "score": score,
-            }
-            attempts.append(attempt)
-            candidate = (score, q.copy(), positions.copy(), attempt)
-            if best is None or candidate[0] < best[0]:
-                best = candidate
-            if (
-                np.all(position_errors <= args.position_tolerance_m)
-                and np.all(orientation_errors <= args.orientation_tolerance_deg)
-                and not world_collision
-                and not self_collision
-            ):
-                selected = candidate
-                break
-        if selected is not None:
+        else:
+            q, velocity, steps = solve_simultaneous_jacobian(
+                kinematics,
+                q_seed,
+                lower,
+                upper,
+                positions,
+                rotations,
+                position_tolerance_m=args.position_tolerance_m,
+                orientation_tolerance_deg=args.orientation_tolerance_deg,
+            )
+        terminal_positions = np.asarray(
+            [kinematics.position(q, frame) for frame in TOOL_FRAMES], dtype=float
+        )
+        terminal_rotations = [
+            np.asarray(kinematics.orientation(q, frame).matrix(), dtype=float)
+            for frame in TOOL_FRAMES
+        ]
+        position_errors = np.linalg.norm(terminal_positions - positions, axis=1)
+        orientation_errors = np.asarray(
+            [
+                rotation_error_deg(actual, target)
+                for actual, target in zip(
+                    terminal_rotations, rotations, strict=True
+                )
+            ]
+        )
+        world_collision = bool(inspector.in_collision_with_obstacle(q))
+        self_collision = bool(inspector.in_self_collision(q))
+        score = float(
+            np.max(position_errors) / args.position_tolerance_m
+            + np.max(orientation_errors) / args.orientation_tolerance_deg
+            + 1000.0 * (world_collision or self_collision)
+        )
+        attempt = {
+            "target_offset_b_m": target_offset.tolist(),
+            "angle_deg": float(angle),
+            "flap_line_offset_m": float(offset),
+            "steps": steps,
+            "velocity_norm": float(np.linalg.norm(velocity)),
+            "position_error_m": position_errors.tolist(),
+            "orientation_error_deg": orientation_errors.tolist(),
+            "tool_down_angle_deg": [
+                tool_down_angle_deg(rotation) for rotation in terminal_rotations
+            ],
+            "closing_axis_error_deg": [
+                axis_alignment_error_deg(rotation, (1, 0, 0), normal)
+                for rotation, normal in zip(
+                    terminal_rotations, normals, strict=True
+                )
+            ],
+            "world_collision": world_collision,
+            "self_collision": self_collision,
+            "min_world_distance_m": float(inspector.min_distance_to_obstacle(q)),
+            "score": score,
+        }
+        attempts.append(attempt)
+        candidate = (score, q.copy(), positions.copy(), attempt)
+        if best is None or candidate[0] < best[0]:
+            best = candidate
+        if (
+            np.all(position_errors <= args.position_tolerance_m)
+            and np.all(orientation_errors <= args.orientation_tolerance_deg)
+            and not world_collision
+            and not self_collision
+        ):
+            selected = candidate
             break
 
     chosen = selected or best
     assert chosen is not None
     _, terminal_q, target_positions, chosen_attempt = chosen
-    arm_start = len(WAIST_JOINT_NAMES) if args.include_waist else 0
+    arm_start = len(WAIST_JOINT_NAMES) if include_waist else 0
     report = {
+        "schema_version": 2,
         "planner": (
             "NVIDIA cuMotion 1.1.0 RMPflow simultaneous bimanual endpoint"
             if args.solver == "rmpflow"
@@ -682,7 +719,9 @@ def main(argv=None) -> int:
         "rmpflow_seed_source": seed_source,
         "cspace_joint_names": cspace_names,
         "cspace_dof": len(cspace_names),
-        "include_waist": args.include_waist,
+        "include_waist": include_waist,
+        "arm_only_baseline": args.arm_only_baseline,
+        "torso_height_m": runtime.get("pose_editor_state", {}).get("torso_height_m"),
         "waist_seed_deg": args.waist_seed_deg,
         "target_positions_b_m": target_positions.tolist(),
         "target_flap_line": {
@@ -694,7 +733,7 @@ def main(argv=None) -> int:
         "selected": chosen_attempt,
         "terminal_q_rad": terminal_q.tolist(),
         "terminal_waist_q_rad": (
-            terminal_q[:2].tolist() if args.include_waist else None
+            terminal_q[:2].tolist() if include_waist else None
         ),
         "terminal_arm_q_rad": terminal_q[arm_start:].tolist(),
         "arms": {

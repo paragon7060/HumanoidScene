@@ -6,6 +6,8 @@ from data_collection.task1.approach import ARM_JOINT_NAMES
 from data_collection.task1.endpoint import (
     candidate_angles,
     center_out_offsets,
+    front_target_candidates,
+    parser,
     rmpflow_config,
     rmpflow_xrdf,
     integrate_rmpflow,
@@ -81,3 +83,20 @@ def test_rotation_vector_recovers_axis_angle():
     )
 
     np.testing.assert_allclose(rotation_vector(rotation), [0.0, 0.0, angle])
+
+
+def test_endpoint_defaults_to_waist_arms_and_requires_explicit_arm_baseline():
+    args = parser().parse_args(["--snapshot-dir", "/tmp/s", "--urdf", "/tmp/r"])
+
+    assert args.arm_only_baseline is False
+    assert args.target_x_offsets_m == [0.03, 0.04, 0.05]
+    assert args.tool_down_angles_deg == [45.0, 50.0, 56.0]
+
+
+def test_front_target_candidates_preserve_front_first_order():
+    values = front_target_candidates([0.03, 0.04, 0.05], 0.015)
+
+    np.testing.assert_allclose(
+        values,
+        [[0.03, 0.0, 0.015], [0.04, 0.0, 0.015], [0.05, 0.0, 0.015]],
+    )
