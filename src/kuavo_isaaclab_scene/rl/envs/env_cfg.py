@@ -42,10 +42,26 @@ class WorkcellRLEnvCfg(ManagerBasedRLEnvCfg):
         self.scene, geometry = build_scene(self.task, self.num_envs, self.env_spacing, self.cameras)
         if self.task.control_mode == "arms-only":
             self.actions = ArmsOnlyActionsCfg()
+            if self.task.active_arm != "both":
+                side = self.task.active_arm
+                inactive = "left" if side == "right" else "right"
+                if getattr(self.actions, inactive + "_gripper").asset_name != "robot":
+                    raise ValueError("Single-arm flap pick needs an integrated robot gripper for the inactive-hand lock.")
+                self.actions.upper_body.active_arm = side
+                self.actions.upper_body.joint_names = [f"zarm_{side[0]}{i}_joint" for i in range(1, 8)]
+                setattr(self.actions, inactive + "_gripper", None)
             self.scene.robot.spawn.articulation_props.fix_root_link = True
         if self.task.grasp_mode == "flap_top":
             self.observations = FlapPickObservationsCfg()
             self.rewards = FlapPickRewardsCfg()
+            if not self.task.collision_constraints_enabled:
+                self.rewards.collision = None
+            # Sample contacts at every physics substep, including impacts that
+            # have ended before the next policy action.
+            self.scene.lazy_sensor_update = False
+            for name, sensor in vars(self.scene).items():
+                if name.startswith("obstacle_contact_"):
+                    sensor.history_length = self.decimation
         self.commands.workcell.task = self.task
         self.commands.workcell.geometry = geometry
         self.events.flap_friction.params["asset_names"] = self.task.box_names

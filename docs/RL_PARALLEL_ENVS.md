@@ -58,7 +58,9 @@ python -m pip install -e '.[rl]'
 ./train_flap_pick.sh
 
 # 메모리 상황을 확인한 뒤 환경 개수 증가
-./train_flap_pick.sh --num-envs 8 --env-spacing 8.0 --device cuda:0
+CUDA_VISIBLE_DEVICES=1 ./train_flap_pick.sh --num-envs 16384 --device cuda:0 \
+  --save-interval 1000 \
+  --kit_args "--/renderer/activeGpu=1 --/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false"
 
 # 추가 확장 예시: 성능/메모리 측정값에 근거한 권장치는 아님
 ./train_flap_pick.sh --num-envs 16 --env-spacing 8.0 --max-iterations 4000
@@ -68,7 +70,8 @@ Flap pick의 작업 정의는 그대로다.
 
 - `quest_ready_02`의 root pose 및 관절값으로 reset한다.
 - 베이스·허리·머리를 고정하고 양팔 14개 관절 + 그리퍼 2개, 총 16개 action을 쓴다.
-- 양손으로 지정 flap의 상단을 집고, 초기보다 6cm 들어 올려 0.5초 유지한다.
+- 박스 안착 후 오른손으로 지정 flap의 상단을 집고, 안정된 높이보다 6cm 들어 올려 0.5초 유지한다. 왼손 받침은 허용한다.
+- 로봇의 랙·펜스·버튼·컨베이어 접촉은 0.1N 초과 시 초기 유예 없이 실패 처리한다.
 - 내용물·선점 박스·domain randomization은 이 첫 실험의 설정에서 꺼져 있다.
 
 작업/초기 상태/접촉 정의는 [Flap pick 가이드](RL_FLAP_PICK.md), 다른 하위 task는
@@ -76,7 +79,7 @@ Flap pick의 작업 정의는 그대로다.
 같은 RL 전용 scene과 병렬 설정을 사용한다.
 
 환경 수를 늘리면 physics state, contact buffer와 PPO rollout이 함께 증가한다.
-처음에는 기본 2개 환경으로 사용자가 확인한 다음 8개, 16개처럼 점진적으로 늘린다.
+실제 PPO 업데이트를 포함한 짧은 실행으로 메모리 최대값을 측정하며 점진적으로 늘린다.
 특히 접촉 센서와 카메라는 메모리 사용량에 영향을 준다. `--num-envs` 증가가
 항상 처리량 증가를 뜻하지 않으며, GPU 메모리 부족 시 먼저 환경 수를 줄인다.
 
@@ -147,6 +150,34 @@ world 좌표에 쓸 때 해당 `env.scene.env_origins[env_id]`를 더한다.
 | PPO network, rollout, optimizer | `src/kuavo_isaaclab_scene/rl/agents/ppo_cfg.py` |
 | 일반 환경/Meta Quest 구성 | `src/kuavo_isaaclab_scene/envs/`, `teleop/` |
 
-이 변경에서는 시뮬레이션·학습·테스트를 실행하지 않았다. 실제 접촉 동작,
-환경별 reset/충돌 격리, 사용 가능한 최대 환경 수와 처리량은 사용자 실행에서
-확인해야 한다. 성공률 또는 특정 학습 속도를 보장하지 않는다.
+## 2026-09-07 실행 측정
+
+물리 GPU 1: A100 80GB. 다른 사용자의 작업이 약 29GB를 사용 중이다.
+`CUDA_VISIBLE_DEVICES=1`로 CUDA를 격리하고 `--device cuda:0`을 사용했다.
+Omniverse 렌더러 번호는 별도이므로 `--/renderer/activeGpu=1`도 지정했다.
+검사 PID가 다른 GPU를 점유하지 않는지 확인하고, 매 실행이 끝난 뒤 메모리 반환을 확인했다.
+
+| 환경 수 | PPO 업데이트 | 최대 프로세스 VRAM | 전이/초 | 결과 |
+|---:|---:|---:|---:|---|
+| 2 | 20 | 2961MiB | 2.51 | 초기 버전 학습·timeout reset 통과 |
+| 512 | 3 | 3889MiB | 569.62 | 최신 마찰 5.0/4.0, 안착 기준, PPO 통과 |
+| 8192 | 2 | 16517MiB | 6240.86 | 안착·충돌 격리·PPO 통과 |
+
+2개 환경 결과는 마찰 및 안착 기준 변경 전 실행이다. 512개 환경의 안착 후 높이 오차는
+최대 3.58e-7m였다. 8192개 환경에서도 같은 오차를 확인했다. 0번 환경에만 랙을
+접촉시키자 0번만 즉시 실패했고 나머지 8191개 환경의 장애물 힘은 0이었다.
+충돌 검사는 학습 전 별도 상태에서 수행하고 원상 복구 후 PPO를 실행했다.
+초기화 시간은 512개 약 22초, 8192개 약 182초였으며 표의 처리량에는 초기화를 포함하지 않는다.
+
+원본 로그와 `probe.json`은 `artifacts/rl/diagnostics/`에 있다. Headless, 카메라 없음,
+16 actions, rollout 32, PPO 4 minibatches/5 epochs 조건이다. 512개 실행의 관측은 216차원이다.
+측정은 동시 사용자 부하에 따라 달라지며, 짧은 실행으로 파지 성공률·학습 수렴을 보장하지 않는다.
+
+사용자 지정 최종 학습 환경 수는 **16384**다. 26624개 검사는 초기화 중 사용자 요청으로
+중단했으므로 완료된 메모리 한계 측정값으로 취급하지 않는다. 새 흔들림 억제 보상과
+223차원 관측을 적용한 학습은 `artifacts/rl/stable_grasp/`에 기록한다.
+
+16384개 최종 학습은 첫 PPO 업데이트(524288 전이)를 완료했고 처리량은 약 8347 전이/초였다.
+이때 관측한 프로세스 VRAM은 29399MiB(약 28.7GiB)이며, 전체 학습의 최대값은 아니다.
+`CUDA_VISIBLE_DEVICES=1`과 GPU UUID를 확인했고 `model_0.pt`의 모든 모델 텐서는 유한했다.
+검증 상세는 `artifacts/rl/stable_grasp/train_20260907_223932_c32c48/verification.json`에 있다.

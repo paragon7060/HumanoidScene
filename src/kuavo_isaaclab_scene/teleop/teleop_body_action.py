@@ -4,7 +4,7 @@ import torch
 from isaaclab.managers import ActionTerm, ActionTermCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.math import quat_apply, quat_mul
-from .teleop_body import BODY_JOINTS
+from .teleop_body import BASE_LINEAR_SPEED_M_S, BASE_YAW_SPEED_RAD_S, BODY_JOINTS
 from ..robots.robot_model import resolve_robot_model
 
 
@@ -43,8 +43,8 @@ class TeleopBodyAction(ActionTerm):
 
     def process_actions(self, actions):
         self._actions[:] = actions
-        self._actions[:, :2].clamp_(-.25, .25)
-        self._actions[:, 2].clamp_(-1.2, 1.2)
+        self._actions[:, :2].clamp_(-BASE_LINEAR_SPEED_M_S, BASE_LINEAR_SPEED_M_S)
+        self._actions[:, 2].clamp_(-BASE_YAW_SPEED_RAD_S, BASE_YAW_SPEED_RAD_S)
         if self._has_wheel_base:
             limits = self._asset.data.soft_joint_pos_limits[:, self._joint_ids[:3]]
             self._actions[:, 3:] = torch.clamp(

@@ -86,6 +86,14 @@ def test_free_root_and_invalid_positions_rejected():
         lock.reset([0])
 
 
+def test_single_arm_lock_includes_inactive_arm_and_all_hand_linkages():
+    robot = Robot()
+    lock = FixedBody(robot, extra_patterns=(r"zarm_l[1-7]_joint", r"l_.*_joint"))
+    lock.reset()
+    assert {"zarm_l1_joint", "l_b_bar_1_joint", "l_b_bar_3_joint"}.issubset(lock.joint_names)
+    torch.testing.assert_close(robot.position_targets, robot.data.joint_pos)
+
+
 def test_arm_order_and_mode_validation():
     assert len(ARM_JOINT_NAMES) == 14
     assert ARM_JOINT_NAMES[0] == "zarm_l1_joint" and ARM_JOINT_NAMES[7] == "zarm_r1_joint"
@@ -101,10 +109,14 @@ def test_stationary_pick_example_configures_requested_thresholds():
     custom = runpy.run_path(str(path))
     spec = custom["configure_task"](task_spec("pick"))
     spec.validate()
-    assert spec.control_mode == "arms-only" and spec.required_grasp_hands == 2
+    assert spec.control_mode == "arms-only" and spec.required_grasp_hands == 1
+    assert spec.grasp_hand == "right" and spec.grasp_hand_indices == (1,)
+    assert spec.active_arm == "right" and spec.flap_contact_region == "surface"
     assert spec.lift_height == 0.06 and spec.cargo_per_box == 0
-    actions = SimpleNamespace(upper_body=SimpleNamespace(), left_gripper=SimpleNamespace(),
+    actions = SimpleNamespace(upper_body=SimpleNamespace(), left_gripper=None,
                               right_gripper=SimpleNamespace())
     agent = SimpleNamespace(policy=SimpleNamespace())
-    custom["configure"](SimpleNamespace(actions=actions), agent)
+    rewards = SimpleNamespace(prelift_disturbance=SimpleNamespace(), orientation=SimpleNamespace(params={}))
+    custom["configure"](SimpleNamespace(actions=actions, rewards=rewards), agent)
     assert actions.upper_body.scale == 0.02 and agent.policy.init_noise_std == 0.15
+    assert rewards.prelift_disturbance.weight == -0.25

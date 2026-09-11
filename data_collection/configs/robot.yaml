@@ -7,11 +7,11 @@ urdf_path: null
 base_link: base_link
 left_tcp_link: zarm_l7_end_effector
 right_tcp_link: zarm_r7_end_effector
-# S200062 two-finger 접촉대 중심에 맞춘 링크 기준. URDF에서 wrist→end_effector -0.22m가 이미 적용됨.
-# RL task의 추가 -0.12m offset을 여기에 자동 중복 적용하지 않는다.
-left_tcp_offset_pose: [0, 0, 0, 1, 0, 0, 0]
-right_tcp_offset_pose: [0, 0, 0, 1, 0, 0, 0]
-tcp_validation_status: calibrated_from_closed_finger_mesh
+# main의 endeffector_center 계약: 기존 EEF 프레임은 보존하고, 닫힌 양손가락 메시에서
+# 캘리브레이션한 고정 offset을 TCP에만 적용한다. quaternion은 [qw,qx,qy,qz].
+left_tcp_offset_pose: [0.00018399152322091938, -0.0011112558194255602, -0.055497895148762716, 1, 0, 0, 0]
+right_tcp_offset_pose: [0.00018399152322091938, 0.0011112558194255602, -0.055497895148762716, 1, 0, 0, 0]
+tcp_validation_status: nominal_closed_endeffector_center_v1
 arm_joint_names: null
 hand_joint_names: null
 locked_joint_positions: null

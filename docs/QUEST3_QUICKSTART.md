@@ -15,6 +15,9 @@ HDF5 episode 저장까지의 최소 흐름만 설명한다. CloudXR SDK 설치, 
 
 PC 브라우저 미리보기 성공은 CloudXR/OpenXR 실기 연결 성공을 뜻하지 않는다.
 
+실제 수집기는 기본적으로 S200062 integrated 손의 경량 자기충돌 검사를 켠다.
+최초 `./setup_self_collision.sh` 실행 및 지원 범위는 [자기충돌 가이드](QUEST_SELF_COLLISION.md)를 참고한다.
+
 ### 브라우저 미리보기의 베이스·몸통 조작
 
 `preview_quest_browser.sh`도 수집기의 `TeleopBodyMapper`를 사용한다.
@@ -27,7 +30,7 @@ PC 브라우저 미리보기 성공은 CloudXR/OpenXR 실기 연결 성공을 �
 | 오른쪽 stick 위/아래 | 몸통 높이 올리기/내리기 (S200062/S63) |
 | 양쪽 검지 trigger | 해당 gripper 닫기/열기 |
 
-베이스 최고 속도는 0.25 m/s, 회전은 1.2 rad/s이며 수집기와 같은 deadzone과
+베이스 최고 속도는 0.75 m/s, 회전은 3.6 rad/s이며 수집기와 같은 deadzone과
 몸통 높이 제한을 사용한다. 처음 몸통 높이는 하한이므로 먼저 올려야 내릴 수 있다.
 S56은 평면 베이스 조작만 가능하고 몸통 승강은 지원하지 않는다. 이 이동은 실제
 바퀴 주행 제어가 아니라 시뮬레이션 fixed-root 이동이다.
@@ -179,6 +182,7 @@ preview 창을 모두 여는 것보다 이 방식이 가볍다. 자세한 부하
 
 ## 7. 다음 단계
 
+- 팔 위치·방향·응답 속도: [팔 제어 옵션 사전](QUEST_ARM_CONTROL.md)
 - LeRobot Dataset v3: [Quest 상세 가이드의 LeRobot 절](QUEST3_KUAVO_TELEOP_GUIDE.md#9-lerobot-dataset-v3-수집)
 - Rack box 배치: [Workcell 편집 가이드](ISAACSIM_WORKCELL_GUIDE.md)
 - 재실행 및 인증서: [Quest Runtime 실행](QUEST_RUNTIME_SERVICE.md)

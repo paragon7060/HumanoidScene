@@ -13,6 +13,12 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from kuavo_isaaclab_scene.robots.end_effector import (
+    CENTER_FRAME_NAME,
+    CENTER_TOOL_FRAMES,
+    ORIGINAL_EEF_FRAMES,
+    urdf_with_center_frames,
+)
 
 GRIPPER_LINK_SUFFIXES = (
     "twofinger_base",
@@ -403,7 +409,7 @@ def xrdf(
             "acceleration_limits": [10.0] * 7,
             "jerk_limits": [100.0] * 7,
         },
-        "tool_frames": [f"zarm_{letter}7_end_effector"],
+        "tool_frames": [CENTER_TOOL_FRAMES[side]],
         "world_collision": {"geometry": "kuavo_world_spheres"},
         "self_collision": {
             "geometry": "kuavo_self_spheres",
@@ -596,7 +602,9 @@ def main(argv=None) -> int:
         world_config,
         allow_target_flap_contact=args.allow_target_flap_contact,
     )
-    urdf_text = args.urdf.expanduser().resolve().read_text()
+    urdf_text = urdf_with_center_frames(
+        args.urdf.expanduser().resolve().read_text()
+    )
     gripper_mesh_spheres = load_gripper_mesh_spheres(
         args.gripper_max_overshoot_m
     )
@@ -728,7 +736,7 @@ def main(argv=None) -> int:
             )
         names = [f"zarm_{letter}{index}_joint" for index in range(1, 8)]
         q_initial = np.asarray([arm_defaults[name] for name in names], dtype=float)
-        tool = f"zarm_{letter}7_end_effector"
+        tool = CENTER_TOOL_FRAMES[side]
         xrdf_text = xrdf(
             side=side,
             defaults=arm_defaults,
@@ -917,6 +925,8 @@ def main(argv=None) -> int:
         arm_report = {
             "status": status,
             "joint_names": names,
+            "tcp_frame": CENTER_FRAME_NAME,
+            "kinematic_parent_frame": ORIGINAL_EEF_FRAMES[target_index],
             "target_position_b_m": target_position.tolist(),
             "target_region_center_b_m": target_center.tolist(),
             "target_region_size_b_m": target_region_size_m.tolist(),

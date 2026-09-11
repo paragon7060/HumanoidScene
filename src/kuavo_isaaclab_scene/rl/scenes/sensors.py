@@ -10,9 +10,10 @@ def add_contacts(scene, spec, geometry):
         targets = []
         for name in spec.box_names:
             geom = geometry[name]
-            if spec.grasp_mode == "flap_top":
-                geom = geom.flaps[spec.grasp_flaps[index // 2]]
-            targets.append(getattr(scene, name).prim_path + ("/" + geom.body_path if geom.body_path != "." else ""))
+            candidates = [geom.flaps[f] for f in spec.grasp_flaps] if spec.grasp_mode == "flap_top" else [geom]
+            for candidate in candidates:
+                targets.append(getattr(scene, name).prim_path +
+                               ("/" + candidate.body_path if candidate.body_path != "." else ""))
         setattr(scene, f"grasp_contact_{index}", ContactSensorCfg(
             prim_path=f"{{ENV_REGEX_NS}}/Kuavo/{body}", update_period=0., history_length=1,
             track_contact_points=spec.grasp_mode == "flap_top", max_contact_data_count_per_prim=32,
@@ -21,6 +22,21 @@ def add_contacts(scene, spec, geometry):
               if spec.grasp_mode == "flap_top" else "waist_yaw_link|zarm_[lr][1-6]_link")
     scene.robot_contact = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Kuavo/(" + bodies + ")",
         update_period=0., history_length=1)
+    if spec.grasp_mode == "flap_top":
+        from .asset_geometry import robot_rigid_body_paths
+        # Filtered reports require one sensor body per environment. Include
+        # every link, especially fingers omitted by the old robot_contact mask.
+        # Each filter must resolve to exactly one rigid body per environment.
+        obstacles = [scene.rack_visual.prim_path, scene.fence.prim_path,
+                     scene.button_station.prim_path + "/Base",
+                     scene.button_station.prim_path + "/Plunger",
+                     scene.conveyor_surface.prim_path]
+        obstacles.extend(getattr(scene, f"prefill_{i}").prim_path for i in range(spec.prefill_count))
+        for index, path in enumerate(robot_rigid_body_paths(scene.robot.spawn.usd_path)):
+            prim_path = scene.robot.prim_path + ("/" + path if path != "." else "")
+            setattr(scene, f"obstacle_contact_{index}", ContactSensorCfg(
+                prim_path=prim_path, update_period=0., history_length=4,
+                filter_prim_paths_expr=list(obstacles)))
 
 
 def add_cameras(scene):

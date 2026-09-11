@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from itertools import product
+from functools import lru_cache
 from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
 
@@ -15,6 +16,21 @@ class RigidGeometry:
 @dataclass(frozen=True)
 class BoxGeometry(RigidGeometry):
     flaps: dict[str, RigidGeometry] = field(default_factory=dict)
+
+
+@lru_cache(maxsize=4)
+def robot_rigid_body_paths(usd_path):
+    """Enumerate all robot links, including fingers, for obstacle contact sensing."""
+    stage = Usd.Stage.Open(usd_path)
+    if stage is None or not stage.GetDefaultPrim():
+        raise ValueError(f"Unable to read robot rigid bodies: {usd_path}")
+    root = stage.GetDefaultPrim().GetPath()
+    paths = tuple(str(p.GetPath().MakeRelativePath(root)) for p in stage.Traverse()
+                  if p.HasAPI(UsdPhysics.RigidBodyAPI)
+                  and UsdPhysics.RigidBodyAPI(p).GetRigidBodyEnabledAttr().Get() is not False)
+    if not paths:
+        raise ValueError(f"Robot has no rigid bodies: {usd_path}")
+    return paths
 
 
 def rigid_geometry(stage, prim, spawn_scale):

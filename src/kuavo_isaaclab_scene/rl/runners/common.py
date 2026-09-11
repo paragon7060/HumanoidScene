@@ -18,18 +18,31 @@ from ...core.paths import default_artifacts_dir
 from ...robots.initial_states import add_initial_state_args, configure_initial_state
 
 
-def parse_args(mode):
+def install_stop_handlers():
+    """Kit's quit flag alone does not stop RSL-RL's Python learning loop."""
+    import signal
+
+    def stop(signum, _frame):
+        print(f"[RL] Stopping on signal {signum}; closing the environment.", flush=True)
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+
+
+def parse_args(mode, add_arguments=None):
     from isaaclab.app import AppLauncher
     parser = argparse.ArgumentParser(description=f"Kuavo manager-based subtask PPO {mode}", allow_abbrev=False)
     parser.add_argument("--task", choices=TASKS, default="approach_rack")
     parser.add_argument("--control-mode", choices=("whole-body", "arms-only"), default="whole-body",
-                        help="arms-only locks the reset base/body/head and learns 14 arm + 2 gripper actions.")
+                        help="arms-only locks base/body/head; config active_arm selects one or both arms.")
     parser.add_argument("--boxes", default="small_box_0", help="Ordered comma-separated scene keys, or all captured rack boxes")
     parser.add_argument("--num-envs", type=int, default=8 if mode == "train" else 1)
     parser.add_argument("--env-spacing", type=float, default=8.0,
                         help="Distance in meters between independent RL cell origins (minimum 5).")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-iterations", type=int, default=2000)
+    parser.add_argument("--save-interval", type=int, help="PPO checkpoint interval in iterations (default: 1000).")
     parser.add_argument("--episodes", type=int, default=20)
     parser.add_argument("--reset-bank", type=Path)
     parser.add_argument("--snapshot-dir", type=Path)
@@ -49,10 +62,14 @@ def parse_args(mode):
     add_initial_state_args(parser)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
+    if add_arguments is not None:
+        add_arguments(parser)
     AppLauncher.add_app_launcher_args(parser)
     args = parser.parse_args()
     if min(args.num_envs, args.max_iterations, args.episodes, args.max_snapshots) < 1:
         parser.error("Environment/iteration/episode/snapshot counts must be positive.")
+    if args.save_interval is not None and args.save_interval < 1:
+        parser.error("--save-interval must be positive.")
     if not math.isfinite(args.env_spacing) or args.env_spacing < 5.0:
         parser.error("--env-spacing must be finite and >= 5 meters.")
     if args.task in REQUIRES_RESET_BANK and not args.reset_bank:
@@ -113,6 +130,8 @@ def build_configs(args):
                            experiment_name=f"kuavo_{args.task}")
     if "configure" in customization:
         customization["configure"](cfg, agent)
+    if args.save_interval is not None:
+        agent.save_interval = args.save_interval
     # Keep isolation constraints even when a trusted customization edits the scene.
     from ..envs.parallel_cfg import ParallelEnvCfg
     ParallelEnvCfg(num_envs=cfg.scene.num_envs, env_spacing=cfg.scene.env_spacing,
@@ -128,12 +147,18 @@ def build_configs(args):
         if (cfg.actions.upper_body.class_type is not ArmsOnlyJointTargets
                 or any(getattr(cfg.actions, name, None) is not None for name in ("base", "height", "head"))):
             raise ValueError("arms-only requires its arm action and no base/height/head policy actions.")
-        print("[RL] arms-only: 14 arm + 2 gripper actions; base fixed; body/head latched after each reset.", flush=True)
+        print(f"[RL] arms-only: active_arm={spec.active_arm}; "
+              f"{'14 arm + 2 gripper' if spec.active_arm == 'both' else '7 arm + 1 gripper'} actions; "
+              "base fixed; body/head and inactive arm/hand latched after each reset.", flush=True)
     if cfg.scene.num_envs * agent.num_steps_per_env < agent.algorithm.num_mini_batches:
         raise ValueError("PPO has more mini-batches than rollout samples.")
     print(f"[RL] scene={cfg.scene_profile}; num_envs={cfg.scene.num_envs}; "
           f"spacing={cfg.scene.env_spacing} m; device={cfg.sim.device}; "
           "factory/movers=off; collision-filtering=on", flush=True)
+    from ...robots.gripper_config import resolve_gripper_settings
+    gripper = resolve_gripper_settings()
+    print(f"[RL] finger contact from {gripper.config_path} [{gripper.name}]: "
+          f"{asdict(gripper.finger_contact)}; checkpoint interval={agent.save_interval}", flush=True)
     return cfg, agent
 
 

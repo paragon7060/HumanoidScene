@@ -27,6 +27,7 @@ from kuavo_isaaclab_scene.robots.gripper_config import (
     gripper_teleop_action,
     resolve_gripper_settings,
 )
+from kuavo_isaaclab_scene.robots.end_effector import get_end_effector_frames
 from kuavo_isaaclab_scene.robots.robot_model import add_robot_model_cli_args, export_robot_model_cli, resolve_robot_model
 
 
@@ -500,7 +501,10 @@ def _solve_downward_ready(env, steps: int = 240):
     closing = torch.stack((-base_y, base_y))
     forward = base_down.expand_as(closing)
     orientations = _orientation_from_closing_and_forward(closing, forward)
-    positions = robot.data.body_link_pos_w[0, ee_ids].clone()
+    from kuavo_isaaclab_scene.robots.end_effector import get_end_effector_frames
+
+    center_pose_w = get_end_effector_frames(robot).center_pose_w[0]
+    positions = center_pose_w[:, :3].clone()
     action = _absolute_pose_action(env, robot, positions, orientations)
     for term in arm_terms:
         term.orientation_weight = 1.0
@@ -508,7 +512,7 @@ def _solve_downward_ready(env, steps: int = 240):
     for _ in range(int(steps)):
         env.step(action)
     tool_forward = quat_apply(
-        robot.data.body_link_quat_w[0, ee_ids],
+        get_end_effector_frames(robot).center_pose_w[0, :, 3:],
         torch.tensor((0.0, 0.0, -1.0), device=env.device, dtype=dtype).expand(2, -1),
     )
     camera_forward = quat_apply(
@@ -527,7 +531,7 @@ def _solve_downward_ready(env, steps: int = 240):
         f"[DOWNWARD_READY] q6={robot.data.joint_pos[0, q6_ids].detach().cpu().tolist()} "
         f"tool_down_dot={(tool_forward * base_down).sum(-1).detach().cpu().tolist()} "
         f"camera_forward_dot={(camera_forward * base_forward).sum(-1).detach().cpu().tolist()} "
-        f"position_error_m={(positions - robot.data.body_link_pos_w[0, ee_ids]).norm(dim=-1).detach().cpu().tolist()} "
+        f"position_error_m={(positions - get_end_effector_frames(robot).center_pose_w[0, :, :3]).norm(dim=-1).detach().cpu().tolist()} "
         f"arm_joint_positions={arm_state}",
         flush=True,
     )
@@ -1413,12 +1417,14 @@ class _JointPoseEditor:
 
     def state(self) -> dict:
         from isaaclab.utils.math import quat_apply, quat_apply_inverse, subtract_frame_transforms
+        from kuavo_isaaclab_scene.robots.end_effector import get_end_effector_frames
 
         values = self.targets[0]
         arm_values = values[: len(self._ARM_JOINTS)]
         arm_limits = self.limits[: len(self._ARM_JOINTS)]
-        ee_pos = self.robot.data.body_link_pos_w[0, self.ee_ids]
-        ee_quat = self.robot.data.body_link_quat_w[0, self.ee_ids]
+        center_pose_w = get_end_effector_frames(self.robot).center_pose_w[0]
+        ee_pos = center_pose_w[:, :3]
+        ee_quat = center_pose_w[:, 3:]
         root_pos = self.robot.data.root_pos_w.expand(2, -1)
         root_quat = self.robot.data.root_quat_w.expand(2, -1)
         tcp_pos_b, _ = subtract_frame_transforms(root_pos, root_quat, ee_pos, ee_quat)
@@ -1645,11 +1651,14 @@ class _LivePregraspRunner:
         )
 
     def _make_hold_action(self):
+        from kuavo_isaaclab_scene.robots.end_effector import get_end_effector_frames
+
+        center_pose_w = get_end_effector_frames(self.robot).center_pose_w[0]
         return _absolute_pose_action(
             self.env,
             self.robot,
-            self.robot.data.body_link_pos_w[0, self.ee_ids].clone(),
-            self.robot.data.body_link_quat_w[0, self.ee_ids].clone(),
+            center_pose_w[:, :3].clone(),
+            center_pose_w[:, 3:].clone(),
         )
 
     def _start_motion(self, initial_state):
@@ -1660,7 +1669,11 @@ class _LivePregraspRunner:
             self.robot.find_joints("zarm_l7_joint", preserve_order=True)[0][0],
             self.robot.find_joints("zarm_r7_joint", preserve_order=True)[0][0],
         ]].clone()
-        self.pregrasp_orientations_w = self.robot.data.body_link_quat_w[0, self.ee_ids].clone()
+        from kuavo_isaaclab_scene.robots.end_effector import get_end_effector_frames
+
+        self.pregrasp_orientations_w = (
+            get_end_effector_frames(self.robot).center_pose_w[0, :, 3:].clone()
+        )
         grasp_directions = torch.nn.functional.normalize(self.grasps_w - self.targets_w, dim=-1)
         self.readygrasp_orientations_w = _orientation_from_closing_and_forward(
             inward_normals_w, grasp_directions
@@ -1761,7 +1774,9 @@ class _LivePregraspRunner:
             return
         if self.targets_w is None or self.initial_q7 is None:
             return
-        final_pos = self.robot.data.body_link_pos_w[0, self.ee_ids]
+        from kuavo_isaaclab_scene.robots.end_effector import get_end_effector_frames
+
+        final_pos = get_end_effector_frames(self.robot).center_pose_w[0, :, :3]
         final_targets = self.grasps_w if self.q6_start is not None else self.targets_w
         errors = (final_targets - final_pos).norm(dim=-1)
         joint_ids = [
@@ -1790,11 +1805,12 @@ class _LivePregraspRunner:
             # delta mapper is intentionally not resumed in this one-shot run.
             term.hold_current_pose()
             term.orientation_weight = 0.5
+        center_pose_w = get_end_effector_frames(self.robot).center_pose_w[0]
         self.hold_action = _absolute_pose_action(
             self.env,
             self.robot,
-            self.robot.data.body_link_pos_w[0, self.ee_ids].clone(),
-            self.robot.data.body_link_quat_w[0, self.ee_ids].clone(),
+            center_pose_w[:, :3].clone(),
+            center_pose_w[:, 3:].clone(),
         )
         self.finalized = True
 
@@ -2114,8 +2130,8 @@ def main() -> None:
                     _absolute_pose_action(
                         env,
                         robot,
-                        robot.data.body_link_pos_w[0, pregrasp_ee_ids].clone(),
-                        robot.data.body_link_quat_w[0, pregrasp_ee_ids].clone(),
+                        get_end_effector_frames(robot).center_pose_w[0, :, :3].clone(),
+                        get_end_effector_frames(robot).center_pose_w[0, :, 3:].clone(),
                     )
                     if pregrasp_runner is None
                     else pregrasp_runner.next_action()

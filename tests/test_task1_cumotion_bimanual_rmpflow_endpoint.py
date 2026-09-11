@@ -33,8 +33,8 @@ def test_rmpflow_xrdf_uses_one_bimanual_cspace():
 
     assert value["cspace"]["joint_names"] == names
     assert value["tool_frames"] == [
-        "zarm_l7_end_effector",
-        "zarm_r7_end_effector",
+        "zarm_l7_endeffector_center",
+        "zarm_r7_endeffector_center",
     ]
     assert len(value["cspace"]["acceleration_limits"]) == 16
 

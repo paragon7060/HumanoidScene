@@ -86,7 +86,7 @@ def test_pin_constants_match_the_actual_donor_joint_frames():
             assert tuple(a-b for a,b in zip(tip, origin4)) == pytest.approx(pin_for(jaw, FOLLOWER_PIN), abs=1e-12)
 
 
-def test_s200062_tcp_tracks_the_closed_finger_contact_band():
+def test_s200062_original_eef_frames_stay_stable_for_calibrated_center():
     root = ET.parse(ASSET_DIR / "kuavo_s200062/urdf/biped_s200062.urdf").getroot()
     for side in "lr":
         def joint_xyz(suffix):
@@ -99,8 +99,8 @@ def test_s200062_tcp_tracks_the_closed_finger_contact_band():
         gripper_base = root.find(f"./joint[@name='{side}_twofinger_base_joint']")
         base_z = float(gripper_base.find("origin").get("xyz").split()[2])
 
-        assert tcp == pytest.approx((0.0, 0.0, -0.22))
-        assert tcp[2] - base_z == pytest.approx(-0.179)
+        assert tcp == pytest.approx((0.0, 0.0, -0.17))
+        assert tcp[2] - base_z == pytest.approx(-0.129)
         assert tuple(a - b for a, b in zip(axis_z, tcp)) == pytest.approx((0.0, 0.0, 0.09))
         assert tuple(a - b for a, b in zip(axis_x, tcp)) == pytest.approx((0.03, 0.0, 0.0))
 

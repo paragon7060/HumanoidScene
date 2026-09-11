@@ -49,10 +49,15 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 
 | 상황 | 읽을 문서 |
 |---|---|
-| 지금 양손 flap 집기를 학습·재개·평가한다 | [1단계 flap pick](RL_FLAP_PICK.md) |
+| 지금 한 손 flap 집기를 학습·재개·평가한다 | [1단계 flap pick](RL_FLAP_PICK.md) |
+| 오른손만 학습하고 양쪽 flap 면의 거리·파지·disturbance를 수정한다 | [오른손 파지 상세와 튜닝](RL_RIGHT_HAND_PICK.md) |
+| Quest로 직접 움직이며 VR에서 항목별 reward를 확인한다 | [Quest reward 검사](RL_QUEST_REWARD_DEBUG.md) |
+| VR 없이 GUI에서 양손의 네 손가락 기준점을 맞추고 저장한다 | [데스크톱 파지 기준점 보정](GRASP_DESKTOP_CALIBRATION.md) |
+| 보정한 TCP 중심, RL/IK/기록 적용 범위와 VR 표시를 확인한다 | [공통 endeffector_center](ENDEFFECTOR_CENTER.md) |
 | 일반 환경과의 차이, 병렬 복제·좌표·충돌 격리를 수정한다 | [배경 없는 RL 병렬 환경](RL_PARALLEL_ENVS.md) |
 | `quest_ready_02` 관절/base 값을 수정하거나 VR로 다시 캡처한다 | [RL 초기 상태](RL_INITIAL_STATES.md) |
 | 다른 하위 task, observation/action/reward 또는 PPO를 수정한다 | [하위 task별 RL 학습](RL_TRAINING.md) |
+| SAC / diffusion 사전학습 / DPPO를 실행한다 | [대체 RL 학습 경로](RL_ALTERNATIVES.md) |
 
 각 문서의 역할은 실행·task 정의, 장면·병렬 구조, 초기 자세, 범용 manager 개발로
 구분한다. 공통 폴더와 import 경계는 [코드 구조 가이드](CODE_STRUCTURE.md)에 있다.
@@ -60,6 +65,8 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 ## Policy와 평가
 
 - [GR00T N1.7 평가](GROOT_N1_7_EVAL_GUIDE.md)
+- [VR 자세 저장과 eval 초기 상태](INITIAL_STATES.md): 이름 있는 자세 캡처·복원,
+  GR00T 몸체 고정과 RL 초기 상태 안내
 - [RwH-Kuavo V2 GR00T N1.5를 S56에서 평가](RWH_KUAVO_V2_S56_EVAL.md):
   별도 Conda worker, 16-D arm/claw 변환, headless 3-view MP4, VRAM과 배포 설정
 - [로봇 모델 평가 파이프라인](ROBOT_MODEL_EVAL_PIPELINE.md): 공통 계층, 호환성

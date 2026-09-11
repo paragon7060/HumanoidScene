@@ -5,6 +5,16 @@ from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import AssetBaseCfg, ArticulationCfg, RigidObjectCfg
 from ...core.paths import ASSET_DIR
 from ...workcell.workcell_layout import position, rotation, scale, offset, remap_quat
+from isaaclab.sim.utils import clone
+
+
+@clone
+def spawn_kinematic_rack(prim_path, cfg, translation=None, orientation=None, **kwargs):
+    """GPU contact filters require a rigid body, including for fixed obstacles."""
+    root = sim_utils.spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
+    sim_utils.define_rigid_body_properties(str(root.GetPath()),
+        sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True, disable_gravity=True))
+    return root
 
 
 def group(path, *, pos=(0., 0., 0.), rot=(1., 0., 0., 0.), scaling=(1., 1., 1.)):
@@ -32,10 +42,11 @@ def add_workcell(scene, parallel):
     scene.rack = group("{ENV_REGEX_NS}/Workcell/Racks/Rack",
         pos=position("rack"), rot=rotation("rack"), scaling=scale("rack"))
     scene.rack_visual = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
-        spawn=sim_utils.UsdFileCfg(usd_path=str(ASSET_DIR / "Rack.usd")),
+        spawn=sim_utils.UsdFileCfg(usd_path=str(ASSET_DIR / "Rack.usd"), func=spawn_kinematic_rack),
         init_state=AssetBaseCfg.InitialStateCfg(pos=(0., 0., 0.), rot=(1., 0., 0., 0.)))
     scene.fence = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/Workcell/SafetySystem/Fence/Panel",
         spawn=sim_utils.CuboidCfg(size=(1.55, .025, 1.55),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True, disable_gravity=True),
             collision_props=sim_utils.CollisionPropertiesCfg(),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(.025, .035, .045), opacity=.4)),
         init_state=AssetBaseCfg.InitialStateCfg(pos=position("fence"), rot=rotation("fence")))

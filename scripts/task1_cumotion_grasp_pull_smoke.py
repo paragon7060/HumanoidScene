@@ -196,6 +196,10 @@ from isaaclab.utils.math import quat_apply, subtract_frame_transforms
 
 from kuavo_isaaclab_scene.envs.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
 from kuavo_isaaclab_scene.robots.gripper_config import resolve_gripper_settings
+from kuavo_isaaclab_scene.robots.end_effector import (
+    CENTER_FRAME_NAME,
+    get_end_effector_frames,
+)
 from kuavo_isaaclab_scene.robots.initial_states import apply_initial_state, load_initial_state
 from kuavo_isaaclab_scene.robots.robot_model import resolve_robot_model
 from kuavo_isaaclab_scene.workcell.rack_box_layout import same_shelf_instance_names
@@ -253,12 +257,9 @@ def _body_pose_b(robot, asset, body_id: int):
 
 
 def _eef_positions_b(robot, eef_ids):
-    root_pos = robot.data.root_pos_w.expand(len(eef_ids), -1)
-    root_quat = robot.data.root_quat_w.expand(len(eef_ids), -1)
-    pos = robot.data.body_link_pos_w[0, eef_ids]
-    quat = robot.data.body_link_quat_w[0, eef_ids]
-    positions, _ = subtract_frame_transforms(root_pos, root_quat, pos, quat)
-    return positions
+    if len(eef_ids) != 2:
+        raise ValueError("Expected both original EEF bodies for calibrated TCP lookup")
+    return get_end_effector_frames(robot).center_pose_b[0, :, :3]
 
 
 def _main() -> None:
@@ -475,6 +476,7 @@ def _main() -> None:
                     "terminal_box_motion_m_max": args.approach_box_motion_max_m,
                 },
                 "approach_plan": str(args.approach_plan.expanduser().resolve()),
+                "tcp_frame": CENTER_FRAME_NAME,
                 "frame_directory": str(frame_dir),
                 "frame_count": frame_count,
                 "snapshot_position_error_m": snapshot_position_error_m,
@@ -563,6 +565,7 @@ def _main() -> None:
                     "approach_box_motion_m_max": args.approach_box_motion_max_m,
                 },
                 "approach_plan": str(args.approach_plan.expanduser().resolve()),
+                "tcp_frame": CENTER_FRAME_NAME,
                 "video_path": str(args.video_out.expanduser().resolve()),
                 "frame_directory": str(frame_dir),
                 "initial_state": args.initial_state,
@@ -675,6 +678,7 @@ def _main() -> None:
                 "motor_obstruction_rad_min": args.motor_obstruction_min_rad,
             },
             "approach_plan": str(args.approach_plan.expanduser().resolve()),
+            "tcp_frame": CENTER_FRAME_NAME,
             "retreat_plan": str(args.retreat_plan.expanduser().resolve()),
             "video_path": str(args.video_out.expanduser().resolve()),
             "frame_directory": str(frame_dir),

@@ -13,6 +13,12 @@ import time
 import numpy as np
 import yaml
 
+from kuavo_isaaclab_scene.robots.end_effector import (
+    CENTER_FRAME_NAME,
+    CENTER_TOOL_FRAMES,
+    ORIGINAL_EEF_FRAMES,
+    urdf_with_center_frames,
+)
 from data_collection.task1_cumotion_collision_plan import (
     SELF_COLLISION_IGNORE,
     axis_alignment_error_deg,
@@ -29,7 +35,8 @@ from data_collection.task1_cumotion_collision_plan import (
 ARM_JOINT_NAMES = [
     f"zarm_{side}{index}_joint" for side in ("l", "r") for index in range(1, 8)
 ]
-TOOL_FRAMES = ["zarm_l7_end_effector", "zarm_r7_end_effector"]
+TOOL_FRAMES = [CENTER_TOOL_FRAMES[side] for side in ("left", "right")]
+KINEMATIC_PARENT_FRAMES = list(ORIGINAL_EEF_FRAMES)
 
 
 def bimanual_xrdf(
@@ -570,7 +577,8 @@ def main(argv=None) -> int:
     (output / "bimanual.xrdf").write_text(xrdf_text)
 
     robot = cumotion.load_robot_from_memory(
-        xrdf_text, args.urdf.expanduser().resolve().read_text()
+        xrdf_text,
+        urdf_with_center_frames(args.urdf.expanduser().resolve().read_text()),
     )
     rack_constraint = runtime.get("rack_width_constraint")
     if not isinstance(rack_constraint, dict):
@@ -729,6 +737,8 @@ def main(argv=None) -> int:
         "terminal_seed_plan": str(seed_path),
         "joint_names": ARM_JOINT_NAMES,
         "tool_frames": TOOL_FRAMES,
+        "tcp_frame": CENTER_FRAME_NAME,
+        "kinematic_parent_frames": KINEMATIC_PARENT_FRAMES,
         "target_positions_b_m": targets.tolist(),
         "target_inward_flap_normals_b": inward_normals.tolist(),
         "orientation_constraint": orientation_constraint,

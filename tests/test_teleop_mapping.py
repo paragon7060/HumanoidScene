@@ -128,7 +128,7 @@ def test_absolute_controller_loss_retains_goal_but_explicit_pause_holds_actual_t
 
 def test_absolute_orientation_uses_finger_axes_independent_of_robot_pose_or_calibration():
     from kuavo_isaaclab_scene.teleop.teleop_mapping import _quat_rotate
-    mapper = AbsoluteControllerMapper()
+    mapper = AbsoluteControllerMapper(orientation_mode="pointing")
     root = np.array([0., 0., 0., 1., 0., 0., 0.])
     tool = np.array([.2, .1, 1., 1., 0., 0., 0.])
     packet = np.array([[.5, .2, 1.2, 1., 0., 0., 0.], [0.] * 7])
@@ -140,10 +140,63 @@ def test_absolute_orientation_uses_finger_axes_independent_of_robot_pose_or_cali
     mapper.reset(); tool[3:] = [0., 1., 0., 0.]
     again = mapper.target("right", packet, tool, root, following=True, aim_pose=aim)
     np.testing.assert_allclose(again, first, atol=1e-6)
-    s63 = AbsoluteControllerMapper(tool_forward_sign=1).target(
+    s63 = AbsoluteControllerMapper(tool_forward_sign=1, orientation_mode="pointing").target(
         "left", packet, tool, root, following=True, aim_pose=aim)
     np.testing.assert_allclose(_quat_rotate(s63[3:], [0, 0, 1]), [0, -1, 0], atol=1e-6)
     np.testing.assert_allclose(_quat_rotate(s63[3:], [1, 0, 0]), [0, 0, -1], atol=1e-6)
+
+
+def test_absolute_forward_controller_maps_down_and_rotates_with_controller():
+    from kuavo_isaaclab_scene.teleop.teleop_mapping import _quat_rotate, _quat_multiply
+    c = np.sqrt(.5)
+    # OpenXR +Y up, -Z forward; world +Z up, +X forward.
+    world_from_xr = np.array([.5, .5, -.5, -.5])
+    root = np.array([0., 0., 0., 1., 0., 0., 0.])
+    tool = np.array([.2, .1, 1., 1., 0., 0., 0.])
+    for sign in (-1, 1):
+        mapper = AbsoluteControllerMapper(tool_forward_sign=sign)
+        for rotation in ([1., 0., 0., 0.], [c, c, 0., 0.], [c, 0., c, 0.], [c, 0., 0., c]):
+            aim_q = _quat_multiply(world_from_xr, rotation)
+            grip_q = _quat_multiply(aim_q, [c, c, 0., 0.])
+            packet = np.array([[.5, .2, 1.2, *grip_q], [0.] * 7])
+            aim = np.array([.5, .2, 1.2, *aim_q])
+            for side in ("left", "right"):
+                goal = mapper.target(side, packet, tool, root, following=True, aim_pose=aim)
+                expected = _quat_rotate(aim_q, [0, -1, 0])
+                expected_thumb = _quat_rotate(aim_q, [1 if side == "left" else -1, 0, 0])
+                np.testing.assert_allclose(_quat_rotate(goal[3:], [0, 0, sign]), expected, atol=1e-6)
+                np.testing.assert_allclose(_quat_rotate(goal[3:], [1, 0, 0]), expected_thumb, atol=1e-6)
+                if rotation[0] == 1.:
+                    np.testing.assert_allclose(expected, [0, 0, -1], atol=1e-6)
+                # Aim dropout must preserve the last device-specific offset.
+                fallback = mapper.target(side, packet, tool, root, following=True)
+                np.testing.assert_allclose(fallback, goal, atol=1e-6)
+
+
+def test_absolute_downward_without_aim_uses_nominal_grip_offset():
+    from kuavo_isaaclab_scene.teleop.teleop_mapping import _quat_rotate
+    c = np.sqrt(.5)
+    mapper = AbsoluteControllerMapper()
+    root = np.array([0., 0., 0., 1., 0., 0., 0.])
+    tool = np.array([.2, .1, 1., 1., 0., 0., 0.])
+    packet = np.array([[.5, .2, 1.2, c, c, 0., 0.], [0.] * 7])
+    goal = mapper.target("left", packet, tool, root, following=True)
+    np.testing.assert_allclose(_quat_rotate(goal[3:], [0, 0, -1]), [0, -1, 0], atol=1e-6)
+
+
+def test_absolute_downward_mirrors_right_controller_thumb_axis():
+    from kuavo_isaaclab_scene.teleop.teleop_mapping import _quat_rotate
+    mapper = AbsoluteControllerMapper()
+    root = np.array([0., 0., 0., 1., 0., 0., 0.])
+    tool = np.array([.2, .1, 1., 1., 0., 0., 0.])
+    packet = np.array([[.5, .2, 1.2, 1., 0., 0., 0.], [0.] * 7])
+    aim = np.array([.5, .2, 1.2, 1., 0., 0., 0.])
+    left = mapper.target("left", packet, tool, root, following=True, aim_pose=aim)
+    right = mapper.target("right", packet, tool, root, following=True, aim_pose=aim)
+    np.testing.assert_allclose(_quat_rotate(left[3:], [1, 0, 0]), [1, 0, 0], atol=1e-6)
+    np.testing.assert_allclose(_quat_rotate(right[3:], [1, 0, 0]), [-1, 0, 0], atol=1e-6)
+    np.testing.assert_allclose(_quat_rotate(left[3:], [0, 0, -1]), [0, -1, 0], atol=1e-6)
+    np.testing.assert_allclose(_quat_rotate(right[3:], [0, 0, -1]), [0, -1, 0], atol=1e-6)
 
 
 def _hand(x: float, orientation=(1.0, 0.0, 0.0, 0.0)):

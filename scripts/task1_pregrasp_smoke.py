@@ -391,8 +391,11 @@ def run(args, configs):
         box = env.scene["medium_box_0"]
         box_start = box.data.root_pose_w[0].clone()
         initial_q7 = robot.data.joint_pos[0, wrist_joint_ids].clone()
+        from kuavo_isaaclab_scene.robots.end_effector import get_end_effector_frames
+
+        report["tcp_frame"] = "endeffector_center"
         report["start"] = {
-            "ee_pose_w": robot.data.body_link_pose_w[0, ee_ids].detach().cpu().tolist(),
+            "ee_pose_w": get_end_effector_frames(robot).center_pose_w[0].detach().cpu().tolist(),
             "box_root_pose_w": box_start.detach().cpu().tolist(),
             "wrist_pitch_q7_rad": initial_q7.detach().cpu().tolist(),
         }
@@ -441,7 +444,7 @@ def run(args, configs):
                 "measured_q7_rad": measured_q7.detach().cpu().tolist(),
                 "q7_error_rad": (measured_q7 - target_q7).detach().cpu().tolist(),
                 "position_error_m": (
-                    positions_w - robot.data.body_link_pos_w[0, ee_ids]
+                    positions_w - get_end_effector_frames(robot).center_pose_w[0, :, :3]
                 ).norm(dim=-1).detach().cpu().tolist(),
             })
 
@@ -451,7 +454,7 @@ def run(args, configs):
             # captured full angle and the other at a different angle.
             run_phase(
                 "wrist_prepare_transit_pitch",
-                robot.data.body_link_pos_w[0, ee_ids].clone(),
+                get_end_effector_frames(robot).center_pose_w[0, :, :3].clone(),
                 transit_q7,
                 prepare_steps,
                 args.orientation_weight,
@@ -490,7 +493,7 @@ def run(args, configs):
 
         # Force one final sensor update before writing evidence.
         env.sim.render()
-        final_pos = robot.data.body_link_pos_w[0, ee_ids].clone()
+        final_pos = get_end_effector_frames(robot).center_pose_w[0, :, :3].clone()
         errors = (targets - final_pos).norm(dim=-1)
         box_end = box.data.root_pose_w[0].clone()
         box_motion = (box_end[:3] - box_start[:3]).norm()
@@ -504,7 +507,7 @@ def run(args, configs):
             # pretending that an unavailable contact measurement was zero.
             robot_contact_force_max_n = None
         report["end"] = {
-            "ee_pose_w": robot.data.body_link_pose_w[0, ee_ids].detach().cpu().tolist(),
+            "ee_pose_w": get_end_effector_frames(robot).center_pose_w[0].detach().cpu().tolist(),
             "position_error_m": errors.detach().cpu().tolist(),
             "max_position_error_m": float(errors.max().item()),
             "box_root_pose_w": box_end.detach().cpu().tolist(),

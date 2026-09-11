@@ -18,12 +18,19 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR / "src"))
 
 from kuavo_isaaclab_scene.planning.robot_model import UrdfModel
+from kuavo_isaaclab_scene.robots.end_effector import (
+    CENTER_FRAME_NAME,
+    CENTER_TOOL_FRAMES,
+    ORIGINAL_EEF_FRAMES,
+    center_offset,
+    center_position_from_original_pose,
+)
 
 
 ARM_NAMES = tuple(
     f"zarm_{side}{index}_joint" for side in ("l", "r") for index in range(1, 8)
 )
-TOOL_FRAMES = ("zarm_l7_end_effector", "zarm_r7_end_effector")
+TOOL_FRAMES = ORIGINAL_EEF_FRAMES
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +66,15 @@ def main() -> int:
         runtime["pose_editor_state"]["inward_flap_normal_b"], dtype=float
     )
     model = UrdfModel(args.urdf)
+    tcp_offsets = tuple(np.asarray(center_offset(side), dtype=float) for side in ("left", "right"))
+
+    def center_fk(arm_index: int, q_dict: dict[str, float]) -> np.ndarray:
+        pose = model.fk(TOOL_FRAMES[arm_index], q_dict)
+        pose = pose.copy()
+        pose[:3, 3] = center_position_from_original_pose(
+            pose[:3, 3], pose[:3, :3], tcp_offsets[arm_index]
+        )
+        return pose
 
     specs = []
     for arm_index, side in enumerate(("l", "r")):
@@ -66,7 +82,7 @@ def main() -> int:
         q_start = q_grasp[arm_index * 7 : (arm_index + 1) * 7]
         q_dict = dict(defaults)
         q_dict.update(zip(names, q_start, strict=True))
-        start_pose = model.fk(TOOL_FRAMES[arm_index], q_dict)
+        start_pose = center_fk(arm_index, q_dict)
         chain = {joint.name: joint for joint in model.chain(TOOL_FRAMES[arm_index])}
         lower = np.asarray([chain[name].lower for name in names]) + 1.0e-8
         upper = np.asarray([chain[name].upper for name in names]) - 1.0e-8
@@ -75,7 +91,7 @@ def main() -> int:
     def fk(arm_index: int, q: np.ndarray) -> np.ndarray:
         q_dict = dict(defaults)
         q_dict.update(zip(specs[arm_index][0], q, strict=True))
-        return model.fk(TOOL_FRAMES[arm_index], q_dict)
+        return center_fk(arm_index, q_dict)
 
     def solve_full_pose(
         arm_index: int,
@@ -245,7 +261,10 @@ def main() -> int:
         ),
         "status": "SUCCESS",
         "joint_names": list(ARM_NAMES),
-        "tool_frames": list(TOOL_FRAMES),
+        "tool_frames": [CENTER_TOOL_FRAMES[side] for side in ("left", "right")],
+        "tcp_frame": CENTER_FRAME_NAME,
+        "kinematic_parent_frames": list(TOOL_FRAMES),
+        "tcp_offsets_in_parent_m": [offset.tolist() for offset in tcp_offsets],
         "waypoint_q_rad": rows,
         "waypoint_count": len(rows),
         "lift_waypoint_count": len(lift_rows),

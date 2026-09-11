@@ -9,7 +9,7 @@ class WorkcellPPOCfg(RslRlOnPolicyRunnerCfg):
     seed = 42
     num_steps_per_env = 32
     max_iterations = 2000
-    save_interval = 100
+    save_interval = 1000
     experiment_name = "kuavo_skills"
     clip_actions = 1.0
     obs_groups = {"policy": ["policy"], "critic": ["policy"]}

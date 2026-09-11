@@ -13,6 +13,7 @@ from typing import Callable
 import numpy as np
 import yaml
 
+from kuavo_isaaclab_scene.robots.end_effector import urdf_with_center_frames
 from data_collection.task1_cumotion_bimanual_plan import ARM_JOINT_NAMES, TOOL_FRAMES
 from data_collection.task1_cumotion_collision_plan import (
     SELF_COLLISION_IGNORE,
@@ -496,7 +497,9 @@ def main(argv=None) -> int:
         snapshot, runtime, args.sphere_cell_m, args.self_pair_margin_m / 2, mesh_spheres
     )
     xrdf_text = rmpflow_xrdf(cspace_names, defaults, world_spheres, self_spheres)
-    urdf_text = args.urdf.expanduser().resolve().read_text()
+    urdf_text = urdf_with_center_frames(
+        args.urdf.expanduser().resolve().read_text()
+    )
     robot = cumotion.load_robot_from_memory(xrdf_text, urdf_text)
 
     world = cumotion.create_world()
