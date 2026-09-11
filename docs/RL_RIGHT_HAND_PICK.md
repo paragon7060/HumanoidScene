@@ -158,8 +158,17 @@ flap 법선의 관계만 나타내므로 **패드 면과 축이 맞는지 자체
 pick 성공의 선속도·각속도·잔여 손가락 접촉력 제한은 제거했다. 실제 파지 판정용 flap
 접촉력과 그 밖의 보상/관측은 유지한다. 이후 carry/place 단계의 안정성 조건은 별도다.
 잔여 힘은 `norm(net_force - sum(두 허용 flap의 force vector))`라는 근사값이다.
-장애물 접촉 >20N 등 failure는 여전히 성공보다 우선한다. 기본 설정은 0.5초 고정 대기 후
+현재 기본 설정은 `collision_constraints_enabled=False`로 장애물 충돌 실패와 `collision`
+보상 항 전체(장애물 힘 + 잔여 손가락 힘)를 끈다. 접촉 물리·센서·파지 판정은 유지한다.
+낙하·영역 이탈 등 나머지 failure는 여전히 성공보다 우선한다. 기본 설정은 0.5초 고정 대기 후
 시작하며 `settle_timeout` 실패는 없다.
+
+충돌 제한을 다시 켜려면 `configs/rl_pick_arms_only.py`의 `configure_task()`에서
+`collision_constraints_enabled=True`로 변경한다. 그러면 >20N 충돌 실패와 기존 -2 가중치
+collision 비용이 복구된다. 일반 whole-body task 기본값은 바꾸지 않았다.
+학습과 VR reward 검사는 같은 설정을 사용한다. 실행 중인 프로세스에는 반영되지 않으므로
+재시작해야 하며, checkpoint 계약도 변경되어 새 실험을 시작해야 한다.
+무충돌 정책을 보장하지 않는 시뮬레이션 학습 전용 설정이다.
 
 ## 5. disturbance 완화
 
@@ -229,7 +238,7 @@ slip=2.0mm open+=0.2mm
 | region=11, F>0.2인데 opp=0 | 두 손가락/접촉점의 판 법선 부호. `opposed_jaws()` 근사가 모델과 맞는지 |
 | raw=1인데 held=0 | 이전 후보가 아직 유지 중인지. 유효한 같은 후보의 접촉은 원점 이동만으로 해제하지 않음 |
 | held=1인데 NEED: Hold | 높이/기울기를 포함한 조건을 연속 0.5초 유지해야 함 |
-| FAIL=obstacle_collision | 모든 robot link의 주변 장애물 센서 >20N |
+| FAIL=obstacle_collision | 현재 OFF. collision_constraints_enabled=True일 때만 >20N 실패 |
 
 디버거에서는 `FlapGrasp.measure()`의 `t.grasp_candidate_contact_local`을 확인할 수 있다.
 shape는 `[env, hand, candidate, jaw, xyz]`이고 값은 flap 로컬 m다.

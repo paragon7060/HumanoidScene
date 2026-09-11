@@ -314,9 +314,11 @@ class WorkcellCommand(CommandTerm):
             collision = self._env.scene["robot_contact"].data.net_forces_w.norm(dim=-1).amax(-1) > self.cfg.collision_force
         grace = self._env.episode_length_buf > 3
         collision_failure = collision if self.flap_grasp is not None else collision & grace
+        collision_failure = collision_failure & self.spec.collision_constraints_enabled
         self.failure_checks = {"floor_drop": floor_drop, "outside": outside,
-                               "obstacle_collision": collision_failure,
                                "cargo_lost": ~self.cargo_ok.all(-1) & grace}
+        if self.spec.collision_constraints_enabled:
+            self.failure_checks["obstacle_collision"] = collision_failure
         if self.settling is not None and self.spec.reset_settle_timeout > 0:
             self.failure_checks["settle_timeout"] = self.settling.failed
         self.failure |= (floor_drop | outside | collision_failure | (~self.cargo_ok.all(-1) & grace)) & update

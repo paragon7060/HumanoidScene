@@ -54,6 +54,8 @@ class WorkcellRLEnvCfg(ManagerBasedRLEnvCfg):
         if self.task.grasp_mode == "flap_top":
             self.observations = FlapPickObservationsCfg()
             self.rewards = FlapPickRewardsCfg()
+            if not self.task.collision_constraints_enabled:
+                self.rewards.collision = None
             # Sample contacts at every physics substep, including impacts that
             # have ended before the next policy action.
             self.scene.lazy_sensor_update = False

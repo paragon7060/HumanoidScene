@@ -44,6 +44,7 @@ def contract(env):
             "grasp_mode", "grasp_hand", "required_grasp_hands", "grasp_force",
             "grasp_flaps", "flap_top_band", "flap_grasp_depth",
             "flap_lock_degrees", "flap_contact_margin", "obstacle_contact_force",
+            "collision_constraints_enabled",
             "reset_settle_seconds", "reset_settle_hold_seconds", "reset_settle_timeout",
             "prelift_position_scale", "prelift_speed_scale", "prelift_angular_scale",
             "prelift_rotation_scale", "grasp_lift_clearance") + (("grasp_contact_grace_s",

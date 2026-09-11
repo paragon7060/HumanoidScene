@@ -39,6 +39,7 @@ def configure_task(spec):
         reset_settle_seconds=0.5,
         reset_settle_timeout=0.0,  # fixed 0.5s initial delay; never fail/wait indefinitely on settling
         obstacle_contact_force=20.0,
+        collision_constraints_enabled=False,  # learn grasp first; keep physics/sensors, no collision failure/cost
         lift_height=0.06,
         max_tilt=math.radians(40),
         hold_seconds=0.5,

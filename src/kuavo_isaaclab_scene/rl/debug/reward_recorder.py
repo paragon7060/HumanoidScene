@@ -22,6 +22,7 @@ class RewardProbe(RecorderTerm):
             "tilt_deg": math.degrees(math.acos(float(t.upright[0, box].clamp(-1, 1)))),
             "max_tilt_deg": math.degrees(t.spec.max_tilt),
             "obstacle_limit": float(t.spec.obstacle_contact_force),
+            "collision_constraints_enabled": t.spec.collision_constraints_enabled,
             "reach_best": t.reach_progress.best[0].tolist(),
             "reach_progress": t.reach_progress.delta[0].tolist(),
             "required_hands": "/".join("L" if i == 0 else "R" for i in t.spec.grasp_hand_indices),

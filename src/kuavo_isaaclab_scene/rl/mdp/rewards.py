@@ -102,6 +102,8 @@ def flap_hold(env):
 
 def unwanted_contact(env):
     t = task(env)
+    if not t.spec.collision_constraints_enabled:
+        return torch.zeros_like(t.obstacle_forces[:, 0])
     other_finger = (t.unexpected_finger_force / t.spec.unexpected_contact_limit).clamp(0, 5).mean(-1)
     obstacle = t.obstacle_forces.amax(-1)
     return other_finger * ready(t) + (obstacle / 20).clamp(0, 5)

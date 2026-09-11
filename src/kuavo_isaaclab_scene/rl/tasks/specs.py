@@ -40,6 +40,7 @@ class TaskSpec:
     flap_lock_degrees: float = 0.5
     unexpected_contact_limit: float = 10.0
     obstacle_contact_force: float = 20.0
+    collision_constraints_enabled: bool = True  # RL failure/cost only; never disables physical contacts.
     reset_settle_seconds: float = 0.0
     reset_settle_hold_seconds: float = 0.2
     reset_settle_timeout: float = 0.0  # 0: fixed initial delay, no velocity gate or timeout failure

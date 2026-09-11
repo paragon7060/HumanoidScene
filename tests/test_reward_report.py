@@ -22,6 +22,10 @@ class RewardReportTests(unittest.TestCase):
         self.assertIn("6.2 cm", output)
         self.assertIn("Grasp L/R: 0/1", output)
         self.assertIn("RETURN: +154.000", output)
+        sample.update(blocked_checks=[], obstacle_force=500., collision_constraints_enabled=False)
+        output = format_report(sample, "SUCCESS", 154.)
+        self.assertIn("500.000 N", output)
+        self.assertIn("Collision termination/penalty: OFF", output)
 
     def test_no_physics_yet(self):
         self.assertIn("Waiting for first physics step", format_report(None, "PAUSED", 0.))

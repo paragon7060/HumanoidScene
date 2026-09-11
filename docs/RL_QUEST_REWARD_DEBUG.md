@@ -225,7 +225,9 @@ TensorBoard `Episode_Reward/*`의 에피소드 정규화 값과 단위가 다르
 
 접근 → 접촉 → 파지 → 들어 올리기 → 유지 순으로 `reaching`, `flap_contact`,
 `lift`, `holding`, `stable_grasp`가 변하는지 본다. 밀기·충돌 시에는
-`prelift_disturbance`, `collision`도 함께 확인한다. 보상은 양손에 각각 독립적으로
+`prelift_disturbance`도 함께 확인한다. 현재 기본 preset의 `collision` 보상 항은 제거했고
+장애물 힘은 진단용으로만 표시한다. 패널의 `Collision termination/penalty: OFF`로 확인한다.
+보상은 양손에 각각 독립적으로
 배분되는 것이 아니라 task 전체에 계산되며, 현재 기본 성공 조건은 **오른손 한 손 파지**다.
 
 `orientation`은 오른손이 파지 전 면에서 10cm 이내일 때만 주는 약한 정렬 보상이다
@@ -246,8 +248,10 @@ TensorBoard `Episode_Reward/*`의 에피소드 정규화 값과 단위가 다르
 | `hold` | 파지·높이·기울기 조건의 연속 유지가 0.5초에 미달 |
 | `initial_wait` | 초기 0.5초 대기가 끝나지 않음 |
 
-pick 성공에서는 속도와 잔여 접촉력 제한을 사용하지 않는다. 별도의 장애물 충돌(20N 초과),
-낙하, 영역 이탈 등 실패는 성공보다 우선한다. 기본 `reset_settle_timeout=0` 모드는
+pick 성공에서는 속도와 잔여 접촉력 제한을 사용하지 않는다. 기본
+`collision_constraints_enabled=False`에서는 장애물 충돌 종료와 collision 비용도 없다.
+True로 다시 켠 경우에만 20N 초과로 실패한다. 낙하, 영역 이탈 등 남아 있는 실패는
+성공보다 우선한다. 기본 `reset_settle_timeout=0` 모드는
 0.5초 고정 대기 후 기준 높이를 저장하며, 안착 타임아웃으로 실패하지 않는다.
 
 패널은 기존 위치에서 머리 기준 왼쪽으로 5cm 이동했다. 상단에 별도 큰 글씨 영역을 두어

@@ -1,6 +1,7 @@
 """Exercise real reward/phase code with CPU state, without starting Isaac Sim."""
 
 import importlib.util
+from dataclasses import replace
 from pathlib import Path
 import sys
 from types import ModuleType, SimpleNamespace
@@ -114,7 +115,8 @@ def test_orientation_is_nearby_pregrasp_right_only_and_additive(modules):
         rewards.flap_orientation(env, distance_threshold=0)
 
 
-def test_pick_dwell_resets_on_lost_grasp_and_refresh_is_once_per_step(modules):
+@pytest.mark.parametrize("collision_enabled", [True, False])
+def test_pick_dwell_resets_on_lost_grasp_and_refresh_is_once_per_step(modules, collision_enabled):
     commands, _ = modules
     n = 2
     zeros = lambda: torch.zeros(n)
@@ -139,6 +141,7 @@ def test_pick_dwell_resets_on_lost_grasp_and_refresh_is_once_per_step(modules):
     t._env = SimpleNamespace(common_step_counter=1, scene=scene, step_dt=.1, episode_length_buf=torch.full((n,), 10))
     t.metrics = {name: zeros() for name in ("success", "boxes_placed", "phase", "cargo_retained", "grasp_left",
         "grasp_right", "lift_height", "hold_fraction", "left_target_distance", "right_target_distance")}
+    t.spec = replace(t.spec, collision_constraints_enabled=collision_enabled)
     # Pick success no longer depends on box speed or residual finger force.
     t.velocities[:] = 10.
     t.unexpected_finger_force[:] = 15.
@@ -164,5 +167,35 @@ def test_pick_dwell_resets_on_lost_grasp_and_refresh_is_once_per_step(modules):
     t._env.episode_length_buf[:] = 1
     t.obstacle_forces[0, 0] = 20.01
     commands.WorkcellCommand.refresh(t)
-    assert t.failure.tolist() == [True, False]
-    assert not t.success.any() and not t.transition.any()
+    assert t.failure.tolist() == [collision_enabled, False]
+    assert ("obstacle_collision" in t.failure_checks) == collision_enabled
+    if collision_enabled:
+        assert not t.success.any() and not t.transition.any()
+    else:
+        assert t.success[0]  # collision cannot veto a valid pick
+        t._env.common_step_counter += 1
+        t.centers[1, 0, 2] = .1
+        commands.WorkcellCommand.refresh(t)
+        assert t.failure.tolist() == [False, True]  # real box-drop failure remains
+
+
+def test_disabled_collision_cost_ignores_obstacle_and_residual_finger_forces(modules):
+    _, rewards = modules
+    t = SimpleNamespace(spec=task_spec("pick", collision_constraints_enabled=False), settling=None,
+        obstacle_forces=torch.full((2, 2), 500.), unexpected_finger_force=torch.full((2, 4), 100.),
+        refresh=lambda: None)
+    env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: t))
+    assert rewards.unwanted_contact(env).eq(0).all()
+    t.spec = replace(t.spec, collision_constraints_enabled=True)
+    assert rewards.unwanted_contact(env).gt(0).all()
+
+
+@pytest.mark.parametrize("relative", ["configs", "src/kuavo_isaaclab_scene/configs"])
+def test_pick_presets_disable_collision_constraints(relative):
+    path = Path(__file__).resolve().parents[1] / relative / "rl_pick_arms_only.py"
+    spec = importlib.util.spec_from_file_location("pick_preset", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    configured = module.configure_task(task_spec("pick"))
+    configured.validate()
+    assert not configured.collision_constraints_enabled

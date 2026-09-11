@@ -58,6 +58,8 @@ def format_report(sample, status, episode_return):
             lines.append("FAIL: " + (", ".join(sample.get("failure_reasons", [])) or "none"))
             if "obstacle_force" in sample:
                 lines.append(f"Obstacle force: {sample['obstacle_force']:.3f} N")
+                if not sample.get("collision_constraints_enabled", True):
+                    lines.append("Collision termination/penalty: OFF (force display only)")
             lines.extend(sample.get("grasp_debug", []))
         lines += [f"{name}: {value:+.5f}" for name, value in sample["terms"].items()]
         if "reach_progress" in sample:
