@@ -31,7 +31,14 @@ def test_legacy_is_history_only_and_has_manifest():
 
     assert (legacy / "README.md").is_file()
     assert (legacy / "MANIFEST.md").is_file()
+    assert (legacy / "scripts/task1_pregrasp_smoke.py").is_file()
+    assert (legacy / "tests/task1_wrist_schedule_test.py").is_file()
     assert not (legacy / "__init__.py").exists()
+
+
+def test_superseded_pregrasp_pipeline_is_not_active():
+    assert not (ROOT / "scripts/task1_pregrasp_smoke.py").exists()
+    assert not (ROOT / "tests/test_task1_wrist_schedule.py").exists()
 
 
 def test_physical_runner_wrapper_calls_the_canonical_entrypoint():
