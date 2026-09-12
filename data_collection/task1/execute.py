@@ -20,6 +20,7 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_DIR / "src"))
 
 from data_collection.task1.contract import ARM_JOINT_NAMES, WAIST_ARM_JOINT_NAMES
+from data_collection.task1.video import encode_jpeg_sequence
 
 
 def _parse_args():
@@ -376,6 +377,17 @@ def _main() -> None:
         frame_dir.mkdir(parents=True)
         print(f"[GRASP_PULL] frame_directory={frame_dir}", flush=True)
 
+        def write_report(report: dict) -> None:
+            report["video_path"] = str(args.video_out.expanduser().resolve())
+            report["video_encoding"] = encode_jpeg_sequence(
+                frame_dir,
+                args.video_out,
+                fps=1.0 / (env.physics_dt * args.capture_stride),
+                overwrite=args.overwrite_video,
+            )
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+
         def step_once(
             phase: str,
             *,
@@ -514,8 +526,7 @@ def _main() -> None:
                 },
                 "samples": samples,
             }
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+            write_report(report)
             prefix = "[GRASP_PULL]" if contact_free else "[GRASP_PULL_ERROR]"
             print(
                 prefix,
@@ -624,8 +635,7 @@ def _main() -> None:
                 },
                 "samples": samples,
             }
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+            write_report(report)
             prefix = "[GRASP_PULL]" if approach_contact_free else "[GRASP_PULL_ERROR]"
             print(
                 prefix,
@@ -747,8 +757,7 @@ def _main() -> None:
             "final_gripper_motor_position_rad": robot.data.joint_pos[0, motor_ids].detach().cpu().tolist(),
             "samples": samples,
         }
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+        write_report(report)
         print("[GRASP_PULL]", json.dumps({key: value for key, value in report.items() if key != "samples"}), flush=True)
         if not report["passed"]:
             print("[GRASP_PULL] Physical acceptance failed; keeping video/report for diagnosis.", flush=True)
