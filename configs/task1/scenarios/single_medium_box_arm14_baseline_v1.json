@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "scenario_id": "task1_single_medium_box_arm14_baseline_v1",
+  "description": "S200062 single MediumBox_0 arms-only comparison baseline; physical success is not yet verified.",
+  "robot": {
+    "model": "s200062",
+    "gripper_preset": "s200062_integrated",
+    "tcp_frame": "endeffector_center"
+  },
+  "scene": {
+    "rack_box_poses": "configs/rack_box_poses_task1_centered.json",
+    "target_box": "medium_box_0",
+    "clear_same_shelf_boxes": true
+  },
+  "planning": {
+    "include_waist": false,
+    "arm_only_baseline": true,
+    "cspace_dof": 14,
+    "cspace_joint_names": [
+      "zarm_l1_joint",
+      "zarm_l2_joint",
+      "zarm_l3_joint",
+      "zarm_l4_joint",
+      "zarm_l5_joint",
+      "zarm_l6_joint",
+      "zarm_l7_joint",
+      "zarm_r1_joint",
+      "zarm_r2_joint",
+      "zarm_r3_joint",
+      "zarm_r4_joint",
+      "zarm_r5_joint",
+      "zarm_r6_joint",
+      "zarm_r7_joint"
+    ],
+    "torso_height_m": 0.25,
+    "endpoint": {
+      "solver": "rmpflow",
+      "target_x_offsets_m": [0.03, 0.04, 0.05],
+      "target_z_offset_m": 0.015,
+      "tool_down_angles_deg": [45.0, 50.0, 56.0],
+      "flap_line_length_m": 0.2,
+      "flap_line_point_count": 3,
+      "duration_s": 5.0
+    },
+    "approach": {
+      "planner_seed": 123456,
+      "planner_step_size": 0.05,
+      "shoulder_sweep_weight": 8.0,
+      "constrained_rrt_iterations": 20000,
+      "constrained_rrt_step_rad": 0.15,
+      "constrained_rrt_edge_step_rad": 0.01,
+      "validation_step_rad": 0.01,
+      "collision_margin_m": 0.002,
+      "gripper_max_overshoot_m": 0.002
+    },
+    "retreat": {
+      "lift_m": 0.08,
+      "nominal_pull_m": 0.28,
+      "lift_steps": 20,
+      "pull_steps": 48,
+      "rack_front_x_b_m": 0.415,
+      "pull_x_weight": 150.0,
+      "pull_yz_weight": 500.0
+    }
+  },
+  "execution": {
+    "initial_state": "meta_default",
+    "seed": 0,
+    "torso_height_m": 0.25,
+    "settle_steps": 120,
+    "approach_steps_per_waypoint": 4,
+    "close_steps": 180,
+    "closed_hold_steps": 60,
+    "retreat_steps_per_waypoint": 8,
+    "final_hold_steps": 120,
+    "capture_stride": 4,
+    "waypoint_tracking_tolerance_rad": 0.01,
+    "approach_box_motion_max_m": 0.003,
+    "retreat_box_motion_min_m": 0.03,
+    "retention_drift_max_m": 0.05,
+    "motor_obstruction_min_rad": 0.005,
+    "direct_approach_replay": true,
+    "kinematic_direct_approach_render": true,
+    "overwrite_video": true
+  },
+  "gripper_contract": {
+    "actuator": {
+      "effort_limit_sim": 100.0,
+      "stiffness": 4000.0,
+      "damping": 400.0
+    },
+    "finger_contact": {
+      "static_friction": 20.0,
+      "dynamic_friction": 16.0
+    }
+  },
+  "verification": {
+    "state": "configured_baseline",
+    "reference_commit": null,
+    "reference_report": null,
+    "reference_video_sha256": null
+  }
+}

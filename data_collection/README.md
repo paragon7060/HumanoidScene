@@ -18,6 +18,14 @@ Supported script entry points are:
 
 - `scripts/task1_cartesian_lift_pull_plan.py`
 - `scripts/task1_cumotion_grasp_pull_smoke.py`
+- `scripts/task1_run_scenario.py`: validate a checked-in scenario manifest,
+  reject cross-DoF plans, and replay the physical run with an annotated report
+
+The frozen single-box manifests live under `configs/task1/scenarios/`. The
+`waist16` manifest is the physically verified default. The `arm14` manifest is
+an explicit comparison baseline and remains marked unverified until it has its
+own successful physical report. Generated endpoint, approach, retreat, report,
+frame, and video files remain run artifacts rather than checked-in config.
 
 Superseded drafts and tools are retained under `legacy/` for history only and
 are neither supported imports nor executable entry points. See
