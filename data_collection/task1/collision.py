@@ -232,12 +232,15 @@ def paired_inner_flap_geometry(
     box_flaps: Mapping[str, Sequence[Mapping]],
     *,
     capture_width_m: float,
+    active_arm: str,
 ) -> dict:
-    """Select the closest opposed side-flap pair from two target boxes."""
+    """Select opposed inner flaps and orient the symmetric pinch axis camera-up."""
     if len(box_flaps) != 2:
         raise ValueError("paired flap geometry requires exactly two boxes")
     if not math.isfinite(capture_width_m) or capture_width_m <= 0:
         raise ValueError("capture_width_m must be finite and positive")
+    if active_arm not in {"left", "right"}:
+        raise ValueError("paired flap geometry requires active_arm left or right")
     box_keys = tuple(box_flaps)
     normalized: dict[str, list[dict]] = {}
     paths = set()
@@ -295,6 +298,11 @@ def paired_inner_flap_geometry(
     closing_axis = normalized_axis(
         first["normal"] - second["normal"], name="paired closing axis"
     )
+    camera_up_reference = np.asarray(
+        (0.0, -1.0, 0.0) if active_arm == "left" else (0.0, 1.0, 0.0)
+    )
+    if float(closing_axis @ camera_up_reference) < 0.0:
+        closing_axis = -closing_axis
     return {
         "box_keys": list(box_keys),
         "selected_flap_paths": [first["path"], second["path"]],

@@ -1379,6 +1379,7 @@ class _JointPoseEditor:
         pair_grasp = paired_inner_flap_geometry(
             flap_candidates,
             capture_width_m=GRIPPER_SETTINGS.pinch_close_threshold_m,
+            active_arm=self.pair_active_arm,
         )
         positions = np.asarray(
             [body_poses_b[key][:3] for key in self.paired_box_keys], dtype=float

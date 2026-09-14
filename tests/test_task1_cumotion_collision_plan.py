@@ -163,38 +163,79 @@ def test_paired_inner_flap_geometry_selects_closest_opposed_pair():
         "medium_box_0": [
             {
                 "path": "/MediumBox_0/box/flap_left",
-                "grasp_point_b_m": [0.6, 0.20, 1.1],
+                "grasp_point_b_m": [0.6, 0.00, 1.1],
                 "inward_normal_b": [0.0, 1.0, 0.0],
             },
             {
                 "path": "/MediumBox_0/box/flap_right",
-                "grasp_point_b_m": [0.6, 0.00, 1.1],
+                "grasp_point_b_m": [0.6, 0.20, 1.1],
                 "inward_normal_b": [0.0, -1.0, 0.0],
             },
         ],
         "medium_box_1": [
             {
                 "path": "/MediumBox_1/box/flap_left",
-                "grasp_point_b_m": [0.6, -0.01, 1.1],
+                "grasp_point_b_m": [0.6, -0.21, 1.1],
                 "inward_normal_b": [0.0, 1.0, 0.0],
             },
             {
                 "path": "/MediumBox_1/box/flap_right",
-                "grasp_point_b_m": [0.6, -0.21, 1.1],
+                "grasp_point_b_m": [0.6, -0.01, 1.1],
                 "inward_normal_b": [0.0, -1.0, 0.0],
             },
         ],
     }
 
-    result = paired_inner_flap_geometry(flaps, capture_width_m=0.055)
+    result = paired_inner_flap_geometry(
+        flaps,
+        capture_width_m=0.055,
+        active_arm="left",
+    )
 
     assert result["selected_flap_paths"] == [
-        "/MediumBox_0/box/flap_right",
-        "/MediumBox_1/box/flap_left",
+        "/MediumBox_0/box/flap_left",
+        "/MediumBox_1/box/flap_right",
     ]
     np.testing.assert_allclose(result["grasp_midpoint_b_m"], [0.6, -0.005, 1.1])
-    assert np.linalg.norm(result["closing_axis_b"]) == pytest.approx(1.0)
+    np.testing.assert_allclose(result["closing_axis_b"], [0.0, -1.0, 0.0])
     assert result["grasp_point_separation_m"] == pytest.approx(0.01)
+
+
+def test_paired_inner_flap_geometry_orients_symmetric_axis_for_right_camera_up():
+    flaps = {
+        "medium_box_0": [
+            {
+                "path": "/MediumBox_0/box/flap_left",
+                "grasp_point_b_m": [0.6, 0.00, 1.1],
+                "inward_normal_b": [0.0, 1.0, 0.0],
+            },
+            {
+                "path": "/MediumBox_0/box/flap_right",
+                "grasp_point_b_m": [0.6, 0.20, 1.1],
+                "inward_normal_b": [0.0, -1.0, 0.0],
+            },
+        ],
+        "medium_box_1": [
+            {
+                "path": "/MediumBox_1/box/flap_left",
+                "grasp_point_b_m": [0.6, -0.21, 1.1],
+                "inward_normal_b": [0.0, 1.0, 0.0],
+            },
+            {
+                "path": "/MediumBox_1/box/flap_right",
+                "grasp_point_b_m": [0.6, -0.01, 1.1],
+                "inward_normal_b": [0.0, -1.0, 0.0],
+            },
+        ],
+    }
+
+    result = paired_inner_flap_geometry(
+        flaps,
+        capture_width_m=0.055,
+        active_arm="right",
+    )
+
+    np.testing.assert_allclose(result["closing_axis_b"], [0.0, 1.0, 0.0])
 
 
 def test_collision_world_pair_mode_omits_only_explicit_inner_flaps():
