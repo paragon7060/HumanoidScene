@@ -13,6 +13,7 @@ from data_collection.task1.endpoint import (
     rmpflow_xrdf,
     integrate_rmpflow,
     rotation_vector,
+    simultaneous_pose_errors,
 )
 
 
@@ -39,6 +40,41 @@ def test_pair_endpoint_uses_left_tcp_and_pair_midpoint():
         "/a/flap_right",
         "/b/flap_left",
     ]
+
+
+def test_pose_errors_can_evaluate_one_selected_tool_frame():
+    class Orientation:
+        @staticmethod
+        def matrix():
+            return np.eye(3)
+
+    class Kinematics:
+        @staticmethod
+        def position(q, frame):
+            assert frame == "left_tcp"
+            return np.asarray([1.0, 2.0, 3.0])
+
+        @staticmethod
+        def orientation(q, frame):
+            assert frame == "left_tcp"
+            return Orientation()
+
+        @staticmethod
+        def jacobian(q, frame):
+            assert frame == "left_tcp"
+            return np.zeros((6, 7))
+
+    pos, rot, _, jacobians = simultaneous_pose_errors(
+        Kinematics(),
+        np.zeros(7),
+        np.asarray([[1.1, 2.0, 3.0]]),
+        [np.eye(3)],
+        tool_frames=["left_tcp"],
+    )
+
+    np.testing.assert_allclose(pos, [[0.1, 0.0, 0.0]])
+    np.testing.assert_allclose(rot, [[0.0, 0.0, 0.0]])
+    assert len(jacobians) == 1
 
 
 def test_center_out_offsets_cover_line_and_prefer_nearby_points():

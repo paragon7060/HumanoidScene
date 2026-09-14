@@ -284,14 +284,16 @@ def simultaneous_pose_errors(
     q: np.ndarray,
     target_positions: np.ndarray,
     target_rotations: list[np.ndarray],
+    *,
+    tool_frames: list[str] | tuple[str, ...] = TOOL_FRAMES,
 ) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], list[np.ndarray]]:
-    """Evaluate both TCP pose errors and their cuMotion Jacobians."""
+    """Evaluate selected TCP pose errors and their cuMotion Jacobians."""
     positions = np.asarray(
-        [kinematics.position(q, frame) for frame in TOOL_FRAMES], dtype=float
+        [kinematics.position(q, frame) for frame in tool_frames], dtype=float
     )
     rotations = [
         np.asarray(kinematics.orientation(q, frame).matrix(), dtype=float)
-        for frame in TOOL_FRAMES
+        for frame in tool_frames
     ]
     position_errors = target_positions - positions
     rotation_errors = [
@@ -300,7 +302,7 @@ def simultaneous_pose_errors(
     ]
     jacobians = [
         np.asarray(kinematics.jacobian(q, frame), dtype=float)
-        for frame in TOOL_FRAMES
+        for frame in tool_frames
     ]
     return position_errors, np.asarray(rotation_errors), rotations, jacobians
 
@@ -315,6 +317,7 @@ def solve_simultaneous_jacobian(
     *,
     position_tolerance_m: float,
     orientation_tolerance_deg: float,
+    tool_frames: list[str] | tuple[str, ...] = TOOL_FRAMES,
     max_iterations: int = 250,
 ) -> tuple[np.ndarray, np.ndarray, int]:
     """Solve both TCP poses in one c-space with damped cuMotion Jacobians."""
@@ -324,7 +327,11 @@ def solve_simultaneous_jacobian(
     damping = 1e-3
     for iteration in range(max_iterations):
         pos_e, rot_e, _, jacobians = simultaneous_pose_errors(
-            kinematics, q, target_positions, target_rotations
+            kinematics,
+            q,
+            target_positions,
+            target_rotations,
+            tool_frames=tool_frames,
         )
         if (
             np.all(np.linalg.norm(pos_e, axis=1) <= position_tolerance_m)
@@ -738,6 +745,7 @@ def main(argv=None) -> int:
                 rotations,
                 position_tolerance_m=args.position_tolerance_m,
                 orientation_tolerance_deg=args.orientation_tolerance_deg,
+                tool_frames=tool_frames,
             )
         terminal_positions = np.asarray(
             [kinematics.position(q, frame) for frame in tool_frames], dtype=float
