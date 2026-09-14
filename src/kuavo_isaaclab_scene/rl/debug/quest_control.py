@@ -5,6 +5,7 @@ import torch
 from isaaclab.controllers import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
 from ...teleop.teleop_ik import PersistentTeleopIKAction
+from ...teleop.teleop_body import BODY_JOINTS, TeleopBodyMapper
 from ...teleop.teleop_mapping import AbsoluteControllerMapper, ScaledControllerMapper
 from ...teleop.urdf_arm_ik import UrdfArm
 from ...teleop.teleop_servo import arm_response_profile
@@ -25,9 +26,30 @@ class QuestRLControl:
         self.frames = get_end_effector_frames(self.robot)
         self.xr = xr
         self.sides = ("left", "right") if env.cfg.task.active_arm == "both" else (env.cfg.task.active_arm,)
-        if list(env.action_manager.active_terms) != ["upper_body", *[s + "_gripper" for s in self.sides]]:
-            raise ValueError("Reward inspection requires arm deltas followed by active gripper actions")
+        self.term_slices = {}
+        offset = 0
+        for name in env.action_manager.active_terms:
+            term = env.action_manager.get_term(name)
+            self.term_slices[name] = slice(offset, offset + term.action_dim)
+            offset += term.action_dim
+        required = {"upper_body", *(side + "_gripper" for side in self.sides)}
+        if env.cfg.task.control_mode == "whole-body":
+            required.add("base")
+            if model.has_wheel_base:
+                required.add("height")
+        missing = required - self.term_slices.keys()
+        if missing:
+            raise ValueError(f"Reward inspection is missing action terms: {sorted(missing)}")
         self.upper = env.action_manager.get_term("upper_body")
+        self.body_mapper = None
+        if env.cfg.task.control_mode == "whole-body":
+            self.base = env.action_manager.get_term("base")
+            self.height = env.action_manager.get_term("height") if "height" in self.term_slices else None
+            self.body_mapper = TeleopBodyMapper(model.urdf_path, has_wheel_base=model.has_wheel_base)
+            self.body_joint_ids = (
+                self.robot.find_joints(BODY_JOINTS[:3], preserve_order=True)[0]
+                if model.has_wheel_base else []
+            )
         if args.controller_mapping == "absolute":
             self.mapper = AbsoluteControllerMapper(tool_forward_sign=model.tool_forward_sign,
                                                    orientation_mode=args.absolute_orientation)
@@ -57,6 +79,12 @@ class QuestRLControl:
         for solver in self.solvers.values():
             solver.reset()
             solver.hold_current_pose()
+        if self.body_mapper is not None:
+            joints = (
+                self.robot.data.joint_pos[0, self.body_joint_ids].detach().cpu().numpy()
+                if self.body_joint_ids else None
+            )
+            self.body_mapper.reset(joints)
 
     def pose(self, body=None):
         value = self.robot.data.root_pose_w[0] if body is None else self.robot.data.body_pose_w[0, body]
@@ -64,7 +92,8 @@ class QuestRLControl:
 
     def action(self, packets):
         action = torch.zeros((1, self.env.action_manager.total_action_dim), device=self.env.device)
-        for hand_index, side in enumerate(self.sides):
+        upper_slice = self.term_slices["upper_body"]
+        for side in self.sides:
             solver = self.solvers[side]
             tcp = self.frames.center_pose_w[0, 0 if side == "left" else 1].detach().cpu().numpy()
             goal = self.mapper.target(side, packets[side], tcp, self.pose(),
@@ -79,11 +108,21 @@ class QuestRLControl:
             scale = self.upper._scale
             if isinstance(scale, torch.Tensor):
                 scale = scale[:, columns]
-            action[:, columns] = normalized_delta(solver._joint_command,
-                                                   self.upper.processed_actions[:, columns], scale)
+            action[:, [upper_slice.start + column for column in columns]] = normalized_delta(
+                solver._joint_command, self.upper.processed_actions[:, columns], scale
+            )
             gripper = self.env.action_manager.get_term(side + "_gripper")
             desired = torch.full_like(gripper._signed_target, -1. if packets[side][1, 2] >= .5 else 1.)
-            index = self.upper.action_dim + hand_index
-            action[:, index:index + 1] = normalized_delta(
+            action[:, self.term_slices[side + "_gripper"]] = normalized_delta(
                 desired, gripper._signed_target, gripper.cfg.delta_scale)
+        if self.body_mapper is not None:
+            body = torch.as_tensor(
+                self.body_mapper.advance(packets["left"], packets["right"], self.env.step_dt, enabled=True),
+                device=self.env.device,
+            ).unsqueeze(0)
+            action[:, self.term_slices["base"]] = (body[:, :3] / self.base._scale).clamp(-1, 1)
+            if self.height is not None:
+                action[:, self.term_slices["height"]] = normalized_delta(
+                    body[:, 3:], self.height.processed_actions, self.height._scale
+                )
         return action

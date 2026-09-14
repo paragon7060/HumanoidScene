@@ -26,8 +26,8 @@ from ..workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
 parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=None, metavar="{0,1}",
                     help="Inspect current flap-pick RL rewards in Quest instead of recording a dataset. "
-                         "Optional value selects the arm lock: 0 (default, same as passing no value) keeps the "
-                         "config's normal single-arm lock; 1 releases both arms (active_arm=\"both\").")
+                         "0 (default, including omitted value) keeps the configured right-arm-only action space; "
+                         "1 enables all joints, including both arms, planar base, torso and head.")
 parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
 parser.add_argument("--rl-grasp-markers", action=argparse.BooleanOptionalAction, default=True,

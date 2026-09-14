@@ -44,9 +44,19 @@ class TeleopBodyMapper:
             self.limits = np.empty((0, 2))
         self.reset()
 
-    def reset(self):
-        self.height = 0.0
+    def reset(self, joint_positions=None):
+        """Reset smoothing and optionally synchronize to the simulated torso."""
         self.joints = np.zeros(4)
+        if joint_positions is not None:
+            values = np.asarray(joint_positions, dtype=float)
+            if values.shape not in ((3,), (4,)) or not np.all(np.isfinite(values)):
+                raise ValueError("Torso reset needs three or four finite joint positions.")
+            self.joints[:len(values)] = values
+        nominal_z = self.links.sum(axis=0)[1] if self.has_wheel_base else 0.0
+        self.height = (
+            float(np.clip(self._planar_position(self.joints[:2])[1] - nominal_z, 0.0, .40))
+            if self.has_wheel_base else 0.0
+        )
         self._yaw_rate = 0.0
 
     def _planar_position(self, q):
@@ -67,9 +77,10 @@ class TeleopBodyMapper:
             # a sudden yaw jump is what flings a grasped box during a fast turn.
             step = BASE_YAW_ACCEL_RAD_S2 * dt
             self._yaw_rate += np.clip(target_yaw_rate - self._yaw_rate, -step, step)
-            if self.has_wheel_base:
+            height_axis = controller_axis(right, 1)
+            if self.has_wheel_base and height_axis != 0.0:
                 requested_height = float(np.clip(
-                    self.height + TORSO_HEIGHT_SPEED_M_S * controller_axis(right, 1) * dt, 0.0, .40
+                    self.height + TORSO_HEIGHT_SPEED_M_S * height_axis * dt, 0.0, .40
                 ))
                 target = self.links.sum(axis=0) + [0., requested_height]
                 q = self.joints[:2].copy()

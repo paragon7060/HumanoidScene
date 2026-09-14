@@ -20,20 +20,20 @@ Quest CONNECT 절차는 [기존 수집기](QUEST_COLLECTOR_SETUP.md)와 같다.
 ```
 
 `--rl-reward-debug`는 선택적 정수 값을 받는다. 값을 생략하거나 `0`이면 로드한
-실험 설정의 `active_arm`(기본 `configs/rl_pick_arms_only.py`의 `right`)을 그대로
-유지해 한 팔만 움직이고 반대쪽 팔/손은 물리적으로 고정한다. `1`을 주면 그 설정을
-무시하고 `active_arm="both"`로 강제해 양팔을 모두 풀어서 움직인다(성공 조건인
-`grasp_hand="right"` 한 손 파지 판정 자체는 바뀌지 않는다).
+실험 설정의 오른팔 전용 action space를 유지해 base·torso·head와 왼팔/왼손을
+물리적으로 고정한다. `1`을 주면 `all-joints` action space를 사용해 base, torso,
+head와 양팔/양손을 모두 해제한다. 성공 조건인 `grasp_hand="right"` 한 손 파지
+판정 자체는 바뀌지 않는다.
 
 ```bash
-./quest_collector.sh collect --rl-reward-debug 1   # 양팔 모두 풀기
+./quest_collector.sh collect --rl-reward-debug 1   # 전체 관절 풀기
 ./quest_collector.sh collect --rl-reward-debug 0   # 기존과 동일: 활성 팔만
 ./quest_collector.sh collect --rl-reward-debug     # 값 생략 시 0과 동일
 ```
 
-양팔 모드에서는 왼쪽 컨트롤러의 위치·회전도 왼팔 IK 목표로 쓰이므로, 실행 중
+전체 관절 모드에서는 왼쪽 컨트롤러의 위치·회전도 왼팔 IK 목표로 쓰이므로, 실행 중
 추적 유효성 검사(`tracked`)도 왼쪽 컨트롤러까지 함께 요구한다. 콘솔의
-`[RL REWARD] active_arm=...`로 실제 적용된 값을 확인할 수 있다.
+`[RL REWARD] control=..., action_space=...`로 실제 적용된 값을 확인할 수 있다.
 
 기존 head/wrist 영상 패널 옵션도 유지한다. reward 텍스트와 stereo 장면만으로
 가볍게 확인하려면 `--no-quest-camera-overlay --no-camera-preview`를 추가한다.
@@ -50,6 +50,8 @@ Quest CONNECT 절차는 [기존 수집기](QUEST_COLLECTOR_SETUP.md)와 같다.
 |---|---|
 | X / PC C | 시점 보정 후 일시정지 |
 | A / PC T | 물리·팔 추종 시작/일시정지, 손 위치·회전 기준 재설정 |
+| 왼쪽 joystick | `1` 모드에서 base 전후·좌우 이동 |
+| 오른쪽 joystick 좌우 / 상하 | `1` 모드에서 base 회전 / torso 승강 |
 | 오른쪽 검지 트리거 | 오른쪽 gripper 닫기; 놓으면 열기. 기본 오른손 실험은 왼쪽 입력 무시 |
 | B / PC R | `quest_ready_02`로 초기화하고 정지 (**녹화 버튼 아님**) |
 | Y / PC H | reward 패널 표시/숨김 |
@@ -312,12 +314,14 @@ disturbance는 초기 선반 위치·자세 비용과 운동 비용을 분리했
 - 동일: OpenXR 장치·연결, scaled controller 위치/회전 매핑, position gain,
   URDF IK·arm response·orientation weight, head 위치 기준 시점, render quality,
   XR resolution scale, desktop render 옵션.
-- RL 유지: `configs/rl_pick_arms_only.py`, named initial pose, 활성 팔 action 순서(기본 오른팔 7+1)와
+- RL 유지: `configs/rl_pick_arms_only.py`, named initial pose, 선택된 action 순서(`0`은 오른팔 7+1,
+  `1`은 all-joints)와
   증분 크기, actuator·마찰, 관측·reward·충돌·성공/실패 판정과 제어 주기.
   입력만 정책 대신 Quest/IK에서 만든다. 수집기의 별도 관절 구동값·중력 보상·
   self-collision guard를 추가하지 않는다. 따라서 손의 응답은 일반 수집기와 다를 수 있다.
-- base·waist·head는 RL대로 고정하며 stick 이동은 사용하지 않는다. HMD를 돌려
-  둘러보는 것은 가능하지만 로봇 head joint를 움직이지는 않는다.
+- `0`에서는 base·waist·head를 고정하고 stick 이동을 사용하지 않는다. `1`에서는
+  왼쪽 stick으로 base 전후·좌우, 오른쪽 stick 좌우로 base 회전, 상하로 torso를
+  움직인다. 로봇 head action도 해제하지만 현재 HMD 방향을 head joint 명령으로 쓰지는 않는다.
 - 기본 `active_arm="right"`에서는 왼팔·왼손도 고정된다. 왼쪽 컨트롤러의 X/Y 버튼은
   시점/패널 제어에 계속 쓰지만 왼팔 IK·왼쪽 trigger action은 생성하지 않는다.
   동작 중 tracking 검사는 HMD와 활성 오른쪽 컨트롤러만 필요하다.

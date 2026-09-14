@@ -28,22 +28,22 @@ def _config(args):
     if not config.is_file():
         raise ValueError(f"Missing RL config: {config}")
     # Use the same experiment builder as training, including named pose and physics.
-    rl = Namespace(task="pick", boxes="medium_box_0", control_mode="arms-only",
+    whole_body = getattr(args, "rl_reward_debug", 0) == 1
+    rl = Namespace(task="pick", boxes="medium_box_0",
+        control_mode="whole-body" if whole_body else "arms-only",
+        action_space="all-joints" if whole_body else "right-arm",
         config=config, reset_bank=None, snapshot_dir=None, max_snapshots=1,
         prefill=0, cargo_per_box=0, slots=4, slot_pitch=.52, no_randomization=True,
         num_envs=1, env_spacing=8., enable_cameras=args.enable_cameras, seed=args.seed, device=args.device,
         max_iterations=1, save_interval=None, initial_state=None,
         initial_states_file=CONFIG_DIR / "initial_states.json")
-    # 0 (default): keep the experiment's own single-arm lock. 1: release both
-    # arms for inspection, independent of the loaded config's active_arm.
-    active_arm_override = "both" if getattr(args, "rl_reward_debug", 0) == 1 else None
     # No PPO agent is trained or read here (return value is discarded below),
     # so skip importing rsl_rl entirely; this keeps reward inspection working
     # even in an Isaac Lab environment where the training-only '.[rl]' extra
     # (rsl-rl-lib) is not installed.
-    cfg, _ = build_configs(rl, active_arm_override=active_arm_override, include_agent=False)
-    if cfg.task.control_mode != "arms-only" or cfg.task.grasp_mode != "flap_top" or cfg.task.name != "pick":
-        raise ValueError("Quest reward inspection currently supports arms-only flap pick only")
+    cfg, _ = build_configs(rl, include_agent=False)
+    if cfg.task.grasp_mode != "flap_top" or cfg.task.name != "pick":
+        raise ValueError("Quest reward inspection currently supports flap pick only")
     cfg.xr = XrCfg(near_plane=.08)
     cfg.scene.conveyor_surface.class_type = StationarySurface
     cfg.recorders.quest_reward = RecorderTermCfg(class_type=RewardProbe)
@@ -148,13 +148,16 @@ def run(args, app):
         last_collision_draw = 0.
         status = "PAUSED - X then A"
         print("[RL REWARD] No dataset recording. A/T run/pause; B/R reset; X/C recenter; Y/H panel.", flush=True)
-        print(f"[RL REWARD] active_arm={cfg.task.active_arm}, actions={env.action_manager.total_action_dim}, "
+        print(f"[RL REWARD] control={cfg.task.control_mode}, active_arm={cfg.task.active_arm}, "
+              f"action_space={cfg.task.action_space}, actions={env.action_manager.total_action_dim}, "
               f"flaps={cfg.task.grasp_flaps}, contact_region={cfg.task.flap_contact_region}", flush=True)
         print(f"[RL REWARD] controller_mapping={args.controller_mapping}"
               + (f", absolute_orientation={args.absolute_orientation}" if args.controller_mapping == "absolute" else "")
               + f", arm_response={args.arm_response}", flush=True)
         print(f"[RL REWARD] RL control rate={1/env.step_dt:g} Hz (collector --control-hz ignored); "
-              f"RL drives/initial pose/body lock/rewards/terminations unchanged. Display cameras={args.enable_cameras}.", flush=True)
+              f"RL drives/initial pose/rewards/terminations unchanged. Display cameras={args.enable_cameras}.", flush=True)
+        if cfg.task.control_mode == "whole-body":
+            print("[RL REWARD] Left stick=base forward/strafe; right stick=base turn/torso lift.", flush=True)
         print("[RL REWARD] Uses RL collision predicates, not the collector's additional self-collision guard. "
               "Simulation inspection only; not a real-robot safety controller.", flush=True)
         while app.is_running():
