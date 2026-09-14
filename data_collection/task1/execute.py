@@ -20,6 +20,15 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_DIR / "src"))
 
 from data_collection.task1.contract import ARM_JOINT_NAMES, WAIST_ARM_JOINT_NAMES
+from data_collection.task1.execution_contract import (
+    box_extraction_metrics,
+    closed_motor_targets,
+    evenly_spaced_capture_indices,
+    motor_obstruction_gates,
+    physical_acceptance,
+    resolved_kinematic_capture_frame_count,
+    retention_reference,
+)
 from data_collection.task1.video import encode_jpeg_sequence
 
 
@@ -69,6 +78,17 @@ def _parse_args():
     parser.add_argument("--retreat-box-motion-min-m", type=float, default=0.03)
     parser.add_argument("--retention-drift-max-m", type=float, default=0.05)
     parser.add_argument("--motor-obstruction-min-rad", type=float, default=0.005)
+    parser.add_argument("--box-size-m", type=float, nargs=3, default=(0.32, 0.22, 0.185))
+    parser.add_argument("--rack-front-x-b-m", type=float, default=0.415)
+    parser.add_argument("--partial-extraction-front-progress-min-m", type=float, default=0.05)
+    parser.add_argument("--partial-extraction-front-inside-max-m", type=float, default=0.05)
+    parser.add_argument("--final-hold-box-motion-max-m", type=float, default=0.01)
+    parser.add_argument(
+        "--active-gripper",
+        choices=("both", "left", "right"),
+        default="both",
+        help="Close and evaluate both hands, or only the selected single hand.",
+    )
     parser.add_argument("--approach-only", action="store_true")
     parser.add_argument("--terminal-hold-only", action="store_true")
     parser.add_argument("--direct-arm-replay", action="store_true")
@@ -85,6 +105,16 @@ def _parse_args():
             "normal physics for close and retreat."
         ),
     )
+    parser.add_argument(
+        "--kinematic-approach-render-frames",
+        type=int,
+        default=None,
+        help=(
+            "Capture exactly this many evenly spaced approach waypoints while still "
+            "replaying every collision-checked waypoint. Kinematic approach only; "
+            "defaults to 73 frames (normal-speed verified replay)."
+        ),
+    )
     parser.add_argument("--overwrite-video", action="store_true")
     AppLauncher.add_app_launcher_args(parser)
     args = parser.parse_args()
@@ -94,6 +124,14 @@ def _parse_args():
         parser.error("Use --device cuda:0 with CUDA_VISIBLE_DEVICES selecting the physical GPU.")
     if args.kinematic_direct_approach_render and not args.direct_approach_replay:
         parser.error("--kinematic-direct-approach-render requires --direct-approach-replay.")
+    if args.kinematic_approach_render_frames is not None:
+        if not args.kinematic_direct_approach_render:
+            parser.error(
+                "--kinematic-approach-render-frames requires "
+                "--kinematic-direct-approach-render."
+            )
+        if args.kinematic_approach_render_frames < 2:
+            parser.error("--kinematic-approach-render-frames must be at least 2.")
     if args.torso_height_m is not None and (
         not math.isfinite(args.torso_height_m) or not 0.0 <= args.torso_height_m <= 0.40
     ):
@@ -120,9 +158,16 @@ def _parse_args():
         "retreat_box_motion_min_m",
         "retention_drift_max_m",
         "motor_obstruction_min_rad",
+        "partial_extraction_front_progress_min_m",
+        "partial_extraction_front_inside_max_m",
+        "final_hold_box_motion_max_m",
     ):
         if not math.isfinite(getattr(args, name)) or getattr(args, name) <= 0:
             parser.error(f"--{name.replace('_', '-')} must be finite and positive.")
+    if not math.isfinite(args.rack_front_x_b_m):
+        parser.error("--rack-front-x-b-m must be finite.")
+    if any(not math.isfinite(value) or value <= 0.0 for value in args.box_size_m):
+        parser.error("--box-size-m values must be finite and positive.")
     args.enable_cameras = True
     return args
 
@@ -291,6 +336,8 @@ def _main() -> None:
     print("[GRASP_PULL] env_created", flush=True)
     samples: list[dict] = []
     frame_count = 0
+    phase_frame_counts: dict[str, int] = {}
+    kinematic_approach_render_frames_effective = None
     global_step = 0
     frame_dir = args.video_out.expanduser().resolve().parent / "frames"
     try:
@@ -367,7 +414,15 @@ def _main() -> None:
         tracking_compensation = torch.zeros_like(arm_target)
         motor_target = robot.data.joint_pos[:, motor_ids].clone()
         open_motor_target = motor_target.clone()
-        closed_motor_target = torch.zeros_like(motor_target)
+        closed_motor_target = torch.tensor(
+            closed_motor_targets(
+                open_motor_target[0].detach().cpu().tolist(),
+                motor_names,
+                args.active_gripper,
+            ),
+            device=env.device,
+            dtype=motor_target.dtype,
+        ).unsqueeze(0)
         if frame_dir.exists():
             if not args.overwrite_video:
                 raise FileExistsError(f"Frame directory exists: {frame_dir}")
@@ -378,6 +433,13 @@ def _main() -> None:
         print(f"[GRASP_PULL] frame_directory={frame_dir}", flush=True)
 
         def write_report(report: dict) -> None:
+            report["phase_frame_counts"] = dict(phase_frame_counts)
+            report["kinematic_approach_render_frames_requested"] = (
+                args.kinematic_approach_render_frames
+            )
+            report["kinematic_approach_render_frames_effective"] = (
+                kinematic_approach_render_frames_effective
+            )
             report["video_path"] = str(args.video_out.expanduser().resolve())
             report["video_encoding"] = encode_jpeg_sequence(
                 frame_dir,
@@ -393,12 +455,15 @@ def _main() -> None:
             *,
             capture: bool = True,
             advance_physics: bool = True,
+            force_capture: bool = False,
         ) -> None:
             nonlocal global_step, frame_count
             robot.set_joint_position_target(arm_target, joint_ids=arm_ids)
             robot.set_joint_position_target(motor_target, joint_ids=motor_ids)
             env.scene.write_data_to_sim()
-            render = capture and global_step % args.capture_stride == 0
+            render = capture and (
+                force_capture or global_step % args.capture_stride == 0
+            )
             if advance_physics:
                 env.sim.step(render=render)
             else:
@@ -416,6 +481,7 @@ def _main() -> None:
                     frame_dir / f"{frame_count:05d}.jpg", quality=90, subsampling=0
                 )
                 frame_count += 1
+                phase_frame_counts[phase] = phase_frame_counts.get(phase, 0) + 1
             actual = robot.data.joint_pos[0, arm_ids]
             tracking_error = torch.abs(actual - arm_reference[0])
             box_pos_b, _ = _body_pose_b(robot, box, box_body_id)
@@ -535,7 +601,13 @@ def _main() -> None:
             )
             return
 
-        def track_waypoint(waypoint, phase: str, minimum_steps: int) -> None:
+        def track_waypoint(
+            waypoint,
+            phase: str,
+            minimum_steps: int,
+            *,
+            direct_capture_waypoint: bool | None = None,
+        ) -> None:
             arm_reference[:] = torch.tensor(
                 waypoint, device=env.device, dtype=arm_reference.dtype
             )
@@ -549,12 +621,21 @@ def _main() -> None:
                     torch.zeros_like(arm_reference),
                     joint_ids=arm_ids,
                 )
-                for _ in range(minimum_steps):
+                for direct_step in range(minimum_steps):
+                    scheduled_capture = (
+                        True
+                        if direct_capture_waypoint is None
+                        else direct_capture_waypoint and direct_step == 0
+                    )
                     step_once(
                         phase,
+                        capture=scheduled_capture,
                         advance_physics=not (
                             phase == "approach"
                             and args.kinematic_direct_approach_render
+                        ),
+                        force_capture=(
+                            direct_capture_waypoint is True and direct_step == 0
                         ),
                     )
                 return
@@ -582,8 +663,37 @@ def _main() -> None:
                 f"{phase} waypoint tracking failed: max_error_rad={error:.6f}"
             )
 
-        for waypoint in approach["waypoint_q_rad"]:
-            track_waypoint(waypoint, "approach", args.approach_steps_per_waypoint)
+        approach_capture_indices = None
+        if args.kinematic_direct_approach_render:
+            kinematic_approach_render_frames_effective = (
+                resolved_kinematic_capture_frame_count(
+                    len(approach["waypoint_q_rad"]),
+                    args.kinematic_approach_render_frames,
+                )
+            )
+            approach_capture_indices = set(
+                evenly_spaced_capture_indices(
+                    len(approach["waypoint_q_rad"]),
+                    kinematic_approach_render_frames_effective,
+                )
+            )
+            print(
+                "[GRASP_PULL] kinematic_approach_render_schedule "
+                f"waypoints={len(approach['waypoint_q_rad'])} "
+                f"frames={len(approach_capture_indices)}",
+                flush=True,
+            )
+        for approach_index, waypoint in enumerate(approach["waypoint_q_rad"]):
+            track_waypoint(
+                waypoint,
+                "approach",
+                args.approach_steps_per_waypoint,
+                direct_capture_waypoint=(
+                    None
+                    if approach_capture_indices is None
+                    else approach_index in approach_capture_indices
+                ),
+            )
         grasp_box_pos_b, grasp_box_quat_b = _body_pose_b(robot, box, box_body_id)
         approach_box_motion = float(
             torch.linalg.vector_norm(grasp_box_pos_b - settled_box_pos_b).item()
@@ -661,10 +771,22 @@ def _main() -> None:
 
         final_box_pos_b, final_box_quat_b = _body_pose_b(robot, box, box_body_id)
         final_eef_pos_b = _eef_positions_b(robot, eef_ids)
-        closed_mid = closed_eef_pos_b.mean(dim=0)
-        final_mid = final_eef_pos_b.mean(dim=0)
-        closed_relative = closed_box_pos_b[0] - closed_mid
-        final_relative = final_box_pos_b[0] - final_mid
+        closed_reference = torch.tensor(
+            retention_reference(
+                closed_eef_pos_b.detach().cpu().tolist(), args.active_gripper
+            ),
+            device=env.device,
+            dtype=closed_box_pos_b.dtype,
+        )
+        final_reference = torch.tensor(
+            retention_reference(
+                final_eef_pos_b.detach().cpu().tolist(), args.active_gripper
+            ),
+            device=env.device,
+            dtype=final_box_pos_b.dtype,
+        )
+        closed_relative = closed_box_pos_b[0] - closed_reference
+        final_relative = final_box_pos_b[0] - final_reference
         retention_drift = float(torch.linalg.vector_norm(final_relative - closed_relative).item())
         pull_robotward = float((closed_box_pos_b[0, 0] - final_box_pos_b[0, 0]).item())
         total_translation = float(torch.linalg.vector_norm(final_box_pos_b - settled_box_pos_b).item())
@@ -687,29 +809,58 @@ def _main() -> None:
             sum(abs(value) for value in closed_motor_position[:2]),
             sum(abs(value) for value in closed_motor_position[2:]),
         ]
-        bilateral_obstruction = bool(
-            min(hand_motor_obstruction_rad) >= args.motor_obstruction_min_rad
+        active_motor_obstruction, bilateral_obstruction = motor_obstruction_gates(
+            hand_motor_obstruction_rad,
+            args.active_gripper,
+            args.motor_obstruction_min_rad,
         )
         object_followed = bool(
             retreat_box_motion >= args.retreat_box_motion_min_m
-            and final_hold_box_motion <= 0.01
+            and final_hold_box_motion <= args.final_hold_box_motion_max_m
         )
-        stable_bimanual = bool(
+        stable_retention = bool(
             object_followed
-            and bilateral_obstruction
+            and active_motor_obstruction
             and retention_drift <= args.retention_drift_max_m
         )
+        stable_bimanual = bool(stable_retention and args.active_gripper == "both")
+        closed_box_pose = torch.cat((closed_box_pos_b[0], closed_box_quat_b[0])).cpu().tolist()
+        final_box_pose = torch.cat((final_box_pos_b[0], final_box_quat_b[0])).cpu().tolist()
+        extraction = box_extraction_metrics(
+            closed_box_pose,
+            final_box_pose,
+            box_size_m=args.box_size_m,
+            rack_front_x_b_m=args.rack_front_x_b_m,
+            front_progress_min_m=args.partial_extraction_front_progress_min_m,
+            front_inside_max_m=args.partial_extraction_front_inside_max_m,
+            final_hold_box_motion_m=final_hold_box_motion,
+            final_hold_box_motion_max_m=args.final_hold_box_motion_max_m,
+        )
+        passed, acceptance_mode = physical_acceptance(
+            args.active_gripper,
+            approach_contact_free=approach_contact_free,
+            partial_extraction_success=extraction["partial_extraction_success"],
+            stable_retention=stable_retention,
+        )
         report = {
-            "passed": bool(stable_bimanual and approach_contact_free),
+            "passed": passed,
+            "acceptance_mode": acceptance_mode,
+            "active_gripper": args.active_gripper,
             "approach_contact_free": approach_contact_free,
             "object_followed_to_retreat": object_followed,
+            "stable_retention": stable_retention,
             "stable_bimanual_retention": stable_bimanual,
+            **extraction,
             "acceptance": {
                 "retreat_box_motion_m_min": args.retreat_box_motion_min_m,
-                "final_hold_box_motion_m_max": 0.01,
+                "final_hold_box_motion_m_max": args.final_hold_box_motion_max_m,
                 "approach_box_motion_m_max": args.approach_box_motion_max_m,
                 "stable_bimanual_retention_drift_m_max": args.retention_drift_max_m,
                 "motor_obstruction_rad_min": args.motor_obstruction_min_rad,
+                "box_size_m": list(args.box_size_m),
+                "rack_front_x_b_m": args.rack_front_x_b_m,
+                "partial_extraction_front_progress_m_min": args.partial_extraction_front_progress_min_m,
+                "partial_extraction_front_inside_rack_m_max": args.partial_extraction_front_inside_max_m,
             },
             "approach_plan": str(args.approach_plan.expanduser().resolve()),
             "plan_joint_names": list(plan_joint_names),
@@ -738,8 +889,8 @@ def _main() -> None:
                 else "position_servo"
             ),
             "grasp_box_pose_b": torch.cat((grasp_box_pos_b[0], grasp_box_quat_b[0])).cpu().tolist(),
-            "closed_box_pose_b": torch.cat((closed_box_pos_b[0], closed_box_quat_b[0])).cpu().tolist(),
-            "final_box_pose_b": torch.cat((final_box_pos_b[0], final_box_quat_b[0])).cpu().tolist(),
+            "closed_box_pose_b": closed_box_pose,
+            "final_box_pose_b": final_box_pose,
             "robotward_pull_m": pull_robotward,
             "approach_box_motion_m": approach_box_motion,
             "retreat_box_motion_m": retreat_box_motion,
@@ -747,6 +898,7 @@ def _main() -> None:
             "total_box_translation_from_settle_m": total_translation,
             "final_z_drop_m": final_z_drop,
             "hand_box_retention_drift_m": retention_drift,
+            "active_motor_obstruction": active_motor_obstruction,
             "bilateral_motor_obstruction": bilateral_obstruction,
             "hand_motor_obstruction_rad": hand_motor_obstruction_rad,
             "closed_gripper_motor_position_rad": closed_motor_position,

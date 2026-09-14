@@ -75,6 +75,25 @@ def bimanual_xrdf(
     return yaml.safe_dump(data, sort_keys=False)
 
 
+def add_world_obstacles(world, world_config: dict, cumotion_module) -> list[tuple]:
+    """Add cuboids and retain Python references required by cuMotion."""
+    references = []
+    for obstacle_data in world_config["cuboid"].values():
+        obstacle = cumotion_module.create_obstacle(
+            cumotion_module.Obstacle.Type.CUBOID
+        )
+        obstacle.set_attribute(
+            cumotion_module.Obstacle.Attribute.SIDE_LENGTHS,
+            np.asarray(obstacle_data["dims"], dtype=float),
+        )
+        handle = world.add_obstacle(
+            obstacle,
+            cumotion_module.Pose3(pose_matrix(obstacle_data["pose"])),
+        )
+        references.append((obstacle, handle))
+    return references
+
+
 def planner_distance_weights(
     joint_names: list[str] | tuple[str, ...],
     *,
@@ -206,6 +225,18 @@ def shortcut_path(
         else:
             raise RuntimeError("graph path contains no collision-free next segment")
     return np.asarray(knots)
+
+
+def postprocess_rrt_path(
+    path: np.ndarray,
+    *,
+    validation_step_rad: float,
+    planner_step_rad: float,
+    in_collision,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Shortcut an RRT path with the full collision gate, then densify it."""
+    knots = shortcut_path(path, validation_step_rad, in_collision)
+    return knots, densify_path(knots, planner_step_rad)
 
 
 def synchronized_seed_path(
@@ -646,13 +677,7 @@ def main(argv=None) -> int:
     (output / "planner.yaml").write_text(planner_text)
 
     world = cumotion.create_world()
-    for obstacle_data in world_config["cuboid"].values():
-        obstacle = cumotion.create_obstacle(cumotion.Obstacle.Type.CUBOID)
-        obstacle.set_attribute(
-            cumotion.Obstacle.Attribute.SIDE_LENGTHS,
-            np.asarray(obstacle_data["dims"], dtype=float),
-        )
-        world.add_obstacle(obstacle, cumotion.Pose3(pose_matrix(obstacle_data["pose"])))
+    obstacle_references = add_world_obstacles(world, world_config, cumotion)
     world_view = world.add_world_view()
     inspector = cumotion.create_robot_world_inspector(robot, world_view)
     initial_world_collision = inspector.in_collision_with_obstacle(q_initial)
@@ -739,10 +764,15 @@ def main(argv=None) -> int:
         )
         if rrt_path is not None:
             constrained_rrt_waypoint_count = len(rrt_path)
-            shortcut_knot_count = len(rrt_path)
+            shortcut_knots, path = postprocess_rrt_path(
+                rrt_path,
+                validation_step_rad=args.validation_step_rad,
+                planner_step_rad=args.planner_step_size,
+                in_collision=in_collision,
+            )
+            shortcut_knot_count = len(shortcut_knots)
             path_found = True
-            path = densify_path(rrt_path, args.planner_step_size)
-            selected_strategy = "rack_width_constrained_rrt_connect"
+            selected_strategy = "rack_width_constrained_rrt_connect_shortcut"
         else:
             path_found = False
             path = None

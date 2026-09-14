@@ -2,9 +2,11 @@ import numpy as np
 import pytest
 import yaml
 
+import data_collection.task1.approach as approach
 from data_collection.task1.approach import (
     ARM_JOINT_NAMES,
     TOOL_FRAMES,
+    add_world_obstacles,
     bimanual_xrdf,
     constrained_rrt_connect,
     densify_path,
@@ -21,6 +23,57 @@ from data_collection.task1.approach import (
     synchronized_seed_path,
 )
 from data_collection.task1.contract import WAIST_ARM_JOINT_NAMES
+
+
+def test_add_world_obstacles_keeps_obstacle_and_handle_references():
+    class FakeObstacle:
+        def __init__(self):
+            self.attributes = []
+
+        def set_attribute(self, attribute, value):
+            self.attributes.append((attribute, value.tolist()))
+
+    class FakeWorld:
+        def __init__(self):
+            self.added = []
+
+        def add_obstacle(self, obstacle, pose):
+            handle = object()
+            self.added.append((obstacle, pose, handle))
+            return handle
+
+    class FakeCumotion:
+        class Obstacle:
+            class Type:
+                CUBOID = "cuboid"
+
+            class Attribute:
+                SIDE_LENGTHS = "side_lengths"
+
+        @staticmethod
+        def create_obstacle(kind):
+            assert kind == "cuboid"
+            return FakeObstacle()
+
+        @staticmethod
+        def Pose3(matrix):
+            return matrix
+
+    world = FakeWorld()
+    config = {
+        "cuboid": {
+            "rack": {
+                "dims": [1.0, 2.0, 3.0],
+                "pose": [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            }
+        }
+    }
+
+    references = add_world_obstacles(world, config, FakeCumotion)
+
+    assert len(references) == 1
+    assert references[0][0] is world.added[0][0]
+    assert references[0][1] is world.added[0][2]
 
 
 def test_bimanual_xrdf_has_one_14dof_cspace_and_two_tools():
@@ -156,6 +209,35 @@ def test_constrained_rrt_connect_routes_around_invalid_region():
     assert iterations <= 1000
     for start, end in zip(path[:-1], path[1:], strict=True):
         assert segment_is_collision_free(start, end, 0.01, in_collision)
+
+
+def test_postprocess_rrt_path_shortcuts_detours_before_densifying():
+    path = np.asarray(
+        [
+            [-1.0, 0.0],
+            [-1.0, 0.5],
+            [-1.0, 1.0],
+            [0.0, 1.0],
+            [1.0, 1.0],
+            [1.0, 0.5],
+            [1.0, 0.0],
+        ]
+    )
+
+    def in_collision(point):
+        return -0.75 < point[0] < 0.75 and point[1] < 0.75
+
+    knots, dense = approach.postprocess_rrt_path(
+        path,
+        validation_step_rad=0.05,
+        planner_step_rad=0.1,
+        in_collision=in_collision,
+    )
+
+    assert len(knots) < len(path)
+    np.testing.assert_allclose(dense[[0, -1]], path[[0, -1]])
+    assert np.max(np.abs(np.diff(dense, axis=0))) <= 0.1 + 1e-12
+    assert not any(in_collision(point) for point in dense)
 
 
 def test_rack_width_constraint_is_transformed_to_robot_base():

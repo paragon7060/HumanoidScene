@@ -29,6 +29,13 @@ _EXECUTION_NUMBER_KEYS = (
     "motor_obstruction_min_rad",
 )
 
+_OPTIONAL_EXECUTION_NUMBER_KEYS = (
+    "rack_front_x_b_m",
+    "partial_extraction_front_progress_min_m",
+    "partial_extraction_front_inside_max_m",
+    "final_hold_box_motion_max_m",
+)
+
 
 def _require_mapping(value, name: str) -> Mapping:
     if not isinstance(value, dict):
@@ -121,11 +128,35 @@ def load_scenario_config(path: str | Path) -> dict:
     for key in _EXECUTION_NUMBER_KEYS:
         if isinstance(execution.get(key), bool) or not isinstance(execution.get(key), (int, float)):
             raise ValueError(f"execution.{key} must be numeric")
+    for key in _OPTIONAL_EXECUTION_NUMBER_KEYS:
+        if key in execution and (
+            isinstance(execution[key], bool)
+            or not isinstance(execution[key], (int, float))
+        ):
+            raise ValueError(f"execution.{key} must be numeric")
+    if execution.get("active_gripper", "both") not in ("both", "left", "right"):
+        raise ValueError("execution.active_gripper must be both, left, or right")
+    if "box_size_m" in execution and (
+        not isinstance(execution["box_size_m"], list)
+        or len(execution["box_size_m"]) != 3
+        or any(
+            isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0
+            for value in execution["box_size_m"]
+        )
+    ):
+        raise ValueError("execution.box_size_m must contain three positive numbers")
     for key in ("direct_approach_replay", "kinematic_direct_approach_render", "overwrite_video"):
         if not isinstance(execution.get(key), bool):
             raise ValueError(f"execution.{key} must be a boolean")
 
     _validate_gripper_contract(data)
+    verification = _require_mapping(data.get("verification"), "verification")
+    verification_state = verification.get("state")
+    expected_passed = verification.get("expected_passed")
+    if verification_state == "verified_partial_extraction" and expected_passed is not True:
+        raise ValueError("verified_partial_extraction must set expected_passed true")
+    if verification_state == "verified_failure" and expected_passed is not False:
+        raise ValueError("verified_failure must set expected_passed false")
     data["_scenario_path"] = str(source)
     return data
 
@@ -193,6 +224,25 @@ def build_physical_executor_argv(
     }
     for key, cli_name in flag_names.items():
         result.extend((f"--{cli_name}", str(execution[key])))
+    if "active_gripper" in execution:
+        result.extend(("--active-gripper", execution["active_gripper"]))
+    if "box_size_m" in execution:
+        result.append("--box-size-m")
+        result.extend(str(value) for value in execution["box_size_m"])
+    for key, cli_name in (
+        ("rack_front_x_b_m", "rack-front-x-b-m"),
+        (
+            "partial_extraction_front_progress_min_m",
+            "partial-extraction-front-progress-min-m",
+        ),
+        (
+            "partial_extraction_front_inside_max_m",
+            "partial-extraction-front-inside-max-m",
+        ),
+        ("final_hold_box_motion_max_m", "final-hold-box-motion-max-m"),
+    ):
+        if key in execution:
+            result.extend((f"--{cli_name}", str(execution[key])))
     for key, cli_name in (
         ("direct_approach_replay", "direct-approach-replay"),
         ("kinematic_direct_approach_render", "kinematic-direct-approach-render"),

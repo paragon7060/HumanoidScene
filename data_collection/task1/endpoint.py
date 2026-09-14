@@ -400,11 +400,19 @@ def parser() -> argparse.ArgumentParser:
         default=None,
         help="Initialize the simultaneous solve from an existing bimanual endpoint plan.",
     )
-    result.add_argument(
-        "--arm-only-baseline",
+    planning_mode = result.add_mutually_exclusive_group()
+    planning_mode.add_argument(
+        "--include-waist",
         action="store_true",
-        help="Use the historical 14DoF arms-only solve instead of the default 16DoF solve.",
+        help="Opt into the 16DoF waist-pitch/yaw plus both-arm solve.",
     )
+    planning_mode.add_argument(
+        "--arm-only-baseline",
+        dest="include_waist",
+        action="store_false",
+        help="Use the default 14DoF both-arm solve (retained for CLI compatibility).",
+    )
+    result.set_defaults(include_waist=False)
     result.add_argument(
         "--waist-seed-deg",
         type=float,
@@ -486,7 +494,7 @@ def main(argv=None) -> int:
         snapshot, world_config, allow_target_flap_contact=False
     )
     defaults = runtime_joint_defaults(runtime)
-    include_waist = not args.arm_only_baseline
+    include_waist = args.include_waist
     cspace_names = WAIST_JOINT_NAMES + ARM_JOINT_NAMES if include_waist else ARM_JOINT_NAMES
     joint_limits = {
         name: limits
@@ -501,7 +509,7 @@ def main(argv=None) -> int:
     q_initial = np.asarray([defaults[name] for name in cspace_names], dtype=float)
     if args.waist_seed_deg is not None:
         if not include_waist:
-            raise ValueError("--waist-seed-deg is unavailable with --arm-only-baseline")
+            raise ValueError("--waist-seed-deg requires --include-waist")
         waist_seed = np.radians(np.asarray(args.waist_seed_deg, dtype=float))
         if not np.isfinite(waist_seed).all():
             raise ValueError("--waist-seed-deg must be finite")
@@ -720,7 +728,7 @@ def main(argv=None) -> int:
         "cspace_joint_names": cspace_names,
         "cspace_dof": len(cspace_names),
         "include_waist": include_waist,
-        "arm_only_baseline": args.arm_only_baseline,
+        "arm_only_baseline": not include_waist,
         "torso_height_m": runtime.get("pose_editor_state", {}).get("torso_height_m"),
         "waist_seed_deg": args.waist_seed_deg,
         "target_positions_b_m": target_positions.tolist(),

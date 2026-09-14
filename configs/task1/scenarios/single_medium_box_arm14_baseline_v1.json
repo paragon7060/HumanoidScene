@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "scenario_id": "task1_single_medium_box_arm14_baseline_v1",
-  "description": "S200062 single MediumBox_0 arms-only comparison baseline; physical success is not yet verified.",
+  "description": "Verified S200062 single MediumBox_0 physical pick with the default arms-only 14DoF planning mode.",
   "robot": {
     "model": "s200062",
     "gripper_preset": "s200062_integrated",
@@ -35,11 +35,11 @@
     "torso_height_m": 0.25,
     "endpoint": {
       "solver": "rmpflow",
-      "target_x_offsets_m": [0.03, 0.04, 0.05],
+      "target_x_offsets_m": [0.03],
       "target_z_offset_m": 0.015,
-      "tool_down_angles_deg": [45.0, 50.0, 56.0],
+      "tool_down_angles_deg": [56.0],
       "flap_line_length_m": 0.2,
-      "flap_line_point_count": 3,
+      "flap_line_point_count": 21,
       "duration_s": 5.0
     },
     "approach": {
@@ -95,9 +95,21 @@
     }
   },
   "verification": {
-    "state": "configured_baseline",
+    "state": "verified",
+    "expected_passed": true,
+    "acceptance_mode": "stable_bimanual_retention",
     "reference_commit": null,
-    "reference_report": null,
-    "reference_video_sha256": null
+    "reference_report": ".artifacts/task1_verified_smooth_default_20260914/dual_arm/report.json",
+    "reference_report_sha256": "9d74814bdbf6a3cbb7f79d5049f364dcd320f1608527d9359cf9dc3312661bb5",
+    "reference_video": ".artifacts/task1_verified_smooth_default_20260914/dual_arm/task1_dual_arm_arm14_smooth_normal_speed.mp4",
+    "reference_video_sha256": "91a86d7c06088254bd8edaa7c1ab4e16c89fdeecd655bf2345f1004c0584622b",
+    "result": {
+      "approach_box_motion_m": 0.0,
+      "retreat_box_motion_m": 0.24224470555782318,
+      "robotward_pull_m": 0.21759802103042603,
+      "hand_box_retention_drift_m": 0.022235974669456482,
+      "stable_bimanual_retention": true,
+      "final_hold_box_motion_m": 0.0003521520702634007
+    }
   }
 }

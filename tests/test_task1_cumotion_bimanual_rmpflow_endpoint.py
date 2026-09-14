@@ -85,12 +85,22 @@ def test_rotation_vector_recovers_axis_angle():
     np.testing.assert_allclose(rotation_vector(rotation), [0.0, 0.0, angle])
 
 
-def test_endpoint_defaults_to_waist_arms_and_requires_explicit_arm_baseline():
+def test_endpoint_defaults_to_arms_only_and_requires_explicit_waist_opt_in():
     args = parser().parse_args(["--snapshot-dir", "/tmp/s", "--urdf", "/tmp/r"])
 
-    assert args.arm_only_baseline is False
+    assert args.include_waist is False
     assert args.target_x_offsets_m == [0.03, 0.04, 0.05]
     assert args.tool_down_angles_deg == [45.0, 50.0, 56.0]
+
+    waist_args = parser().parse_args(
+        ["--snapshot-dir", "/tmp/s", "--urdf", "/tmp/r", "--include-waist"]
+    )
+    assert waist_args.include_waist is True
+
+    legacy_arm_args = parser().parse_args(
+        ["--snapshot-dir", "/tmp/s", "--urdf", "/tmp/r", "--arm-only-baseline"]
+    )
+    assert legacy_arm_args.include_waist is False
 
 
 def test_front_target_candidates_preserve_front_first_order():
