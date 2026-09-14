@@ -60,7 +60,9 @@ def main():
         from .grasp_calibration import GraspCalibration
         from .stationary_surface import StationarySurface
 
-        cfg, _ = build_configs(args)
+        # Desktop calibration never trains; skip importing rsl_rl (the
+        # discarded agent config would otherwise require it unconditionally).
+        cfg, _ = build_configs(args, include_agent=False)
         # Local config instance only; no changes to the training or Quest config files.
         cfg.xr = None
         cfg.scene.conveyor_surface.class_type = StationarySurface

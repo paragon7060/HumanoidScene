@@ -37,7 +37,11 @@ def _config(args):
     # 0 (default): keep the experiment's own single-arm lock. 1: release both
     # arms for inspection, independent of the loaded config's active_arm.
     active_arm_override = "both" if getattr(args, "rl_reward_debug", 0) == 1 else None
-    cfg, _ = build_configs(rl, active_arm_override=active_arm_override)
+    # No PPO agent is trained or read here (return value is discarded below),
+    # so skip importing rsl_rl entirely; this keeps reward inspection working
+    # even in an Isaac Lab environment where the training-only '.[rl]' extra
+    # (rsl-rl-lib) is not installed.
+    cfg, _ = build_configs(rl, active_arm_override=active_arm_override, include_agent=False)
     if cfg.task.control_mode != "arms-only" or cfg.task.grasp_mode != "flap_top" or cfg.task.name != "pick":
         raise ValueError("Quest reward inspection currently supports arms-only flap pick only")
     cfg.xr = XrCfg(near_plane=.08)

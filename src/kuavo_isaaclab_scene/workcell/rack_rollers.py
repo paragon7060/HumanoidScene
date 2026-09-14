@@ -55,13 +55,12 @@ DEFAULT_ROLLER_MASS_KG = 0.05
 # Rack root.
 RACK_SHELF_NAMES: dict[int, str] = {1: "shelf_01", 2: "shelf_02", 3: "shelf_03"}
 RACK_SHELF_LOCAL_Z_OFFSETS: dict[int, float] = {1: 0.395, 2: 1.0, 3: 1.61}
-# The shelf_ramp cube measured in Isaac Sim is 4 cm thick. Recessing 2 cm
-# out of its middle before the rollers sit down means boxes only rise by
+# The source shelf_ramp cube is 5 cm thick. Recessing 2 cm out of its
+# middle before the rollers sit down means boxes only rise by
 # diameter_m - recess_m above the original surface instead of the full
-# roller diameter. This module cannot edit Rack.usd's own binary mesh, so
-# the recess is expressed purely as a height offset: rollers sit lower and
-# their lower half overlaps the existing shelf collision instead of a
-# visibly cut pocket. See generate_roller_deck_usda's docstring.
+# roller diameter. The roller asset thins and lowers the ramp collision so
+# the recessed rollers remain physically clear while the shelf can still
+# catch boxes between rollers. See generate_roller_deck_usda's docstring.
 DEFAULT_ROLLER_RECESS_M = 0.02
 # Light passive bearing damping only; stiffness stays 0 so the roller is a
 # free joint, not a servo. This just keeps a nearly-frictionless spinning
@@ -376,10 +375,35 @@ def _tier_fragment(
     return f"""
         def Xform "{tier_name}"
         {{
-            def Xform "RollerDeck" (
-                prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+            over "shelf_ramp"
+            {{
+                double3 xformOp:scale = (1, 0.8799999952316284, 0.02)
+                double3 xformOp:translate = (-0.5, -0.41499999999999987, 0.032)
+            }}
+
+            def Mesh "shelf_ramp_front" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxTriangleMeshCollisionAPI", "PhysicsMeshCollisionAPI"]
             )
             {{
+                float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 1, 3, 2, 4, 6, 7, 5, 6, 2, 3, 7, 4, 5, 1, 0, 4, 0, 2, 6, 5, 7, 3, 1]
+                uniform token physics:approximation = "boundingCube"
+                bool physics:collisionEnabled = 1
+                point3f[] points = [(-0.5, -0.5, 0.5), (0.5, -0.5, 0.5), (-0.5, 0.5, 0.5), (0.5, 0.5, 0.5), (-0.5, -0.5, -0.5), (0.5, -0.5, -0.5), (-0.5, 0.5, -0.5), (0.5, 0.5, -0.5)]
+                uniform token subdivisionScheme = "none"
+                quatd xformOp:orient = (1, 0, 0, 0)
+                double3 xformOp:scale = (1, 0.01, 0.03)
+                double3 xformOp:translate = (-0.5, 0.015, 0.02)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+            }}
+
+            def Xform "RollerDeck" (
+                prepend apiSchemas = ["PhysicsArticulationRootAPI", "PhysicsFilteredPairsAPI"]
+            )
+            {{
+                rel physics:filteredPairs = </RackRoller/RackBody>
+
                 def Xform "Base" (
                     prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
                 )
@@ -408,19 +432,15 @@ def generate_roller_deck_usda(settings: RackRollerSettings, rack_slope_rad: floa
 
     Rollers sit settings.recess_m lower than the bare shelf surface, so a
     box resting on top of them only rises by box_clearance_m (diameter
-    minus recess) instead of the full diameter. This module cannot cut a
-    visible pocket into Rack.usd's own binary mesh: the lower part of each
-    roller geometrically overlaps the existing shelf/RackBody collision
-    instead of sitting in a hollowed-out slot. Overlapping with real
-    collision geometry is not just cosmetic: contact/friction against the
-    embedded surface would resist or fully block the roller's own spin,
-    exactly the failure mode this whole deck exists to avoid. So this file
-    also defines two PhysicsCollisionGroups (RollerColliders, RackBody
-    Colliders) that mutually filter each other out, meaning rollers never
-    generate contact against RackBody regardless of how deep the overlap
-    is. Free rotation therefore does not depend on the shelf actually
-    being carved; carving it is only about making the recess visible, not
-    about whether the rollers can spin.
+    minus recess) instead of the full diameter. The roller variant thins
+    each shelf_ramp collision from 5 cm to 2 cm and shifts it downward,
+    retaining a separate front support. This removes roller/ramp overlap
+    geometrically while the shelf still catches boxes between rollers. No
+    explicit PhysicsCollisionGroup is needed. Each RollerDeck instead uses
+    PhysicsFilteredPairsAPI against RackBody: box contacts with both the
+    rollers and shelf stay enabled, while near-contact roller/rack pairs are
+    skipped without duplicate membership in Isaac Lab's per-environment CPU
+    collision group.
 
     Each roller deck is nested at RackBody/Rack/shelf_0N/RollerDeck, i.e.
     directly under that same shelf's existing shelf_front/shelf_ramp meshes
@@ -441,11 +461,8 @@ def generate_roller_deck_usda(settings: RackRollerSettings, rack_slope_rad: floa
     the plain Rack.usd. scene.py swaps this file in for Rack.usd wherever
     --rack-rollers is set, instead of spawning both.
 
-    Because each RollerDeck now lives inside RackBody's own subtree, the
-    RackBodyColliders collision group explicitly excludes the three
-    RollerDeck paths (in addition to being mutually filtered against
-    RollerColliders): otherwise the default recursive collection expansion
-    would put the rollers in both groups at once.
+    The ramp edits are authored by this generator as well as shipped in
+    rack_roller.usda, so regenerating the asset preserves the clearance.
     """
     root_name = "RackRoller"
     materials_root = f"/{root_name}/Looks"
@@ -457,10 +474,6 @@ def generate_roller_deck_usda(settings: RackRollerSettings, rack_slope_rad: floa
             materials_root,
             f"/{root_name}/RackBody/Rack/{RACK_SHELF_NAMES[tier]}/RollerDeck",
         )
-        for tier in (1, 2, 3)
-    )
-    roller_deck_paths = "\n".join(
-        f"            </{root_name}/RackBody/Rack/{RACK_SHELF_NAMES[tier]}/RollerDeck>,"
         for tier in (1, 2, 3)
     )
     return f"""#usda 1.0
@@ -480,23 +493,6 @@ def Xform "{root_name}"
         {{
 {tiers}
         }}
-    }}
-
-    def PhysicsCollisionGroup "RollerColliders"
-    {{
-        rel collection:colliders:includes = [
-{roller_deck_paths}
-        ]
-        rel physics:filteredGroups = </{root_name}/RackBodyColliders>
-    }}
-
-    def PhysicsCollisionGroup "RackBodyColliders"
-    {{
-        rel collection:colliders:includes = </{root_name}/RackBody>
-        rel collection:colliders:excludes = [
-{roller_deck_paths}
-        ]
-        rel physics:filteredGroups = </{root_name}/RollerColliders>
     }}
 
     def Scope "Looks"

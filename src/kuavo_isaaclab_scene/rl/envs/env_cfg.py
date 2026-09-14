@@ -76,4 +76,6 @@ class WorkcellRLEnvCfg(ManagerBasedRLEnvCfg):
         # Recorder also preserves terminal metrics across Isaac Lab auto-resets.
         self.viewer.eye = (3.0, -3.0, 2.5)
         self.viewer.lookat = (0.0, 0.0, 1.0)
-        self.rerender_on_reset = self.cameras
+        # Isaac Lab 2.3.2 deprecated the boolean alias. One extra render keeps
+        # camera observations fresh after reset without emitting its warning.
+        self.num_rerenders_on_reset = int(self.cameras)

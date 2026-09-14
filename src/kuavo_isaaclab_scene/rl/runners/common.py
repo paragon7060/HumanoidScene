@@ -106,9 +106,8 @@ def parse_args(mode, add_arguments=None):
     return args
 
 
-def build_configs(args, *, active_arm_override=None):
+def build_configs(args, *, active_arm_override=None, include_agent=True):
     from ..envs.env_cfg import WorkcellRLEnvCfg
-    from ..agents.ppo_cfg import WorkcellPPOCfg
     from ..scenes.layout import active_rack_box_scene_keys
     box_names = active_rack_box_scene_keys() if args.boxes == "all" else tuple(s.strip() for s in args.boxes.split(",") if s.strip())
     spec = task_spec(args.task, box_names=box_names, control_mode=args.control_mode,
@@ -137,8 +136,25 @@ def build_configs(args, *, active_arm_override=None):
                          cameras=args.enable_cameras)
     cfg.seed = args.seed
     cfg.sim.device = args.device or "cuda:0"
-    agent = WorkcellPPOCfg(seed=args.seed, device=cfg.sim.device, max_iterations=args.max_iterations,
-                           experiment_name=f"kuavo_{args.task}")
+    if include_agent:
+        # rsl-rl-lib (installed via the '.[rl]' extra) is a training-only
+        # dependency; import it lazily so callers that only need the
+        # environment config (e.g. Quest reward inspection) still work in
+        # Isaac Lab environments without it installed.
+        from ..agents.ppo_cfg import WorkcellPPOCfg
+        agent = WorkcellPPOCfg(seed=args.seed, device=cfg.sim.device, max_iterations=args.max_iterations,
+                               experiment_name=f"kuavo_{args.task}")
+    else:
+        # Duck-typed stand-in: mirrors the fields configure_task()/configure()
+        # customizations and the checks below actually read or set, without
+        # requiring rsl_rl. Never used for real training.
+        import types
+        agent = types.SimpleNamespace(
+            seed=args.seed, device=cfg.sim.device, max_iterations=args.max_iterations,
+            experiment_name=f"kuavo_{args.task}", num_steps_per_env=32, save_interval=None,
+            policy=types.SimpleNamespace(init_noise_std=0.35),
+            algorithm=types.SimpleNamespace(num_mini_batches=4),
+        )
     if "configure" in customization:
         customization["configure"](cfg, agent)
     if args.save_interval is not None:
