@@ -14,6 +14,7 @@ from data_collection.task1.approach import (
     joint_space_path_length,
     planner_yaml,
     planner_distance_weights,
+    planning_collision_inspector,
     parser,
     rack_width_constraint_in_base,
     rack_width_coordinates_m,
@@ -58,6 +59,14 @@ def test_constrained_rrt_allows_exactly_fixed_inactive_dimensions():
 
     assert path is not None
     np.testing.assert_array_equal(path[:, 1], 0.25)
+
+
+def test_pair_approach_plans_against_full_world():
+    relaxed = object()
+    full = object()
+
+    assert planning_collision_inspector(False, relaxed, full) is relaxed
+    assert planning_collision_inspector(True, relaxed, full) is full
 
 
 def test_add_world_obstacles_keeps_obstacle_and_handle_references():

@@ -61,6 +61,11 @@ def fix_inactive_arm_path(
     return result
 
 
+def planning_collision_inspector(paired_mode: bool, relaxed_inspector, full_inspector):
+    """Use the complete scene for ordinary pair approach planning."""
+    return full_inspector if paired_mode else relaxed_inspector
+
+
 def bimanual_xrdf(
     defaults: dict[str, float],
     world_spheres: dict,
@@ -751,9 +756,12 @@ def main(argv=None) -> int:
         )
         full_world_view = full_world.add_world_view()
         full_inspector = cumotion.create_robot_world_inspector(robot, full_world_view)
+    path_inspector = planning_collision_inspector(
+        paired_mode, inspector, full_inspector
+    )
     initial_world_collision = full_inspector.in_collision_with_obstacle(q_initial)
     initial_self_collision = inspector.in_self_collision(q_initial)
-    terminal_world_collision = inspector.in_collision_with_obstacle(q_terminal)
+    terminal_world_collision = path_inspector.in_collision_with_obstacle(q_terminal)
     terminal_self_collision = inspector.in_self_collision(q_terminal)
     if any(
         (
@@ -769,7 +777,7 @@ def main(argv=None) -> int:
             f"initial_self={initial_self_collision}, "
             f"terminal_world={terminal_world_collision}, "
             f"terminal_self={terminal_self_collision}, "
-            f"terminal_min_world_distance_m={inspector.min_distance_to_obstacle(q_terminal)}, "
+            f"terminal_min_world_distance_m={path_inspector.min_distance_to_obstacle(q_terminal)}, "
             f"terminal_self_pairs={inspector.frames_in_self_collision(q_terminal)}"
         )
 
@@ -781,7 +789,7 @@ def main(argv=None) -> int:
             tcp_positions, rack_center_b, rack_axis_b
         )
         return bool(
-            inspector.in_collision_with_obstacle(q)
+            path_inspector.in_collision_with_obstacle(q)
             or inspector.in_self_collision(q)
             or rack_width_max_violation_m(rack_coordinates, rack_half_width_m) > 1e-9
         )
@@ -940,21 +948,11 @@ def main(argv=None) -> int:
     if path_found:
         dense = densify_path(path, args.validation_step_rad)
         world_collisions = [
-            (
-                inspector.in_collision_with_obstacle(row)
-                if paired_mode and index == len(dense) - 1
-                else full_inspector.in_collision_with_obstacle(row)
-            )
-            for index, row in enumerate(dense)
+            path_inspector.in_collision_with_obstacle(row) for row in dense
         ]
         self_collisions = [inspector.in_self_collision(row) for row in dense]
         distances = [
-            (
-                inspector.min_distance_to_obstacle(row)
-                if paired_mode and index == len(dense) - 1
-                else full_inspector.min_distance_to_obstacle(row)
-            )
-            for index, row in enumerate(dense)
+            path_inspector.min_distance_to_obstacle(row) for row in dense
         ]
         tcp_path_positions = np.asarray(
             [
