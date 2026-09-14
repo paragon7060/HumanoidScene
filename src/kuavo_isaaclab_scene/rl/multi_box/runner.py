@@ -10,6 +10,7 @@ import runpy
 import traceback
 from uuid import uuid4
 from .spec import MultiBoxSpec, SKILLS
+from ..action_spaces import add_action_space_argument
 
 
 def canonical(value):
@@ -37,6 +38,7 @@ def main(strategy=None, mode="train"):
     from ...core.paths import CONFIG_DIR
 
     parser = argparse.ArgumentParser(description="Four-box whole-body PPO", allow_abbrev=False)
+    add_action_space_argument(parser)
     parser.add_argument("--strategy", choices=("staged", "end-to-end"), default=strategy or "end-to-end")
     parser.add_argument("--skill", choices=(*SKILLS, "full"), default="pick" if strategy == "staged" else "full")
     parser.add_argument("--num-envs", type=int, default=256 if mode == "train" else 1)
@@ -92,6 +94,8 @@ def main(strategy=None, mode="train"):
         snapshot_dir=str(args.snapshot_dir.resolve()) if args.snapshot_dir else None,
         episode_seconds=120. if args.skill == "full" else 30.)
     spec = customization.get("configure_spec", lambda s: s)(spec)
+    if args.action_space is not None:
+        spec = replace(spec, action_space=args.action_space)
     spec.validate()
     if (spec.strategy, spec.skill) != (args.strategy, args.skill):
         parser.error("Set strategy/skill via CLI, not configure_spec.")

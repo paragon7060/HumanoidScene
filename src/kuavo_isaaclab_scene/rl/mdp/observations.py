@@ -86,6 +86,13 @@ def box_rest_relation(env):
     return torch.cat((delta, rotation), -1)
 
 
+def mobile_root_pose(env):
+    """Root pose relative to its own cell, including the workspace-limit state."""
+    robot = env.scene["robot"]
+    return torch.cat((robot.data.root_pos_w - env.scene.env_origins,
+                      robot.data.root_quat_w), -1)
+
+
 def flap_pick_state(env):
     t = task(env)
     robot_contact = t.obstacle_forces.clamp(0, 100) / 100

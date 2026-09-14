@@ -12,7 +12,7 @@ from ...robots.robot_model import resolve_robot_model
 from ...robots.gripper_config import resolve_gripper_settings
 from .spec import MultiBoxSpec, validate_shelves
 from .state import MultiBoxCommandCfg
-from .managers.actions import ActionsCfg
+from .managers.actions import ActionsCfg, RightArmActionsCfg
 from .managers.observations import ObservationsCfg
 from .managers.rewards import RewardsCfg
 from .managers.terminations import TerminationsCfg
@@ -59,6 +59,8 @@ class MultiBoxEnvCfg(ManagerBasedRLEnvCfg):
             reset_settle_seconds=0., max_tilt=self.multi_box.max_tilt)
         self.scene, geometry = build_scene(self.task, self.num_envs, self.env_spacing, False)
         self.scene.robot.spawn.articulation_props.fix_root_link = True
+        if self.multi_box.action_space == "right-arm":
+            self.actions = RightArmActionsCfg()
         self.scene.lazy_sensor_update = False
         # No collision-failure baseline; remove unused high-dimensional sensors.
         for name in tuple(vars(self.scene)):

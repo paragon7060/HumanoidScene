@@ -1,6 +1,7 @@
 """Simulator-independent experiment contract; SI units throughout."""
 from dataclasses import dataclass
 import math
+from ..action_spaces import ACTION_SPACES
 
 SKILLS = ("pick", "extract", "carry", "place")
 PREDECESSOR = dict(zip(SKILLS[1:], SKILLS[:-1]))
@@ -11,6 +12,7 @@ class MultiBoxSpec:
     box_names: tuple = ("small_box_0", "small_box_1", "medium_box_0", "large_box_0")
     shelves: tuple = (1, 1, 2, 2)
     strategy: str = "end-to-end"
+    action_space: str = "all-joints"
     skill: str = "full"
     episode_seconds: float = 120.0
     lift_height: float = .06
@@ -36,6 +38,10 @@ class MultiBoxSpec:
     rack_outward_local: tuple = (0., 1., 0.)
 
     def validate(self):
+        if self.action_space not in ACTION_SPACES:
+            raise ValueError("Unknown action space.")
+        if self.action_space == "right-arm" and self.skill in ("carry", "full"):
+            raise ValueError("Carry/full requires base motion; select --action-space all-joints.")
         if len(self.box_names) != 4 or len(set(self.box_names)) != 4:
             raise ValueError("Exactly four distinct boxes are required.")
         if len(self.shelves) != 4 or sorted(self.shelves) != [1, 1, 2, 2]:

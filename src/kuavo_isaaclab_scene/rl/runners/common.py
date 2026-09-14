@@ -34,6 +34,8 @@ def install_stop_handlers():
 def parse_args(mode, add_arguments=None):
     from isaaclab.app import AppLauncher
     parser = argparse.ArgumentParser(description=f"Kuavo manager-based subtask PPO {mode}", allow_abbrev=False)
+    from ..action_spaces import add_action_space_argument
+    add_action_space_argument(parser)
     parser.add_argument("--task", choices=TASKS, default="approach_rack")
     parser.add_argument("--control-mode", choices=("whole-body", "arms-only"), default="whole-body",
                         help="arms-only locks base/body/head; config active_arm selects one or both arms.")
@@ -125,6 +127,8 @@ def build_configs(args, *, active_arm_override=None):
         args.initial_state = pinned_state
     if "configure_task" in customization:
         spec = customization["configure_task"](spec)
+    from ..action_spaces import select_task_action_space
+    spec = select_task_action_space(spec, getattr(args, "action_space", None))
     if active_arm_override is not None:
         # Debug-only override (e.g. Quest reward inspection): release the
         # locked arm without editing the experiment's own configure_task().

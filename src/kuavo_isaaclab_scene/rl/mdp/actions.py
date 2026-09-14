@@ -35,10 +35,16 @@ class PlanarDrive(ActionTerm):
         return self._velocity
 
     def process_actions(self, actions):
+        actions = gate_actions(self._env, actions)
         self._raw[:] = actions.clamp(-1, 1)
         delta = self._raw * self._scale - self._velocity
         limit = self._accel * self._env.step_dt
         self._velocity += delta.clamp(-limit, limit)
+        # A masked command alone would only decelerate an existing velocity.
+        # Initial waiting must hold the base completely, just like both hands.
+        if self._env.cfg.task.reset_settle_seconds > 0 and not self._env.cfg.task.reset_bank:
+            command = self._env.command_manager.get_term("workcell")
+            self._velocity[~command.settling.ready] = 0
 
     def apply_actions(self):
         pose = self._asset.data.root_pose_w.clone()
@@ -74,9 +80,13 @@ class JointDeltaTargets(JointPositionAction):
         self._processed_actions[:] = self._targets
 
     def process_actions(self, actions):
+        actions = gate_actions(self._env, actions)
         self._raw_actions[:] = actions.clamp(-1, 1)
         self._targets += self._raw_actions * self._scale
-        limits = self._asset.data.soft_joint_pos_limits[:, self._joint_ids]
+        # Captured initial poses may exceed the training margin. Preserve zero
+        # hold for flap picking while keeping physical articulation limits.
+        limits = (self._asset.data.joint_pos_limits if self._env.cfg.task.grasp_mode == "flap_top"
+                  else self._asset.data.soft_joint_pos_limits)[:, self._joint_ids]
         self._targets[:] = self._targets.clamp(limits[..., 0], limits[..., 1])
         self._processed_actions[:] = self._targets
 

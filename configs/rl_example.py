@@ -21,8 +21,10 @@ def configure(env_cfg, agent_cfg):
     env_cfg.rewards.action_rate.weight = -0.015
     if getattr(env_cfg.actions, "base", None) is not None:
         env_cfg.actions.base.velocity_limits = (0.20, 0.20, 0.60)
-    env_cfg.actions.left_gripper.delta_scale = 0.08
-    env_cfg.actions.right_gripper.delta_scale = 0.08
+    for side in ("left", "right"):
+        gripper = getattr(env_cfg.actions, side + "_gripper", None)
+        if gripper is not None:
+            gripper.delta_scale = 0.08
     agent_cfg.algorithm.learning_rate = 2e-4
     agent_cfg.num_steps_per_env = 32
     # Set a term to None to remove it, for example:

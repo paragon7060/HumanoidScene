@@ -78,7 +78,8 @@ def test_flap_task_accepts_one_or_two_hands_and_rejects_bad_settings():
     spec = dict(control_mode="arms-only", grasp_mode="flap_top", required_grasp_hands=2)
     task_spec("pick", **spec).validate()
     task_spec("pick", **{**spec, "required_grasp_hands": 1}).validate()
-    with pytest.raises(ValueError, match="stationary"):
+    task_spec("pick", **{**spec, "control_mode": "whole-body"}).validate()
+    with pytest.raises(ValueError, match="pick task"):
         task_spec("place", **spec, reset_bank="bank").validate()
     with pytest.raises(ValueError, match="grasp_hand"):
         task_spec("pick", **spec, grasp_hand="either").validate()

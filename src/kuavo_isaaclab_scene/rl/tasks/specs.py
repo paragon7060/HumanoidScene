@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, replace
 import math
+from ..action_spaces import ACTION_SPACES
 
 PHASES = ("approach_rack", "pick", "carry", "place", "press_button")
 TASKS = (*PHASES, "full")
@@ -13,6 +14,7 @@ REQUIRES_RESET_BANK = ("carry", "place", "press_button")
 class TaskSpec:
     name: str = "approach_rack"
     control_mode: str = "whole-body"
+    action_space: str | None = None  # None preserves legacy/configured action layout.
     active_arm: str = "both"  # arms-only: both/left/right; the other arm+hand is physically locked.
     box_names: tuple[str, ...] = ("small_box_0",)
     episode_length_s: float = 15.0
@@ -85,11 +87,17 @@ class TaskSpec:
             raise ValueError(f"Unknown task {self.name!r}; choose {TASKS}")
         if self.control_mode not in ("whole-body", "arms-only"):
             raise ValueError("control_mode must be whole-body or arms-only.")
+        if self.action_space not in (None, *ACTION_SPACES):
+            raise ValueError("action_space must be right-arm or all-joints.")
+        if self.action_space == "all-joints" and (self.control_mode != "whole-body" or self.active_arm != "both"):
+            raise ValueError("all-joints requires whole-body control with both arms.")
+        if self.action_space == "right-arm" and (self.control_mode != "arms-only" or self.active_arm != "right"):
+            raise ValueError("right-arm requires arms-only control with the right arm.")
         if self.active_arm not in ("both", "left", "right"):
             raise ValueError("active_arm must be both, left or right.")
-        if self.active_arm != "both" and (self.control_mode != "arms-only" or self.grasp_mode != "flap_top"
+        if self.active_arm != "both" and (self.control_mode != "arms-only"
                 or self.required_grasp_hands != 1 or self.grasp_hand != self.active_arm):
-            raise ValueError("Single active_arm requires arms-only flap pick with the same single grasp_hand.")
+            raise ValueError("Single active_arm requires arms-only control with the same single grasp_hand.")
         if self.control_mode == "arms-only" and self.name in ("approach_rack", "carry", "full"):
             raise ValueError(f"{self.name} requires base navigation; use whole-body or a stationary pick/place/press_button task.")
         if not self.box_names or len(set(self.box_names)) != len(self.box_names):
@@ -99,8 +107,8 @@ class TaskSpec:
         if self.grasp_mode not in ("body", "flap_top"):
             raise ValueError("grasp_mode must be body or flap_top.")
         if self.grasp_mode == "flap_top":
-            if self.name != "pick" or self.control_mode != "arms-only":
-                raise ValueError("flap_top currently requires a stationary arms-only pick.")
+            if self.name != "pick":
+                raise ValueError("flap_top requires a pick task (stationary or whole-body).")
             if self.grasp_hand not in ("left", "right"):
                 raise ValueError("grasp_hand must be left or right.")
             if (len(self.grasp_flaps) != 2 or len(set(self.grasp_flaps)) != 2

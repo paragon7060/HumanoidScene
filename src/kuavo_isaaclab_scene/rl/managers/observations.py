@@ -50,3 +50,13 @@ class FlapPickPolicyCfg(ObservationGroupCfg):
 @configclass
 class FlapPickObservationsCfg:
     policy: FlapPickPolicyCfg = FlapPickPolicyCfg()
+
+
+@configclass
+class MobileFlapPickPolicyCfg(FlapPickPolicyCfg):
+    root_pose = ObsTerm(func=observations.mobile_root_pose)
+
+
+@configclass
+class MobileFlapPickObservationsCfg:
+    policy: MobileFlapPickPolicyCfg = MobileFlapPickPolicyCfg()

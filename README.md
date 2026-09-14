@@ -29,6 +29,7 @@ Kuavo humanoid가 경사진 랙의 열린 박스를 컨베이어의 빈 공간�
 | RL 전용 환경 구조·병렬 복제 설정 | [배경 없는 병렬 환경](docs/RL_PARALLEL_ENVS.md) |
 | 한 손 flap 파지·들기 학습과 평가 | [1단계 flap pick](docs/RL_FLAP_PICK.md) |
 | SAC 또는 diffusion 사전학습 → DPPO 실험 | [대체 RL 학습 경로](docs/RL_ALTERNATIVES.md) |
+| 오른팔 / 전체 관절 action space 선택 | [공통 RL action 옵션](docs/RL_ACTION_SPACES.md) |
 | 전신 4박스 단계별 / 전체 직접 학습 비교 | [4박스 전신 RL 실험](docs/RL_MULTI_BOX.md) |
 | RL 초기 자세 수정·VR 재캡처 | [quest_ready_02 초기 상태](docs/RL_INITIAL_STATES.md) |
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |

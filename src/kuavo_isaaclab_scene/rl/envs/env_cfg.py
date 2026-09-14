@@ -6,8 +6,8 @@ from isaaclab.sim import SimulationCfg, PhysxCfg
 from isaaclab.utils import configclass
 from ..tasks.specs import TaskSpec
 from ..scenes.scene_cfg import SCENE_PROFILE, build_scene
-from ..managers.actions import ActionsCfg, ArmsOnlyActionsCfg
-from ..managers.observations import ObservationsCfg, FlapPickObservationsCfg
+from ..managers.actions import ActionsCfg, ArmsOnlyActionsCfg, AllJointActionsCfg
+from ..managers.observations import ObservationsCfg, FlapPickObservationsCfg, MobileFlapPickObservationsCfg
 from ..managers.commands import CommandsCfg
 from ..managers.rewards import RewardsCfg, FlapPickRewardsCfg
 from ..managers.events import EventsCfg
@@ -40,19 +40,22 @@ class WorkcellRLEnvCfg(ManagerBasedRLEnvCfg):
         self.decimation = 4
         self.episode_length_s = self.task.episode_length_s
         self.scene, geometry = build_scene(self.task, self.num_envs, self.env_spacing, self.cameras)
+        if self.task.action_space == "all-joints":
+            self.actions = AllJointActionsCfg()
         if self.task.control_mode == "arms-only":
             self.actions = ArmsOnlyActionsCfg()
             if self.task.active_arm != "both":
                 side = self.task.active_arm
                 inactive = "left" if side == "right" else "right"
                 if getattr(self.actions, inactive + "_gripper").asset_name != "robot":
-                    raise ValueError("Single-arm flap pick needs an integrated robot gripper for the inactive-hand lock.")
+                    raise ValueError("Single-arm control needs an integrated robot gripper for the inactive-hand lock.")
                 self.actions.upper_body.active_arm = side
                 self.actions.upper_body.joint_names = [f"zarm_{side[0]}{i}_joint" for i in range(1, 8)]
                 setattr(self.actions, inactive + "_gripper", None)
             self.scene.robot.spawn.articulation_props.fix_root_link = True
         if self.task.grasp_mode == "flap_top":
-            self.observations = FlapPickObservationsCfg()
+            self.observations = (MobileFlapPickObservationsCfg() if self.task.control_mode == "whole-body"
+                                 else FlapPickObservationsCfg())
             self.rewards = FlapPickRewardsCfg()
             if not self.task.collision_constraints_enabled:
                 self.rewards.collision = None

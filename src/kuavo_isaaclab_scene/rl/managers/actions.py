@@ -5,6 +5,7 @@ from ...robots.gripper_config import resolve_gripper_settings
 from ...robots.robot_model import resolve_robot_model
 from ..mdp.actions import PlanarDriveCfg, JointDeltaTargetsCfg, IncrementalGripperCfg, ArmsOnlyJointTargetsCfg
 from ..mdp.body_lock import ARM_JOINT_NAMES
+from ..action_spaces import HEAD_JOINTS
 
 
 def hand_action(side):
@@ -36,3 +37,9 @@ class ArmsOnlyActionsCfg:
         joint_names=list(ARM_JOINT_NAMES), scale=0.035, preserve_order=True)
     left_gripper = hand_action("left")
     right_gripper = hand_action("right")
+
+
+@configclass
+class AllJointActionsCfg(ActionsCfg):
+    head = JointDeltaTargetsCfg(asset_name="robot", joint_names=list(HEAD_JOINTS),
+                               scale=.015, preserve_order=True)
