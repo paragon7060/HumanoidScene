@@ -5,8 +5,11 @@ from data_collection.task1.execution_contract import (
     evenly_spaced_capture_indices,
     resolved_kinematic_capture_frame_count,
     motor_obstruction_gates,
+    paired_box_acceptance,
+    paired_retention_metrics,
     physical_acceptance,
     retention_reference,
+    executor_target_keys,
 )
 
 
@@ -136,3 +139,95 @@ def test_kinematic_capture_defaults_to_normal_speed_without_skipping_short_paths
     assert resolved_kinematic_capture_frame_count(176, None) == 73
     assert resolved_kinematic_capture_frame_count(40, None) == 40
     assert resolved_kinematic_capture_frame_count(176, 90) == 90
+
+
+def test_pair_executor_keeps_exactly_two_targets_without_parking():
+    assert executor_target_keys(["medium_box_0", "medium_box_1"], False) == (
+        "medium_box_0",
+        "medium_box_1",
+    )
+
+
+def test_pair_executor_rejects_clearing_its_shared_shelf():
+    import pytest
+
+    with pytest.raises(ValueError, match="must remain in the scene"):
+        executor_target_keys(["medium_box_0", "medium_box_1"], True)
+
+
+def test_paired_retention_detects_one_box_slipping_from_left_hand():
+    closed = {"a": [0.60, -0.05, 1.0], "b": [0.60, 0.05, 1.0]}
+    samples = [
+        {
+            "phase": "retreat",
+            "box_body_positions_b_m": closed,
+            "eef_positions_b_m": [[0.60, 0.0, 1.0], [0.0, 0.0, 0.0]],
+        },
+        {
+            "phase": "retreat",
+            "box_body_positions_b_m": {
+                "a": [0.53, -0.05, 1.0],
+                "b": [0.59, 0.05, 1.0],
+            },
+            "eef_positions_b_m": [[0.53, 0.0, 1.0], [0.0, 0.0, 0.0]],
+        },
+        {
+            "phase": "final_hold",
+            "box_body_positions_b_m": {
+                "a": [0.53, -0.05, 1.0],
+                "b": [0.59, 0.05, 1.0],
+            },
+            "eef_positions_b_m": [[0.53, 0.0, 1.0], [0.0, 0.0, 0.0]],
+        },
+        {
+            "phase": "final_hold",
+            "box_body_positions_b_m": {
+                "a": [0.53, -0.05, 1.0],
+                "b": [0.59, 0.05, 1.0],
+            },
+            "eef_positions_b_m": [[0.53, 0.0, 1.0], [0.0, 0.0, 0.0]],
+        },
+    ]
+
+    metrics = paired_retention_metrics(samples, ("a", "b"), "left", closed)
+
+    assert metrics["box_robotward_progress_m"] == {"a": 0.07, "b": 0.01}
+    assert metrics["pair_separation_drift_max_m"] > 0.01
+    passed, _ = paired_box_acceptance(
+        metrics,
+        approach_box_motion_m={"a": 0.0, "b": 0.0},
+        approach_box_motion_max_m=0.001,
+        progress_min_m=0.05,
+        pair_separation_drift_max_m=0.01,
+        hand_pair_center_drift_max_m=0.05,
+        final_hold_box_motion_max_m=0.01,
+        active_motor_obstruction=True,
+        tracking_passed=True,
+    )
+    assert passed is False
+
+
+def test_paired_retention_accepts_two_boxes_moving_together():
+    closed = {"a": [0.60, -0.05, 1.0], "b": [0.60, 0.05, 1.0]}
+    moved = {"a": [0.53, -0.05, 1.0], "b": [0.53, 0.05, 1.0]}
+    samples = [
+        {"phase": "retreat", "box_body_positions_b_m": closed, "eef_positions_b_m": [[0.60, 0.0, 1.0], [0, 0, 0]]},
+        {"phase": "retreat", "box_body_positions_b_m": moved, "eef_positions_b_m": [[0.53, 0.0, 1.0], [0, 0, 0]]},
+        {"phase": "final_hold", "box_body_positions_b_m": moved, "eef_positions_b_m": [[0.53, 0.0, 1.0], [0, 0, 0]]},
+        {"phase": "final_hold", "box_body_positions_b_m": moved, "eef_positions_b_m": [[0.53, 0.0, 1.0], [0, 0, 0]]},
+    ]
+
+    metrics = paired_retention_metrics(samples, ("a", "b"), "left", closed)
+    passed, mode = paired_box_acceptance(
+        metrics,
+        approach_box_motion_m={"a": 0.0, "b": 0.0},
+        approach_box_motion_max_m=0.001,
+        progress_min_m=0.05,
+        pair_separation_drift_max_m=0.01,
+        hand_pair_center_drift_max_m=0.05,
+        final_hold_box_motion_max_m=0.01,
+        active_motor_obstruction=True,
+        tracking_passed=True,
+    )
+    assert passed is True
+    assert mode == "paired_single_hand_partial_extraction"

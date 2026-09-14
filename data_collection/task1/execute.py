@@ -9,11 +9,14 @@ close under physics, and the target box is free to move on the rack.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
 from pathlib import Path
+import subprocess
 import sys
+import traceback
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
@@ -24,7 +27,10 @@ from data_collection.task1.execution_contract import (
     box_extraction_metrics,
     closed_motor_targets,
     evenly_spaced_capture_indices,
+    executor_target_keys,
     motor_obstruction_gates,
+    paired_box_acceptance,
+    paired_retention_metrics,
     physical_acceptance,
     resolved_kinematic_capture_frame_count,
     retention_reference,
@@ -38,6 +44,13 @@ def _parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--approach-plan", type=Path, required=True)
     parser.add_argument("--retreat-plan", type=Path, required=True)
+    parser.add_argument("--scenario-path", type=Path)
+    parser.add_argument("--paired-boxes", nargs=2)
+    parser.add_argument(
+        "--clear-same-shelf-boxes",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--video-out", type=Path, required=True)
     parser.add_argument(
@@ -77,6 +90,7 @@ def _parse_args():
     parser.add_argument("--approach-box-motion-max-m", type=float, default=0.001)
     parser.add_argument("--retreat-box-motion-min-m", type=float, default=0.03)
     parser.add_argument("--retention-drift-max-m", type=float, default=0.05)
+    parser.add_argument("--pair-separation-drift-max-m", type=float, default=0.01)
     parser.add_argument("--motor-obstruction-min-rad", type=float, default=0.005)
     parser.add_argument("--box-size-m", type=float, nargs=3, default=(0.32, 0.22, 0.185))
     parser.add_argument("--rack-front-x-b-m", type=float, default=0.415)
@@ -157,6 +171,7 @@ def _parse_args():
         "approach_box_motion_max_m",
         "retreat_box_motion_min_m",
         "retention_drift_max_m",
+        "pair_separation_drift_max_m",
         "motor_obstruction_min_rad",
         "partial_extraction_front_progress_min_m",
         "partial_extraction_front_inside_max_m",
@@ -169,6 +184,12 @@ def _parse_args():
     if any(not math.isfinite(value) or value <= 0.0 for value in args.box_size_m):
         parser.error("--box-size-m values must be finite and positive.")
     args.enable_cameras = True
+    if args.paired_boxes is not None:
+        executor_target_keys(args.paired_boxes, args.clear_same_shelf_boxes)
+        if args.scenario_path is None:
+            parser.error("--scenario-path is required with --paired-boxes.")
+        if args.active_gripper == "both":
+            parser.error("--paired-boxes requires one active gripper.")
     return args
 
 
@@ -185,6 +206,14 @@ def _load_plan(path: Path) -> dict:
     if any(len(row) != len(names) or not all(math.isfinite(float(v)) for v in row) for row in waypoints):
         raise ValueError(f"Invalid waypoint rows in {path}")
     return data
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _snapshot_target_pose_b(plan: dict) -> list[float]:
@@ -210,6 +239,35 @@ def _snapshot_target_pose_b(plan: dict) -> list[float]:
             seen.add(segment_path)
             queue.append(json.loads(segment_path.read_text()))
     raise ValueError("Approach plan has no snapshot target_box_body_pose_b")
+
+
+def _snapshot_target_poses_b(plan: dict, target_keys: tuple[str, ...]) -> dict[str, list[float]]:
+    """Find exact target poses for a legacy single box or a captured pair."""
+    queue = [plan]
+    seen = set()
+    while queue:
+        item = queue.pop()
+        snapshot_dir = item.get("snapshot_dir")
+        if snapshot_dir:
+            runtime_path = Path(snapshot_dir) / "runtime.json"
+            if runtime_path not in seen and runtime_path.exists():
+                seen.add(runtime_path)
+                state = json.loads(runtime_path.read_text()).get("pose_editor_state", {})
+                paired = state.get("paired_box_body_poses_b")
+                if isinstance(paired, dict) and set(paired) == set(target_keys):
+                    return {
+                        key: [float(value) for value in paired[key]] for key in target_keys
+                    }
+                pose = state.get("target_box_body_pose_b")
+                if len(target_keys) == 1 and isinstance(pose, list) and len(pose) == 7:
+                    return {target_keys[0]: [float(value) for value in pose]}
+        for segment_path in reversed(item.get("segment_plans", [])):
+            segment_path = Path(segment_path)
+            if segment_path in seen or not segment_path.exists():
+                continue
+            seen.add(segment_path)
+            queue.append(json.loads(segment_path.read_text()))
+    raise ValueError("Approach plan has no matching snapshot target box poses")
 
 
 def _quaternion_error_deg(first, second) -> float:
@@ -319,7 +377,23 @@ def _main() -> None:
     print("[GRASP_PULL] main_start", flush=True)
     approach = _load_plan(args.approach_plan)
     retreat = _load_plan(args.retreat_plan)
-    snapshot_target_pose_b = _snapshot_target_pose_b(approach)
+    target_keys = executor_target_keys(args.paired_boxes, args.clear_same_shelf_boxes)
+    paired_mode = len(target_keys) == 2
+    if paired_mode:
+        from data_collection.task1.scenario import load_scenario_config
+
+        scenario = load_scenario_config(args.scenario_path)
+        if tuple(scenario["scene"]["paired_boxes"]) != target_keys:
+            raise ValueError("executor paired boxes do not match scenario")
+        if scenario["execution"]["active_gripper"] != args.active_gripper:
+            raise ValueError("executor active gripper does not match scenario")
+    else:
+        scenario = None
+    snapshot_target_poses_b = _snapshot_target_poses_b(approach, target_keys)
+    snapshot_target_pose_b = snapshot_target_poses_b[target_keys[0]]
+    source_commit = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=PROJECT_DIR, text=True
+    ).strip()
     plan_joint_names = tuple(approach["joint_names"])
     if plan_joint_names not in (ARM_JOINTS, WAIST_ARM_JOINTS):
         raise ValueError("Approach plan has an unsupported joint order.")
@@ -340,6 +414,8 @@ def _main() -> None:
     kinematic_approach_render_frames_effective = None
     global_step = 0
     frame_dir = args.video_out.expanduser().resolve().parent / "frames"
+    report_written = False
+    write_report = None
     try:
         env.reset(seed=args.seed)
         print("[GRASP_PULL] env_reset", flush=True)
@@ -380,7 +456,7 @@ def _main() -> None:
             }
             apply_initial_state(env, None, torso_state, f"torso_{args.torso_height_m:.3f}m")
             print(f"[GRASP_PULL] torso_height_m={args.torso_height_m:.3f}", flush=True)
-        parked = _park_same_shelf_boxes(env)
+        parked = _park_same_shelf_boxes(env) if args.clear_same_shelf_boxes else []
         print(f"[GRASP_PULL] parked={parked}", flush=True)
         env.scene.write_data_to_sim()
         env.sim.forward()
@@ -388,17 +464,25 @@ def _main() -> None:
         print("[GRASP_PULL] scene_forwarded", flush=True)
 
         robot = env.scene["robot"]
-        box = env.scene["medium_box_0"]
+        boxes = {key: env.scene[key] for key in target_keys}
+        box = boxes[target_keys[0]]
         camera = env.scene["joint_editor_camera"]
         arm_ids, arm_names = robot.find_joints(plan_joint_names, preserve_order=True)
         motor_ids, motor_names = robot.find_joints(MOTOR_JOINTS, preserve_order=True)
         eef_ids, eef_names = robot.find_bodies(EEF_BODIES, preserve_order=True)
-        box_body_ids, box_body_names = box.find_bodies("Body")
+        target_body_ids = {}
+        target_body_names = {}
+        for key, target_box in boxes.items():
+            body_ids, body_names = target_box.find_bodies("Body")
+            if len(body_ids) != 1:
+                raise RuntimeError(f"Body lookup mismatch for {key}: {body_names}")
+            target_body_ids[key] = body_ids[0]
+            target_body_names[key] = body_names
         if tuple(arm_names) != plan_joint_names or tuple(motor_names) != MOTOR_JOINTS:
             raise RuntimeError(f"Joint lookup mismatch: arms={arm_names}, motors={motor_names}")
-        if tuple(eef_names) != EEF_BODIES or len(box_body_ids) != 1:
-            raise RuntimeError(f"Body lookup mismatch: eef={eef_names}, box={box_body_names}")
-        box_body_id = box_body_ids[0]
+        if tuple(eef_names) != EEF_BODIES:
+            raise RuntimeError(f"Body lookup mismatch: eef={eef_names}")
+        box_body_id = target_body_ids[target_keys[0]]
         print("[GRASP_PULL] joints_and_bodies_resolved", flush=True)
 
         root_pos = robot.data.root_pos_w[0]
@@ -433,6 +517,7 @@ def _main() -> None:
         print(f"[GRASP_PULL] frame_directory={frame_dir}", flush=True)
 
         def write_report(report: dict) -> None:
+            nonlocal report_written
             report["phase_frame_counts"] = dict(phase_frame_counts)
             report["kinematic_approach_render_frames_requested"] = (
                 args.kinematic_approach_render_frames
@@ -447,8 +532,20 @@ def _main() -> None:
                 fps=1.0 / (env.physics_dt * args.capture_stride),
                 overwrite=args.overwrite_video,
             )
+            report["source_commit"] = source_commit
+            report["input_sha256"] = {
+                "approach_plan": _sha256_file(args.approach_plan.expanduser().resolve()),
+                "retreat_plan": _sha256_file(args.retreat_plan.expanduser().resolve()),
+                "scenario": (
+                    _sha256_file(args.scenario_path.expanduser().resolve())
+                    if args.scenario_path is not None
+                    else None
+                ),
+            }
+            report["video_sha256"] = _sha256_file(args.video_out.expanduser().resolve())
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+            report_written = True
 
         def step_once(
             phase: str,
@@ -484,7 +581,13 @@ def _main() -> None:
                 phase_frame_counts[phase] = phase_frame_counts.get(phase, 0) + 1
             actual = robot.data.joint_pos[0, arm_ids]
             tracking_error = torch.abs(actual - arm_reference[0])
-            box_pos_b, _ = _body_pose_b(robot, box, box_body_id)
+            box_positions_b = {
+                key: _body_pose_b(robot, boxes[key], target_body_ids[key])[0][0]
+                .detach()
+                .cpu()
+                .tolist()
+                for key in target_keys
+            }
             eef_pos_b = _eef_positions_b(robot, eef_ids)
             samples.append(
                 {
@@ -498,7 +601,8 @@ def _main() -> None:
                         if waist_count
                         else None
                     ),
-                    "box_body_position_b_m": box_pos_b[0].detach().cpu().tolist(),
+                    "box_body_position_b_m": box_positions_b[target_keys[0]],
+                    "box_body_positions_b_m": box_positions_b,
                     "eef_positions_b_m": eef_pos_b.detach().cpu().tolist(),
                     "gripper_motor_position_rad": robot.data.joint_pos[0, motor_ids].detach().cpu().tolist(),
                 }
@@ -508,21 +612,25 @@ def _main() -> None:
         for _ in range(args.settle_steps):
             step_once("settle")
         print("[GRASP_PULL] settle_complete", flush=True)
-        settled_box_pos_b, settled_box_quat_b = _body_pose_b(robot, box, box_body_id)
-        snapshot_position_error_m = float(
-            torch.linalg.vector_norm(
-                settled_box_pos_b[0]
-                - torch.tensor(
-                    snapshot_target_pose_b[:3],
-                    device=env.device,
-                    dtype=settled_box_pos_b.dtype,
-                )
-            ).item()
-        )
-        snapshot_orientation_error_deg = _quaternion_error_deg(
-            settled_box_quat_b[0].detach().cpu().tolist(),
-            snapshot_target_pose_b[3:],
-        )
+        settled_box_poses = {}
+        snapshot_position_errors_m = {}
+        snapshot_orientation_errors_deg = {}
+        for key in target_keys:
+            position, quaternion = _body_pose_b(robot, boxes[key], target_body_ids[key])
+            settled_box_poses[key] = (position, quaternion)
+            target_pose = snapshot_target_poses_b[key]
+            snapshot_position_errors_m[key] = float(
+                torch.linalg.vector_norm(
+                    position[0]
+                    - torch.tensor(target_pose[:3], device=env.device, dtype=position.dtype)
+                ).item()
+            )
+            snapshot_orientation_errors_deg[key] = _quaternion_error_deg(
+                quaternion[0].detach().cpu().tolist(), target_pose[3:]
+            )
+        settled_box_pos_b, settled_box_quat_b = settled_box_poses[target_keys[0]]
+        snapshot_position_error_m = max(snapshot_position_errors_m.values())
+        snapshot_orientation_error_deg = max(snapshot_orientation_errors_deg.values())
         print(
             "[GRASP_PULL] snapshot_gate "
             f"position_error_m={snapshot_position_error_m:.6f} "
@@ -694,12 +802,24 @@ def _main() -> None:
                     else approach_index in approach_capture_indices
                 ),
             )
-        grasp_box_pos_b, grasp_box_quat_b = _body_pose_b(robot, box, box_body_id)
-        approach_box_motion = float(
-            torch.linalg.vector_norm(grasp_box_pos_b - settled_box_pos_b).item()
-        )
+        grasp_box_poses = {
+            key: _body_pose_b(robot, boxes[key], target_body_ids[key]) for key in target_keys
+        }
+        approach_box_motion_by_key = {
+            key: float(
+                torch.linalg.vector_norm(
+                    grasp_box_poses[key][0] - settled_box_poses[key][0]
+                ).item()
+            )
+            for key in target_keys
+        }
+        grasp_box_pos_b, grasp_box_quat_b = grasp_box_poses[target_keys[0]]
+        approach_box_motion = max(approach_box_motion_by_key.values())
         approach_contact_free = bool(
-            approach_box_motion <= args.approach_box_motion_max_m
+            all(
+                motion <= args.approach_box_motion_max_m
+                for motion in approach_box_motion_by_key.values()
+            )
         )
         if args.approach_only or not approach_contact_free:
             report = {
@@ -723,6 +843,9 @@ def _main() -> None:
                     (settled_box_pos_b[0], settled_box_quat_b[0])
                 ).cpu().tolist(),
                 "snapshot_target_box_pose_b": snapshot_target_pose_b,
+                "snapshot_target_box_poses_b": snapshot_target_poses_b,
+                "snapshot_position_errors_m": snapshot_position_errors_m,
+                "snapshot_orientation_errors_deg": snapshot_orientation_errors_deg,
                 "snapshot_position_error_m": snapshot_position_error_m,
                 "snapshot_orientation_error_deg": snapshot_orientation_error_deg,
                 "waypoint_tracking_tolerance_rad": args.waypoint_tracking_tolerance_rad,
@@ -739,6 +862,7 @@ def _main() -> None:
                     (grasp_box_pos_b[0], grasp_box_quat_b[0])
                 ).cpu().tolist(),
                 "approach_box_motion_m": approach_box_motion,
+                "approach_box_motion_by_key_m": approach_box_motion_by_key,
                 "phase_summaries": {
                     phase: _phase_summary(samples, phase)
                     for phase in ("settle", "approach")
@@ -760,7 +884,10 @@ def _main() -> None:
             step_once("close")
         for _ in range(args.closed_hold_steps):
             step_once("closed_hold")
-        closed_box_pos_b, closed_box_quat_b = _body_pose_b(robot, box, box_body_id)
+        closed_box_poses = {
+            key: _body_pose_b(robot, boxes[key], target_body_ids[key]) for key in target_keys
+        }
+        closed_box_pos_b, closed_box_quat_b = closed_box_poses[target_keys[0]]
         closed_eef_pos_b = _eef_positions_b(robot, eef_ids)
         closed_motor_position = robot.data.joint_pos[0, motor_ids].detach().cpu().tolist()
 
@@ -769,7 +896,10 @@ def _main() -> None:
         for _ in range(args.final_hold_steps):
             step_once("final_hold")
 
-        final_box_pos_b, final_box_quat_b = _body_pose_b(robot, box, box_body_id)
+        final_box_poses = {
+            key: _body_pose_b(robot, boxes[key], target_body_ids[key]) for key in target_keys
+        }
+        final_box_pos_b, final_box_quat_b = final_box_poses[target_keys[0]]
         final_eef_pos_b = _eef_positions_b(robot, eef_ids)
         closed_reference = torch.tensor(
             retention_reference(
@@ -814,6 +944,123 @@ def _main() -> None:
             args.active_gripper,
             args.motor_obstruction_min_rad,
         )
+        if paired_mode:
+            closed_positions = {
+                key: closed_box_poses[key][0][0].detach().cpu().tolist()
+                for key in target_keys
+            }
+            pair_metrics = paired_retention_metrics(
+                samples, target_keys, args.active_gripper, closed_positions
+            )
+            tracking_error_max = max(
+                row["arm_tracking_error_max_rad"]
+                for row in samples
+                if row["phase"] in ("approach", "retreat")
+            )
+            tracking_passed = bool(
+                tracking_error_max <= args.waypoint_tracking_tolerance_rad
+            )
+            passed, acceptance_mode = paired_box_acceptance(
+                pair_metrics,
+                approach_box_motion_m=approach_box_motion_by_key,
+                approach_box_motion_max_m=args.approach_box_motion_max_m,
+                progress_min_m=args.partial_extraction_front_progress_min_m,
+                pair_separation_drift_max_m=args.pair_separation_drift_max_m,
+                hand_pair_center_drift_max_m=args.retention_drift_max_m,
+                final_hold_box_motion_max_m=args.final_hold_box_motion_max_m,
+                active_motor_obstruction=active_motor_obstruction,
+                tracking_passed=tracking_passed,
+            )
+            box_extractions = {}
+            closed_pose_by_key = {}
+            final_pose_by_key = {}
+            for key in target_keys:
+                closed_pose_by_key[key] = torch.cat(
+                    (closed_box_poses[key][0][0], closed_box_poses[key][1][0])
+                ).cpu().tolist()
+                final_pose_by_key[key] = torch.cat(
+                    (final_box_poses[key][0][0], final_box_poses[key][1][0])
+                ).cpu().tolist()
+                box_extractions[key] = box_extraction_metrics(
+                    closed_pose_by_key[key],
+                    final_pose_by_key[key],
+                    box_size_m=args.box_size_m,
+                    rack_front_x_b_m=args.rack_front_x_b_m,
+                    front_progress_min_m=args.partial_extraction_front_progress_min_m,
+                    front_inside_max_m=args.partial_extraction_front_inside_max_m,
+                    final_hold_box_motion_m=pair_metrics["final_hold_box_motion_m"][key],
+                    final_hold_box_motion_max_m=args.final_hold_box_motion_max_m,
+                )
+            report = {
+                "passed": passed,
+                "acceptance_mode": acceptance_mode,
+                "active_gripper": args.active_gripper,
+                "paired_boxes": list(target_keys),
+                "approach_contact_free": approach_contact_free,
+                "tracking_passed": tracking_passed,
+                "tracking_error_max_rad": tracking_error_max,
+                "active_motor_obstruction": active_motor_obstruction,
+                "bilateral_motor_obstruction": bilateral_obstruction,
+                "hand_motor_obstruction_rad": hand_motor_obstruction_rad,
+                **pair_metrics,
+                "box_extraction_metrics": box_extractions,
+                "acceptance": {
+                    "box_robotward_progress_m_min": args.partial_extraction_front_progress_min_m,
+                    "pair_separation_drift_m_max": args.pair_separation_drift_max_m,
+                    "hand_pair_center_drift_m_max": args.retention_drift_max_m,
+                    "final_hold_box_motion_m_max": args.final_hold_box_motion_max_m,
+                    "approach_box_motion_m_max": args.approach_box_motion_max_m,
+                    "motor_obstruction_rad_min": args.motor_obstruction_min_rad,
+                    "waypoint_tracking_error_rad_max": args.waypoint_tracking_tolerance_rad,
+                },
+                "scenario_path": str(args.scenario_path.expanduser().resolve()),
+                "approach_plan": str(args.approach_plan.expanduser().resolve()),
+                "retreat_plan": str(args.retreat_plan.expanduser().resolve()),
+                "plan_joint_names": list(plan_joint_names),
+                "tcp_frame": CENTER_FRAME_NAME,
+                "frame_directory": str(frame_dir),
+                "initial_state": args.initial_state,
+                "torso_height_m": args.torso_height_m,
+                "parked_same_shelf_boxes": parked,
+                "junction_max_abs_rad": junction_error,
+                "physics_dt_s": env.physics_dt,
+                "frame_count": frame_count,
+                "snapshot_target_box_poses_b": snapshot_target_poses_b,
+                "snapshot_position_errors_m": snapshot_position_errors_m,
+                "snapshot_orientation_errors_deg": snapshot_orientation_errors_deg,
+                "approach_box_motion_by_key_m": approach_box_motion_by_key,
+                "closed_box_poses_b": closed_pose_by_key,
+                "final_box_poses_b": final_pose_by_key,
+                "closed_gripper_motor_position_rad": closed_motor_position,
+                "final_gripper_motor_position_rad": robot.data.joint_pos[0, motor_ids]
+                .detach()
+                .cpu()
+                .tolist(),
+                "phase_summaries": {
+                    phase: _phase_summary(samples, phase)
+                    for phase in (
+                        "settle",
+                        "approach",
+                        "close",
+                        "closed_hold",
+                        "retreat",
+                        "final_hold",
+                    )
+                },
+                "samples": samples,
+            }
+            write_report(report)
+            print(
+                "[GRASP_PULL]",
+                json.dumps({key: value for key, value in report.items() if key != "samples"}),
+                flush=True,
+            )
+            if not passed:
+                print(
+                    "[GRASP_PULL] Paired-box physical acceptance failed; keeping video/report for diagnosis.",
+                    flush=True,
+                )
+            return
         object_followed = bool(
             retreat_box_motion >= args.retreat_box_motion_min_m
             and final_hold_box_motion <= args.final_hold_box_motion_max_m
@@ -913,10 +1160,29 @@ def _main() -> None:
         print("[GRASP_PULL]", json.dumps({key: value for key, value in report.items() if key != "samples"}), flush=True)
         if not report["passed"]:
             print("[GRASP_PULL] Physical acceptance failed; keeping video/report for diagnosis.", flush=True)
-    except BaseException:
-        import traceback
-
+    except BaseException as error:
         traceback.print_exc()
+        if write_report is not None and not report_written and frame_count:
+            try:
+                write_report(
+                    {
+                        "passed": False,
+                        "acceptance_mode": (
+                            "paired_single_hand_partial_extraction"
+                            if paired_mode
+                            else "runtime_failure"
+                        ),
+                        "runtime_failure": type(error).__name__,
+                        "runtime_failure_message": str(error),
+                        "active_gripper": args.active_gripper,
+                        "paired_boxes": list(target_keys) if paired_mode else None,
+                        "frame_directory": str(frame_dir),
+                        "frame_count": frame_count,
+                        "samples": samples,
+                    }
+                )
+            except BaseException:
+                traceback.print_exc()
         raise
     finally:
         env.close()

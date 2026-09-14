@@ -1,7 +1,114 @@
 """Pure helpers for selecting the physical Task1 grasping hand."""
 
+import math
+
 
 DEFAULT_KINEMATIC_APPROACH_RENDER_FRAMES = 73
+
+
+def executor_target_keys(
+    paired_boxes: list[str] | tuple[str, ...] | None,
+    clear_same_shelf_boxes: bool,
+) -> tuple[str, ...]:
+    """Resolve the exact physical targets without silently removing pair mates."""
+    if paired_boxes is None:
+        return ("medium_box_0",)
+    keys = tuple(paired_boxes)
+    if len(keys) != 2 or len(set(keys)) != 2 or not all(keys):
+        raise ValueError("paired_boxes must contain two distinct box keys")
+    if clear_same_shelf_boxes:
+        raise ValueError("both paired boxes must remain in the scene")
+    return keys
+
+
+def _distance(first, second) -> float:
+    if len(first) != 3 or len(second) != 3:
+        raise ValueError("positions must contain xyz")
+    return math.sqrt(sum((float(a) - float(b)) ** 2 for a, b in zip(first, second, strict=True)))
+
+
+def _midpoint(first, second) -> list[float]:
+    return [(float(a) + float(b)) * 0.5 for a, b in zip(first, second, strict=True)]
+
+
+def paired_retention_metrics(
+    samples: list[dict],
+    paired_boxes: tuple[str, str],
+    active_gripper: str,
+    closed_box_positions: dict[str, list[float]],
+) -> dict:
+    """Measure whether two boxes follow one active TCP as a retained pair."""
+    if active_gripper not in ("left", "right"):
+        raise ValueError("paired retention requires one active gripper")
+    keys = executor_target_keys(paired_boxes, False)
+    if set(closed_box_positions) != set(keys):
+        raise ValueError("closed_box_positions must contain exactly the paired boxes")
+    rows = [row for row in samples if row.get("phase") in ("retreat", "final_hold")]
+    if not rows:
+        raise ValueError("paired retention requires retreat or final-hold samples")
+    hand_index = {"left": 0, "right": 1}[active_gripper]
+    closed_center = _midpoint(*(closed_box_positions[key] for key in keys))
+    first_hand = rows[0]["eef_positions_b_m"][hand_index]
+    closed_relative = [closed_center[i] - float(first_hand[i]) for i in range(3)]
+    initial_separation = _distance(*(closed_box_positions[key] for key in keys))
+    separation_drifts = []
+    hand_center_drifts = []
+    for row in rows:
+        positions = row["box_body_positions_b_m"]
+        if set(positions) != set(keys):
+            raise ValueError("every pair sample must contain exactly both boxes")
+        center = _midpoint(*(positions[key] for key in keys))
+        hand = row["eef_positions_b_m"][hand_index]
+        relative = [center[i] - float(hand[i]) for i in range(3)]
+        separation_drifts.append(abs(_distance(*(positions[key] for key in keys)) - initial_separation))
+        hand_center_drifts.append(_distance(relative, closed_relative))
+    final_positions = rows[-1]["box_body_positions_b_m"]
+    hold_rows = [row for row in rows if row["phase"] == "final_hold"]
+    if not hold_rows:
+        raise ValueError("paired retention requires final-hold samples")
+    first_hold = hold_rows[0]["box_body_positions_b_m"]
+    last_hold = hold_rows[-1]["box_body_positions_b_m"]
+    return {
+        "box_robotward_progress_m": {
+            key: round(float(closed_box_positions[key][0]) - float(final_positions[key][0]), 12)
+            for key in keys
+        },
+        "pair_separation_drift_max_m": max(separation_drifts),
+        "hand_pair_center_drift_max_m": max(hand_center_drifts),
+        "final_hold_box_motion_m": {
+            key: _distance(first_hold[key], last_hold[key]) for key in keys
+        },
+    }
+
+
+def paired_box_acceptance(
+    metrics: dict,
+    *,
+    approach_box_motion_m: dict[str, float],
+    approach_box_motion_max_m: float,
+    progress_min_m: float,
+    pair_separation_drift_max_m: float,
+    hand_pair_center_drift_max_m: float,
+    final_hold_box_motion_max_m: float,
+    active_motor_obstruction: bool,
+    tracking_passed: bool,
+) -> tuple[bool, str]:
+    """Apply the fixed two-box, one-hand physical acceptance contract."""
+    progress = metrics["box_robotward_progress_m"]
+    final_motion = metrics["final_hold_box_motion_m"]
+    keys = set(progress)
+    if set(approach_box_motion_m) != keys or set(final_motion) != keys or len(keys) != 2:
+        raise ValueError("paired acceptance requires the same exact two boxes")
+    passed = bool(
+        all(float(approach_box_motion_m[key]) <= approach_box_motion_max_m for key in keys)
+        and all(float(progress[key]) >= progress_min_m for key in keys)
+        and float(metrics["pair_separation_drift_max_m"]) <= pair_separation_drift_max_m
+        and float(metrics["hand_pair_center_drift_max_m"]) <= hand_pair_center_drift_max_m
+        and all(float(final_motion[key]) <= final_hold_box_motion_max_m for key in keys)
+        and active_motor_obstruction
+        and tracking_passed
+    )
+    return passed, "paired_single_hand_partial_extraction"
 
 
 def resolved_kinematic_capture_frame_count(
