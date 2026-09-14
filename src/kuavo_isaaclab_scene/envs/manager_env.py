@@ -41,7 +41,6 @@ from ..robots.gripper_runtime import (
     build_gripper_group_cfg,
 )
 from ..core.paths import ASSET_DIR, BOX_ATLAS_ASSETS
-from ..core.paths import RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET
 from ..workcell.rack_box_layout import (
     RACK_BACK_ROW_DEPTH_RAW,
     RACK_FRONT_ROW_DEPTH_RAW,
@@ -52,7 +51,11 @@ from ..workcell.rack_box_layout import (
     resolve_rack_box_layout,
     resolve_rack_box_pose_path,
 )
-from ..workcell.rack_rollers import resolve_rack_roller_settings
+from ..workcell.rack_rollers import (
+    rack_roller_status,
+    rack_visual_asset,
+    resolve_rack_roller_settings,
+)
 from ..workcell.workcell_layout import (
     local_quat_to_world,
     offset as layout_offset,
@@ -72,13 +75,11 @@ OPEN_TOTE_USD = ASSET_DIR / "open_tote.usda"
 MOBILE_ROBOT_USD = ASSET_DIR / "mobile_robot.usda"
 BUTTON_STATION_USD = ASSET_DIR / "button_station.usda"
 WORKCELL_GROUPS_USD = ASSET_DIR / "workcell_groups.usda"
-RACK_USD_LOCAL = ASSET_DIR / "Rack.usd"
 SMALL_BOX_USD = BOX_ATLAS_ASSETS["small"]
 MEDIUM_BOX_USD = BOX_ATLAS_ASSETS["medium"]
 LARGE_BOX_USD = BOX_ATLAS_ASSETS["large"]
 XLARGE_BOX_USD = BOX_ATLAS_ASSETS["xlarge"]
 FACTORY_USD = f"{NUCLEUS_ASSET_ROOT_DIR}/Isaac/Environments/Simple_Warehouse/warehouse.usd"
-RACK_USD = str(RACK_USD_LOCAL)
 CONVEYOR_USD = (
     f"{NUCLEUS_ASSET_ROOT_DIR}/NVIDIA/Assets/DigitalTwin/Assets/Warehouse/"
     "Equipment/Conveyors/ConveyorBelt_A/ConveyorBelt_A08_PR_NVD_01.usd"
@@ -99,25 +100,12 @@ RACK_BOX_WORLD_ROT = local_quat_to_world("rack", RACK_BOX_LOCAL_PITCH_QUAT)
 RACK_BOX_LAYOUT = resolve_rack_box_layout()
 CAPTURED_RACK_BOX_POSE_PATH = resolve_rack_box_pose_path()
 RACK_ROLLER_SETTINGS = resolve_rack_roller_settings()
-if RACK_ROLLER_SETTINGS.enabled:
-    missing = [path for path in (RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET) if not path.is_file()]
-    if missing:
-        raise FileNotFoundError(
-            f"Missing rack roller asset(s): {', '.join(map(str, missing))}. "
-            "Build rack_roller.usda with workcell/rack_rollers.write_roller_deck_usda; "
-            "rack_roller_runtime.usda is its committed GPU-safe composition."
-        )
+RACK_VISUAL_ASSET = rack_visual_asset(RACK_ROLLER_SETTINGS)
 RACK_ROLLER_EXTRA_CLEARANCE_M = (
     RACK_ROLLER_SETTINGS.box_clearance_m if RACK_ROLLER_SETTINGS.enabled else 0.0
 )
 if RACK_ROLLER_SETTINGS.enabled:
-    print(
-        f"[INFO] Rack rollers enabled: {RACK_ROLLER_SETTINGS.rows}x{RACK_ROLLER_SETTINGS.columns} "
-        f"free-spinning cylinders per tier, diameter {RACK_ROLLER_SETTINGS.diameter_m * 100:.1f} cm; "
-        f"recessed {RACK_ROLLER_SETTINGS.recess_m * 100:.1f} cm into the shelf surface; "
-        f"boxes raised by {RACK_ROLLER_EXTRA_CLEARANCE_M * 100:.1f} cm to rest on top.",
-        flush=True,
-    )
+    print(rack_roller_status(RACK_ROLLER_SETTINGS, include_clearance=True), flush=True)
 RACK_BOX_SPAWN_PLAN = build_box_spawn_plan(
     RACK_BOX_LAYOUT,
     RACK_SLOPE_RAD,
@@ -629,7 +617,7 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
     rack_visual = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=str(RACK_ROLLER_RUNTIME_ASSET) if RACK_ROLLER_SETTINGS.enabled else RACK_USD,
+            usd_path=str(RACK_VISUAL_ASSET),
             scale=(1.0, 1.0, 1.0),
             articulation_props=(
                 sim_utils.ArticulationRootPropertiesCfg(

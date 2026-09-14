@@ -3,9 +3,13 @@
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import AssetBaseCfg, ArticulationCfg, RigidObjectCfg
-from ...core.paths import ASSET_DIR, RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET
+from ...core.paths import ASSET_DIR
 from ...workcell.workcell_layout import position, rotation, scale, offset, remap_quat
-from ...workcell.rack_rollers import resolve_rack_roller_settings
+from ...workcell.rack_rollers import (
+    rack_roller_status,
+    rack_visual_asset,
+    resolve_rack_roller_settings,
+)
 from isaaclab.sim.utils import clone
 
 
@@ -49,24 +53,12 @@ def add_workcell(scene, parallel):
     scene.rack = group("{ENV_REGEX_NS}/Workcell/Racks/Rack",
         pos=position("rack"), rot=rotation("rack"), scaling=scale("rack"))
     roller_settings = resolve_rack_roller_settings()
+    rack_asset = rack_visual_asset(roller_settings)
     if roller_settings.enabled:
-        missing = [path for path in (RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET) if not path.is_file()]
-        if missing:
-            raise FileNotFoundError(
-                f"Missing rack roller asset(s): {', '.join(map(str, missing))}. "
-                "Build rack_roller.usda with workcell/rack_rollers.write_roller_deck_usda; "
-                "rack_roller_runtime.usda is its committed GPU-safe composition."
-            )
-    if roller_settings.enabled:
-        print(
-            f"[INFO] Rack rollers enabled: {roller_settings.rows}x{roller_settings.columns} "
-            f"free-spinning cylinders per tier, diameter {roller_settings.diameter_m * 100:.1f} cm; "
-            f"recessed {roller_settings.recess_m * 100:.1f} cm into the shelf surface.",
-            flush=True,
-        )
+        print(rack_roller_status(roller_settings), flush=True)
     scene.rack_visual = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=str(RACK_ROLLER_RUNTIME_ASSET) if roller_settings.enabled else str(ASSET_DIR / "Rack.usd"),
+            usd_path=str(rack_asset),
             # The runtime composition has a kinematic RackBody and three
             # sibling RollerDeck articulations. Do not wrap their common root.
             func=sim_utils.spawn_from_usd if roller_settings.enabled else spawn_kinematic_rack,

@@ -23,7 +23,13 @@ from pathlib import Path
 import sys
 
 from ..workcell.box_flap_friction import resolve_flap_friction_settings
-from ..workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller_cli, resolve_rack_roller_settings
+from ..workcell.rack_rollers import (
+    add_rack_roller_cli_args,
+    export_rack_roller_cli,
+    rack_roller_status,
+    rack_visual_asset,
+    resolve_rack_roller_settings,
+)
 from ..robots.gripper_config import (
     add_gripper_cli_args,
     export_gripper_cli,
@@ -253,7 +259,7 @@ from ..robots.gripper_runtime import (
     build_gripper_attachment_cfg,
     build_gripper_group_cfg,
 )
-from ..core.paths import ASSET_DIR, BOX_ATLAS_ASSETS, RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET
+from ..core.paths import ASSET_DIR, BOX_ATLAS_ASSETS
 from .scene_physics import build_box_flap_actuator, build_contact_box_spawn, configure_robot_asset_physics
 from ..robots.robot_model import resolve_robot_model
 
@@ -268,13 +274,11 @@ KUAVO_USD = Path(ROBOT_MODEL.usd_path)
 OPEN_TOTE_USD = ASSET_DIR / "open_tote.usda"
 BUTTON_STATION_USD = ASSET_DIR / "button_station.usda"
 WORKCELL_GROUPS_USD = ASSET_DIR / "workcell_groups.usda"
-RACK_USD_LOCAL = ASSET_DIR / "Rack.usd"
 SMALL_BOX_USD = BOX_ATLAS_ASSETS["small"]
 MEDIUM_BOX_USD = BOX_ATLAS_ASSETS["medium"]
 LARGE_BOX_USD = BOX_ATLAS_ASSETS["large"]
 XLARGE_BOX_USD = BOX_ATLAS_ASSETS["xlarge"]
 FACTORY_USD = f"{NUCLEUS_ASSET_ROOT_DIR}/Isaac/Environments/Simple_Warehouse/warehouse.usd"
-RACK_USD = str(RACK_USD_LOCAL)
 CONVEYOR_USD = (
     f"{NUCLEUS_ASSET_ROOT_DIR}/NVIDIA/Assets/DigitalTwin/Assets/Warehouse/"
     "Equipment/Conveyors/ConveyorBelt_A/ConveyorBelt_A08_PR_NVD_01.usd"
@@ -301,21 +305,12 @@ RACK_BOX_SPAWN_PLAN = build_box_spawn_plan(
     extra_clearance_m=ROLLER_EXTRA_CLEARANCE_M,
 )
 CONFIGURED_RACK_BOX_IDS = rack_instance_names(RACK_BOX_SPAWN_PLAN)
+try:
+    RACK_VISUAL_ASSET = rack_visual_asset(ROLLER_SETTINGS)
+except FileNotFoundError as exc:
+    parser.error(str(exc))
 if ROLLER_SETTINGS.enabled:
-    missing = [path for path in (RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET) if not path.is_file()]
-    if missing:
-        parser.error(
-            f"Missing rack roller asset(s): {', '.join(map(str, missing))}. "
-            "Build rack_roller.usda with workcell/rack_rollers.write_roller_deck_usda; "
-            "rack_roller_runtime.usda is its committed GPU-safe composition."
-        )
-    print(
-        f"[INFO] Rack rollers enabled: {ROLLER_SETTINGS.rows}x{ROLLER_SETTINGS.columns} "
-        f"free-spinning cylinders per tier, diameter {ROLLER_SETTINGS.diameter_m * 100:.1f} cm; "
-        f"recessed {ROLLER_SETTINGS.recess_m * 100:.1f} cm into the shelf surface; "
-        f"boxes raised by {ROLLER_EXTRA_CLEARANCE_M * 100:.1f} cm to rest on top.",
-        flush=True,
-    )
+    print(rack_roller_status(ROLLER_SETTINGS, include_clearance=True), flush=True)
 # The legacy front/back pair uses the same Rack.usd-local depth coordinates as
 # the configurable local boxes. All rack poses therefore share one reference.
 RACK_BOX_IDS = (
@@ -808,7 +803,7 @@ class RackToConveyorSceneCfg(InteractiveSceneCfg):
     rack_visual = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=str(RACK_ROLLER_RUNTIME_ASSET) if ROLLER_SETTINGS.enabled else RACK_USD,
+            usd_path=str(RACK_VISUAL_ASSET),
             scale=(1.0, 1.0, 1.0),
             articulation_props=(
                 sim_utils.ArticulationRootPropertiesCfg(

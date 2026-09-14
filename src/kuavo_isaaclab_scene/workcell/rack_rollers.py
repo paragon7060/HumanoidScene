@@ -28,6 +28,7 @@ import os
 from pathlib import Path
 import tempfile
 
+from ..core.paths import ASSET_DIR, RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET
 from .rack_box_layout import RACK_RAMP_BACK_DEPTH_RAW, RACK_SHELF_CENTER_LOCAL_X_RAW
 from .workcell_layout import rack_tier_surface_z, scale as layout_scale
 
@@ -54,6 +55,7 @@ DEFAULT_ROLLER_MASS_KG = 0.05
 # xformOp:translate must be given relative to this offset, not the bare
 # Rack root.
 RACK_SHELF_NAMES: dict[int, str] = {1: "shelf_01", 2: "shelf_02", 3: "shelf_03"}
+RACK_ROLLER_TIERS = tuple(RACK_SHELF_NAMES)
 RACK_SHELF_LOCAL_Z_OFFSETS: dict[int, float] = {1: 0.395, 2: 1.0, 3: 1.61}
 # The source shelf_ramp cube is 5 cm thick. Recessing 2 cm out of its
 # middle before the rollers sit down means boxes only rise by
@@ -109,6 +111,46 @@ class RackRollerSettings:
     def box_clearance_m(self) -> float:
         """How much higher boxes rest above the original shelf surface."""
         return max(0.0, self.diameter_m - self.recess_m)
+
+
+def rack_visual_asset(settings: RackRollerSettings) -> Path:
+    """Select the plain or roller rack and validate roller dependencies once."""
+    if not settings.enabled:
+        return ASSET_DIR / "Rack.usd"
+    missing = [path for path in (RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET) if not path.is_file()]
+    if missing:
+        raise FileNotFoundError(
+            f"Missing rack roller asset(s): {', '.join(map(str, missing))}. "
+            "Build rack_roller.usda with workcell/rack_rollers.write_roller_deck_usda; "
+            "rack_roller_runtime.usda is its committed GPU-safe composition."
+        )
+    return RACK_ROLLER_RUNTIME_ASSET
+
+
+def rack_roller_status(settings: RackRollerSettings, *, include_clearance: bool = False) -> str:
+    """Format the shared startup message for a roller-enabled rack."""
+    message = (
+        f"Rack rollers enabled: {settings.rows}x{settings.columns} free-spinning cylinders per tier, "
+        f"diameter {settings.diameter_m * 100:.1f} cm; "
+        f"recessed {settings.recess_m * 100:.1f} cm into the shelf surface"
+    )
+    if include_clearance:
+        message += f"; boxes raised by {settings.box_clearance_m * 100:.1f} cm to rest on top"
+    return f"[INFO] {message}."
+
+
+def rack_contact_body_paths(prim_path: str, usd_path: str | Path | None) -> list[str]:
+    """Return exact rigid-body paths accepted by PhysX GPU contact filters."""
+    if usd_path is None or Path(usd_path).name != RACK_ROLLER_RUNTIME_ASSET.name:
+        return [prim_path]
+    paths = [f"{prim_path}/RackBody"]
+    paths.extend(
+        f"{prim_path}/RollerDeck_0{tier}/Roller_r{row:02d}_c{column:02d}"
+        for tier in RACK_ROLLER_TIERS
+        for row in range(DEFAULT_ROLLER_ROWS)
+        for column in range(DEFAULT_ROLLER_COLUMNS)
+    )
+    return paths
 
 
 def _env_bool(name: str, fallback: bool) -> bool:
@@ -469,7 +511,7 @@ def generate_roller_deck_usda(settings: RackRollerSettings, rack_slope_rad: floa
             materials_root,
             f"/{root_name}/RackBody/Rack/{RACK_SHELF_NAMES[tier]}/RollerDeck",
         )
-        for tier in (1, 2, 3)
+        for tier in RACK_ROLLER_TIERS
     )
     return f"""#usda 1.0
 (
