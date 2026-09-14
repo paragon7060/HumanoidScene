@@ -339,6 +339,83 @@ RewardProbe는 reward 계산 후, 자동 reset 전에 이미 계산된 값을 �
 RewardManager.compute를 추가 호출하지 않는다. 변경 후 시뮬레이터 실행/VR 시각 검증은
 수행하지 않았으며 실제 패널 위치·크기와 조작성은 사용자가 확인한다.
 
+## 디버깅 패널 표시값 수정
+
+표시만 바꾸는 것과 학습에서 쓰는 reward를 바꾸는 것은 별개다. 아래 경로는
+저장소 루트 기준이며, 설정·코드 수정 후 검사 프로세스를 종료하고 재시작한다.
+
+| 수정 목적 | 파일 / 위치 |
+|---|---|
+| 본문 항목, 순서, 이름, 소수점 | `src/kuavo_isaaclab_scene/rl/debug/reward_report.py` → `format_report()` |
+| 큰 성공/실패 제목, 부족한 조건 | 같은 파일 → `reward_summary()`, `FAILURE_LABELS` |
+| 새로운 물리 상태값 가져오기 | `src/kuavo_isaaclab_scene/rl/debug/reward_recorder.py` → `RewardProbe.record_post_step()`의 sample dictionary |
+| 최근 reaching 합계 시간창 | `reward_report.py` → `ReachRewardSummary(window_s=0.5)` |
+| marker/collider 설명줄, HUD 갱신 간격 | `src/kuavo_isaaclab_scene/rl/debug/quest_reward.py` → `report` 조립 부분, `last_hud`의 `.1`초 조건 |
+| 글꼴·색상·텍스처 크기·패널 위치 | `src/kuavo_isaaclab_scene/display/xr_reward_panel.py` → `reward_image()`, `QuestRewardPanel.__init__()` |
+
+### 항목을 줄이거나 순서 바꾸기
+
+기본 `format_report()`는 `sample["terms"]`의 모든 활성 reward 항목을 표시한다.
+예를 들어 이 함수의 아래 줄을:
+
+```python
+lines += [f"{name}: {value:+.5f}" for name, value in sample["terms"].items()]
+```
+
+다음처럼 바꾸면 선택한 항목만 원하는 순서로 표시한다. reward 계산·학습 가중치는
+바뀌지 않으며, `TOTAL`과 `RETURN`에는 숨긴 항목도 계속 포함된다.
+
+```python
+display_terms = ("reaching", "orientation", "lifted", "disturbance")
+for name in display_terms:
+    if name in sample["terms"]:
+        lines.append(f"{name}: {sample['terms'][name]:+.4f}")
+```
+
+항목 이름은 실제 활성 manager key와 같아야 한다. 현재 출력 또는
+`rl/managers/rewards.py`에서 확인한다. 파지 상세 설명이 너무 길면
+`lines.extend(sample.get("grasp_debug", []))`를 제거하거나 일부만 표시한다.
+큰 성공 조건 헤더는 별도로 `reward_summary()`에서 만들어지므로 본문을 줄여도 유지된다.
+
+### 새로운 상태값 추가하기
+
+예를 들어 손가락 벌어짐 변화도 보고 싶다면 아래처럼 추가한다.
+`grasp_candidate_opening_m`은 **현재 절대 손가락 간격이 아니라 파지 기준 대비
+opening 증가량(m)** 이므로 mm 표시를 위해 1000을 곱한다:
+
+```python
+# RewardProbe.record_post_step(): sample dictionary 안
+"opening_delta_mm": (1000 * t.grasp_candidate_opening_m[0]).detach().cpu().tolist(),
+
+# format_report(): sample이 None이 아닌 else 블록 안
+lines.append(f"Opening delta L/R x flap (mm): {sample.get('opening_delta_mm', [])}")
+```
+
+기존 command/sensor의 캐시를 읽어야 한다. 표시를 위해 reward 함수나
+`RewardManager.compute()`를 다시 호출하면 안 된다. progress/latch 같은 상태가
+추가로 갱신될 수 있기 때문이다. recorder는 **자동 reset 이전** 값으로 snapshot을
+만들며, 패널은 이 snapshot을 읽는다. 종료 후 장면이 초기화되어도 마지막 패널 값은
+종료 직전 상태를 뜻한다.
+
+### 위치·글자 크기와 실제 보상 변경
+
+패널 위치는 `QuestRewardPanel.__init__()`의
+`position=(-5., -4., -28. ...)`이며 단위는 cm, head-relative 좌표다.
+X를 더 음수로 바꾸면 더 왼쪽으로 간다. `reward_image()`의 `_font(36)`은 제목,
+`_font(24)`는 조건, `_font()`는 본문이다. 폰트만 키우면 줄 높이도 함께 조절한다.
+행이 많으면 본문이 전체 높이에 맞게 축소되므로, 우선 표시 항목 수를 줄이는 것이 좋다.
+텍스처 크기를 바꾸려면 `reward_image()`의 기본 width/height와 panel 생성자의
+width/height를 일치시킨다. `pixels_per_cm`은 패널의 물리적 표시 크기에 영향을 준다.
+
+실제 점수는 `configs/rl_pick_arms_only.py`의 `configure()` 또는
+`rl/managers/rewards.py`에서 weight를, `rl/mdp/rewards.py`에서 계산식을 수정한다.
+패널의 `terms`는 이미 **raw × weight × control dt**가 적용된 step 기여도다.
+표시 코드에서 weight/dt를 다시 곱하지 않는다. Reach/Alignment state score는
+진단용 상태 점수이며 실제 step reward가 아니다.
+
+현재 이 패널은 단일 박스 flap-pick 전용이다. `rl/multi_box`의 가중치와 계산식은
+별도의 `rl/multi_box/managers/rewards.py`에 있으며 기존 Quest 패널에는 연결되지 않는다.
+
 ## 패널이 안 보이거나 오류 로그가 나오는 경우
 
 - Y/H를 누르면 `[RL REWARD] Reward panel ON/OFF`와 `[XR REWARD TEXTURE]`가 출력된다.

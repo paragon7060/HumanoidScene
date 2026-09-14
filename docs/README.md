@@ -63,6 +63,43 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 각 문서의 역할은 실행·task 정의, 장면·병렬 구조, 초기 자세, 범용 manager 개발로
 구분한다. 공통 폴더와 import 경계는 [코드 구조 가이드](CODE_STRUCTURE.md)에 있다.
 
+### Quest로 RL reward debugging
+
+저장소 루트에서 기존 Quest 수집기와 같은 연결 절차를 사용한다.
+Runtime/web이 이미 켜져 있으면 앞의 두 명령은 다시 실행하지 않는다.
+
+```bash
+# 터미널 1: CloudXR Runtime
+./quest_collector.sh runtime
+# 터미널 2: Quest 접속 페이지
+./quest_collector.sh web
+# Quest에서 기존 HTTPS 페이지에 접속하고 CONNECT → 터미널 3
+./quest_collector.sh collect --rl-reward-debug \
+  --rl-config configs/rl_pick_arms_only.py
+```
+
+X로 시점을 보정하고 A로 시작/정지한다. 오른손 검지 트리거로 gripper를 조작하며,
+Y로 reward 패널 표시/숨김, B로 초기 자세 복원 후 새 시도를 준비한다.
+체크포인트 없이 직접 움직이며 검사하며, 데이터 수집이나 학습은 수행하지 않는다.
+일반 수집기와 동시에 실행하지 않는다. 현재 검사 대상은 **단일 박스 flap-pick**이며,
+`rl/multi_box`의 4박스 단계별/전체 학습 환경을 검사하는 모드는 아직 아니다.
+
+패널에는 실제 가중치·제어시간이 적용된 항목별 step reward, 합계/누적 return,
+파지·상승·유지 상태와 부족한 성공 조건이 표시된다. 종료 시에는 자동 reset 전의
+마지막 값이 남는다. 카메라 영상이 필요 없으면
+`--no-quest-camera-overlay --no-camera-preview`를 추가한다.
+
+- 표시 항목·이름·순서·소수점: `src/kuavo_isaaclab_scene/rl/debug/reward_report.py`
+- 새 상태값 수집: `src/kuavo_isaaclab_scene/rl/debug/reward_recorder.py`
+- 패널 위치·크기·글꼴: `src/kuavo_isaaclab_scene/display/xr_reward_panel.py`
+- 실제 reward 가중치: `configs/rl_pick_arms_only.py`의 `configure` 또는
+  `src/kuavo_isaaclab_scene/rl/managers/rewards.py`
+- 실제 reward 계산식: `src/kuavo_isaaclab_scene/rl/mdp/rewards.py`
+
+표시 수정 예시와 단위·계산 주의사항은
+[디버깅 패널 수정 방법](RL_QUEST_REWARD_DEBUG.md#디버깅-패널-표시값-수정)에 있다.
+수정 후 검사 프로세스를 재시작해야 반영된다.
+
 ## Policy와 평가
 
 - [GR00T N1.7 평가](GROOT_N1_7_EVAL_GUIDE.md)
