@@ -6,6 +6,7 @@ from data_collection.task1.approach import ARM_JOINT_NAMES
 from data_collection.task1.endpoint import (
     candidate_angles,
     center_out_offsets,
+    endpoint_targets_from_editor_state,
     front_target_candidates,
     parser,
     rmpflow_config,
@@ -13,6 +14,31 @@ from data_collection.task1.endpoint import (
     integrate_rmpflow,
     rotation_vector,
 )
+
+
+def test_pair_endpoint_uses_left_tcp_and_pair_midpoint():
+    inputs = endpoint_targets_from_editor_state(
+        {
+            "target_mode": "paired",
+            "pair_grasp": {
+                "active_arm": "left",
+                "grasp_midpoint_b_m": [0.55, -0.15, 1.12],
+                "closing_axis_b": [0.0, 1.0, 0.0],
+                "selected_flap_paths": ["/a/flap_right", "/b/flap_left"],
+            },
+        }
+    )
+
+    assert inputs["active_arm"] == "left"
+    assert inputs["tool_frames"] == ["zarm_l7_endeffector_center"]
+    np.testing.assert_allclose(
+        inputs["nominal_centers_b_m"], [[0.55, -0.15, 1.12]]
+    )
+    np.testing.assert_allclose(inputs["inward_normals_b"], [[0.0, 1.0, 0.0]])
+    assert inputs["allowed_target_flap_paths"] == [
+        "/a/flap_right",
+        "/b/flap_left",
+    ]
 
 
 def test_center_out_offsets_cover_line_and_prefer_nearby_points():

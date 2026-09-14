@@ -19,6 +19,9 @@ from data_collection.task1.approach import TOOL_FRAMES
 from data_collection.task1.contract import (
     ARM_JOINT_NAMES,
     WAIST_JOINT_NAMES,
+    active_arm_indices,
+    compose_active_arm14,
+    inactive_arm_is_fixed,
     safe_waist_bounds,
 )
 from data_collection.task1.collision import (
@@ -33,6 +36,7 @@ from data_collection.task1.collision import (
     target_flap_line_geometry,
     tool_down_angle_deg,
     tool_down_orientation_targets,
+    xrdf as single_arm_xrdf,
 )
 
 
@@ -75,6 +79,48 @@ def front_target_candidates(
     if np.any(x_values < 0) or not math.isfinite(z_offset_m):
         raise ValueError("front target offsets must be nonnegative and finite")
     return np.column_stack((x_values, np.zeros_like(x_values), np.full_like(x_values, z_offset_m)))
+
+
+def endpoint_targets_from_editor_state(editor_state: dict) -> dict:
+    """Resolve single-box bimanual or paired-box single-arm endpoint inputs."""
+    if editor_state.get("target_mode") != "paired":
+        return {
+            "active_arm": None,
+            "tool_frames": list(TOOL_FRAMES),
+            "nominal_centers_b_m": np.asarray(
+                editor_state["grasp_position_b"], dtype=float
+            ),
+            "inward_normals_b": np.asarray(
+                editor_state["inward_flap_normal_b"], dtype=float
+            ),
+            "allowed_target_flap_paths": [],
+        }
+    pair = editor_state.get("pair_grasp", {})
+    active_arm = pair.get("active_arm")
+    try:
+        tool_frame = TOOL_FRAMES[{"left": 0, "right": 1}[active_arm]]
+    except (KeyError, TypeError) as error:
+        raise ValueError("paired endpoint requires active_arm left or right") from error
+    centers = np.asarray([pair.get("grasp_midpoint_b_m")], dtype=float)
+    normals = np.asarray([pair.get("closing_axis_b")], dtype=float)
+    paths = pair.get("selected_flap_paths")
+    if (
+        centers.shape != (1, 3)
+        or normals.shape != (1, 3)
+        or not np.isfinite(centers).all()
+        or not np.isfinite(normals).all()
+        or not isinstance(paths, list)
+        or len(paths) != 2
+        or len(set(paths)) != 2
+    ):
+        raise ValueError("invalid paired endpoint geometry")
+    return {
+        "active_arm": active_arm,
+        "tool_frames": [tool_frame],
+        "nominal_centers_b_m": centers,
+        "inward_normals_b": normals,
+        "allowed_target_flap_paths": list(paths),
+    }
 
 
 def rmpflow_xrdf(
@@ -490,12 +536,38 @@ def main(argv=None) -> int:
     snapshot = json.loads((snapshot_dir / "collision_snapshot.json").read_text())
     runtime = json.loads((snapshot_dir / "runtime.json").read_text())
     world_config = json.loads((snapshot_dir / "world.json").read_text())
+    editor_state = runtime["pose_editor_state"]
+    target_inputs = endpoint_targets_from_editor_state(editor_state)
+    active_arm = target_inputs["active_arm"]
+    paired_mode = active_arm is not None
     world_config, _ = collision_world_config(
-        snapshot, world_config, allow_target_flap_contact=False
+        snapshot,
+        world_config,
+        allow_target_flap_contact=paired_mode,
+        allowed_target_flap_paths=target_inputs["allowed_target_flap_paths"],
     )
     defaults = runtime_joint_defaults(runtime)
     include_waist = args.include_waist
-    cspace_names = WAIST_JOINT_NAMES + ARM_JOINT_NAMES if include_waist else ARM_JOINT_NAMES
+    if paired_mode and include_waist:
+        raise ValueError("paired-box endpoint requires the arm14 baseline")
+    reference_arm_q = np.asarray(
+        editor_state.get(
+            "reference_arm_q_rad", [defaults[name] for name in ARM_JOINT_NAMES]
+        ),
+        dtype=float,
+    )
+    if reference_arm_q.shape != (14,) or not np.isfinite(reference_arm_q).all():
+        raise ValueError("paired endpoint requires a finite 14-value arm reference")
+    if paired_mode:
+        selected_indices = active_arm_indices(active_arm)
+        cspace_names = [ARM_JOINT_NAMES[index] for index in selected_indices]
+        report_joint_names = list(ARM_JOINT_NAMES)
+    else:
+        selected_indices = tuple(range(14))
+        cspace_names = (
+            WAIST_JOINT_NAMES + ARM_JOINT_NAMES if include_waist else ARM_JOINT_NAMES
+        )
+        report_joint_names = list(cspace_names)
     joint_limits = {
         name: limits
         for name, limits in zip(
@@ -529,7 +601,10 @@ def main(argv=None) -> int:
         seed_arms = np.asarray(seed_arms, dtype=float)
         if seed_arms.shape != (14,) or not np.isfinite(seed_arms).all():
             raise ValueError("--seed-plan must contain one finite 14-DoF arm endpoint")
-        q_seed[-14:] = seed_arms
+        if paired_mode:
+            q_seed[:] = seed_arms[list(selected_indices)]
+        else:
+            q_seed[-14:] = seed_arms
         seed_source = str(seed_path)
 
     mesh_spheres = load_gripper_mesh_spheres(args.gripper_max_overshoot_m)
@@ -539,7 +614,16 @@ def main(argv=None) -> int:
     self_spheres = robot_spheres(
         snapshot, runtime, args.sphere_cell_m, args.self_pair_margin_m / 2, mesh_spheres
     )
-    xrdf_text = rmpflow_xrdf(cspace_names, defaults, world_spheres, self_spheres)
+    xrdf_text = (
+        single_arm_xrdf(
+            side=active_arm,
+            defaults=defaults,
+            world_spheres=world_spheres,
+            self_spheres=self_spheres,
+        )
+        if paired_mode
+        else rmpflow_xrdf(cspace_names, defaults, world_spheres, self_spheres)
+    )
     urdf_text = urdf_with_center_frames(
         args.urdf.expanduser().resolve().read_text()
     )
@@ -560,18 +644,23 @@ def main(argv=None) -> int:
         flow_config_text, robot, world_view
     )
     flow = cumotion.create_rmpflow(flow_config)
-    for frame in TOOL_FRAMES:
+    tool_frames = target_inputs["tool_frames"]
+    for frame in tool_frames:
         flow.add_target_frame(frame)
     flow.set_cspace_attractor(q_seed)
 
-    editor_state = runtime["pose_editor_state"]
-    nominal_centers = np.asarray(editor_state["grasp_position_b"], dtype=float)
-    normals = np.asarray(editor_state["inward_flap_normal_b"], dtype=float)
-    line_axes, full_lengths = target_flap_line_geometry(snapshot, runtime)
-    if args.flap_line_length_m > float(np.min(full_lengths)) + 1e-9:
-        raise ValueError(
-            f"flap line length {args.flap_line_length_m} exceeds {full_lengths.tolist()}"
-        )
+    nominal_centers = target_inputs["nominal_centers_b_m"]
+    normals = target_inputs["inward_normals_b"]
+    if paired_mode:
+        offsets = np.asarray([0.0])
+        line_axes = np.asarray([[1.0, 0.0, 0.0]])
+        full_lengths = np.asarray([0.0])
+    else:
+        line_axes, full_lengths = target_flap_line_geometry(snapshot, runtime)
+        if args.flap_line_length_m > float(np.min(full_lengths)) + 1e-9:
+            raise ValueError(
+                f"flap line length {args.flap_line_length_m} exceeds {full_lengths.tolist()}"
+            )
 
     output = args.output_dir or Path("/home/seonho/outputs/HumanoidScene") / (
         "cumotion_bimanual_rmpflow_" + datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -595,7 +684,7 @@ def main(argv=None) -> int:
         ]
         positions = centers + offset * line_axes
         for frame, position, rotation in zip(
-            TOOL_FRAMES, positions, rotations, strict=True
+            tool_frames, positions, rotations, strict=True
         ):
             flow.set_pose_target(
                 frame,
@@ -606,14 +695,14 @@ def main(argv=None) -> int:
 
         def target_is_converged(q_value: np.ndarray) -> bool:
             actual_positions = np.asarray(
-                [kinematics.position(q_value, frame) for frame in TOOL_FRAMES],
+                [kinematics.position(q_value, frame) for frame in tool_frames],
                 dtype=float,
             )
             actual_rotations = [
                 np.asarray(
                     kinematics.orientation(q_value, frame).matrix(), dtype=float
                 )
-                for frame in TOOL_FRAMES
+                    for frame in tool_frames
             ]
             return bool(
                 np.all(
@@ -651,11 +740,11 @@ def main(argv=None) -> int:
                 orientation_tolerance_deg=args.orientation_tolerance_deg,
             )
         terminal_positions = np.asarray(
-            [kinematics.position(q, frame) for frame in TOOL_FRAMES], dtype=float
+            [kinematics.position(q, frame) for frame in tool_frames], dtype=float
         )
         terminal_rotations = [
             np.asarray(kinematics.orientation(q, frame).matrix(), dtype=float)
-            for frame in TOOL_FRAMES
+            for frame in tool_frames
         ]
         position_errors = np.linalg.norm(terminal_positions - positions, axis=1)
         orientation_errors = np.asarray(
@@ -710,12 +799,29 @@ def main(argv=None) -> int:
 
     chosen = selected or best
     assert chosen is not None
-    _, terminal_q, target_positions, chosen_attempt = chosen
+    _, solver_terminal_q, target_positions, chosen_attempt = chosen
+    terminal_q = (
+        compose_active_arm14(
+            active_arm,
+            [solver_terminal_q],
+            reference_arm_q,
+        )[0]
+        if paired_mode
+        else solver_terminal_q
+    )
+    if paired_mode and not inactive_arm_is_fixed(
+        active_arm, [terminal_q], reference_arm_q
+    ):
+        raise RuntimeError("inactive arm changed in paired-box endpoint")
     arm_start = len(WAIST_JOINT_NAMES) if include_waist else 0
     report = {
         "schema_version": 2,
         "planner": (
-            "NVIDIA cuMotion 1.1.0 RMPflow simultaneous bimanual endpoint"
+            "NVIDIA cuMotion 1.1.0 RMPflow paired-box single-arm endpoint"
+            if paired_mode and args.solver == "rmpflow"
+            else "cuMotion kinematics paired-box single-arm Jacobian endpoint"
+            if paired_mode
+            else "NVIDIA cuMotion 1.1.0 RMPflow simultaneous bimanual endpoint"
             if args.solver == "rmpflow"
             else "cuMotion kinematics simultaneous bimanual Jacobian endpoint"
         ),
@@ -725,8 +831,14 @@ def main(argv=None) -> int:
         "snapshot_dir": str(snapshot_dir),
         "initial_pose_source": runtime.get("initial_state"),
         "rmpflow_seed_source": seed_source,
-        "cspace_joint_names": cspace_names,
-        "cspace_dof": len(cspace_names),
+        "cspace_joint_names": report_joint_names,
+        "joint_names": report_joint_names,
+        "cspace_dof": len(report_joint_names),
+        "solver_cspace_joint_names": cspace_names,
+        "active_solver_dof": len(cspace_names) if paired_mode else None,
+        "active_arm": active_arm,
+        "inactive_arm_fixed": bool(paired_mode),
+        "reference_arm_q_rad": reference_arm_q.tolist(),
         "include_waist": include_waist,
         "arm_only_baseline": not include_waist,
         "torso_height_m": runtime.get("pose_editor_state", {}).get("torso_height_m"),
@@ -734,8 +846,14 @@ def main(argv=None) -> int:
         "target_positions_b_m": target_positions.tolist(),
         "target_flap_line": {
             "axis_b": line_axes.tolist(),
-            "length_m": args.flap_line_length_m,
+            "length_m": 0.0 if paired_mode else args.flap_line_length_m,
             "full_collider_length_m": full_lengths.tolist(),
+        },
+        "collision_model": {
+            "allow_target_flap_contact": paired_mode,
+            "allowed_target_flap_paths": target_inputs[
+                "allowed_target_flap_paths"
+            ],
         },
         "angle_candidates_deg": angles.tolist(),
         "selected": chosen_attempt,
@@ -749,7 +867,13 @@ def main(argv=None) -> int:
                 "terminal_q_rad": terminal_q[
                     arm_start + index * 7 : arm_start + (index + 1) * 7
                 ].tolist(),
-                "target_position_b_m": target_positions[index].tolist(),
+                "target_position_b_m": (
+                    target_positions[0].tolist()
+                    if paired_mode and side == active_arm
+                    else None
+                    if paired_mode
+                    else target_positions[index].tolist()
+                ),
             }
             for index, side in enumerate(("left", "right"))
         },
