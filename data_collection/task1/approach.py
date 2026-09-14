@@ -23,6 +23,9 @@ from data_collection.task1.contract import (
     ARM_JOINT_NAMES,
     WAIST_ARM_JOINT_NAMES,
     WAIST_JOINT_NAMES,
+    active_arm_indices,
+    compose_active_arm14,
+    inactive_arm_is_fixed,
     layout_for_joint_names,
     safe_waist_bounds,
     split_trajectory,
@@ -42,6 +45,20 @@ from data_collection.task1.collision import (
 
 TOOL_FRAMES = [CENTER_TOOL_FRAMES[side] for side in ("left", "right")]
 KINEMATIC_PARENT_FRAMES = list(ORIGINAL_EEF_FRAMES)
+
+
+def fix_inactive_arm_path(
+    arm14_path: np.ndarray, active_arm: str, reference_arm_q: np.ndarray
+) -> np.ndarray:
+    """Project a candidate arm14 path onto one fixed inactive-arm posture."""
+    path = np.asarray(arm14_path, dtype=float)
+    if path.ndim != 2 or path.shape[1] != 14:
+        raise ValueError("paired approach path must have 14 columns")
+    active = path[:, active_arm_indices(active_arm)]
+    result = compose_active_arm14(active_arm, active, reference_arm_q)
+    if not inactive_arm_is_fixed(active_arm, result, reference_arm_q):
+        raise RuntimeError("inactive arm changed in paired-box approach")
+    return result
 
 
 def bimanual_xrdf(
@@ -524,8 +541,13 @@ def main(argv=None) -> int:
     snapshot = json.loads((snapshot_dir / "collision_snapshot.json").read_text())
     runtime = json.loads((snapshot_dir / "runtime.json").read_text())
     world_config = json.loads((snapshot_dir / "world.json").read_text())
+    full_world_config = json.loads(json.dumps(world_config))
     seed_path = args.terminal_seed_plan.expanduser().resolve()
     seed_report = json.loads(seed_path.read_text())
+    active_arm = seed_report.get("active_arm")
+    paired_mode = active_arm in ("left", "right") and bool(
+        seed_report.get("inactive_arm_fixed")
+    )
     target_kind = seed_report.get("target", "pregrasp")
     if target_kind not in {"pregrasp", "grasp"}:
         raise ValueError(f"unsupported seed target: {target_kind}")
@@ -533,10 +555,14 @@ def main(argv=None) -> int:
     allow_target_flap_contact = bool(
         seed_report.get("collision_model", {}).get("allow_target_flap_contact", False)
     )
+    allowed_target_flap_paths = seed_report.get("collision_model", {}).get(
+        "allowed_target_flap_paths", ()
+    )
     world_config, allowed_contact_colliders = collision_world_config(
         snapshot,
         world_config,
         allow_target_flap_contact=allow_target_flap_contact,
+        allowed_target_flap_paths=allowed_target_flap_paths,
     )
     closing_axis_tolerance_deg = None
     if (
@@ -614,23 +640,59 @@ def main(argv=None) -> int:
     if q_terminal.shape != q_initial.shape or not np.isfinite(q_terminal).all():
         raise ValueError("terminal seed plan does not contain one finite 14-DoF target")
     editor_state = runtime["pose_editor_state"]
-    targets = np.asarray(
-        [
-            seed_report.get("arms", {}).get(side, {}).get(
-                "target_position_b_m", editor_state[f"{target_kind}_position_b"][index]
-            )
-            for index, side in enumerate(("left", "right"))
-        ],
-        dtype=float,
-    )
-    inward_normals = np.asarray(
-        [
-            normalized_axis(axis, name=f"{side} inward flap normal")
-            for side, axis in zip(
-                ("left", "right"), editor_state["inward_flap_normal_b"], strict=True
-            )
-        ]
-    )
+    if paired_mode:
+        if layout.waist_indices or len(cspace_names) != 14:
+            raise ValueError("paired-box approach requires canonical arm14")
+        reference_arm_q = np.asarray(
+            seed_report.get("reference_arm_q_rad"), dtype=float
+        )
+        if reference_arm_q.shape != (14,) or not np.isfinite(reference_arm_q).all():
+            raise ValueError("paired-box approach requires a finite arm reference")
+        active_indices = active_arm_indices(active_arm)
+        inactive = tuple(index for index in range(14) if index not in active_indices)
+        q_initial[list(inactive)] = reference_arm_q[list(inactive)]
+        q_terminal[list(inactive)] = reference_arm_q[list(inactive)]
+        q_lower[list(inactive)] = reference_arm_q[list(inactive)]
+        q_upper[list(inactive)] = reference_arm_q[list(inactive)]
+        active_target = seed_report.get("arms", {}).get(active_arm, {}).get(
+            "target_position_b_m"
+        )
+        targets = np.asarray([active_target], dtype=float)
+        if targets.shape != (1, 3) or not np.isfinite(targets).all():
+            raise ValueError("paired endpoint plan has no finite active target")
+        inward_normals = np.asarray(
+            [
+                normalized_axis(
+                    editor_state["pair_grasp"]["closing_axis_b"],
+                    name=f"{active_arm} paired closing axis",
+                )
+            ]
+        )
+        active_tool_frames = [TOOL_FRAMES[{"left": 0, "right": 1}[active_arm]]]
+        closing_axis_tolerance_deg = 1.0
+    else:
+        reference_arm_q = None
+        targets = np.asarray(
+            [
+                seed_report.get("arms", {}).get(side, {}).get(
+                    "target_position_b_m",
+                    editor_state[f"{target_kind}_position_b"][index],
+                )
+                for index, side in enumerate(("left", "right"))
+            ],
+            dtype=float,
+        )
+        inward_normals = np.asarray(
+            [
+                normalized_axis(axis, name=f"{side} inward flap normal")
+                for side, axis in zip(
+                    ("left", "right"),
+                    editor_state["inward_flap_normal_b"],
+                    strict=True,
+                )
+            ]
+        )
+        active_tool_frames = list(TOOL_FRAMES)
     gripper_mesh_spheres = load_gripper_mesh_spheres(
         args.gripper_max_overshoot_m
     )
@@ -680,7 +742,16 @@ def main(argv=None) -> int:
     obstacle_references = add_world_obstacles(world, world_config, cumotion)
     world_view = world.add_world_view()
     inspector = cumotion.create_robot_world_inspector(robot, world_view)
-    initial_world_collision = inspector.in_collision_with_obstacle(q_initial)
+    full_inspector = inspector
+    full_obstacle_references = []
+    if paired_mode:
+        full_world = cumotion.create_world()
+        full_obstacle_references = add_world_obstacles(
+            full_world, full_world_config, cumotion
+        )
+        full_world_view = full_world.add_world_view()
+        full_inspector = cumotion.create_robot_world_inspector(robot, full_world_view)
+    initial_world_collision = full_inspector.in_collision_with_obstacle(q_initial)
     initial_self_collision = inspector.in_self_collision(q_initial)
     terminal_world_collision = inspector.in_collision_with_obstacle(q_terminal)
     terminal_self_collision = inspector.in_self_collision(q_terminal)
@@ -704,7 +775,7 @@ def main(argv=None) -> int:
 
     def in_collision(q) -> bool:
         tcp_positions = np.asarray(
-            [robot.kinematics().position(q, frame) for frame in TOOL_FRAMES]
+            [robot.kinematics().position(q, frame) for frame in active_tool_frames]
         )
         rack_coordinates = rack_width_coordinates_m(
             tcp_positions, rack_center_b, rack_axis_b
@@ -779,7 +850,7 @@ def main(argv=None) -> int:
             selected_strategy = "constrained_rrt_failed"
     if not path_found:
         config = cumotion.create_motion_planner_config_from_file(
-            output / "planner.yaml", robot, TOOL_FRAMES[0], world_view
+            output / "planner.yaml", robot, active_tool_frames[0], world_view
         )
         planner = cumotion.create_motion_planner(config)
         result = planner.plan_to_cspace_target(q_initial, q_terminal, True)
@@ -804,6 +875,8 @@ def main(argv=None) -> int:
                 path = densify_path(shortcut_knots, args.planner_step_size)
                 selected_strategy = "collision_aware_graph_shortcut"
     planning_wall_s = time.perf_counter() - started
+    if path_found and paired_mode:
+        path = fix_inactive_arm_path(path, active_arm, reference_arm_q)
 
     report = {
         "planner": "NVIDIA cuMotion 1.1.0 MotionPlanner",
@@ -814,7 +887,12 @@ def main(argv=None) -> int:
         "initial_pose_source": initial_pose_source,
         "terminal_seed_plan": str(seed_path),
         "joint_names": cspace_names,
-        "tool_frames": TOOL_FRAMES,
+        "tool_frames": active_tool_frames,
+        "active_arm": active_arm,
+        "inactive_arm_fixed": bool(paired_mode),
+        "reference_arm_q_rad": (
+            reference_arm_q.tolist() if reference_arm_q is not None else None
+        ),
         "tcp_frame": CENTER_FRAME_NAME,
         "kinematic_parent_frames": KINEMATIC_PARENT_FRAMES,
         "target_positions_b_m": targets.tolist(),
@@ -830,7 +908,7 @@ def main(argv=None) -> int:
             "center_b_m": rack_center_b.tolist(),
             "axis_b": rack_axis_b.tolist(),
             "allowed_coordinate_b_m": [-rack_half_width_m, rack_half_width_m],
-            "applies_to": TOOL_FRAMES,
+            "applies_to": active_tool_frames,
             "planner_left_eef_task_space_limits_b_m": task_space_limits,
         },
         "direct_path_collision_free": direct_path_clear,
@@ -856,16 +934,31 @@ def main(argv=None) -> int:
             "self_pair_margin_m": self_pair_margin_m,
             "allow_target_flap_contact": allow_target_flap_contact,
             "allowed_contact_colliders": allowed_contact_colliders,
+            "ordinary_approach_uses_full_world": bool(paired_mode),
         },
     }
     if path_found:
         dense = densify_path(path, args.validation_step_rad)
-        world_collisions = [inspector.in_collision_with_obstacle(row) for row in dense]
+        world_collisions = [
+            (
+                inspector.in_collision_with_obstacle(row)
+                if paired_mode and index == len(dense) - 1
+                else full_inspector.in_collision_with_obstacle(row)
+            )
+            for index, row in enumerate(dense)
+        ]
         self_collisions = [inspector.in_self_collision(row) for row in dense]
-        distances = [inspector.min_distance_to_obstacle(row) for row in dense]
+        distances = [
+            (
+                inspector.min_distance_to_obstacle(row)
+                if paired_mode and index == len(dense) - 1
+                else full_inspector.min_distance_to_obstacle(row)
+            )
+            for index, row in enumerate(dense)
+        ]
         tcp_path_positions = np.asarray(
             [
-                [robot.kinematics().position(row, frame) for frame in TOOL_FRAMES]
+                [robot.kinematics().position(row, frame) for frame in active_tool_frames]
                 for row in dense
             ]
         )
@@ -876,12 +969,12 @@ def main(argv=None) -> int:
             rack_width_coordinates, rack_half_width_m
         )
         terminal_positions = np.asarray(
-            [robot.kinematics().position(path[-1], frame) for frame in TOOL_FRAMES]
+            [robot.kinematics().position(path[-1], frame) for frame in active_tool_frames]
         )
         terminal_errors = np.linalg.norm(terminal_positions - targets, axis=1)
         terminal_rotations = [
             np.asarray(robot.kinematics().orientation(path[-1], frame).matrix(), dtype=float)
-            for frame in TOOL_FRAMES
+            for frame in active_tool_frames
         ]
         terminal_closing_axes = np.asarray(
             [rotation @ np.asarray((1.0, 0.0, 0.0)) for rotation in terminal_rotations]
@@ -901,6 +994,13 @@ def main(argv=None) -> int:
         moving = (left_delta > 1e-7) | (right_delta > 1e-7)
         overlap = (left_delta > 1e-7) & (right_delta > 1e-7)
         overlap_fraction = float(overlap.sum() / max(1, moving.sum()))
+        motion_contract_passed = (
+            bool(np.any(left_delta > 1e-7))
+            if paired_mode and active_arm == "left"
+            else bool(np.any(right_delta > 1e-7))
+            if paired_mode
+            else overlap_fraction > 0.5
+        )
         path_length = joint_space_path_length(path)
         success = bool(
             np.all(terminal_errors <= args.target_tolerance_m)
@@ -918,7 +1018,11 @@ def main(argv=None) -> int:
             and not any(world_collisions)
             and not any(self_collisions)
             and rack_width_violation <= 1e-9
-            and overlap_fraction > 0.5
+            and motion_contract_passed
+            and (
+                not paired_mode
+                or inactive_arm_is_fixed(active_arm, path, reference_arm_q)
+            )
         )
         report.update(
             {
@@ -939,6 +1043,7 @@ def main(argv=None) -> int:
                 "sampled_min_world_distance_m": float(min(distances)),
                 "terminal_self_collision_pairs": inspector.frames_in_self_collision(path[-1]),
                 "simultaneous_motion_overlap_fraction": overlap_fraction,
+                "active_arm_motion_contract_passed": motion_contract_passed,
                 "joint_space_path_length_rad": path_length,
                 "path_length_over_direct": path_length
                 / joint_space_path_length(direct_path),
@@ -947,7 +1052,7 @@ def main(argv=None) -> int:
                         float(rack_width_coordinates[:, arm].min()),
                         float(rack_width_coordinates[:, arm].max()),
                     ]
-                    for arm in range(2)
+                    for arm in range(len(active_tool_frames))
                 ],
                 "eef_rack_width_max_violation_m": rack_width_violation,
                 "tcp_path_axis_range_b_m": [
@@ -956,7 +1061,7 @@ def main(argv=None) -> int:
                          float(tcp_path_positions[:, arm, axis].max())]
                         for axis in range(3)
                     ]
-                    for arm in range(2)
+                    for arm in range(len(active_tool_frames))
                 ],
             }
         )

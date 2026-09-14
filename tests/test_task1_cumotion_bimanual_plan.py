@@ -10,6 +10,7 @@ from data_collection.task1.approach import (
     bimanual_xrdf,
     constrained_rrt_connect,
     densify_path,
+    fix_inactive_arm_path,
     joint_space_path_length,
     planner_yaml,
     planner_distance_weights,
@@ -23,6 +24,20 @@ from data_collection.task1.approach import (
     synchronized_seed_path,
 )
 from data_collection.task1.contract import WAIST_ARM_JOINT_NAMES
+
+
+def test_pair_path_keeps_right_arm_fixed():
+    reference = np.arange(14, dtype=float)
+    path = np.repeat(reference[None, :], 3, axis=0)
+    path[:, :7] = np.asarray([[0.0] * 7, [0.1] * 7, [0.2] * 7])
+    path[1, 9] = -99.0
+
+    fixed = fix_inactive_arm_path(path, "left", reference)
+
+    np.testing.assert_allclose(fixed[:, :7], path[:, :7])
+    np.testing.assert_array_equal(
+        fixed[:, 7:], np.repeat(reference[None, 7:], 3, axis=0)
+    )
 
 
 def test_add_world_obstacles_keeps_obstacle_and_handle_references():

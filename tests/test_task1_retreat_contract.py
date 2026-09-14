@@ -1,7 +1,7 @@
 import numpy as np
 
 from data_collection.task1.contract import WAIST_ARM_JOINT_NAMES
-from data_collection.task1.retreat import waist_preserving_retreat
+from data_collection.task1.retreat import active_arm_retreat, waist_preserving_retreat
 
 
 def test_retreat_holds_selected_waist_for_every_arm_waypoint():
@@ -12,3 +12,13 @@ def test_retreat_holds_selected_waist_for_every_arm_waypoint():
     assert names == WAIST_ARM_JOINT_NAMES
     np.testing.assert_allclose(rows[:, :2], [[0.12, -0.03]] * 3)
     np.testing.assert_allclose(rows[:, 2:], arms)
+
+
+def test_active_arm_retreat_keeps_other_arm_at_reference():
+    reference = np.arange(14, dtype=float)
+    active = np.asarray([[100.0 + index] * 7 for index in range(3)])
+
+    rows = active_arm_retreat("left", reference, active)
+
+    np.testing.assert_allclose(rows[:, :7], active)
+    np.testing.assert_allclose(rows[:, 7:], np.repeat(reference[None, 7:], 3, axis=0))

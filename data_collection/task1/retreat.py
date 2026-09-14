@@ -16,7 +16,9 @@ from scipy.spatial.transform import Rotation
 from data_collection.task1.contract import (
     ARM_JOINT_NAMES,
     WAIST_ARM_JOINT_NAMES,
+    compose_active_arm14,
     compose_waist_arm,
+    inactive_arm_is_fixed,
 )
 
 
@@ -45,6 +47,18 @@ def waist_preserving_retreat(
 ) -> tuple[list[str], np.ndarray]:
     """Attach one selected waist posture to every lift/pull arm waypoint."""
     return list(WAIST_ARM_JOINT_NAMES), compose_waist_arm(waist_q_rad, arm_waypoints)
+
+
+def active_arm_retreat(
+    active_arm: str,
+    reference_arm_q: list[float] | np.ndarray,
+    active_waypoints: list[list[float]] | np.ndarray,
+) -> np.ndarray:
+    """Compose a one-arm retreat while holding the other arm exactly fixed."""
+    rows = compose_active_arm14(active_arm, active_waypoints, reference_arm_q)
+    if not inactive_arm_is_fixed(active_arm, rows, reference_arm_q):
+        raise RuntimeError("inactive arm changed during paired-box retreat")
+    return rows
 
 
 def parse_args() -> argparse.Namespace:
@@ -90,9 +104,16 @@ def main() -> int:
         raise ValueError("grasp plan must contain a finite arm endpoint")
     defaults = dict(zip(runtime["joint_names"], runtime["joint_positions"], strict=True))
     defaults.update(zip(plan_joint_names, q_grasp_full, strict=True))
-    inward_normals = np.asarray(
-        runtime["pose_editor_state"]["inward_flap_normal_b"], dtype=float
+    editor_state = runtime["pose_editor_state"]
+    active_arm = grasp_plan.get("active_arm")
+    paired_mode = active_arm in ("left", "right") and bool(
+        grasp_plan.get("inactive_arm_fixed")
     )
+    if paired_mode:
+        pair_axis = np.asarray(editor_state["pair_grasp"]["closing_axis_b"], dtype=float)
+        inward_normals = np.repeat(pair_axis[None, :], 2, axis=0)
+    else:
+        inward_normals = np.asarray(editor_state["inward_flap_normal_b"], dtype=float)
     model = UrdfModel(args.urdf)
     tcp_offsets = tuple(np.asarray(center_offset(side), dtype=float) for side in ("left", "right"))
 
@@ -179,6 +200,126 @@ def main() -> int:
             gtol=1.0e-10,
         )
         return result.x, fk(arm_index, result.x)
+
+    if paired_mode:
+        if waist_q is not None:
+            raise ValueError("paired-box retreat does not support waist joints")
+        reference_arm_q = np.asarray(grasp_plan.get("reference_arm_q_rad"), dtype=float)
+        if reference_arm_q.shape != (14,) or not np.isfinite(reference_arm_q).all():
+            raise ValueError("paired-box retreat requires a finite reference_arm_q_rad")
+        arm_index = {"left": 0, "right": 1}[active_arm]
+        q_previous_active = q_grasp[arm_index * 7 : (arm_index + 1) * 7].copy()
+        start_pose = specs[arm_index][2]
+        active_rows = [q_previous_active.tolist()]
+        for step in range(1, args.lift_steps + 1):
+            target_position = start_pose[:3, 3] + np.asarray(
+                (0.0, 0.0, args.lift_m * step / args.lift_steps)
+            )
+            q_previous_active, _ = solve_full_pose(
+                arm_index,
+                q_previous_active,
+                target_position,
+                start_pose[:3, :3],
+            )
+            active_rows.append(q_previous_active.tolist())
+
+        lift_pose = fk(arm_index, q_previous_active)
+        pull_samples = []
+        for step in range(1, args.pull_steps + 1):
+            fraction = step / args.pull_steps
+            target_position = lift_pose[:3, 3] + np.asarray(
+                (-args.nominal_pull_m * fraction, 0.0, 0.0)
+            )
+            if args.preserve_pull_tool_pose:
+                q_previous_active, achieved_pose = solve_full_pose(
+                    arm_index,
+                    q_previous_active,
+                    target_position,
+                    lift_pose[:3, :3],
+                )
+            else:
+                q_previous_active, achieved_pose = solve_axis_pose(
+                    arm_index, q_previous_active, target_position
+                )
+            active_rows.append(q_previous_active.tolist())
+            achieved_delta = achieved_pose[:3, 3] - lift_pose[:3, 3]
+            closing_axis = achieved_pose[:3, :3] @ np.asarray((1.0, 0.0, 0.0))
+            view_axis = achieved_pose[:3, :3] @ np.asarray((0.0, 0.0, -1.0))
+            pull_samples.append(
+                {
+                    "step": step,
+                    "achieved_delta_b_m": achieved_delta.tolist(),
+                    "closing_axis_error_deg": math.degrees(
+                        math.acos(np.clip(closing_axis @ pair_axis, -1.0, 1.0))
+                    ),
+                    "tool_down_angle_deg": math.degrees(
+                        math.acos(np.clip(-view_axis[2], -1.0, 1.0))
+                    ),
+                }
+            )
+
+        rows = active_arm_retreat(active_arm, reference_arm_q, active_rows)
+        final = pull_samples[-1] if pull_samples else {
+            "achieved_delta_b_m": [0.0, 0.0, 0.0],
+            "closing_axis_error_deg": 0.0,
+            "tool_down_angle_deg": 0.0,
+        }
+        pair_poses = editor_state.get("paired_box_body_poses_b", {})
+        if len(pair_poses) != 2:
+            raise ValueError("paired-box retreat requires two captured box poses")
+        box_center_x = float(
+            np.mean([np.asarray(pose, dtype=float)[0] for pose in pair_poses.values()])
+        )
+        max_joint_step = max(
+            float(np.max(np.abs(rows[index] - rows[index - 1])))
+            for index in range(1, len(rows))
+        )
+        report = {
+            "planner": "single-arm Cartesian lift/pull without attached-object collision",
+            "strategy": (
+                "paired_box_lift_then_pull_fixed_tool_pose"
+                if args.preserve_pull_tool_pose
+                else "paired_box_lift_then_pull_closing_axis"
+            ),
+            "status": "SUCCESS",
+            "joint_names": list(ARM_JOINT_NAMES),
+            "active_arm": active_arm,
+            "inactive_arm_fixed": True,
+            "reference_arm_q_rad": reference_arm_q.tolist(),
+            "tool_frames": [CENTER_TOOL_FRAMES[active_arm]],
+            "tcp_frame": CENTER_FRAME_NAME,
+            "kinematic_parent_frames": [TOOL_FRAMES[arm_index]],
+            "tcp_offsets_in_parent_m": [tcp_offsets[arm_index].tolist()],
+            "waypoint_q_rad": rows.tolist(),
+            "held_waist_q_rad": None,
+            "waypoint_count": len(rows),
+            "lift_waypoint_count": args.lift_steps + 1,
+            "pull_waypoint_count": args.pull_steps + 1,
+            "lift_achieved_delta_b_m": [0.0, 0.0, args.lift_m],
+            "pull_achieved_delta_b_m": final["achieved_delta_b_m"],
+            "rack_front_x_b_m": args.rack_front_x_b_m,
+            "expected_box_center_final_x_b_m": box_center_x
+            + final["achieved_delta_b_m"][0],
+            "attached_object_collision_checked": False,
+            "attached_object_collision_validated": False,
+            "max_joint_step_rad": max_joint_step,
+            "terminal_closing_axis_error_deg": [final["closing_axis_error_deg"]],
+            "terminal_tool_down_angle_deg": [final["tool_down_angle_deg"]],
+            "pull_samples": pull_samples,
+        }
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+        print(
+            json.dumps(
+                {
+                    key: value
+                    for key, value in report.items()
+                    if key not in {"waypoint_q_rad", "pull_samples"}
+                },
+                indent=2,
+            )
+        )
+        return 0
 
     q_previous = [q_grasp[:7].copy(), q_grasp[7:].copy()]
     lift_rows = [q_grasp.tolist()]
