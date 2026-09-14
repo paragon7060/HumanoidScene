@@ -457,6 +457,14 @@ def parser() -> argparse.ArgumentParser:
         default=None,
         help="Initialize the simultaneous solve from an existing bimanual endpoint plan.",
     )
+    result.add_argument(
+        "--active-arm-seed-rad",
+        type=float,
+        nargs=7,
+        default=None,
+        metavar=("Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7"),
+        help="Explicit deterministic 7-DoF seed for a paired-box active arm.",
+    )
     planning_mode = result.add_mutually_exclusive_group()
     planning_mode.add_argument(
         "--include-waist",
@@ -617,6 +625,16 @@ def main(argv=None) -> int:
         else:
             q_seed[-14:] = seed_arms
         seed_source = str(seed_path)
+    if args.active_arm_seed_rad is not None:
+        if not paired_mode:
+            raise ValueError("--active-arm-seed-rad requires a paired-box snapshot")
+        explicit_seed = np.asarray(args.active_arm_seed_rad, dtype=float)
+        if not np.isfinite(explicit_seed).all():
+            raise ValueError("--active-arm-seed-rad must be finite")
+        if np.any(explicit_seed <= lower) or np.any(explicit_seed >= upper):
+            raise ValueError("--active-arm-seed-rad lies outside captured joint limits")
+        q_seed[:] = explicit_seed
+        seed_source = "explicit_active_arm_seed_rad"
 
     mesh_spheres = load_gripper_mesh_spheres(args.gripper_max_overshoot_m)
     world_spheres = robot_spheres(
@@ -843,6 +861,11 @@ def main(argv=None) -> int:
         "snapshot_dir": str(snapshot_dir),
         "initial_pose_source": runtime.get("initial_state"),
         "rmpflow_seed_source": seed_source,
+        "active_arm_seed_rad": (
+            list(map(float, args.active_arm_seed_rad))
+            if args.active_arm_seed_rad is not None
+            else None
+        ),
         "cspace_joint_names": report_joint_names,
         "joint_names": report_joint_names,
         "cspace_dof": len(report_joint_names),

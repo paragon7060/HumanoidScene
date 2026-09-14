@@ -194,6 +194,21 @@ def test_endpoint_defaults_to_arms_only_and_requires_explicit_waist_opt_in():
     assert args.target_x_offsets_m == [0.03, 0.04, 0.05]
     assert args.tool_down_angles_deg == [45.0, 50.0, 56.0]
 
+
+def test_endpoint_accepts_explicit_seven_dof_active_arm_seed():
+    args = parser().parse_args(
+        [
+            "--snapshot-dir",
+            "/tmp/s",
+            "--urdf",
+            "/tmp/r",
+            "--active-arm-seed-rad",
+            *[str(index / 10) for index in range(7)],
+        ]
+    )
+
+    np.testing.assert_allclose(args.active_arm_seed_rad, np.arange(7) / 10)
+
     waist_args = parser().parse_args(
         ["--snapshot-dir", "/tmp/s", "--urdf", "/tmp/r", "--include-waist"]
     )
