@@ -9,6 +9,7 @@ from itertools import product
 import json
 import math
 from pathlib import Path
+from typing import Mapping, Sequence
 
 import numpy as np
 import yaml
@@ -227,6 +228,88 @@ def line_goal_points(
     return center[None] + offsets[:, None] * axis[None]
 
 
+def paired_inner_flap_geometry(
+    box_flaps: Mapping[str, Sequence[Mapping]],
+    *,
+    capture_width_m: float,
+) -> dict:
+    """Select the closest opposed side-flap pair from two target boxes."""
+    if len(box_flaps) != 2:
+        raise ValueError("paired flap geometry requires exactly two boxes")
+    if not math.isfinite(capture_width_m) or capture_width_m <= 0:
+        raise ValueError("capture_width_m must be finite and positive")
+    box_keys = tuple(box_flaps)
+    normalized: dict[str, list[dict]] = {}
+    paths = set()
+    for box_key in box_keys:
+        entries = box_flaps[box_key]
+        if not isinstance(entries, Sequence) or len(entries) != 2:
+            raise ValueError(f"{box_key} must provide exactly two side flaps")
+        normalized[box_key] = []
+        for entry in entries:
+            path = entry.get("path")
+            if not isinstance(path, str) or not path or path in paths:
+                raise ValueError("paired flap paths must be non-empty and unique")
+            paths.add(path)
+            point = np.asarray(entry.get("grasp_point_b_m"), dtype=float)
+            if point.shape != (3,) or not np.isfinite(point).all():
+                raise ValueError("paired flap grasp points must be finite xyz")
+            normal = normalized_axis(
+                entry.get("inward_normal_b"), name="paired inward flap normal"
+            )
+            normalized[box_key].append(
+                {"path": path, "point": point, "normal": normal}
+            )
+
+    opposition_limit = -math.cos(math.radians(10.0))
+    candidates = []
+    first_key, second_key = box_keys
+    for first, second in product(normalized[first_key], normalized[second_key]):
+        if float(first["normal"] @ second["normal"]) > opposition_limit:
+            continue
+        delta = second["point"] - first["point"]
+        candidates.append(
+            (
+                float(np.linalg.norm(delta[:2])),
+                first["path"],
+                second["path"],
+                first,
+                second,
+            )
+        )
+    if not candidates:
+        raise ValueError("paired side flaps have no opposed-normal candidate")
+    candidates.sort(key=lambda item: item[:3])
+    if len(candidates) > 1 and math.isclose(
+        candidates[0][0], candidates[1][0], abs_tol=1.0e-6, rel_tol=0.0
+    ):
+        raise ValueError("paired inner flap selection is ambiguous")
+    _, _, _, first, second = candidates[0]
+    points = np.asarray([first["point"], second["point"]])
+    separation = float(np.linalg.norm(points[1] - points[0]))
+    if separation > capture_width_m + 1.0e-9:
+        raise ValueError(
+            f"paired flap separation {separation:.6g} exceeds capture width "
+            f"{capture_width_m:.6g}"
+        )
+    closing_axis = normalized_axis(
+        first["normal"] - second["normal"], name="paired closing axis"
+    )
+    return {
+        "box_keys": list(box_keys),
+        "selected_flap_paths": [first["path"], second["path"]],
+        "grasp_points_b_m": points.tolist(),
+        "grasp_midpoint_b_m": points.mean(axis=0).tolist(),
+        "closing_axis_b": closing_axis.tolist(),
+        "inward_flap_normals_b": [
+            first["normal"].tolist(),
+            second["normal"].tolist(),
+        ],
+        "grasp_point_separation_m": separation,
+        "capture_width_m": float(capture_width_m),
+    }
+
+
 def target_flap_line_geometry(snapshot: dict, runtime: dict) -> tuple[np.ndarray, np.ndarray]:
     """Return left/right upper-edge axes and their full collider lengths in base frame."""
     root_transform_w = pose_matrix(runtime["root_pose_w"])
@@ -366,13 +449,27 @@ def load_gripper_mesh_spheres(max_overshoot_m: float) -> dict[str, list[dict]]:
 
 
 def collision_world_config(
-    snapshot: dict, world_config: dict, *, allow_target_flap_contact: bool
+    snapshot: dict,
+    world_config: dict,
+    *,
+    allow_target_flap_contact: bool,
+    allowed_target_flap_paths: Sequence[str] = (),
 ) -> tuple[dict, list[str]]:
     """Optionally omit the two grasped flaps while keeping the rest of the box."""
     nonrobot = [item for item in snapshot["colliders"] if not item["robot"]]
     cuboids = world_config["cuboid"]
     if len(cuboids) != len(nonrobot):
         raise ValueError("world obstacle count does not match the collider snapshot")
+    explicit_paths = tuple(allowed_target_flap_paths)
+    if len(set(explicit_paths)) != len(explicit_paths):
+        raise ValueError("allowed target flap paths must be unique")
+    collider_paths = {
+        collider.get("path")
+        for collider in snapshot["colliders"]
+        if not collider.get("robot", False)
+    }
+    if explicit_paths and (len(explicit_paths) != 2 or not set(explicit_paths) <= collider_paths):
+        raise ValueError("expected two explicit target flap paths in collision snapshot")
     kept = {}
     allowed = []
     for index, collider in enumerate(snapshot["colliders"]):
@@ -381,8 +478,12 @@ def collision_world_config(
         key = f"obstacle_{index}"
         path = collider["path"]
         is_target_flap = (
-            "/MediumBox_0/" in path
-            and path.endswith(("/flap_right", "/flap_left"))
+            path in explicit_paths
+            if explicit_paths
+            else (
+                "/MediumBox_0/" in path
+                and path.endswith(("/flap_right", "/flap_left"))
+            )
         )
         if allow_target_flap_contact and is_target_flap:
             allowed.append(path)

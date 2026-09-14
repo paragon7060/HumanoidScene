@@ -15,6 +15,7 @@ from data_collection.task1.collision import (
     cover_cuboid,
     editor_region_geometry,
     line_goal_points,
+    paired_inner_flap_geometry,
     robot_spheres,
     rotation_error_deg,
     runtime_joint_defaults,
@@ -155,6 +156,82 @@ def test_collision_world_allows_only_selected_target_flaps():
         "/MediumBox_0/box/flap_right",
         "/MediumBox_0/box/flap_left",
     ]
+
+
+def test_paired_inner_flap_geometry_selects_closest_opposed_pair():
+    flaps = {
+        "medium_box_0": [
+            {
+                "path": "/MediumBox_0/box/flap_left",
+                "grasp_point_b_m": [0.6, 0.20, 1.1],
+                "inward_normal_b": [0.0, 1.0, 0.0],
+            },
+            {
+                "path": "/MediumBox_0/box/flap_right",
+                "grasp_point_b_m": [0.6, 0.00, 1.1],
+                "inward_normal_b": [0.0, -1.0, 0.0],
+            },
+        ],
+        "medium_box_1": [
+            {
+                "path": "/MediumBox_1/box/flap_left",
+                "grasp_point_b_m": [0.6, -0.01, 1.1],
+                "inward_normal_b": [0.0, 1.0, 0.0],
+            },
+            {
+                "path": "/MediumBox_1/box/flap_right",
+                "grasp_point_b_m": [0.6, -0.21, 1.1],
+                "inward_normal_b": [0.0, -1.0, 0.0],
+            },
+        ],
+    }
+
+    result = paired_inner_flap_geometry(flaps, capture_width_m=0.055)
+
+    assert result["selected_flap_paths"] == [
+        "/MediumBox_0/box/flap_right",
+        "/MediumBox_1/box/flap_left",
+    ]
+    np.testing.assert_allclose(result["grasp_midpoint_b_m"], [0.6, -0.005, 1.1])
+    assert np.linalg.norm(result["closing_axis_b"]) == pytest.approx(1.0)
+    assert result["grasp_point_separation_m"] == pytest.approx(0.01)
+
+
+def test_collision_world_pair_mode_omits_only_explicit_inner_flaps():
+    snapshot = {
+        "colliders": [
+            {"robot": False, "path": "/rack"},
+            {"robot": False, "path": "/MediumBox_0/box/flap_right"},
+            {"robot": False, "path": "/MediumBox_0/box/flap_left"},
+            {"robot": False, "path": "/MediumBox_0/box/bottom"},
+            {"robot": False, "path": "/MediumBox_1/box/flap_right"},
+            {"robot": False, "path": "/MediumBox_1/box/flap_left"},
+            {"robot": False, "path": "/MediumBox_1/box/bottom"},
+            {"robot": False, "path": "/SmallBox_0/box/flap_left"},
+        ]
+    }
+    world = {"cuboid": {f"obstacle_{index}": index for index in range(8)}}
+    selected = (
+        "/MediumBox_0/box/flap_right",
+        "/MediumBox_1/box/flap_left",
+    )
+
+    filtered, allowed = collision_world_config(
+        snapshot,
+        world,
+        allow_target_flap_contact=True,
+        allowed_target_flap_paths=selected,
+    )
+
+    assert allowed == list(selected)
+    assert filtered["cuboid"] == {
+        "obstacle_0": 0,
+        "obstacle_2": 2,
+        "obstacle_3": 3,
+        "obstacle_4": 4,
+        "obstacle_6": 6,
+        "obstacle_7": 7,
+    }
 
 
 def test_collision_sphere_cover_contains_oriented_cuboid():
