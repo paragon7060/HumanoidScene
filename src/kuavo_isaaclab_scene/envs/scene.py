@@ -253,7 +253,7 @@ from ..robots.gripper_runtime import (
     build_gripper_attachment_cfg,
     build_gripper_group_cfg,
 )
-from ..core.paths import ASSET_DIR, BOX_ATLAS_ASSETS, RACK_ROLLER_ASSET
+from ..core.paths import ASSET_DIR, BOX_ATLAS_ASSETS, RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET
 from .scene_physics import build_box_flap_actuator, build_contact_box_spawn, configure_robot_asset_physics
 from ..robots.robot_model import resolve_robot_model
 
@@ -302,11 +302,12 @@ RACK_BOX_SPAWN_PLAN = build_box_spawn_plan(
 )
 CONFIGURED_RACK_BOX_IDS = rack_instance_names(RACK_BOX_SPAWN_PLAN)
 if ROLLER_SETTINGS.enabled:
-    if not RACK_ROLLER_ASSET.is_file():
+    missing = [path for path in (RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET) if not path.is_file()]
+    if missing:
         parser.error(
-            f"Missing rack roller asset: {RACK_ROLLER_ASSET}. "
-            "Build it once with workcell/rack_rollers.write_roller_deck_usda "
-            "(writes assets/rack_roller.usda)."
+            f"Missing rack roller asset(s): {', '.join(map(str, missing))}. "
+            "Build rack_roller.usda with workcell/rack_rollers.write_roller_deck_usda; "
+            "rack_roller_runtime.usda is its committed GPU-safe composition."
         )
     print(
         f"[INFO] Rack rollers enabled: {ROLLER_SETTINGS.rows}x{ROLLER_SETTINGS.columns} "
@@ -807,7 +808,7 @@ class RackToConveyorSceneCfg(InteractiveSceneCfg):
     rack_visual = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=str(RACK_ROLLER_ASSET) if ROLLER_SETTINGS.enabled else RACK_USD,
+            usd_path=str(RACK_ROLLER_RUNTIME_ASSET) if ROLLER_SETTINGS.enabled else RACK_USD,
             scale=(1.0, 1.0, 1.0),
             articulation_props=(
                 sim_utils.ArticulationRootPropertiesCfg(

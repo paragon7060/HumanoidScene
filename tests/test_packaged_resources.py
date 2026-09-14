@@ -8,12 +8,16 @@ from kuavo_isaaclab_scene.core.paths import (
     BOX_ATLAS_ASSETS,
     CONFIG_DIR,
     PACKAGE_CONFIG_DIR,
+    RACK_ROLLER_ASSET,
+    RACK_ROLLER_RUNTIME_ASSET,
 )
 
 
 def test_required_assets_are_packaged() -> None:
     required = (
         ASSET_DIR / "Rack.usd",
+        RACK_ROLLER_ASSET,
+        RACK_ROLLER_RUNTIME_ASSET,
         ASSET_DIR / "SmallBox.usd",
         ASSET_DIR / "MediumBox.usd",
         ASSET_DIR / "LargeBox.usd",

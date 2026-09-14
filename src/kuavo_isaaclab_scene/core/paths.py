@@ -35,6 +35,10 @@ BOX_ATLAS_ASSETS: dict[str, Path] = {
 # overwrites it, so manual edits (e.g. aligning a carved shelf_ramp recess)
 # persist.
 RACK_ROLLER_ASSET: Path = ASSET_DIR / "rack_roller.usda"
+# Runtime composition keeps the rack frame as one kinematic rigid body and
+# relocates the three roller articulations beside it.  GPU PhysX contact views
+# can then filter the rack body without parenting articulations under it.
+RACK_ROLLER_RUNTIME_ASSET: Path = ASSET_DIR / "rack_roller_runtime.usda"
 
 
 def _runtime_config_dir() -> Path:

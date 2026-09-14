@@ -50,7 +50,8 @@ def test_obstacle_sensors_cover_every_robot_link_and_exclude_task_box(monkeypatc
     loader.loader.exec_module(module)
     robot_usd = str(ASSET_DIR / "kuavo_s200062/usd/kuavo_s200062_fixed.usd")
     scene = SimpleNamespace(robot=SimpleNamespace(prim_path="{ENV_REGEX_NS}/Kuavo", spawn=SimpleNamespace(usd_path=robot_usd)),
-        rack_visual=SimpleNamespace(prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual"),
+        rack_visual=SimpleNamespace(prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
+                                    spawn=SimpleNamespace(usd_path=str(ASSET_DIR / "Rack.usd"))),
         fence=SimpleNamespace(prim_path="{ENV_REGEX_NS}/Workcell/SafetySystem/Fence/Panel"),
         button_station=SimpleNamespace(prim_path="{ENV_REGEX_NS}/Workcell/SafetySystem/ButtonStation"),
         conveyor_surface=SimpleNamespace(prim_path="{ENV_REGEX_NS}/Workcell/ConveyorSystem/Surface"),
@@ -75,3 +76,29 @@ def test_obstacle_sensors_cover_every_robot_link_and_exclude_task_box(monkeypatc
         path = scene.rack_visual.prim_path + "/" + str(prim.GetPath().MakeRelativePath(root))
         assert any(path.startswith(pattern + "/") for pattern in filters), path
     assert len(filters) == 5 and all(".*" not in pattern for pattern in filters)
+    scene.rack_visual.spawn.usd_path = str(ASSET_DIR / "rack_roller_runtime.usda")
+    rack_targets = module._rack_contact_targets(scene)
+    assert len(rack_targets) == 1 + 3 * 26 * 7
+    assert rack_targets[0] == scene.rack_visual.prim_path + "/RackBody"
+    assert rack_targets[1] == scene.rack_visual.prim_path + "/RollerDeck_01/Roller_r00_c00"
+    assert rack_targets[-1] == scene.rack_visual.prim_path + "/RollerDeck_03/Roller_r25_c06"
+
+
+def test_roller_runtime_separates_gpu_filter_body_from_articulations():
+    from pxr import Usd, UsdPhysics
+    from kuavo_isaaclab_scene.core.paths import RACK_ROLLER_RUNTIME_ASSET
+
+    stage = Usd.Stage.Open(str(RACK_ROLLER_RUNTIME_ASSET))
+    root = stage.GetDefaultPrim()
+    rack = stage.GetPrimAtPath(root.GetPath().AppendChild("RackBody"))
+    assert UsdPhysics.RigidBodyAPI(rack)
+    assert rack.GetAttribute("physics:kinematicEnabled").Get() is True
+    nested = stage.GetPrimAtPath(rack.GetPath().AppendPath("Rack/shelf_01/RollerDeck"))
+    assert nested.IsValid() and not nested.IsActive()
+
+    decks = [stage.GetPrimAtPath(root.GetPath().AppendChild(f"RollerDeck_0{tier}")) for tier in (1, 2, 3)]
+    assert all(deck.IsActive() and deck.HasAPI(UsdPhysics.ArticulationRootAPI) for deck in decks)
+    assert all(deck.GetRelationship("physics:filteredPairs").GetTargets() == [rack.GetPath()] for deck in decks)
+    joint = stage.GetPrimAtPath(decks[0].GetPath().AppendChild("Roller_r00_c00_Joint"))
+    assert joint.GetRelationship("physics:body0").GetTargets() == [decks[0].GetPath().AppendChild("Base")]
+    assert joint.GetRelationship("physics:body1").GetTargets() == [decks[0].GetPath().AppendChild("Roller_r00_c00")]

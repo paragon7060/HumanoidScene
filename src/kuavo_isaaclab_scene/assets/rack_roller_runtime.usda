@@ -1,0 +1,71 @@
+#usda 1.0
+(
+    defaultPrim = "RackRollerRuntime"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "RackRollerRuntime" (
+    prepend references = @./rack_roller.usda@</RackRoller>
+)
+{
+    # GPU rigid-contact filters require each filter pattern to resolve to one
+    # rigid body per environment. Keep the static frame in this body and move
+    # the three dynamic roller articulations outside its hierarchy below.
+    def Xform "RackBody" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+    )
+    {
+        bool physics:kinematicEnabled = 1
+        bool physics:rigidBodyEnabled = 1
+        bool physxRigidBody:disableGravity = 1
+
+        over "Rack"
+        {
+            # These source prims are re-exposed as top-level siblings below;
+            # leaving them here would nest articulations under RackBody.
+            over "shelf_01"
+            {
+                over "RollerDeck" (active = false) {}
+            }
+            over "shelf_02"
+            {
+                over "RollerDeck" (active = false) {}
+            }
+            over "shelf_03"
+            {
+                over "RollerDeck" (active = false) {}
+            }
+        }
+    }
+
+    def Xform "RollerDeck_01" (
+        active = true
+        prepend references = </RackRollerRuntime/RackBody/Rack/shelf_01/RollerDeck>
+    )
+    {
+        rel physics:filteredPairs = </RackRollerRuntime/RackBody>
+        double3 xformOp:translate = (0, 0, 0.395)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+
+    def Xform "RollerDeck_02" (
+        active = true
+        prepend references = </RackRollerRuntime/RackBody/Rack/shelf_02/RollerDeck>
+    )
+    {
+        rel physics:filteredPairs = </RackRollerRuntime/RackBody>
+        double3 xformOp:translate = (0, 0, 1)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+
+    def Xform "RollerDeck_03" (
+        active = true
+        prepend references = </RackRollerRuntime/RackBody/Rack/shelf_03/RollerDeck>
+    )
+    {
+        rel physics:filteredPairs = </RackRollerRuntime/RackBody>
+        double3 xformOp:translate = (0, 0, 1.61)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}

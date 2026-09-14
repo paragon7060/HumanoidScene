@@ -442,18 +442,13 @@ def generate_roller_deck_usda(settings: RackRollerSettings, rack_slope_rad: floa
     skipped without duplicate membership in Isaac Lab's per-environment CPU
     collision group.
 
-    Each roller deck is nested at RackBody/Rack/shelf_0N/RollerDeck, i.e.
-    directly under that same shelf's existing shelf_front/shelf_ramp meshes
-    from Rack.usd, so opening one shelf in Isaac Sim shows its own rollers
-    right there instead of a separate top-level group. RollerDeck keeps its
-    own PhysicsArticulationRootAPI per shelf (PhysX itself has no problem
-    with multiple independent articulation roots in one file, nested at any
-    depth). This asset is meant to be spawned with a plain AssetBaseCfg, not
-    ArticulationCfg: Isaac Lab's Articulation class requires exactly one root
-    under the prim path it is given, but AssetBaseCfg just spawns the USD
-    content and lets PhysX simulate the joints directly, so one merged file
-    with three independent roller decks works without extra Python-side
-    per-tier wiring.
+    The editable source keeps each roller deck at
+    RackBody/Rack/shelf_0N/RollerDeck, directly beside its shelf geometry.
+    Runtime scenes load rack_roller_runtime.usda, which references this file,
+    keeps RackBody as one kinematic GPU contact-filter target, and re-exposes
+    the three RollerDeck articulations as siblings. This avoids nesting an
+    articulation under a rigid body while preserving every authored geometry,
+    joint and material edit in this source file.
 
     Also includes a RackBody child that references Rack.usd directly (same
     directory, relative asset path), so this one file is the complete rack

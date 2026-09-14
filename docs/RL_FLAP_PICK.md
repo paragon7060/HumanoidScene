@@ -148,6 +148,14 @@ GPU의 filtered contact가 고정 장애물도 읽도록 랙과 펜스는 움직
 필터마다 환경당 rigid body 하나만 지정한다. 종료 규칙만으로 학습 정책의 무충돌을 보장하지는 않는다.
 박스가 랙에 놓여 있는 지지 접촉 등 물리 충돌은 그대로 유지한다. 충돌 제한 OFF는 학습 전용이며 무충돌을 보장하지 않는다.
 
+`--rack-rollers`를 켜면 GPU contact filter에 랙 전체 prim이나 RollerDeck articulation root를
+지정하지 않는다. 그런 경로는 여러 rigid body를 포함해 PhysX GPU가 무시할 수 있다.
+대신 `rack_roller_runtime.usda`가 정적 랙을 하나의 `RackBody`로 구성하고 세 롤러 deck을
+그 형제 articulation으로 배치한다. 장애물 센서는 `RackBody`와 3×26×7개 롤러 body를
+정확한 경로로 각각 등록한다. 따라서 롤러 접촉도 `obstacle_forces`에서 빠지지 않는다.
+롤러 수가 많아 환경당 물리·센서 메모리 비용이 크므로, 이 옵션의 병렬 학습은 2개 환경부터
+늘리면서 VRAM과 step 처리량을 측정한다.
+
 손가락 표면 마찰은 공통 `configs/grippers.json`의 선택한 preset에서 읽는다.
 2026-09-07 원격 `2d3764d` 기준 S200062/S56 two-finger 기본값은 **5.0 / 4.0, average**다.
 RL에서 별도 상수를 덮어쓰지 않으며, 실제 값은 로그와 checkpoint 계약에 기록한다.

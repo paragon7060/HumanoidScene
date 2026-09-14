@@ -41,7 +41,7 @@ from ..robots.gripper_runtime import (
     build_gripper_group_cfg,
 )
 from ..core.paths import ASSET_DIR, BOX_ATLAS_ASSETS
-from ..core.paths import RACK_ROLLER_ASSET
+from ..core.paths import RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET
 from ..workcell.rack_box_layout import (
     RACK_BACK_ROW_DEPTH_RAW,
     RACK_FRONT_ROW_DEPTH_RAW,
@@ -99,11 +99,14 @@ RACK_BOX_WORLD_ROT = local_quat_to_world("rack", RACK_BOX_LOCAL_PITCH_QUAT)
 RACK_BOX_LAYOUT = resolve_rack_box_layout()
 CAPTURED_RACK_BOX_POSE_PATH = resolve_rack_box_pose_path()
 RACK_ROLLER_SETTINGS = resolve_rack_roller_settings()
-if RACK_ROLLER_SETTINGS.enabled and not RACK_ROLLER_ASSET.is_file():
-    raise FileNotFoundError(
-        f"Missing rack roller asset: {RACK_ROLLER_ASSET}. Build it once with "
-        "workcell/rack_rollers.write_roller_deck_usda (writes assets/rack_roller.usda)."
-    )
+if RACK_ROLLER_SETTINGS.enabled:
+    missing = [path for path in (RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET) if not path.is_file()]
+    if missing:
+        raise FileNotFoundError(
+            f"Missing rack roller asset(s): {', '.join(map(str, missing))}. "
+            "Build rack_roller.usda with workcell/rack_rollers.write_roller_deck_usda; "
+            "rack_roller_runtime.usda is its committed GPU-safe composition."
+        )
 RACK_ROLLER_EXTRA_CLEARANCE_M = (
     RACK_ROLLER_SETTINGS.box_clearance_m if RACK_ROLLER_SETTINGS.enabled else 0.0
 )
@@ -626,7 +629,7 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
     rack_visual = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=str(RACK_ROLLER_ASSET) if RACK_ROLLER_SETTINGS.enabled else RACK_USD,
+            usd_path=str(RACK_ROLLER_RUNTIME_ASSET) if RACK_ROLLER_SETTINGS.enabled else RACK_USD,
             scale=(1.0, 1.0, 1.0),
             articulation_props=(
                 sim_utils.ArticulationRootPropertiesCfg(

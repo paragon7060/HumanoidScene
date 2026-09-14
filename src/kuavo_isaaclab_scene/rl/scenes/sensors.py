@@ -1,8 +1,34 @@
 """Per-cell contact sensors and opt-in robot cameras, without display windows."""
 
+from pathlib import Path
+
 import isaaclab.sim as sim_utils
 from isaaclab.sensors import ContactSensorCfg, CameraCfg
+from ...core.paths import RACK_ROLLER_RUNTIME_ASSET
 from ...robots.robot_model import resolve_robot_model
+from ...workcell.rack_rollers import DEFAULT_ROLLER_COLUMNS, DEFAULT_ROLLER_ROWS
+
+
+def _rack_contact_targets(scene) -> list[str]:
+    """Return exact rack rigid-body paths supported by GPU contact filtering."""
+    target = scene.rack_visual.prim_path
+    spawn = getattr(scene.rack_visual, "spawn", None)
+    usd_path = getattr(spawn, "usd_path", None)
+    if usd_path is not None and Path(usd_path).name == RACK_ROLLER_RUNTIME_ASSET.name:
+        # PhysX GPU contact views cannot use an articulation root or a glob
+        # matching several rigid bodies as one filter. The runtime asset keeps
+        # the static rack under RackBody and exposes every roller link at a
+        # stable path, so enumerate the bodies individually. This preserves
+        # roller contact observations instead of silently dropping them.
+        targets = [target + "/RackBody"]
+        targets.extend(
+            f"{target}/RollerDeck_0{tier}/Roller_r{row:02d}_c{column:02d}"
+            for tier in (1, 2, 3)
+            for row in range(DEFAULT_ROLLER_ROWS)
+            for column in range(DEFAULT_ROLLER_COLUMNS)
+        )
+        return targets
+    return [target]
 
 
 def add_contacts(scene, spec, geometry):
@@ -27,7 +53,7 @@ def add_contacts(scene, spec, geometry):
         # Filtered reports require one sensor body per environment. Include
         # every link, especially fingers omitted by the old robot_contact mask.
         # Each filter must resolve to exactly one rigid body per environment.
-        obstacles = [scene.rack_visual.prim_path, scene.fence.prim_path,
+        obstacles = [*_rack_contact_targets(scene), scene.fence.prim_path,
                      scene.button_station.prim_path + "/Base",
                      scene.button_station.prim_path + "/Plunger",
                      scene.conveyor_surface.prim_path]

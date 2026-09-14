@@ -3,7 +3,7 @@
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import AssetBaseCfg, ArticulationCfg, RigidObjectCfg
-from ...core.paths import ASSET_DIR, RACK_ROLLER_ASSET
+from ...core.paths import ASSET_DIR, RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET
 from ...workcell.workcell_layout import position, rotation, scale, offset, remap_quat
 from ...workcell.rack_rollers import resolve_rack_roller_settings
 from isaaclab.sim.utils import clone
@@ -13,15 +13,10 @@ from isaaclab.sim.utils import clone
 def spawn_kinematic_rack(prim_path, cfg, translation=None, orientation=None, **kwargs):
     """GPU contact filters require a rigid body, including for fixed obstacles.
 
-    Only for the plain (rollerless) Rack.usd. The roller-enabled asset nests a
-    PhysicsArticulationRootAPI (three independent RollerDeck bodies) under this
-    same prim; wrapping that whole subtree in one more PhysicsRigidBodyAPI here
-    would parent an articulation root under a rigid body, an unsupported PhysX
-    nesting that silently drops every roller joint's body0/body1 (logged as
-    'no bodies defined' at scene load). Use spawn_from_usd directly for that
-    asset instead. Its shelf collision is shaped to clear the rollers and each
-    deck filters only its rack-body pair; this wrapper remains correct only
-    for the plain mesh.
+    Only for the plain (rollerless) Rack.usd. The roller runtime asset already
+    gives its static RackBody this API and places three RollerDeck articulation
+    roots beside it. Wrapping the common parent would put those articulations
+    under another rigid body, silently dropping each joint's body0/body1.
     """
     root = sim_utils.spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
     sim_utils.define_rigid_body_properties(str(root.GetPath()),
@@ -54,11 +49,14 @@ def add_workcell(scene, parallel):
     scene.rack = group("{ENV_REGEX_NS}/Workcell/Racks/Rack",
         pos=position("rack"), rot=rotation("rack"), scaling=scale("rack"))
     roller_settings = resolve_rack_roller_settings()
-    if roller_settings.enabled and not RACK_ROLLER_ASSET.is_file():
-        raise FileNotFoundError(
-            f"Missing rack roller asset: {RACK_ROLLER_ASSET}. Build it once with "
-            "workcell/rack_rollers.write_roller_deck_usda (writes assets/rack_roller.usda)."
-        )
+    if roller_settings.enabled:
+        missing = [path for path in (RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET) if not path.is_file()]
+        if missing:
+            raise FileNotFoundError(
+                f"Missing rack roller asset(s): {', '.join(map(str, missing))}. "
+                "Build rack_roller.usda with workcell/rack_rollers.write_roller_deck_usda; "
+                "rack_roller_runtime.usda is its committed GPU-safe composition."
+            )
     if roller_settings.enabled:
         print(
             f"[INFO] Rack rollers enabled: {roller_settings.rows}x{roller_settings.columns} "
@@ -68,14 +66,9 @@ def add_workcell(scene, parallel):
         )
     scene.rack_visual = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=str(RACK_ROLLER_ASSET) if roller_settings.enabled else str(ASSET_DIR / "Rack.usd"),
-            # The roller asset already contains its own dynamic rigid bodies
-            # (per-tier RollerDeck articulations); its shelf collision is
-            # physically clear of the rollers and filters only the remaining
-            # near-contact rack/deck pair, without broad collision groups.
-            # spawn_kinematic_rack's whole-subtree kinematic wrapper is only
-            # correct for the plain static Rack.usd. See spawn_kinematic_rack's
-            # docstring for why nesting it around RollerDeck breaks the joints.
+            usd_path=str(RACK_ROLLER_RUNTIME_ASSET) if roller_settings.enabled else str(ASSET_DIR / "Rack.usd"),
+            # The runtime composition has a kinematic RackBody and three
+            # sibling RollerDeck articulations. Do not wrap their common root.
             func=sim_utils.spawn_from_usd if roller_settings.enabled else spawn_kinematic_rack,
             articulation_props=(
                 sim_utils.ArticulationRootPropertiesCfg(
