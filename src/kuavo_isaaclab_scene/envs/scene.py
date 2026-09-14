@@ -806,10 +806,13 @@ class RackToConveyorSceneCfg(InteractiveSceneCfg):
             usd_path=str(RACK_VISUAL_ASSET),
             scale=(1.0, 1.0, 1.0),
             articulation_props=(
-                sim_utils.ArticulationRootPropertiesCfg(
-                    solver_position_iteration_count=16,
-                    solver_velocity_iteration_count=4,
-                )
+               sim_utils.ArticulationRootPropertiesCfg(
+                    # Match the box's own iteration counts (scene_physics.py's
+                    # build_contact_box_spawn) so the two contacting bodies
+                    # resolve constraints with comparable accuracy.
+                    solver_position_iteration_count=32,
+                    solver_velocity_iteration_count=8,
+               )
                 if ROLLER_SETTINGS.enabled
                 else None
             ),

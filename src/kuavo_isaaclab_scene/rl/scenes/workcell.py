@@ -63,10 +63,13 @@ def add_workcell(scene, parallel):
             # sibling RollerDeck articulations. Do not wrap their common root.
             func=sim_utils.spawn_from_usd if roller_settings.enabled else spawn_kinematic_rack,
             articulation_props=(
-                sim_utils.ArticulationRootPropertiesCfg(
-                    solver_position_iteration_count=16,
-                    solver_velocity_iteration_count=4,
-                )
+               sim_utils.ArticulationRootPropertiesCfg(
+                    # Match the box's own iteration counts (scene_physics.py's
+                    # build_contact_box_spawn) so the two contacting bodies
+                    # resolve constraints with comparable accuracy.
+                    solver_position_iteration_count=32,
+                    solver_velocity_iteration_count=8,
+               )
                 if roller_settings.enabled
                 else None
             ),

@@ -65,9 +65,23 @@ RACK_SHELF_LOCAL_Z_OFFSETS: dict[int, float] = {1: 0.395, 2: 1.0, 3: 1.61}
 # catch boxes between rollers. See generate_roller_deck_usda's docstring.
 DEFAULT_ROLLER_RECESS_M = 0.02
 # Light passive bearing damping only; stiffness stays 0 so the roller is a
-# free joint, not a servo. This just keeps a nearly-frictionless spinning
-# cylinder numerically well-behaved.
-DEFAULT_ROLLER_ANGULAR_DAMPING = 0.0008
+# free joint, not a servo. This is authored solely on the joint's angular
+# drive (see _tier_fragment), not on the roller's own PhysxRigidBodyAPI,
+# so it is not double-counted.
+#
+# Sized from the roller's own moment of inertia rather than picked by feel:
+# a solid cylinder I = 0.5*m*r^2 with the default 0.05 kg / 2.8 cm roller
+# is ~4.9e-6 kg*m^2, so a damping torque tau = -b*omega decays free spin
+# with time constant I/b. The previous 0.0008 gave I/b =~ 3-6 ms (it was
+# also duplicated on PhysxRigidBodyAPI, which applies its own separate
+# damping torque on top of the joint drive's) -- a spun-up roller with no
+# box on it would visibly stop within a couple of physics steps, which is
+# nothing like a real low-friction bearing and made the box's own rolling
+# motion do more of the work fighting residual drag than it should. This
+# value instead targets I/b =~ 0.25 s, a light bearing that coasts down
+# gradually instead of nearly instantly, while still eventually settling
+# (never a literal zero) so idle rollers do not spin forever.
+DEFAULT_ROLLER_ANGULAR_DAMPING = 0.00002
 # Rolling only has low resistance because static friction is high enough to
 # spin the roller instead of letting the box skid across it (classic
 # rolling-without-slipping): energy goes into roller rotation, not into
@@ -374,7 +388,12 @@ def _tier_fragment(
         )
         {{
             float physics:mass = {_usda_float(settings.mass_kg)}
-            float physxRigidBody:angularDamping = {_usda_float(settings.angular_damping)}
+            # Explicit 0.0, not omitted: PhysxRigidBodyAPI's own schema
+            # default for angularDamping is nonzero, so leaving this
+            # unauthored would silently reintroduce body-level drag on top
+            # of the joint drive's damping below. All bearing resistance
+            # is intentionally authored in exactly one place (the joint).
+            float physxRigidBody:angularDamping = 0.0
             double3 xformOp:translate = ({_usda_float(pos[0])}, {_usda_float(pos[1])}, {_usda_float(pos[2])})
             quatf xformOp:orient = ({_usda_float(pitch_quat[0])}, {_usda_float(pitch_quat[1])}, {_usda_float(pitch_quat[2])}, {_usda_float(pitch_quat[3])})
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
