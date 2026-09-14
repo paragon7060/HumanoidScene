@@ -20,6 +20,52 @@ _SAFE_WAIST_DEG = {
 }
 
 
+def active_arm_indices(active_arm: str) -> tuple[int, ...]:
+    """Return the canonical arm14 columns controlled by one arm."""
+    try:
+        start = {"left": 0, "right": 7}[active_arm]
+    except KeyError as error:
+        raise ValueError(f"unsupported active arm: {active_arm!r}") from error
+    return tuple(range(start, start + 7))
+
+
+def compose_active_arm14(
+    active_arm: str,
+    active_waypoints: Sequence[Sequence[float]],
+    reference_arm_q: Sequence[float],
+) -> np.ndarray:
+    """Insert one 7-DoF path into arm14 while freezing the inactive arm."""
+    active = np.asarray(active_waypoints, dtype=float)
+    reference = np.asarray(reference_arm_q, dtype=float)
+    if active.ndim != 2 or active.shape[1] != 7:
+        raise ValueError("active-arm trajectory must have seven columns")
+    if reference.shape != (14,):
+        raise ValueError("reference_arm_q must contain 14 values")
+    if not np.isfinite(active).all() or not np.isfinite(reference).all():
+        raise ValueError("active-arm inputs must be finite")
+    result = np.repeat(reference[None, :], active.shape[0], axis=0)
+    result[:, active_arm_indices(active_arm)] = active
+    return result
+
+
+def inactive_arm_is_fixed(
+    active_arm: str,
+    arm14_waypoints: Sequence[Sequence[float]],
+    reference_arm_q: Sequence[float],
+) -> bool:
+    """Return whether every inactive-arm value exactly matches its reference."""
+    path = np.asarray(arm14_waypoints, dtype=float)
+    reference = np.asarray(reference_arm_q, dtype=float)
+    if path.ndim != 2 or path.shape[1] != 14 or reference.shape != (14,):
+        raise ValueError(
+            "inactive-arm check requires an Nx14 path and 14-value reference"
+        )
+    active = set(active_arm_indices(active_arm))
+    inactive = tuple(index for index in range(14) if index not in active)
+    expected = np.repeat(reference[None, inactive], path.shape[0], axis=0)
+    return bool(np.array_equal(path[:, inactive], expected))
+
+
 @dataclass(frozen=True)
 class PlanLayout:
     joint_names: tuple[str, ...]

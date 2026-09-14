@@ -5,12 +5,42 @@ from data_collection.task1.contract import (
     ARM_JOINT_NAMES,
     WAIST_ARM_JOINT_NAMES,
     WAIST_JOINT_NAMES,
+    active_arm_indices,
+    compose_active_arm14,
     compose_waist_arm,
+    inactive_arm_is_fixed,
     layout_for_joint_names,
     safe_waist_bounds,
     split_trajectory,
     validate_plan,
 )
+
+
+def test_compose_left_arm14_keeps_right_reference_exactly():
+    reference = np.arange(14, dtype=float)
+    active = np.asarray([[0.1] * 7, [0.2] * 7])
+
+    result = compose_active_arm14("left", active, reference)
+
+    assert active_arm_indices("left") == tuple(range(7))
+    np.testing.assert_allclose(result[:, :7], active)
+    np.testing.assert_array_equal(
+        result[:, 7:], np.repeat(reference[None, 7:], 2, axis=0)
+    )
+
+
+def test_compose_active_arm14_rejects_wrong_width():
+    with pytest.raises(ValueError, match="seven columns"):
+        compose_active_arm14("left", [[0.0] * 6], [0.0] * 14)
+
+
+def test_inactive_arm_fixed_detects_one_changed_right_joint():
+    reference = np.arange(14, dtype=float)
+    path = np.repeat(reference[None, :], 2, axis=0)
+
+    assert inactive_arm_is_fixed("left", path, reference) is True
+    path[1, 9] += 1.0e-12
+    assert inactive_arm_is_fixed("left", path, reference) is False
 
 
 def test_waist_arm_layout_has_canonical_order():
