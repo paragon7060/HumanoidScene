@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import re
 from typing import Mapping
 
 from data_collection.task1.contract import ARM_JOINT_NAMES, WAIST_ARM_JOINT_NAMES
@@ -12,6 +13,13 @@ from data_collection.task1.contract import ARM_JOINT_NAMES, WAIST_ARM_JOINT_NAME
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_SCENARIO_DIR = PROJECT_DIR / "configs" / "task1" / "scenarios"
+
+_INSTANCE_PREFIX_TO_SCENE = {
+    "SmallBox": "small_box",
+    "MediumBox": "medium_box",
+    "LargeBox": "large_box",
+    "XLargeBox": "xlarge_box",
+}
 
 _EXECUTION_NUMBER_KEYS = (
     "seed",
@@ -55,6 +63,55 @@ def _resolve_project_path(value: str, name: str) -> Path:
     return resolved
 
 
+def _instance_name_to_scene_key(value: str) -> str:
+    match = re.fullmatch(r"(SmallBox|MediumBox|LargeBox|XLargeBox)_(\d+)", value)
+    if match is None:
+        raise ValueError(f"unsupported rack-box instance name: {value!r}")
+    return f"{_INSTANCE_PREFIX_TO_SCENE[match.group(1)]}_{match.group(2)}"
+
+
+def _validate_pair_scene(scene: Mapping, rack_pose_path: Path) -> dict:
+    if "target_box" in scene:
+        raise ValueError("paired-box Task1 must use scene.paired_boxes")
+    paired_boxes = scene.get("paired_boxes")
+    if (
+        not isinstance(paired_boxes, list)
+        or len(paired_boxes) != 2
+        or any(not isinstance(value, str) or not value for value in paired_boxes)
+        or len(set(paired_boxes)) != 2
+    ):
+        raise ValueError("scene.paired_boxes must contain two distinct runtime keys")
+    if scene.get("pair_grasp") != "adjacent_inner_flaps":
+        raise ValueError("pair grasp must be adjacent_inner_flaps")
+    if scene.get("clear_same_shelf_boxes") is not False:
+        raise ValueError("paired-box Task1 must keep same-shelf boxes")
+
+    rack_data = json.loads(rack_pose_path.read_text(encoding="utf-8"))
+    pair_pick = _require_mapping(rack_data.get("pair_pick"), "rack pose pair_pick")
+    source_pair = pair_pick.get("paired_boxes")
+    if not isinstance(source_pair, list) or len(source_pair) != 2:
+        raise ValueError("rack pose pair_pick.paired_boxes must contain two boxes")
+    expected_pair = [_instance_name_to_scene_key(value) for value in source_pair]
+    if paired_boxes != expected_pair:
+        raise ValueError("scene.paired_boxes does not match rack pose pair_pick")
+    if pair_pick.get("grasp") != "adjacent_inner_flaps":
+        raise ValueError("rack pose pair grasp must be adjacent_inner_flaps")
+    if pair_pick.get("pair_gap_m") != 0.0:
+        raise ValueError("paired boxes must have pair_gap_m 0.0")
+    box_order = pair_pick.get("box_order")
+    if not isinstance(box_order, list) or any(name not in box_order for name in source_pair):
+        raise ValueError("rack pose box_order must contain both paired boxes")
+    pair_indices = [box_order.index(name) for name in source_pair]
+    if pair_indices not in ([0, 1], [1, 2]):
+        raise ValueError("paired boxes must be adjacent in robot-view order")
+    if len({name.rsplit("_", 1)[0] for name in source_pair}) != 1:
+        raise ValueError("paired boxes must have the same size")
+    expected_arm = "left" if pair_indices == [0, 1] else "right"
+    if pair_pick.get("active_arm") != expected_arm:
+        raise ValueError("rack pose active_arm does not match pair position")
+    return dict(pair_pick)
+
+
 def _validate_gripper_contract(data: Mapping) -> None:
     robot = _require_mapping(data.get("robot"), "robot")
     preset_name = robot.get("gripper_preset")
@@ -86,8 +143,8 @@ def load_scenario_config(path: str | Path) -> dict:
         data = json.loads(source.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"cannot load Task1 scenario: {source}") from exc
-    if not isinstance(data, dict) or data.get("schema_version") != 1:
-        raise ValueError("Task1 scenario schema_version must be 1")
+    if not isinstance(data, dict) or data.get("schema_version") not in (1, 2):
+        raise ValueError("Task1 scenario schema_version must be 1 or 2")
     if not isinstance(data.get("scenario_id"), str) or not data["scenario_id"]:
         raise ValueError("scenario_id must be a non-empty string")
 
@@ -100,11 +157,17 @@ def load_scenario_config(path: str | Path) -> dict:
         raise ValueError("single-box Task1 robot contract must use S200062 calibrated TCP")
 
     scene = _require_mapping(data.get("scene"), "scene")
-    _resolve_project_path(scene.get("rack_box_poses"), "scene.rack_box_poses")
-    if scene.get("target_box") != "medium_box_0":
-        raise ValueError("current single-box Task1 target_box must be medium_box_0")
-    if scene.get("clear_same_shelf_boxes") is not True:
-        raise ValueError("current single-box Task1 must clear same-shelf obstacles")
+    rack_pose_path = _resolve_project_path(
+        scene.get("rack_box_poses"), "scene.rack_box_poses"
+    )
+    pair_pick = None
+    if data["schema_version"] == 1:
+        if scene.get("target_box") != "medium_box_0":
+            raise ValueError("current single-box Task1 target_box must be medium_box_0")
+        if scene.get("clear_same_shelf_boxes") is not True:
+            raise ValueError("current single-box Task1 must clear same-shelf obstacles")
+    else:
+        pair_pick = _validate_pair_scene(scene, rack_pose_path)
 
     planning = _require_mapping(data.get("planning"), "planning")
     include_waist = planning.get("include_waist")
@@ -121,6 +184,11 @@ def load_scenario_config(path: str | Path) -> dict:
         raise ValueError("planning.cspace_joint_names does not match the selected DoF")
     if planning.get("torso_height_m") != 0.25:
         raise ValueError("verified single-box torso_height_m must be 0.25")
+    if data["schema_version"] == 2:
+        if include_waist or not arm_only or expected_dof != 14:
+            raise ValueError("paired-box Task1 must use the arm14 baseline")
+        if planning.get("active_arm") != pair_pick.get("active_arm"):
+            raise ValueError("planning.active_arm does not match rack pose pair_pick")
 
     execution = _require_mapping(data.get("execution"), "execution")
     if execution.get("initial_state") != "meta_default":
@@ -136,6 +204,16 @@ def load_scenario_config(path: str | Path) -> dict:
             raise ValueError(f"execution.{key} must be numeric")
     if execution.get("active_gripper", "both") not in ("both", "left", "right"):
         raise ValueError("execution.active_gripper must be both, left, or right")
+    if data["schema_version"] == 2:
+        pair_separation = execution.get("pair_separation_drift_max_m")
+        if (
+            isinstance(pair_separation, bool)
+            or not isinstance(pair_separation, (int, float))
+            or pair_separation <= 0
+        ):
+            raise ValueError("execution.pair_separation_drift_max_m must be positive")
+        if execution.get("active_gripper") != planning.get("active_arm"):
+            raise ValueError("execution.active_gripper must match planning.active_arm")
     if "box_size_m" in execution and (
         not isinstance(execution["box_size_m"], list)
         or len(execution["box_size_m"]) != 3
@@ -157,6 +235,8 @@ def load_scenario_config(path: str | Path) -> dict:
         raise ValueError("verified_partial_extraction must set expected_passed true")
     if verification_state == "verified_failure" and expected_passed is not False:
         raise ValueError("verified_failure must set expected_passed false")
+    if verification_state == "experimental_unverified" and expected_passed is not None:
+        raise ValueError("experimental_unverified must set expected_passed null")
     data["_scenario_path"] = str(source)
     return data
 
@@ -206,6 +286,18 @@ def build_physical_executor_argv(
         ),
         "--initial-state", execution["initial_state"],
     ]
+    if scenario["schema_version"] == 2:
+        result.extend(("--scenario-path", str(Path(scenario["_scenario_path"]))))
+        result.append("--paired-boxes")
+        result.extend(scenario["scene"]["paired_boxes"])
+        if scenario["scene"]["clear_same_shelf_boxes"] is False:
+            result.append("--no-clear-same-shelf-boxes")
+        result.extend(
+            (
+                "--pair-separation-drift-max-m",
+                str(execution["pair_separation_drift_max_m"]),
+            )
+        )
     flag_names = {
         "seed": "seed",
         "torso_height_m": "torso-height-m",

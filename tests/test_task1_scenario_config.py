@@ -14,6 +14,9 @@ from data_collection.task1.scenario import (
 
 WAIST16_CONFIG = DEFAULT_SCENARIO_DIR / "single_medium_box_waist16_verified_v1.json"
 ARM14_CONFIG = DEFAULT_SCENARIO_DIR / "single_medium_box_arm14_baseline_v1.json"
+PAIR_CONFIG = (
+    DEFAULT_SCENARIO_DIR / "paired_medium_boxes_mms_left_arm14_experimental_v1.json"
+)
 VERIFIED_SINGLE_ARM_DIR = DEFAULT_SCENARIO_DIR / "verified" / "single_arm"
 VERIFIED_SINGLE_ARM_CONFIGS = {
     "left_arm14": (
@@ -79,6 +82,42 @@ def test_packaged_single_box_configs_keep_common_physical_contract():
             "static_friction": 20.0,
             "dynamic_friction": 16.0,
         }
+
+
+def test_mms_left_pair_scenario_matches_pose_contract():
+    scenario = load_scenario_config(PAIR_CONFIG)
+
+    assert scenario["schema_version"] == 2
+    assert scenario["scene"]["paired_boxes"] == ["medium_box_0", "medium_box_1"]
+    assert scenario["scene"]["pair_grasp"] == "adjacent_inner_flaps"
+    assert scenario["scene"]["clear_same_shelf_boxes"] is False
+    assert scenario["planning"]["active_arm"] == "left"
+    assert scenario["planning"]["cspace_joint_names"] == ARM_JOINT_NAMES
+    assert scenario["execution"]["active_gripper"] == "left"
+    assert scenario["execution"]["pair_separation_drift_max_m"] == 0.01
+    assert scenario["execution"]["retention_drift_max_m"] == 0.05
+    assert scenario["verification"]["state"] == "experimental_unverified"
+    assert scenario["verification"]["expected_passed"] is None
+
+
+def test_pair_scenario_forwards_pair_arguments(tmp_path):
+    scenario = load_scenario_config(PAIR_CONFIG)
+    argv = build_physical_executor_argv(
+        scenario,
+        approach_plan=tmp_path / "approach.json",
+        retreat_plan=tmp_path / "retreat.json",
+        output=tmp_path / "report.json",
+        video_out=tmp_path / "video.mp4",
+    )
+
+    pair_index = argv.index("--paired-boxes")
+    assert argv[pair_index + 1 : pair_index + 3] == [
+        "medium_box_0",
+        "medium_box_1",
+    ]
+    assert argv[argv.index("--scenario-path") + 1] == str(PAIR_CONFIG.resolve())
+    assert "--no-clear-same-shelf-boxes" in argv
+    assert argv[argv.index("--pair-separation-drift-max-m") + 1] == "0.01"
 
 
 def test_packaged_single_box_configs_separate_waist16_and_arm14_planning():

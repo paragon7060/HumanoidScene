@@ -1,0 +1,96 @@
+{
+  "schema_version": 2,
+  "scenario_id": "task1_paired_medium_boxes_mms_left_arm14_experimental_v1",
+  "description": "Experimental S200062 left-hand partial extraction of two adjacent MediumBoxes.",
+  "robot": {
+    "model": "s200062",
+    "gripper_preset": "s200062_integrated",
+    "tcp_frame": "endeffector_center"
+  },
+  "scene": {
+    "rack_box_poses": "configs/rack_box_poses_task1_mms_left.json",
+    "paired_boxes": [
+      "medium_box_0",
+      "medium_box_1"
+    ],
+    "pair_grasp": "adjacent_inner_flaps",
+    "clear_same_shelf_boxes": false
+  },
+  "planning": {
+    "mode": "paired_box_single_arm",
+    "include_waist": false,
+    "arm_only_baseline": true,
+    "active_arm": "left",
+    "cspace_dof": 14,
+    "cspace_joint_names": [
+      "zarm_l1_joint",
+      "zarm_l2_joint",
+      "zarm_l3_joint",
+      "zarm_l4_joint",
+      "zarm_l5_joint",
+      "zarm_l6_joint",
+      "zarm_l7_joint",
+      "zarm_r1_joint",
+      "zarm_r2_joint",
+      "zarm_r3_joint",
+      "zarm_r4_joint",
+      "zarm_r5_joint",
+      "zarm_r6_joint",
+      "zarm_r7_joint"
+    ],
+    "torso_height_m": 0.25
+  },
+  "execution": {
+    "active_gripper": "left",
+    "initial_state": "meta_default",
+    "seed": 0,
+    "torso_height_m": 0.25,
+    "settle_steps": 120,
+    "approach_steps_per_waypoint": 4,
+    "close_steps": 180,
+    "closed_hold_steps": 60,
+    "retreat_steps_per_waypoint": 8,
+    "final_hold_steps": 120,
+    "capture_stride": 4,
+    "waypoint_tracking_tolerance_rad": 0.06,
+    "approach_box_motion_max_m": 0.003,
+    "retreat_box_motion_min_m": 0.03,
+    "retention_drift_max_m": 0.05,
+    "pair_separation_drift_max_m": 0.01,
+    "motor_obstruction_min_rad": 0.005,
+    "box_size_m": [
+      0.32,
+      0.22,
+      0.185
+    ],
+    "rack_front_x_b_m": 0.415,
+    "partial_extraction_front_progress_min_m": 0.05,
+    "partial_extraction_front_inside_max_m": 0.05,
+    "final_hold_box_motion_max_m": 0.01,
+    "direct_approach_replay": true,
+    "kinematic_direct_approach_render": true,
+    "overwrite_video": true
+  },
+  "gripper_contract": {
+    "actuator": {
+      "effort_limit_sim": 100.0,
+      "stiffness": 4000.0,
+      "damping": 400.0
+    },
+    "finger_contact": {
+      "static_friction": 20.0,
+      "dynamic_friction": 16.0
+    }
+  },
+  "verification": {
+    "state": "experimental_unverified",
+    "expected_passed": null,
+    "acceptance_mode": "paired_box_partial_extraction",
+    "reference_commit": null,
+    "reference_report": null,
+    "reference_report_sha256": null,
+    "reference_video": null,
+    "reference_video_sha256": null,
+    "result": null
+  }
+}
