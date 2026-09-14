@@ -5,7 +5,7 @@ import torch
 from isaaclab.controllers import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
 from ...teleop.teleop_ik import PersistentTeleopIKAction
-from ...teleop.teleop_mapping import ScaledControllerMapper
+from ...teleop.teleop_mapping import AbsoluteControllerMapper, ScaledControllerMapper
 from ...teleop.urdf_arm_ik import UrdfArm
 from ...teleop.teleop_servo import arm_response_profile
 
@@ -19,15 +19,20 @@ def normalized_delta(target, current, scale):
 
 
 class QuestRLControl:
-    def __init__(self, env, model, args):
+    def __init__(self, env, model, args, xr):
         self.env, self.robot = env, env.scene["robot"]
         from ...robots.end_effector import get_end_effector_frames
         self.frames = get_end_effector_frames(self.robot)
+        self.xr = xr
         self.sides = ("left", "right") if env.cfg.task.active_arm == "both" else (env.cfg.task.active_arm,)
         if list(env.action_manager.active_terms) != ["upper_body", *[s + "_gripper" for s in self.sides]]:
             raise ValueError("Reward inspection requires arm deltas followed by active gripper actions")
         self.upper = env.action_manager.get_term("upper_body")
-        self.mapper = ScaledControllerMapper(position_gain=args.position_gain, tool_forward_sign=model.tool_forward_sign)
+        if args.controller_mapping == "absolute":
+            self.mapper = AbsoluteControllerMapper(tool_forward_sign=model.tool_forward_sign,
+                                                   orientation_mode=args.absolute_orientation)
+        else:
+            self.mapper = ScaledControllerMapper(position_gain=args.position_gain, tool_forward_sign=model.tool_forward_sign)
         self.torso = self.robot.find_bodies("waist_yaw_link")[0][0]
         self.solvers, self.columns = {}, {}
         for side, letter in (("left", "l"), ("right", "r")):
@@ -40,7 +45,7 @@ class QuestRLControl:
                 controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=False,
                                                        ik_method="dls"), debug_vis=False)
             solver = PersistentTeleopIKAction(cfg, env)
-            solver.response = arm_response_profile(args.arm_response, "scaled", "controllers")
+            solver.response = arm_response_profile(args.arm_response, args.controller_mapping, "controllers")
             solver.orientation_weight = args.arm_orientation_weight
             solver.configure_urdf(UrdfArm(model.urdf_path, side))
             self.solvers[side] = solver
@@ -63,7 +68,8 @@ class QuestRLControl:
             solver = self.solvers[side]
             tcp = self.frames.center_pose_w[0, 0 if side == "left" else 1].detach().cpu().numpy()
             goal = self.mapper.target(side, packets[side], tcp, self.pose(),
-                                      following=True, reference_pose_w=self.pose(self.torso))
+                                      following=True, aim_pose=self.xr.controller_aim_pose(side),
+                                      reference_pose_w=self.pose(self.torso))
             # Standalone IK only computes a target. Never call apply_actions():
             # the unchanged RL action manager is the only articulation writer.
             columns = self.columns[side]

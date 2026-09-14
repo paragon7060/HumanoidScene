@@ -34,7 +34,10 @@ def _config(args):
         num_envs=1, env_spacing=8., enable_cameras=args.enable_cameras, seed=args.seed, device=args.device,
         max_iterations=1, save_interval=None, initial_state=None,
         initial_states_file=CONFIG_DIR / "initial_states.json")
-    cfg, _ = build_configs(rl)
+    # 0 (default): keep the experiment's own single-arm lock. 1: release both
+    # arms for inspection, independent of the loaded config's active_arm.
+    active_arm_override = "both" if getattr(args, "rl_reward_debug", 0) == 1 else None
+    cfg, _ = build_configs(rl, active_arm_override=active_arm_override)
     if cfg.task.control_mode != "arms-only" or cfg.task.grasp_mode != "flap_top" or cfg.task.name != "pick":
         raise ValueError("Quest reward inspection currently supports arms-only flap pick only")
     cfg.xr = XrCfg(near_plane=.08)
@@ -70,8 +73,8 @@ def run(args, app):
         env = ManagerBasedRLEnv(cfg)
         env.reset(seed=args.seed)
         model = resolve_robot_model()
-        control = QuestRLControl(env, model, args)
         xr = RawQuestOpenXRDevice(OpenXRDeviceCfg(xr_cfg=cfg.xr, sim_device=env.device), input_mode="controllers")
+        control = QuestRLControl(env, model, args, xr)
         start_quest_xr_session(app, enable_ui=True, resolution_scale=args.xr_resolution_scale,
                               render_quality=args.render_quality)
         hud = QuestRewardPanel(forward_axis=args.xr_overlay_forward_axis)
@@ -143,6 +146,9 @@ def run(args, app):
         print("[RL REWARD] No dataset recording. A/T run/pause; B/R reset; X/C recenter; Y/H panel.", flush=True)
         print(f"[RL REWARD] active_arm={cfg.task.active_arm}, actions={env.action_manager.total_action_dim}, "
               f"flaps={cfg.task.grasp_flaps}, contact_region={cfg.task.flap_contact_region}", flush=True)
+        print(f"[RL REWARD] controller_mapping={args.controller_mapping}"
+              + (f", absolute_orientation={args.absolute_orientation}" if args.controller_mapping == "absolute" else "")
+              + f", arm_response={args.arm_response}", flush=True)
         print(f"[RL REWARD] RL control rate={1/env.step_dt:g} Hz (collector --control-hz ignored); "
               f"RL drives/initial pose/body lock/rewards/terminations unchanged. Display cameras={args.enable_cameras}.", flush=True)
         print("[RL REWARD] Uses RL collision predicates, not the collector's additional self-collision guard. "

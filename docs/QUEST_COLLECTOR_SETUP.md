@@ -223,6 +223,8 @@ physics tensor view가 무효화되면 Play 재개로 복구되지 않으므로 
 ## 5. 조작·저장·종료
 
 `X` 보정 → `A`로 따라오기 확인 → `B`로 녹화 → 작업 완료 후 PC `M`으로 성공 저장.
+PC 없이 진행하려면 작업 완료 후 오른쪽 그립을 `--success-hold-seconds`(기본 1.5초) 동안
+꾹 눌러도 `M`과 동일하게 성공 저장되고 다음 시도를 받을 준비 상태가 된다(`--hand-switch` 실행 중에는 비활성).
 PC 키는 Isaac Sim 창에 포커스를 둔다. `B` 중지는 실패, `R`은 실패 종료 후 reset이다.
 녹화 중 `A`/`X`는 현재 시도를 종료하므로 단순 일시정지로 사용하지 않는다.
 자세한 mapping은 [Quest 상세 가이드](QUEST3_KUAVO_TELEOP_GUIDE.md#4-조작-및-episode-제어)를 따른다.

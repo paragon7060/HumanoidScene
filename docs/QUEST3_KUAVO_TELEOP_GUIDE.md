@@ -284,10 +284,23 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 | 손목 패널 표시/숨김 | 왼쪽 `Y` | `H` |
 | 환경 reset/현재 시도 실패 종료 | — | `R` |
 | 성공 demonstration으로 종료 | — | `M` |
+| 성공 종료 + 다음 시도 준비(컨트롤러 전용) | 오른쪽 그립(squeeze)을 `--success-hold-seconds`(기본 1.5초) 동안 꾹 누르기 | — |
 | 베이스 전후/좌우 이동 | 왼쪽 스틱 | — |
 | 베이스 좌우 회전/몸통 상하 | 오른쪽 스틱 | — |
 | 누르는 동안 자유 시점, 놓으면 head 복귀 | 왼쪽 아래 그립 트리거 | — |
 | 놓으면 open, 당기면 close | 양쪽 위 검지 트리거 | — |
+
+오른쪽 그립 길게 누르기는 `M`과 동일하게 현재 녹화를 성공으로 닫고 장면은 유지한 채
+다음 시도를 받을 준비 상태로 돌아간다(`B`로 새 녹화 시작). 최소 유지 시간을 채우기
+전에 손을 놓으면 취소되고, 한 번 성공 처리된 뒤에는 그립을 완전히 놓아야
+(`squeeze <= 0.2`) 다음 성공 처리를 다시 무장한다. `--hand-switch`를 쓰는 실행에서는
+오른쪽 그립이 이미 맨손 전환에 쓰이므로 이 바인딩은 비활성화되며, 그 경우에도 PC `M`은
+그대로 동작한다.
+
+**VR HUD**: 머리에 고정된 작은 텍스트 패널이 항상 켜져 있고(`--self-collision`/`--hand-switch`
+여부와 무관), `REC ON/WAIT/OFF`와 `Saved N`(지금까지 성공 저장된 episode 수)을 실시간으로
+보여준다. 자기충돌이 감지되면 같은 패널에 `Collision` 경고가 대신 표시된다. 콘솔에도 매
+episode 종료마다 `[DATA] Finished ...; saved so far=N, attempts this run=N`이 출력된다.
 
 1. 편한 자세로 정면을 보고 `X`/`C`를 누른다. 현재 HMD 시점을 Kuavo head camera
    위치·방향에 맞추고 손·머리 움직임의 기준을 다시 잡는다. 따라오기는 꺼진다.
