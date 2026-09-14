@@ -40,6 +40,26 @@ def test_pair_path_keeps_right_arm_fixed():
     )
 
 
+def test_constrained_rrt_allows_exactly_fixed_inactive_dimensions():
+    start = np.asarray([0.0, 0.25])
+    goal = np.asarray([0.5, 0.25])
+
+    path, _ = constrained_rrt_connect(
+        start,
+        goal,
+        lower=np.asarray([-1.0, 0.25]),
+        upper=np.asarray([1.0, 0.25]),
+        in_collision=lambda _: False,
+        seed=0,
+        max_iterations=10,
+        step_size_rad=0.2,
+        edge_step_rad=0.05,
+    )
+
+    assert path is not None
+    np.testing.assert_array_equal(path[:, 1], 0.25)
+
+
 def test_add_world_obstacles_keeps_obstacle_and_handle_references():
     class FakeObstacle:
         def __init__(self):

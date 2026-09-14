@@ -332,7 +332,7 @@ def constrained_rrt_connect(
         or upper.shape != start.shape
         or weights.shape != start.shape
         or not all(np.isfinite(value).all() for value in (start, goal, lower, upper, weights))
-        or np.any(lower >= upper)
+        or np.any(lower > upper)
         or np.any(weights <= 0)
         or max_iterations <= 0
         or not math.isfinite(step_size_rad)
