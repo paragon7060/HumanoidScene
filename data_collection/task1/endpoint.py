@@ -375,7 +375,11 @@ def solve_simultaneous_jacobian(
         for step_scale in (1.0, 0.5, 0.25, 0.125, 0.0625):
             candidate = np.clip(q + step_scale * delta, lower + 1e-6, upper - 1e-6)
             candidate_pos_e, candidate_rot_e, _, _ = simultaneous_pose_errors(
-                kinematics, candidate, target_positions, target_rotations
+                kinematics,
+                candidate,
+                target_positions,
+                target_rotations,
+                tool_frames=tool_frames,
             )
             candidate_residual = np.concatenate(
                 [

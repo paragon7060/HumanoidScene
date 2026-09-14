@@ -14,6 +14,7 @@ from data_collection.task1.endpoint import (
     integrate_rmpflow,
     rotation_vector,
     simultaneous_pose_errors,
+    solve_simultaneous_jacobian,
 )
 
 
@@ -75,6 +76,45 @@ def test_pose_errors_can_evaluate_one_selected_tool_frame():
     np.testing.assert_allclose(pos, [[0.1, 0.0, 0.0]])
     np.testing.assert_allclose(rot, [[0.0, 0.0, 0.0]])
     assert len(jacobians) == 1
+
+
+def test_jacobian_line_search_keeps_one_selected_tool_frame():
+    class Orientation:
+        @staticmethod
+        def matrix():
+            return np.eye(3)
+
+    class Kinematics:
+        @staticmethod
+        def position(q, frame):
+            assert frame == "left_tcp"
+            return q[:3]
+
+        @staticmethod
+        def orientation(q, frame):
+            assert frame == "left_tcp"
+            return Orientation()
+
+        @staticmethod
+        def jacobian(q, frame):
+            assert frame == "left_tcp"
+            value = np.zeros((6, 7))
+            value[:3, :3] = np.eye(3)
+            return value
+
+    q, _, _ = solve_simultaneous_jacobian(
+        Kinematics(),
+        np.zeros(7),
+        -np.ones(7),
+        np.ones(7),
+        np.asarray([[0.1, 0.0, 0.0]]),
+        [np.eye(3)],
+        position_tolerance_m=1e-4,
+        orientation_tolerance_deg=1.0,
+        tool_frames=["left_tcp"],
+    )
+
+    assert q[0] == pytest.approx(0.1, abs=1e-4)
 
 
 def test_center_out_offsets_cover_line_and_prefer_nearby_points():
