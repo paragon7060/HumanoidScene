@@ -3,8 +3,9 @@
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import AssetBaseCfg, ArticulationCfg, RigidObjectCfg
-from ...core.paths import ASSET_DIR
+from ...core.paths import ASSET_DIR, RACK_ROLLER_ASSET
 from ...workcell.workcell_layout import position, rotation, scale, offset, remap_quat
+from ...workcell.rack_rollers import resolve_rack_roller_settings
 from isaaclab.sim.utils import clone
 
 
@@ -41,8 +42,32 @@ def add_workcell(scene, parallel):
     # scene['rack'] stays the measured Rack anchor; Visual has identity local pose.
     scene.rack = group("{ENV_REGEX_NS}/Workcell/Racks/Rack",
         pos=position("rack"), rot=rotation("rack"), scaling=scale("rack"))
+    roller_settings = resolve_rack_roller_settings()
+    if roller_settings.enabled and not RACK_ROLLER_ASSET.is_file():
+        raise FileNotFoundError(
+            f"Missing rack roller asset: {RACK_ROLLER_ASSET}. Build it once with "
+            "workcell/rack_rollers.write_roller_deck_usda (writes assets/rack_roller.usda)."
+        )
+    if roller_settings.enabled:
+        print(
+            f"[INFO] Rack rollers enabled: {roller_settings.rows}x{roller_settings.columns} "
+            f"free-spinning cylinders per tier, diameter {roller_settings.diameter_m * 100:.1f} cm; "
+            f"recessed {roller_settings.recess_m * 100:.1f} cm into the shelf surface.",
+            flush=True,
+        )
     scene.rack_visual = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
-        spawn=sim_utils.UsdFileCfg(usd_path=str(ASSET_DIR / "Rack.usd"), func=spawn_kinematic_rack),
+        spawn=sim_utils.UsdFileCfg(
+            usd_path=str(RACK_ROLLER_ASSET) if roller_settings.enabled else str(ASSET_DIR / "Rack.usd"),
+            func=spawn_kinematic_rack,
+            articulation_props=(
+                sim_utils.ArticulationRootPropertiesCfg(
+                    solver_position_iteration_count=16,
+                    solver_velocity_iteration_count=4,
+                )
+                if roller_settings.enabled
+                else None
+            ),
+        ),
         init_state=AssetBaseCfg.InitialStateCfg(pos=(0., 0., 0.), rot=(1., 0., 0., 0.)))
     scene.fence = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/Workcell/SafetySystem/Fence/Panel",
         spawn=sim_utils.CuboidCfg(size=(1.55, .025, 1.55),

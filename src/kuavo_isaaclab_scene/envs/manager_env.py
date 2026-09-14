@@ -41,6 +41,7 @@ from ..robots.gripper_runtime import (
     build_gripper_group_cfg,
 )
 from ..core.paths import ASSET_DIR, BOX_ATLAS_ASSETS
+from ..core.paths import RACK_ROLLER_ASSET
 from ..workcell.rack_box_layout import (
     RACK_BACK_ROW_DEPTH_RAW,
     RACK_FRONT_ROW_DEPTH_RAW,
@@ -51,6 +52,7 @@ from ..workcell.rack_box_layout import (
     resolve_rack_box_layout,
     resolve_rack_box_pose_path,
 )
+from ..workcell.rack_rollers import resolve_rack_roller_settings
 from ..workcell.workcell_layout import (
     local_quat_to_world,
     offset as layout_offset,
@@ -96,10 +98,28 @@ RACK_SCALE = layout_scale("rack")
 RACK_BOX_WORLD_ROT = local_quat_to_world("rack", RACK_BOX_LOCAL_PITCH_QUAT)
 RACK_BOX_LAYOUT = resolve_rack_box_layout()
 CAPTURED_RACK_BOX_POSE_PATH = resolve_rack_box_pose_path()
+RACK_ROLLER_SETTINGS = resolve_rack_roller_settings()
+if RACK_ROLLER_SETTINGS.enabled and not RACK_ROLLER_ASSET.is_file():
+    raise FileNotFoundError(
+        f"Missing rack roller asset: {RACK_ROLLER_ASSET}. Build it once with "
+        "workcell/rack_rollers.write_roller_deck_usda (writes assets/rack_roller.usda)."
+    )
+RACK_ROLLER_EXTRA_CLEARANCE_M = (
+    RACK_ROLLER_SETTINGS.box_clearance_m if RACK_ROLLER_SETTINGS.enabled else 0.0
+)
+if RACK_ROLLER_SETTINGS.enabled:
+    print(
+        f"[INFO] Rack rollers enabled: {RACK_ROLLER_SETTINGS.rows}x{RACK_ROLLER_SETTINGS.columns} "
+        f"free-spinning cylinders per tier, diameter {RACK_ROLLER_SETTINGS.diameter_m * 100:.1f} cm; "
+        f"recessed {RACK_ROLLER_SETTINGS.recess_m * 100:.1f} cm into the shelf surface; "
+        f"boxes raised by {RACK_ROLLER_EXTRA_CLEARANCE_M * 100:.1f} cm to rest on top.",
+        flush=True,
+    )
 RACK_BOX_SPAWN_PLAN = build_box_spawn_plan(
     RACK_BOX_LAYOUT,
     RACK_SLOPE_RAD,
     CAPTURED_RACK_BOX_POSE_PATH,
+    extra_clearance_m=RACK_ROLLER_EXTRA_CLEARANCE_M,
 )
 CONFIGURED_RACK_BOX_COUNT = sum(len(boxes) for boxes in RACK_BOX_LAYOUT.values())
 CUSTOM_RACK_BOXES_ACTIVE = bool(
@@ -606,8 +626,16 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
     rack_visual = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=RACK_USD,
+            usd_path=str(RACK_ROLLER_ASSET) if RACK_ROLLER_SETTINGS.enabled else RACK_USD,
             scale=(1.0, 1.0, 1.0),
+            articulation_props=(
+                sim_utils.ArticulationRootPropertiesCfg(
+                    solver_position_iteration_count=16,
+                    solver_velocity_iteration_count=4,
+                )
+                if RACK_ROLLER_SETTINGS.enabled
+                else None
+            ),
         ),
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.0, 0.0, 0.0),
@@ -1186,6 +1214,16 @@ class KuavoRobustWorkcellEnvCfg(ManagerBasedRLEnvCfg):
             bounce_threshold_velocity=0.15,
             gpu_max_rigid_contact_count=2**22,
             gpu_max_rigid_patch_count=2**20,
+            # The rack roller deck adds hundreds of small rigid-body
+            # aggregates (one PhysX articulation per shelf). PhysX's
+            # GPU broadphase pre-allocates a fixed buffer for found/lost
+            # aggregate-pair events per step; the IsaacLab dataclass
+            # default is generous, but explicitly reserving extra
+            # headroom here avoids "foundLostAggregatePairsCapacity"
+            # overflow warnings (missed collision interactions) once
+            # many rollers start contacting boxes simultaneously.
+            gpu_found_lost_aggregate_pairs_capacity=2**23,
+            gpu_total_aggregate_pairs_capacity=2**23,
         ),
     )
 

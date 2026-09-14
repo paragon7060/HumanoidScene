@@ -1,7 +1,7 @@
 """CLI/bootstrap helpers. No Isaac-dependent environment imports at module scope."""
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime
 import importlib.metadata
 import json
@@ -14,6 +14,7 @@ from uuid import uuid4
 from ..tasks.specs import TASKS, PREDECESSOR, REQUIRES_RESET_BANK, task_spec
 from ...robots.robot_model import add_robot_model_cli_args, export_robot_model_cli
 from ...robots.gripper_config import add_gripper_cli_args, export_gripper_cli
+from ...workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller_cli
 from ...core.paths import default_artifacts_dir
 from ...robots.initial_states import add_initial_state_args, configure_initial_state
 
@@ -62,6 +63,7 @@ def parse_args(mode, add_arguments=None):
     add_initial_state_args(parser)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
+    add_rack_roller_cli_args(parser)
     if add_arguments is not None:
         add_arguments(parser)
     AppLauncher.add_app_launcher_args(parser)
@@ -82,6 +84,7 @@ def parse_args(mode, add_arguments=None):
             setattr(args, name, value.expanduser().resolve())
     export_robot_model_cli(args)
     export_gripper_cli(args)
+    export_rack_roller_cli(args)
     for flag, key in (("workcell_layout", "KUAVO_WORKCELL_LAYOUT"), ("rack_box_poses", "KUAVO_RACK_BOX_POSES")):
         if getattr(args, flag):
             os.environ[key] = str(getattr(args, flag).expanduser().resolve())
@@ -101,7 +104,7 @@ def parse_args(mode, add_arguments=None):
     return args
 
 
-def build_configs(args):
+def build_configs(args, *, active_arm_override=None):
     from ..envs.env_cfg import WorkcellRLEnvCfg
     from ..agents.ppo_cfg import WorkcellPPOCfg
     from ..scenes.layout import active_rack_box_scene_keys
@@ -122,6 +125,10 @@ def build_configs(args):
         args.initial_state = pinned_state
     if "configure_task" in customization:
         spec = customization["configure_task"](spec)
+    if active_arm_override is not None:
+        # Debug-only override (e.g. Quest reward inspection): release the
+        # locked arm without editing the experiment's own configure_task().
+        spec = replace(spec, active_arm=active_arm_override)
     cfg = WorkcellRLEnvCfg(task=spec, num_envs=args.num_envs, env_spacing=args.env_spacing,
                          cameras=args.enable_cameras)
     cfg.seed = args.seed

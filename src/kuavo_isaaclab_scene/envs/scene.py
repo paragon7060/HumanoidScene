@@ -23,6 +23,7 @@ from pathlib import Path
 import sys
 
 from ..workcell.box_flap_friction import resolve_flap_friction_settings
+from ..workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller_cli, resolve_rack_roller_settings
 from ..robots.gripper_config import (
     add_gripper_cli_args,
     export_gripper_cli,
@@ -154,12 +155,14 @@ parser.add_argument(
     default=None,
     metavar=("MIN", "MAX"),
 )
+add_rack_roller_cli_args(parser)
 add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 export_robot_model_cli(args_cli)
 export_gripper_cli(args_cli)
+export_rack_roller_cli(args_cli)
 try:
     RACK_BOX_LAYOUT = resolve_rack_box_layout(args_cli.rack_boxes, args_cli.rack_box_layout)
     CAPTURED_RACK_BOX_POSE_PATH = resolve_rack_box_pose_path(
@@ -180,6 +183,7 @@ try:
         randomize_default=False,
     )
     GRIPPER_SETTINGS = resolve_gripper_settings()
+    ROLLER_SETTINGS = resolve_rack_roller_settings()
 except (OSError, ValueError) as exc:
     parser.error(str(exc))
 CONFIGURED_RACK_BOX_COUNT = rack_box_count(RACK_BOX_LAYOUT)
@@ -249,7 +253,7 @@ from ..robots.gripper_runtime import (
     build_gripper_attachment_cfg,
     build_gripper_group_cfg,
 )
-from ..core.paths import ASSET_DIR, BOX_ATLAS_ASSETS
+from ..core.paths import ASSET_DIR, BOX_ATLAS_ASSETS, RACK_ROLLER_ASSET
 from .scene_physics import build_box_flap_actuator, build_contact_box_spawn, configure_robot_asset_physics
 from ..robots.robot_model import resolve_robot_model
 
@@ -289,12 +293,28 @@ RACK_BOX_LOCAL_PITCH_QUAT = (
 RACK_POSITION = layout_position("rack")
 RACK_SCALE = layout_scale("rack")
 RACK_BOX_WORLD_ROT = local_quat_to_world("rack", RACK_BOX_LOCAL_PITCH_QUAT)
+ROLLER_EXTRA_CLEARANCE_M = ROLLER_SETTINGS.box_clearance_m if ROLLER_SETTINGS.enabled else 0.0
 RACK_BOX_SPAWN_PLAN = build_box_spawn_plan(
     RACK_BOX_LAYOUT,
     RACK_SLOPE_RAD,
     CAPTURED_RACK_BOX_POSE_PATH,
+    extra_clearance_m=ROLLER_EXTRA_CLEARANCE_M,
 )
 CONFIGURED_RACK_BOX_IDS = rack_instance_names(RACK_BOX_SPAWN_PLAN)
+if ROLLER_SETTINGS.enabled:
+    if not RACK_ROLLER_ASSET.is_file():
+        parser.error(
+            f"Missing rack roller asset: {RACK_ROLLER_ASSET}. "
+            "Build it once with workcell/rack_rollers.write_roller_deck_usda "
+            "(writes assets/rack_roller.usda)."
+        )
+    print(
+        f"[INFO] Rack rollers enabled: {ROLLER_SETTINGS.rows}x{ROLLER_SETTINGS.columns} "
+        f"free-spinning cylinders per tier, diameter {ROLLER_SETTINGS.diameter_m * 100:.1f} cm; "
+        f"recessed {ROLLER_SETTINGS.recess_m * 100:.1f} cm into the shelf surface; "
+        f"boxes raised by {ROLLER_EXTRA_CLEARANCE_M * 100:.1f} cm to rest on top.",
+        flush=True,
+    )
 # The legacy front/back pair uses the same Rack.usd-local depth coordinates as
 # the configurable local boxes. All rack poses therefore share one reference.
 RACK_BOX_IDS = (
@@ -787,8 +807,16 @@ class RackToConveyorSceneCfg(InteractiveSceneCfg):
     rack_visual = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack/Visual",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=RACK_USD,
+            usd_path=str(RACK_ROLLER_ASSET) if ROLLER_SETTINGS.enabled else RACK_USD,
             scale=(1.0, 1.0, 1.0),
+            articulation_props=(
+                sim_utils.ArticulationRootPropertiesCfg(
+                    solver_position_iteration_count=16,
+                    solver_velocity_iteration_count=4,
+                )
+                if ROLLER_SETTINGS.enabled
+                else None
+            ),
         ),
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.0, 0.0, 0.0),
@@ -1412,6 +1440,15 @@ def main() -> None:
         render_interval=2,
         device=args_cli.device,
         gravity=(0.0, 0.0, -9.81),
+        physx=sim_utils.PhysxCfg(
+            # See manager_env.py's PhysxCfg for rationale: the rack
+            # roller deck (--rack-rollers) adds hundreds of small
+            # rigid-body aggregates, which can overflow PhysX's default
+            # GPU found/lost aggregate-pair buffer and cause the sim to
+            # miss interactions between rollers and boxes.
+            gpu_found_lost_aggregate_pairs_capacity=2**23,
+            gpu_total_aggregate_pairs_capacity=2**23,
+        ),
     )
     sim = SimulationContext(sim_cfg)
     sim.set_camera_view(eye=(3.45, -3.35, 2.45), target=(0.85, 0.0, 0.85))

@@ -28,6 +28,14 @@ BOX_ATLAS_ASSETS: dict[str, Path] = {
     "xlarge": ASSET_DIR / "XLargeBox_atlas.usda",
 }
 
+# Static, hand-editable roller-deck asset: all three shelf tiers merged
+# into one file (each tier keeps its own PhysicsArticulationRootAPI; see
+# workcell/rack_rollers.py). Built once by that module's build script and
+# then committed; the running scene only reads it and never regenerates or
+# overwrites it, so manual edits (e.g. aligning a carved shelf_ramp recess)
+# persist.
+RACK_ROLLER_ASSET: Path = ASSET_DIR / "rack_roller.usda"
+
 
 def _runtime_config_dir() -> Path:
     """Resolve mutable deployment config before packaged fallback defaults."""

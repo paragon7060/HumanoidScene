@@ -20,11 +20,14 @@ from ..robots.gripper_config import (
 )
 from ..robots.robot_model import add_robot_model_cli_args, export_robot_model_cli, resolve_robot_model
 from ..recording.teleop_recorder import new_session_path
+from ..workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller_cli
 
 
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
-parser.add_argument("--rl-reward-debug", action="store_true",
-                    help="Inspect current flap-pick RL rewards in Quest instead of recording a dataset.")
+parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=None, metavar="{0,1}",
+                    help="Inspect current flap-pick RL rewards in Quest instead of recording a dataset. "
+                         "Optional value selects the arm lock: 0 (default, same as passing no value) keeps the "
+                         "config's normal single-arm lock; 1 releases both arms (active_arm=\"both\").")
 parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
 parser.add_argument("--rl-grasp-markers", action=argparse.BooleanOptionalAction, default=True,
@@ -209,6 +212,13 @@ parser.add_argument(
     help="Finish the active episode as failed after continuous tracking loss.",
 )
 parser.add_argument(
+    "--success-hold-seconds",
+    type=float,
+    default=1.5,
+    help="Right squeeze hold duration (controllers only) that finishes the current episode as success and "
+         "readies the next one, mirroring desktop M. Ignored when --hand-switch already claims right squeeze.",
+)
+parser.add_argument(
     "--xr-runtime-json",
     type=Path,
     default=None,
@@ -226,14 +236,19 @@ parser.add_argument("--rack-box-poses", type=Path, default=None, metavar="JSON")
 parser.add_argument("--ignore-captured-box-poses", action="store_true")
 add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
+add_rack_roller_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 parser.set_defaults(device="cpu")
 args_cli = parser.parse_args()
-if args_cli.rl_config is not None and not args_cli.rl_reward_debug:
+if args_cli.rl_reward_debug is not None and args_cli.rl_reward_debug not in (0, 1):
+    parser.error("--rl-reward-debug takes no value, 0, or 1.")
+if args_cli.rl_config is not None and args_cli.rl_reward_debug is None:
     parser.error("--rl-config requires --rl-reward-debug.")
-if args_cli.rl_reward_debug:
-    if args_cli.input_mode != "controllers" or args_cli.hand_switch or args_cli.controller_mapping != "scaled":
-        parser.error("--rl-reward-debug currently uses controllers with scaled mapping; omit --hand-switch.")
+if args_cli.rl_reward_debug is not None:
+    if (args_cli.input_mode != "controllers" or args_cli.hand_switch
+            or args_cli.controller_mapping not in {"scaled", "absolute"}):
+        parser.error("--rl-reward-debug currently uses controllers with scaled or absolute mapping; "
+                     "omit --hand-switch and relative mapping.")
     if args_cli.scene_config is not None or args_cli.domain_randomization:
         parser.error("Reward inspection uses the RL scene/config; omit --scene-config and use --no-domain-randomization.")
     if args_cli.arm_ik == "legacy" or args_cli.arm_start_pose == "ready":
@@ -260,13 +275,14 @@ if args_cli.profile_steps < 0:
 if args_cli.profile_steps or args_cli.capture_xr:
     Path("artifacts").mkdir(exist_ok=True)
 args_cli.dataset = (args_cli.dataset or new_session_path()).expanduser().resolve()
-if not args_cli.rl_reward_debug and args_cli.dataset_format in {"hdf5", "both"} and args_cli.dataset.exists():
+if args_cli.rl_reward_debug is None and args_cli.dataset_format in {"hdf5", "both"} and args_cli.dataset.exists():
     parser.error(
         f"HDF5 file already exists: {args_cli.dataset}. Existing sessions are never overwritten or appended to. "
         "Omit --dataset for a new session file, or choose a different filename."
     )
 export_robot_model_cli(args_cli)
 export_gripper_cli(args_cli)
+export_rack_roller_cli(args_cli)
 try:
     GRIPPER_SETTINGS = resolve_gripper_settings()
 except (OSError, ValueError) as exc:
@@ -285,13 +301,15 @@ if args_cli.tracking_recovery_frames < 1:
     parser.error("--tracking-recovery-frames must be at least one.")
 if args_cli.tracking_loss_abort_seconds <= 0.0:
     parser.error("--tracking-loss-abort-seconds must be positive.")
+if args_cli.success_hold_seconds <= 0.0:
+    parser.error("--success-hold-seconds must be positive.")
 if args_cli.max_episodes < 0:
     parser.error("--max-episodes must be 0 or greater.")
 if args_cli.lerobot_fps < 0:
     parser.error("--lerobot-fps must be 0 or greater.")
 if not args_cli.lerobot_repo_id.strip() or not args_cli.lerobot_task.strip():
     parser.error("--lerobot-repo-id and --lerobot-task must not be empty.")
-if not args_cli.rl_reward_debug and args_cli.dataset_format in {"lerobot", "both"} and args_cli.lerobot_python is None:
+if args_cli.rl_reward_debug is None and args_cli.dataset_format in {"lerobot", "both"} and args_cli.lerobot_python is None:
     parser.error(
         "LeRobot recording requires --lerobot-python /path/to/python or the LEROBOT_PYTHON environment variable."
     )
@@ -315,7 +333,7 @@ elif args_cli.rack_box_poses is not None:
 # Hand tracking requires the Isaac Lab OpenXR experience. RTX cameras are
 # intentionally retained because the real Kuavo head camera is part of data.
 args_cli.xr = True
-args_cli.enable_cameras = (not args_cli.rl_reward_debug or args_cli.camera_preview
+args_cli.enable_cameras = (args_cli.rl_reward_debug is None or args_cli.camera_preview
                            or args_cli.quest_camera_overlay)
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -348,7 +366,7 @@ from .teleop_body import BODY_ACTION_NAMES, TeleopBodyMapper, controller_axis
 from .teleop_servo import arm_response_profile
 from .urdf_arm_ik import UrdfArm
 from .teleop_hand_mode import (HandModeSwitch, HandCommands, HandGripper, HandTrackingGuard,
-                               hand_packet, controller_squeeze)
+                               hand_packet, controller_squeeze, LongPress)
 from .teleop_scene import configure_scene_detail
 from ..recording.teleop_lerobot_recorder import LeRobotTeleopRecorder
 from ..recording.teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopRecorderGroup
@@ -380,7 +398,7 @@ def _scene_asset_or_none(scene, name: str):
 
 
 def main() -> None:
-    if args_cli.rl_reward_debug:
+    if args_cli.rl_reward_debug is not None:
         from ..rl.debug.quest_reward import run
         run(args_cli, simulation_app)
         return
@@ -593,6 +611,7 @@ def main() -> None:
         else None
     )
     mode_switch = HandModeSwitch(active_mode)
+    success_hold = LongPress(args_cli.success_hold_seconds)
     hand_commands = HandCommands()
     hand_gripper = HandGripper(GRIPPER_SETTINGS.pinch_close_threshold_m)
     hand_tracking_guard = HandTrackingGuard()
@@ -601,9 +620,15 @@ def main() -> None:
         abort_after_s=args_cli.tracking_loss_abort_seconds,
     )
     control_status = None
-    if hand_controls or collision_guard is not None:
+    # Always-on HUD: recording state and saved-episode count, independent of
+    # hand-switch/self-collision, so the operator never has to guess whether
+    # a take is being written. Non-fatal: a HUD failure should not stop data
+    # collection, only its own status readout.
+    try:
         from ..display.xr_control_status import QuestControlStatus
         control_status = QuestControlStatus()
+    except Exception as exc:
+        print(f"[WARN] Recording-status HUD unavailable: {exc}", flush=True)
     body_mapper = TeleopBodyMapper(
         robot_model.urdf_path,
         has_wheel_base=robot_model.has_wheel_base,
@@ -685,6 +710,7 @@ def main() -> None:
         )
     recorder = TeleopRecorderGroup(recorders)
     completed_this_run = 0
+    success_count = 0
     episodes_toward_limit = 0
     episode_steps = 0
     pending_start = False
@@ -743,12 +769,15 @@ def main() -> None:
         episode_steps = 0
 
     def finish_episode(success: bool, reason: str, *, count_toward_limit: bool = True) -> None:
-        nonlocal completed_this_run, episodes_toward_limit
+        nonlocal completed_this_run, episodes_toward_limit, success_count
         name = recorder.finish_episode(success=success, reason=reason)
         if name is not None:
             completed_this_run += 1
             episodes_toward_limit += int(count_toward_limit)
-            print(f"[DATA] Finished {name}: success={success}, reason={reason}")
+            if success:
+                success_count += 1
+            print(f"[DATA] Finished {name}: success={success}, reason={reason}; "
+                  f"saved so far={success_count}, attempts this run={completed_this_run}")
         if collision_guard is not None:
             collision_guard.set_recording(False)
         hold_arms()
@@ -769,6 +798,11 @@ def main() -> None:
     print("[CONTROL] Left stick=base forward/strafe; right stick=base turn/body lift; left squeeze=hold free view. "
           "Release squeeze to return to robot head. Index triggers: released=open, pressed=close.")
     print("[CONTROL] Arm motion is paused until P starts recording or T enables motion preview.")
+    if control_status is not None:
+        print("[INFO] VR HUD (top-left, head-locked) shows REC ON/WAIT/OFF and saved-episode count live.")
+    if not args_cli.hand_switch:
+        print(f"[CONTROL] Right squeeze hold {args_cli.success_hold_seconds:.1f}s (release to re-arm): "
+              "finish current episode as success, same as desktop M.")
     if hand_controls:
         print("[HANDS] Thumb + MIDDLE finger (index extended), hold 1s: LEFT=follow/reclutch, RIGHT=record/stop. "
               "Thumb + INDEX controls gripper. Base/torso fixed in hands mode. PC C=recenter, M=success.")
@@ -892,6 +926,10 @@ def main() -> None:
             right_controller = raw.get(RawQuestOpenXRDevice.TrackingTarget.CONTROLLER_RIGHT)
             head_pose = raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD)
             now = time.monotonic()
+            if not args_cli.hand_switch and active_mode == "controllers" and not mode_switch.pending:
+                if success_hold.update(now, controller_squeeze(right_controller)):
+                    requests["success"] = True
+                    print("[BUTTON] Right squeeze hold: success, ready for next episode.", flush=True)
             if args_cli.hand_switch:
                 switch_left = xr_device.switch_controller_packet("left")
                 switch_right = xr_device.switch_controller_packet("right")
@@ -1188,9 +1226,10 @@ def main() -> None:
                     control_status.update("Self collision")
                 else:
                     status = mode_switch.status(now)
+                    status += (f" | REC {'ON' if recorder.recording else 'WAIT' if pending_start else 'OFF'}"
+                               f" | Saved {success_count}")
                     if not mode_switch.pending:
-                        status += (f" | FOLLOW {'ON' if recorder.recording or preview_enabled else 'OFF'}"
-                                   f" | REC {'ON' if recorder.recording else 'WAIT' if pending_start else 'OFF'}")
+                        status += f" | FOLLOW {'ON' if recorder.recording or preview_enabled else 'OFF'}"
                         status += ("\nL middle pinch: follow | R: record/stop" if active_mode == "hands"
                                    else "\nRight lower grip 1.2s: hands")
                         if active_mode == "hands" and not mapped.bimanual_valid:

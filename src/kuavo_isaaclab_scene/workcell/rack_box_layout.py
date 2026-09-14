@@ -421,8 +421,16 @@ def build_box_spawn_plan(
     layout: RackBoxLayout,
     rack_slope_rad: float,
     captured_pose_path: str | Path | None = None,
+    extra_clearance_m: float = 0.0,
 ) -> dict[str, BoxSpawnSpec]:
-    """Build all eight poses; omitted instances remain at floor staging."""
+    """Build all eight poses; omitted instances remain at floor staging.
+
+    extra_clearance_m raises every rack-resting box by this amount on top
+    of the normal surface clearance. Pass the roller diameter here when a
+    physical roller deck (see rack_rollers.py) sits under the boxes, so
+    they rest on the roller tops instead of clipping through them. It does
+    not affect floor-staged instances.
+    """
     instance_counts = Counter[str]()
     plan: dict[str, BoxSpawnSpec] = {}
     local_pitch = (
@@ -455,7 +463,7 @@ def build_box_spawn_plan(
                     shelf,
                     depth_raw,
                     lateral_offset,
-                    bottom_offset + RACK_SURFACE_CLEARANCE_M,
+                    bottom_offset + RACK_SURFACE_CLEARANCE_M + extra_clearance_m,
                     rack_slope_rad,
                 )
                 plan[instance_name] = BoxSpawnSpec(

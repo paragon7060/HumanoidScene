@@ -33,6 +33,7 @@ def main(strategy=None, mode="train"):
     from ...robots.robot_model import add_robot_model_cli_args, export_robot_model_cli
     from ...robots.gripper_config import add_gripper_cli_args, export_gripper_cli
     from ...robots.initial_states import add_initial_state_args
+    from ...workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller_cli
     from ...core.paths import CONFIG_DIR
 
     parser = argparse.ArgumentParser(description="Four-box whole-body PPO", allow_abbrev=False)
@@ -54,6 +55,7 @@ def main(strategy=None, mode="train"):
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
     add_initial_state_args(parser)
+    add_rack_roller_cli_args(parser)
     parser.set_defaults(robot_model="s200062", gripper="s200062_integrated")
     AppLauncher.add_app_launcher_args(parser)
     args = parser.parse_args()
@@ -81,6 +83,7 @@ def main(strategy=None, mode="train"):
         parser.error("Reset bank already supplies the robot pose; omit --initial-state.")
     export_robot_model_cli(args)
     export_gripper_cli(args)
+    export_rack_roller_cli(args)
     os.environ["KUAVO_WORKCELL_LAYOUT"] = str(args.workcell_layout.resolve())
     os.environ["KUAVO_RACK_BOX_POSES"] = str(args.rack_box_poses.resolve())
     customization = runpy.run_path(str(args.config)) if args.config else {}
