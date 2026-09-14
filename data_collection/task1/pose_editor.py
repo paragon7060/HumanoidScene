@@ -129,6 +129,19 @@ parser.add_argument("--rack-boxes", type=str, default=None, metavar="SPEC")
 parser.add_argument("--rack-box-layout", type=Path, default=None, metavar="JSON")
 parser.add_argument("--rack-box-poses", type=Path, default=None, metavar="JSON")
 parser.add_argument("--ignore-captured-box-poses", action="store_true")
+parser.add_argument(
+    "--paired-boxes",
+    nargs=2,
+    default=None,
+    metavar=("FIRST", "SECOND"),
+    help="Capture two runtime scene keys as one adjacent-flap target pair.",
+)
+parser.add_argument(
+    "--active-arm",
+    choices=("left", "right"),
+    default=None,
+    help="Single arm assigned to a paired-box planning snapshot.",
+)
 add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
@@ -188,6 +201,13 @@ if not 0.05 <= args_cli.stereo_eye_separation <= 0.075:
     parser.error("--stereo-eye-separation must be between 0.05 and 0.075 meters.")
 if args_cli.rack_boxes is not None and args_cli.rack_box_layout is not None:
     parser.error("Use only one of --rack-boxes and --rack-box-layout.")
+if (args_cli.paired_boxes is None) != (args_cli.active_arm is None):
+    parser.error("--paired-boxes and --active-arm must be provided together.")
+if args_cli.paired_boxes is not None:
+    if args_cli.planning_snapshot_output is None:
+        parser.error("--paired-boxes requires --planning-snapshot-output.")
+    if len(set(args_cli.paired_boxes)) != 2:
+        parser.error("--paired-boxes must contain two distinct scene keys.")
 if args_cli.rack_boxes is not None:
     os.environ["KUAVO_RACK_BOXES"] = args_cli.rack_boxes
     os.environ.pop("KUAVO_RACK_BOX_LAYOUT", None)
@@ -598,7 +618,15 @@ class _JointPoseEditor:
         "right_gripper": "오른손 개폐",
     }
 
-    def __init__(self, env, *, pregrasp_height_m: float, grasp_depth_m: float):
+    def __init__(
+        self,
+        env,
+        *,
+        pregrasp_height_m: float,
+        grasp_depth_m: float,
+        paired_box_keys: tuple[str, str] | None = None,
+        active_arm: str | None = None,
+    ):
         import isaaclab.sim as sim_utils
         from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
         from kuavo_isaaclab_scene.envs.manager_env import RACK_BOX_SPAWN_PLAN
@@ -628,15 +656,20 @@ class _JointPoseEditor:
         self.targets = self.reset_targets.clone()
         self.sync_body_mapper_from_targets()
         self.robot_root_pose_w = self.robot.data.root_pose_w.clone()
+        self.paired_box_keys = tuple(paired_box_keys or ())
+        self.pair_active_arm = active_arm
         self.target_box = env.scene["medium_box_0"]
         target_body_ids, target_body_names = self.target_box.find_bodies("Body")
         if len(target_body_ids) != 1:
             raise RuntimeError(f"MediumBox_0 body lookup failed: body={target_body_names}")
         self.target_box_body_id = target_body_ids[0]
         self.cleared_boxes = []
-        for parking_index, instance_name in enumerate(
-            same_shelf_instance_names(RACK_BOX_SPAWN_PLAN, "MediumBox_0")
-        ):
+        parking_names = (
+            ()
+            if self.paired_box_keys
+            else same_shelf_instance_names(RACK_BOX_SPAWN_PLAN, "MediumBox_0")
+        )
+        for parking_index, instance_name in enumerate(parking_names):
             spec = RACK_BOX_SPAWN_PLAN[instance_name]
             asset = env.scene[spec.scene_key]
             root_pose_w = asset.data.root_pose_w.clone()
@@ -1256,6 +1289,117 @@ class _JointPoseEditor:
         self.base_pregrasp_xy_anchors_w = robotward_side_flap_endpoints_w.clone()
         self.update_grasp_offset()
 
+    def paired_snapshot_state(self, collision_snapshot: dict) -> dict:
+        """Capture two live box bodies and their adjacent inner-flap geometry."""
+        if not self.paired_box_keys:
+            return {}
+        from isaaclab.utils.math import quat_apply, quat_apply_inverse, subtract_frame_transforms
+        from kuavo_isaaclab_scene.rl.scenes.asset_geometry import box_geometry
+        from data_collection.task1.collision import paired_inner_flap_geometry
+
+        labels = {
+            "small_box": "SmallBox",
+            "medium_box": "MediumBox",
+            "large_box": "LargeBox",
+            "xlarge_box": "XLargeBox",
+        }
+        root_pos = self.robot.data.root_pos_w[0]
+        root_quat = self.robot.data.root_quat_w[0]
+        body_poses_b = {}
+        flap_candidates = {}
+        for box_key in self.paired_box_keys:
+            prefix, index = box_key.rsplit("_", 1)
+            if prefix not in labels or not index.isdigit():
+                raise ValueError(f"unsupported paired scene key: {box_key!r}")
+            instance_name = f"{labels[prefix]}_{index}"
+            asset = self.env.scene[box_key]
+            body_ids, body_names = asset.find_bodies("Body")
+            if len(body_ids) != 1:
+                raise RuntimeError(f"{box_key} body lookup failed: {body_names}")
+            body_pos_w = asset.data.body_link_pos_w[0, body_ids[0]]
+            body_quat_w = asset.data.body_link_quat_w[0, body_ids[0]]
+            body_pos_b, body_quat_b = subtract_frame_transforms(
+                root_pos.unsqueeze(0),
+                root_quat.unsqueeze(0),
+                body_pos_w.unsqueeze(0),
+                body_quat_w.unsqueeze(0),
+            )
+            body_poses_b[box_key] = torch.cat(
+                (body_pos_b[0], body_quat_b[0])
+            ).detach().cpu().tolist()
+
+            flap_names = ("flap_right", "flap_left")
+            geometry = box_geometry(getattr(self.env.cfg.scene, box_key), flap_names)
+            flap_ids, resolved = asset.find_bodies(flap_names, preserve_order=True)
+            if tuple(resolved) != flap_names:
+                raise RuntimeError(f"{box_key} flap lookup mismatch: {resolved}")
+            flap_candidates[box_key] = []
+            for flap_id, flap_name in zip(flap_ids, flap_names, strict=True):
+                flap = geometry.flaps[flap_name]
+                flap_pos_w = asset.data.body_link_pos_w[0, flap_id]
+                flap_quat_w = asset.data.body_link_quat_w[0, flap_id]
+                local_grasp = torch.tensor(
+                    flap.center, device=self.env.device, dtype=flap_pos_w.dtype
+                )
+                local_grasp[2] += flap.half_size[2] - self.grasp_depth_m
+                grasp_w = flap_pos_w + quat_apply(flap_quat_w, local_grasp)
+                local_normal = torch.tensor(
+                    (1.0, 0.0, 0.0)
+                    if flap_name == "flap_right"
+                    else (-1.0, 0.0, 0.0),
+                    device=self.env.device,
+                    dtype=flap_pos_w.dtype,
+                )
+                outward_w = quat_apply(flap_quat_w, local_normal)
+                outward_w = outward_w / outward_w.norm().clamp_min(1.0e-6)
+                if torch.dot(outward_w, flap_pos_w - body_pos_w) < 0.0:
+                    outward_w = -outward_w
+                grasp_b = quat_apply_inverse(root_quat, grasp_w - root_pos)
+                inward_b = quat_apply_inverse(root_quat, -outward_w)
+                matches = [
+                    collider["path"]
+                    for collider in collision_snapshot["colliders"]
+                    if not collider.get("robot", False)
+                    and f"/{instance_name}/" in collider.get("path", "")
+                    and collider.get("path", "").endswith(f"/{flap_name}")
+                ]
+                if len(matches) != 1:
+                    raise RuntimeError(
+                        f"expected one collider for {instance_name}/{flap_name}, "
+                        f"found {len(matches)}"
+                    )
+                flap_candidates[box_key].append(
+                    {
+                        "path": matches[0],
+                        "grasp_point_b_m": grasp_b.detach().cpu().tolist(),
+                        "inward_normal_b": inward_b.detach().cpu().tolist(),
+                    }
+                )
+
+        pair_grasp = paired_inner_flap_geometry(
+            flap_candidates,
+            capture_width_m=GRIPPER_SETTINGS.pinch_close_threshold_m,
+        )
+        positions = np.asarray(
+            [body_poses_b[key][:3] for key in self.paired_box_keys], dtype=float
+        )
+        pair_grasp.update(
+            {
+                "active_arm": self.pair_active_arm,
+                "initial_center_separation_m": float(
+                    np.linalg.norm(positions[1] - positions[0])
+                ),
+                "initial_pair_center_b_m": positions.mean(axis=0).tolist(),
+            }
+        )
+        return {
+            "target_mode": "paired",
+            "paired_box_keys": list(self.paired_box_keys),
+            "paired_box_body_poses_b": body_poses_b,
+            "pair_grasp": pair_grasp,
+            "reference_arm_q_rad": self.targets[0, :14].detach().cpu().tolist(),
+        }
+
     def settle_target_for_snapshot(self, steps: int) -> None:
         """Settle only the target box while robot and cleared boxes remain fixed."""
         if steps < 0:
@@ -1866,6 +2010,8 @@ def _write_planning_snapshot(env, pose_editor: _JointPoseEditor, output_dir: Pat
     rack_width_center_w = local_point_to_world(
         "rack", (RACK_SHELF_CENTER_LOCAL_X_RAW, 0.0, 0.0)
     )
+    pose_editor_state = pose_editor.state()
+    pose_editor_state.update(pose_editor.paired_snapshot_state(collision_snapshot))
     runtime = {
         "joint_names": list(robot.joint_names),
         "joint_positions": robot.data.joint_pos[0].detach().cpu().tolist(),
@@ -1874,7 +2020,7 @@ def _write_planning_snapshot(env, pose_editor: _JointPoseEditor, output_dir: Pat
         "body_poses_w": robot.data.body_link_pose_w[0].detach().cpu().tolist(),
         "root_pose_w": root_pose_w,
         "initial_state": args_cli.pose_editor_initial_state,
-        "pose_editor_state": pose_editor.state(),
+        "pose_editor_state": pose_editor_state,
         "rack_width_constraint": {
             "coordinate_frame": "world",
             "center_w_m": list(rack_width_center_w),
@@ -1974,6 +2120,10 @@ def main() -> None:
             env,
             pregrasp_height_m=args_cli.pregrasp_height_m,
             grasp_depth_m=args_cli.pregrasp_grasp_depth_m,
+            paired_box_keys=(
+                tuple(args_cli.paired_boxes) if args_cli.paired_boxes is not None else None
+            ),
+            active_arm=args_cli.active_arm,
         )
         if args_cli.joint_pose_editor
         else None
