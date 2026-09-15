@@ -120,14 +120,15 @@ panel만 끄므로 sensor render 비용까지 제거하는 옵션은 아니다.
 `quest_collector.sh collect`는 기본적으로 전체 PC viewport 대신 내부 160×90
 최소 viewport를 사용한다. PC 관찰 화면이 꼭 필요할 때만 `--desktop-render`를
 명시한다. RL reward debug에서 collider/marker는 각각 `--rl-collision-view`,
-`--rl-grasp-markers`를 넣을 때만 생성한다. Reward HUD는 기본 ON이고 10 Hz로
+`--rl-grasp-markers`를 넣을 때만 생성한다. Reward HUD는 기본 ON이고 5 Hz로
 갱신한다. 완전히 끄려면 `--no-rl-reward-hud`를 사용한다.
 
 RL Debug의 grasp/contact/collision **판정**은 marker나 overlay와 별개다. 이 판정은
 실제 reward·성공·실패 조건이므로 `--rl-reward-debug`에서 항상 계산하고, 일반 teleop
-수집 환경에는 해당 RL contact sensor와 reward manager를 생성하지 않는다. 기본 RL Debug는
-손가락 grasp contact와 물리를 120 Hz로 유지하고, 대형 obstacle filtered report만 30 Hz로
-낮춘다. 정확한 physics-substep 충돌 비교에는 `--rl-obstacle-contact-hz 120`을 사용한다.
+수집 환경에는 해당 RL contact sensor와 reward manager를 생성하지 않는다. 롤러 OFF 기본
+RL Debug는 30 Hz 물리와 aggregate robot contact를 사용하고, 롤러 ON은 120 Hz 물리와
+30 Hz filtered obstacle report를 사용한다. 정확한 physics-substep 충돌 비교에는
+`--rl-obstacle-contact-hz 120`을 사용한다.
 일반 수집의 `--self-collision`은 로봇 자체 충돌을 막는 별도 안전 장치다.
 
 RTX 3060, CUDA physics, 60 control step(20 step warm-up), OpenXR/CloudXR 미연결 조건의
@@ -146,12 +147,16 @@ RTX 3060, CUDA physics, 60 control step(20 step warm-up), OpenXR/CloudXR 미연�
 | 위 조건, obstacle 30 Hz·grasp 120 Hz | 396.3 | 권장값; 약 10% 개선 |
 | 위 조건, 모든 filtered contact 15 Hz | 387.2 | 추가 이득은 작고 순간 접촉 누락 위험 증가 |
 | 위 조건, reward manager 생략 | 436.5 | 약 1%; reward 주기 조절은 병목 해법이 아님 |
+| rollers OFF, CPU physics 30 Hz, wrist RGB+RTX | 46.4 | 중복 측정 제거 후 21.6 Hz |
 
 따라서 기본 Quest 해상도나 wrist 화질을 먼저 낮추는 것은 권장하지 않는다. 다음
 개선 우선순위는 roller rigid-body/joint 수 축소, RL obstacle contact filter 구조 개선,
 실제 Quest 연결 상태에서 GPU-native wrist overlay와 UI on-demand redraw 측정이다.
-30 Hz contact report를 적용해도 측정 상한은 약 2.5 control Hz이므로 이 변경만으로
-Quest 표시가 30 Hz가 되지는 않는다. 남은 주 병목은 546개 free-spinning roller의 물리다.
+롤러 ON에서 30 Hz contact report를 적용해도 측정 상한은 약 2.5 control Hz이므로 이
+변경만으로 Quest 표시가 30 Hz가 되지는 않는다. 롤러 OFF profile은 같은 PC의 RTX
+viewport와 양 wrist sensor를 포함한 측정에서 20 Hz를 넘었다. 실제 CloudXR 전송값은
+네트워크와 headset 상태에 따라 달라질 수 있다. 롤러 ON의 남은 주 병목은 546개
+free-spinning roller의 물리다.
 
 카메라 feature 구성을 바꾸면 기존 LeRobot dataset에 이어 쓰지 말고 새 dataset
 root를 사용한다.

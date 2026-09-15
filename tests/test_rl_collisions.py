@@ -5,7 +5,15 @@ from types import SimpleNamespace
 import pytest
 import torch
 
-from kuavo_isaaclab_scene.rl.mdp.collisions import obstacle_forces
+from kuavo_isaaclab_scene.rl.mdp.collisions import aggregate_robot_forces, obstacle_forces
+
+
+def test_aggregate_robot_forces_keeps_each_body_separate():
+    forces = torch.tensor([[[3., 4., 0.], [0., 0., 2.]]])
+    scene = type("Scene", (dict,), {})(
+        robot_contact=SimpleNamespace(data=SimpleNamespace(net_forces_w=forces)))
+    env = SimpleNamespace(scene=scene)
+    assert aggregate_robot_forces(env).tolist() == [[5., 2.]]
 
 
 def test_filtered_history_detects_brief_impacts_without_force_cancellation():

@@ -3,6 +3,14 @@
 import torch
 
 
+def aggregate_robot_forces(env):
+    """Return unfiltered forces for collision-relevant non-finger robot bodies."""
+    forces = env.scene["robot_contact"].data.net_forces_w
+    if forces is None or forces.shape[-2] == 0:
+        raise RuntimeError("Missing aggregate robot contact forces.")
+    return forces.norm(dim=-1)
+
+
 def obstacle_forces(env):
     values = []
     for name, sensor in env.scene.sensors.items():

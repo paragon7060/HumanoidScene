@@ -16,8 +16,9 @@ from ...core.paths import CONFIG_DIR
 from ...display.xr_reward_panel import QuestRewardPanel
 from ...robots.robot_model import resolve_robot_model
 from ...teleop.quest_openxr import RawQuestOpenXRDevice, start_quest_xr_session
+from ...workcell.rack_rollers import resolve_rack_roller_settings
 from ..runners.common import build_configs
-from .contact_rate import configure_obstacle_contact_rate
+from .contact_rate import configure_obstacle_contact_rate, configure_realtime_reward_debug
 from .quest_control import QuestRLControl
 from .reward_recorder import RewardProbe
 from .reward_report import format_report, reward_summary, ReachRewardSummary
@@ -45,10 +46,17 @@ def _config(args):
     cfg, _ = build_configs(rl, include_agent=False)
     if cfg.task.grasp_mode != "flap_top" or cfg.task.name != "pick":
         raise ValueError("Quest reward inspection currently supports flap pick only")
-    obstacle_contact_hz = getattr(args, "rl_obstacle_contact_hz", None) or 30
-    obstacle_sensor_count = configure_obstacle_contact_rate(cfg.scene, obstacle_contact_hz)
+    realtime = (
+        not resolve_rack_roller_settings().enabled
+        and getattr(args, "rl_obstacle_contact_hz", None) is None
+    )
+    if realtime:
+        obstacle_sensor_count = configure_realtime_reward_debug(cfg)
+    else:
+        obstacle_contact_hz = getattr(args, "rl_obstacle_contact_hz", None) or 30
+        obstacle_sensor_count = configure_obstacle_contact_rate(cfg.scene, obstacle_contact_hz)
     if obstacle_sensor_count == 0:
-        raise RuntimeError("RL reward inspection expected filtered obstacle contact sensors.")
+        raise RuntimeError("RL reward inspection expected obstacle contact sensors to configure.")
     cfg.xr = XrCfg(near_plane=.08)
     cfg.scene.conveyor_surface.class_type = StationarySurface
     cfg.recorders.quest_reward = RecorderTermCfg(class_type=RewardProbe)
@@ -156,7 +164,7 @@ def run(args, app):
                 viewport.fill_frame = False
                 viewport.resolution = (160, 90)
         running, terminal, view_ready = False, False, False
-        sample, episode_return, last_hud = None, 0., 0.
+        sample, episode_return, last_hud, last_camera_overlay = None, 0., 0., 0.
         reach_summary = ReachRewardSummary()
         panel_ready, next_panel_diagnostic = False, time.monotonic() + 3.
         next_grasp_diagnostic = 0.
@@ -170,15 +178,21 @@ def run(args, app):
               + (f", absolute_orientation={args.absolute_orientation}" if args.controller_mapping == "absolute" else "")
               + f", arm_response={args.arm_response}", flush=True)
         print(f"[RL REWARD] RL control rate={1/env.step_dt:g} Hz (collector --control-hz ignored); "
-              f"RL drives/initial pose/rewards/terminations unchanged. Display cameras={args.enable_cameras}.", flush=True)
-        print("[RL REWARD] core checks: grasp/contact/collision=ON; "
-              "their 3D markers/overlay remain opt-in.", flush=True)
-        obstacle_contact_hz = args.rl_obstacle_contact_hz or 30
-        print(f"[RL REWARD] sampling: grasp=120 Hz, obstacle={obstacle_contact_hz} Hz, reward=30 Hz. "
-              + ("Exact obstacle sampling enabled."
-                 if obstacle_contact_hz == 120 else
-                 "Obstacle reports are decimated for XR responsiveness; use --rl-obstacle-contact-hz 120 for exact substep comparison."),
+              f"RL drives/initial pose/reward terms/terminations active. Display cameras={args.enable_cameras}.",
               flush=True)
+        print("[RL REWARD] grasp/contact measurements=ON; collision constraints follow the loaded RL config; "
+              "3D markers/overlay remain opt-in.", flush=True)
+        realtime = not resolve_rack_roller_settings().enabled and args.rl_obstacle_contact_hz is None
+        if realtime:
+            print("[RL REWARD] realtime rollerless profile: physics/control=30 Hz, solver=8/2, "
+                  "grasp=30 Hz, aggregate collision=30 Hz, reward=30 Hz, policy observations=OFF.", flush=True)
+            if args.device != "cpu":
+                print("[RL REWARD] WARNING: use --device cpu for the measured 20 Hz path; "
+                      f"{args.device} is slower for this single environment.", flush=True)
+        else:
+            obstacle_contact_hz = args.rl_obstacle_contact_hz or 30
+            print(f"[RL REWARD] fidelity profile: physics/grasp=120 Hz, obstacle={obstacle_contact_hz} Hz, "
+                  "reward=30 Hz.", flush=True)
         print(f"[RL REWARD] display: desktop={'full' if args.desktop_render else 'minimal 160x90'}, "
               f"wrist_overlay={args.quest_camera_overlay}, reward_hud={args.rl_reward_hud}, "
               f"collision_overlay={args.rl_collision_view}, grasp_markers={args.rl_grasp_markers}.", flush=True)
@@ -296,7 +310,7 @@ def run(args, app):
             else:
                 # Stop task time/physics while paused, but keep headset rendering and input alive.
                 env.sim.render()
-            if start - last_hud >= .1:
+            if start - last_hud >= .2:
                 if hud is not None:
                     report = format_report(sample, status, episode_return)
                     if grasp_markers is not None and grasp_markers.visible:
@@ -312,12 +326,13 @@ def run(args, app):
                         hud.describe()
                         next_panel_diagnostic = start + 10.
                     panel_ready = ready
-                if camera_overlay is not None:
-                    frames = [camera_rgb(env.scene[name]) for name in
-                              ("left_wrist_camera", "right_wrist_camera")]
-                    if all(frame is not None for frame in frames):
-                        camera_overlay.update(*frames)
                 last_hud = start
+            if camera_overlay is not None and start - last_camera_overlay >= .1:
+                frames = [camera_rgb(env.scene[name]) for name in
+                          ("left_wrist_camera", "right_wrist_camera")]
+                if all(frame is not None for frame in frames):
+                    camera_overlay.update(*frames)
+                last_camera_overlay = start
             # Do not run simulated time faster than the human can act.
             remaining = env.step_dt - (time.monotonic() - start)
             if remaining > 0:

@@ -13,6 +13,8 @@ class WorkcellCommandCfg(CommandTermCfg):
     task: TaskSpec = TaskSpec()
     geometry: dict = {}
     collision_force: float = 180.0
+    collision_reporting: str = "filtered"
+    post_step_measurement: bool = True
 
 
 @configclass

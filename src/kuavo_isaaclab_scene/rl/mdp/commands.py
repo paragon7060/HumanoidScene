@@ -16,6 +16,8 @@ from ..tasks.specs import PHASES
 class WorkcellCommand(CommandTerm):
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
+        if cfg.collision_reporting not in {"filtered", "aggregate"}:
+            raise ValueError("collision_reporting must be 'filtered' or 'aggregate'.")
         self.spec = cfg.task
         self.robot = env.scene["robot"]
         from ...robots.end_effector import get_end_effector_frames
@@ -205,8 +207,10 @@ class WorkcellCommand(CommandTerm):
         self.released = (self.contact_force < self.spec.grasp_force).all(-1) & ~nearby.any(-1)
         if self.flap_grasp is not None:
             self.flap_grasp.measure()
-            from .collisions import obstacle_forces
-            self.obstacle_forces = obstacle_forces(self._env)
+            from .collisions import aggregate_robot_forces, obstacle_forces
+            self.obstacle_forces = (aggregate_robot_forces(self._env)
+                                    if self.cfg.collision_reporting == "aggregate"
+                                    else obstacle_forces(self._env))
         self.cargo_ok = torch.ones(self.num_envs, self.n, dtype=torch.bool, device=self.device)
         for box_id, name in enumerate(self.spec.box_names):
             for item in range(self.spec.cargo_per_box):
@@ -365,8 +369,9 @@ class WorkcellCommand(CommandTerm):
         self.refresh()
         # Rewards used the previous phase's cached measurements. Refresh target
         # contacts/poses now so next-step observations match the new active box.
-        self._measure()
-        self._goals()
+        if self.cfg.post_step_measurement:
+            self._measure()
+            self._goals()
 
     def _update_metrics(self):
         pass

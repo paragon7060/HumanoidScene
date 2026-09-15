@@ -31,8 +31,9 @@ parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=N
 parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
 parser.add_argument("--rl-obstacle-contact-hz", type=int, choices=(15, 30, 60, 120), default=None,
-                    help="RL reward inspection: filtered robot-obstacle report rate. Default 30 Hz keeps "
-                         "120 Hz grasp sensing; use 120 for exact physics-substep collision comparison.")
+                    help="RL reward inspection: explicitly enable filtered robot-obstacle reports at this rate. "
+                         "Omitting it uses fast aggregate contacts without rollers and 30 Hz with rollers; "
+                         "use 120 for exact physics-substep comparison.")
 parser.add_argument("--rl-grasp-markers", action=argparse.BooleanOptionalAction, default=False,
                     help="RL reward inspection: opt in to finger references and paired opposite-face targets in 3D.")
 parser.add_argument("--rl-grasp-calibration", action="store_true",
@@ -46,7 +47,7 @@ parser.add_argument("--rl-grasp-targets", action=argparse.BooleanOptionalAction,
 parser.add_argument("--rl-collision-view", action=argparse.BooleanOptionalAction, default=False,
                     help="RL inspection only: opt in to cooked colliders, inward face candidates, contact points and force arrows.")
 parser.add_argument("--rl-reward-hud", action=argparse.BooleanOptionalAction, default=True,
-                    help="RL inspection only: show the 10 Hz reward/status HUD in Quest; disable to minimize XR UI work.")
+                    help="RL inspection only: show the 5 Hz reward/status HUD in Quest; disable to minimize XR UI work.")
 parser.add_argument("--rl-grasp-finger-offsets", nargs=6, type=float, default=(0.,)*6,
                     metavar=("F_X", "F_Y", "F_Z", "B_X", "B_Y", "B_Z"),
                     help="Paired-goal display-only offsets in finger frames; all zero uses calibration if available, else link origins.")

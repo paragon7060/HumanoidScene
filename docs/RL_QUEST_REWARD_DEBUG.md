@@ -41,32 +41,39 @@ head와 양팔/양손을 모두 해제한다. 성공 조건인 `grasp_hand="righ
 
 성능을 위해 PC 전체 viewport, collider 표시, grasp marker는 기본 OFF다.
 필요한 검사에서만 각각 `--desktop-render`, `--rl-collision-view`,
-`--rl-grasp-markers`를 추가한다. Reward HUD는 기본 ON이며 최대 10 Hz로만
+`--rl-grasp-markers`를 추가한다. Reward HUD는 기본 ON이며 최대 5 Hz로만
 갱신한다. HUD 비용까지 제외해 비교하려면 `--no-rl-reward-hud`를 사용한다.
 collider/marker를 끄면 해당 시각화 geometry 생성과 표시용 갱신만 생략한다.
 Reward가 사용하는 실제 접촉·충돌 판정은 환경 재현을 위해 계속 계산한다.
 콘솔의 `[PERF]`는 XR loop Hz와 실제 physics/control Hz를 5초마다 구분해 출력한다.
 
-RL 물리는 120 Hz, reward와 성공/실패 판정은 30 Hz로 유지한다. 기본값은 비용이 큰
-robot→obstacle filtered contact report만 30 Hz로 갱신한다. 네 개 손가락의
-finger→flap grasp contact는 계속 120 Hz이므로 파지 획득·해제 반응은 낮추지 않는다.
-PhysX 충돌 물리 자체도 120 Hz 그대로다.
+롤러를 끈 기본 RL Debug는 한 환경의 실제 조작 속도를 우선하는 profile을 사용한다.
+물리·grasp·aggregate collision·reward를 30 Hz로 계산하고 robot/box solver를 8/2로
+사용한다. 정책을 실행하지 않으므로 269차원 policy observation과 학습용 success snapshot
+recorder를 만들지 않으며, reward 뒤 observation을 준비하기 위한 중복 측정도 생략한다.
+충돌 판정은 손가락 이외의 robot contact 합력과 손가락의 비정상 residual contact를
+사용한다. 물리 contact 자체를 끄는 설정은 아니다.
 
 ```bash
-# 권장 기본값과 동일: 조작 중 reward 확인
+# 롤러 OFF 실시간 검사: 이 PC에서 권장
 ./quest_collector.sh collect --rl-reward-debug 1 \
-  --rack-rollers --rl-obstacle-contact-hz 30
+  --no-rack-rollers --device cpu
 
-# 학습 환경의 physics-substep contact와 정확히 비교할 때
+# 학습 환경의 120 Hz filtered contact와 정확히 비교할 때
 ./quest_collector.sh collect --rl-reward-debug 1 \
-  --rack-rollers --rl-obstacle-contact-hz 120
+  --no-rack-rollers --device cuda:0 --rl-obstacle-contact-hz 120
 ```
 
-선택값은 `15`, `30`, `60`, `120` Hz다. 30 Hz는 충돌 report를 control step마다 한 번
-갱신한다. 15 Hz는 두 control step마다 한 번이라 짧은 접촉을 놓칠 가능성이 커지는 데 비해
-추가 성능 이득이 작으므로 권장하지 않는다. 충돌 임계값이나 실패 원인을 최종 검증할 때는
-120 Hz를 사용한다. Reward manager 자체를 늦추면 성공 hold 시간과 progress reward가
-지연되므로 별도 decimation을 적용하지 않는다.
+이 단일 환경에서는 CPU PhysX가 CUDA PhysX보다 빨랐다. `--device cuda:0`을 명시하면
+롤러 OFF 실시간 profile 자체는 적용되지만 20 Hz 측정 경로에서 벗어나므로 시작 로그가
+경고한다. `--rl-obstacle-contact-hz`를 명시하면 실시간 profile 대신 기존 120 Hz 물리와
+per-body filtered obstacle sensor를 사용한다. 선택값은 `15`, `30`, `60`, `120` Hz다.
+충돌 임계값이나 학습 결과를 최종 비교할 때는 120 Hz를 사용한다.
+
+롤러를 켜면 546개 roller rigid body의 물리가 필요하므로 기존 120 Hz 물리와 filtered
+sensor 경로를 유지한다. 이때 obstacle report 기본값은 30 Hz다. Reward manager 자체를
+늦추면 성공 hold 시간과 progress reward가 지연되는 데 비해 이 PC에서 약 1~2%만 줄어
+별도 decimation을 적용하지 않는다.
 
 기존에 `collect_quest_teleop.sh`를 직접 사용했다면 기존 명령 끝에
 `--rl-reward-debug`를 추가해도 된다. `XR_RUNTIME_JSON` 등 기존 연결 설정은 필요하다.
