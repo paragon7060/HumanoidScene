@@ -13,6 +13,7 @@ import math
 
 TWO_FINGER_PRESETS = frozenset({"s200062_integrated", "s56_twofinger", "leju-twofinger"})
 LINKAGE_VERSION = 1
+DRIVER_OPEN_MIN = -0.375  # S63's measured 90 mm tip opening needs about -0.364 rad.
 FINGER_PIN = (-0.0125, 0.0, -0.021)
 # Sum of the zero-pose URDF joint origins plus FINGER_PIN minus bar_4 origin.
 # The CAD hole is approximately (-0.00062, 0, -0.05); retaining the URDF's
@@ -46,8 +47,8 @@ def passive_joint_angles(driver: float, jaw: str = "f") -> tuple[float, float]:
     if jaw not in ("f", "b") or not math.isfinite(driver):
         raise ValueError("Expected a finite driver angle and jaw f/b")
     q = sign * driver
-    if not -0.25 - 1e-9 <= q <= 1e-9:
-        raise ValueError("Validated two-finger driver range is f=[-0.25,0], b=[0,0.25]")
+    if not DRIVER_OPEN_MIN - 1e-9 <= q <= 1e-9:
+        raise ValueError(f"Validated driver range is f=[{DRIVER_OPEN_MIN},0], b=[0,{-DRIVER_OPEN_MIN}]")
     a, b = (0.0125, -0.063137), (0.02, -0.09)
     crank = (0.011329 + 0.016204, 0.0063767 - 0.014934)
     coupler = (-0.0081591 + FINGER_PIN[0], -0.047301 + FINGER_PIN[2])
@@ -92,6 +93,10 @@ def validate_motor_commands(settings) -> None:
             raise ValueError("Use explicit f_bar_1/b_bar_1 commands for closed two-finger presets")
         for jaw in "fb":
             passive_joint_angles(command[f"{{side}}_{jaw}_bar_1_joint"], jaw)
+        for side in settings.active_sides:
+            scaled = settings.command_for(side, command)
+            for jaw in "fb":
+                passive_joint_angles(scaled[f"{side[0]}_{jaw}_bar_1_joint"], jaw)
 
 
 def _linkage_sides(sides: str) -> str:

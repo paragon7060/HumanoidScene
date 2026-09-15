@@ -48,6 +48,9 @@ class GripperSideSettings:
     robot_mount_rot: tuple[float, float, float, float]
     usd_path: str | None = None
     attachment_mount_body: str | None = None
+    command_scale: float = 1.0
+    position_mapping: dict[str, tuple[float, ...]] | None = None
+    target_filter: dict[str, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -93,7 +96,8 @@ class GripperSettings:
         return tuple(name.replace("{side}", "[lr]") for name in self.joint_names)
 
     def command_for(self, side: str, command: dict[str, float]) -> dict[str, float]:
-        return {name.replace("{side}", side[0]): value for name, value in command.items()}
+        scale = self.sides[side].command_scale
+        return {name.replace("{side}", side[0]): value * scale for name, value in command.items()}
 
     def command_for_all_sides(self, command: dict[str, float]) -> dict[str, float]:
         result: dict[str, float] = {}
@@ -274,6 +278,47 @@ def load_gripper_settings(
         mount_override = item.get("attachment_mount_body")
         if mount_override is not None and (not isinstance(mount_override, str) or not mount_override):
             raise ValueError(f"sides.{side}.attachment_mount_body must be non-empty when set.")
+        scale = _number(item.get("command_scale", 1.0), f"sides.{side}.command_scale", non_negative=True)
+        if scale <= 0:
+            raise ValueError("command_scale must be positive")
+        mapping = item.get("position_mapping")
+        if scale != 1 or mapping is not None:
+            if selected not in {"s56_twofinger", "s200062_integrated", "leju-twofinger"}:
+                raise ValueError("Position calibration is supported only by two-finger presets")
+        if mapping is not None:
+            keys = {"command_percent", "closing_fractions", "opening_fractions"}
+            if not isinstance(mapping, dict) or set(mapping) != keys:
+                raise ValueError("position_mapping needs command_percent, closing_fractions, opening_fractions")
+            if any(not isinstance(mapping[k], list) for k in keys):
+                raise ValueError("position_mapping fields must be lists")
+            mapping = {k: tuple(_number(v, f"position_mapping.{k}", non_negative=True) for v in mapping[k]) for k in keys}
+            x = mapping["command_percent"]
+            if len(x) < 2 or x[0] != 0 or x[-1] != 100 or any(b <= a for a, b in zip(x, x[1:])):
+                raise ValueError("Mapping command_percent must strictly increase from 0 to 100")
+            for key in ("closing_fractions", "opening_fractions"):
+                y = mapping[key]
+                if len(y) != len(x) or y[0] != 0 or y[-1] != 1 or any(v > 1 for v in y) or any(b < a for a, b in zip(y, y[1:])):
+                    raise ValueError("Mapping fractions must increase from 0 to 1 with matching lengths")
+            if any(a > b for a, b in zip(mapping["closing_fractions"], mapping["opening_fractions"])):
+                raise ValueError("Opening fractions must be at least closing fractions")
+        target_filter = item.get("target_filter")
+        if target_filter is not None:
+            keys = {"closing_time_constant_s", "opening_time_constant_s"}
+            if selected not in {"s56_twofinger", "s200062_integrated", "leju-twofinger"}:
+                raise ValueError("Target filtering is supported only by two-finger presets")
+            if (not isinstance(target_filter, dict) or not keys <= set(target_filter)
+                    or set(target_filter)-keys-{"stages"}):
+                raise ValueError("target_filter needs closing/opening_time_constant_s and optional stages")
+            stages = target_filter.get("stages", 1)
+            if type(stages) is not int or stages not in (1, 2):
+                raise ValueError("Target filter stages must be 1 or 2")
+            has_stages = "stages" in target_filter
+            target_filter = {key: _number(value, f"sides.{side}.target_filter.{key}", non_negative=True)
+                             for key, value in target_filter.items() if key in keys}
+            if any(value <= 0 for value in target_filter.values()):
+                raise ValueError("Target filter time constants must be positive")
+            if has_stages:
+                target_filter["stages"] = stages
         sides[side] = GripperSideSettings(
             enabled=side_enabled,
             robot_mount_body=str(item.get("robot_mount_body", "")),
@@ -281,6 +326,9 @@ def load_gripper_settings(
             robot_mount_rot=_vector(item.get("robot_mount_rot", [1.0, 0.0, 0.0, 0.0]), 4, f"sides.{side}.robot_mount_rot"),
             usd_path=_resolve_usd_path(override, path) if override else None,
             attachment_mount_body=mount_override,
+            command_scale=scale,
+            position_mapping=mapping,
+            target_filter=target_filter,
         )
     threshold = _number(raw.get("pinch_close_threshold_m", 0.035), "pinch_close_threshold_m", non_negative=True)
     if threshold <= 0.0:

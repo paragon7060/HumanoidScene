@@ -13,7 +13,9 @@ def hand_action(side):
     return IncrementalGripperCfg(asset_name=hand.asset_name_for(side),
         joint_names=list(hand.joint_names_for(side)),
         open_command_expr=hand.command_for(side, hand.open_command),
-        close_command_expr=hand.command_for(side, hand.close_command))
+        close_command_expr=hand.command_for(side, hand.close_command),
+        position_mapping=hand.sides[side].position_mapping,
+        target_filter=hand.sides[side].target_filter)
 
 
 @configclass

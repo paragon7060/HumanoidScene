@@ -27,7 +27,7 @@ from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, NUCLEUS_ASSET_ROOT_DIR
 
 from .gripper_config import GripperSettings
-from .gripper_action import interpolate_signed_gripper_action
+from .gripper_action import DirectionalGripperMapping, GripperTargetFilter, interpolate_signed_gripper_action
 
 
 _MOUNTED_GRIPPERS: dict[str, Articulation] = {}
@@ -47,6 +47,34 @@ class InterpolatedJointPositionAction(ActionTerm):
         )
         self._open_command = self._resolve_command(cfg.open_command_expr, "open")
         self._close_command = self._resolve_command(cfg.close_command_expr, "close")
+        self._position_mapping = (DirectionalGripperMapping(cfg.position_mapping, self.num_envs, self.device)
+                                  if cfg.position_mapping is not None else None)
+        self._desired_actions = self._processed_actions.clone()
+        self._target_filter = None
+        if cfg.target_filter is not None:
+            initial = self._asset.data.joint_pos[:, self._joint_ids]
+            self._target_filter = GripperTargetFilter(initial, self._close_command-self._open_command, cfg.target_filter)
+            self._desired_actions[:] = initial
+            self._processed_actions[:] = initial
+            self._filter_dt = sim_utils.SimulationContext.instance().get_physics_dt()
+
+    def _set_joint_targets(self, targets):
+        self._desired_actions[:] = targets
+        if self._target_filter is None:
+            self._processed_actions[:] = targets
+
+    def _reset_joint_targets(self, targets, env_ids=None):
+        ids = slice(None) if env_ids is None else env_ids
+        self._desired_actions[ids] = targets
+        self._processed_actions[ids] = targets
+        if self._target_filter is not None:
+            self._target_filter.reset(targets, env_ids)
+
+    def _targets_from_signed(self, actions):
+        if self._position_mapping is None:
+            return interpolate_signed_gripper_action(actions, self._open_command, self._close_command)
+        fraction = self._position_mapping.process(actions)
+        return self._open_command + fraction * (self._close_command - self._open_command)
 
     def _resolve_command(self, expressions: dict[str, float], label: str) -> torch.Tensor:
         command = torch.zeros(len(self._joint_ids), device=self.device)
@@ -73,17 +101,26 @@ class InterpolatedJointPositionAction(ActionTerm):
 
     def process_actions(self, actions: torch.Tensor) -> None:
         self._raw_actions[:] = actions
-        self._processed_actions[:] = interpolate_signed_gripper_action(
-            self._raw_actions, self._open_command, self._close_command
-        )
+        self._set_joint_targets(self._targets_from_signed(self._raw_actions))
 
     def apply_actions(self) -> None:
+        if self._target_filter is not None:
+            self._processed_actions[:] = self._target_filter.advance(self._desired_actions, self._filter_dt)
         self._asset.set_joint_position_target(
             self._processed_actions, joint_ids=self._joint_ids
         )
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
-        self._raw_actions[env_ids] = 1.0
+        ids = slice(None) if env_ids is None else env_ids
+        self._raw_actions[ids] = 1.0
+        if self._target_filter is None:
+            self._reset_joint_targets(self._open_command, env_ids)
+        else:
+            q = self._asset.data.joint_pos[ids][:, self._joint_ids]
+            self._reset_joint_targets(q, env_ids)
+            self._desired_actions[ids] = self._open_command
+        if self._position_mapping is not None:
+            self._position_mapping.reset(env_ids)
 
 
 @configclass
@@ -92,6 +129,43 @@ class InterpolatedJointPositionActionCfg(ActionTermCfg):
     joint_names: list[str] = MISSING
     open_command_expr: dict[str, float] = MISSING
     close_command_expr: dict[str, float] = MISSING
+    position_mapping: dict | None = None
+    target_filter: dict | None = None
+
+
+class FilteredBinaryJointPositionAction(mdp.BinaryJointPositionAction):
+    """Keep Isaac's binary sign/bool convention and filter only the PD target."""
+
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        initial = self._asset.data.joint_pos[:, self._joint_ids]
+        self._desired_actions = initial.clone()
+        self._processed_actions[:] = initial
+        self._target_filter = GripperTargetFilter(initial, self._close_command-self._open_command, cfg.target_filter)
+        self._filter_dt = sim_utils.SimulationContext.instance().get_physics_dt()
+
+    def process_actions(self, actions):
+        super().process_actions(actions)
+        self._desired_actions[:] = self._processed_actions
+        self._processed_actions[:] = self._target_filter.current
+
+    def apply_actions(self):
+        self._processed_actions[:] = self._target_filter.advance(self._desired_actions, self._filter_dt)
+        super().apply_actions()
+
+    def reset(self, env_ids=None):
+        super().reset(env_ids)
+        ids = slice(None) if env_ids is None else env_ids
+        q = self._asset.data.joint_pos[ids][:, self._joint_ids]
+        self._desired_actions[ids] = q
+        self._processed_actions[ids] = q
+        self._target_filter.reset(q, env_ids)
+
+
+@configclass
+class FilteredBinaryJointPositionActionCfg(mdp.BinaryJointPositionActionCfg):
+    class_type: type = FilteredBinaryJointPositionAction
+    target_filter: dict = MISSING
 
 
 class MountedGripper(Articulation):
@@ -221,16 +295,22 @@ def build_gripper_action_cfg(
 ):
     if side not in settings.active_sides:
         return None
+    filter_settings = settings.sides[side].target_filter
     cfg_type = (
         InterpolatedJointPositionActionCfg
         if continuous
-        else mdp.BinaryJointPositionActionCfg
+        else (FilteredBinaryJointPositionActionCfg if filter_settings is not None else mdp.BinaryJointPositionActionCfg)
     )
+    mapping_kwargs = ({"position_mapping": settings.sides[side].position_mapping}
+                      if cfg_type is InterpolatedJointPositionActionCfg else {})
+    if filter_settings is not None:
+        mapping_kwargs["target_filter"] = filter_settings
     return cfg_type(
         asset_name=settings.asset_name_for(side),
         joint_names=list(settings.joint_names_for(side)),
         open_command_expr=settings.command_for(side, settings.open_command),
         close_command_expr=settings.command_for(side, settings.close_command),
+        **mapping_kwargs,
     )
 
 

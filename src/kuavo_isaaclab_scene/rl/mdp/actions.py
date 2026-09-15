@@ -7,7 +7,6 @@ from isaaclab.utils.math import quat_apply, quat_mul
 from isaaclab.envs.mdp.actions.joint_actions import JointPositionAction
 from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
 from ...robots.gripper_runtime import InterpolatedJointPositionAction, InterpolatedJointPositionActionCfg
-from ...robots.gripper_action import interpolate_signed_gripper_action
 from .body_lock import FixedBody, ARM_JOINT_NAMES
 from .settling import gate_actions
 
@@ -156,8 +155,7 @@ class IncrementalGripper(InterpolatedJointPositionAction):
         actions = gate_actions(self._env, actions)
         self._raw_actions[:] = actions.clamp(-1, 1)
         self._signed_target.add_(self._raw_actions * self.cfg.delta_scale).clamp_(-1, 1)
-        self._processed_actions[:] = interpolate_signed_gripper_action(
-            self._signed_target, self._open_command, self._close_command)
+        self._set_joint_targets(self._targets_from_signed(self._signed_target))
 
     def reset(self, env_ids=None):
         ids = slice(None) if env_ids is None else env_ids
@@ -165,8 +163,11 @@ class IncrementalGripper(InterpolatedJointPositionAction):
         direction = self._close_command - self._open_command
         closed = ((q - self._open_command) * direction).sum(-1) / direction.square().sum().clamp_min(1e-8)
         self._signed_target[ids, 0] = 1 - 2 * closed.clamp(0, 1)
+        if self._position_mapping is not None:
+            self._position_mapping.reset(env_ids, closed)
+            self._signed_target[ids] = 1 - self._position_mapping.previous_percent[ids] / 50
         self._raw_actions[ids] = 0
-        self._processed_actions[ids] = q
+        self._reset_joint_targets(q, env_ids)
 
 
 @configclass
