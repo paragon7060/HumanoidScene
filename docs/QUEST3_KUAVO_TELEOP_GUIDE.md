@@ -27,9 +27,9 @@ left grip xyz → left 7-DoF position-priority IK
 right grip xyz → right 7-DoF position-priority IK
 HMD yaw/pitch → zhead_1_joint / zhead_2_joint
         ↓
-ManagerBasedRLEnv + Kuavo head/wrist RGB cameras
+ManagerBasedRLEnv + Kuavo wrist RGB cameras (optional head RGB)
         ↓ XRSceneView head-locked compositor
-native stereo scene + compact left-wrist/head/right-wrist overlays
+native stereo scene + compact left/right-wrist overlays
         ↓
 HDF5 recorder / isolated LeRobot Dataset v3 writer
 ```
@@ -43,7 +43,7 @@ HDF5 recorder / isolated LeRobot Dataset v3 writer
 - `src/kuavo_isaaclab_scene/recording/teleop_recorder.py`: RAM에 누적하지 않는 HDF5 writer
 - `src/kuavo_isaaclab_scene/recording/teleop_lerobot_recorder.py`: Isaac Lab과 별도 v3 writer process 사이의 recorder client
 - `src/kuavo_isaaclab_scene/recording/lerobot_writer_worker.py`: LeRobot v3 `create/resume/add_frame/save_episode/finalize` worker
-- `src/kuavo_isaaclab_scene/display/xr_camera_overlay.py`: Quest head-locked head/wrist camera panels
+- `src/kuavo_isaaclab_scene/display/xr_camera_overlay.py`: Quest head-locked 좌우 wrist camera panels
 - `src/kuavo_isaaclab_scene/teleop/collect_quest_teleop.py`: 실행/episode 제어
 - `collect_quest_teleop.sh`: 루트 실행 wrapper
 
@@ -132,7 +132,7 @@ Kuavo 머리가 움직일 때 head camera 영상도 함께 변하는지 보려�
 - IWER HMD 회전 → Kuavo head yaw/pitch
 - IWER 좌우 controller 이동/회전 → Kuavo 양팔 differential IK
 - 좌우 XR camera → 브라우저 양안 stereo 화면
-- head/좌우 wrist camera → 작은 영상 panel
+- 좌우 wrist camera → 작은 영상 panel
 - 왼쪽 stick → 베이스 전후/좌우 이동, 오른쪽 stick → 베이스 회전/몸통 높이
 
 브라우저 스틱도 수집기의 `TeleopBodyMapper`를 사용한다. 추적 손실 시 베이스는
@@ -522,14 +522,14 @@ Isaac Sim에서 캡처한 정확한 pose JSON을 쓰려면:
 ### Quest에서 확인할 항목
 
 1. 중앙에 원래 stereo 장면이 보이고 큰 검은 패널이 없는지 확인한다.
-2. 왼쪽 `LEFT WRIST`, 중앙 `HEAD CAMERA`, 오른쪽 `RIGHT WRIST`에
-   영상과 상태 표시가 보이는지 확인한다.
+2. 왼쪽 `LEFT WRIST`, 오른쪽 `RIGHT WRIST`에 영상과 상태 표시가 보이고
+   중앙은 stereo scene을 위해 비어 있는지 확인한다.
 3. `X`/`C`로 정면을 맞춘 뒤 `A`/`T`를 누르고, 머리를 좌우로 돌릴 때 Kuavo `zhead_1_joint`가 회전하는지 확인한다.
 4. 따라오기 중 Quest를 위아래로 돌렸을 때 `zhead_2_joint`가 제한 범위 안에서 회전하는지 확인한다.
 5. 몸을 앞뒤로 움직이는 translation은 Kuavo 머리에 적용되지 않는 것이 정상이다. 현재 model에는 yaw/pitch 두 관절만 있다.
 
-패널이 검으면 `[CAMERA] Left wrist`, `[CAMERA] Head`,
-`[CAMERA] Right wrist` RGB 로그의 `max`를 확인한다.
+패널이 검으면 `[CAMERA] Left wrist`, `[CAMERA] Right wrist` RGB 로그의
+`max`를 확인한다.
 `max`가 0보다 큰데 패널만 검다면 카메라 자체가 아니라 XR UI 표시 경로를 점검한다.
 위젯은 단일 자식 Frame 안에 이미지 레이아웃을 넣고, 첫 유효 영상 전에는 패널을 숨긴다.
 `Y`/`H`로 숨겨 중앙 장면과 구분할 수 있다. 뒤쪽에 패널이 생긴 경우에만
@@ -547,7 +547,9 @@ Isaac Sim에서 캡처한 정확한 pose JSON을 쓰려면:
   --wrist-camera-height 180
 ```
 
-기본 해상도는 head 640×360, wrist 각각 240×180이며 depth 저장은 OFF다.
+기본은 wrist sensor만 생성하며 해상도는 각각 240×180이다. `--head-camera`를
+켰을 때 head 해상도는 640×360이고, head depth 저장은 별도의 `--record-depth`를
+함께 넣어야 한다.
 S200062의 head와 D405 모두 URDF body +X를 ROS optical +Z로 변환한다.
 이 변환이 없으면 head 녹화 영상이 작업대 대신 천장 쪽을 볼 수 있다.
 수집용 장면에서 사람·배경 이동 로봇을 제거한다. 기본 `--scene-detail compact`는
@@ -685,7 +687,11 @@ HDF5는 시도마다 새 파일로 분리되며 기존 파일을 재사용하지
 `--dataset`은 첫 파일이며 이미 있으면 오류로 중단한다. 다음 시도는 같은 폴더의
 새 고유 파일을 사용한다. 저장 경로는 `[DATA] New HDF5 file`에 표시된다.
 
-기본 camera 저장은 MP4다. 개별 PNG가 필요하면 `--no-lerobot-use-videos`를 사용한다. 기존 **LeRobot** dataset에 이어서 수집할 때에는 FPS, camera 해상도, wrist camera 포함 여부, box/button 수가 최초 schema와 같아야 한다. 이 값이 바뀌면 새 `--lerobot-root`를 사용한다.
+기본 camera 저장은 양쪽 wrist MP4이며 head camera는 포함하지 않는다. Head RGB가
+필요하면 `--head-camera`, 개별 PNG가 필요하면 `--no-lerobot-use-videos`를 사용한다.
+기존 **LeRobot** dataset에 이어서 수집할 때에는 FPS, camera 해상도, head camera
+포함 여부, box/button 수가 최초 schema와 같아야 한다. 이 값이 바뀌면 새
+`--lerobot-root`를 사용한다.
 
 v3 주요 feature:
 
@@ -695,7 +701,7 @@ observation.state                    [T, 28] (S200062: 20 arm/head/body + 8 grip
 # S56/QiangNao comparison: [T, 49] (29 arm/head/leg/waist + 20 hand joints)
 observation.velocity                 [T, 28] (S200062)
 observation.ee_pose                  [T, 14]
-observation.images.head              head camera MP4/image
+observation.images.head              `--head-camera`일 때만 head camera MP4/image
 observation.images.left_wrist        left wrist MP4/image
 observation.images.right_wrist       right wrist MP4/image
 observation.openxr.head_pose          [T, 7]
@@ -747,7 +753,7 @@ PY
     tracking_valid                 [T, 3]
     box_root_pose_w                [T, number_of_boxes, 7]
     button_joint_position          [T, ...]
-    head_rgb                       [T, H, W, 3]
+    head_rgb                       [T, H, W, 3]  # --head-camera일 때만
     left_wrist_rgb                 [T, H_w, W_w, 3] (optional)
     right_wrist_rgb                [T, H_w, W_w, 3] (optional)
     head_depth_m                   [T, H, W] (optional)
@@ -765,7 +771,8 @@ with h5py.File(path, "r") as f:
     for name, demo in f["data"].items():
         print(name, demo.attrs["num_samples"], demo.attrs["success"])
         print("  action:", demo["samples/action"].shape)
-        print("  head_rgb:", demo["samples/head_rgb"].shape)
+        if "head_rgb" in demo["samples"]:
+            print("  head_rgb:", demo["samples/head_rgb"].shape)
 PY
 ```
 
@@ -787,7 +794,9 @@ PY
 
 ### Isaac Sim/다른 Electron 앱이 함께 종료됨
 
-XR render와 head/wrist RTX camera 3개를 동시에 쓰므로 GPU VRAM 압력이 생길 수 있다. 문제가 있으면 320×180 head, 160×120 wrist로 낮추고 `--no-record-depth --no-camera-preview`를 함께 사용한다.
+기본 실행은 XR render와 wrist RTX camera 2개를 사용한다. `--head-camera`까지 켜면
+세 번째 640×360 RTX render와 저장 비용이 추가된다. GPU 압력이 있으면 head는 끄고,
+wrist를 160×120으로 낮추며 `--no-record-depth --no-camera-preview`를 함께 사용한다.
 
 ```bash
 ./collect_quest_teleop.sh \

@@ -244,7 +244,8 @@ export XR_RUNTIME_JSON=/absolute/path/to/openxr_cloudxr.json
 ```
 
 The collector enables Isaac Lab OpenXR, maps both tracked controllers to Kuavo arm
-targets, and records head/wrist cameras. The headset keeps the native stereo
+targets, and records both wrist cameras by default. Add `--head-camera` only when
+the dataset needs the additional robot-head RGB observation. The headset keeps the native stereo
 scene in the center with two small wrist-camera panels at the upper left/right.
 The desktop Isaac Sim UI can also display the camera feeds in small viewports.
 For initial setup, add `--no-auto-start`, then use Quest X (desktop C) to recenter,

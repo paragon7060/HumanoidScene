@@ -19,7 +19,7 @@ def test_overlay_config_rejects_plane_inside_near_clip():
         QuestCameraOverlayCfg(distance_m=0.05)
 
 
-def test_overlay_defaults_are_compact_and_leave_room_for_three_panels():
+def test_overlay_defaults_are_compact_and_leave_center_clear_between_wrists():
     cfg = QuestCameraOverlayCfg()
     assert cfg.distance_m > 0.08
     assert cfg.plane_width_m <= 0.2

@@ -40,7 +40,7 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 - 빠른 시작: 반드시 필요한 실행 순서와 첫 HDF5 수집
 - Runtime 실행: CloudXR service, 웹 서버, 인증서와 터미널별 재실행
 - 상세 가이드: controller/hand mapping, episode 제어, LeRobot schema, 세부 문제 해결
-- 화면·성능: VR 화면, head/wrist panel, PC observer viewport와 GPU 부하
+- 화면·성능: VR 화면, wrist panel, 선택적 head sensor, PC observer viewport와 GPU 부하
 
 ## RL 학습
 

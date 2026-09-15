@@ -59,7 +59,7 @@ case "${COMMAND}" in
     exec bash "${PROJECT_DIR}/scripts/collect_quest_teleop.sh" \
       --robot-model s200062 --input-mode controllers --device cpu --control-hz 30 \
       --xr-resolution-scale 1.0 --scene-detail compact --render-quality performance \
-      --desktop-render --no-camera-preview --wrist-cameras --no-record-depth \
+      --no-desktop-render --no-camera-preview --no-head-camera --wrist-cameras --no-record-depth \
       --controller-mapping scaled --position-gain 1.1 --dataset-format hdf5 \
       --max-episodes 0 --episode-seconds 0 --no-auto-start "$@" ;;
 esac

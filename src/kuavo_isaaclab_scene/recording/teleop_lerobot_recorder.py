@@ -49,6 +49,7 @@ def build_lerobot_features(
     button_joint_count: int,
     record_wrist_cameras: bool,
     use_videos: bool,
+    record_head_camera: bool = True,
     action_names: Sequence[str] = ACTION_NAMES,
     record_controllers: bool = False,
     self_collision_joint_names: Sequence[str] = (),
@@ -74,15 +75,16 @@ def build_lerobot_features(
         "observation.pinch_distance": _vector_feature(2, ["left_m", "right_m"]),
         "observation.tracking_valid": _vector_feature(3, ["left", "right", "head"]),
         "observation.sim_time": _vector_feature(1, ["seconds"]),
-        "observation.images.head": {
-            "dtype": image_dtype,
-            "shape": (head_height, head_width, 3),
-            "names": ["height", "width", "channels"],
-        },
         "action": _vector_feature(len(action_names), action_names),
         "next.done": _vector_feature(1, ["done"]),
         "next.success": _vector_feature(1, ["success"]),
     }
+    if record_head_camera:
+        features["observation.images.head"] = {
+            "dtype": image_dtype,
+            "shape": (head_height, head_width, 3),
+            "names": ["height", "width", "channels"],
+        }
     if self_collision_joint_names:
         features["observation.self_collision.safe_joint_target"] = _vector_feature(
             len(self_collision_joint_names), self_collision_joint_names)
@@ -126,12 +128,12 @@ def sample_to_lerobot_frame(sample: dict[str, Any], features: dict[str, dict]) -
         "observation.pinch_distance": np.asarray(sample["pinch_distance_m"], dtype=np.float32),
         "observation.tracking_valid": np.asarray(sample["tracking_valid"], dtype=np.float32),
         "observation.sim_time": np.asarray([sample["sim_time_s"]], dtype=np.float32),
-        "observation.images.head": np.asarray(sample["head_rgb"], dtype=np.uint8),
         "action": np.asarray(sample["action"], dtype=np.float32),
         "next.done": np.zeros(1, dtype=np.float32),
         "next.success": np.zeros(1, dtype=np.float32),
     }
     optional_mappings = {
+        "observation.images.head": "head_rgb",
         "observation.openxr.left_controller": "openxr_left_controller",
         "observation.openxr.right_controller": "openxr_right_controller",
         "observation.images.left_wrist": "left_wrist_rgb",
@@ -166,6 +168,7 @@ class LeRobotTeleopRecorder:
         box_count: int,
         button_joint_count: int,
         record_wrist_cameras: bool = True,
+        record_head_camera: bool = True,
         use_videos: bool = True,
         save_failed: bool = False,
         writer_python: str | Path | None = None,
@@ -196,6 +199,7 @@ class LeRobotTeleopRecorder:
             wrist_resolution=wrist_resolution,
             box_count=box_count,
             button_joint_count=button_joint_count,
+            record_head_camera=record_head_camera,
             record_wrist_cameras=record_wrist_cameras,
             use_videos=use_videos,
             action_names=action_names,

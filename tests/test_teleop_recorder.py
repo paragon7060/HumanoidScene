@@ -85,7 +85,10 @@ def test_multiple_attempts_close_separate_files_without_closing_the_session(tmp_
 
 @pytest.mark.parametrize("record_controllers", [False, True])
 @pytest.mark.parametrize("self_collision", [False, True])
-def test_lerobot_v3_feature_mapping_uses_policy_and_camera_keys(record_controllers, self_collision):
+@pytest.mark.parametrize("record_head_camera", [False, True])
+def test_lerobot_v3_feature_mapping_uses_policy_and_camera_keys(
+    record_controllers, self_collision, record_head_camera
+):
     features = build_lerobot_features(
         joint_names=["left_joint", "right_joint"],
         hand_joint_names=["wrist", "index_tip"],
@@ -94,6 +97,7 @@ def test_lerobot_v3_feature_mapping_uses_policy_and_camera_keys(record_controlle
         box_count=1,
         button_joint_count=1,
         record_wrist_cameras=True,
+        record_head_camera=record_head_camera,
         use_videos=True,
         record_controllers=record_controllers,
         self_collision_joint_names=["left_joint", "right_joint"] if self_collision else (),
@@ -135,10 +139,12 @@ def test_lerobot_v3_feature_mapping_uses_policy_and_camera_keys(record_controlle
         assert frame["observation.self_collision.modified"].item() == 1
     assert frame["observation.state"].shape == (2,)
     assert frame["observation.openxr.left_hand"].shape == (14,)
-    assert frame["observation.images.head"].shape == (8, 12, 3)
+    assert ("observation.images.head" in frame) is record_head_camera
+    if record_head_camera:
+        assert frame["observation.images.head"].shape == (8, 12, 3)
+        assert features["observation.images.head"]["dtype"] == "video"
     assert frame["observation.images.left_wrist"].shape == (4, 6, 3)
     assert frame["observation.box_root_pose"].shape == (7,)
-    assert features["observation.images.head"]["dtype"] == "video"
     assert frame["next.done"].item() == 0.0
 
 

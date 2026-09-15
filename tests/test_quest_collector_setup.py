@@ -130,9 +130,10 @@ def test_wrapper_defaults_without_launching_simulator(tmp_path):
         "CLOUDXR_JS_SAMPLES_DIR": str(project), "QUEST_COLLECTOR_WEB_PORT": "8443",
     }, False)
     result = subprocess.run(["bash", str(launcher), "--config", str(env), "collect",
-                             "--dataset-format", "both", "--no-desktop-render"],
+                             "--dataset-format", "both", "--desktop-render"],
                             text=True, capture_output=True, check=True)
     lines = result.stdout.splitlines()
     assert "--no-auto-start" in lines
-    assert "--desktop-render" in lines
-    assert lines[-3:] == ["--dataset-format", "both", "--no-desktop-render"]
+    assert "--no-desktop-render" in lines
+    assert "--no-head-camera" in lines
+    assert lines[-3:] == ["--dataset-format", "both", "--desktop-render"]

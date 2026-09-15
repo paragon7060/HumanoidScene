@@ -198,8 +198,10 @@ openssl x509 -in "$CLOUDXR_CERTIFICATE" -noout -dates -fingerprint -sha256
 ```
 
 이 명령부터 실제 Isaac Sim이 실행된다. 기본은 S200062, controllers, CPU physics/IK,
-30Hz 제어 설정, compact scene, XR 배율 1.0, head/wrist RGB, depth OFF, HDF5다.
-PC desktop viewport는 ON, 별도 PC camera preview는 OFF다. 최초 EULA가 나타나면
+30Hz 제어 설정, compact scene, XR 배율 1.0, 양쪽 wrist RGB, head/depth OFF, HDF5다.
+PC desktop observer는 OFF이고 camera annotator에 필요한 최소 160×90 render만 유지한다.
+별도 PC camera preview도 OFF다. head RGB가 데이터셋에 필요할 때만 `--head-camera`를
+추가한다. 최초 EULA가 나타나면
 사용자가 직접 확인한다. `30Hz`는 설정값이며 실제 속도는 `[PERF]`로 판단한다.
 
 `[XR] OpenXR session and display are active.`와 양팔/head tracking을 확인한다.

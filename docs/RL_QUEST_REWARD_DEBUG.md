@@ -35,9 +35,17 @@ head와 양팔/양손을 모두 해제한다. 성공 조건인 `grasp_hand="righ
 추적 유효성 검사(`tracked`)도 왼쪽 컨트롤러까지 함께 요구한다. 콘솔의
 `[RL REWARD] control=..., action_space=...`로 실제 적용된 값을 확인할 수 있다.
 
-기존 head/wrist 영상 패널 옵션도 유지한다. reward 텍스트와 stereo 장면만으로
+좌우 wrist 영상 패널 옵션도 유지한다. reward 텍스트와 stereo 장면만으로
 가볍게 확인하려면 `--no-quest-camera-overlay --no-camera-preview`를 추가한다.
 이 경우 RGB 카메라 센서를 생성하지 않는다.
+
+성능을 위해 PC 전체 viewport, collider 표시, grasp marker는 기본 OFF다.
+필요한 검사에서만 각각 `--desktop-render`, `--rl-collision-view`,
+`--rl-grasp-markers`를 추가한다. Reward HUD는 기본 ON이며 최대 10 Hz로만
+갱신한다. HUD 비용까지 제외해 비교하려면 `--no-rl-reward-hud`를 사용한다.
+collider/marker를 끄면 해당 시각화 geometry 생성과 표시용 갱신만 생략한다.
+Reward가 사용하는 실제 접촉·충돌 판정은 환경 재현을 위해 계속 계산한다.
+콘솔의 `[PERF]`는 XR loop Hz와 실제 physics/control Hz를 5초마다 구분해 출력한다.
 
 기존에 `collect_quest_teleop.sh`를 직접 사용했다면 기존 명령 끝에
 `--rl-reward-debug`를 추가해도 된다. `XR_RUNTIME_JSON` 등 기존 연결 설정은 필요하다.
@@ -69,13 +77,15 @@ head와 양팔/양손을 모두 해제한다. 성공 조건인 `grasp_hand="righ
 
 ### 실제 collider·안쪽 면 후보·접촉점·힘 표시
 
-`--rl-reward-debug`에서 `--rl-collision-view`는 기본 ON이다. 기존의 수동 offset 구와
-구분되는 표시이며, offset을 입력하지 않아도 실제 형상을 읽는다. 관련 코드는
+`--rl-collision-view`를 명시하면 실제 collider와 접촉 표시를 생성한다. 기본값은
+성능을 위해 OFF다. 기존의 수동 offset 구와 구분되는 표시이며, offset을 입력하지
+않아도 실제 형상을 읽는다. 관련 코드는
 `rl/debug/collision_overlay.py`, CPU 기하 계산은 `collision_geometry.py`다.
 
 ```bash
-# collider 검사를 우선할 때 기존 기준점/목표점 4개는 숨길 수 있다.
-./quest_collector.sh collect --rl-reward-debug --no-rl-grasp-markers
+# collider와 기준점/목표점을 함께 검사할 때만 둘 다 명시한다.
+./quest_collector.sh collect --rl-reward-debug \
+  --rl-collision-view --rl-grasp-markers
 ```
 
 | 색/형태 | 실제 표시 데이터 |
@@ -325,7 +335,8 @@ disturbance는 초기 선반 위치·자세 비용과 운동 비용을 분리했
 - 기본 `active_arm="right"`에서는 왼팔·왼손도 고정된다. 왼쪽 컨트롤러의 X/Y 버튼은
   시점/패널 제어에 계속 쓰지만 왼팔 IK·왼쪽 trigger action은 생성하지 않는다.
   동작 중 tracking 검사는 HMD와 활성 오른쪽 컨트롤러만 필요하다.
-- head/wrist RGB 패널·해상도·desktop camera preview 옵션은 그대로 사용한다.
+- 기본 Quest overlay는 left/right wrist RGB 패널만 사용한다. head sensor는 기본으로
+  생성하지 않으며 `--head-camera`를 넣었을 때만 PC camera preview에 추가된다.
   이 영상은 표시 전용이고 RL observation에는 들어가지 않는다. Depth·데이터 기록·
   공장 배경은 생성하지 않는다. `--control-hz`, `--episode-seconds`, `--arm-stiffness`,
   `--arm-damping`, recording 관련 옵션은 이 모드에서 적용하지 않는다.

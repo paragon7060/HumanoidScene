@@ -150,7 +150,7 @@ source .external/quest-session.env
 | 왼쪽 `X` | `C` | 시점과 자세 기준 보정, 따라오기 중지 |
 | 오른쪽 `A` | `T` | 저장 없이 따라오기 시작/중지 |
 | 오른쪽 `B` | `P` | 녹화와 따라오기 시작/중지 |
-| 왼쪽 `Y` | `H` | head/wrist camera panel 표시/숨김 |
+| 왼쪽 `Y` | `H` | 좌우 wrist camera panel 표시/숨김 |
 | 왼쪽 stick | — | base 전후/좌우 이동 |
 | 오른쪽 stick | — | base 회전과 torso 높이 |
 | 왼쪽 grip | — | 누르는 동안 자유 시점 |

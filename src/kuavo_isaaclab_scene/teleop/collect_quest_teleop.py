@@ -30,8 +30,8 @@ parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=N
                          "1 enables all joints, including both arms, planar base, torso and head.")
 parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
-parser.add_argument("--rl-grasp-markers", action=argparse.BooleanOptionalAction, default=True,
-                    help="RL reward inspection: show finger references and paired opposite-face targets in 3D.")
+parser.add_argument("--rl-grasp-markers", action=argparse.BooleanOptionalAction, default=False,
+                    help="RL reward inspection: opt in to finger references and paired opposite-face targets in 3D.")
 parser.add_argument("--rl-grasp-calibration", action="store_true",
                     help="Replace grasp markers with four editable finger tip Xforms; pause, move, K to save.")
 parser.add_argument("--rl-endeffector-centers", action=argparse.BooleanOptionalAction, default=True,
@@ -40,8 +40,10 @@ parser.add_argument("--rl-grasp-calibration-file", type=Path, default=Path("conf
                     help="Load/save display-only local finger offsets (K); relative to working directory.")
 parser.add_argument("--rl-grasp-targets", action=argparse.BooleanOptionalAction, default=True,
                     help="Include paired flap goals; disable to inspect ONLY the two finger reference points.")
-parser.add_argument("--rl-collision-view", action=argparse.BooleanOptionalAction, default=True,
-                    help="RL inspection only: cooked colliders, inward face candidates, mean contact points and force arrows.")
+parser.add_argument("--rl-collision-view", action=argparse.BooleanOptionalAction, default=False,
+                    help="RL inspection only: opt in to cooked colliders, inward face candidates, contact points and force arrows.")
+parser.add_argument("--rl-reward-hud", action=argparse.BooleanOptionalAction, default=True,
+                    help="RL inspection only: show the 10 Hz reward/status HUD in Quest; disable to minimize XR UI work.")
 parser.add_argument("--rl-grasp-finger-offsets", nargs=6, type=float, default=(0.,)*6,
                     metavar=("F_X", "F_Y", "F_Z", "B_X", "B_Y", "B_Z"),
                     help="Paired-goal display-only offsets in finger frames; all zero uses calibration if available, else link origins.")
@@ -158,7 +160,13 @@ parser.add_argument(
     "--camera-preview",
     action=argparse.BooleanOptionalAction,
     default=False,
-    help="Open Kuavo head/wrist camera windows in the desktop Isaac Sim UI.",
+    help="Open enabled Kuavo camera sensors in the desktop Isaac Sim UI.",
+)
+parser.add_argument(
+    "--head-camera",
+    action=argparse.BooleanOptionalAction,
+    default=False,
+    help="Create and record the robot head RGB camera. Off by default for teleop performance.",
 )
 parser.add_argument("--head-camera-width", type=int, default=640)
 parser.add_argument("--head-camera-height", type=int, default=360)
@@ -174,7 +182,7 @@ parser.add_argument(
     "--quest-camera-overlay",
     action=argparse.BooleanOptionalAction,
     default=True,
-    help="Show compact left-wrist, head and right-wrist panels over the stereo Quest view.",
+    help="Show compact left/right wrist panels over the native stereo Quest view.",
 )
 parser.add_argument("--xr-overlay-distance", type=float, default=0.35, metavar="METERS")
 parser.add_argument(
@@ -260,6 +268,8 @@ if args_cli.scene_config is not None:
 if not args_cli.wrist_cameras:
     args_cli.quest_camera_overlay = False
     args_cli.record_wrist_cameras = False
+if args_cli.record_depth and not args_cli.head_camera:
+    parser.error("--record-depth requires --head-camera.")
 if args_cli.max_episodes < 0 or args_cli.episode_seconds < 0:
     parser.error("Episode count and timeout must be non-negative (0 means unlimited).")
 if not 0.1 <= args_cli.xr_resolution_scale <= 2.0:
@@ -330,11 +340,11 @@ if args_cli.ignore_captured_box_poses:
 elif args_cli.rack_box_poses is not None:
     os.environ["KUAVO_RACK_BOX_POSES"] = str(args_cli.rack_box_poses.expanduser().resolve())
 
-# Hand tracking requires the Isaac Lab OpenXR experience. RTX cameras are
-# intentionally retained because the real Kuavo head camera is part of data.
+# Hand tracking requires the Isaac Lab OpenXR experience. RTX camera sensors
+# are enabled only when an explicitly selected head/wrist stream needs them.
 args_cli.xr = True
-args_cli.enable_cameras = (args_cli.rl_reward_debug is None or args_cli.camera_preview
-                           or args_cli.quest_camera_overlay)
+args_cli.enable_cameras = bool(args_cli.head_camera or args_cli.wrist_cameras
+                               or args_cli.camera_preview or args_cli.quest_camera_overlay)
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
@@ -451,7 +461,9 @@ def main() -> None:
     if not args_cli.wrist_cameras:
         cfg.scene.left_wrist_camera = None
         cfg.scene.right_wrist_camera = None
-    if not args_cli.record_depth:
+    if not args_cli.head_camera:
+        cfg.scene.robustness_camera = None
+    elif not args_cli.record_depth:
         cfg.scene.robustness_camera.data_types = ["rgb"]
     set_domain_randomization(cfg, args_cli.domain_randomization)
     configure_scene_detail(cfg, args_cli.scene_detail)
@@ -488,19 +500,30 @@ def main() -> None:
 
     env = ManagerBasedRLEnv(cfg=cfg)
     env.reset(seed=args_cli.seed)
+    head_camera_status = (
+        f"ON {args_cli.head_camera_width}x{args_cli.head_camera_height}"
+        if args_cli.head_camera else "OFF (not created)"
+    )
     print(f"[CAMERA] Wrist sensors={'ON' if args_cli.wrist_cameras else 'OFF (not created)'}; "
-          f"head={args_cli.head_camera_width}x{args_cli.head_camera_height}; "
+          f"head={head_camera_status}; "
           f"depth={'ON' if args_cli.record_depth else 'OFF'}", flush=True)
     if args_cli.camera_preview:
-        open_camera_viewports(
-            env.scene,
-            (["robustness_camera", "left_wrist_camera", "right_wrist_camera"]
-             if args_cli.wrist_cameras else ["robustness_camera"]),
-            headless=args_cli.headless,
-            width=240,
-            height=180,
-            columns=3,
-        )
+        preview_names = []
+        if args_cli.head_camera:
+            preview_names.append("robustness_camera")
+        if args_cli.wrist_cameras:
+            preview_names.extend(("left_wrist_camera", "right_wrist_camera"))
+        if preview_names:
+            open_camera_viewports(
+                env.scene,
+                preview_names,
+                headless=args_cli.headless,
+                width=240,
+                height=180,
+                columns=len(preview_names),
+            )
+        else:
+            print("[CAMERA] --camera-preview requested, but no camera sensors are enabled.", flush=True)
 
     robot = env.scene["robot"]
     collision_guard = env.action_manager.get_term("self_collision") if args_cli.self_collision else None
@@ -521,10 +544,10 @@ def main() -> None:
             raise
     head_body_id = robot.find_bodies(robot_model.head_camera_body)[0][0]
     torso_body_id = robot.find_bodies("waist_yaw_link")[0][0]
-    camera_offset = cfg.scene.robustness_camera.offset
-    camera_offset_pos = torch.tensor([camera_offset.pos], device=env.device)
+    camera_mount = robot_model.head_camera_mount
+    camera_offset_pos = torch.tensor([camera_mount.pos], device=env.device)
     camera_offset_quat = convert_camera_frame_orientation_convention(
-        torch.tensor([camera_offset.rot], device=env.device), origin=camera_offset.convention, target="opengl"
+        torch.tensor([camera_mount.rot], device=env.device), origin="ros", target="opengl"
     )
 
     def head_camera_pose():
@@ -638,7 +661,6 @@ def main() -> None:
     if args_cli.quest_camera_overlay:
         try:
             quest_overlay = QuestCameraOverlay(
-                head_resolution=(args_cli.head_camera_width, args_cli.head_camera_height),
                 wrist_resolution=(args_cli.wrist_camera_width, args_cli.wrist_camera_height),
                 cfg=QuestCameraOverlayCfg(
                     distance_m=args_cli.xr_overlay_distance,
@@ -696,6 +718,7 @@ def main() -> None:
             wrist_resolution=(args_cli.wrist_camera_width, args_cli.wrist_camera_height),
             box_count=len(box_names),
             button_joint_count=button_joint_count,
+            record_head_camera=args_cli.head_camera,
             record_wrist_cameras=args_cli.record_wrist_cameras,
             use_videos=args_cli.lerobot_use_videos,
             save_failed=args_cli.lerobot_save_failed,
@@ -721,7 +744,7 @@ def main() -> None:
     preview_enabled = False
     collision_notice_until = 0.0
     last_collision_message = None
-    camera_reported = False
+    camera_reported = not args_cli.head_camera
     camera_wait_reported = False
     held_absolute_targets = np.zeros(len(action_names) - arm_action_size, dtype=np.float32)
     held_absolute_targets[2:] = 1.0  # Binary gripper actions: nonnegative=open, negative=close.
@@ -791,7 +814,7 @@ def main() -> None:
     if args_cli.dataset_format in {"lerobot", "both"} and not args_cli.lerobot_save_failed:
         print("[INFO] LeRobot keeps successful episodes only; STOP/RESET/time-limit attempts are discarded.")
     if quest_overlay is not None:
-        print("[INFO] Quest view: stereo scene with compact left-wrist, head and right-wrist panels.")
+        print("[INFO] Quest view: stereo scene with compact left/right wrist panels.")
     print("[CONTROL] Quest START/STOP/RESET or desktop P=start/stop, R=reset, M=finish as success.")
     print("[CONTROL] C=recenter/calibrate, T=motion preview without recording, H=camera overlay on/off.")
     print("[CONTROL] Quest controllers: X=calibrate, A=motion start/stop, B=record start/stop, Y=panels on/off.")
@@ -1122,6 +1145,7 @@ def main() -> None:
                         "xr_resolution_scale": args_cli.xr_resolution_scale,
                         "render_quality": args_cli.render_quality,
                         "record_depth": args_cli.record_depth,
+                        "head_camera_enabled": args_cli.head_camera,
                         "scene_detail": args_cli.scene_detail,
                         "scene_config": str(args_cli.scene_config) if args_cli.scene_config else "default",
                         "wrist_cameras_enabled": args_cli.wrist_cameras,
@@ -1139,7 +1163,8 @@ def main() -> None:
                         "hand_joint_names": HAND_JOINT_NAMES,
                         "box_scene_keys": box_names,
                         "domain_randomization": bool(args_cli.domain_randomization),
-                        "head_camera_resolution": [args_cli.head_camera_width, args_cli.head_camera_height],
+                        "head_camera_resolution": ([args_cli.head_camera_width, args_cli.head_camera_height]
+                                                   if args_cli.head_camera else []),
                         "wrist_camera_resolution": [args_cli.wrist_camera_width, args_cli.wrist_camera_height],
                     }
                 )
@@ -1340,12 +1365,16 @@ def main() -> None:
             left_wrist_rgb = None
             right_wrist_rgb = None
             if quest_overlay is not None or recorder.recording or not camera_reported:
-                head_rgb = _camera_rgb(env.scene["robustness_camera"])
+                # The Quest overlay contains wrist views only. Read the head
+                # sensor for recording and its one-time health report, not for
+                # every idle overlay refresh.
+                if args_cli.head_camera and (recorder.recording or not camera_reported):
+                    head_rgb = _camera_rgb(env.scene["robustness_camera"])
                 if quest_overlay is not None or args_cli.record_wrist_cameras:
                     left_wrist_rgb = _camera_rgb(env.scene["left_wrist_camera"])
                     right_wrist_rgb = _camera_rgb(env.scene["right_wrist_camera"])
                 if quest_overlay is not None and left_wrist_rgb is not None and right_wrist_rgb is not None:
-                    quest_overlay.update(head_rgb, left_wrist_rgb, right_wrist_rgb)
+                    quest_overlay.update(left_wrist_rgb, right_wrist_rgb)
                     quest_overlay.set_status(
                         following=(recorder.recording or preview_enabled) and safety.control_allowed,
                         recording=recorder.recording,
@@ -1359,7 +1388,7 @@ def main() -> None:
 
             if recorder.recording and not safety.recording_paused:
                 head_depth = _camera_depth(env.scene["robustness_camera"]) if args_cli.record_depth else None
-                if head_rgb is None or (args_cli.record_wrist_cameras
+                if (args_cli.head_camera and head_rgb is None) or (args_cli.record_wrist_cameras
                                         and (left_wrist_rgb is None or right_wrist_rgb is None)) or (
                                             args_cli.record_depth and head_depth is None):
                     if not camera_wait_reported:
@@ -1401,8 +1430,10 @@ def main() -> None:
                     "robot_root_pose_w": _to_numpy(robot.data.root_pose_w[0]).astype(np.float32),
                     "free_view": np.uint8(free_view),
                     "box_root_pose_w": np.asarray(box_poses, dtype=np.float32).reshape(-1, 7),
-                    "head_rgb": head_rgb,
                 }
+                if args_cli.head_camera:
+                    assert head_rgb is not None
+                    sample["head_rgb"] = head_rgb
                 if args_cli.record_wrist_cameras:
                     assert left_wrist_rgb is not None
                     assert right_wrist_rgb is not None

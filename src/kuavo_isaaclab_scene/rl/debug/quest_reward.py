@@ -50,9 +50,15 @@ def _config(args):
     if args.enable_cameras:
         # Display-only RGB cameras: never added to RL policy observations.
         cfg.scene.waist_camera = None
-        cfg.scene.robustness_camera.width = args.head_camera_width
-        cfg.scene.robustness_camera.height = args.head_camera_height
-        cfg.scene.robustness_camera.data_types = ["rgb"]
+        # Reward inspection does not record datasets. Only create the head
+        # camera when a desktop camera preview explicitly requests it; the
+        # Quest overlay displays the two wrist cameras.
+        if args.head_camera:
+            cfg.scene.robustness_camera.width = args.head_camera_width
+            cfg.scene.robustness_camera.height = args.head_camera_height
+            cfg.scene.robustness_camera.data_types = ["rgb"]
+        else:
+            cfg.scene.robustness_camera = None
         for side in ("left", "right"):
             camera = getattr(cfg.scene, side + "_wrist_camera")
             camera.width, camera.height = args.wrist_camera_width, args.wrist_camera_height
@@ -79,10 +85,12 @@ def run(args, app):
         model = resolve_robot_model()
         xr = RawQuestOpenXRDevice(OpenXRDeviceCfg(xr_cfg=cfg.xr, sim_device=env.device), input_mode="controllers")
         control = QuestRLControl(env, model, args, xr)
-        start_quest_xr_session(app, enable_ui=True, resolution_scale=args.xr_resolution_scale,
+        start_quest_xr_session(app, enable_ui=(args.rl_reward_hud or args.quest_camera_overlay),
+                              resolution_scale=args.xr_resolution_scale,
                               render_quality=args.render_quality)
-        hud = QuestRewardPanel(forward_axis=args.xr_overlay_forward_axis)
-        hud.set_visible(True)
+        if args.rl_reward_hud:
+            hud = QuestRewardPanel(forward_axis=args.xr_overlay_forward_axis)
+            hud.set_visible(True)
         if args.rl_collision_view:
             from .collision_overlay import CollisionOverlay
             collision_view = CollisionOverlay(env)
@@ -102,16 +110,18 @@ def run(args, app):
             from ...display.xr_camera_overlay import QuestCameraOverlay, QuestCameraOverlayCfg
             from ...display.camera_frames import camera_rgb
             camera_overlay = QuestCameraOverlay(
-                head_resolution=(args.head_camera_width, args.head_camera_height),
                 wrist_resolution=(args.wrist_camera_width, args.wrist_camera_height),
                 cfg=QuestCameraOverlayCfg(distance_m=args.xr_overlay_distance,
                                          forward_axis=args.xr_overlay_forward_axis))
         if args.camera_preview:
             from ...display.camera_viewports import open_camera_viewports
-            names = ["robustness_camera"]
+            names = ["robustness_camera"] if args.head_camera else []
             if args.wrist_cameras:
                 names += ["left_wrist_camera", "right_wrist_camera"]
-            open_camera_viewports(env.scene, names, headless=args.headless, width=240, height=180, columns=3)
+            if names:
+                open_camera_viewports(env.scene, names, headless=args.headless, width=240, height=180, columns=3)
+            else:
+                print("[VIEW] Camera preview requested, but no camera sensors are enabled.", flush=True)
         keyboard = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0., rot_sensitivity=0., sim_device=env.device))
         requests = {name: False for name in ("toggle", "reset", "recenter", "panel", "markers", "collisions", "save_points")}
         def request(name):
@@ -156,12 +166,17 @@ def run(args, app):
               + f", arm_response={args.arm_response}", flush=True)
         print(f"[RL REWARD] RL control rate={1/env.step_dt:g} Hz (collector --control-hz ignored); "
               f"RL drives/initial pose/rewards/terminations unchanged. Display cameras={args.enable_cameras}.", flush=True)
+        print(f"[RL REWARD] display: desktop={'full' if args.desktop_render else 'minimal 160x90'}, "
+              f"wrist_overlay={args.quest_camera_overlay}, reward_hud={args.rl_reward_hud}, "
+              f"collision_overlay={args.rl_collision_view}, grasp_markers={args.rl_grasp_markers}.", flush=True)
         if cfg.task.control_mode == "whole-body":
             print("[RL REWARD] Left stick=base forward/strafe; right stick=base turn/torso lift.", flush=True)
         print("[RL REWARD] Uses RL collision predicates, not the collector's additional self-collision guard. "
               "Simulation inspection only; not a real-robot safety controller.", flush=True)
+        perf_started, perf_loops, perf_steps = time.monotonic(), 0, 0
         while app.is_running():
             start = time.monotonic()
+            perf_loops += 1
             if requests["save_points"]:
                 requests["save_points"] = False
                 if args.rl_grasp_calibration and grasp_markers is not None:
@@ -194,9 +209,12 @@ def run(args, app):
                                and np.linalg.norm(v[0, 3:]) > .5 for v in (packets[s] for s in control.sides)))
             if requests["panel"]:
                 requests["panel"] = False
-                visible = hud.toggle_visible()
-                print(f"[RL REWARD] Reward panel {'ON' if visible else 'OFF'}", flush=True)
-                hud.describe()
+                if hud is None:
+                    print("[RL REWARD] Reward HUD was disabled by --no-rl-reward-hud.", flush=True)
+                else:
+                    visible = hud.toggle_visible()
+                    print(f"[RL REWARD] Reward panel {'ON' if visible else 'OFF'}", flush=True)
+                    hud.describe()
             if requests["reset"]:
                 requests["reset"] = False
                 env.reset()
@@ -241,6 +259,7 @@ def run(args, app):
                         control.reset()
                         status = "SETTLING"
                     env.step(action)
+                    perf_steps += 1
                 sample = env._quest_reward_sample
                 reach_summary.update(sample, env.step_dt)
                 if start >= next_grasp_diagnostic or sample["failure"] or sample["success"] or sample["timeout"]:
@@ -253,7 +272,8 @@ def run(args, app):
                 terminal = sample["success"] or sample["failure"] or sample["timeout"]
                 if terminal:
                     running = False
-                    hud.set_visible(True)  # a hidden panel must not hide the terminal reason
+                    if hud is not None:
+                        hud.set_visible(True)  # a hidden panel must not hide the terminal reason
                     control.reset()
                     status = ("SUCCESS" if sample["success"] else "FAILURE" if sample["failure"] else "TIMEOUT")
                     status += " - last step; B to reset"
@@ -263,24 +283,25 @@ def run(args, app):
             else:
                 # Stop task time/physics while paused, but keep headset rendering and input alive.
                 env.sim.render()
-            if start - last_hud >= .1 or not running:
-                report = format_report(sample, status, episode_return)
-                if grasp_markers is not None and grasp_markers.visible:
-                    report = grasp_markers.legend + "\n" + grasp_markers.info + "\n" + report
-                if collision_view is not None and collision_view.visible:
-                    report = collision_view.info + "\n" + report
-                headline, checks = reward_summary(sample, status)
-                ready = hud.update(report, headline=headline, checks=checks,
-                                   failure=bool(sample and sample["failure"]))
-                if ready and not panel_ready:
-                    hud.describe()
-                elif not ready and start >= next_panel_diagnostic:
-                    hud.describe()
-                    next_panel_diagnostic = start + 10.
-                panel_ready = ready
+            if start - last_hud >= .1:
+                if hud is not None:
+                    report = format_report(sample, status, episode_return)
+                    if grasp_markers is not None and grasp_markers.visible:
+                        report = grasp_markers.legend + "\n" + grasp_markers.info + "\n" + report
+                    if collision_view is not None and collision_view.visible:
+                        report = collision_view.info + "\n" + report
+                    headline, checks = reward_summary(sample, status)
+                    ready = hud.update(report, headline=headline, checks=checks,
+                                       failure=bool(sample and sample["failure"]))
+                    if ready and not panel_ready:
+                        hud.describe()
+                    elif not ready and start >= next_panel_diagnostic:
+                        hud.describe()
+                        next_panel_diagnostic = start + 10.
+                    panel_ready = ready
                 if camera_overlay is not None:
                     frames = [camera_rgb(env.scene[name]) for name in
-                              ("robustness_camera", "left_wrist_camera", "right_wrist_camera")]
+                              ("left_wrist_camera", "right_wrist_camera")]
                     if all(frame is not None for frame in frames):
                         camera_overlay.update(*frames)
                 last_hud = start
@@ -288,6 +309,13 @@ def run(args, app):
             remaining = env.step_dt - (time.monotonic() - start)
             if remaining > 0:
                 time.sleep(remaining)
+            now = time.monotonic()
+            if now - perf_started >= 5.0:
+                elapsed = now - perf_started
+                print(f"[PERF] XR loop={perf_loops / elapsed:.1f} Hz; "
+                      f"physics/control={perf_steps / elapsed:.1f}/{1 / env.step_dt:g} Hz; "
+                      f"{1000 * elapsed / max(perf_loops, 1):.0f} ms/loop", flush=True)
+                perf_started, perf_loops, perf_steps = now, 0, 0
     except KeyboardInterrupt:
         pass
     finally:

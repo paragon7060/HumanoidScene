@@ -8,14 +8,16 @@
 | 화면 | 용도 | 기본 상태 |
 |---|---|---|
 | Quest stereo scene | 착용자가 주변을 보고 조작 | ON |
-| Quest camera panels | head와 좌우 wrist camera 확인 | ON |
-| Head camera RGB | dataset observation | 기록 설정에 따라 ON |
+| Quest camera panels | 좌우 wrist camera 확인 | ON |
+| Head camera RGB | 선택적 dataset observation | 기본 OFF, `--head-camera`로 ON |
 | PC desktop viewport | 옆 사람이 scene 관찰 | OFF |
 | PC camera preview 3개 | head/left/right camera 개별 확인 | OFF |
 
 Quest 중앙 화면은 일반 stereo scene이다. 실제 Kuavo head camera의 단안 RGB와
-동일하지 않다. Head camera와 좌우 wrist camera는 dataset에 저장할 수 있으며,
-Quest 시야에는 왼쪽 wrist, head, 오른쪽 wrist 순서의 작은 panel 세 개로 표시된다.
+동일하지 않다. Head camera와 좌우 wrist camera는 dataset에 저장할 수 있지만,
+Quest camera overlay에는 중앙을 비우고 좌우 wrist panel 두 개만 표시한다. 기본
+수집은 성능을 위해 head camera sensor를 생성하거나 저장하지 않는다. head RGB가
+정말 필요한 dataset에서만 `--head-camera`를 추가한다.
 
 ## 권장 preset
 
@@ -63,9 +65,9 @@ viewport를 하나 더 만드는 것보다 부담이 작다. 그러나 기본 16
   --no-desktop-render
 ```
 
-`--camera-preview`는 Kuavo head, left wrist, right wrist camera를 PC의 작은 창으로
-표시한다. 센서 방향이나 영상 유효성을 확인할 때만 사용하고 장시간 수집에서는 끄는
-것을 권장한다.
+`--camera-preview`는 활성화된 camera sensor를 PC의 작은 창으로 표시한다. 기본은
+left/right wrist만 표시하며, head도 확인하려면 `--head-camera`를 함께 넣는다. 센서
+방향이나 영상 유효성을 확인할 때만 사용하고 장시간 수집에서는 끄는 것을 권장한다.
 
 ## 성능 비용의 일반적인 순서
 
@@ -94,7 +96,7 @@ render product를 늘릴수록 GPU 시간과 VRAM 사용량이 커진다.
 
 ## VRAM 압력이 있을 때
 
-카메라 해상도를 낮추고 depth와 PC preview를 끈다.
+카메라 해상도를 낮추고 head/depth와 PC preview를 끈다. Head sensor는 기본 OFF다.
 
 ```bash
 ./collect_quest_teleop.sh \
@@ -107,10 +109,19 @@ render product를 늘릴수록 GPU 시간과 VRAM 사용량이 커진다.
   --no-camera-preview
 ```
 
+위 예시에서 head RGB도 저장하려면 `--head-camera`를 추가한다. `--record-depth`도
+`--head-camera`와 함께 사용할 때만 유효하다.
+
 양 wrist sensor 자체가 필요 없다면 `--no-wrist-cameras`를 사용할 수 있다. 현재
-이 옵션은 세 panel overlay도 함께 끈다.
+이 옵션은 두 wrist panel overlay도 함께 끈다.
 `--no-record-wrist-cameras`는 저장만 끄고, `--no-quest-camera-overlay`는 Quest
 panel만 끄므로 sensor render 비용까지 제거하는 옵션은 아니다.
+
+`quest_collector.sh collect`는 기본적으로 전체 PC viewport 대신 내부 160×90
+최소 viewport를 사용한다. PC 관찰 화면이 꼭 필요할 때만 `--desktop-render`를
+명시한다. RL reward debug에서 collider/marker는 각각 `--rl-collision-view`,
+`--rl-grasp-markers`를 넣을 때만 생성한다. Reward HUD는 기본 ON이고 10 Hz로
+갱신한다. 완전히 끄려면 `--no-rl-reward-hud`를 사용한다.
 
 카메라 feature 구성을 바꾸면 기존 LeRobot dataset에 이어 쓰지 말고 새 dataset
 root를 사용한다.
