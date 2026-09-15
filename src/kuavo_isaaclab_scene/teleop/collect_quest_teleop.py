@@ -30,6 +30,9 @@ parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=N
                          "1 enables all joints, including both arms, planar base, torso and head.")
 parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
+parser.add_argument("--rl-obstacle-contact-hz", type=int, choices=(15, 30, 60, 120), default=None,
+                    help="RL reward inspection: filtered robot-obstacle report rate. Default 30 Hz keeps "
+                         "120 Hz grasp sensing; use 120 for exact physics-substep collision comparison.")
 parser.add_argument("--rl-grasp-markers", action=argparse.BooleanOptionalAction, default=False,
                     help="RL reward inspection: opt in to finger references and paired opposite-face targets in 3D.")
 parser.add_argument("--rl-grasp-calibration", action="store_true",
@@ -254,8 +257,9 @@ if args_cli.rl_config is not None and args_cli.rl_reward_debug is None:
     parser.error("--rl-config requires --rl-reward-debug.")
 if args_cli.rl_reward_debug is None and (
     args_cli.rl_collision_view or args_cli.rl_grasp_markers or args_cli.rl_grasp_calibration
+    or args_cli.rl_obstacle_contact_hz is not None
 ):
-    parser.error("--rl-collision-view, --rl-grasp-markers, and --rl-grasp-calibration require --rl-reward-debug.")
+    parser.error("RL collision/grasp/contact options require --rl-reward-debug.")
 if args_cli.rl_reward_debug is not None:
     if (args_cli.input_mode != "controllers" or args_cli.hand_switch
             or args_cli.controller_mapping not in {"scaled", "absolute"}):

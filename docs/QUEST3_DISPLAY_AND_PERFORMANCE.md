@@ -125,8 +125,10 @@ panel만 끄므로 sensor render 비용까지 제거하는 옵션은 아니다.
 
 RL Debug의 grasp/contact/collision **판정**은 marker나 overlay와 별개다. 이 판정은
 실제 reward·성공·실패 조건이므로 `--rl-reward-debug`에서 항상 계산하고, 일반 teleop
-수집 환경에는 해당 RL contact sensor와 reward manager를 생성하지 않는다. 일반 수집의
-`--self-collision`은 로봇 자체 충돌을 막는 별도 안전 장치다.
+수집 환경에는 해당 RL contact sensor와 reward manager를 생성하지 않는다. 기본 RL Debug는
+손가락 grasp contact와 물리를 120 Hz로 유지하고, 대형 obstacle filtered report만 30 Hz로
+낮춘다. 정확한 physics-substep 충돌 비교에는 `--rl-obstacle-contact-hz 120`을 사용한다.
+일반 수집의 `--self-collision`은 로봇 자체 충돌을 막는 별도 안전 장치다.
 
 RTX 3060, CUDA physics, 60 control step(20 step warm-up), OpenXR/CloudXR 미연결 조건의
 병목 비교는 다음과 같았다. 절대 Hz는 headset 실행값이 아니며 상대 비용 판단용이다.
@@ -140,10 +142,16 @@ RTX 3060, CUDA physics, 60 control step(20 step warm-up), OpenXR/CloudXR 미연�
 | wrist, shadows ON / OFF | 386.8 / 386.8 | 차이 없음 |
 | RL reward core, rollers OFF | 206.5 | headless physics/reward 기준 |
 | RL reward core, rollers ON | 443.9 | roller와 contact filter가 지배적 |
+| 위 조건, 모든 filtered contact 60 Hz | 411.8 | 120 Hz 대비 약 7% 개선 |
+| 위 조건, obstacle 30 Hz·grasp 120 Hz | 396.3 | 권장값; 약 10% 개선 |
+| 위 조건, 모든 filtered contact 15 Hz | 387.2 | 추가 이득은 작고 순간 접촉 누락 위험 증가 |
+| 위 조건, reward manager 생략 | 436.5 | 약 1%; reward 주기 조절은 병목 해법이 아님 |
 
 따라서 기본 Quest 해상도나 wrist 화질을 먼저 낮추는 것은 권장하지 않는다. 다음
 개선 우선순위는 roller rigid-body/joint 수 축소, RL obstacle contact filter 구조 개선,
 실제 Quest 연결 상태에서 GPU-native wrist overlay와 UI on-demand redraw 측정이다.
+30 Hz contact report를 적용해도 측정 상한은 약 2.5 control Hz이므로 이 변경만으로
+Quest 표시가 30 Hz가 되지는 않는다. 남은 주 병목은 546개 free-spinning roller의 물리다.
 
 카메라 feature 구성을 바꾸면 기존 LeRobot dataset에 이어 쓰지 말고 새 dataset
 root를 사용한다.
