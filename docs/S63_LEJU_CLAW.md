@@ -39,6 +39,10 @@
   설정은 변환 단계에서 적용되며 공식 ROS 파일 자체의 설정은 아니다.
 - 기존 virtual wrist camera pose는 검사 용도로 유지하며, Leju claw
   장착 위치·시야에 대한 하드웨어 보정으로 간주하지 않는다.
+- Leju variant의 손목 visual은 `l/r_hand_pitch_wrist_only.STL`을 사용한다.
+  원본 S63 CAD에서 카메라와 브래킷 3개 부품만 제거한 파생 mesh이며,
+  원본 STL과 기본 S63 모델은 유지한다. variant에는 Leju D405 마운트 하나만
+  남고, wrist camera 센서는 해당 `l/r_d405_camera` body를 사용한다.
 - 기존 Robotiq checkpoint/dataset은 다른 claw와 호환된다고 가정하지 않는다.
   preset 및 state/action 계약이 달라지므로 같은 데이터 경로에 섞지 않는다.
 

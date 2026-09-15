@@ -22,6 +22,9 @@ URDF·USD와 runtime spawn에 같은 값을 적용하며, 반복 적용해도 �
 기존 S200062와 S56 실행 경로는 그대로 유지한다.
 `--robot-model s63 --gripper leju-twofinger`는 양손 claw를 합친 별도 S63 variant를
 선택하며, `--robot-model s63 --gripper none`은 공식 S63 그대로다.
+twofinger variant는 손목 visual만 파생 `l/r_hand_pitch_wrist_only.STL`로 교체한다.
+S63 `hand_pitch.STL` CAD에 포함된 카메라와 브래킷 3개 부품을 제거해,
+손마다 Leju D405 카메라와 마운트 하나만 남긴다.
 
 ## S63에서 바로 실행
 
@@ -32,7 +35,8 @@ URDF·USD와 runtime spawn에 같은 값을 적용하며, 반복 적용해도 �
 
 `scene["robot"]` 안에 좌우 claw 관절이 들어가는 integrated 방식이다.
 외장 hand를 또 spawn하지 않으며 기존 양손 action 채널로 제어한다.
-원본 S63 STL, visual, EEF와 host 프레임은 변경하지 않는다.
+원본 S63 STL은 보존하며, variant의 손목 visual에서만 중복 카메라 형상을 제거한다.
+EEF, host 프레임, 관절·관성·충돌 설정은 유지한다.
 head camera는 S63 기준, wrist camera는 추출한 좌우 D405의 물리 body 기준이다.
 mesh 겹침이나 파지 성능은 아직 시각/접촉 검증하지 않았다.
 
