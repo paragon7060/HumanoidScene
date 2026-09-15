@@ -127,6 +127,8 @@ LOCAL_BOX_SCENE_KEYS = (
     "small_box_1",
     "medium_box_0",
     "medium_box_1",
+    "medium_box_2",
+    "medium_box_3",
     "large_box_0",
     "large_box_1",
     "xlarge_box_0",
@@ -359,8 +361,9 @@ BUTTON_STATION_CFG = ArticulationCfg(
 # root beneath its prim, so these must be spawned as ArticulationCfg
 # instead of the RigidObjectCfg pattern used for the open-tote totes above.
 #
-# Two of each type are always spawned. The shared rack-box layout selects the
-# subset placed on shelves and leaves the remainder in floor staging slots.
+# Every configured instance is always spawned. The shared rack-box layout
+# selects the subset placed on shelves and leaves the remainder in floor
+# staging slots.
 STAGING_BOX_TYPES = (
     ("SmallBox", SMALL_BOX_USD),
     ("MediumBox", MEDIUM_BOX_USD),
@@ -598,6 +601,8 @@ class RobustWorkcellSceneCfg(InteractiveSceneCfg):
     small_box_1: ArticulationCfg = staging_box_cfg("SmallBox", SMALL_BOX_USD, 1)
     medium_box_0: ArticulationCfg = staging_box_cfg("MediumBox", MEDIUM_BOX_USD, 0)
     medium_box_1: ArticulationCfg = staging_box_cfg("MediumBox", MEDIUM_BOX_USD, 1)
+    medium_box_2: ArticulationCfg = staging_box_cfg("MediumBox", MEDIUM_BOX_USD, 2)
+    medium_box_3: ArticulationCfg = staging_box_cfg("MediumBox", MEDIUM_BOX_USD, 3)
     large_box_0: ArticulationCfg = staging_box_cfg("LargeBox", LARGE_BOX_USD, 0)
     large_box_1: ArticulationCfg = staging_box_cfg("LargeBox", LARGE_BOX_USD, 1)
     xlarge_box_0: ArticulationCfg = staging_box_cfg("XLargeBox", XLARGE_BOX_USD, 0)

@@ -143,3 +143,53 @@ def test_captured_pose_rejects_unknown_instance(tmp_path) -> None:
     )
     with pytest.raises(ValueError, match="Unknown captured box instance"):
         boxes.load_captured_box_poses(capture_path)
+
+
+def test_four_medium_boxes_can_fill_both_rows_of_one_shelf() -> None:
+    layout = boxes.normalize_rack_box_layout(
+        {1: [], 2: ["medium", "medium", "medium", "medium"], 3: []}
+    )
+
+    plan = boxes.build_box_spawn_plan(layout, math.radians(5.114147010769473))
+
+    assert layout[2] == ["medium", "medium", "medium", "medium"]
+    assert tuple(plan[name].scene_key for name in (
+        "MediumBox_0",
+        "MediumBox_1",
+        "MediumBox_2",
+        "MediumBox_3",
+    )) == (
+        "medium_box_0",
+        "medium_box_1",
+        "medium_box_2",
+        "medium_box_3",
+    )
+    assert tuple(plan[name].row for name in (
+        "MediumBox_0",
+        "MediumBox_1",
+        "MediumBox_2",
+        "MediumBox_3",
+    )) == (0, 0, 1, 1)
+
+
+def test_captured_pose_accepts_fourth_medium_instance(tmp_path) -> None:
+    capture_path = tmp_path / "poses.json"
+    capture_path.write_text(
+        json.dumps(
+            {
+                "boxes": {
+                    "MediumBox_3": {
+                        "local_pos": [-0.79, -0.57, 1.09],
+                        "local_rot": [1.0, 0.0, 0.0, 0.0],
+                        "scale": [1.0, 1.0, 1.0],
+                        "shelf": 2,
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    captured = boxes.load_captured_box_poses(capture_path)
+
+    assert captured["MediumBox_3"].local_pos == (-0.79, -0.57, 1.09)

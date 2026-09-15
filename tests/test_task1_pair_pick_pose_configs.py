@@ -103,3 +103,37 @@ def test_pair_pick_pose_config_centers_three_touching_boxes_inside_shelf_width(
     assert pair_pick["active_arm"] == ("left" if pair_indices == [0, 1] else "right")
     assert len({_box_type(name) for name in pair_pick["paired_boxes"]}) == 1
     assert Counter(_box_type(name) for name in box_order).most_common()[0][1] == 2
+
+
+def test_mms_front_smm_back_config_uses_real_medium_instances_in_both_rows() -> None:
+    path = CONFIG_DIR / "rack_box_poses_task1_mms_front_smm_back.json"
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    poses = rack_boxes.load_captured_box_poses(path)
+
+    assert raw["pair_pick"]["box_order"] == [
+        "MediumBox_0",
+        "MediumBox_1",
+        "SmallBox_0",
+    ]
+    assert raw["pair_pick"]["back_box_order"] == [
+        "SmallBox_1",
+        "MediumBox_2",
+        "MediumBox_3",
+    ]
+    assert raw["pair_pick"]["paired_boxes"] == ["MediumBox_0", "MediumBox_1"]
+    assert raw["pair_pick"]["active_arm"] == "left"
+    assert set(poses) == {
+        "MediumBox_0",
+        "MediumBox_1",
+        "MediumBox_2",
+        "MediumBox_3",
+        "SmallBox_0",
+        "SmallBox_1",
+    }
+    assert [poses[name].local_pos[1] for name in raw["pair_pick"]["box_order"]] == (
+        pytest.approx([-0.21096142] * 3)
+    )
+    assert [poses[name].local_pos[1] for name in raw["pair_pick"]["back_box_order"]] == (
+        pytest.approx([-0.57096142] * 3)
+    )
+    assert all(poses[name].scale == (1.0, 1.0, 1.0) for name in poses)
