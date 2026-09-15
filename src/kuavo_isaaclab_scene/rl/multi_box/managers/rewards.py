@@ -33,8 +33,10 @@ class Progress(ManagerTermBase):
             # Same tensor schema, target-conditioned skill objectives.
             per_box = per_box * torch.nn.functional.one_hot(t.target, 4)
         current = per_box.sum(-1)
+        current = torch.where(t.box_safety_failure, torch.zeros_like(current), current)
         reward = potential_delta(self.previous, current, t.success | t.failure, t.spec.discount)
         reward = torch.where(self.initialized & t.ready, reward, 0.)
+        reward = torch.where(t.box_safety_failure, torch.zeros_like(reward), reward)
         self.previous[:] = current
         self.initialized[:] = t.ready
         return reward / env.step_dt

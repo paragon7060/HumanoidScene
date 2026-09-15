@@ -16,6 +16,9 @@ class MultiBoxSpec:
     skill: str = "full"
     episode_seconds: float = 120.0
     lift_height: float = .06
+    max_box_lift_height: float = .50
+    max_box_linear_speed: float = 10.
+    max_box_angular_speed: float = 100.
     extraction_clearance: float = .06
     carry_distance: float = .25
     placement_hold: float = .5
@@ -38,6 +41,10 @@ class MultiBoxSpec:
     rack_outward_local: tuple = (0., 1., 0.)
 
     def validate(self):
+        if (not all(math.isfinite(v) and v > 0 for v in (self.max_box_lift_height,
+                self.max_box_linear_speed, self.max_box_angular_speed))
+                or self.max_box_lift_height <= self.lift_height):
+            raise ValueError("Box safety limits must be finite, positive and above the lift goal.")
         if self.action_space not in ACTION_SPACES:
             raise ValueError("Unknown action space.")
         if self.action_space == "right-arm" and self.skill in ("carry", "full"):

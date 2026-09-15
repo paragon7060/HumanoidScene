@@ -254,8 +254,13 @@ class WorkcellCommand(CommandTerm):
         self.transition[:] = False
         self._measure()
         self._goals()
+        from .box_safety import box_safety_checks, failed
+        safety = box_safety_checks(self.centers, self.poses, self.velocities,
+                                   self.initial_z, self._env.scene.env_origins, self.spec)
+        self.box_safety_failure = failed(safety)
         if self.settling is not None:
             completed = self.settling.advance(self.velocities, update, self._env.step_dt)
+            completed &= ~self.box_safety_failure
             self.initial_z[completed] = (self.centers[..., 2]
                 - self._env.scene.env_origins[:, None, 2])[completed]
             self.initial_centers[completed] = (self.centers - self._env.scene.env_origins[:, None])[completed]
@@ -333,6 +338,8 @@ class WorkcellCommand(CommandTerm):
         collision_failure = collision_failure & self.spec.collision_constraints_enabled
         self.failure_checks = {"floor_drop": floor_drop, "outside": outside,
                                "cargo_lost": ~self.cargo_ok.all(-1) & grace}
+        self.failure_checks.update(safety)
+        self.failure |= self.box_safety_failure & update
         if self.spec.collision_constraints_enabled:
             self.failure_checks["obstacle_collision"] = collision_failure
         if self.settling is not None and self.spec.reset_settle_timeout > 0:
@@ -363,6 +370,7 @@ class WorkcellCommand(CommandTerm):
 
     def _update_metrics(self):
         pass
+
 
 
 def task(env):

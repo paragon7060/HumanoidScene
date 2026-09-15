@@ -171,9 +171,14 @@ class MultiBoxCommand(CommandTerm):
             return
         self.last_step[update] = self._env.common_step_counter
         self.measure()
+        from ..mdp.box_safety import box_safety_checks, failed
+        self.failure_checks = box_safety_checks(self.centers, self.poses, self.velocities,
+            self.initial_centers[..., 2], self._env.scene.env_origins, self.spec)
+        self.box_safety_failure = failed(self.failure_checks)
         dt = self._env.step_dt
         self.elapsed[update] += dt
         just_ready = ~self.ready & (self.elapsed >= self.spec.settle_seconds) & update
+        just_ready &= ~self.box_safety_failure
         if not self.spec.reset_bank:
             self.initial_centers[just_ready] = (self.centers - self._env.scene.env_origins[:, None])[just_ready]
         self.ready |= just_ready
@@ -184,6 +189,7 @@ class MultiBoxCommand(CommandTerm):
             dst[update] = src[update]
         self.failure = ((self.centers[..., 2] - self._env.scene.env_origins[:, None, 2] < self.spec.failure_floor).any(-1)
             | ((self.robot.data.root_pos_w - self._env.scene.env_origins)[:, :2].norm(dim=-1) > self.spec.workspace_radius)) & self.ready
+        self.failure |= self.box_safety_failure
         checks = self.conditions()
         condition = checks[self.ids, self.target, self.route] & self.ready
         self.skill_time[update] = torch.where(condition, self.skill_time + dt, 0.)[update]

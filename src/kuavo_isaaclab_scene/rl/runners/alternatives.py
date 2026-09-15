@@ -13,7 +13,10 @@ def add_arguments(parser):
     parser.add_argument("--batch-size", type=int, default=1024)
     parser.add_argument("--replay-capacity", type=int, default=1000000, help="Total transitions, not per-env capacity")
     parser.add_argument("--replay-device", default="cpu", choices=("cpu", "cuda:0"))
-    parser.add_argument("--learning-starts", type=int, default=100000, help="Fresh transitions, repeated after SAC resume")
+    parser.add_argument("--learning-starts", type=int, default=100000,
+                        help="Action-enabled replay transitions before SAC updates; restarts after resume")
+    parser.add_argument("--warmup-vector-steps", type=int, default=450,
+                        help="Minimum action-enabled transitions / num-envs before SAC updates")
     parser.add_argument("--updates-per-step", type=int, default=8, help="SAC minibatches per vector environment step")
     parser.add_argument("--epochs", type=int, default=5, help="DPPO optimization epochs")
     parser.add_argument("--critic-warmup", type=int, default=5, help="DPPO iterations updating only value function")
@@ -27,7 +30,7 @@ def validate_args(args):
                 "keep_checkpoints", "collect_max_steps"):
         if getattr(args, key) < 1:
             raise ValueError(f"--{key.replace('_', '-')} must be positive")
-    if min(args.learning_starts, args.critic_warmup) < 0:
+    if min(args.learning_starts, args.critic_warmup, getattr(args, "warmup_vector_steps", 450)) < 0:
         raise ValueError("Warmup counts must be nonnegative")
     if args.method in ("dppo", "collect", "play") and args.checkpoint is None:
         raise ValueError(f"--method {args.method} requires --checkpoint")

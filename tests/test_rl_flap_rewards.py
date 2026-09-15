@@ -158,7 +158,9 @@ def test_pick_dwell_resets_on_lost_grasp_and_refresh_is_once_per_step(modules, c
         "grasp_right", "lift_height", "hold_fraction", "left_target_distance", "right_target_distance")}
     t.spec = replace(t.spec, collision_constraints_enabled=collision_enabled)
     # Pick success no longer depends on box speed or residual finger force.
-    t.velocities[:] = 10.
+    # Above settling limits, but below the hard numerical safety limits.
+    t.velocities[:] = 2.
+    t.poses = torch.cat((t.centers, torch.tensor([1., 0., 0., 0.]).expand(n, 1, 4)), -1)
     t.unexpected_finger_force[:] = 15.
     commands.WorkcellCommand.refresh(t)
     commands.WorkcellCommand.refresh(t)

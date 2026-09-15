@@ -44,8 +44,9 @@ def generalized_advantage(rewards, values, next_values, terminated, done, gamma=
     advantages = torch.zeros_like(rewards)
     carry = torch.zeros_like(rewards[0])
     for t in reversed(range(len(rewards))):
-        delta = rewards[t] + gamma * (~terminated[t]) * next_values[t] - values[t]
-        carry = delta + gamma * lam * (~done[t]) * carry
+        bootstrap = torch.where(terminated[t], torch.zeros_like(next_values[t]), next_values[t])
+        delta = rewards[t] + gamma * bootstrap - values[t]
+        carry = delta + gamma * lam * torch.where(done[t], torch.zeros_like(carry), carry)
         advantages[t] = carry
     return advantages, advantages + values
 

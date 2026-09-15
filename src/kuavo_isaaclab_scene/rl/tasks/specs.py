@@ -25,6 +25,9 @@ class TaskSpec:
     navigation_tolerance: float = 0.10
     heading_tolerance: float = 0.18
     lift_height: float = 0.10
+    max_box_lift_height: float = 0.50  # Hard safety ceiling above each box's reset baseline.
+    max_box_linear_speed: float = 10.0
+    max_box_angular_speed: float = 100.0
     grasp_distance: float = 0.16
     grasp_force: float = 0.20
     required_grasp_hands: int = 1
@@ -83,6 +86,10 @@ class TaskSpec:
     tool_offset: tuple[float, float, float] = (0.0, 0.0, -0.12)
 
     def validate(self) -> None:
+        if (not all(math.isfinite(v) and v > 0 for v in (self.max_box_lift_height,
+                self.max_box_linear_speed, self.max_box_angular_speed))
+                or self.max_box_lift_height <= self.lift_height):
+            raise ValueError("Box safety limits must be finite, positive and above the lift goal.")
         if self.name not in TASKS:
             raise ValueError(f"Unknown task {self.name!r}; choose {TASKS}")
         if self.control_mode not in ("whole-body", "arms-only"):

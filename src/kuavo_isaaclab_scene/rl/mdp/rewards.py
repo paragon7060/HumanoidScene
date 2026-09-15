@@ -4,19 +4,23 @@ import math
 import torch
 from .commands import task
 from .settling import ready
+from .box_safety import guard_box_reward
 from .grasp_stability import grasp_stability_scores
 
 
+@guard_box_reward
 def navigation(env):
     t = task(env)
     return torch.exp(-4 * t.nav_distance) * torch.exp(-t.heading_error) * ((t.reward_phase == 0) | (t.reward_phase == 2))
 
 
+@guard_box_reward
 def reaching(env):
     t = task(env)
     return torch.exp(-6 * t.reach_distance) * (t.reward_phase == 1)
 
 
+@guard_box_reward
 def approach_reaching(env):
     """TCP proximity supplements base navigation; does not replace safe base/yaw goals."""
     t = task(env)
@@ -24,17 +28,20 @@ def approach_reaching(env):
     return torch.exp(-6 * distance) * (t.reward_phase == 0) * ready(t)
 
 
+@guard_box_reward
 def lift(env):
     t = task(env)
     height = t.centers[t.ids, t.reward_box, 2] - env.scene.env_origins[:, 2] - t.initial_z[t.ids, t.reward_box]
     return (height / t.spec.lift_height).clamp(0, 1) * t.grasped * (t.reward_phase == 1) * ready(t)
 
 
+@guard_box_reward
 def carrying(env):
     t = task(env)
     return t.grasped.float() * t.upright[t.ids, t.reward_box].clamp(0, 1) * (t.reward_phase == 2)
 
 
+@guard_box_reward
 def placement(env):
     t = task(env)
     desired = t.slot_goal.clone()
@@ -43,23 +50,27 @@ def placement(env):
     return (torch.exp(-6 * distance) + t.supported[t.ids, t.reward_box].float() * t.released) * (t.reward_phase == 3)
 
 
+@guard_box_reward
 def button_reach(env):
     t = task(env)
     distance = (t.tools - t.button_point[:, None]).norm(dim=-1).amin(-1)
     return torch.exp(-6 * distance) * (t.reward_phase == 4) * t.supported.all(-1)
 
 
+@guard_box_reward
 def stability(env):
     t = task(env)
     return ((1 - t.upright).clamp_min(0) + 0.02 * t.velocities[..., 3:].square().sum(-1)).mean(-1) * ready(t)
 
 
+@guard_box_reward
 def stage_completed(env):
     # RewardManager multiplies every term by dt. These are discrete bonuses,
     # not rates: keep their configured magnitude independent of control Hz.
     return task(env).transition.float() / env.step_dt
 
 
+@guard_box_reward
 def success(env):
     return task(env).success.float() / env.step_dt
 
@@ -68,6 +79,7 @@ def failure(env):
     return task(env).failure.float() / env.step_dt
 
 
+@guard_box_reward
 def flap_reaching(env):
     t = task(env)
     # Signed consecutive-step progress; acquisition/held/loss-transition deltas
@@ -75,17 +87,20 @@ def flap_reaching(env):
     return t.reach_progress.delta[:, t.spec.grasp_hand_indices].mean(-1) * ready(t) / env.step_dt
 
 
+@guard_box_reward
 def flap_contact(env):
     """One discrete bonus for the first required-hand grasp in the episode."""
     t = task(env)
     return t.flap_progress.grasp_bonus * ready(t) / env.step_dt
 
 
+@guard_box_reward
 def flap_lift_progress(env):
     t = task(env)
     return t.flap_progress.lift_delta * ready(t) / env.step_dt
 
 
+@guard_box_reward
 def flap_orientation(env, distance_threshold: float = 0.10):
     """Signed alignment improvement; no reward for merely approaching/holding."""
     if not math.isfinite(distance_threshold) or distance_threshold <= 0:
@@ -97,11 +112,13 @@ def flap_orientation(env, distance_threshold: float = 0.10):
     return (proximity * p.orientation_delta[:, selected]).mean(-1) * ready(t) / env.step_dt
 
 
+@guard_box_reward
 def flap_hold(env):
     t = task(env)
     return (t.dwell / t.spec.hold_seconds).clamp(0, 1)
 
 
+@guard_box_reward
 def unwanted_contact(env):
     t = task(env)
     if not t.spec.collision_constraints_enabled:
@@ -111,15 +128,18 @@ def unwanted_contact(env):
     return other_finger * ready(t) + (obstacle / 20).clamp(0, 5)
 
 
+@guard_box_reward
 def settled_action_rate(env):
     return ready(task(env)) * (env.action_manager.action - env.action_manager.prev_action).square().sum(-1)
 
 
+@guard_box_reward
 def settled_joint_speed(env):
     t = task(env)
     return ready(t) * t.robot.data.joint_vel.square().sum(-1)
 
 
+@guard_box_reward
 def settled_time(env):
     return ready(task(env)) * (~env.termination_manager.terminated).float()
 
@@ -134,9 +154,11 @@ def _grasp_stability(env):
     return tuple(score * ready(t) for score in scores)
 
 
+@guard_box_reward
 def prelift_disturbance(env):
     return _grasp_stability(env)[0]
 
 
+@guard_box_reward
 def stable_flap_grasp(env):
     return _grasp_stability(env)[1]

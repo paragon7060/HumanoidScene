@@ -37,6 +37,8 @@ class ReplayBuffer:
     @torch.no_grad()
     def add(self, **batch):
         count = min(len(batch["obs"]), self.capacity)
+        if count == 0:
+            return
         indices = (torch.arange(count, device=self.data["obs"].device) + self.cursor) % self.capacity
         for key, storage in self.data.items():
             storage[indices] = batch[key][-count:].to(storage.device)
@@ -67,7 +69,8 @@ class SquashedActor(nn.Module):
 
 
 def soft_target(reward, terminated, next_q, next_logp, alpha, gamma):
-    return reward + gamma * (~terminated) * (next_q - alpha * next_logp)
+    continuation = torch.where(terminated, torch.zeros_like(next_q), next_q - alpha * next_logp)
+    return reward + gamma * continuation
 
 
 class SAC(nn.Module):
