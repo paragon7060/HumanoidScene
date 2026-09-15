@@ -109,5 +109,10 @@ def format_report(sample, status, episode_return):
                   f"Lift: {sample['lift_cm']:.1f} cm | Hold: {sample['hold']:.2f} s",
                   f"Grasp L/R: {int(sample['left_grasp'])}/{int(sample['right_grasp'])}",
                   f"Flap distance L/R: {sample['left_distance_cm']:.1f}/{sample['right_distance_cm']:.1f} cm"]
+        for side, grip in sample.get("gripper_force", {}).items():
+            a, b = grip["jaw_n"]
+            lines.append(f"GRIP {side[0].upper()}: {a:.1f}/{b:.1f} N = {grip['total_n']:.1f} N"
+                         + (f" / target {grip['target_n']:.0f} N" if grip["closing"] else " / OPEN")
+                         + (" SENSOR INVALID" if not grip["sensor_valid"] else ""))
     lines += ["A: run/pause   X: recenter   B: reset", "Y: panel   Index triggers: close/open"]
     return "\n".join(lines)

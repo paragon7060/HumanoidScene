@@ -58,6 +58,16 @@ command와 finger friction은 `configs/grippers.json`의 `leju-twofinger`에서
 수정한다. runtime 구동·마찰 설정은 시뮬레이터를 재시작하면 적용된다.
 구동 각도는 검증된 범위를 벗어나지 않는다.
 
+VR 수집과 RL reward debug에서는 닫기 명령을 기본 50 N 압착력 목표로 사용한다.
+이는 한 손의 양쪽 손가락 합계(각 25 N)이며 `--gripper-close-force`로 변경한다.
+접촉 전부터 닫기 방향 토크를 공급하고 접촉 후 센서 피드백으로 힘을 조절한다.
+열기는 같은 힘을 반대 방향 토크로 환산하며, 닫힘/열림 끝에서 토크를 끊는다.
+개폐 모두 위치 stiffness를 끄고 implicit damping으로 속도를 억제한다. 기존 토크
+예산의 절반씩을 외부 토크와 damping drive에 할당한다. reset 때 원래 구동 설정을
+복구한다. `--gripper-close-force 0`은 기존 위치
+개폐 동작을 사용한다. 이 옵션은 독립 claw asset이나 학습용 policy에 자동으로
+힘 제어를 추가하지 않는다.
+
 ## 재생성
 
 저장소 루트에서:

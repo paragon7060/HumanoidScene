@@ -6,6 +6,11 @@ import sys
 
 from kuavo_isaaclab_scene.recording.teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopHdf5Recorder, new_session_path
 from kuavo_isaaclab_scene.recording.teleop_lerobot_recorder import build_lerobot_features, sample_to_lerobot_frame
+from kuavo_isaaclab_scene.recording.teleop_actions import (
+    GRIPPER_ACTION_ENCODING, encode_recorded_action, recorded_action_names,
+)
+from kuavo_isaaclab_scene.recording.lerobot_writer_worker import _validate_schema
+from types import SimpleNamespace
 
 
 def test_recorder_streams_episode_to_hdf5(tmp_path):
@@ -163,3 +168,60 @@ def test_lerobot_action_schema_accepts_gripper_channels():
     )
     assert features["action"]["shape"] == (4,)
     assert features["action"]["names"] == action_names
+
+
+@pytest.mark.parametrize("arm_dim,sides", [(12, ("left", "right")), (14, ("left", "right")),
+                                         (14, ("right",)), (14, ())])
+def test_binary_gripper_command_recording_preserves_control_and_measured_state(tmp_path, arm_dim, sides):
+    names = tuple(f"arm_{i}" for i in range(arm_dim)) + tuple(f"{s}_gripper" for s in sides) + ("knee_joint",)
+    raw = np.linspace(-.4, .4, len(names), dtype=np.float32)
+    for i, side in enumerate(sides):
+        raw[names.index(side + "_gripper")] = 1. if i == 0 else -1.
+    original = raw.copy()
+    encoded = encode_recorded_action(raw, names)
+    labels = recorded_action_names(names)
+    for i, name in enumerate(names):
+        if name.endswith("_gripper"):
+            assert encoded[i] == (0. if original[i] >= 0 else 1.)
+            assert labels[i] == name + "_close"
+        else:
+            assert encoded[i] == original[i]
+    np.testing.assert_array_equal(raw, original)
+
+    state = np.array([.063, -.071], dtype=np.float32)
+    sample = dict(action=encoded, robot_joint_position=state, robot_joint_velocity=np.array([.1, -.2]),
+                  left_end_effector_pose_w=np.zeros(7), right_end_effector_pose_w=np.zeros(7),
+                  openxr_head_pose=np.zeros(7), openxr_left_hand=np.zeros((1, 7)),
+                  openxr_right_hand=np.zeros((1, 7)), pinch_distance_m=np.zeros(2),
+                  tracking_valid=np.ones(3), sim_time_s=.1)
+    features = build_lerobot_features(joint_names=["j1", "j2"], hand_joint_names=["wrist"],
+        head_resolution=(12, 8), wrist_resolution=(6, 4), box_count=0, button_joint_count=0,
+        record_wrist_cameras=False, record_head_camera=False, use_videos=False, action_names=labels)
+    frame = sample_to_lerobot_frame(sample, features)
+    np.testing.assert_array_equal(frame["action"], encoded)
+    np.testing.assert_array_equal(frame["observation.state"], state)
+    path = tmp_path / "binary.hdf5"
+    with TeleopHdf5Recorder(path) as recorder:
+        recorder.start_episode({"action_layout": ",".join(labels), "gripper_action_encoding": GRIPPER_ACTION_ENCODING})
+        recorder.append(sample)
+        recorder.finish_episode(success=True, reason="test")
+    with h5py.File(path) as f:
+        demo = f["data/demo_00000"]
+        assert demo.attrs["gripper_action_encoding"] == GRIPPER_ACTION_ENCODING
+        np.testing.assert_array_equal(demo["samples/action"][0], encoded)
+        np.testing.assert_array_equal(demo["samples/robot_joint_position"][0], state)
+
+
+def test_signed_and_binary_gripper_datasets_cannot_be_resumed_together():
+    expected = {"action": {"dtype": "float32", "shape": (2,),
+                           "names": ["left_gripper_close", "right_gripper_close"]}}
+    dataset = SimpleNamespace(fps=30, features=expected)
+    _validate_schema(dataset, expected, 30)
+    dataset.features = {"action": dict(expected["action"], names=["left_gripper", "right_gripper"])}
+    with pytest.raises(ValueError, match="different channel names/semantics"):
+        _validate_schema(dataset, expected, 30)
+
+
+def test_nonfinite_gripper_cannot_silently_turn_into_open_label():
+    with pytest.raises(ValueError, match="Non-finite gripper"):
+        encode_recorded_action([float("nan")], ["left_gripper"])

@@ -56,5 +56,20 @@ class RewardProbe(RecorderTerm):
                 f"open+={1000*t.grasp_candidate_opening_m[0, hand, candidate].item():.1f}mm"
                 for hand in t.spec.grasp_hand_indices for candidate, flap in enumerate(t.spec.grasp_flaps)],
         }
+        force_hands = {}
+        for side in ("left", "right"):
+            if side + "_gripper" not in env.action_manager.active_terms:
+                continue
+            drive = getattr(env.action_manager.get_term(side + "_gripper"), "_force_drive", None)
+            if drive is not None:
+                force_hands[side] = {
+                    "closing": bool(drive.enabled[0].item()),
+                    "target_n": drive.servo.force_n,
+                    "jaw_n": drive.measured_force[0].tolist(),
+                    "total_n": float(drive.measured_force[0].sum().item()),
+                    "sensor_valid": bool(drive.servo.valid[0].item()),
+                }
+        if force_hands:
+            env._quest_reward_sample["gripper_force"] = force_hands
         # No trajectory accumulation or HDF5 export: just one small snapshot.
         return None, None

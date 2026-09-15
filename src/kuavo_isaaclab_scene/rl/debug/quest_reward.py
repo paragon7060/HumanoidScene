@@ -61,6 +61,11 @@ def _config(args):
         obstacle_sensor_count = configure_obstacle_contact_rate(cfg.scene, obstacle_contact_hz)
     if obstacle_sensor_count == 0:
         raise RuntimeError("RL reward inspection expected obstacle contact sensors to configure.")
+    # Manual reward inspection can run indefinitely. Remove the timeout term
+    # instead of using an infinite duration (Isaac rounds duration to steps).
+    cfg.terminations.time_out = None
+    from ...robots.vr_gripper_force import configure_vr_gripper_force
+    configure_vr_gripper_force(cfg, getattr(args, "gripper_close_force", 50.), incremental=True)
     cfg.xr = XrCfg(near_plane=.08)
     cfg.scene.conveyor_surface.class_type = StationarySurface
     cfg.recorders.quest_reward = RecorderTermCfg(class_type=RewardProbe)
@@ -182,7 +187,8 @@ def run(args, app):
               + (f", absolute_orientation={args.absolute_orientation}" if args.controller_mapping == "absolute" else "")
               + f", arm_response={args.arm_response}", flush=True)
         print(f"[RL REWARD] RL control rate={1/env.step_dt:g} Hz (collector --control-hz ignored); "
-              f"RL drives/initial pose/reward terms/terminations active. Display cameras={args.enable_cameras}.",
+              f"RL drives/initial pose/reward terms active; episode time limit=OFF. "
+              f"Success/failure terminations active. Display cameras={args.enable_cameras}.",
               flush=True)
         print("[RL REWARD] grasp/contact measurements=ON; collision constraints follow the loaded RL config; "
               "3D markers/overlay remain opt-in.", flush=True)
@@ -304,6 +310,11 @@ def run(args, app):
                 sample = env._quest_reward_sample
                 reach_summary.update(sample, env.step_dt)
                 if start >= next_grasp_diagnostic or sample["failure"] or sample["success"] or sample["timeout"]:
+                    for side, grip in sample.get("gripper_force", {}).items():
+                        if grip["closing"]:
+                            print(f"[GRIP FORCE] {side}: target={grip['target_n']:g}N total; "
+                                  f"measured={grip['jaw_n'][0]:.2f}/{grip['jaw_n'][1]:.2f}N "
+                                  f"total={grip['total_n']:.2f}N", flush=True)
                     print(f"[RL GRASP] blocked={','.join(sample['blocked_checks']) or 'none'}; "
                           f"failure={','.join(sample['failure_reasons']) or 'none'}; "
                           f"lift={sample['lift_cm']:.1f}cm hold={sample['hold']:.2f}s; "

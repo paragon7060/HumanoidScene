@@ -150,12 +150,18 @@ class IncrementalGripper(InterpolatedJointPositionAction):
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
         self._signed_target = torch.ones(self.num_envs, 1, device=self.device)
+        self._force_close_requested = torch.zeros_like(self._signed_target, dtype=torch.bool)
 
     def process_actions(self, actions):
         actions = gate_actions(self._env, actions)
         self._raw_actions[:] = actions.clamp(-1, 1)
+        self._force_close_requested[:] = torch.where(self._raw_actions < 0, True,
+            torch.where(self._raw_actions > 0, False, self._force_close_requested))
         self._signed_target.add_(self._raw_actions * self.cfg.delta_scale).clamp_(-1, 1)
         self._set_joint_targets(self._targets_from_signed(self._signed_target))
+
+    def _force_closing(self):
+        return self._force_close_requested
 
     def reset(self, env_ids=None):
         ids = slice(None) if env_ids is None else env_ids
@@ -167,7 +173,10 @@ class IncrementalGripper(InterpolatedJointPositionAction):
             self._position_mapping.reset(env_ids, closed)
             self._signed_target[ids] = 1 - self._position_mapping.previous_percent[ids] / 50
         self._raw_actions[ids] = 0
+        self._force_close_requested[ids] = self._signed_target[ids] < 0
         self._reset_joint_targets(q, env_ids)
+        if self._force_drive is not None:
+            self._force_drive.reset(env_ids)
 
 
 @configclass

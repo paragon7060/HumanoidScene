@@ -5,6 +5,18 @@ Quest CONNECT 절차는 [기존 수집기](QUEST_COLLECTOR_SETUP.md)와 같다.
 이 옵션이 없으면 기존 수집 동작은 그대로다. **옵션이 있을 때는 데이터 저장이나
 정책 학습 대신 현재 flap-pick RL 환경 1개를 수동 조작한다.**
 
+Closed two-finger gripper의 VR 닫기 명령은 기본 `--gripper-close-force 50`으로
+한 손의 양쪽 손가락 압착력 합계 50 N(각 25 N)을 목표로 한다. 접촉 전부터
+닫기 방향의 힘 제어를 사용하며, 실제 접촉 전 센서값은 0 N이다. 닫기 중 위치
+stiffness는 0이며, implicit damping으로 속도를 억제한다. 외부 토크와 damping
+drive에 원래 토크 예산의 절반씩을 할당한다. 박스와의 접촉력 중 닫힘 축 방향
+성분을 피드백하며 마찰력은 센서값에 포함되지 않는다. 열기는 같은 힘을 반대로
+환산한 토크를 사용한다. 닫힘/열림 끝에서는 토크를 끊으며 reset 때 원래 구동
+설정을 복구한다. 끝에 도달하거나 토크가 포화되면 목표 접촉력을 달성하지 못할 수 있다.
+HUD의 `GRIP L/R`과 `[GRIP FORCE]` 로그에서 손가락별 힘과 합계를 확인한다.
+`--gripper-close-force 0`은 기존 위치 개폐로 실행한다. 일반 VR 수집에도 동일한
+옵션이 적용되며 정책 학습·평가의 기존 continuous gripper action은 유지한다.
+
 ## 실행
 
 저장소 루트에서 기존과 같은 순서로 실행한다. Runtime/web이 이미 실행 중이면

@@ -49,6 +49,11 @@ def _validate_schema(dataset: Any, expected_features: dict[str, dict], fps: int)
                 f"Existing feature {key!r} is {actual}, expected {expected}. "
                 "Use a new --lerobot-root after changing camera resolution or object counts."
             )
+        if expected.get("names") is not None and actual.get("names") != expected["names"]:
+            raise ValueError(
+                f"Existing feature {key!r} has different channel names/semantics. "
+                "Use a new --lerobot-root after changing the action schema."
+            )
 
 
 def _episode_buffer(dataset: Any) -> dict:

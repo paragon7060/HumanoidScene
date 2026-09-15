@@ -51,12 +51,15 @@ class InterpolatedJointPositionAction(ActionTerm):
                                   if cfg.position_mapping is not None else None)
         self._desired_actions = self._processed_actions.clone()
         self._target_filter = None
+        self._force_drive = None
         if cfg.target_filter is not None:
             initial = self._asset.data.joint_pos[:, self._joint_ids]
             self._target_filter = GripperTargetFilter(initial, self._close_command-self._open_command, cfg.target_filter)
             self._desired_actions[:] = initial
             self._processed_actions[:] = initial
             self._filter_dt = sim_utils.SimulationContext.instance().get_physics_dt()
+        if cfg.close_force_n is not None:
+            self._force_drive = GripperForceDrive(self, env)
 
     def _set_joint_targets(self, targets):
         self._desired_actions[:] = targets
@@ -109,6 +112,11 @@ class InterpolatedJointPositionAction(ActionTerm):
         self._asset.set_joint_position_target(
             self._processed_actions, joint_ids=self._joint_ids
         )
+        if self._force_drive is not None:
+            self._force_drive.apply(self._force_closing())
+
+    def _force_closing(self):
+        return self._raw_actions < 0
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         ids = slice(None) if env_ids is None else env_ids
@@ -121,6 +129,8 @@ class InterpolatedJointPositionAction(ActionTerm):
             self._desired_actions[ids] = self._open_command
         if self._position_mapping is not None:
             self._position_mapping.reset(env_ids)
+        if self._force_drive is not None:
+            self._force_drive.reset(env_ids)
 
 
 @configclass
@@ -131,6 +141,126 @@ class InterpolatedJointPositionActionCfg(ActionTermCfg):
     close_command_expr: dict[str, float] = MISSING
     position_mapping: dict | None = None
     target_filter: dict | None = None
+    close_force_n: float | None = None
+    force_side: str | None = None
+    force_sensor_names: tuple[str, str] | None = None
+
+
+class ForceBinaryGripperAction(InterpolatedJointPositionAction):
+    """VR open/close intent; both directions use force from command onset."""
+
+    def process_actions(self, actions):
+        super().process_actions(torch.where(actions < 0, -1., 1.))
+
+
+@configclass
+class ForceBinaryGripperActionCfg(InterpolatedJointPositionActionCfg):
+    class_type: type = ForceBinaryGripperAction
+
+
+class GripperForceDrive:
+    """Explicit force feedforward with zero stiffness and implicit viscosity.
+
+    Split the original torque budget equally between external torque and the
+    damping drive. Their combined magnitude cannot exceed the original cap.
+    """
+
+    def __init__(self, action, env):
+        from .gripper_force import JawForceServo
+
+        self.action, self.env, self.asset = action, env, action._asset
+        self.ids = action._joint_ids
+        drive = self.asset.cfg.spawn.joint_drive_props
+        if drive is None or drive.drive_type != "force":
+            raise ValueError("Normal-force control requires PhysX force drives, not acceleration drives")
+        if len(self.ids) != 2 or action.cfg.force_side not in ("left", "right"):
+            raise ValueError("VR force control requires the two closed-claw drivers")
+        self.stiffness = self.asset.data.joint_stiffness[:, self.ids].clone()
+        self.damping = self.asset.data.joint_damping[:, self.ids].clone()
+        self.effort_limits = self.asset.data.joint_effort_limits[:, self.ids].clone()
+        self.joint_limits = self.asset.data.joint_pos_limits[:, self.ids].clone()
+        direction = (action._close_command - action._open_command).sign()
+        from .twofinger_linkage import DRIVER_OPEN_MIN
+        bounds = torch.stack((torch.where(direction > 0, DRIVER_OPEN_MIN, 0.),
+                              torch.where(direction > 0, 0., -DRIVER_OPEN_MIN)), -1)
+        self.force_limits = self.joint_limits.clone()
+        self.force_limits[..., 0] = torch.maximum(self.force_limits[..., 0], bounds[:, 0])
+        self.force_limits[..., 1] = torch.minimum(self.force_limits[..., 1], bounds[:, 1])
+        if (self.force_limits[..., 0] >= self.force_limits[..., 1]).any():
+            raise ValueError("Claw force mode conflicts with live joint limits")
+        self.servo = JawForceServo(action.cfg.force_side, env.num_envs, env.device,
+                                  action.cfg.close_force_n, direction)
+        self.enabled = torch.zeros(env.num_envs, 1, dtype=torch.bool, device=env.device)
+        self.engaged = torch.zeros_like(self.enabled)
+        self.dt = sim_utils.SimulationContext.instance().get_physics_dt()
+        prefix = action.cfg.force_side[0]
+        self.base_id = self.asset.find_bodies(f"{prefix}_twofinger_base")[0][0]
+        by_name = dict(zip((f"{prefix}_f_bar_1_joint", f"{prefix}_b_bar_1_joint"), action.cfg.force_sensor_names))
+        self.sensors = [env.scene[by_name[name]] for name in action._joint_names]
+        self.measured_force = torch.zeros(env.num_envs, 2, device=env.device)
+        print(f"[GRIP FORCE] {action.cfg.force_side}: close={action.cfg.close_force_n:g} N total "
+              "(half per jaw), from command onset; open=same force reversed; original torque budget retained.", flush=True)
+
+    def _mode(self, engaged, env_ids):
+        stiffness = torch.where(engaged, 0., self.stiffness[env_ids])
+        damping = torch.where(engaged, self.servo.damping, self.damping[env_ids])
+        self.asset.write_joint_stiffness_to_sim(
+            stiffness, joint_ids=self.ids, env_ids=env_ids)
+        self.asset.write_joint_damping_to_sim(
+            damping, joint_ids=self.ids, env_ids=env_ids)
+        self.asset.write_joint_effort_limit_to_sim(
+            torch.where(engaged, self.effort_limits[env_ids] * .5, self.effort_limits[env_ids]),
+            joint_ids=self.ids, env_ids=env_ids)
+        # Constant torque must stop at the CAD's closed/open configuration;
+        # the donor's wider URDF limits would let the jaws cross through q=0.
+        self.asset.write_joint_position_limit_to_sim(
+            torch.where(engaged[..., None], self.force_limits[env_ids], self.joint_limits[env_ids]),
+            joint_ids=self.ids, env_ids=env_ids)
+        # Isaac's gain writers update PhysX/data, not actuator model buffers.
+        # Keep implicit torque telemetry consistent with the live drive gains.
+        for actuator in self.asset.actuators.values():
+            indices = (list(range(self.asset.num_joints)) if isinstance(actuator.joint_indices, slice)
+                       else list(actuator.joint_indices))
+            for column, joint in enumerate(self.ids):
+                if joint in indices:
+                    local = indices.index(joint)
+                    actuator.stiffness[env_ids, local] = stiffness[:, column]
+                    actuator.damping[env_ids, local] = damping[:, column]
+
+    def apply(self, closing):
+        from isaaclab.utils.math import quat_apply
+        changed = torch.nonzero((~self.engaged).flatten(), as_tuple=False).flatten()
+        if changed.numel():
+            self._mode(torch.ones(len(changed), 1, dtype=torch.bool, device=self.env.device), changed)
+            self.engaged[changed] = True
+        self.enabled[:] = closing
+        axis = torch.zeros(self.env.num_envs, 3, device=self.env.device)
+        axis[:, 0] = 1
+        axis = quat_apply(self.asset.data.body_link_quat_w[:, self.base_id], axis)
+        for index, sensor in enumerate(self.sensors):
+            # Box bodies only: contacts with the other jaw, robot or rack must
+            # not masquerade as object squeeze force.
+            # Regulate squeeze along the closing axis. A top-edge contact that
+            # merely supports finger weight is not jaw pressure.
+            self.measured_force[:, index] = (sensor.data.force_matrix_w[:, 0]
+                * axis[:, None]).sum(-1).abs().sum(-1)
+        self.servo.advance(self.asset.data.joint_pos[:, self.ids],
+            self.measured_force, closing, self.dt, self.effort_limits * .5,
+            self.action._open_command)
+        self.asset.set_joint_velocity_target(torch.zeros_like(self.servo.torque_request), joint_ids=self.ids)
+        self.asset.set_joint_effort_target(self.servo.torque_request, joint_ids=self.ids)
+
+    def reset(self, env_ids=None):
+        ids = (torch.arange(self.env.num_envs, device=self.env.device) if env_ids is None
+               else torch.as_tensor(env_ids, device=self.env.device))
+        self._mode(torch.zeros(len(ids), 1, dtype=torch.bool, device=self.env.device), ids)
+        self.enabled[ids] = False
+        self.engaged[ids] = False
+        self.measured_force[ids] = 0
+        self.servo.reset(ids)
+        zeros = torch.zeros(len(ids), 2, device=self.env.device)
+        self.asset.set_joint_velocity_target(zeros, joint_ids=self.ids, env_ids=ids)
+        self.asset.set_joint_effort_target(zeros, joint_ids=self.ids, env_ids=ids)
 
 
 class FilteredBinaryJointPositionAction(mdp.BinaryJointPositionAction):

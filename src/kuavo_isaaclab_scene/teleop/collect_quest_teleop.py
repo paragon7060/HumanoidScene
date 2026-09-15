@@ -8,6 +8,9 @@ from dataclasses import replace
 import math
 import os
 from pathlib import Path
+from kuavo_isaaclab_scene.recording.teleop_actions import (
+    GRIPPER_ACTION_ENCODING, encode_recorded_action, recorded_action_names,
+)
 import signal
 import sys
 
@@ -149,6 +152,8 @@ parser.add_argument(
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--max-episodes", type=int, default=0, help="0 (default) keeps the application open between attempts.")
 parser.add_argument("--episode-seconds", type=float, default=0.0, help="Episode timeout in simulation seconds; 0 disables it.")
+parser.add_argument("--gripper-close-force", type=float, default=50., metavar="N",
+                    help="VR two-finger force: close normal force total per hand (default 50 N); open reverses it; 0 uses position control.")
 parser.add_argument(
     "--auto-start",
     action=argparse.BooleanOptionalAction,
@@ -282,6 +287,8 @@ if args_cli.record_depth and not args_cli.head_camera:
     parser.error("--record-depth requires --head-camera.")
 if args_cli.max_episodes < 0 or args_cli.episode_seconds < 0:
     parser.error("Episode count and timeout must be non-negative (0 means unlimited).")
+if not math.isfinite(args_cli.gripper_close_force) or args_cli.gripper_close_force < 0:
+    parser.error("--gripper-close-force must be finite and nonnegative.")
 if not 0.1 <= args_cli.xr_resolution_scale <= 2.0:
     parser.error("--xr-resolution-scale must be between 0.1 and 2.0.")
 if ((args_cli.arm_stiffness is not None and (not math.isfinite(args_cli.arm_stiffness) or args_cli.arm_stiffness <= 0))
@@ -427,6 +434,8 @@ def main() -> None:
     active_mode = args_cli.input_mode
     robot_model = resolve_robot_model()
     cfg = KuavoQuestTeleopEnvCfg()
+    from ..robots.vr_gripper_force import configure_vr_gripper_force
+    configure_vr_gripper_force(cfg, args_cli.gripper_close_force)
     # Native OpenXR/CloudXR supplies its own stereo projection. The virtual
     # eye sensors are only needed by preview_quest_browser.py.
     cfg.scene.xr_left_eye_camera = None
@@ -593,6 +602,7 @@ def main() -> None:
     if absolute_control:
         action_names = tuple(f"{side}_{axis}_base" for side in ("left", "right")
                              for axis in ("x", "y", "z", "qw", "qx", "qy", "qz")) + action_names[12:]
+    dataset_action_names = recorded_action_names(action_names + BODY_ACTION_NAMES)
     left_body_ids, _ = robot.find_bodies("zarm_l7_end_effector")
     right_body_ids, _ = robot.find_bodies("zarm_r7_end_effector")
     if len(left_body_ids) != 1 or len(right_body_ids) != 1:
@@ -737,7 +747,7 @@ def main() -> None:
             use_videos=args_cli.lerobot_use_videos,
             save_failed=args_cli.lerobot_save_failed,
             writer_python=args_cli.lerobot_python,
-            action_names=action_names + BODY_ACTION_NAMES,
+            action_names=dataset_action_names,
             record_controllers=active_mode == "controllers" or args_cli.hand_switch,
         )
         lerobot_recorder = recorders["lerobot"]
@@ -1167,7 +1177,11 @@ def main() -> None:
                         "scene_config": str(args_cli.scene_config) if args_cli.scene_config else "default",
                         "wrist_cameras_enabled": args_cli.wrist_cameras,
                         "control_dt": float(env.step_dt),
-                        "action_layout": ",".join(action_names + BODY_ACTION_NAMES),
+                        "action_layout": ",".join(dataset_action_names),
+                        "gripper_action_encoding": GRIPPER_ACTION_ENCODING,
+                        "gripper_close_force_n": (args_cli.gripper_close_force
+                            if any(getattr(env.action_manager.get_term(side + "_gripper"), "_force_drive", None)
+                                   is not None for side in GRIPPER_SETTINGS.active_sides) else 0.),
                         "base_control": "held_during_hand_tracking" if active_mode == "hands" else "kinematic_fixed_root_xy_yaw_v2",
                         "hand_switch_enabled": args_cli.hand_switch,
                         "hand_tracking_policy": "fresh_hand_source_tracked_joints; hold_on_loss; stop_after_2s",
@@ -1433,7 +1447,7 @@ def main() -> None:
                 sample = {
                     "sim_time_s": np.float64(env.common_step_counter * env.step_dt),
                     "wall_time_s": np.float64(time.perf_counter() - start_wall_time),
-                    "action": action_np,
+                    "action": encode_recorded_action(action_np, action_names + BODY_ACTION_NAMES),
                     "robot_joint_position": np.concatenate(joint_positions).astype(np.float32),
                     "robot_joint_velocity": np.concatenate(joint_velocities).astype(np.float32),
                     "left_end_effector_pose_w": left_ee_pose.astype(np.float32),
