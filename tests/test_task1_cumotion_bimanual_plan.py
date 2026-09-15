@@ -61,12 +61,33 @@ def test_constrained_rrt_allows_exactly_fixed_inactive_dimensions():
     np.testing.assert_array_equal(path[:, 1], 0.25)
 
 
-def test_pair_approach_plans_against_full_world():
-    relaxed = object()
-    full = object()
+def test_pair_approach_allows_only_terminal_neighborhood_target_flap_contact():
+    class FakeInspector:
+        def __init__(self, collision, distance):
+            self.collision = collision
+            self.distance = distance
 
-    assert planning_collision_inspector(False, relaxed, full) is relaxed
-    assert planning_collision_inspector(True, relaxed, full) is full
+        def in_collision_with_obstacle(self, _q):
+            return self.collision
+
+        def min_distance_to_obstacle(self, _q):
+            return self.distance
+
+    relaxed = FakeInspector(False, 0.01)
+    full = FakeInspector(True, -0.001)
+    terminal = np.asarray([1.0, 2.0])
+
+    assert (
+        planning_collision_inspector(False, relaxed, full, terminal, 0.05)
+        is relaxed
+    )
+    paired = planning_collision_inspector(True, relaxed, full, terminal, 0.05)
+
+    assert paired.in_collision_with_obstacle(np.asarray([0.0, 0.0])) is True
+    assert paired.min_distance_to_obstacle(np.asarray([0.0, 0.0])) == -0.001
+    assert paired.in_collision_with_obstacle(np.asarray([0.96, 2.04])) is False
+    assert paired.min_distance_to_obstacle(np.asarray([0.96, 2.04])) == 0.01
+    assert paired.in_collision_with_obstacle(np.asarray([0.949, 2.0])) is True
 
 
 def test_add_world_obstacles_keeps_obstacle_and_handle_references():

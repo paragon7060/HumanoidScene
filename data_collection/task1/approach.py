@@ -61,9 +61,46 @@ def fix_inactive_arm_path(
     return result
 
 
-def planning_collision_inspector(paired_mode: bool, relaxed_inspector, full_inspector):
-    """Use the complete scene for ordinary pair approach planning."""
-    return full_inspector if paired_mode else relaxed_inspector
+class TerminalContactCollisionInspector:
+    """Permit designated flap contact only in a narrow terminal joint neighborhood."""
+
+    def __init__(self, relaxed_inspector, full_inspector, terminal_q, radius_rad: float):
+        self.relaxed_inspector = relaxed_inspector
+        self.full_inspector = full_inspector
+        self.terminal_q = np.asarray(terminal_q, dtype=float)
+        self.radius_rad = float(radius_rad)
+
+    def _selected(self, q):
+        q = np.asarray(q, dtype=float)
+        if q.shape != self.terminal_q.shape:
+            raise ValueError("collision query does not match terminal joint shape")
+        if float(np.max(np.abs(q - self.terminal_q))) <= self.radius_rad:
+            return self.relaxed_inspector
+        return self.full_inspector
+
+    def in_collision_with_obstacle(self, q):
+        return self._selected(q).in_collision_with_obstacle(q)
+
+    def min_distance_to_obstacle(self, q):
+        return self._selected(q).min_distance_to_obstacle(q)
+
+
+def planning_collision_inspector(
+    paired_mode: bool,
+    relaxed_inspector,
+    full_inspector,
+    terminal_q,
+    terminal_contact_radius_rad: float,
+):
+    """Keep the full world except near the intended pair-contact endpoint."""
+    if not paired_mode:
+        return relaxed_inspector
+    return TerminalContactCollisionInspector(
+        relaxed_inspector,
+        full_inspector,
+        terminal_q,
+        terminal_contact_radius_rad,
+    )
 
 
 def bimanual_xrdf(
@@ -503,6 +540,15 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--collision-margin-m", type=float, default=0.002)
     result.add_argument("--self-pair-margin-m", type=float, default=None)
     result.add_argument("--validation-step-rad", type=float, default=0.01)
+    result.add_argument(
+        "--target-contact-transition-radius-rad",
+        type=float,
+        default=0.05,
+        help=(
+            "Maximum per-joint distance from a paired terminal pose where only "
+            "the two designated target flaps may be contacted."
+        ),
+    )
     result.add_argument("--target-tolerance-m", type=float, default=0.005)
     result.add_argument("--planner-seed", type=int, default=123456)
     result.add_argument("--planner-step-size", type=float, default=0.05)
@@ -518,6 +564,10 @@ def main(argv=None) -> int:
     for name, value in (
         ("--sphere-cell-m", args.sphere_cell_m),
         ("--validation-step-rad", args.validation_step_rad),
+        (
+            "--target-contact-transition-radius-rad",
+            args.target_contact_transition_radius_rad,
+        ),
         ("--target-tolerance-m", args.target_tolerance_m),
         ("--planner-step-size", args.planner_step_size),
         ("--shoulder-sweep-weight", args.shoulder_sweep_weight),
@@ -757,7 +807,11 @@ def main(argv=None) -> int:
         full_world_view = full_world.add_world_view()
         full_inspector = cumotion.create_robot_world_inspector(robot, full_world_view)
     path_inspector = planning_collision_inspector(
-        paired_mode, inspector, full_inspector
+        paired_mode,
+        inspector,
+        full_inspector,
+        q_terminal,
+        args.target_contact_transition_radius_rad,
     )
     initial_world_collision = full_inspector.in_collision_with_obstacle(q_initial)
     initial_self_collision = inspector.in_self_collision(q_initial)
@@ -943,6 +997,9 @@ def main(argv=None) -> int:
             "allow_target_flap_contact": allow_target_flap_contact,
             "allowed_contact_colliders": allowed_contact_colliders,
             "ordinary_approach_uses_full_world": bool(paired_mode),
+            "target_contact_transition_radius_rad": (
+                args.target_contact_transition_radius_rad if paired_mode else None
+            ),
         },
     }
     if path_found:
