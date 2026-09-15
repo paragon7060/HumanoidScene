@@ -1,5 +1,8 @@
 # Quest 팔 제어 옵션: 위치·방향·응답 속도
 
+베이스·허리 이동 속도는 팔 응답과 별개다. 모든 컨트롤러 매핑과 브라우저 미리보기의
+공통 저속·가속도 설정은 [베이스·허리 가이드](QUEST_BODY_CONTROL.md)를 참고한다.
+
 이 문서는 `collect_quest_teleop.sh`와 `quest_collector.sh collect`의 팔 제어 설정이다.
 브라우저 미리보기(`preview_quest_browser.sh`)의 팔 매핑에는 적용되지 않는다.
 현재 scaled/absolute/맨손은 기본적으로 URDF bounded IK를 사용한다.

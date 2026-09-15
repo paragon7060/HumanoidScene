@@ -15,12 +15,13 @@ const { trackedController, LocalIsaacLabBridge } = context.exports;
 const transform = { position: { x: 0, y: 1, z: 0 }, orientation: { w: 1, x: 0, y: 0, z: 0 } };
 const controller = {
   handedness: 'left', gripSpace: {},
-  gamepad: { mapping: 'xr-standard', axes: [.9, .8, -.5, -1], buttons: [{ value: .75 }] },
+  gamepad: { mapping: 'xr-standard', axes: [.9, .8, -.5, -1], buttons: [{ value: .75 }, { value: .9 }] },
 };
 const frame = { getPose: () => ({ transform }) };
 const parsed = trackedController(frame, controller, {});
 assert.deepEqual(Array.from(parsed.thumbstick), [-.5, -1]); // not touchpad axes
 assert.equal(parsed.trigger, .75);
+assert.equal(parsed.squeeze, .9);
 assert.equal(trackedController(frame, { ...controller, hand: {} }, {}), null);
 assert.equal(trackedController({ getPose: () => null }, controller, {}), null);
 assert.equal(trackedController(frame, { ...controller, gamepad: null }, {}), null);
@@ -28,6 +29,7 @@ assert.equal(trackedController(frame, { ...controller, gamepad: { mapping: '' } 
 const empty = trackedController(frame, { ...controller, gamepad: { mapping: 'xr-standard', axes: [], buttons: [] } }, {});
 assert.deepEqual(Array.from(empty.thumbstick), [0, 0]);
 assert.equal(empty.trigger, 0);
+assert.equal(empty.squeeze, 0);
 
 let message;
 const bridge = Object.create(LocalIsaacLabBridge.prototype);

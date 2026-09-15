@@ -21,17 +21,17 @@ class TeleopBodyAction(ActionTerm):
                 "wheel_left_behind_joint", "wheel_right_behind_joint"], preserve_order=True)
         else:
             # S56 is fixed at its torso and has no telescopic/wheel body axes.
-            # Preserve the six-channel teleop schema; its final three commands
+            # Preserve the seven-channel teleop schema; its final four commands
             # are held at zero while planar root preview remains available.
             self._joint_ids = []
             self._wheel_ids = []
         angles = torch.tensor([.785398163, -.785398163, 2.356194372, -2.356194372], device=self.device)
         self._wheel_tangents = torch.stack((angles.sin(), -angles.cos()), dim=-1)
-        self._actions = torch.zeros((self.num_envs, 6), device=self.device)
+        self._actions = torch.zeros((self.num_envs, 7), device=self.device)
 
     @property
     def action_dim(self):
-        return 6
+        return 7
 
     @property
     def raw_actions(self):
@@ -44,9 +44,12 @@ class TeleopBodyAction(ActionTerm):
     def process_actions(self, actions):
         self._actions[:] = actions
         self._actions[:, :2].clamp_(-BASE_LINEAR_SPEED_M_S, BASE_LINEAR_SPEED_M_S)
+        # Match the mapper's vector cap, including direct diagonal commands.
+        speed = self._actions[:, :2].norm(dim=-1, keepdim=True)
+        self._actions[:, :2] /= (speed / BASE_LINEAR_SPEED_M_S).clamp_min(1.0)
         self._actions[:, 2].clamp_(-BASE_YAW_SPEED_RAD_S, BASE_YAW_SPEED_RAD_S)
         if self._has_wheel_base:
-            limits = self._asset.data.soft_joint_pos_limits[:, self._joint_ids[:3]]
+            limits = self._asset.data.soft_joint_pos_limits[:, self._joint_ids]
             self._actions[:, 3:] = torch.clamp(
                 self._actions[:, 3:], limits[..., 0], limits[..., 1]
             )
@@ -55,8 +58,7 @@ class TeleopBodyAction(ActionTerm):
 
     def apply_actions(self):
         if self._has_wheel_base:
-            torso = torch.cat((self._actions[:, 3:], torch.zeros_like(self._actions[:, :1])), -1)
-            self._asset.set_joint_position_target(torso, joint_ids=self._joint_ids)
+            self._asset.set_joint_position_target(self._actions[:, 3:], joint_ids=self._joint_ids)
             # The model has four radial omni wheels (r=0.13035 m, offset=0.32879 m).
             # Synchronize wheel spin with the fixed-root planar drive. This remains
             # a kinematic simulation base, not contact-driven wheel locomotion.

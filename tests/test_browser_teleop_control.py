@@ -10,7 +10,8 @@ from kuavo_isaaclab_scene.teleop.browser_teleop_bridge import (
 from kuavo_isaaclab_scene.teleop.browser_teleop_control import browser_body_action, compose_browser_action
 from kuavo_isaaclab_scene.core.paths import ASSET_DIR
 from kuavo_isaaclab_scene.teleop.teleop_body import (
-    BASE_YAW_SPEED_RAD_S, TORSO_HEIGHT_SPEED_M_S, TeleopBodyMapper,
+    BASE_LINEAR_SPEED_M_S, BASE_YAW_SPEED_RAD_S,
+    TORSO_HEIGHT_SPEED_M_S, TORSO_HEIGHT_ACCEL_M_S2, TeleopBodyMapper,
 )
 from kuavo_isaaclab_scene.teleop.teleop_safety import TrackingLossGuard
 
@@ -73,7 +74,7 @@ def test_controller_values_are_clamped():
 def test_browser_base_direction(left, right, axis, sign):
     command = browser_body_action(sample(left=left, right=right), mapper(), 1 / 30, control_allowed=True)
     assert np.sign(command[axis]) == sign
-    assert np.linalg.norm(command[:2]) <= .750001
+    assert np.linalg.norm(command[:2]) <= BASE_LINEAR_SPEED_M_S + 1e-6
     assert abs(command[2]) <= BASE_YAW_SPEED_RAD_S + 1e-6
 
 
@@ -81,7 +82,8 @@ def test_browser_lift_lower_pause_and_missing_controller():
     body = mapper()
     for _ in range(20):
         raised = browser_body_action(sample(right=(0, -1)), body, 1 / 30, control_allowed=True)
-    reached_height = min(20 * (1 / 30) * TORSO_HEIGHT_SPEED_M_S, .40)
+    reached_height = sum(min(i / 30 * TORSO_HEIGHT_ACCEL_M_S2, TORSO_HEIGHT_SPEED_M_S) / 30
+                         for i in range(1, 21))
     assert body.height == pytest.approx(reached_height)
     assert abs(raised[3:].sum()) < 1e-6
     lost = replace(sample(left=(0, -1), right=(1, -1)), left_controller=None)
@@ -92,7 +94,9 @@ def test_browser_lift_lower_pause_and_missing_controller():
     np.testing.assert_allclose(paused, stopped)
     for _ in range(10):
         browser_body_action(sample(right=(0, 1)), body, 1 / 30, control_allowed=True)
-    assert body.height == pytest.approx(max(reached_height - 10 * (1 / 30) * TORSO_HEIGHT_SPEED_M_S, 0.0))
+    lowered = sum(min(i / 30 * TORSO_HEIGHT_ACCEL_M_S2, TORSO_HEIGHT_SPEED_M_S) / 30
+                  for i in range(1, 11))
+    assert body.height == pytest.approx(max(reached_height - lowered, 0.0))
 
 
 def test_stale_bridge_removes_controller_inputs_and_recovery_stops_base():
@@ -111,11 +115,11 @@ def test_stale_bridge_removes_controller_inputs_and_recovery_stops_base():
 def test_browser_action_has_body_channels_even_without_tracking(grippers):
     body = browser_body_action(BrowserTeleopBridge().latest(), mapper(), .1, control_allowed=False)
     action = compose_browser_action(np.arange(14), grippers, body)
-    assert action.shape == (20 + len(grippers),)
+    assert action.shape == (21 + len(grippers),)
     assert action.dtype == np.float32
     np.testing.assert_array_equal(action[:14], np.arange(14))
     np.testing.assert_array_equal(action[14:14 + len(grippers)], grippers)
-    np.testing.assert_array_equal(action[-6:], 0)
+    np.testing.assert_array_equal(action[-7:], 0)
 
 
 def test_old_browser_client_and_hand_mode_keep_body_stationary():

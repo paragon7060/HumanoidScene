@@ -12,6 +12,7 @@ type ControllerPacket = {
   grip: PoseArray;
   thumbstick: [number, number]; // WebXR: +X right, +Y down
   trigger: number;
+  squeeze: number;
 };
 
 type TrackingPacket = {
@@ -69,11 +70,13 @@ export function trackedController(
     return Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
   };
   const trigger = gamepad.buttons[0]?.value ?? 0;
+  const squeeze = gamepad.buttons[1]?.value ?? 0;
   return {
     grip,
     // xr-standard axes 0/1 are the touchpad, 2/3 are the thumbstick.
     thumbstick: [axis(2), axis(3)],
     trigger: Number.isFinite(trigger) ? Math.max(0, Math.min(1, trigger)) : 0,
+    squeeze: Number.isFinite(squeeze) ? Math.max(0, Math.min(1, squeeze)) : 0,
   };
 }
 

@@ -385,7 +385,7 @@ from .teleop_body import BODY_ACTION_NAMES, TeleopBodyMapper, controller_axis
 from .teleop_servo import arm_response_profile
 from .urdf_arm_ik import UrdfArm
 from .teleop_hand_mode import (HandModeSwitch, HandCommands, HandGripper, HandTrackingGuard,
-                               hand_packet, controller_squeeze, LongPress)
+                               hand_packet, LongPress)
 from .teleop_scene import configure_scene_detail
 from ..recording.teleop_lerobot_recorder import LeRobotTeleopRecorder
 from ..recording.teleop_recorder import TeleopHdf5EpisodeRecorder, TeleopRecorderGroup
@@ -827,8 +827,11 @@ def main() -> None:
     print("[CONTROL] Quest START/STOP/RESET or desktop P=start/stop, R=reset, M=finish as success.")
     print("[CONTROL] C=recenter/calibrate, T=motion preview without recording, H=camera overlay on/off.")
     print("[CONTROL] Quest controllers: X=calibrate, A=motion start/stop, B=record start/stop, Y=panels on/off.")
-    print("[CONTROL] Left stick=base forward/strafe; right stick=base turn/body lift; left squeeze=hold free view. "
+    print("[CONTROL] Left stick=base forward/strafe; right stick=base turn/body lift; "
+          "right squeeze+stick=torso forward/back and waist yaw; left squeeze=hold free view. "
           "Release squeeze to return to robot head. Index triggers: released=open, pressed=close.")
+    print("[CONTROL] Using right squeeze+stick suppresses success/mode-switch holds until squeeze release. "
+          "Body action includes waist_yaw_joint; use a new dataset path for the updated action schema.")
     print("[CONTROL] Arm motion is paused until P starts recording or T enables motion preview.")
     if control_status is not None:
         print("[INFO] VR HUD (top-left, head-locked) shows REC ON/WAIT/OFF and saved-episode count live.")
@@ -959,7 +962,7 @@ def main() -> None:
             head_pose = raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD)
             now = time.monotonic()
             if not args_cli.hand_switch and active_mode == "controllers" and not mode_switch.pending:
-                if success_hold.update(now, controller_squeeze(right_controller)):
+                if success_hold.update(now, body_mapper.gesture_squeeze(right_controller)):
                     requests["success"] = True
                     print("[BUTTON] Right squeeze hold: success, ready for next episode.", flush=True)
             if args_cli.hand_switch:
@@ -967,7 +970,7 @@ def main() -> None:
                 switch_right = xr_device.switch_controller_packet("right")
                 left_controller, right_controller = switch_left, switch_right
                 mode_event = mode_switch.update(
-                    now, controller_squeeze(switch_right),
+                    now, body_mapper.gesture_squeeze(switch_right),
                     hands_ready=(hand_packet(left_hand) is not None and hand_packet(right_hand) is not None
                                  and switch_left is None and switch_right is None),
                     controllers_ready=switch_left is not None and switch_right is not None,
@@ -1365,6 +1368,7 @@ def main() -> None:
                           f"{controller_axis(right_controller, 1):.2f}; enabled="
                           f"{(recorder.recording or preview_enabled) and not free_view}; "
                           f"base yaw rate={body_action[2]:.2f} rad/s; height goal={body_mapper.height:.3f} m; "
+                          f"torso forward={body_mapper.forward:.3f} m; waist yaw={body_mapper.joints[3]:.3f} rad; "
                           f"joint goal={np.round(body_action[3:], 3).tolist()}; "
                           f"actual={np.round(actual_body, 3).tolist()}", flush=True)
                 last_ee_positions = positions.copy()

@@ -396,8 +396,18 @@ scaled/맨손은 이 옵션의 영향을 받지 않는다. X 재보정 시 임�
 30Hz이면 제어의 시뮬레이션 시간도 벽시계보다 느리게 진행되므로 `--control-hz 30`으로 비교할 수 있다.
 30/60Hz 모두 단위 테스트 대상이지만 실제 loop 속도 보장은 아니다.
 
-스틱은 A/B로 따라오기를 켠 상태에서 작동한다. 최대 베이스 속도 0.75m/s,
-베이스 yaw 최대 3.6rad/s(약 206°/s, 누적 회전 제한 없음), 몸통 높이는 초기 대비 0~+40cm·최대 0.36m/s다.
+오른쪽 아래 그립(squeeze)을 누른 동안 오른쪽 스틱의 상하는 몸통 전후 이동,
+좌우는 허리 yaw 회전이다. 베이스 회전·높이 승강은 그립을 놓으면 다시 사용한다.
+그립과 스틱을 함께 사용한 뒤에는 그립을 놓을 때까지 성공 종료·맨손 전환 long-press를 억제한다.
+그립을 누르고 스틱을 오래 중앙에 두면 기존 long-press 단축키가 먼저 실행될 수 있다.
+몸통 action 마지막에 `waist_yaw_joint` 채널을 추가하므로 이전 데이터셋과 schema가 다르다.
+실행 및 브라우저 갱신 방법은 [베이스·허리 가이드](QUEST_BODY_CONTROL.md)를 참고한다.
+
+스틱은 A/B로 따라오기를 켠 상태에서 작동한다. 최대 베이스 속도 0.15m/s,
+베이스 yaw 최대 0.45rad/s(약 26°/s, 누적 회전 제한 없음), 몸통 높이는 초기 대비 0~+40cm·최대 0.10m/s다.
+전후·좌우 가속도는 0.25m/s², 회전은 0.75rad/s², 승강은 0.20m/s²로 제한한다.
+스틱 해제는 점진적으로 감속하고, 추적 손실/A 정지는 즉시 목표 속도를 0으로 만든다.
+모든 컨트롤러 매핑과 브라우저 미리보기에 공통이며 [베이스·허리 가이드](QUEST_BODY_CONTROL.md)에 상세히 정리했다.
 높이는 knee/leg/waist pitch를 함께 제어해 몸통을 세운 채 조절한다.
 S200062 초기 자세는 높이 하한이므로 초기 상태의 아래 입력은 움직이지 않는다. 위로 올린 뒤 아래로 내린다.
 `[BODY]`에서 오른쪽 stick, enabled, 목표와 실제 관절값을 비교한다.
@@ -711,7 +721,7 @@ observation.pinch_distance            [T, 2]
 observation.tracking_valid            [T, 3]
 observation.box_root_pose             [T, number_of_boxes * 7]
 observation.button_joint_position     [T, number_of_button_joints]
-action                                [T, 24] (arms 14 + head 2 + grippers 2 + body 6)
+action                                [T, 25] (arms 14 + head 2 + grippers 2 + body 7)
 next.done / next.success              [T, 1]
 task                                  natural-language task
 ```
@@ -739,7 +749,7 @@ PY
 /data/demo_00000
   attrs: success, end_reason, num_samples, joint_names, ...
   /samples
-    action                         [T, 24] (default)
+    action                         [T, 25] (default scaled/absolute, including waist yaw)
     robot_joint_position           [T, 28] (S200062)
     robot_joint_velocity           [T, 28] (S200062)
     robot_root_pose_w              [T, 7]
@@ -817,6 +827,8 @@ gripper mount JSON을 사용하지 않는다.
 입력 축은 [OpenXR 규격](https://registry.khronos.org/OpenXR/specs/1.0-khr/html/xrspec.html#input-suggested-bindings)에 따라 +Y가 스틱 위쪽이다. WebXR Gamepad 원시 축 부호와 혼동하지 않는다.
 
 ### 2026-09-01 팔·방향·베이스 회귀 검증 (손 충돌체 보완 전)
+
+아래는 당시 설정의 과거 결과다. 2026-09-09 베이스·허리 속도 변경은 실행 검증하지 않았다.
 
 30Hz 제어/120Hz 물리, S200062, CPU 물리, compact 환경에서 검증했다.
 실제 HMD 센서 노이즈나 네트워크 지연 측정과는 구분한다.

@@ -65,7 +65,7 @@ compact 환경, 손목 카메라 OFF, depth OFF**다. 30Hz는 설정값이며 �
 재인식만으로 자동 재개하지 않는다. 손목/손가락 추적이 유효한지 확인하고 명시적으로 다시 시작한다.
 
 맨손만 시작하려면 `--input-mode hands`를 사용한다. 컨트롤러로 복귀하려면 이 실행에도
-`--hand-switch`가 필요하다. 전환은 같은 24-D action 구조를 유지하며, 파일별 `input_mode`와
+`--hand-switch`가 필요하다. 전환은 같은 25-D action 구조를 유지하며, 파일별 `input_mode`와
 매핑 metadata로 입력 종류를 구분한다(그리퍼 제외 옵션은 기존처럼 차원 수가 달라진다).
 손 추적에서는 현재 유효·추적 플래그가 있는 관절만 쓰고 controller 유래 손 골격은 제외한다.
 HDF5에는 누락 관절을 NaN으로, `hand_joint_valid`와 `hand_command_active`를 별도로 기록한다.
@@ -315,7 +315,9 @@ openssl x509 -in "$CLOUDXR_CERTIFICATE" -noout -dates -fingerprint -sha256
 
 ### 현재 조작·성능 기본값
 
-왼쪽 스틱은 베이스 전후/좌우 이동, 오른쪽 스틱은 베이스 yaw(최대 3.6rad/s)/몸통 높이 조절이다.
+왼쪽 스틱은 베이스 전후/좌우 이동(최대 0.15m/s), 오른쪽 스틱은 베이스 yaw(최대 0.45rad/s)/몸통 높이(최대 0.10m/s) 조절이다.
+오른쪽 아래 그립을 누르면 오른쪽 스틱 상하=몸통 전후, 좌우=허리 yaw로 전환된다.
+모두 가속·감속 제한이 적용되며 [베이스·허리 가이드](QUEST_BODY_CONTROL.md)를 참고한다.
 A/B로 따라오기를 켠 뒤 사용한다. 베이스는 simulation fixed-root 이동·회전이며 바퀴 회전을 동기화한다. 접촉력 기반 주행은 아니다.
 시점은 robot head에 붙으며 왼쪽 아래 그립을 누르는 동안 room-scale 자유 시점이다.
 자유 시점에서는 새 팔·몸통 명령을 멈추고 기존 팔 목표를 유지한다.
