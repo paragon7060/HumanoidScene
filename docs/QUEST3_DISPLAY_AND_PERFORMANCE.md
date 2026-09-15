@@ -123,6 +123,28 @@ panel만 끄므로 sensor render 비용까지 제거하는 옵션은 아니다.
 `--rl-grasp-markers`를 넣을 때만 생성한다. Reward HUD는 기본 ON이고 10 Hz로
 갱신한다. 완전히 끄려면 `--no-rl-reward-hud`를 사용한다.
 
+RL Debug의 grasp/contact/collision **판정**은 marker나 overlay와 별개다. 이 판정은
+실제 reward·성공·실패 조건이므로 `--rl-reward-debug`에서 항상 계산하고, 일반 teleop
+수집 환경에는 해당 RL contact sensor와 reward manager를 생성하지 않는다. 일반 수집의
+`--self-collision`은 로봇 자체 충돌을 막는 별도 안전 장치다.
+
+RTX 3060, CUDA physics, 60 control step(20 step warm-up), OpenXR/CloudXR 미연결 조건의
+병목 비교는 다음과 같았다. 절대 Hz는 headset 실행값이 아니며 상대 비용 판단용이다.
+
+| 조건 | ms/control step | 판단 |
+|---|---:|---|
+| RTX renderer, camera sensor 없음, rollers ON | 371.1 | 동일 renderer 기준 |
+| wrist RGB 240×180 두 개, rollers ON | 386.8 | sensor 두 개가 약 15.7 ms 추가 |
+| wrist 160×120 또는 15 Hz | 385.2 / 387.4 | 유의미한 개선 없음 |
+| wrist DLSS / FXAA | 386.8 / 387.5 | 차이 없음 |
+| wrist, shadows ON / OFF | 386.8 / 386.8 | 차이 없음 |
+| RL reward core, rollers OFF | 206.5 | headless physics/reward 기준 |
+| RL reward core, rollers ON | 443.9 | roller와 contact filter가 지배적 |
+
+따라서 기본 Quest 해상도나 wrist 화질을 먼저 낮추는 것은 권장하지 않는다. 다음
+개선 우선순위는 roller rigid-body/joint 수 축소, RL obstacle contact filter 구조 개선,
+실제 Quest 연결 상태에서 GPU-native wrist overlay와 UI on-demand redraw 측정이다.
+
 카메라 feature 구성을 바꾸면 기존 LeRobot dataset에 이어 쓰지 말고 새 dataset
 root를 사용한다.
 

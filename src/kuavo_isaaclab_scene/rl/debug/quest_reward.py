@@ -166,6 +166,8 @@ def run(args, app):
               + f", arm_response={args.arm_response}", flush=True)
         print(f"[RL REWARD] RL control rate={1/env.step_dt:g} Hz (collector --control-hz ignored); "
               f"RL drives/initial pose/rewards/terminations unchanged. Display cameras={args.enable_cameras}.", flush=True)
+        print("[RL REWARD] core checks: grasp/contact/collision=ON for reward fidelity; "
+              "their 3D markers/overlay remain opt-in.", flush=True)
         print(f"[RL REWARD] display: desktop={'full' if args.desktop_render else 'minimal 160x90'}, "
               f"wrist_overlay={args.quest_camera_overlay}, reward_hud={args.rl_reward_hud}, "
               f"collision_overlay={args.rl_collision_view}, grasp_markers={args.rl_grasp_markers}.", flush=True)

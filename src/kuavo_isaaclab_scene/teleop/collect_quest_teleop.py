@@ -252,6 +252,10 @@ if args_cli.rl_reward_debug is not None and args_cli.rl_reward_debug not in (0, 
     parser.error("--rl-reward-debug takes no value, 0, or 1.")
 if args_cli.rl_config is not None and args_cli.rl_reward_debug is None:
     parser.error("--rl-config requires --rl-reward-debug.")
+if args_cli.rl_reward_debug is None and (
+    args_cli.rl_collision_view or args_cli.rl_grasp_markers or args_cli.rl_grasp_calibration
+):
+    parser.error("--rl-collision-view, --rl-grasp-markers, and --rl-grasp-calibration require --rl-reward-debug.")
 if args_cli.rl_reward_debug is not None:
     if (args_cli.input_mode != "controllers" or args_cli.hand_switch
             or args_cli.controller_mapping not in {"scaled", "absolute"}):
