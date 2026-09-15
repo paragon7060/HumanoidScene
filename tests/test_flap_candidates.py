@@ -49,6 +49,7 @@ def state(monkeypatch):
     geom = NS(center=(0., 0., 0.), half_size=(.002, .1, .055))
     t = NS(spec=spec, boxes=boxes, num_envs=2, n=2, device="cpu", ids=torch.arange(2),
            active_box=torch.tensor([0, 1]), tools=tools,
+           endeffector_center=NS(definition=None),
            robot=NS(find_bodies=lambda *a, **kw: ([0, 1, 2, 3], []), data=NS(body_link_pos_w=fingers)),
            cfg=NS(geometry={name: NS(flaps={f: geom for f in spec.grasp_flaps}) for name in spec.box_names}),
            _env=NS(scene=scene, common_step_counter=0, step_dt=1/30))

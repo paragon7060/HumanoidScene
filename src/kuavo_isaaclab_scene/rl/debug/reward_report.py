@@ -44,6 +44,8 @@ FAILURE_LABELS = {
 
 def reward_summary(sample, status):
     """Large, fixed-size header derived from the retained PRE-reset snapshot."""
+    if status.startswith("JOINT LIMIT"):
+        return "ROBOT JOINT LIMIT", ["Physics paused; press B/R to reset"]
     if sample is None:
         return "READY - PRESS A", ["No physics sample yet"]
     reasons = sample.get("failure_reasons", [])

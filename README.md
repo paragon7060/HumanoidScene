@@ -13,6 +13,8 @@ Kuavo humanoid가 경사진 랙의 열린 박스를 컨베이어의 빈 공간�
 - GR00T N1.5/N1.7 online/offline evaluation와 headless MP4 기록
 
 기본 로봇은 내장 2-finger gripper와 양쪽 D405가 있는 `s200062`이다.
+모든 모델의 몸통과 양팔에 공통 중력 보상을 기본 적용한다. Leju claw 패키지는 D405를 포함해 한쪽당 1 kg이다.
+S63 PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 설정](docs/S63_GRAVITY_COMPENSATION.md).
 `--robot-model s63`과 `--robot-model s56`도 선택할 수 있다. S56은
 `--gripper s56_qiangnao` 또는 S200062 hand/D405를 이식한
 `--gripper s56_twofinger`를 고를 수 있다. `--gripper none`은 손 geometry가

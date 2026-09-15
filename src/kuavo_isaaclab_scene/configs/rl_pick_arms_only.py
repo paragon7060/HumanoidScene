@@ -3,9 +3,12 @@
 from dataclasses import replace
 import math
 
-# This experiment always restores this measured robot root + 36 joint pose.
-# Change this name deliberately when starting a new initial-pose experiment.
-INITIAL_STATE = "quest_ready_02"
+from kuavo_isaaclab_scene.robots.robot_model import resolve_robot_model
+
+# Keep model-specific prepared poses separate from the measured S200062 state.
+INITIAL_STATE = {"leju-twofinger": "s63_leju_ready_01",
+                 "s56_twofinger": "s56_twofinger_ready_01"}.get(
+                     resolve_robot_model().integrated_gripper_preset, "quest_ready_02")
 
 
 def configure_task(spec):
@@ -50,6 +53,17 @@ def configure_task(spec):
 
 
 def configure(env_cfg, agent_cfg):
+    if (env_cfg.task.control_mode == "whole-body"
+            and not getattr(getattr(env_cfg.scene.robot, "class_type", None),
+                            "gravity_compensation_enabled", False)):
+        # Released torso joints must support the upper body's gravity load.
+        # The arms-only experiment instead locks these joints physically.
+        actuators = env_cfg.scene.robot.actuators
+        if "height_axis" in actuators:
+            actuators["height_axis"].stiffness = 8000.0
+            actuators["height_axis"].damping = 200.0
+        actuators["upper_body"].stiffness = 800.0
+        actuators["upper_body"].damping = 50.0
     # At 30 Hz, disturbance contributes at worst -0.25/30 per step.
     env_cfg.rewards.prelift_disturbance.weight = -0.25
     # Signed alignment improvement only within 10 cm and before grasp acquisition.

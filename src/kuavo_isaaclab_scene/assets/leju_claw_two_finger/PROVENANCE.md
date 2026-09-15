@@ -12,9 +12,12 @@ their origins are the respective twofinger_base, not the robot root or EEF.
 Meshes and visual colors are copied without recoloring or shape changes.
 config.json records source-URDF and mesh SHA-256 hashes and donor mount poses.
 
-Masses, COMs and diagonal inertias are copied from the project's simulation
-estimates, NOT manufacturer calibration. Mass is 0.740 kg per extracted hand
-including its D405 branch, excluding the three robot-side EEF helper frames.
+COMs and relative mass distributions come from the project's simulation
+estimates, NOT manufacturer calibration. At the user's request each extracted
+hand is 1.000 kg including its D405 branch, excluding the three robot-side EEF
+helper frames. All link masses and diagonal inertias are scaled together from
+the original 0.740 kg estimate; COMs, geometry and the donor asset are unchanged.
+The extraction/build script defaults to 1 kg per hand.
 The closed-loop anchors and bar_4 correction reuse robots/twofinger_linkage.py.
 Only bar_1 is driven; bar_3/bar_4 are passive. The URDF alone is a tree and
 does not encode the loop-closing hinges; finalized USDs include two physical

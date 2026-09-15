@@ -40,7 +40,7 @@ def main():
     parser.add_argument("paths", nargs="*", type=Path)
     parser.add_argument("--check", action="store_true", help="Validate existing assets without writing")
     parser.add_argument("--sides", choices=("l", "r", "lr"), default="lr")
-    parser.add_argument("--claw-config", type=Path, help="Bake independent-claw contact settings from config.json")
+    parser.add_argument("--claw-config", type=Path, help="Bake independent-claw contacts and inertials from config.json")
     args = parser.parse_args()
     paths = args.paths or [ASSET_DIR / model / "usd" / f"{model}_fixed.usd"
                           for model in ("kuavo_s200062", "kuavo_s56_twofinger")]

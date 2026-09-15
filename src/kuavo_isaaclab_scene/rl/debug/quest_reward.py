@@ -1,8 +1,11 @@
 """Optional branch of the existing Quest collector; real RL rewards, no dataset writer."""
 
 from argparse import Namespace
+import logging
 from pathlib import Path
+import sys
 import time
+import traceback
 
 import numpy as np
 import torch
@@ -16,6 +19,7 @@ from ...core.paths import CONFIG_DIR
 from ...display.xr_reward_panel import QuestRewardPanel
 from ...robots.robot_model import resolve_robot_model
 from ...teleop.quest_openxr import RawQuestOpenXRDevice, start_quest_xr_session
+from ...teleop.urdf_arm_ik import ArmJointLimitError
 from ...workcell.rack_rollers import resolve_rack_roller_settings
 from ..runners.common import build_configs
 from .contact_rate import configure_obstacle_contact_rate, configure_realtime_reward_debug
@@ -184,11 +188,8 @@ def run(args, app):
               "3D markers/overlay remain opt-in.", flush=True)
         realtime = not resolve_rack_roller_settings().enabled and args.rl_obstacle_contact_hz is None
         if realtime:
-            print("[RL REWARD] realtime rollerless profile: physics/control=30 Hz, solver=8/2, "
+            print("[RL REWARD] realtime rollerless profile: physics=120 Hz, control=30 Hz, RL solver retained, "
                   "grasp=30 Hz, aggregate collision=30 Hz, reward=30 Hz, policy observations=OFF.", flush=True)
-            if args.device != "cpu":
-                print("[RL REWARD] WARNING: use --device cpu for the measured 20 Hz path; "
-                      f"{args.device} is slower for this single environment.", flush=True)
         else:
             obstacle_contact_hz = args.rl_obstacle_contact_hz or 30
             print(f"[RL REWARD] fidelity profile: physics/grasp=120 Hz, obstacle={obstacle_contact_hz} Hz, "
@@ -279,7 +280,20 @@ def run(args, app):
                 settled = t.settling is None or bool(t.settling.ready[0].item())
                 with torch.no_grad():
                     if settled:
-                        action = control.action(packets)
+                        try:
+                            action = control.action(packets)
+                        except ArmJointLimitError as exc:
+                            # Keep the invalid physical state visible for diagnosis;
+                            # do not run physics or IK again until an explicit reset.
+                            running, terminal = False, True
+                            status = "JOINT LIMIT - press B/R to reset"
+                            logging.getLogger(__name__).warning("Quest control paused: %s", exc)
+                            print(f"[RL CONTROL] {status}: {exc}", flush=True)
+                            if hud is not None:
+                                hud.set_visible(True)
+                            last_hud = 0.
+                            env.sim.render()
+                            continue
                         status = "RUN"
                     else:
                         action = torch.zeros((1, env.action_manager.total_action_dim), device=env.device)
@@ -346,6 +360,13 @@ def run(args, app):
                 perf_started, perf_loops, perf_steps = now, 0, 0
     except KeyboardInterrupt:
         pass
+    except Exception:
+        # Kit shutdown may terminate Python before an uncaught traceback is
+        # printed. Persist the original failure before releasing the app.
+        logging.getLogger(__name__).exception("RL reward debug failed; closing the simulator")
+        traceback.print_exc()
+        sys.stderr.flush()
+        raise
     finally:
         if collision_view is not None:
             collision_view.close()

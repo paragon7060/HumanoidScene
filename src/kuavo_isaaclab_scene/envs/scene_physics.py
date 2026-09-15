@@ -1,6 +1,6 @@
 """Shared asset physics for standalone, manager-based and Quest scenes.
 
-Input devices, servo gains and kinematic base control remain environment-specific.
+Input devices and kinematic base control remain environment-specific.
 """
 
 from .contact_physics import spawn_contact_box
@@ -41,8 +41,13 @@ def build_contact_box_spawn(usd_path, scale):
 
 
 def configure_robot_asset_physics(cfg, model, gripper_settings):
-    """Apply hand contacts/inertials without changing wheel contacts or arm control."""
+    """Apply shared robot gravity compensation and hand contacts/inertials."""
     from ..robots.twofinger_linkage import TWO_FINGER_PRESETS, initial_passive_positions
+    from ..robots.gravity_compensation import configure_gravity_compensation
+
+    # Select the writer before any model/gripper-specific early return. This
+    # also covers bare wrists and external grippers in standalone/Quest scenes.
+    configure_gravity_compensation(cfg, model)
 
     if model.name == "s200062" or gripper_settings.name in TWO_FINGER_PRESETS:
         from isaaclab.actuators import ImplicitActuatorCfg

@@ -14,7 +14,10 @@ wheel 패키지에도 기존 `assets/**/*` 규칙으로 포함된다.
 손마다 두 jaw의 four-bar closure hinge가 USD에 추가되어 있다.
 bar_1 두 개만 구동하며 bar_3/4는 passive이고 reset 때 폐루프 해로 초기화한다.
 URDF만 import하면 closure가 없으므로 반드시 USD finalization이 필요하다.
-색·형상은 원본 그대로이고, 0.740 kg/hand 관성은 기존 프로젝트의 추정값이다.
+색·형상은 원본 그대로이고, 각 손 패키지는 D405를 포함해 **1.000 kg**이다.
+기존 0.740 kg 추정 모델의 링크별 질량 비율과 CoM을 유지하며 질량과 관성을
+동일 비율로 조정했다. 실측 관성값은 아니며 S200062 원본 손 질량은 변경하지 않는다.
+URDF·USD와 runtime spawn에 같은 값을 적용하며, 반복 적용해도 질량이 누적되지 않는다.
 
 기존 S200062와 S56 실행 경로는 그대로 유지한다.
 `--robot-model s63 --gripper leju-twofinger`는 양손 claw를 합친 별도 S63 variant를

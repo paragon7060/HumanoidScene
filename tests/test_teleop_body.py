@@ -45,12 +45,13 @@ def test_deadzone_loss_and_pause_stop_base_and_hold_waist():
     np.testing.assert_allclose(lost, paused)
 
 
-def test_reset_synchronizes_nonzero_torso_without_neutral_stick_jump():
+@pytest.mark.parametrize("initial", [[.272, -.580, .329], [.272, -.580, .329, .25]])
+def test_reset_synchronizes_nonzero_torso_without_neutral_stick_jump(initial):
     m = mapper()
-    initial = np.array([.272, -.580, .329])
     m.reset(initial)
     command = m.advance(packet(), packet(), 1/30, enabled=True)
-    np.testing.assert_allclose(command[3:], initial)
+    expected = [*initial, 0.] if len(initial) == 3 else initial
+    np.testing.assert_allclose(command[3:], expected)
 
 
 def test_s56_fixed_biped_keeps_height_channels_zero():

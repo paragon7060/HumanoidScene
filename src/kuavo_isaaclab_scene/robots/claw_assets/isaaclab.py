@@ -1,6 +1,20 @@
 """Independent-hand ArticulationCfg; import only after AppLauncher starts Kit."""
 
 from .package import load_claw_asset
+from isaaclab.sim.utils import clone
+
+
+@clone
+def spawn_claw(prim_path, cfg, translation=None, orientation=None, **kwargs):
+    """Use the same authoritative claw physics in standalone and robot scenes."""
+    from isaaclab.sim.spawners.from_files import spawn_from_usd
+    from .usd import author_claw_contact
+    from .package import CLAW_ASSET_DIR
+
+    root = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
+    side = "left" if root.GetChild("l_twofinger_base") else "right"
+    author_claw_contact(root.GetStage(), CLAW_ASSET_DIR / "config.json", side=side, root=root)
+    return root
 
 
 def make_claw_cfg(side: str, prim_path: str, *, fix_base: bool = True,
@@ -16,6 +30,7 @@ def make_claw_cfg(side: str, prim_path: str, *, fix_base: bool = True,
     return ArticulationCfg(
         prim_path=prim_path,
         spawn=sim_utils.UsdFileCfg(
+            func=spawn_claw,
             usd_path=str(asset.usd_path),
             articulation_props=sim_utils.ArticulationRootPropertiesCfg(
                 fix_root_link=fix_base, enabled_self_collisions=False,

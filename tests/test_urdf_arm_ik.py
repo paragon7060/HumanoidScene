@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from kuavo_isaaclab_scene.robots.robot_model import resolve_robot_model
-from kuavo_isaaclab_scene.teleop.urdf_arm_ik import UrdfArm, box_qp, rotation_error
+from kuavo_isaaclab_scene.teleop.urdf_arm_ik import ArmJointLimitError, UrdfArm, box_qp, rotation_error
 from kuavo_isaaclab_scene.teleop.teleop_servo import RESPONSIVE
 
 
@@ -31,6 +31,21 @@ def test_box_qp_resolves_other_joints_when_one_saturates():
     b = j.T @ np.array([1.])
     x = box_qp(h, b, np.array([0., -2.]), np.array([0., 2.]))
     np.testing.assert_allclose(x, [0., 1 / 1.001], atol=1e-6)
+
+
+def test_live_joint_excursion_reports_joint_and_bounds():
+    arm = UrdfArm(resolve_robot_model("s200062").urdf_path, "left")
+    q = arm.ready_pose()
+    p, r, _, _ = arm.fk(q)
+    q[-1] = arm.upper[-1] + .03
+    with pytest.raises(ArmJointLimitError, match=r"left.*zarm_l7_joint=.*limits="):
+        arm.step(q, p, r, q, np.zeros(7), 1 / 30, RESPONSIVE)
+    # An incompatible model limit must still fail rather than enter the
+    # recoverable physical-excursion path.
+    lower = arm.upper + .1
+    with pytest.raises(ValueError) as error:
+        arm.step(q, p, r, q, np.zeros(7), 1 / 30, RESPONSIVE, lower=lower)
+    assert not isinstance(error.value, ArmJointLimitError)
 
 
 @pytest.mark.parametrize("bad", ["position", "rotation", "axis", "limits", "nan"])

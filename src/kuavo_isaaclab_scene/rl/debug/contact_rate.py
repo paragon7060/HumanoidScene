@@ -20,10 +20,10 @@ def configure_obstacle_contact_rate(scene, hz: int) -> int:
 
 
 def configure_realtime_reward_debug(cfg) -> int:
-    """Build the rollerless, policy-free 20 Hz inspection configuration."""
-    cfg.sim.dt = 1.0 / 30.0
-    cfg.decimation = 1
-    cfg.sim.render_interval = 1
+    """Skip policy/filtered-contact work while retaining stable RL physics."""
+    cfg.sim.dt = 1.0 / 120.0
+    cfg.decimation = 4
+    cfg.sim.render_interval = 4
     cfg.observations.policy = None
     cfg.recorders.success_states = None
     cfg.commands.workcell.collision_reporting = "aggregate"
@@ -35,8 +35,4 @@ def configure_realtime_reward_debug(cfg) -> int:
             setattr(cfg.scene, name, None)
             removed += 1
 
-    for asset_name in ("robot", *cfg.task.box_names):
-        props = getattr(cfg.scene, asset_name).spawn.articulation_props
-        props.solver_position_iteration_count = 8
-        props.solver_velocity_iteration_count = 2
     return removed

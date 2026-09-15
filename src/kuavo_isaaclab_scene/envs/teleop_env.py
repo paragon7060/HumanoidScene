@@ -159,17 +159,21 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
         self.curriculum = None
         # Stronger simulation servo reduces gravity sag and lag; keep the
         # existing effort cap. These gains are not intended for real hardware.
-        self.scene.robot.actuators["arms"].stiffness = 800.0
-        self.scene.robot.actuators["arms"].damping = 50.0
-        if robot_model.has_wheel_base:
-            self.scene.robot.actuators["height_axis"].stiffness = 8000.0
-            self.scene.robot.actuators["height_axis"].damping = 200.0
-        # Give waist yaw its own servo; head gains remain unchanged.
-        yaw = self.scene.robot.actuators["upper_body"].copy()
-        yaw.joint_names_expr = ["waist_yaw_joint"]
-        yaw.stiffness, yaw.damping = 800.0, 50.0
-        self.scene.robot.actuators["waist_yaw"] = yaw
-        self.scene.robot.actuators["upper_body"].joint_names_expr = ["zhead_.*_joint"]
+        compensated = getattr(self.scene.robot.class_type, "gravity_compensation_enabled", False)
+        if not compensated:
+            self.scene.robot.actuators["arms"].stiffness = 800.0
+            self.scene.robot.actuators["arms"].damping = 50.0
+            if robot_model.has_wheel_base:
+                self.scene.robot.actuators["height_axis"].stiffness = 8000.0
+                self.scene.robot.actuators["height_axis"].damping = 200.0
+        if not compensated:
+            # Keep compensated models' common group intact so per-joint gains
+            # also apply unchanged in teleop. Other models strengthen yaw.
+            yaw = self.scene.robot.actuators["upper_body"].copy()
+            yaw.joint_names_expr = ["waist_yaw_joint"]
+            yaw.stiffness, yaw.damping = 800.0, 50.0
+            self.scene.robot.actuators["waist_yaw"] = yaw
+            self.scene.robot.actuators["upper_body"].joint_names_expr = ["zhead_.*_joint"]
         # A fully extended elbow is singular for upward motion. Start with
         # spare elbow travel while preserving the tool's neutral orientation.
         self.scene.robot.init_state.joint_pos.pop("zarm_.*_joint", None)

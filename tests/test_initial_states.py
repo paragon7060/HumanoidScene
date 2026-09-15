@@ -145,3 +145,20 @@ def test_user_pose_packaged_copy_and_all_36_joints():
     assert ready["gripper"] == "s200062_integrated"
     assert len(ready["assets"]["robot"]["root_pose"]) == 7
     assert len(ready["assets"]["robot"]["joint_positions"]) == 36
+
+
+@pytest.mark.parametrize("name,model,gripper,count,urdf", [
+    ("s63_leju_ready_01", "s63", "leju-twofinger", 20, "kuavo_s63_twofinger/urdf/kuavo_s63_twofinger.urdf"),
+    ("s56_twofinger_ready_01", "s56", "s56_twofinger", 29, "kuavo_s56/urdf/kuavo_s56_twofinger.urdf"),
+])
+def test_prepared_states_are_separate_and_within_their_urdf_limits(name, model, gripper, count, urdf):
+    import xml.etree.ElementTree as ET
+    from kuavo_isaaclab_scene.core.paths import ASSET_DIR
+    state = load_initial_state(name, robot_model=model, gripper=gripper)
+    robot = state["assets"]["robot"]
+    assert "root_pose" not in robot
+    assert len(robot["joint_positions"]) == count
+    limits = {j.get("name"): j.find("limit") for j in ET.parse(
+        ASSET_DIR / urdf).findall("joint")}
+    for joint, q in robot["joint_positions"].items():
+        assert float(limits[joint].get("lower")) <= q <= float(limits[joint].get("upper"))

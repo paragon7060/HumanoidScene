@@ -2,9 +2,7 @@
 
 from dataclasses import replace
 from kuavo_isaaclab_scene.configs.rl_pick_arms_only import configure_task as flap_task
-
-INITIAL_STATE = "quest_ready_02"
-
+from kuavo_isaaclab_scene.configs.rl_pick_arms_only import INITIAL_STATE
 
 def configure_task(spec):
     # Retain the currently approved flap/contact/reward task, but release the

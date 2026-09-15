@@ -47,8 +47,12 @@ class QuestRLControl:
             self.height = env.action_manager.get_term("height") if "height" in self.term_slices else None
             self.body_mapper = TeleopBodyMapper(model.urdf_path, has_wheel_base=model.has_wheel_base)
             self.body_joint_ids = (
-                self.robot.find_joints(BODY_JOINTS[:3], preserve_order=True)[0]
+                self.robot.find_joints(BODY_JOINTS, preserve_order=True)[0]
                 if model.has_wheel_base else []
+            )
+            self.waist_column = (
+                self.upper._joint_ids.index(self.body_joint_ids[3])
+                if self.body_joint_ids else None
             )
         if args.controller_mapping == "absolute":
             self.mapper = AbsoluteControllerMapper(tool_forward_sign=model.tool_forward_sign,
@@ -80,8 +84,13 @@ class QuestRLControl:
             solver.reset()
             solver.hold_current_pose()
         if self.body_mapper is not None:
+            # The RL manager owns the commanded posture. Re-capturing measured
+            # joints on settling/pause/recenter would adopt gravity sag as a
+            # new target even though no body command was given.
             joints = (
-                self.robot.data.joint_pos[0, self.body_joint_ids].detach().cpu().numpy()
+                torch.cat((self.height.processed_actions[0],
+                           self.upper.processed_actions[0, self.waist_column:self.waist_column + 1]))
+                .detach().cpu().numpy()
                 if self.body_joint_ids else None
             )
             self.body_mapper.reset(joints)
@@ -123,6 +132,14 @@ class QuestRLControl:
             action[:, self.term_slices["base"]] = (body[:, :3] / self.base._scale).clamp(-1, 1)
             if self.height is not None:
                 action[:, self.term_slices["height"]] = normalized_delta(
-                    body[:, 3:], self.height.processed_actions, self.height._scale
+                    body[:, 3:6], self.height.processed_actions, self.height._scale
+                )
+            if self.waist_column is not None:
+                column = self.waist_column
+                scale = self.upper._scale
+                if isinstance(scale, torch.Tensor):
+                    scale = scale[:, column:column + 1]
+                action[:, upper_slice.start + column:upper_slice.start + column + 1] = normalized_delta(
+                    body[:, 6:7], self.upper.processed_actions[:, column:column + 1], scale
                 )
         return action

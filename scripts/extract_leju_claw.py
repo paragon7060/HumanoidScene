@@ -8,6 +8,7 @@ import argparse
 from copy import deepcopy
 import hashlib
 import json
+import math
 from pathlib import Path
 import shutil
 import sys
@@ -17,7 +18,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from kuavo_isaaclab_scene.core.paths import ASSET_DIR
 
 
-def extract(donor_dir: Path, output: Path) -> None:
+def extract(donor_dir: Path, output: Path, *, mass_kg: float = 1.0) -> None:
+    if not math.isfinite(mass_kg) or mass_kg <= 0:
+        raise ValueError("Claw package mass must be positive and finite")
     if output.resolve() == donor_dir.resolve() or donor_dir.resolve() in output.resolve().parents:
         raise ValueError("Extraction must not overwrite the donor model")
     source = donor_dir / "urdf/biped_s200062.urdf"
@@ -40,6 +43,8 @@ def extract(donor_dir: Path, output: Path) -> None:
                         changed = True
         if len(links) != 14:
             raise ValueError(f"Unexpected donor topology for {side}: {sorted(links)}")
+        source_mass = sum(estimates["links"][name]["mass_kg"] for name in links)
+        mass_scale = mass_kg / source_mass
         hand = ET.Element("robot", name=f"leju_claw_{side}")
         for node in root:
             if not ((node.tag == "link" and node.get("name") in links)
@@ -48,7 +53,10 @@ def extract(donor_dir: Path, output: Path) -> None:
             node = deepcopy(node)
             if node.tag == "link":
                 name = node.get("name")
-                values = estimates["links"][name]
+                values = deepcopy(estimates["links"][name])
+                values["mass_kg"] *= mass_scale
+                values["diagonal_inertia_kg_m2"] = [
+                    value * mass_scale for value in values["diagonal_inertia_kg_m2"]]
                 selected_estimates[name] = values
                 if node.find("inertial") is not None:
                     raise ValueError(f"Donor now has official inertia for {name}; review estimates")
@@ -84,7 +92,7 @@ def extract(donor_dir: Path, output: Path) -> None:
             "source_mount_rpy_rad": list(map(float, mount.find("origin").get("rpy").split())),
             "camera_body": f"{prefix}_d405_camera",
             "link_names": sorted(links),
-            "total_mass_kg": sum(estimates["links"][name]["mass_kg"] for name in links),
+            "total_mass_kg": mass_kg,
         }
         ET.indent(hand, space="  ")
         (output / "urdf").mkdir(exist_ok=True)
@@ -92,7 +100,11 @@ def extract(donor_dir: Path, output: Path) -> None:
                                    encoding="utf-8", xml_declaration=True)
     def write_json(name, data):
         (output / name).write_text(json.dumps(data, indent=2) + "\n")
-    write_json("inertial_estimates.json", {"description": estimates["description"], "links": selected_estimates})
+    write_json("inertial_estimates.json", {
+        "description": f"Simulation estimates, not manufacturer calibration. Each claw package including "
+                       f"D405 is {mass_kg:g} kg. Donor link mass ratios and CoMs are retained; "
+                       "mass and inertia are scaled together. Host arm/torso inertials are unchanged.",
+        "links": selected_estimates})
     write_json("config.json", {
         "schema_version": 1, "name": "leju_claw_two_finger",
         "source_model": "biped_s200062", "source_urdf_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
@@ -110,5 +122,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--donor-dir", type=Path, default=ASSET_DIR / "kuavo_s200062")
     parser.add_argument("--output", type=Path, default=ASSET_DIR / "leju_claw_two_finger")
+    parser.add_argument("--mass-kg", type=float, default=1.0,
+                        help="Total mass per claw including camera; default 1 kg.")
     args = parser.parse_args()
-    extract(args.donor_dir, args.output)
+    extract(args.donor_dir, args.output, mass_kg=args.mass_kg)

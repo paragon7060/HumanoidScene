@@ -154,9 +154,13 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         # Express gravity feedforward as a small implicit-drive position bias.
         # The existing PhysX drive effort cap still limits the entire torque;
         # no external torque is added on top of that cap.
-        gravity = self._asset.root_physx_view.get_gravity_compensation_forces()[:, self._joint_ids]
-        stiffness = self._asset.data.joint_stiffness[:, self._joint_ids].clamp_min(1.)
-        self._gravity_bias = gravity / stiffness
+        if getattr(self._asset, "gravity_compensation_enabled", False):
+            # The shared articulation writer already compensates both arms.
+            self._gravity_bias = torch.zeros_like(self._joint_command)
+        else:
+            gravity = self._asset.root_physx_view.get_gravity_compensation_forces()[:, self._joint_ids]
+            stiffness = self._asset.data.joint_stiffness[:, self._joint_ids].clamp_min(1.)
+            self._gravity_bias = gravity / stiffness
         if not self._following:
             return
         # Quaternion hemisphere continuity prevents sign flips from becoming

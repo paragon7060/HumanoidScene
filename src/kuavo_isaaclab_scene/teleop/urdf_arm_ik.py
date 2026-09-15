@@ -11,6 +11,10 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 
+class ArmJointLimitError(ValueError):
+    """A validated live arm moved outside its physical/URDF joint bounds."""
+
+
 def skew(v):
     x, y, z = v
     return np.array([[0., -z, y], [z, 0., -x], [-y, x, 0.]])
@@ -210,8 +214,15 @@ class UrdfArm:
         q = np.asarray(q)
         low = self.lower if lower is None else np.maximum(lower, self.lower)
         high = self.upper if upper is None else np.minimum(upper, self.upper)
-        if np.any(low >= high) or np.any(q < low - .02) or np.any(q > high + .02):
+        if np.any(low >= high):
             raise ValueError("Live arm angles/limits do not match the URDF")
+        outside = (q < low - .02) | (q > high + .02)
+        if np.any(outside):
+            details = "; ".join(
+                f"{self.names[i]}={q[i]:.4f} rad, limits=[{low[i]:.4f}, {high[i]:.4f}]"
+                for i in np.flatnonzero(outside)
+            )
+            raise ArmJointLimitError(f"Live arm angles/limits do not match the URDF ({self.side}): {details}")
         p, r, jac, _ = self.fk(q)
         effective = self.project_target(target)
         ep = effective - p

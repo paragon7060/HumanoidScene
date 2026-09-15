@@ -5,6 +5,9 @@ from kuavo_isaaclab_scene.rl.debug.reward_report import step_contributions, form
 
 
 class RewardReportTests(unittest.TestCase):
+    def test_joint_limit_pause_has_a_reset_instruction(self):
+        self.assertEqual(reward_summary(None, "JOINT LIMIT - press B/R to reset"),
+                         ("ROBOT JOINT LIMIT", ["Physics paused; press B/R to reset"]))
     def test_weighted_rate_and_discrete_bonus(self):
         terms = step_contributions([("lift", [5.]), ("success", [4500.]), ("collision", [-2.])], 1 / 30)
         self.assertAlmostEqual(terms["lift"], 1 / 6)

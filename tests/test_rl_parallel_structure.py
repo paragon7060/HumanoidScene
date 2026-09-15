@@ -91,6 +91,11 @@ def test_rl_modules_do_not_import_interactive_scene_or_teleoperation_pipelines()
     violations = []
     for path in sorted(RL.rglob("*.py")):
         for imported, line in _imports(path, _tree(path)):
+            # These optional Quest adapters deliberately connect teleop input
+            # to RL. The training/environment modules remain independent.
+            if (path.relative_to(RL).as_posix() in {"debug/quest_control.py", "debug/quest_reward.py"}
+                    and imported.startswith("kuavo_isaaclab_scene.teleop.")):
+                continue
             if any(imported == banned or imported.startswith(banned + ".") for banned in forbidden):
                 violations.append(f"{path.relative_to(ROOT)}:{line}: {imported}")
     assert not violations, "RL must remain independent of general pipelines:\n" + "\n".join(violations)

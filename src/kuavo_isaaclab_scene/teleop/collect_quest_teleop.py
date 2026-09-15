@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import replace
+import math
 import os
 from pathlib import Path
 import signal
@@ -79,10 +80,10 @@ parser.add_argument("--self-collision", action=argparse.BooleanOptionalAction, d
                          "S200062 integrated grippers only.")
 parser.add_argument("--self-collision-clearance", type=float, default=.003,
                     help="Minimum modeled non-allowed self-pair clearance in meters (default 0.003).")
-parser.add_argument("--arm-stiffness", type=float, default=800.0,
-                    help="Simulation arm joint-drive stiffness, not the Cartesian IK response gain (default: 800).")
-parser.add_argument("--arm-damping", type=float, default=50.0,
-                    help="Simulation arm joint-drive damping, not DLS IK damping (default: 50).")
+parser.add_argument("--arm-stiffness", type=float, default=None,
+                    help="Override simulation arm drive stiffness; otherwise retain model servo profile.")
+parser.add_argument("--arm-damping", type=float, default=None,
+                    help="Override simulation arm drive damping; otherwise retain model servo profile.")
 parser.add_argument("--arm-orientation-weight", type=float, default=0.5,
                     help="Rotation weight in pose IK; 0 disables controller rotation, 0.5 balances position and orientation.")
 parser.add_argument("--control-hz", type=int, choices=(30, 60), default=60,
@@ -283,7 +284,9 @@ if args_cli.max_episodes < 0 or args_cli.episode_seconds < 0:
     parser.error("Episode count and timeout must be non-negative (0 means unlimited).")
 if not 0.1 <= args_cli.xr_resolution_scale <= 2.0:
     parser.error("--xr-resolution-scale must be between 0.1 and 2.0.")
-if args_cli.arm_stiffness <= 0 or args_cli.arm_damping < 0 or not 0 <= args_cli.arm_orientation_weight <= 1:
+if ((args_cli.arm_stiffness is not None and (not math.isfinite(args_cli.arm_stiffness) or args_cli.arm_stiffness <= 0))
+        or (args_cli.arm_damping is not None and (not math.isfinite(args_cli.arm_damping) or args_cli.arm_damping < 0))
+        or not 0 <= args_cli.arm_orientation_weight <= 1):
     parser.error("Arm stiffness must be positive; damping non-negative; orientation weight between 0 and 1.")
 if (args_cli.controller_mapping == "scaled" or args_cli.input_mode == "hands" or args_cli.hand_switch) and not 1.0 <= args_cli.position_gain <= 3.0:
     parser.error("Scaled --position-gain must be between 1.0 and 3.0.")
@@ -430,8 +433,10 @@ def main() -> None:
     cfg.scene.xr_right_eye_camera = None
     cfg.sim.device = args_cli.device
     cfg.teleop_devices.devices["quest_handtracking"].sim_device = cfg.sim.device
-    cfg.scene.robot.actuators["arms"].stiffness = args_cli.arm_stiffness
-    cfg.scene.robot.actuators["arms"].damping = args_cli.arm_damping
+    if args_cli.arm_stiffness is not None:
+        cfg.scene.robot.actuators["arms"].stiffness = args_cli.arm_stiffness
+    if args_cli.arm_damping is not None:
+        cfg.scene.robot.actuators["arms"].damping = args_cli.arm_damping
     cfg.decimation = 120 // args_cli.control_hz
     cfg.sim.render_interval = cfg.decimation
     absolute_control = active_mode == "hands" or args_cli.controller_mapping in {"absolute", "scaled"}

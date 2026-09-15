@@ -52,8 +52,8 @@ def test_realtime_profile_removes_policy_and_filtered_contacts():
     )
 
     assert configure_realtime_reward_debug(cfg) == 1
-    assert cfg.sim.dt == pytest.approx(1 / 30)
-    assert cfg.decimation == cfg.sim.render_interval == 1
+    assert cfg.sim.dt == pytest.approx(1 / 120)
+    assert cfg.decimation == cfg.sim.render_interval == 4
     assert cfg.observations.policy is None
     assert cfg.recorders.success_states is None
     assert cfg.commands.workcell.collision_reporting == "aggregate"
@@ -61,6 +61,6 @@ def test_realtime_profile_removes_policy_and_filtered_contacts():
     assert scene.obstacle_contact_0 is None
     assert scene.grasp_contact_0 is not None
     assert (robot_props.solver_position_iteration_count,
-            robot_props.solver_velocity_iteration_count) == (8, 2)
+            robot_props.solver_velocity_iteration_count) == (32, 8)
     assert (box_props.solver_position_iteration_count,
-            box_props.solver_velocity_iteration_count) == (8, 2)
+            box_props.solver_velocity_iteration_count) == (32, 8)

@@ -48,8 +48,9 @@ Reward가 사용하는 실제 접촉·충돌 판정은 환경 재현을 위해 �
 콘솔의 `[PERF]`는 XR loop Hz와 실제 physics/control Hz를 5초마다 구분해 출력한다.
 
 롤러를 끈 기본 RL Debug는 한 환경의 실제 조작 속도를 우선하는 profile을 사용한다.
-물리·grasp·aggregate collision·reward를 30 Hz로 계산하고 robot/box solver를 8/2로
-사용한다. 정책을 실행하지 않으므로 269차원 policy observation과 학습용 success snapshot
+물리는 120 Hz, 제어·aggregate collision·reward는 30 Hz로 계산하고 robot/box solver는
+RL 설정을 유지한다. 30 Hz 물리와 8/2 solver로 낮추던 이전 경로는 관절 범위 이탈과
+전신 자세 불안정을 줄이기 위해 제거했다. 정책을 실행하지 않으므로 policy observation과 학습용 success snapshot
 recorder를 만들지 않으며, reward 뒤 observation을 준비하기 위한 중복 측정도 생략한다.
 충돌 판정은 손가락 이외의 robot contact 합력과 손가락의 비정상 residual contact를
 사용한다. 물리 contact 자체를 끄는 설정은 아니다.
@@ -65,8 +66,8 @@ recorder를 만들지 않으며, reward 뒤 observation을 준비하기 위한 �
 ```
 
 이 단일 환경에서는 CPU PhysX가 CUDA PhysX보다 빨랐다. `--device cuda:0`을 명시하면
-롤러 OFF 실시간 profile 자체는 적용되지만 20 Hz 측정 경로에서 벗어나므로 시작 로그가
-경고한다. `--rl-obstacle-contact-hz`를 명시하면 실시간 profile 대신 기존 120 Hz 물리와
+롤러 OFF 실시간 profile 자체는 적용되며 실제 속도는 `[PERF]`로 확인한다.
+`--rl-obstacle-contact-hz`를 명시하면 aggregate 접촉 대신
 per-body filtered obstacle sensor를 사용한다. 선택값은 `15`, `30`, `60`, `120` Hz다.
 충돌 임계값이나 학습 결과를 최종 비교할 때는 120 Hz를 사용한다.
 
@@ -82,6 +83,22 @@ sensor 경로를 유지한다. 이때 obstacle report 기본값은 30 Hz다. Rew
 
 ## 조작
 
+S63 + `leju-twofinger`는 몸통 4관절·양팔 14관절에 물리 스텝마다 공통
+중력 보상을 적용한다. 이 모델은 임시로 높인 몸통 PD 대신 `configs/s63_servo.json`의
+설정을 사용한다. 초기 자세는 S63용 `s63_leju_ready_01`이다. S200062도 같은 중력
+보상 경로를 사용하고 기존 `quest_ready_02`를 유지한다. S56 + `s56_twofinger`는
+다리까지 보상하며 별도 `s56_twofinger_ready_01`을 사용한다. 모든 보상 모델에서
+8000/200 등의 추가 몸통 PD 보강은 적용하지 않는다.
+물리적으로 몸통을 고정하는 오른팔 전용(`0`)에서는 잠긴 관절에 중력 보상을 추가하지 않는다.
+[S63 중력 보상·PD 설정](S63_GRAVITY_COMPENSATION.md)을 참고한다.
+스틱이 중립이면 마지막 몸통 목표 각도를 PD로 유지한다. 초기 대기·일시정지·재개·시점
+보정 때도 RL action manager의 목표 각도를 사용하며, 중력으로 처진 실제 각도를 새 목표로
+받아들이지 않는다. 스틱을 놓은 직후에는 가속도 제한에 따른 짧은 감속 구간이 있다.
+`1` 모드는 관절 잠금이 아니므로 하중에 따른 작은 자세 오차는 남을 수 있다.
+실제 팔 각도가 관절 범위를 0.02 rad 넘게 벗어나면 앱을 종료하지 않고 물리·제어를 정지한다.
+`[RL CONTROL]`에 관절 이름·실제 각도·범위를 출력하고 `ROBOT JOINT LIMIT` 패널을 표시한다.
+이때는 A 대신 B/PC R로 reset해야 한다. URDF/USD 모델 불일치는 여전히 오류로 처리한다.
+
 | 입력 | 검사 모드 동작 |
 |---|---|
 | X / PC C | 시점 보정 후 일시정지 |
@@ -89,7 +106,7 @@ sensor 경로를 유지한다. 이때 obstacle report 기본값은 30 Hz다. Rew
 | 왼쪽 joystick | `1` 모드에서 base 전후·좌우 이동 |
 | 오른쪽 joystick 좌우 / 상하 | `1` 모드에서 base 회전 / torso 승강 |
 | 오른쪽 검지 트리거 | 오른쪽 gripper 닫기; 놓으면 열기. 기본 오른손 실험은 왼쪽 입력 무시 |
-| B / PC R | `quest_ready_02`로 초기화하고 정지 (**녹화 버튼 아님**) |
+| B / PC R | 모델별 초기 자세로 초기화하고 정지 (**녹화 버튼 아님**) |
 | Y / PC H | reward 패널 표시/숨김 |
 
 정면을 보고 X → 양 컨트롤러를 편한 자세에 두고 A → 손을 움직여 검사한다.
