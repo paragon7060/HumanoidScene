@@ -818,9 +818,11 @@ wrist를 160×120으로 낮추며 `--no-record-depth --no-camera-preview`를 함
 
 ### Gripper가 forearm과 겹침
 
-S63의 기본 preset은 대회용 Robotiq 2F-85 기반 Leju claw를 양쪽 손목에 사용한다.
-`preview_quest_local.sh --robot-model s63 --gripper robotiq_2f85`에서 확인한 뒤
-`configs/grippers.json`의 해당 side `robot_mount_pos`/`robot_mount_rot`를 조정한다.
+Robotiq 2F-85 preset과 asset은 제거했다. S63의 기본 preset은 `none`이며,
+공식 URDF에는 개폐 가능한 Leju claw가 없으므로 손목 프레임만으로 claw가
+생기지는 않는다. [S63 / Leju claw 상태](S63_LEJU_CLAW.md)를 참고한다.
+외장 claw를 새로 추가할 때만 `configs/grippers.json`의 해당 side
+`robot_mount_pos`/`robot_mount_rot`를 조정한다.
 S200062 gripper와 S56 QiangNao 손은 로봇 URDF에 직접 정의되어 있으므로 외장
 gripper mount JSON을 사용하지 않는다.
 

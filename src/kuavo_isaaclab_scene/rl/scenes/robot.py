@@ -28,9 +28,9 @@ def build_robot_cfg() -> ArticulationCfg:
     """
     model = resolve_robot_model()
     hand = resolve_gripper_settings()
-    if hand.name not in ("s200062_integrated", "s56_twofinger"):
+    if hand.name not in ("s200062_integrated", "s56_twofinger", "leju-twofinger"):
         raise ValueError(
-            "RL contact presets support s200062_integrated/s56_twofinger only. "
+            "RL contact presets support s200062_integrated/s56_twofinger/leju-twofinger only. "
             "Configure finger/tool sensors and actions before using another gripper."
         )
     integrated_hand = load_gripper_settings(model.integrated_gripper_preset)
@@ -129,5 +129,10 @@ def build_robot_cfg() -> ArticulationCfg:
     # Despite its historical name, this shared asset spawner only corrects
     # inertials/colliders; it imports no Quest code. Omit wheel-ground contacts
     # for the fixed-root planar controller, as in the existing RL path.
-    cfg.spawn.func = spawn_teleop_robot if model.has_wheel_base else spawn_s56_twofinger_robot
+    if model.name == "s200062":
+        cfg.spawn.func = spawn_teleop_robot
+    elif model.name == "s56":
+        cfg.spawn.func = spawn_s56_twofinger_robot
+    # S63 keeps its package-aware spawner selected above. Do not apply donor
+    # inertials or S200062 helper-frame calibration to the official S63 host.
     return cfg

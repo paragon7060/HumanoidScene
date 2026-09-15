@@ -37,7 +37,7 @@ def test_unknown_name_and_model_mismatch(tmp_path):
     save_initial_state("a", preset(), path)
     with pytest.raises(ValueError, match="available"):
         load_initial_state("other", path)
-    for kwargs in ({"robot_model": "s56"}, {"gripper": "robotiq_2f85"}):
+    for kwargs in ({"robot_model": "s56"}, {"gripper": "none"}):
         with pytest.raises(ValueError, match="selected"):
             load_initial_state("a", path, **kwargs)
 

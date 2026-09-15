@@ -4,7 +4,7 @@ Input devices, servo gains and kinematic base control remain environment-specifi
 """
 
 from .contact_physics import spawn_contact_box
-from ..robots.robot_inertials import spawn_s200062_robot, spawn_s56_twofinger_robot
+from ..robots.robot_inertials import spawn_s200062_robot, spawn_s56_twofinger_robot, spawn_s63_twofinger_robot
 from ..robots.robot_model import (
     S56_ACTUATOR_LIMITS,
     S56_MUJOCO_ARMATURE,
@@ -64,7 +64,9 @@ def configure_robot_asset_physics(cfg, model, gripper_settings):
         )
         commands = {}
         for side in ("left", "right"):
-            commands.update(effective_hand.command_for(side, effective_hand.open_command))
+            initial_command = (effective_hand.default_joint_pos if model.name == "s63"
+                               else effective_hand.open_command)
+            commands.update(effective_hand.command_for(side, initial_command))
         cfg.init_state.joint_pos.update(initial_passive_positions(commands))
     if model.name == "s56":
         # Port the physical joint parameters from biped_s56.xml and the
@@ -91,6 +93,16 @@ def configure_robot_asset_physics(cfg, model, gripper_settings):
                 cfg.init_state.joint_pos.update(
                     gripper_settings.command_for(side, gripper_settings.open_command)
                 )
+        return
+    if model.name == "s63" and gripper_settings.name == "leju-twofinger":
+        cfg.spawn.func = spawn_s63_twofinger_robot
+        cfg.spawn.articulation_props.solver_position_iteration_count = 32
+        cfg.spawn.articulation_props.solver_velocity_iteration_count = 8
+        cfg.actuators["integrated_grippers"].armature = .001
+        for side in ("left", "right"):
+            cfg.init_state.joint_pos.update(
+                gripper_settings.command_for(side, gripper_settings.default_joint_pos)
+            )
         return
     if model.name != "s200062":
         return

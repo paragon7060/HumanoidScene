@@ -16,21 +16,23 @@ from kuavo_isaaclab_scene.robots.gripper_config import (
 from kuavo_isaaclab_scene.robots.robot_model import ROBOT_MODEL_ENV
 
 
-def test_default_robotiq_2f85_preset_has_two_binary_actions() -> None:
+def test_default_leju_twofinger_preset_has_two_binary_actions() -> None:
     settings = load_gripper_settings()
-    assert settings.name == "robotiq_2f85"
+    assert settings.name == "s200062_integrated"
+    assert settings.integrated
+    assert settings.asset_name_for("left") == "robot"
     assert settings.active_sides == ("left", "right")
-    assert settings.usd_path.endswith("robotiq_2f85/usd/robotiq_2f85.usd")
-    assert settings.usd_path_for("right") == settings.usd_path
-    assert settings.attachment_mount_body == "base_mount"
-    assert settings.close_command[".*_driver_joint$"] == 0.8
-    assert settings.close_command[".*_coupler_joint$"] == -0.8
-    assert settings.sides["left"].robot_mount_rot == (1.0, 0.0, 0.0, 0.0)
-    assert settings.sides["left"].robot_mount_body == "zarm_l7_end_effector"
-    assert settings.sides["right"].robot_mount_body == "zarm_r7_end_effector"
+    assert settings.close_command["{side}_f_bar_1_joint"] == 0.0
     assert len(teleop_action_names(settings)) == 16
     assert gripper_teleop_action(settings, 0.02, 0.08) == (-1.0, 1.0)
     assert gripper_teleop_action(settings, math.nan, 0.01) == (1.0, -1.0)
+
+
+def test_removed_robotiq_preset_is_rejected() -> None:
+    with pytest.raises(ValueError, match="Unknown gripper preset"):
+        load_gripper_settings("robotiq_2f85")
+
+
 def test_none_preset_preserves_legacy_teleop_dimension() -> None:
     settings = load_gripper_settings("none")
     assert not settings.enabled
@@ -61,7 +63,7 @@ def test_runtime_default_gripper_follows_robot_model(monkeypatch) -> None:
     assert resolve_gripper_settings().name == "s200062_integrated"
 
     monkeypatch.setenv(ROBOT_MODEL_ENV, "s63")
-    assert resolve_gripper_settings().name == "robotiq_2f85"
+    assert resolve_gripper_settings().name == "none"
 
     monkeypatch.setenv(ROBOT_MODEL_ENV, "s56")
     assert resolve_gripper_settings().name == "s56_qiangnao"
@@ -165,7 +167,7 @@ def test_twofinger_presets_use_explicit_contact_friction() -> None:
     assert settings.finger_contact == FingerContactSettings(20.0, 16.0, "average")
     assert settings.actuator.friction == 0.02
     assert load_gripper_settings("s200062_integrated").finger_contact == FingerContactSettings(20.0, 16.0, "average")
-    for preset in ("s56_qiangnao", "robotiq_2f85", "none"):
+    for preset in ("s56_qiangnao", "none"):
         assert load_gripper_settings(preset).finger_contact == FingerContactSettings()
 
 

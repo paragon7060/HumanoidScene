@@ -72,6 +72,22 @@ def spawn_s200062_robot(prim_path, cfg, translation=None, orientation=None,
 
 
 @clone
+def spawn_s63_twofinger_robot(prim_path, cfg, translation=None, orientation=None, **kwargs):
+    """S63 variant already contains estimated claw inertials and physical loops."""
+    from isaaclab.sim.spawners.from_files import spawn_from_usd
+    from .twofinger_linkage import require_closed_linkages
+    from .gripper_config import resolve_gripper_settings
+    from .claw_assets.usd import author_claw_contact
+    root = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
+    require_closed_linkages(root)
+    settings = resolve_gripper_settings()
+    for side in ("left", "right"):
+        author_claw_contact(root.GetStage(), ASSET_DIR / "leju_claw_two_finger/config.json",
+                            side=side, finger_contact=settings.finger_contact, root=root)
+    return root
+
+
+@clone
 def spawn_s56_twofinger_robot(prim_path, cfg, translation=None, orientation=None, **kwargs):
     """Spawn the S56 articulation carrying the transplanted S200062 hand rig."""
     return _spawn_twofinger_robot(

@@ -10,7 +10,7 @@ from ..core.paths import ASSET_DIR
 from .wrist_camera_mount import (
     CAMERA_BODY_TO_ROS_OPTICAL_ROT,
     S56_QIANGNAO_D405_MOUNTS,
-    S63_ROBOTIQ_D405_MOUNTS,
+    S63_VIRTUAL_WRIST_MOUNTS,
     WristCameraMount,
 )
 
@@ -151,10 +151,13 @@ _MODELS = {
         usd_path=str(ASSET_DIR / "kuavo_s63" / "usd" / "kuavo_s63_fixed.usd"),
         urdf_path=str(ASSET_DIR / "kuavo_s63" / "urdf" / "kuavo_s63.urdf"),
         integrated_gripper_preset=None,
-        default_gripper_preset="robotiq_2f85",
+        # The official S63 URDF has no articulated Leju claw. Do not silently
+        # substitute an unrelated external hand while a claw rig is missing.
+        default_gripper_preset="none",
         spawn_height_m=0.0,
         has_wheel_base=True,
-        tool_forward_sign=1,
+        # Official S63 EEF has rpy=0 and its terminal direction is wrist -Z.
+        tool_forward_sign=-1,
         head_camera_body="head_camera_base",
         head_camera_mount=WristCameraMount(
             pos=(0.08, 0.0, 0.0),
@@ -166,7 +169,7 @@ _MODELS = {
             "left": "zarm_l7_end_effector",
             "right": "zarm_r7_end_effector",
         },
-        wrist_camera_mounts=dict(S63_ROBOTIQ_D405_MOUNTS),
+        wrist_camera_mounts=dict(S63_VIRTUAL_WRIST_MOUNTS),
     ),
     "s56": RobotModelSettings(
         name="s56",
@@ -224,6 +227,20 @@ _S56_TWOFINGER_MODEL = replace(
 )
 
 
+_S63_TWOFINGER_MODEL = replace(
+    _MODELS["s63"],
+    usd_path=str(ASSET_DIR / "kuavo_s63_twofinger/usd/kuavo_s63_twofinger_fixed.usd"),
+    urdf_path=str(ASSET_DIR / "kuavo_s63_twofinger/urdf/kuavo_s63_twofinger.urdf"),
+    integrated_gripper_preset="leju-twofinger",
+    default_gripper_preset="leju-twofinger",
+    wrist_camera_bodies={"left": "l_d405_camera", "right": "r_d405_camera"},
+    wrist_camera_mounts={
+        side: WristCameraMount((0.0, 0.0, 0.0), CAMERA_BODY_TO_ROS_OPTICAL_ROT)
+        for side in ("left", "right")
+    },
+)
+
+
 def add_robot_model_cli_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--robot-model",
@@ -254,6 +271,8 @@ def resolve_robot_model(
         return _S56_TWOFINGER_MODEL
     if selected == "s56" and selected_gripper == "none":
         return _S56_BARE_MODEL
+    if selected == "s63" and selected_gripper == "leju-twofinger":
+        return _S63_TWOFINGER_MODEL
     return model
 
 
@@ -270,6 +289,6 @@ def validate_robot_gripper(model: RobotModelSettings, gripper_name: str) -> None
             f"{integrated!r} (default) or 'none', not {gripper_name!r}."
         )
     if integrated is None and gripper_name in (
-        "s200062_integrated", "s56_qiangnao", "s56_twofinger"
+        "s200062_integrated", "s56_qiangnao", "s56_twofinger", "leju-twofinger"
     ):
         raise ValueError(f"The {gripper_name} gripper is part of its matching robot USD.")

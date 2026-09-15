@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import math
 
-TWO_FINGER_PRESETS = frozenset({"s200062_integrated", "s56_twofinger"})
+TWO_FINGER_PRESETS = frozenset({"s200062_integrated", "s56_twofinger", "leju-twofinger"})
 LINKAGE_VERSION = 1
 FINGER_PIN = (-0.0125, 0.0, -0.021)
 # Sum of the zero-pose URDF joint origins plus FINGER_PIN minus bar_4 origin.
@@ -94,14 +94,20 @@ def validate_motor_commands(settings) -> None:
             passive_joint_angles(command[f"{{side}}_{jaw}_bar_1_joint"], jaw)
 
 
-def author_closed_linkages(stage) -> None:
+def _linkage_sides(sides: str) -> str:
+    if not sides or any(side not in "lr" for side in sides) or len(set(sides)) != len(sides):
+        raise ValueError("Expected linkage sides 'l', 'r' or 'lr'")
+    return sides
+
+
+def author_closed_linkages(stage, *, sides: str = "lr") -> None:
     """Idempotently finalize a generated USD; geometry and source layers stay intact."""
     from pxr import Gf, UsdPhysics
 
     root = stage.GetDefaultPrim()
     root_path = str(root.GetPath())
     by_name = {p.GetName(): p for p in stage.Traverse() if p.IsA(UsdPhysics.Joint)}
-    for side in "lr":
+    for side in _linkage_sides(sides):
         for jaw in "fb":
             prefix = f"{side}_{jaw}"
             for index in (1, 3, 4):
@@ -134,13 +140,13 @@ def author_closed_linkages(stage) -> None:
     root.SetCustomDataByKey("kuavo:twofingerLinkageVersion", LINKAGE_VERSION)
 
 
-def require_closed_linkages(root) -> None:
+def require_closed_linkages(root, *, sides: str = "lr") -> None:
     from pxr import UsdPhysics
 
     if root.GetCustomDataByKey("kuavo:twofingerLinkageVersion") != LINKAGE_VERSION:
         raise RuntimeError("Outdated two-finger USD: run scripts/finalize_twofinger_usd.py")
     stage = root.GetStage()
-    for side in "lr":
+    for side in _linkage_sides(sides):
         for jaw in "fb":
             joint = UsdPhysics.RevoluteJoint(stage.GetPrimAtPath(
                 f"{root.GetPath()}/joints/{side}_{jaw}_loop_joint"))

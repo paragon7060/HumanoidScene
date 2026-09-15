@@ -39,16 +39,24 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="*", type=Path)
     parser.add_argument("--check", action="store_true", help="Validate existing assets without writing")
+    parser.add_argument("--sides", choices=("l", "r", "lr"), default="lr")
+    parser.add_argument("--claw-config", type=Path, help="Bake independent-claw contact settings from config.json")
     args = parser.parse_args()
     paths = args.paths or [ASSET_DIR / model / "usd" / f"{model}_fixed.usd"
                           for model in ("kuavo_s200062", "kuavo_s56_twofinger")]
     for path in paths:
         stage = Usd.Stage.Open(str(path.resolve()))
         if not args.check:
-            author_closed_linkages(stage)
+            author_closed_linkages(stage, sides=args.sides)
+            if args.claw_config:
+                from kuavo_isaaclab_scene.robots.claw_assets.usd import author_claw_contact
+                for letter in args.sides:
+                    author_claw_contact(stage, args.claw_config,
+                                        side="left" if letter == "l" else "right")
             stage.GetRootLayer().Save()
-        require_closed_linkages(stage.GetDefaultPrim())
-        print(f"Validated four closed loops: {path}")
+        require_closed_linkages(stage.GetDefaultPrim(), sides=args.sides)
+        count = "four" if args.sides == "lr" else "two"
+        print(f"Validated {count} closed loops: {path}")
 
 
 if __name__ == "__main__":

@@ -1,13 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Official Leju biped_s63 model from revision
-  ff063125fe9bd070ab199f83a349439e04a8fd16. The upstream S63 URDF
-  defines no separate dexterous-finger links. The upstream *_noHand.STL files
-  nevertheless contain baked dexterous-hand geometry, so the wrist visuals
-  deliberately use the alternate, finger-free *_hand_pitch.STL files from the
-  same S63 asset directory. The ROS package mesh prefix was also changed to
-  ../meshes/ for offline Isaac Lab conversion.
--->
 <robot
   name="biped_s63">
   <mujoco>
@@ -799,7 +790,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="../meshes/l_hand_pitch.STL" />
+          filename="../meshes/l_hand_pitch_noHand.STL" />
       </geometry>
       <material
         name="">
@@ -837,16 +828,8 @@
       </geometry>
     </collision>
   </link>
-  <!--
-    Gripper/IK frame fitted to the outer terminal face of l_hand_pitch.STL.
-    Its +Z axis follows the face's outward normal; +Y follows the jaw-opening
-    direction.  This replaces the stock straight-down marker, which does not
-    lie on the bent hand-pitch geometry used by this handless build.
-  -->
   <joint name="zarm_l7_end_effector_joint" type="fixed">
-    <origin
-      xyz="0.135599 -0.017281 -0.115070"
-      rpy="2.779374508 -0.751879414 0.253261563" />
+    <origin xyz="0 0.0 -0.17" rpy="0 0 0" />
     <parent link="zarm_l7_link" />
     <child link="zarm_l7_end_effector" />
   </joint>
@@ -1174,7 +1157,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="../meshes/r_hand_pitch.STL" />
+          filename="../meshes/r_hand_pitch_noHand.STL" />
       </geometry>
       <material
         name="">
@@ -1212,11 +1195,8 @@
       </geometry>
     </collision>
   </link>
-  <!-- Right-hand mirror of the fitted left terminal frame. -->
   <joint name="zarm_r7_end_effector_joint" type="fixed">
-    <origin
-      xyz="0.135599 0.017281 -0.115070"
-      rpy="-2.779374508 -0.751879414 -0.253261563" />
+    <origin xyz="0 0.0 -0.17" rpy="0 0 0" />
     <parent link="zarm_r7_link" />
     <child link="zarm_r7_end_effector" />
   </joint>

@@ -244,8 +244,11 @@ GR00T relative-action checkpoints are executed with
 queueing. This is required because N1.7's single-step `select_action()` path
 does not decode cached relative chunks against a stable observation.
 
-S63 uses external Robotiq 2F-85-based Leju claws, while S56 includes its
-QiangNao dexterous hands in the robot articulation. Select S56 with
+S200062 uses its integrated two-finger claw; S56 includes its QiangNao
+hands or the generated two-finger variant. S63 currently defaults to `none`
+because its official URDF contains no articulated Leju claw. Robotiq 2F-85
+was removed, not renamed to Leju claw; see [S63 status](S63_LEJU_CLAW.md).
+Select S56 with
 `--robot-model s56`. The evaluator validates the configured policy action
 dimension (17 by default, 15 with `--gripper none`) before execution and
 records `robot_model` in the metrics JSON. Use the same robot, preset, and

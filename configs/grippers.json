@@ -1,6 +1,72 @@
 {
-  "default": "robotiq_2f85",
+  "default": "s200062_integrated",
   "presets": {
+    "leju-twofinger": {
+      "enabled": true,
+      "integrated": true,
+      "usd_path": "integrated://robot",
+      "attachment_mount_body": "robot",
+      "joint_names": [
+        "{side}_f_bar_1_joint",
+        "{side}_b_bar_1_joint"
+      ],
+      "default_joint_pos": {
+        "{side}_f_bar_1_joint": -0.25,
+        "{side}_b_bar_1_joint": 0.25
+      },
+      "open_command": {
+        "{side}_f_bar_1_joint": -0.25,
+        "{side}_b_bar_1_joint": 0.25
+      },
+      "close_command": {
+        "{side}_f_bar_1_joint": 0,
+        "{side}_b_bar_1_joint": 0
+      },
+      "pinch_close_threshold_m": 0.055,
+      "actuator": {
+        "effort_limit_sim": 100,
+        "stiffness": 4000,
+        "damping": 400,
+        "friction": 0.02
+      },
+      "finger_contact": {
+        "static_friction": 20,
+        "dynamic_friction": 16,
+        "friction_combine_mode": "average"
+      },
+      "sides": {
+        "left": {
+          "enabled": true,
+          "robot_mount_body": "l_twofinger_base",
+          "robot_mount_pos": [
+            0,
+            0,
+            0
+          ],
+          "robot_mount_rot": [
+            1,
+            0,
+            0,
+            0
+          ]
+        },
+        "right": {
+          "enabled": true,
+          "robot_mount_body": "r_twofinger_base",
+          "robot_mount_pos": [
+            0,
+            0,
+            0
+          ],
+          "robot_mount_rot": [
+            1,
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
     "none": {
       "enabled": false
     },
@@ -142,45 +208,6 @@
         "right": {
           "enabled": true,
           "robot_mount_body": "r_twofinger_base",
-          "robot_mount_pos": [0.0, 0.0, 0.0],
-          "robot_mount_rot": [1.0, 0.0, 0.0, 0.0]
-        }
-      }
-    },
-    "robotiq_2f85": {
-      "enabled": true,
-      "usd_path": "${KUAVO_PACKAGE_ASSET_DIR}/robotiq_2f85/usd/robotiq_2f85.usd",
-      "attachment_mount_body": "base_mount",
-      "joint_names": [".*_(driver|coupler|spring_link|follower)_joint$"],
-      "default_joint_pos": {
-        ".*": 0.0
-      },
-      "open_command": {
-        ".*": 0.0
-      },
-      "close_command": {
-        ".*_driver_joint$": 0.8,
-        ".*_coupler_joint$": -0.8,
-        ".*_spring_link_joint$": 0.8,
-        ".*_follower_joint$": -0.8
-      },
-      "pinch_close_threshold_m": 0.055,
-      "actuator": {
-        "effort_limit_sim": 100.0,
-        "stiffness": 100.0,
-        "damping": 10.0,
-        "friction": 0.02
-      },
-      "sides": {
-        "left": {
-          "enabled": true,
-          "robot_mount_body": "zarm_l7_end_effector",
-          "robot_mount_pos": [0.0, 0.0, 0.0],
-          "robot_mount_rot": [1.0, 0.0, 0.0, 0.0]
-        },
-        "right": {
-          "enabled": true,
-          "robot_mount_body": "zarm_r7_end_effector",
           "robot_mount_pos": [0.0, 0.0, 0.0],
           "robot_mount_rot": [1.0, 0.0, 0.0, 0.0]
         }

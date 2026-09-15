@@ -8,6 +8,7 @@ ISAACLAB_PYTHON="$(resolve_isaaclab_python)"
 require_supported_runtime "${ISAACLAB_PYTHON}"
 
 "${ISAACLAB_PYTHON}" "${PROJECT_DIR}/scripts/build_s56_twofinger_urdf.py"
+bash "${PROJECT_DIR}/scripts/prepare_s63_urdf.sh"
 
 env TERM=xterm "${ISAACLAB_PYTHON}" \
     "${ISAACLAB_DIR}/scripts/tools/convert_urdf.py" \
@@ -54,23 +55,15 @@ env TERM=xterm "${ISAACLAB_PYTHON}" \
     --joint-damping 40 \
     --headless
 
-env TERM=xterm "${ISAACLAB_PYTHON}" \
-    "${ISAACLAB_DIR}/scripts/tools/convert_urdf.py" \
-    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/robotiq_2f85/urdf/robotiq_2f85.urdf" \
-    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/robotiq_2f85/usd/robotiq_2f85.usd" \
-    --joint-stiffness 100 \
-    --joint-damping 10 \
-    --headless
-
 "${ISAACLAB_PYTHON}" "${PROJECT_DIR}/scripts/finalize_twofinger_usd.py"
+bash "${PROJECT_DIR}/scripts/build_s63_twofinger.sh"
 
 for usd_path in \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56/usd/kuavo_s56_fixed.usd" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_bare/usd/kuavo_s56_bare_fixed.usd" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_twofinger/usd/kuavo_s56_twofinger_fixed.usd" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s63/usd/kuavo_s63_fixed.usd" \
-    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s200062/usd/kuavo_s200062_fixed.usd" \
-    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/robotiq_2f85/usd/robotiq_2f85.usd"; do
+    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s200062/usd/kuavo_s200062_fixed.usd"; do
     if [[ ! -f "${usd_path}" ]] || [[ "$(stat -c '%s' "${usd_path}")" -lt 1024 ]]; then
         printf 'USD conversion failed or produced an empty stage: %s\n' "${usd_path}" >&2
         exit 1
@@ -85,10 +78,6 @@ rm -f \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_bare/usd/config.yaml" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s56_twofinger/usd/config.yaml" \
     "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s63/usd/config.yaml" \
-    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s200062/usd/config.yaml" \
-    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/robotiq_2f85/usd/config.yaml"
-for mesh_name in base_mount base coupler driver follower pad silicone_pad spring_link; do
-    rm -rf "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/robotiq_2f85/meshes/2f85/${mesh_name}_tmp"
-done
+    "${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets/kuavo_s200062/usd/config.yaml"
 
-echo "Generated fixed-base Kuavo S200062/S63/S56/S56-twofinger and Robotiq 2F-85 USDs."
+echo "Generated fixed-base Kuavo S200062/S63/S56/S56-twofinger USDs."

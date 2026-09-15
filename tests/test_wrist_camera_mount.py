@@ -13,7 +13,7 @@ from kuavo_isaaclab_scene.robots.wrist_camera_mount import (
     CAMERA_BODY_TO_ROS_OPTICAL_ROT,
     S200062_D405_MOUNTS,
     S56_QIANGNAO_D405_MOUNTS,
-    S63_ROBOTIQ_D405_MOUNTS,
+    S63_VIRTUAL_WRIST_MOUNTS,
 )
 
 
@@ -102,7 +102,7 @@ def test_s56_and_s63_head_optical_axes_follow_source_camera_forward(model_name):
     assert optical[0, 2] > .9 and -.5 < optical[2, 2] < -.2
 
 
-@pytest.mark.parametrize('mounts', [S200062_D405_MOUNTS, S63_ROBOTIQ_D405_MOUNTS])
+@pytest.mark.parametrize('mounts', [S200062_D405_MOUNTS, S63_VIRTUAL_WRIST_MOUNTS])
 def test_d405_optical_mounts_are_normalized_mirrors(mounts) -> None:
     left = mounts['left']
     right = mounts['right']
@@ -144,12 +144,12 @@ def test_s56_twofinger_uses_transplanted_physical_d405_frame(side, monkeypatch):
 
 
 @pytest.mark.parametrize('side', ['left', 'right'])
-def test_s63_rotates_source_rig_and_sets_it_back_for_open_jaws(side):
+def test_s63_virtual_inspection_pose_is_preserved_without_a_hand(side):
     source = _mount_matrix(S200062_D405_MOUNTS[side])
     flip = np.diag([-1.0, 1.0, -1.0, 1.0])  # Ry(pi)
     expected = flip @ source
     expected[:3, 3] -= 0.030 * expected[:3, 2]
-    assert _mount_matrix(S63_ROBOTIQ_D405_MOUNTS[side]) == pytest.approx(expected)
+    assert _mount_matrix(S63_VIRTUAL_WRIST_MOUNTS[side]) == pytest.approx(expected)
 
 
 def test_s56_wrist_camera_is_offset_away_from_occluding_wrist_shell() -> None:
@@ -159,7 +159,7 @@ def test_s56_wrist_camera_is_offset_away_from_occluding_wrist_shell() -> None:
         assert optical_forward == pytest.approx((-math.sqrt(0.5), 0.0, -math.sqrt(0.5)))
 
 
-@pytest.mark.parametrize('model', ['s200062', 's63', 's56'])
+@pytest.mark.parametrize('model', ['s200062', 's56'])
 @pytest.mark.parametrize('side', ['left', 'right'])
 @pytest.mark.parametrize('fraction', [0.0, 0.5, 1.0])
 def test_finger_contact_regions_are_in_front_and_inside_wrist_fov(model, side, fraction):
@@ -178,15 +178,6 @@ def test_finger_contact_regions_are_in_front_and_inside_wrist_fov(model, side, f
         for jaw, x in [('f', -0.02), ('b', 0.02)]:
             for y, z in itertools.product([-0.009, 0.009], [-0.04, -0.06]):
                 points.append(frames[f'{prefix}_{jaw}_finger'] @ [x, y, z, 1])
-    elif model == 's63':
-        root = ET.parse(ASSET_DIR / 'robotiq_2f85/urdf/robotiq_2f85.urdf').getroot()
-        q = 0.8 * fraction
-        positions = {f'{jaw}_{link}_joint': sign*q for jaw in ['left', 'right']
-                     for link, sign in [('driver', 1), ('coupler', -1), ('spring_link', 1), ('follower', -1)]}
-        frames = _fk(root, 'base_mount', positions)
-        camera = mount
-        points = [frames[f'{jaw}_pad'] @ [x, -0.0026, z, 1]
-                  for jaw, x, z in itertools.product(['left', 'right'], [-0.011, 0.011], [0.003, 0.034])]
     else:
         root = ET.parse(ASSET_DIR / 'kuavo_s56/urdf/kuavo_s56.urdf').getroot()
         prefix = side[0]

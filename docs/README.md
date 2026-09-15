@@ -24,6 +24,7 @@
   rack-relative box pose 캡처와 respawn
 - [Gripper 설정](GRIPPER_CONFIGURATION.md): S56 QiangNao/S200062 two-finger 선택과 외장 Leju/Robotiq 구성
 - [Third-party assets](../THIRD_PARTY_ASSETS.md): 외부 asset 출처와 라이선스
+- [독립 Leju claw asset](LEJU_CLAW_ASSET.md): 좌우 URDF/USD, 재생성, 장착 원점과 재사용 API
 
 ## Meta Quest
 
@@ -118,3 +119,10 @@ Y로 reward 패널 표시/숨김, B로 초기 자세 복원 후 새 시도를 �
 
 문서의 `/absolute/path/...`와 IP 주소는 예시다. 현재 PC의 실제 경로와 LAN IP로
 바꿔서 사용한다.
+
+## S63 / Leju claw
+
+공식 S63 URDF의 claw 포함 여부와 현재 지원 상태는
+[S63 / Leju claw 가이드](S63_LEJU_CLAW.md)를 참고한다.
+Robotiq 2F-85는 제거했다. S63은 기본 `none`, donor claw는
+`--gripper leju-twofinger`로 선택한다.

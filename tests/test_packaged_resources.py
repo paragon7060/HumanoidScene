@@ -45,7 +45,6 @@ def test_required_assets_are_packaged() -> None:
         ASSET_DIR / "kuavo_s56_twofinger" / "usd" / "kuavo_s56_twofinger_fixed.usd",
         ASSET_DIR / "kuavo_s63" / "usd" / "kuavo_s63_fixed.usd",
         ASSET_DIR / "kuavo_s200062" / "usd" / "kuavo_s200062_fixed.usd",
-        ASSET_DIR / "robotiq_2f85" / "usd" / "robotiq_2f85.usd",
     )
     assert all(path.is_file() for path in required)
     assert not (ASSET_DIR / "s200049_gripper").exists()
@@ -67,8 +66,10 @@ def test_packaged_robot_and_gripper_assets_have_no_remote_references() -> None:
         *(ASSET_DIR / "kuavo_s56").rglob("*"),
         *(ASSET_DIR / "kuavo_s56_bare").rglob("*"),
         *(ASSET_DIR / "kuavo_s56_twofinger").rglob("*"),
-        *(ASSET_DIR / "kuavo_s63").rglob("*"),
-        *(ASSET_DIR / "robotiq_2f85").rglob("*"),
+        # Upstream ROS source metadata may contain URLs; only runtime assets
+        # must be self-contained and have no remote dependencies.
+        *(ASSET_DIR / "kuavo_s63" / "usd").rglob("*"),
+        ASSET_DIR / "kuavo_s63" / "urdf" / "kuavo_s63.urdf",
     ]
     forbidden = (b"http://", b"https://", b"omniverse://")
     for path in paths:
@@ -115,8 +116,13 @@ def test_s200062_runtime_urdf_is_complete_and_local() -> None:
         assert (runtime_urdf.parent / filename).resolve().is_file(), filename
 
 
-def test_s63_is_handless_with_only_its_referenced_meshes_packaged() -> None:
+def test_s63_runtime_is_the_official_model_with_path_only_adaptation() -> None:
     asset = ASSET_DIR / "kuavo_s63"
+    official = (asset / "urdf" / "biped_s63.urdf").read_text()
+    runtime = (asset / "urdf" / "kuavo_s63.urdf").read_text()
+    assert runtime == official.replace(
+        "package://kuavo_assets/models/biped_s63/meshes/", "../meshes/"
+    )
     root = ET.parse(asset / "urdf" / "kuavo_s63.urdf").getroot()
     assert root.attrib["name"] == "biped_s63"
     finger_tokens = ("finger", "thumb", "index", "middle", "ring", "little")
@@ -129,26 +135,18 @@ def test_s63_is_handless_with_only_its_referenced_meshes_packaged() -> None:
         for mesh in root.findall(".//visual/geometry/mesh")
     }
     packaged = {path.name for path in (asset / "meshes").glob("*.STL")}
-    assert packaged == referenced
-    assert {"l_hand_pitch.STL", "r_hand_pitch.STL"} <= referenced
-    assert not any("nohand" in name.lower() for name in referenced)
-    expected_mounts = {
-        "l": (
-            "0.135599 -0.017281 -0.115070",
-            "2.779374508 -0.751879414 0.253261563",
-        ),
-        "r": (
-            "0.135599 0.017281 -0.115070",
-            "-2.779374508 -0.751879414 -0.253261563",
-        ),
-    }
-    for side, (xyz, rpy) in expected_mounts.items():
+    assert referenced <= packaged
+    assert {"l_hand_pitch_noHand.STL", "r_hand_pitch_noHand.STL"} <= referenced
+    assert {"l_twofinger.STL", "r_twofinger.STL"} <= packaged
+    for mesh in root.findall(".//mesh"):
+        assert (asset / "urdf" / mesh.attrib["filename"]).resolve().is_file()
+    for side in ("l", "r"):
         tip = f"zarm_{side}7_end_effector"
         assert root.find(f"./link[@name='{tip}']/visual") is None
         joint = root.find(f"./joint[@name='{tip}_joint']")
         assert joint is not None
         assert joint.find("parent").attrib["link"] == f"zarm_{side}7_link"
-        assert joint.find("origin").attrib == {"xyz": xyz, "rpy": rpy}
+        assert joint.find("origin").attrib == {"xyz": "0 0.0 -0.17", "rpy": "0 0 0"}
 
 
 def test_s56_runtime_urdf_contains_local_qiangnao_hands() -> None:
@@ -247,24 +245,8 @@ def test_s63_chassis_wheels_and_wrist_inertials_are_preserved() -> None:
         assert inertial.find("mass").attrib["value"] == mass
 
 
-def test_robotiq_2f85_tree_port_keeps_challenge_topology_and_materials() -> None:
-    urdf = ASSET_DIR / "robotiq_2f85" / "urdf" / "robotiq_2f85.urdf"
-    root = ET.parse(urdf).getroot()
-    revolute = {
-        joint.attrib["name"]
-        for joint in root.findall("./joint[@type='revolute']")
-    }
-    expected = {
-        f"{side}_{name}_joint"
-        for side in ("left", "right")
-        for name in ("driver", "coupler", "spring_link", "follower")
-    }
-    assert revolute == expected
-    assert root.find("./link[@name='base_mount']") is not None
-    assert root.find("./link[@name='left_pad']") is not None
-    assert root.find("./link[@name='right_pad']") is not None
-    materials = {item.attrib["name"] for item in root.findall("./material")}
-    assert materials == {"leju_black", "leju_gray", "leju_silicone"}
+def test_removed_external_gripper_assets_are_not_packaged() -> None:
+    assert not (ASSET_DIR / "robotiq_2f85").exists()
 
 
 def test_default_runtime_configs_are_packaged() -> None:

@@ -13,12 +13,10 @@ S200062 keeps the physical camera positions and only adds that optical
 rotation. Collapsed poses compose the complete source chain and correction.
 Rounded URDF angles are represented by exact -pi, pi/3 and +/-pi/2.
 
-S63 uses a different gripper: Robotiq fingers extend along mount +Z, whereas
-S200062 and the S56 QiangNao hand extend along -Z. The S63 virtual camera rig is therefore
-adapted by Ry(pi), for both position and orientation, in the gripper mount
-frame, then moved 30 mm backward along the optical viewing axis so both
-fully open contact pads fit the image. This is a simulation adaptation,
-not an S63 hardware calibration. S56 uses a centered -Z-facing virtual camera
+S63 has no articulated claw or physical wrist-camera chain in its URDF.
+Its existing virtual inspection-camera poses are retained for scene viewing;
+they do not certify Leju claw visibility or an S63 hardware calibration.
+S56 uses a centered -Z-facing virtual camera
 above its official empty end-effector frame so all five articulated fingers
 stay visible through their full curl; this is likewise not hardware calibration.
 
@@ -56,7 +54,7 @@ S200062_D405_MOUNTS = {
     ),
 }
 
-S63_ROBOTIQ_D405_MOUNTS = {
+S63_VIRTUAL_WRIST_MOUNTS = {
     "left": WristCameraMount(
         pos=(0.009, 0.046683 + _S63_SETBACK / 2.0,
              -_CAMERA_Z - _S63_SETBACK * sqrt(3.0) / 2.0),

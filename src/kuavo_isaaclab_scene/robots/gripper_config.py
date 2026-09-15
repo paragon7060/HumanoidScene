@@ -243,7 +243,7 @@ def load_gripper_settings(
     contact = raw.get("finger_contact", {})
     if not isinstance(contact, dict):
         raise ValueError("finger_contact must be an object.")
-    if "finger_contact" in raw and selected not in {"s56_twofinger", "s200062_integrated"}:
+    if "finger_contact" in raw and selected not in {"s56_twofinger", "s200062_integrated", "leju-twofinger"}:
         raise ValueError("finger_contact is supported only by the integrated two-finger presets.")
     allowed_contact_keys = {"static_friction", "dynamic_friction", "friction_combine_mode"}
     if set(contact) - allowed_contact_keys:

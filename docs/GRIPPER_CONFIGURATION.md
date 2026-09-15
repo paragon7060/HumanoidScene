@@ -7,8 +7,12 @@ complete integrated variants: `s56_qiangnao` with ten physical joints per hand,
 and `s56_twofinger`, which transplants the S200062 four-bar grippers and their
 physical D405 links. `--gripper none` selects a third generated S56 articulation
 with bare S200062 wrist shells and no hand geometry. Only the
-`--robot-model s63` comparison mode defaults to the external Robotiq-based
-Leju claws from the 2026 OpenLET challenge model.
+`--robot-model s63` comparison mode defaults to `none`: its official URDF
+has no articulated Leju claw. Robotiq 2F-85 has been removed; it must not be
+represented as the Leju claw. See [S63 / Leju claw status](S63_LEJU_CLAW.md).
+S63 additionally supports `--gripper leju-twofinger`: this selects a separate
+integrated S63 + S200062-derived claw/D405 articulation without modifying any
+official S63 mesh. See [independent claw and S63 usage](LEJU_CLAW_ASSET.md).
 
 ## Run
 
@@ -19,11 +23,13 @@ The full S200062 model is enabled by default:
 ./run_manager_env.sh --num-envs 1 --steps 100000
 ```
 
-Run either integrated S56 hand, compare an external-Robotiq model, or disable
+Run either integrated S56 hand, inspect the S63 without a claw, or disable
 gripper action channels:
 
 ```bash
-./run_scene.sh --robot-model s63 --gripper robotiq_2f85
+./run_scene.sh --robot-model s63 --gripper none
+./run_scene.sh --robot-model s63 --gripper leju-twofinger
+./run_manager_env.sh --robot-model s63 --gripper leju-twofinger --num-envs 1
 ./run_scene.sh --robot-model s56 --gripper s56_qiangnao
 ./run_scene.sh --robot-model s56 --gripper s56_twofinger
 ./run_scene.sh --robot-model s56 --gripper none
@@ -217,26 +223,19 @@ The existing RwH launcher also completed two 5-step mock episodes with the
 16-D policy schema and 17-D manager action intact. Mock success/failure values
 are wiring checks, not model performance measurements.
 
-## Packaged Robotiq 2F-85 / Leju claw assets
+## Packaged Leju two-finger assets
 
-The shared left/right USD is generated from a PhysX tree-articulation port of
-OpenLET's challenge MJCF. The source revision, meshes, original MJCF, URDF port,
-and generated USD are all repository-local:
+The existing S200062 two-finger linkage, meshes, physical D405 chain and
+integrated controls remain unchanged. The same donor rig is available on
+the generated S56 two-finger variant. These are separate from Robotiq 2F-85,
+whose preset, conversion step and packaged assets have been removed.
 
-```text
-${KUAVO_PACKAGE_ASSET_DIR}/robotiq_2f85/mjcf/robotiq_2f85.xml
-${KUAVO_PACKAGE_ASSET_DIR}/robotiq_2f85/urdf/robotiq_2f85.urdf
-${KUAVO_PACKAGE_ASSET_DIR}/robotiq_2f85/usd/robotiq_2f85.usd
-```
+S63 currently has no functional claw. Its virtual wrist cameras are inspection
+views, not calibrated Leju claw cameras. Do not use S63 `none` to collect a
+claw dataset or evaluate a claw-action policy. A genuine S63 Leju claw rig must
+be supplied or explicitly adapted before those workflows are enabled.
 
-They need no network access. Each source hand has two closed-loop four-bar
-branches driven through one tendon. URDF does not encode that MuJoCo
-tendon/equality loop, so the PhysX port keeps eight revolute tree joints and one
-binary action sends synchronized driver/coupler/spring/follower targets. The
-pad-only box colliders remain available for object contact, while internal
-self-collision is disabled to avoid fighting those synchronized targets.
-
-Rebuild the robot and gripper USDs after changing their URDFs:
+Rebuild the robot USDs after changing their URDFs:
 
 ```bash
 export ISAACLAB_DIR=/absolute/path/to/IsaacLab-v2.3.2
@@ -258,10 +257,10 @@ actions in the dataset schema. Keep the same preset for collection, training,
 and evaluation:
 
 ```bash
-./collect_quest_teleop.sh --robot-model s63 --gripper robotiq_2f85 --dataset-format lerobot \
+./collect_quest_teleop.sh --robot-model s200062 --gripper s200062_integrated --dataset-format lerobot \
   --lerobot-python "$LEROBOT_PYTHON"
 
-./eval_groot.sh --robot-model s63 --gripper robotiq_2f85 --checkpoint /path/to/pretrained_model
+./eval_groot.sh --robot-model s200062 --gripper s200062_integrated --checkpoint /path/to/pretrained_model
 ```
 
 Use `--gripper none` to evaluate an older 15-D manager checkpoint. The evaluator
@@ -273,7 +272,7 @@ before executing its output.
 Use a short GUI run and inspect both palms before collecting data:
 
 ```bash
-./preview_quest_local.sh --robot-model s63 --gripper robotiq_2f85 --steps 600
+./preview_quest_local.sh --robot-model s200062 --gripper s200062_integrated --steps 600
 ```
 
 Confirm that each palm faces the box, fingertips point in the intended reach

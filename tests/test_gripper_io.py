@@ -36,7 +36,18 @@ class Asset:
 
 
 def make_env(preset):
-    settings = load_gripper_settings(preset)
+    if preset == "custom_external":
+        # Synthetic fixture: exercise external-articulation IO without
+        # depending on any shipped third-party gripper or asset.
+        settings = replace(load_gripper_settings("s200062_integrated"),
+            name=preset, integrated=False, usd_path="fixture.usd",
+            attachment_mount_body="mount",
+            joint_names=(".*_(driver|coupler|spring_link|follower)_joint$",),
+            default_joint_pos={".*": 0.0}, open_command={".*": 0.0},
+            close_command={".*_driver_joint$": 0.8, ".*_coupler_joint$": -0.8,
+                           ".*_spring_link_joint$": 0.8, ".*_follower_joint$": -0.8})
+    else:
+        settings = load_gripper_settings(preset)
     names = list(reversed(CONTROLLED_JOINT_NAMES))  # Deliberately not policy order.
     if settings.integrated:
         for side in settings.active_sides:
@@ -67,7 +78,7 @@ def bridge_for(env, settings, profile="default", mode="manager"):
     )
 
 
-@pytest.mark.parametrize("preset", ["s200062_integrated", "s56_twofinger", "s56_qiangnao", "robotiq_2f85"])
+@pytest.mark.parametrize("preset", ["s200062_integrated", "s56_twofinger", "s56_qiangnao", "custom_external"])
 def test_same_measured_claw_interface_for_integrated_and_external_hands(preset):
     env, settings = make_env(preset)
     bridge = bridge_for(env, settings, "kuavo-arm-claw", "joint_position")
@@ -96,7 +107,7 @@ def test_same_measured_claw_interface_for_integrated_and_external_hands(preset):
 
 @pytest.mark.parametrize(("preset", "state_dim"), [
     ("s200062_integrated", 19), ("s56_twofinger", 19),
-    ("s56_qiangnao", 35), ("robotiq_2f85", 33), ("none", 15),
+    ("s56_qiangnao", 35), ("custom_external", 33), ("none", 15),
 ])
 def test_default_state_includes_hand_joints_and_names_match_dimensions(preset, state_dim):
     env, settings = make_env(preset)
@@ -129,7 +140,7 @@ def test_s56_profile_remains_equivalent_to_common_profile():
 
 
 def test_enabled_missing_hand_fails_instead_of_silently_dropping_state():
-    env, settings = make_env("robotiq_2f85")
+    env, settings = make_env("custom_external")
     del env.scene["right_gripper"]
     with pytest.raises(ValueError, match="Enabled right gripper"):
         bridge_for(env, settings)

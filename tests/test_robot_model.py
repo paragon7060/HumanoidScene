@@ -28,7 +28,9 @@ def test_default_robot_is_full_s200062() -> None:
 def test_s63_remains_selectable_for_comparison() -> None:
     model = resolve_robot_model("s63")
     assert not model.has_integrated_grippers
+    assert model.default_gripper_preset == "none"
     assert model.usd_path.endswith("kuavo_s63/usd/kuavo_s63_fixed.usd")
+    assert model.tool_forward_sign == -1
     assert model.wrist_camera_bodies["left"] == "zarm_l7_end_effector"
 
 
@@ -93,4 +95,4 @@ def test_robot_cli_exposes_all_versions() -> None:
 
 def test_integrated_and_external_grippers_cannot_overlap() -> None:
     with pytest.raises(ValueError, match="already contains"):
-        validate_robot_gripper(resolve_robot_model("s200062"), "robotiq_2f85")
+        validate_robot_gripper(resolve_robot_model("s200062"), "custom_external")

@@ -12,17 +12,14 @@ existing `head_camera_base` link. The generated fixed-base USD is also local.
 
 For comparison this repository also includes the Kuavo URDF/STL files from
 Leju Robotics' official
-[`biped_s63`](https://github.com/LejuRobotics/kuavo-ros-opensource/tree/main/src/kuavo_assets/models/biped_s63)
+[`biped_s63`](https://github.com/LejuRobotics/kuavo-ros-opensource/tree/e2da287383c643e923e9594dac2ec86024269737/src/kuavo_assets/models/biped_s63)
 asset and the USD generated from that URDF for Isaac Lab. The pinned source
-revision is `ff063125fe9bd070ab199f83a349439e04a8fd16`. The checked-in URDF
-changes the ROS `package://` mesh prefix to repository-relative paths so the
-converter works without a ROS workspace. Although the official S63 URDF
-defines no separate dexterous-finger links, its `*_hand_pitch_noHand.STL`
-files contain baked dexterous-hand geometry. This port therefore selects the
-finger-free `l_hand_pitch.STL` and `r_hand_pitch.STL` alternatives shipped in
-the same official S63 directory. The packaged source is deliberately limited
-to the 29 meshes referenced by the adapted URDF; unused hand/tool meshes are
-not copied.
+revision is `e2da287383c643e923e9594dac2ec86024269737` (beta). The entire
+58-file official model directory is preserved. `urdf/biped_s63.urdf` is
+unmodified; `urdf/kuavo_s63.urdf` changes only the ROS mesh package prefix to
+relative paths. Wrist visuals use the official `*_hand_pitch_noHand.STL`
+references and EEF transforms are the official values. No external hand is
+automatically added. See the model's `OFFICIAL_SOURCE.md` for provenance.
 
 This repository also packages the official
 [`biped_s56`](https://gitee.com/leju-robot/kuavo-ros-opensource/tree/master/src/kuavo_assets/models/biped_s56)
@@ -61,20 +58,16 @@ contains only the local IsaacLab bridge source and a patch for the upstream
 Apache-2.0 CloudXR JavaScript sample; its setup script obtains the upstream
 source and user-provided package separately.
 
-The default `robotiq_2f85` preset uses the Robotiq 2F-85-style `leju_claw` in OpenLET's
-[`leju-kuavo-challenge-cup-2026`](https://gitcode.com/OpenLET/leju-kuavo-challenge-cup-2026/tree/master/src/challenge_cup_simulator/models/biped_s52)
-at revision `51b3defaf8c032957647c7aa193d1fa20daef1f3`. Its MJCF mounts one gripper below each `zarm_*7_link`;
-the S63 port uses the corresponding `zarm_*7_end_effector` frames so the claw
-starts after the wrist housing instead of overlapping it. The source claw
-uses eight revolute linkage joints per hand, couples the two drivers with a
-tendon/equality constraints, and exposes one 0-255 actuator per hand. The
-packaged Isaac/PhysX port preserves the source meshes, link frames, joint
-limits, materials, and pad contact boxes. Because URDF/PhysX cannot directly
-represent the source MJCF closed loop, its eight tree joints are sent
-synchronized targets by one binary action per hand. The original MJCF is kept
-beside the port for provenance. The previous S200049 gripper assets and preset
-have been removed so the Leju claw is the only packaged hand; `none` remains
-available for the handless schema.
+The former `robotiq_2f85` preset and assets have been removed. The independent
+`assets/leju_claw_two_finger/` package is extracted from the S200062 source
+described above, not from the OpenLET S52 claw. It contains separate left/right
+14-link branches including D405 hardware, byte-identical source meshes, and
+generated USDs with two physical four-bar closures per hand. Missing inertials
+use the project's simulation estimates, not manufacturer calibration. Contact
+geometry, driver/passive-joint settings and source mount poses are documented
+in `docs/LEJU_CLAW_ASSET.md` and the package's `PROVENANCE.md`. Extraction does
+not automatically transplant the claw into official S63 or establish hardware
+equivalence between these robot models.
 
 Before making a public fork or redistributing a wheel, verify that you have the
 right to redistribute every USD, URDF, mesh, texture, robot model, and NVIDIA
