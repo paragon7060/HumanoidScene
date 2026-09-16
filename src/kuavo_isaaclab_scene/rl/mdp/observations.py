@@ -106,3 +106,14 @@ def flap_pick_state(env):
                       torch.nn.functional.one_hot(t.contact_flap_index, 2).float().flatten(1),
                       t.unexpected_finger_force.clamp(0, 50) / 50, robot_contact,
                       t.half_size[t.active_box], height[:, None], t.dwell[:, None], settling), dim=-1)
+
+
+def flap_transfer_state(env):
+    t = task(env)
+    desired = t.slot_goal.clone()
+    desired[:, 2] += t.belt_half[t.ids, t.active_box, 2]
+    delta = unrotate(t.robot.data.root_quat_w, desired - t.centers[t.ids, t.active_box])
+    return torch.cat((torch.nn.functional.one_hot(t.phase, 5).float(), delta,
+        t.extracted[t.ids, t.active_box, None].float(),
+        t.conveyor_support_force.clamp(0, 100) / 100,
+        t.supported.float(), t.released[:, None].float(), t.transfer_progress.observation()), -1)

@@ -67,8 +67,17 @@ def reward_summary(sample, status):
         "tilt": f"Tilt {sample.get('tilt_deg', 0.):.1f} / <{sample.get('max_tilt_deg', 40.):g} deg",
         "hold": f"Hold {sample['hold']:.2f} / {sample.get('required_hold', .5):g} s",
         "initial_wait": "Initial wait", "cargo": "Cargo retained",
+        "extracted": f"Rack clear (remaining {sample.get('extract_remaining_cm', 0.):.1f} cm)",
+        "above_target": "Box above conveyor target", "belt_clearance": "Box bottom above belt",
+        "free_slot": "Free conveyor slot",
+        "supported": "Full footprint on belt / height / tilt",
+        "support_contact": f"Belt contact {sample.get('support_force', 0.):.2f} / {sample.get('required_support_force', .2):g} N",
+        "settled": "Box linear/angular speed settled", "released": "Hands released",
     }
     checks = sample.get("success_checks", {})
+    if "phase" in sample:
+        lines.append("Stage: " + sample["phase"] + (
+            " -> " + sample["next_phase"] if sample.get("next_phase", sample["phase"]) != sample["phase"] else ""))
     # Show unmet checks first; missing dwell is never presented as success.
     for name, passed in sorted(checks.items(), key=lambda item: item[1]):
         if name == "initial_wait" and passed:
@@ -84,6 +93,10 @@ def format_report(sample, status, episode_return):
     if sample is None:
         lines.append("Waiting for first physics step")
     else:
+        if "phase" in sample:
+            lines.append(f"TASK: {sample['task']} | STAGE: {sample['phase']}")
+            lines.append(f"Rack remaining: {sample['extract_remaining_cm']:.1f} cm"
+                         f" | Conveyor target: {sample['transfer_distance_cm']:.1f} cm")
         if "blocked_checks" in sample:
             lines.append("CHECK: " + (", ".join(sample["blocked_checks"]) or "pass - keep holding"))
             lines.append("FAIL: " + (", ".join(sample.get("failure_reasons", [])) or "none"))
@@ -105,6 +118,9 @@ def format_report(sample, status, episode_return):
             lines.append(f"Lift delta (normalized): {sample['lift_progress']:+.5f}")
             lines.append(f"Grasp credit used: {int(sample['grasp_bonus_paid'])}"
                          f" | award this step: {int(sample['grasp_bonus_event'])}")
+        if "base_speed_mps" in sample:
+            lines.append(f"BASE: {sample['base_speed_mps']:.3f} m/s | yaw {sample['base_yaw_rate']:+.3f} rad/s"
+                         f" | offset {sample['base_offset_m']:.2f}/{sample['workspace_radius_m']:g} m")
         lines += [f"TOTAL: {sample['total']:+.5f} | RETURN: {episode_return:+.3f}",
                   f"Lift: {sample['lift_cm']:.1f} cm | Hold: {sample['hold']:.2f} s",
                   f"Grasp L/R: {int(sample['left_grasp'])}/{int(sample['right_grasp'])}",

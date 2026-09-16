@@ -34,6 +34,8 @@ parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=N
                          "1 enables all joints, including both arms, planar base, torso and head.")
 parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
+parser.add_argument("--rl-task", choices=("pick", "pick_place"), default="pick",
+                    help="Reward debug task: pick lifts only; pick_place transfers to the stopped conveyor.")
 parser.add_argument("--rl-obstacle-contact-hz", type=int, choices=(15, 30, 60, 120), default=None,
                     help="RL reward inspection: explicitly enable filtered robot-obstacle reports at this rate. "
                          "Omitting it uses fast aggregate contacts without rollers and 30 Hz with rollers; "
@@ -262,6 +264,8 @@ if args_cli.rl_reward_debug is not None and args_cli.rl_reward_debug not in (0, 
     parser.error("--rl-reward-debug takes no value, 0, or 1.")
 if args_cli.rl_config is not None and args_cli.rl_reward_debug is None:
     parser.error("--rl-config requires --rl-reward-debug.")
+if args_cli.rl_task == "pick_place" and args_cli.rl_reward_debug != 1:
+    parser.error("--rl-task pick_place requires --rl-reward-debug 1 (whole-body control).")
 if args_cli.rl_reward_debug is None and (
     args_cli.rl_collision_view or args_cli.rl_grasp_markers or args_cli.rl_grasp_calibration
     or args_cli.rl_obstacle_contact_hz is not None

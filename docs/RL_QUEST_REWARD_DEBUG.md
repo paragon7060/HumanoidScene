@@ -17,6 +17,56 @@ HUD의 `GRIP L/R`과 `[GRIP FORCE]` 로그에서 손가락별 힘과 합계를 �
 `--gripper-close-force 0`은 기존 위치 개폐로 실행한다. 일반 VR 수집에도 동일한
 옵션이 적용되며 정책 학습·평가의 기존 continuous gripper action은 유지한다.
 
+## 박스 인출 → 컨베이어 놓기 검사
+
+`--rl-task pick_place --rl-reward-debug 1`은 한 박스를 처음부터 컨베이어에
+내려놓는 연속 작업이다. 기존 `pick`은 lift 성공에서 종료된다.
+
+```bash
+./quest_collector.sh collect \
+  --robot-model s63 --gripper leju-twofinger \
+  --controller-mapping absolute --absolute-orientation downward \
+  --arm-response responsive \
+  --rl-reward-debug 1 --rl-task pick_place \
+  --no-rack-rollers \
+  --no-quest-camera-overlay --no-camera-preview \
+  --no-wrist-cameras --no-head-camera
+```
+
+기본 실험은 `configs/rl_pick_place.py`이며 별도 수정본은 `--rl-config`로 지정한다.
+초기 자세와 flap 파지 판정은 기존 S63 실험을 사용하고, 몸통·양팔·평면 base를
+제어한다. A/T 실행·일시정지, B/R 초기화, X/C recenter, Y/H HUD는 동일하다.
+데이터 저장이나 정책 학습은 수행하지 않는다. RL reward debug에는 에피소드 시간제한이
+없으며, `pick`과 `pick_place` 모두 성공·실패 판정 또는 수동 일시정지/reset까지 계속
+조작할 수 있다. 학습 환경의 에피소드 제한 시간은 해당 RL config를 따른다.
+
+- `pick`: 실제 flap 파지 + 초기 높이보다 6 cm 이상 lift + 기울기 허용치를
+  0.5초 유지하면 carry로 넘어간다. 이 단계에서 전체 성공으로 종료하지 않는다.
+- `carry`: 박스 전체 바닥 투영이 실제 Rack USD의 경계 밖으로 2.5 cm 이상
+  빠져나와야 한다. 파지를 유지하며 컨베이어 목표 XY 15 cm 안에 도달하고,
+  박스 바닥이 belt 상면 위에 있는 상태를 0.5초 유지하면 place로 넘어간다.
+  선반보다 낮은 belt로 운반할 때 초기 선반 높이를 계속 유지하도록 요구하지 않는다.
+- `place`: 전체 박스가 belt 안에 들어가고 높이·기울기가 맞으며, box Body와
+  belt의 실제 접촉력 ≥0.2 N, 손 release, 선속도 <0.08 m/s 및 각속도
+  <0.35 rad/s 조건을 0.5초 유지해야 전체 성공이다. 공중에 떠 있는 박스나
+  계속 손으로 잡고 있는 박스는 성공으로 인정하지 않는다.
+
+HUD에 현재 단계, 선반 인출 잔여 거리, 컨베이어 목표 거리, 지지 접촉력과
+단계별 미충족 조건을 표시한다. 인출·운반·내려놓기 reward는 직전 스텝보다
+남은 거리가 줄면 +, 늘면 −인 진행량이며 정지에는 0이다. 파지 손실·재획득 및
+단계 전환에서는 진행량 기준을 다시 잡아 중간 이동을 소급 보상하지 않는다.
+가중치는 `rl/managers/rewards.py`의 `FlapPickPlaceRewardsCfg`에서 조정한다.
+`pick_place`는 robot-obstacle 접촉이 20 N을 넘으면 실패하며 collision penalty도 적용한다.
+Base는 각 environment 중심에서 반경 1.5 m를 벗어나면 실패한다. 실제 적용되는 base 속도에는
+항상 작은 비용을 주고, 파지 후 lift와 place 단계에는 추가 정지 비용을 준다. HUD의 `BASE` 줄에서
+병진 속도, yaw 속도와 현재 중심 이격/한계를 확인할 수 있다.
+
+RL scene은 `minimal_rl_v2`이며 local cuboid로 만든 정지 belt, 측면 프레임 및
+4개 다리를 갖는다. 물리 상판은 2.55×0.68 m, 두께 3 cm이고 기존 높이를 유지한다.
+위치는 `configs/workcell_layout.json`의 `conveyor` anchor를 공유한다.
+인출·놓기 검사에서는 belt 이동과 버튼 누르기를 요구하지 않는다.
+Scene profile이 바뀌었으므로 이전 checkpoint/reset bank와의 호환을 가정하지 않는다.
+
 ## 실행
 
 저장소 루트에서 기존과 같은 순서로 실행한다. Runtime/web이 이미 실행 중이면
@@ -126,7 +176,7 @@ S63 + `leju-twofinger`는 몸통 4관절·양팔 14관절에 물리 스텝마다
 일시정지 동안 물리·task 시간은 멈추고 VR 화면은 계속 렌더링된다.
 추적이 끊겨도 정지하며, 복구 후 A를 눌러야 재개한다.
 
-성공·실패·timeout 때 마지막 reward를 고정 표시한다. RL 내부 자동 reset은 유지하므로
+성공·실패 때 마지막 reward를 고정 표시한다. RL 내부 자동 reset은 유지하므로
 장면은 초기 상태로 돌아가지만 패널은 종료 직전 값이다. B로 새 시도를 준비한다.
 초기 안정화 동안은 `SETTLING`으로 표시하고 손 입력을 적용하지 않는다.
 
@@ -503,7 +553,7 @@ width/height를 일치시킨다. `pixels_per_cm`은 패널의 물리적 표시 �
 표시 코드에서 weight/dt를 다시 곱하지 않는다. Reach/Alignment state score는
 진단용 상태 점수이며 실제 step reward가 아니다.
 
-현재 이 패널은 단일 박스 flap-pick 전용이다. `rl/multi_box`의 가중치와 계산식은
+현재 이 패널은 단일 박스 flap-pick 및 pick_place를 지원한다. `rl/multi_box`의 가중치와 계산식은
 별도의 `rl/multi_box/managers/rewards.py`에 있으며 기존 Quest 패널에는 연결되지 않는다.
 
 ## 패널이 안 보이거나 오류 로그가 나오는 경우

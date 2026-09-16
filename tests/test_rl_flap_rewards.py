@@ -134,7 +134,7 @@ def test_pick_dwell_resets_on_lost_grasp_and_refresh_is_once_per_step(modules, c
     n = 2
     zeros = lambda: torch.zeros(n)
     flags = lambda: torch.zeros(n, dtype=torch.bool)
-    t = SimpleNamespace(spec=task_spec("pick", hold_seconds=.3, lift_height=.06), settling=None,
+    t = SimpleNamespace(spec=task_spec("pick", hold_seconds=.3, lift_height=.06), settling=None, transfer_progress=None,
         ids=torch.arange(n), last_step=torch.full((n,), -1), phase=torch.ones(n, dtype=torch.long),
         reward_phase=torch.ones(n, dtype=torch.long), active_box=torch.zeros(n, dtype=torch.long),
         reward_box=torch.zeros(n, dtype=torch.long), transition=flags(),
@@ -205,6 +205,31 @@ def test_disabled_collision_cost_ignores_obstacle_and_residual_finger_forces(mod
     assert rewards.unwanted_contact(env).eq(0).all()
     t.spec = replace(t.spec, collision_constraints_enabled=True)
     assert rewards.unwanted_contact(env).gt(0).all()
+
+
+def test_base_cost_uses_applied_velocity_deadbands_and_stop_phases(modules):
+    _, rewards = modules
+    t = SimpleNamespace(spec=task_spec("pick_place"), settling=None,
+        reward_phase=torch.tensor([1, 2, 3]), grasped=torch.tensor([True, True, False]),
+        refresh=lambda: None)
+    base = SimpleNamespace(processed_actions=torch.tensor([
+        [.15, 0., .50], [.01, .01, .04], [.15, 0., 0.]]),
+        _scale=torch.tensor([.15, .15, .50]))
+    actions = SimpleNamespace(active_terms=["base"], get_term=lambda _: base)
+    env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: t), action_manager=actions)
+    motion = rewards.base_motion(env)
+    stop = rewards.base_stop(env)
+    assert motion[0] > 0 and motion[1] == 0 and motion[2] > 0
+    assert stop[0] == motion[0] and stop[1] == 0 and stop[2] == motion[2]
+    actions.active_terms = []
+    assert rewards.base_motion(env).eq(0).all()
+
+
+def test_workspace_guard_is_radial_and_uses_configured_limit(modules):
+    commands, _ = modules
+    roots = torch.tensor([[1.49, 0., 0.], [1.1, 1.1, 0.]])
+    outside = commands.outside_workspace(roots, torch.zeros_like(roots), 1.5)
+    assert outside.tolist() == [False, True]
 
 
 def test_static_grasp_below_goal_has_no_positive_shaping_after_acquisition(modules):

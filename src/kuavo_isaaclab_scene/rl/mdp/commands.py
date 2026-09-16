@@ -13,6 +13,11 @@ from .geometry import rotate, unrotate, yaw, wrap_angle, projected_half_size, sl
 from ..tasks.specs import PHASES
 
 
+def outside_workspace(root_pos_w, env_origins, radius):
+    """Radial planar workspace guard shared by every task instance."""
+    return (root_pos_w[:, :2] - env_origins[:, :2]).norm(dim=-1) > radius
+
+
 class WorkcellCommand(CommandTerm):
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
@@ -54,6 +59,15 @@ class WorkcellCommand(CommandTerm):
         self.reach_progress = None
         self.flap_progress = None
         self.settling = None
+        self.transfer_progress = None
+        if self.spec.name == "pick_place":
+            from .transfer import TransferProgress
+            from ...workcell.workcell_layout import position, rotation
+            self.transfer_progress = TransferProgress(self.num_envs, self.device)
+            self.rack_pos = torch.tensor(position("rack"), device=self.device) + env.scene.env_origins
+            self.rack_quat = torch.tensor(rotation("rack"), device=self.device).expand(self.num_envs, -1)
+            self.rack_center = torch.tensor(cfg.geometry["rack"].center, device=self.device)
+            self.rack_half = torch.tensor(cfg.geometry["rack"].half_size, device=self.device)
         if self.spec.reset_settle_seconds and not self.spec.reset_bank:
             from .settling import ResetSettling
             self.settling = ResetSettling(self.num_envs, self.device, self.spec)
@@ -83,7 +97,8 @@ class WorkcellCommand(CommandTerm):
 
     def _resample_command(self, env_ids):
         ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long)
-        self.phase[ids] = 0 if self.spec.name == "full" else PHASES.index(self.spec.name)
+        self.phase[ids] = (0 if self.spec.name == "full" else
+                           1 if self.spec.name == "pick_place" else PHASES.index(self.spec.name))
         self.reward_phase[ids] = self.phase[ids]
         self.active_box[ids] = 0
         self.done_boxes[ids] = False
@@ -94,6 +109,8 @@ class WorkcellCommand(CommandTerm):
         self.failure[ids] = False
         self.transition[ids] = False
         self.last_step[ids] = self._env.common_step_counter
+        if self.transfer_progress is not None:
+            self.transfer_progress.reset(ids)
         if self.settling is not None:
             self.settling.reset(ids)
         if self.flap_grasp is not None:
@@ -144,6 +161,18 @@ class WorkcellCommand(CommandTerm):
         local = unrotate(bq, self.centers - self.belt_pose[:, None, :3])
         relative_q = quat_mul(quat_conjugate(bq), self.poses[..., 3:])
         self.belt_half = projected_half_size(relative_q, self.half_size[None].expand(self.num_envs, -1, -1))
+        if self.transfer_progress is not None:
+            from .transfer import rack_clearance
+            rq = self.rack_quat[:, None].expand(-1, self.n, -1)
+            rack_local = unrotate(rq, self.centers - self.rack_pos[:, None])
+            rack_half = projected_half_size(quat_mul(quat_conjugate(rq), self.poses[..., 3:]),
+                                           self.half_size[None].expand(self.num_envs, -1, -1))
+            self.extracted, self.extract_remaining = rack_clearance(
+                rack_local, rack_half, self.rack_center, self.rack_half, self.spec.rack_extract_clearance)
+            matrix = self._env.scene["conveyor_support_contact"].data.force_matrix_w
+            if matrix is None or matrix.shape[2] != self.n:
+                raise RuntimeError("Missing filtered box-to-conveyor support contacts")
+            self.conveyor_support_force = matrix[:, 0].norm(dim=-1)
         # Full oriented box footprint must fit, not just its center.
         self.supported = ((local[..., :2].abs() + self.belt_half[..., :2]
                            <= torch.tensor((1.275, 0.34), device=self.device) - self.spec.clearance).all(-1)
@@ -296,9 +325,33 @@ class WorkcellCommand(CommandTerm):
             "grasp": self.grasped, "height": lifted, "tilt": upright,
         }
         placed = self.supported[self.ids, self.active_box] & settled & self.released
+        if self.transfer_progress is not None:
+            desired = self.slot_goal.clone()
+            desired[:, 2] += self.belt_half[self.ids, self.active_box, 2]
+            self.transfer_distance = (target - desired).norm(dim=-1)
+            horizontal = (target[:, :2] - desired[:, :2]).norm(dim=-1) < self.spec.transfer_target_tolerance
+            belt_clearance = target[:, 2] - self.belt_half[self.ids, self.active_box, 2] >= self.slot_goal[:, 2]
+            contact = self.conveyor_support_force[self.ids, self.active_box] >= self.spec.placement_contact_force
+            extracted = self.extracted[self.ids, self.active_box]
+            carry_held = self.grasped & upright & extracted & horizontal & belt_clearance
+            placed &= contact & extracted
+            enabled = self.grasped.clone()
+            if self.settling is not None:
+                enabled &= self.settling.ready
+            self.transfer_progress.advance(self.extract_remaining[self.ids, self.active_box],
+                self.transfer_distance, self.reward_phase, enabled, update)
+            carry_checks = {"grasp": self.grasped, "tilt": upright, "extracted": extracted,
+                            "above_target": horizontal, "belt_clearance": belt_clearance,
+                            "free_slot": self.free_slots.any(-1)}
+            place_checks = {"supported": self.supported[self.ids, self.active_box], "support_contact": contact,
+                            "extracted": extracted, "settled": settled, "released": self.released}
+            self.pick_checks = {name: torch.where(self.phase == 2,
+                carry_checks.get(name, torch.ones_like(held)), torch.where(self.phase == 3,
+                place_checks.get(name, torch.ones_like(held)), self.pick_checks.get(name, torch.ones_like(held))))
+                for name in dict.fromkeys((*self.pick_checks, *carry_checks, *place_checks))}
         condition = torch.where(self.phase == 0, navigated,
                     torch.where(self.phase == 1, held,
-                    torch.where(self.phase == 2, carry_held & navigated & self.free_slots.any(-1),
+                    torch.where(self.phase == 2, carry_held & (navigated | (self.spec.name == "pick_place")) & self.free_slots.any(-1),
                     torch.where(self.phase == 3, placed,
                                 self.supported.all(-1) & self.button_pressed
                                 & ((self.tools - self.button_point[:, None]).norm(dim=-1).amin(-1)
@@ -311,12 +364,20 @@ class WorkcellCommand(CommandTerm):
             self.pick_checks["cargo"] = self.cargo_ok.all(-1)
         self.dwell[update] = torch.where(condition[update], self.dwell[update] + self._env.step_dt, 0.0)
         self.pick_checks["hold"] = self.dwell >= self.spec.hold_seconds
+        self.reward_dwell = self.dwell.clone()
         reached = (self.dwell >= self.spec.hold_seconds) & update & ~self.success
         self.transition[:] = reached & ~self.belt_running
         button_done = reached & (self.phase == 4)
         self.belt_running |= button_done
         self.belt_time += self.belt_running.float() * self._env.step_dt
-        if self.spec.name == "full":
+        if self.spec.name == "pick_place":
+            completed = reached & (self.phase == 3)
+            self.done_boxes[completed, self.active_box[completed]] = True
+            self.success |= completed
+            advancing = reached & (self.phase < 3)
+            self.phase[advancing] += 1
+            self.dwell[advancing] = 0
+        elif self.spec.name == "full":
             placed_ids = (reached & (self.phase == 3)).nonzero().flatten()
             self.done_boxes[placed_ids, self.active_box[placed_ids]] = True
             next_box = (~self.done_boxes).long().argmax(-1)
@@ -332,7 +393,8 @@ class WorkcellCommand(CommandTerm):
         else:
             self.success |= reached
         floor_drop = (self.centers[..., 2] - self._env.scene.env_origins[:, None, 2] < 0.12).any(-1)
-        outside = (self.robot.data.root_pos_w[:, :2] - self._env.scene.env_origins[:, :2]).abs().amax(-1) > 3.0
+        outside = outside_workspace(
+            self.robot.data.root_pos_w, self._env.scene.env_origins, self.spec.workspace_radius)
         if self.flap_grasp is not None:
             collision = self.obstacle_forces.amax(-1) > self.spec.obstacle_contact_force
         else:

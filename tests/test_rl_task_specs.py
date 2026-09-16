@@ -55,3 +55,10 @@ def test_contact_region_and_disturbance_limits_validate():
         task_spec("pick", **options, prelift_position_deadband=-.1).validate()
     with pytest.raises(ValueError, match="cap"):
         task_spec("pick", **options, prelift_penalty_cap=float('inf')).validate()
+
+
+def test_workspace_radius_is_positive_and_defaults_to_one_point_five_metres():
+    assert task_spec("pick").workspace_radius == 1.5
+    for value in (0., -1., float("inf"), float("nan")):
+        with pytest.raises(ValueError, match="workspace_radius"):
+            task_spec("pick", workspace_radius=value).validate()

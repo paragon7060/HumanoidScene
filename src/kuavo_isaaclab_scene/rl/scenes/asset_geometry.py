@@ -18,6 +18,20 @@ class BoxGeometry(RigidGeometry):
     flaps: dict[str, RigidGeometry] = field(default_factory=dict)
 
 
+def rack_geometry():
+    """Raw Rack.usd bounds, including its authored transforms and anchor scale."""
+    from ...core.paths import ASSET_DIR
+    from ...workcell.workcell_layout import scale
+    stage = Usd.Stage.Open(str(ASSET_DIR / "Rack.usd"))
+    bounds = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render", "proxy"])
+    box = bounds.ComputeWorldBound(stage.GetDefaultPrim()).ComputeAlignedRange()
+    scaling = scale("rack")
+    low = tuple(box.GetMin()[i] * scaling[i] for i in range(3))
+    high = tuple(box.GetMax()[i] * scaling[i] for i in range(3))
+    return RigidGeometry(tuple((a+b)/2 for a,b in zip(low,high)),
+                         tuple((b-a)/2 for a,b in zip(low,high)), ".")
+
+
 @lru_cache(maxsize=4)
 def robot_rigid_body_paths(usd_path):
     """Enumerate all robot links, including fingers, for obstacle contact sensing."""

@@ -5,6 +5,18 @@ from kuavo_isaaclab_scene.rl.debug.reward_report import step_contributions, form
 
 
 class RewardReportTests(unittest.TestCase):
+    def test_transfer_hud_shows_stage_and_physical_support_blocker(self):
+        sample = dict(terms={"placement": 0.}, total=0., lift_cm=-20., hold=0.,
+                      left_grasp=False, right_grasp=False, left_distance_cm=100., right_distance_cm=100.,
+                      task="pick_place", phase="place", next_phase="place", extract_remaining_cm=0.,
+                      transfer_distance_cm=2., support_force=0., required_support_force=.2,
+                      success_checks={"supported": True, "support_contact": False, "released": True},
+                      blocked_checks=["support_contact"], obstacle_force=0.)
+        headline, lines = reward_summary(sample, "RUN")
+        self.assertIn("Stage: place", lines)
+        self.assertIn("NEED: Belt contact 0.00 / 0.2 N", lines)
+        self.assertIn("TASK: pick_place | STAGE: place", format_report(sample, "RUN", 0.))
+
     def test_joint_limit_pause_has_a_reset_instruction(self):
         self.assertEqual(reward_summary(None, "JOINT LIMIT - press B/R to reset"),
                          ("ROBOT JOINT LIMIT", ["Physics paused; press B/R to reset"]))
@@ -38,6 +50,14 @@ class RewardReportTests(unittest.TestCase):
 
     def test_no_physics_yet(self):
         self.assertIn("Waiting for first physics step", format_report(None, "PAUSED", 0.))
+
+    def test_base_motion_and_workspace_are_visible(self):
+        sample = dict(terms={"base_motion": -.01, "base_stop": 0.}, total=-.01,
+                      lift_cm=0., hold=0., left_grasp=False, right_grasp=False,
+                      left_distance_cm=10., right_distance_cm=10., base_speed_mps=.123,
+                      base_yaw_rate=-.2, base_offset_m=1.2, workspace_radius_m=1.5)
+        output = format_report(sample, "RUN", -.01)
+        self.assertIn("BASE: 0.123 m/s | yaw -0.200 rad/s | offset 1.20/1.5 m", output)
 
     def test_reaching_window_counts_every_step_and_reset_clears_history(self):
         summary = ReachRewardSummary(window_s=.5)

@@ -5,7 +5,7 @@ import math
 from ..action_spaces import ACTION_SPACES
 
 PHASES = ("approach_rack", "pick", "carry", "place", "press_button")
-TASKS = (*PHASES, "full")
+TASKS = (*PHASES, "pick_place", "full")
 PREDECESSOR = {"pick": "approach_rack", "carry": "pick", "place": "carry", "press_button": "place"}
 REQUIRES_RESET_BANK = ("carry", "place", "press_button")
 
@@ -46,6 +46,7 @@ class TaskSpec:
     unexpected_contact_limit: float = 10.0
     obstacle_contact_force: float = 20.0
     collision_constraints_enabled: bool = True  # RL failure/cost only; never disables physical contacts.
+    workspace_radius: float = 1.5  # Hard radial limit from each environment origin.
     reset_settle_seconds: float = 0.0
     reset_settle_hold_seconds: float = 0.2
     reset_settle_timeout: float = 0.0  # 0: fixed initial delay, no velocity gate or timeout failure
@@ -64,6 +65,9 @@ class TaskSpec:
     settle_speed: float = 0.08
     settle_angular_speed: float = 0.35
     support_tolerance: float = 0.025
+    placement_contact_force: float = 0.20  # N: physical box-to-belt support, pick_place only.
+    transfer_target_tolerance: float = 0.15
+    rack_extract_clearance: float = 0.025
     clearance: float = 0.025
     hold_seconds: float = 0.30
     button_travel: float = 0.006
@@ -86,6 +90,8 @@ class TaskSpec:
     tool_offset: tuple[float, float, float] = (0.0, 0.0, -0.12)
 
     def validate(self) -> None:
+        if not math.isfinite(self.workspace_radius) or self.workspace_radius <= 0:
+            raise ValueError("workspace_radius must be finite and positive.")
         if (not all(math.isfinite(v) and v > 0 for v in (self.max_box_lift_height,
                 self.max_box_linear_speed, self.max_box_angular_speed))
                 or self.max_box_lift_height <= self.lift_height):
@@ -114,8 +120,8 @@ class TaskSpec:
         if self.grasp_mode not in ("body", "flap_top"):
             raise ValueError("grasp_mode must be body or flap_top.")
         if self.grasp_mode == "flap_top":
-            if self.name != "pick":
-                raise ValueError("flap_top requires a pick task (stationary or whole-body).")
+            if self.name not in ("pick", "pick_place"):
+                raise ValueError("flap_top requires a pick task or pick_place.")
             if self.grasp_hand not in ("left", "right"):
                 raise ValueError("grasp_hand must be left or right.")
             if (len(self.grasp_flaps) != 2 or len(set(self.grasp_flaps)) != 2
@@ -145,6 +151,14 @@ class TaskSpec:
                 raise ValueError("Disturbance grasp scale must be in [0, 1] and cap positive and finite.")
         if len(self.finger_bodies) != 4:
             raise ValueError("Provide two opposing finger bodies per hand (left then right).")
+        if self.name == "pick_place":
+            if self.control_mode != "whole-body" or self.grasp_mode != "flap_top":
+                raise ValueError("pick_place requires whole-body flap_top control.")
+            if len(self.box_names) != 1:
+                raise ValueError("pick_place currently transfers one box per episode.")
+            if not all(math.isfinite(v) and v > 0 for v in (self.placement_contact_force,
+                    self.transfer_target_tolerance, self.rack_extract_clearance)):
+                raise ValueError("Transfer contact, target and extraction thresholds must be finite and positive.")
         if not math.isfinite(self.reset_settle_seconds) or self.reset_settle_seconds < 0:
             raise ValueError("reset_settle_seconds must be finite and nonnegative.")
         if self.reset_settle_seconds:
@@ -176,7 +190,9 @@ class TaskSpec:
 
 
 def task_spec(name: str, **overrides) -> TaskSpec:
-    durations = dict(approach_rack=15.0, pick=15.0, carry=15.0, place=12.0, press_button=12.0, full=90.0)
+    durations = dict(approach_rack=15.0, pick=15.0, carry=15.0, place=12.0, press_button=12.0,
+                     pick_place=120.0, full=90.0)
     if name not in durations:
         raise ValueError(f"Unknown task {name!r}; choose {TASKS}")
-    return replace(TaskSpec(name=name, episode_length_s=durations[name]), **overrides)
+    return replace(TaskSpec(name=name, episode_length_s=durations[name],
+                            grasp_mode="flap_top" if name == "pick_place" else "body"), **overrides)

@@ -16,7 +16,7 @@ class RewardProbe(RecorderTerm):
             "total": float(env.reward_buf[0].item()),
             "lift_cm": float((t.centers[0, box, 2] - env.scene.env_origins[0, 2]
                               - t.initial_z[0, box]).item()) * 100,
-            "hold": float(t.dwell[0].item()),
+            "hold": float(t.reward_dwell[0].item()),
             "required_hold": float(t.spec.hold_seconds),
             "required_lift_cm": float(t.spec.lift_height) * 100,
             "tilt_deg": math.degrees(math.acos(float(t.upright[0, box].clamp(-1, 1)))),
@@ -71,5 +71,29 @@ class RewardProbe(RecorderTerm):
                 }
         if force_hands:
             env._quest_reward_sample["gripper_force"] = force_hands
+        if "base" in env.action_manager.active_terms:
+            velocity = env.action_manager.get_term("base").processed_actions[0]
+            offset = t.robot.data.root_pos_w[0, :2] - env.scene.env_origins[0, :2]
+            env._quest_reward_sample.update(
+                base_speed_mps=float(velocity[:2].norm().item()),
+                base_yaw_rate=float(velocity[2].item()),
+                base_offset_m=float(offset.norm().item()),
+                workspace_radius_m=float(t.spec.workspace_radius))
+        if t.transfer_progress is not None:
+            from ..tasks.specs import PHASES
+            phase = int(t.reward_phase[0].item())
+            relevant = {1: ("grasp", "height", "tilt"),
+                        2: ("grasp", "tilt", "extracted", "above_target", "belt_clearance", "free_slot"),
+                        3: ("supported", "support_contact", "extracted", "settled", "released")}[phase]
+            relevant = (*relevant, "initial_wait", "cargo", "hold")
+            sample = env._quest_reward_sample
+            sample["success_checks"] = {name: value for name, value in sample["success_checks"].items()
+                                        if name in relevant}
+            sample["blocked_checks"] = [name for name, value in sample["success_checks"].items() if not value]
+            sample.update(task=t.spec.name, phase=PHASES[phase], next_phase=PHASES[int(t.phase[0].item())],
+                transfer_distance_cm=100 * float(t.transfer_distance[0].item()),
+                extract_remaining_cm=100 * float(t.extract_remaining[0, box].item()),
+                support_force=float(t.conveyor_support_force[0, box].item()),
+                required_support_force=float(t.spec.placement_contact_force))
         # No trajectory accumulation or HDF5 export: just one small snapshot.
         return None, None

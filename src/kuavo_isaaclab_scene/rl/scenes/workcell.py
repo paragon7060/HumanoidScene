@@ -1,4 +1,4 @@
-"""Local task geometry only: no warehouse USD, decorative conveyor or movers."""
+"""Local rack, stopped conveyor and obstacles; no warehouse USD or movers."""
 
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
@@ -45,6 +45,7 @@ def add_workcell(scene, parallel):
         ("workcell_groups", ""), ("racks_group", "/Racks"),
         ("safety_group", "/SafetySystem"), ("fence_group", "/SafetySystem/Fence"),
         ("conveyor_group", "/ConveyorSystem"),
+        ("conveyor_frame_group", "/ConveyorSystem/Frame"),
         ("foreign_totes_group", "/ConveyorSystem/ForeignTotes"),
         ("contents_group", "/Contents"), ("staging_boxes_group", "/StagingBoxes"),
     ):
@@ -94,12 +95,31 @@ def add_workcell(scene, parallel):
     scene.conveyor_surface = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Workcell/ConveyorSystem/Surface",
         spawn=sim_utils.CuboidCfg(size=(2.55, .68, .03),
+            activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=.004, rest_offset=0.),
             physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=.9, dynamic_friction=.8, restitution=0.),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(.10, .12, .14))),
         init_state=RigidObjectCfg.InitialStateCfg(pos=offset("conveyor", (1.29, .43, .753)),
             rot=remap_quat("conveyor", (1., 0., 0., 0.))))
+    # A local physical frame makes the belt visible and blocks base/arm motion
+    # through its supports. Keep the measured top and placement volume unchanged.
+    frame_parts = {
+        "rail_left": ((2.55, .035, .10), (1.29, .0725, .685)),
+        "rail_right": ((2.55, .035, .10), (1.29, .7875, .685)),
+    }
+    for x in (.24, 2.34):
+        for y in (.14, .72):
+            frame_parts[f"leg_{x}_{y}".replace(".", "_")] = ((.065, .065, .64), (x, y, .31))
+    for name, (size, pos) in frame_parts.items():
+        setattr(scene, "conveyor_" + name, AssetBaseCfg(
+            prim_path="{ENV_REGEX_NS}/Workcell/ConveyorSystem/Frame/" + name,
+            spawn=sim_utils.CuboidCfg(size=size,
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True, disable_gravity=True),
+                collision_props=sim_utils.CollisionPropertiesCfg(),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(.35, .38, .40))),
+            init_state=AssetBaseCfg.InitialStateCfg(pos=offset("conveyor", pos),
+                rot=remap_quat("conveyor", (1., 0., 0., 0.)))))
 
 
 def add_light(scene):

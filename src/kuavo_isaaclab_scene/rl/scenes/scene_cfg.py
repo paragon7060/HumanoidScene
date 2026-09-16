@@ -8,7 +8,7 @@ from .workcell import add_workcell, add_light
 from .boxes import add_boxes
 from .sensors import add_contacts, add_cameras
 
-SCENE_PROFILE = "minimal_rl_v1"
+SCENE_PROFILE = "minimal_rl_v2"
 
 
 @configclass
@@ -22,6 +22,9 @@ def build_scene(spec, num_envs=8, env_spacing=8., cameras=False, *, parallel=Non
     add_workcell(scene, parallel)
     scene.robot = build_robot_cfg()
     geometry = add_boxes(scene, spec)
+    if spec.name == "pick_place":
+        from .asset_geometry import rack_geometry
+        geometry["rack"] = rack_geometry()
     add_contacts(scene, spec, geometry)
     if cameras:
         add_cameras(scene)

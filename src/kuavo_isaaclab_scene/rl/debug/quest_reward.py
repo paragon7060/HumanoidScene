@@ -30,12 +30,14 @@ from .stationary_surface import StationarySurface
 
 
 def _config(args):
-    config = Path(args.rl_config or CONFIG_DIR / "rl_pick_arms_only.py").expanduser().resolve()
+    task_name = getattr(args, "rl_task", "pick")
+    config = Path(args.rl_config or CONFIG_DIR / (
+        "rl_pick_place.py" if task_name == "pick_place" else "rl_pick_arms_only.py")).expanduser().resolve()
     if not config.is_file():
         raise ValueError(f"Missing RL config: {config}")
     # Use the same experiment builder as training, including named pose and physics.
     whole_body = getattr(args, "rl_reward_debug", 0) == 1
-    rl = Namespace(task="pick", boxes="medium_box_0",
+    rl = Namespace(task=task_name, boxes="medium_box_0",
         control_mode="whole-body" if whole_body else "arms-only",
         action_space="all-joints" if whole_body else "right-arm",
         config=config, reset_bank=None, snapshot_dir=None, max_snapshots=1,
@@ -48,8 +50,8 @@ def _config(args):
     # even in an Isaac Lab environment where the training-only '.[rl]' extra
     # (rsl-rl-lib) is not installed.
     cfg, _ = build_configs(rl, include_agent=False)
-    if cfg.task.grasp_mode != "flap_top" or cfg.task.name != "pick":
-        raise ValueError("Quest reward inspection currently supports flap pick only")
+    if cfg.task.grasp_mode != "flap_top" or cfg.task.name not in ("pick", "pick_place"):
+        raise ValueError("Quest reward inspection supports flap pick and pick_place")
     realtime = (
         not resolve_rack_roller_settings().enabled
         and getattr(args, "rl_obstacle_contact_hz", None) is None
@@ -180,7 +182,7 @@ def run(args, app):
         last_collision_draw = 0.
         status = "PAUSED - X then A"
         print("[RL REWARD] No dataset recording. A/T run/pause; B/R reset; X/C recenter; Y/H panel.", flush=True)
-        print(f"[RL REWARD] control={cfg.task.control_mode}, active_arm={cfg.task.active_arm}, "
+        print(f"[RL REWARD] task={cfg.task.name}, control={cfg.task.control_mode}, active_arm={cfg.task.active_arm}, "
               f"action_space={cfg.task.action_space}, actions={env.action_manager.total_action_dim}, "
               f"flaps={cfg.task.grasp_flaps}, contact_region={cfg.task.flap_contact_region}", flush=True)
         print(f"[RL REWARD] controller_mapping={args.controller_mapping}"

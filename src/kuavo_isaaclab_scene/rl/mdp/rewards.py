@@ -101,6 +101,24 @@ def flap_lift_progress(env):
 
 
 @guard_box_reward
+def extraction_progress(env):
+    t = task(env)
+    return t.transfer_progress.delta[:, 0] * (t.reward_phase == 2) * ready(t) / env.step_dt
+
+
+@guard_box_reward
+def transfer_progress(env):
+    t = task(env)
+    return t.transfer_progress.delta[:, 1] * (t.reward_phase == 2) * ready(t) / env.step_dt
+
+
+@guard_box_reward
+def placement_progress(env):
+    t = task(env)
+    return t.transfer_progress.delta[:, 1] * (t.reward_phase == 3) * ready(t) / env.step_dt
+
+
+@guard_box_reward
 def flap_orientation(env, distance_threshold: float = 0.10):
     """Signed alignment improvement; no reward for merely approaching/holding."""
     if not math.isfinite(distance_threshold) or distance_threshold <= 0:
@@ -144,6 +162,35 @@ def settled_time(env):
     return ready(task(env)) * (~env.termination_manager.terminated).float()
 
 
+def _base_velocity_cost(env, translation_deadband, yaw_deadband, yaw_weight):
+    t = task(env)
+    if "base" not in env.action_manager.active_terms:
+        return torch.zeros_like(t.reward_phase, dtype=torch.float)
+    base = env.action_manager.get_term("base")
+    velocity = base.processed_actions
+    limits = base._scale.clamp_min(1e-6)
+    translation = ((velocity[:, :2].abs() - translation_deadband).clamp_min(0)
+                   / limits[:2]).square().sum(-1)
+    yaw = ((velocity[:, 2].abs() - yaw_deadband).clamp_min(0) / limits[2]).square()
+    return ready(t) * (translation + yaw_weight * yaw)
+
+
+@guard_box_reward
+def base_motion(env, translation_deadband: float = 0.02, yaw_deadband: float = 0.05,
+                yaw_weight: float = 0.25):
+    """Small continuous cost for physically applied base velocity, not action changes."""
+    return _base_velocity_cost(env, translation_deadband, yaw_deadband, yaw_weight)
+
+
+@guard_box_reward
+def base_stop(env, translation_deadband: float = 0.02, yaw_deadband: float = 0.05,
+              yaw_weight: float = 0.25):
+    """Extra stop cost after grasp acquisition and throughout final placement."""
+    t = task(env)
+    must_stop = ((t.reward_phase == 1) & t.grasped) | (t.reward_phase == 3)
+    return must_stop * _base_velocity_cost(env, translation_deadband, yaw_deadband, yaw_weight)
+
+
 def _grasp_stability(env):
     t = task(env)
     box = t.reward_box
@@ -156,7 +203,11 @@ def _grasp_stability(env):
 
 @guard_box_reward
 def prelift_disturbance(env):
-    return _grasp_stability(env)[0]
+    t = task(env)
+    penalty = _grasp_stability(env)[0]
+    # A successfully extracted box can be lower than its original shelf at
+    # the belt. That must not re-enable the pre-pick shelf-disturbance cost.
+    return penalty * (t.reward_phase == 1) if t.spec.name == "pick_place" else penalty
 
 
 @guard_box_reward

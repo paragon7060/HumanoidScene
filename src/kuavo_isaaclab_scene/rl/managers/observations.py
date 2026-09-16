@@ -60,3 +60,13 @@ class MobileFlapPickPolicyCfg(FlapPickPolicyCfg):
 @configclass
 class MobileFlapPickObservationsCfg:
     policy: MobileFlapPickPolicyCfg = MobileFlapPickPolicyCfg()
+
+
+@configclass
+class FlapTransferPolicyCfg(MobileFlapPickPolicyCfg):
+    transfer_state = ObsTerm(func=observations.flap_transfer_state)
+
+
+@configclass
+class FlapTransferObservationsCfg:
+    policy: FlapTransferPolicyCfg = FlapTransferPolicyCfg()

@@ -32,7 +32,7 @@ def reset_episode(env, env_ids):
     robot = env.scene["robot"]
     pose = robot.data.default_root_state[ids, :7].clone()
     pose[:, :3] += env.scene.env_origins[ids]
-    if spec.name == "pick" and spec.control_mode != "arms-only":
+    if spec.name in ("pick", "pick_place") and spec.control_mode != "arms-only":
         pose[:, :2] = command.goal[ids, :2]
         angle = command.goal[ids, 2]
         pose[:, 3:] = quat_from_euler_xyz(torch.zeros_like(angle), torch.zeros_like(angle), angle)

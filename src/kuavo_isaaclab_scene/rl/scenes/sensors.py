@@ -14,6 +14,11 @@ def _rack_contact_targets(scene) -> list[str]:
 
 
 def add_contacts(scene, spec, geometry):
+    if spec.name == "pick_place":
+        scene.conveyor_support_contact = ContactSensorCfg(
+            prim_path=scene.conveyor_surface.prim_path, update_period=0., history_length=1,
+            filter_prim_paths_expr=[getattr(scene, n).prim_path + "/" + geometry[n].body_path
+                                    for n in spec.box_names])
     for index, body in enumerate(spec.finger_bodies):
         targets = []
         for name in spec.box_names:
@@ -39,6 +44,8 @@ def add_contacts(scene, spec, geometry):
                      scene.button_station.prim_path + "/Base",
                      scene.button_station.prim_path + "/Plunger",
                      scene.conveyor_surface.prim_path]
+        obstacles.extend(asset.prim_path for name, asset in vars(scene).items()
+                         if name.startswith(("conveyor_rail_", "conveyor_leg_")))
         obstacles.extend(getattr(scene, f"prefill_{i}").prim_path for i in range(spec.prefill_count))
         for index, path in enumerate(robot_rigid_body_paths(scene.robot.spawn.usd_path)):
             prim_path = scene.robot.prim_path + ("/" + path if path != "." else "")

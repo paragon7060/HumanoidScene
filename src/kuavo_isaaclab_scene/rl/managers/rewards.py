@@ -42,3 +42,12 @@ class FlapPickRewardsCfg(RewardsCfg):
     time_cost = Reward(func=rewards.settled_time, weight=-0.10)
     prelift_disturbance = Reward(func=rewards.prelift_disturbance, weight=-0.25)
     stable_grasp = None  # no renewable reward for grasping a box left on the shelf
+
+
+@configclass
+class FlapPickPlaceRewardsCfg(FlapPickRewardsCfg):
+    extraction = Reward(func=rewards.extraction_progress, weight=8.)
+    carrying = Reward(func=rewards.transfer_progress, weight=8.)
+    placement = Reward(func=rewards.placement_progress, weight=8.)
+    base_motion = Reward(func=rewards.base_motion, weight=-0.10)
+    base_stop = Reward(func=rewards.base_stop, weight=-0.40)

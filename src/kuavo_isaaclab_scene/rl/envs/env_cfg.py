@@ -57,6 +57,11 @@ class WorkcellRLEnvCfg(ManagerBasedRLEnvCfg):
             self.observations = (MobileFlapPickObservationsCfg() if self.task.control_mode == "whole-body"
                                  else FlapPickObservationsCfg())
             self.rewards = FlapPickRewardsCfg()
+            if self.task.name == "pick_place":
+                from ..managers.rewards import FlapPickPlaceRewardsCfg
+                from ..managers.observations import FlapTransferObservationsCfg
+                self.rewards = FlapPickPlaceRewardsCfg()
+                self.observations = FlapTransferObservationsCfg()
             if not self.task.collision_constraints_enabled:
                 self.rewards.collision = None
             # Sample contacts at every physics substep, including impacts that
