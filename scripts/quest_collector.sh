@@ -57,7 +57,7 @@ case "${COMMAND}" in
   collect)
     printf '%s\n' '[START] Connect Quest to the Runtime first; this command starts Isaac Sim and records only after an explicit start.'
     exec bash "${PROJECT_DIR}/scripts/collect_quest_teleop.sh" \
-      --robot-model s200062 --input-mode controllers --device cpu --control-hz 30 \
+      --robot-model s63 --input-mode controllers --device cpu --control-hz 30 \
       --xr-resolution-scale 1.0 --scene-detail compact --render-quality performance \
       --no-desktop-render --no-camera-preview --no-head-camera --wrist-cameras --no-record-depth \
       --controller-mapping scaled --position-gain 1.1 --dataset-format hdf5 \

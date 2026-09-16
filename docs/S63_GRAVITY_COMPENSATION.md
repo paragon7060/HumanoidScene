@@ -1,6 +1,6 @@
 # S63 + Leju twofinger 중력 보상과 PD 설정
 
-S63 + `leju-twofinger`를 명시적으로 지정하려면:
+기본 실행 모델은 S63 + `leju-twofinger`다. 명시적으로 지정하려면:
 
 Leju claw의 각 손 패키지는 D405를 포함해 1 kg이다. 링크별 질량 비율과 CoM을
 유지하며 질량과 관성을 함께 조정했다. URDF·USD 및 runtime spawn 모두 같은 값을 쓴다.
@@ -22,6 +22,11 @@ RL 학습·reward debug·평가, Quest collect가 이 asset 설정을 공유한�
 wheel, head, gripper motor 및 passive four-bar 관절에는 별도 보상을 적용하지 않는다.
 arms-only 등으로 물리 관절 범위가 잠긴 관절도 제외한다.
 
+S63의 기본 `--dynamics-profile auto`는 `s63-arm-id`로 해석된다. 몸통 네 관절에는 아래
+gravity-PD 식을 그대로 사용하고, 양팔에서는 제어 tick마다 계산한
+`M(q)qdd_des+C(q,dq)+G(q)`가 단순 `G(q)`를 대체한다. 물리 substep 사이에는 계산값을
+재사용한다. `--dynamics-profile gravity`를 지정하면 모든 선택 관절이 아래 기존 식을 사용한다.
+
 현재 구동은 PhysX implicit force drive이므로 중력 토크를 별도 외력으로 더하지 않고,
 solver에 전달하는 목표에만 `g(q)/Kp`를 더한다:
 
@@ -39,9 +44,10 @@ solver 목표는 물리 관절 범위 밖에 있을 수 있지만 실제 관절 
 S200062와 S56에도 같은 경로를 적용한다. S56은 다리 12관절·waist_yaw·양팔 14관절을
 선택한다. 모델별 검증 및 추가 확인 사항은 [공통 중력 보상 검토](ROBOT_GRAVITY_COMPENSATION.md).
 
-PhysX 보상은 접촉·마찰·별도 물체 payload를 포함하지 않는다. 손에 잡힌 박스의 무게가
+PhysX inverse dynamics도 접촉·마찰·별도 물체 payload를 포함하지 않는다. 손에 잡힌 박스의 무게가
 자동으로 로봇 중력 모델에 합쳐지는 것은 아니다. 모델 오차, 외력, 토크 한도 때문에
-자세 오차가 남을 수 있다. 실제 S63의 WBC 가속도/접촉 제어까지 재현한 구현은 아니다.
+자세 오차가 남을 수 있다. 현재 팔 profile은 fixed-root computed-torque 근사이며 실제 S63의
+task/contact constraint를 푸는 full QP WBC 구현은 아니다.
 [NVIDIA inverse dynamics 설명](https://docs.omniverse.nvidia.com/kit/docs/omni_physics/107.2/extensions/runtime/source/omni.physics.tensors/docs/inverse_dynamics.html).
 
 ## PD 설정
@@ -74,8 +80,10 @@ PhysX 보상은 접촉·마찰·별도 물체 payload를 포함하지 않는다.
 ## 초기 자세와 진단
 
 기본 flap pick 실험은 S63용 `s63_leju_ready_01`을 사용한다. 이 자세는 시뮬레이션용으로
-준비한 구부린 몸통과 elbow-bent arms이며 실물/VR 측정값이 아니다. 로봇 root는 workcell
-설정에서 유지하고, 기존 S200062 측정 자세 `quest_ready_02`는 수정하지 않는다.
+준비한 자세이며 실물/VR 측정값이 아니다. base는 기존 S200062 `quest_ready_02`의
+저장 root pose를 사용하며, torso는 S63 장착 offset을 보정해 같은 위치·방향을
+재현한다. S63 팔·머리 초기값과 원본 S200062 프리셋은 유지한다.
+[재현 기준과 관절값](RL_INITIAL_STATES.md#s200062-basetorso-재현)을 참고한다.
 
 실행 중 robot asset에서 아래 tensor로 보상을 확인할 수 있다:
 
@@ -83,11 +91,13 @@ PhysX 보상은 접촉·마찰·별도 물체 payload를 포함하지 않는다.
 robot = env.scene["robot"]
 robot.gravity_compensation_torque   # 선택된 관절의 계산 중력 토크
 robot.gravity_compensation_bias     # solver-only g/Kp 보정
+robot.inverse_dynamics_torque       # s63-arm-id의 M*qdd+C+G
+robot.dynamics_profile              # s63-arm-id 또는 gravity
 robot.data.joint_pos_target         # 보정되지 않은 논리 목표
 ```
 
 `computed_torque`와 `applied_torque`는 implicit actuator의 근사 추정치이며 실제 출력 토크
-측정값이 아니다. 실물 PD는 관절 출력 기준의 단위와 제어 모드를 확인한 뒤 적용한다.
+측정값이 아니다. 실물 PD·제어 계층 확인 결과는 [로봇 제어 확인 기록](REAL_ROBOT_CONTROL_AUDIT.md).
 
 ## 시뮬레이션 검증
 

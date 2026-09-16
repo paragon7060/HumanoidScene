@@ -1,12 +1,42 @@
-# RL 초기 자세: quest_ready_02
+# RL 모델별 초기 자세
 
 전용 `train_flap_pick.sh`와 `play_flap_pick.sh`는
-`configs/rl_pick_arms_only.py`의 `INITIAL_STATE = "quest_ready_02"`를 사용한다.
+`configs/rl_pick_arms_only.py`에서 모델별 `INITIAL_STATE`를 선택한다.
+기본 S63 + `leju-twofinger`는 `s63_leju_ready_01`을 사용한다. 이 자세는
+시뮬레이션용으로 준비한 값이며 실물 또는 VR 측정값이 아니다.
+S200062를 명시적으로 선택하면 기존 측정 자세 `quest_ready_02`를 사용한다.
+S56 + `s56_twofinger`는 별도 시뮬레이션용 `s56_twofinger_ready_01`을 사용한다.
+이 자세는 fixed root 조건이며 지면에서 균형을 잡는 보행 자세가 아니다.
 학습 실행법과 task 설정은 [flap 파지 학습](RL_FLAP_PICK.md)에 있다.
+
+## S200062 base·torso 재현
+
+`s63_leju_ready_01`은 `quest_ready_02`의 base `root_pose`를 그대로 저장한다.
+따라서 S63의 arms-only/whole-body pick 및 pick_place에서도 reset 마지막에
+저장된 위치·방향을 복원하고, 박스 접근 위치로 자동 배치한 값을 덮어쓴다.
+base XY는 −0.240912810 / +0.066121511 m이며 전체 quaternion도 함께 복사했다.
+
+Torso 기준은 팔이 붙는 `waist_yaw_link`의 위치·방향이다. S63는 하부 고정
+프레임과 waist 장착 offset이 달라서, S200062 관절각을 그대로 사용하면
+torso가 X −4.69 mm, Z +45.20 mm 어긋난다. base를 유지하고 S63의 세 pitch
+관절을 역기구학으로 계산해 같은 torso pose가 되도록 설정했다.
+
+| S63 관절 | 초기 각도 (rad) |
+|---|---:|
+| knee_joint | 0.23065070098376964 |
+| leg_joint | −0.47266920953812963 |
+| waist_pitch_joint | 0.26300891006078403 |
+| waist_yaw_joint | −0.00017328046669717878 |
+
+S63 팔·머리 초기 관절값과 gripper 설정은 유지한다. 이 값은 S200062 저장
+자세를 시뮬레이션에서 재현한 결과이며, S63 실물 측정 자세는 아니다.
+원본 `quest_ready_02`는 변경하지 않는다. 모델별 torso FK 일치와 S63 관절
+제한을 검사하며, headless 2환경에서 실제 reset 후 root와 torso pose를 검증했다.
 
 ## 직접 수정
 
-`configs/initial_states.json`의 `states.quest_ready_02.assets.robot`을 수정한다.
+`configs/initial_states.json`의 `states.s63_leju_ready_01.assets.robot`을 수정한다.
+S200062에서는 `states.quest_ready_02.assets.robot`을 수정한다.
 
 - `joint_positions`: 관절 이름별 각도, 단위 rad. 예: `zhead_1_joint`,
   `zhead_2_joint`, `waist_pitch_joint`, `waist_yaw_joint`, `zarm_l1_joint`.
@@ -28,7 +58,7 @@ VS Code에서 실행 중인 teleop의 `env.step(action)` 다음 줄에 중단점
 ```python
 from kuavo_isaaclab_scene.robots.initial_states import capture_initial_state
 capture_initial_state(
-    env, "quest_ready_02",
+    env, "s63_leju_ready_01",
     path="/absolute/path/to/kuavo_isaaclab_scene/configs/initial_states.json",
     overwrite=True,
 )

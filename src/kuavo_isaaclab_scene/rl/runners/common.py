@@ -209,6 +209,7 @@ def write_run_config(path, cfg, agent, env):
                 "action_config": cfg.actions.to_dict(),
                 "observations": env.observation_manager.group_obs_dim,
                 "robot_model": metadata["robot"], "gripper": metadata["gripper"],
+                "dynamics_profile": str(getattr(env.scene["robot"], "dynamics_profile", "unknown")),
                 "parallel_scene": {"profile": cfg.scene_profile, "num_envs": cfg.scene.num_envs,
                     "env_spacing": cfg.scene.env_spacing, "device": cfg.sim.device,
                     "replicate_physics": cfg.scene.replicate_physics,
@@ -226,7 +227,7 @@ def check_checkpoint(checkpoint, manifest):
     if not metadata_path.is_file():
         raise ValueError(f"Checkpoint needs its manifest.json beside it: {metadata_path}")
     source = json.loads(metadata_path.read_text())
-    for key in ("contract_hash", "actions", "action_config", "observations"):
+    for key in ("contract_hash", "actions", "action_config", "observations", "dynamics_profile"):
         # JSON-normalize tuple/list representations before comparison.
         expected = json.loads(json.dumps(manifest[key]))
         if source.get(key) != expected:

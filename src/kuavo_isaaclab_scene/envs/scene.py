@@ -520,6 +520,10 @@ def randomize_box_flap_joint_friction(scene: InteractiveScene) -> None:
         static = torch.empty_like(box.data.joint_pos).uniform_(*FLAP_FRICTION.static_range)
         dynamic = torch.empty_like(box.data.joint_pos).uniform_(*FLAP_FRICTION.dynamic_range)
         dynamic = torch.minimum(dynamic, static)
+        # Separate PhysX writes are observed immediately. Clear the old
+        # dynamic value before lowering static to preserve the invariant at
+        # every intermediate state as well as in the final sample.
+        box.write_joint_dynamic_friction_coefficient_to_sim(torch.zeros_like(dynamic))
         box.write_joint_friction_coefficient_to_sim(static)
         box.write_joint_dynamic_friction_coefficient_to_sim(dynamic)
 

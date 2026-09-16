@@ -102,11 +102,15 @@ def _config(args):
 
 def run(args, app):
     env = hud = camera_overlay = grasp_markers = collision_view = None
+    response_probe = None
     try:
         cfg = _config(args)
         env = ManagerBasedRLEnv(cfg)
         env.reset(seed=args.seed)
         model = resolve_robot_model()
+        if getattr(args,"joint_response_log",None) is not None:
+            from ...recording.joint_response import JointResponseProbe
+            response_probe = JointResponseProbe(env,model,args.joint_response_log,"rl_reward_debug")
         xr = RawQuestOpenXRDevice(OpenXRDeviceCfg(xr_cfg=cfg.xr, sim_device=env.device), input_mode="controllers")
         control = QuestRLControl(env, model, args, xr)
         start_quest_xr_session(app, enable_ui=(args.rl_reward_hud or args.quest_camera_overlay),
@@ -182,6 +186,8 @@ def run(args, app):
         last_collision_draw = 0.
         status = "PAUSED - X then A"
         print("[RL REWARD] No dataset recording. A/T run/pause; B/R reset; X/C recenter; Y/H panel.", flush=True)
+        print(f"[RL REWARD] dynamics_profile={getattr(env.scene['robot'], 'dynamics_profile', 'unknown')}; "
+              "S63 arm-id replaces arm gravity only; body retains gravity-PD.", flush=True)
         print(f"[RL REWARD] task={cfg.task.name}, control={cfg.task.control_mode}, active_arm={cfg.task.active_arm}, "
               f"action_space={cfg.task.action_space}, actions={env.action_manager.total_action_dim}, "
               f"flaps={cfg.task.grasp_flaps}, contact_region={cfg.task.flap_contact_region}", flush=True)
@@ -253,6 +259,8 @@ def run(args, app):
                     hud.describe()
             if requests["reset"]:
                 requests["reset"] = False
+                if response_probe is not None:
+                    response_probe.boundary("operator_reset")
                 env.reset()
                 control.reset()
                 running = terminal = False
@@ -263,6 +271,8 @@ def run(args, app):
                     collision_view.update(contact_sample_valid=False)
             if requests["recenter"] or (not view_ready and tracked):
                 requests["recenter"] = False
+                if response_probe is not None:
+                    response_probe.boundary("recenter")
                 if tracked:
                     xr.recenter_view(*head_pose())
                     # Teleport applies on a Kit update; discard pre-teleport packets.
@@ -276,9 +286,13 @@ def run(args, app):
                 requests["toggle"] = False
                 if not terminal and tracked and view_ready:
                     running = not running
+                    if response_probe is not None:
+                        response_probe.boundary("run" if running else "pause")
                     control.reset()
                     status = "RUN" if running else "PAUSED (last step)"
             if running and not tracked:
+                if response_probe is not None:
+                    response_probe.boundary("tracking_lost")
                 running = False
                 control.reset()
                 status = "TRACKING LOST - press A to resume"
@@ -307,7 +321,14 @@ def run(args, app):
                         action = torch.zeros((1, env.action_manager.total_action_dim), device=env.device)
                         control.reset()
                         status = "SETTLING"
+                    if response_probe is not None:
+                        response_probe.begin(settled and tracked)
                     env.step(action)
+                    if response_probe is not None:
+                        reward = env._quest_reward_sample
+                        response_probe.end(tracking_valid=tracked,
+                            collision=bool(reward.get("failure")) or bool(reward.get("obstacle_force",0) > reward.get("obstacle_limit",0)),
+                            context={"settled":settled,"failure_reasons":reward.get("failure_reasons",[])})
                     perf_steps += 1
                 sample = env._quest_reward_sample
                 reach_summary.update(sample, env.step_dt)
@@ -389,6 +410,12 @@ def run(args, app):
             camera_overlay.close()
         if hud is not None:
             hud.close()
-        if env is not None:
-            env.close()
-        app.close()
+        try:
+            if response_probe is not None:
+                response_probe.close()
+        finally:
+            try:
+                if env is not None:
+                    env.close()
+            finally:
+                app.close()

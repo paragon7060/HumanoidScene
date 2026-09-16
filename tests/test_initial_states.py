@@ -156,9 +156,54 @@ def test_prepared_states_are_separate_and_within_their_urdf_limits(name, model, 
     from kuavo_isaaclab_scene.core.paths import ASSET_DIR
     state = load_initial_state(name, robot_model=model, gripper=gripper)
     robot = state["assets"]["robot"]
-    assert "root_pose" not in robot
+    if model == "s63":
+        old = load_initial_state("quest_ready_02")["assets"]["robot"]
+        assert robot["root_pose"] == old["root_pose"]
+    else:
+        assert "root_pose" not in robot
     assert len(robot["joint_positions"]) == count
     limits = {j.get("name"): j.find("limit") for j in ET.parse(
         ASSET_DIR / urdf).findall("joint")}
     for joint, q in robot["joint_positions"].items():
         assert float(limits[joint].get("lower")) <= q <= float(limits[joint].get("upper"))
+
+
+def test_s63_reproduces_saved_s200062_torso_pose_despite_mounting_offsets():
+    import math
+    import numpy as np
+    import xml.etree.ElementTree as ET
+    from kuavo_isaaclab_scene.core.paths import ASSET_DIR
+
+    def torso_pose(path, values):
+        joints = {j.find("child").get("link"): j for j in ET.parse(path).findall("joint")}
+        link, chain = "waist_yaw_link", []
+        while link in joints:
+            joint = joints[link]; chain.append(joint)
+            link = joint.find("parent").get("link")
+        assert link == "base_link"
+        pose = np.eye(4)
+        for joint in reversed(chain):
+            origin = joint.find("origin")
+            # This mounting chain uses zero origin RPY and Y/Z revolute axes.
+            assert origin.get("rpy") == "0 0 0"
+            step = np.eye(4); step[:3, 3] = np.fromstring(origin.get("xyz"), sep=" ")
+            pose = pose @ step
+            if joint.get("type") == "revolute":
+                angle = values[joint.get("name")]
+                c, s = math.cos(angle), math.sin(angle)
+                axis = joint.find("axis").get("xyz")
+                step = np.eye(4)
+                if axis == "0 1 0":
+                    step[:3, :3] = ((c, 0, s), (0, 1, 0), (-s, 0, c))
+                else:
+                    assert axis == "0 0 1"
+                    step[:3, :3] = ((c, -s, 0), (s, c, 0), (0, 0, 1))
+                pose = pose @ step
+        return pose
+
+    old = load_initial_state("quest_ready_02")["assets"]["robot"]["joint_positions"]
+    new = load_initial_state("s63_leju_ready_01")["assets"]["robot"]["joint_positions"]
+    wanted = torso_pose(ASSET_DIR / "kuavo_s200062/urdf/biped_s200062.urdf", old)
+    actual = torso_pose(ASSET_DIR / "kuavo_s63_twofinger/urdf/kuavo_s63_twofinger.urdf", new)
+    np.testing.assert_allclose(actual, wanted, atol=1e-10, rtol=0)
+    assert new["zarm_l4_joint"] == new["zarm_r4_joint"] == -.65

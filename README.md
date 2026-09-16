@@ -12,10 +12,13 @@ Kuavo humanoid가 경사진 랙의 열린 박스를 컨베이어의 빈 공간�
 - head/wrist camera와 HDF5·LeRobot Dataset v3 수집
 - GR00T N1.5/N1.7 online/offline evaluation와 headless MP4 기록
 
-기본 로봇은 내장 2-finger gripper와 양쪽 D405가 있는 `s200062`이다.
-모든 모델의 몸통과 양팔에 공통 중력 보상을 기본 적용한다. Leju claw 패키지는 D405를 포함해 한쪽당 1 kg이다.
-S63 PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 설정](docs/S63_GRAVITY_COMPENSATION.md).
-`--robot-model s63`과 `--robot-model s56`도 선택할 수 있다. S56은
+기본 로봇은 `s63` + `leju-twofinger`다. 모든 모델의 몸통과 양팔에 공통 중력 보상을 적용하고,
+S63 기본 `--dynamics-profile auto`는 몸통 gravity-PD를 유지하면서 양팔에서만
+30 Hz live inverse-dynamics가 기존 중력항을 대체한다. 비교/복구에는 `--dynamics-profile gravity`를 사용한다.
+Leju claw는 D405를 포함해 한쪽당 1 kg이며 양손 합계 2 kg이다.
+S56에서는 다리 12개 관절도 포함한다. [모델별 검증·추가 확인](docs/ROBOT_GRAVITY_COMPENSATION.md).
+PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD 설정](docs/S63_GRAVITY_COMPENSATION.md).
+`--robot-model s200062`와 `--robot-model s56`도 선택할 수 있다. S56은
 `--gripper s56_qiangnao` 또는 S200062 hand/D405를 이식한
 `--gripper s56_twofinger`를 고를 수 있다. `--gripper none`은 손 geometry가
 제거된 별도 bare-wrist S56 USD를 선택한다.
@@ -34,7 +37,7 @@ S63 PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 
 | 오른팔 / 전체 관절 action space 선택 | [공통 RL action 옵션](docs/RL_ACTION_SPACES.md) |
 | 전신 4박스 단계별 / 전체 직접 학습 비교 | [4박스 전신 RL 실험](docs/RL_MULTI_BOX.md) |
 | 기존 Google Drive 연결 재사용·결과 업로드·로컬 보관량 관리 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
-| RL 초기 자세 수정·VR 재캡처 | [quest_ready_02 초기 상태](docs/RL_INITIAL_STATES.md) |
+| RL 초기 자세 수정·VR 재캡처 | [모델별 초기 상태](docs/RL_INITIAL_STATES.md) |
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |
 | Meta Quest를 처음 연결하고 수집 | [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md) |
 | 실제 수집기 SDK·인증서 준비 및 간편 실행 | [수집기 설치·실행](docs/QUEST_COLLECTOR_SETUP.md) |
@@ -459,8 +462,8 @@ staging box는 생성하지 않는다. 실제 rack·버튼·fence와 단순한 c
 `rl/envs/`는 환경·병렬 설정, `rl/managers/`는 manager 설정,
 `rl/mdp/`는 관측·보상·reset 계산을 담당한다.
 
-현재 전용 실험은 `s200062` + 내장 two-finger로 `medium_box_0`를 집는다.
-`quest_ready_02`로 reset하고 베이스·허리·머리를 고정한 채,
+현재 전용 실험의 기본 모델은 `s63` + `leju-twofinger`이며 `medium_box_0`를 집는다.
+`s63_leju_ready_01`로 reset하고 베이스·허리·머리를 고정한 채,
 양팔 14개 관절과 두 gripper를 제어한다. 오른손은 flap을 집고 왼손의 받침은 허용한다. 성공 목표는 **오른손 flap 상단 파지 →
 6cm 상승 → 0.5초 유지**이며 랙 밖 인출은 다음 단계다. 로봇과 주변 장애물의 접촉력이
 0.1N을 초과하면 초기 유예 없이 실패 처리한다.

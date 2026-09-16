@@ -16,8 +16,10 @@ from .wrist_camera_mount import (
 
 
 ROBOT_MODEL_ENV = "KUAVO_ROBOT_MODEL"
-DEFAULT_ROBOT_MODEL = "s200062"
+DEFAULT_ROBOT_MODEL = "s63"
 ROBOT_MODEL_NAMES = ("s200062", "s63", "s56")
+DYNAMICS_PROFILE_ENV = "KUAVO_DYNAMICS_PROFILE"
+DYNAMICS_PROFILE_NAMES = ("auto", "gravity", "s63-arm-id")
 
 WHEEL_BODY_JOINT_NAMES = (
     "knee_joint",
@@ -37,6 +39,47 @@ S56_LEG_JOINT_NAMES = tuple(
 # and zero reflected rotor inertia.
 S56_MUJOCO_ARMATURE = 0.05
 S56_MUJOCO_FRICTIONLOSS = 0.02
+S200062_ACTUATOR_EFFORT_LIMITS = {
+    # Packaged upstream biped_s200062.xml actuatorfrcrange values.
+    "height_axis": {
+        "knee_joint": 668.53,
+        "leg_joint": 668.53,
+        "waist_pitch_joint": 618.48,
+    },
+    "arms": {
+        "zarm_[lr]1_joint": 66.0,
+        "zarm_[lr]2_joint": 75.0,
+        "zarm_[lr]3_joint": 57.0,
+        "zarm_[lr]4_joint": 75.0,
+        "zarm_[lr][567]_joint": 14.1,
+    },
+    "upper_body": {
+        "waist_yaw_joint": 618.48,
+        "zhead_1_joint": 15.5,
+        "zhead_2_joint": 14.5,
+    },
+}
+S63_ACTUATOR_EFFORT_LIMITS = {
+    # Live S63 /kuavo_configuration joint_peak_torque_limits. Isaac's
+    # effort_limit_sim is the instantaneous hard clamp; continuous nominal
+    # limits remain separate controller and thermal data.
+    "height_axis": {
+        "knee_joint": 668.0,
+        "leg_joint": 668.0,
+        "waist_pitch_joint": 267.0,
+    },
+    "arms": {
+        "zarm_[lr]1_joint": 66.67,
+        "zarm_[lr]2_joint": 75.0,
+        "zarm_[lr]3_joint": 57.0,
+        "zarm_[lr]4_joint": 75.0,
+        "zarm_[lr][567]_joint": 14.1,
+    },
+    "upper_body": {
+        "waist_yaw_joint": 267.0,
+        "zhead_[12]_joint": 200.0,
+    },
+}
 S56_ACTUATOR_LIMITS = {
     "lower_body": {
         "effort_limit_sim": {
@@ -151,9 +194,9 @@ _MODELS = {
         usd_path=str(ASSET_DIR / "kuavo_s63" / "usd" / "kuavo_s63_fixed.usd"),
         urdf_path=str(ASSET_DIR / "kuavo_s63" / "urdf" / "kuavo_s63.urdf"),
         integrated_gripper_preset=None,
-        # The official S63 URDF has no articulated Leju claw. Do not silently
-        # substitute an unrelated external hand while a claw rig is missing.
-        default_gripper_preset="none",
+        # Default to the prepared host-preserving Leju claw variant. Explicit
+        # --gripper none still selects the official bare wrist asset.
+        default_gripper_preset="leju-twofinger",
         spawn_height_m=0.0,
         has_wheel_base=True,
         # Official S63 EEF has rpy=0 and its terminal direction is wrist -Z.
@@ -246,12 +289,38 @@ def add_robot_model_cli_args(parser: argparse.ArgumentParser) -> None:
         "--robot-model",
         choices=ROBOT_MODEL_NAMES,
         default=os.environ.get(ROBOT_MODEL_ENV, DEFAULT_ROBOT_MODEL),
-        help="Packaged Kuavo model to run (default: s200062; comparison: s63 or s56).",
+        help="Packaged Kuavo model to run (default: s63 with leju-twofinger; alternatives: s200062 or s56).",
+    )
+    parser.add_argument(
+        "--dynamics-profile",
+        choices=DYNAMICS_PROFILE_NAMES,
+        default=os.environ.get(DYNAMICS_PROFILE_ENV, "auto"),
+        help=("Body/arm feedforward: auto uses calibrated arm inverse dynamics on S63 and "
+              "gravity-only on other models; gravity forces gravity-only on every model."),
     )
 
 
 def export_robot_model_cli(args: argparse.Namespace) -> None:
     os.environ[ROBOT_MODEL_ENV] = str(args.robot_model)
+    os.environ[DYNAMICS_PROFILE_ENV] = resolve_dynamics_profile(
+        getattr(args, "dynamics_profile", "auto"), str(args.robot_model)
+    )
+
+
+def resolve_dynamics_profile(selection: str | None = None, model_name: str | None = None) -> str:
+    """Resolve the common dynamics profile without importing Isaac Sim."""
+    selected = selection or os.environ.get(DYNAMICS_PROFILE_ENV, "auto")
+    model = model_name or os.environ.get(ROBOT_MODEL_ENV, DEFAULT_ROBOT_MODEL)
+    if selected not in DYNAMICS_PROFILE_NAMES:
+        raise ValueError(
+            f"Unknown dynamics profile {selected!r}; available profiles: "
+            + ", ".join(DYNAMICS_PROFILE_NAMES)
+        )
+    if selected == "auto":
+        return "s63-arm-id" if model == "s63" else "gravity"
+    if selected == "s63-arm-id" and model != "s63":
+        raise ValueError("The s63-arm-id dynamics profile requires --robot-model s63")
+    return selected
 
 
 def resolve_robot_model(
@@ -267,6 +336,8 @@ def resolve_robot_model(
     selected_gripper = gripper_name
     if selected_gripper is None and name is None:
         selected_gripper = os.environ.get("KUAVO_GRIPPER")
+    if selected_gripper is None and selected == "s63":
+        selected_gripper = model.default_gripper_preset
     if selected == "s56" and selected_gripper == "s56_twofinger":
         return _S56_TWOFINGER_MODEL
     if selected == "s56" and selected_gripper == "none":

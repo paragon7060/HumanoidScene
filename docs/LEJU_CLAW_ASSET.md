@@ -21,10 +21,11 @@ URDF·USD와 runtime spawn에 같은 값을 적용하며, 반복 적용해도 �
 
 기존 S200062와 S56 실행 경로는 그대로 유지한다.
 `--robot-model s63 --gripper leju-twofinger`는 양손 claw를 합친 별도 S63 variant를
-선택하며, `--robot-model s63 --gripper none`은 공식 S63 그대로다.
-twofinger variant는 손목 visual만 파생 `l/r_hand_pitch_wrist_only.STL`로 교체한다.
-S63 `hand_pitch.STL` CAD에 포함된 카메라와 브래킷 3개 부품을 제거해,
-손마다 Leju D405 카메라와 마운트 하나만 남긴다.
+선택하며, `--robot-model s63 --gripper none`은 기본 S63을 선택한다.
+기본 S63은 `l/r_hand_pitch.STL`을 사용한다. twofinger variant는 준비된
+`kuavo_s63.urdf`를 입력으로 생성하되, 손목 visual만 파생
+`l/r_hand_pitch_wrist_only.STL`로 교체한다. S63 CAD에 포함된 카메라와 브래킷
+3개 부품을 제거해, 손마다 Leju D405 카메라와 마운트 하나만 남긴다.
 
 ## S63에서 바로 실행
 

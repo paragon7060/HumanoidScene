@@ -20,7 +20,7 @@
 
 - Robotiq 2F-85 preset, 변환 단계, packaged asset을 제거했다.
   Robotiq를 Leju claw로 이름만 바꿔 사용하지 않는다.
-- 기본 `s200062` / `s200062_integrated` two-finger rig는 유지했다.
+- `s200062` / `s200062_integrated` two-finger rig도 명시적으로 선택할 수 있다.
   원본 기반 형상에 물리 four-bar closure와 추정 손 관성을 보완한
   시뮬레이션 구성이다. 제조사 관성 보정값으로 간주하지 않는다.
 - `s56_twofinger`의 기존 donor rig도 유지했다.
@@ -32,9 +32,9 @@
   mesh 겹침과 파지 성능은 사용자가 확인해야 한다. [사용법](LEJU_CLAW_ASSET.md).
 - S63 폴더를 위 커밋의 공식 `biped_s63` 전체 파일로 교체했다.
   원본 `urdf/biped_s63.urdf`는 그대로 보관한다. 실행용 `kuavo_s63.urdf`는
-  `package://.../meshes/` 경로만 `../meshes/`로 바꾸며 다른 값은 동일하다.
-  이전 손목 mesh 대체와 EEF 보정은 제거했고, 손목 visual은 공식
-  `l/r_hand_pitch_noHand.STL`, EEF는 `xyz="0 0.0 -0.17"`, `rpy="0 0 0"`이다.
+  `package://.../meshes/` 경로를 `../meshes/`로 바꾸고, 기본 S63 손목 visual은
+  `l/r_hand_pitch.STL`을 사용한다 (`*_noHand.STL` 대신 선택).
+  EEF는 `xyz="0 0.0 -0.17"`, `rpy="0 0 0"`이며 다른 값은 동일하다.
   실행용 S63 USD도 이 URDF로 다시 생성했다. Isaac용 fixed base 및 joint drive
   설정은 변환 단계에서 적용되며 공식 ROS 파일 자체의 설정은 아니다.
 - 기존 virtual wrist camera pose는 검사 용도로 유지하며, Leju claw
@@ -47,6 +47,16 @@
   preset 및 state/action 계약이 달라지므로 같은 데이터 경로에 섞지 않는다.
 
 ## 실행
+
+2026-09-15 왼손 실측 끝단 폭을 바탕으로 `leju-twofinger.left` 매핑을 보정했다.
+완전 열림은 앞/뒤 driver −0.363811/+0.363811 rad이며, 닫기·열기의 서로 다른
+폭 곡선을 사용한다. 정적 간격 보정으로 범위를 제한하고,
+[측정값·보정 전후 비교·재현 절차](../real_robot_calibration/s63_gripper/README.md)를 기록했다.
+오른손에도 사용자 요청으로 왼손 매핑을 동일하게 적용했다. 독립 오른손 실측에
+의한 보정은 아니며, 채택한 매핑의 Isaac CUDA 왕복 간격 검증은 통과했다.
+닫기 명령 75는 양손의 전체 닫기/중간 역전 경로를 각각 3회 재측정한 결과
+25~27 mm로 반복돼, 최초 38 mm 대신 대표값 26 mm를 사용한다.
+[반복 측정 결과](../real_robot_calibration/s63_gripper/reports/check75_01.md).
 
 ```bash
 # 현재 제공하는 two-finger claw

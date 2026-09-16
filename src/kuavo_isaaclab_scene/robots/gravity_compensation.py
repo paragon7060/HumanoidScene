@@ -12,6 +12,28 @@ import torch
 GRAVITY_JOINT_PATTERN = r"(?:knee_joint|leg_joint|leg_[lr][1-6]_joint|waist_(?:pitch|yaw)_joint|zarm_[lr][1-7]_joint)"
 
 
+def wbc_acceleration_profile(joint_names, device=None, dtype=torch.float32):
+    """Return the active S63 wheel-WBC acceleration-task gains and limits.
+
+    These are acceleration gains from task.info, not low-level motor gains.
+    Unsupported joints stay at zero so they cannot inject dynamic feedforward.
+    """
+    kp = torch.zeros(len(joint_names), device=device, dtype=dtype)
+    kd = torch.zeros_like(kp)
+    limit = torch.zeros_like(kp)
+    arm_kp = (300., 64., 64., 300., 70., 70., 70.)
+    arm_kd = (18., 12., 12., 40., 30., 30., 30.)
+    for index, name in enumerate(joint_names):
+        if name in ("knee_joint", "leg_joint", "waist_pitch_joint", "waist_yaw_joint"):
+            kp[index], kd[index], limit[index] = 30., 6.2, 20.
+        else:
+            match = re.fullmatch(r"zarm_[lr]([1-7])_joint", name)
+            if match:
+                arm_index = int(match.group(1)) - 1
+                kp[index], kd[index], limit[index] = arm_kp[arm_index], arm_kd[arm_index], 300.
+    return kp, kd, limit
+
+
 def gravity_drive_bias(gravity, stiffness, limits, joint_ids):
     """Return a solver-only target bias, without changing commanded posture.
 

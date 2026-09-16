@@ -16,9 +16,9 @@ Leju Robotics' official
 asset and the USD generated from that URDF for Isaac Lab. The pinned source
 revision is `e2da287383c643e923e9594dac2ec86024269737` (beta). The entire
 58-file official model directory is preserved. `urdf/biped_s63.urdf` is
-unmodified; `urdf/kuavo_s63.urdf` changes only the ROS mesh package prefix to
-relative paths. Wrist visuals use the official `*_hand_pitch_noHand.STL`
-references and EEF transforms are the official values. No external hand is
+unmodified; `urdf/kuavo_s63.urdf` changes the ROS mesh package prefix to
+relative paths and selects `l/r_hand_pitch.STL` wrist visuals instead of
+`l/r_hand_pitch_noHand.STL`. EEF transforms are the official values. No external hand is
 automatically added. See the model's `OFFICIAL_SOURCE.md` for provenance.
 
 This repository also packages the official

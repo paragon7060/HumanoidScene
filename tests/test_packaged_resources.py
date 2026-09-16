@@ -116,13 +116,16 @@ def test_s200062_runtime_urdf_is_complete_and_local() -> None:
         assert (runtime_urdf.parent / filename).resolve().is_file(), filename
 
 
-def test_s63_runtime_is_the_official_model_with_path_only_adaptation() -> None:
+def test_s63_runtime_preserves_official_model_except_paths_and_wrist_visuals() -> None:
     asset = ASSET_DIR / "kuavo_s63"
     official = (asset / "urdf" / "biped_s63.urdf").read_text()
     runtime = (asset / "urdf" / "kuavo_s63.urdf").read_text()
-    assert runtime == official.replace(
+    expected = official.replace(
         "package://kuavo_assets/models/biped_s63/meshes/", "../meshes/"
     )
+    for side in ("l", "r"):
+        expected = expected.replace(f"{side}_hand_pitch_noHand.STL", f"{side}_hand_pitch.STL")
+    assert runtime == expected
     root = ET.parse(asset / "urdf" / "kuavo_s63.urdf").getroot()
     assert root.attrib["name"] == "biped_s63"
     finger_tokens = ("finger", "thumb", "index", "middle", "ring", "little")
@@ -136,7 +139,7 @@ def test_s63_runtime_is_the_official_model_with_path_only_adaptation() -> None:
     }
     packaged = {path.name for path in (asset / "meshes").glob("*.STL")}
     assert referenced <= packaged
-    assert {"l_hand_pitch_noHand.STL", "r_hand_pitch_noHand.STL"} <= referenced
+    assert {"l_hand_pitch.STL", "r_hand_pitch.STL"} <= referenced
     assert {"l_twofinger.STL", "r_twofinger.STL"} <= packaged
     for mesh in root.findall(".//mesh"):
         assert (asset / "urdf" / mesh.attrib["filename"]).resolve().is_file()

@@ -63,7 +63,7 @@ def test_runtime_default_gripper_follows_robot_model(monkeypatch) -> None:
     assert resolve_gripper_settings().name == "s200062_integrated"
 
     monkeypatch.setenv(ROBOT_MODEL_ENV, "s63")
-    assert resolve_gripper_settings().name == "none"
+    assert resolve_gripper_settings().name == "leju-twofinger"
 
     monkeypatch.setenv(ROBOT_MODEL_ENV, "s56")
     assert resolve_gripper_settings().name == "s56_qiangnao"

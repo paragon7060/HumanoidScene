@@ -519,6 +519,14 @@ def randomize_box_flap_joint_friction(
         dynamic = torch.empty(shape, device=box.device).uniform_(*dynamic_friction_range)
         # PhysX requires static friction >= dynamic friction for every DOF.
         dynamic = torch.minimum(dynamic, static)
+        # The two PhysX tensor writes are not atomic. Clear the previous
+        # dynamic value first so a lower newly sampled static value cannot
+        # transiently violate static >= dynamic before the final write.
+        box.write_joint_dynamic_friction_coefficient_to_sim(
+            torch.zeros_like(dynamic),
+            joint_ids=joint_ids,
+            env_ids=resolved_env_ids,
+        )
         box.write_joint_friction_coefficient_to_sim(
             static,
             joint_ids=joint_ids,

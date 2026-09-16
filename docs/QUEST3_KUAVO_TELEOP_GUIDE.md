@@ -364,15 +364,22 @@ scaled/맨손은 이 옵션의 영향을 받지 않는다. X 재보정 시 임�
 맨손/relative에는 기존 smooth를 적용한다. 옵션별 적용 범위와 기본값은
 [팔 제어 옵션](QUEST_ARM_CONTROL.md)에 한곳에 정리되어 있다.
 
-| 응답 설정 | 입력 필터 시정수 | 위치·회전 오차 보정 이득 | DLS damping | 관절 속도 / 가속도 상한 |
-| --- | --- | --- | --- | --- |
-| `responsive` | 15ms | 10/s | 0.05 | 2.5rad/s / 20rad/s² |
-| `smooth` (기존) | 45ms | 2.5/s | 0.08 | 1.5rad/s / 12rad/s² |
+S63의 기본 `--dynamics-profile auto`는 양팔에서 `M(q)qdd_des+C(q,dq)+G(q)`가 기존
+중력항을 대체하고, 몸통은 기존 gravity-PD를 유지한다. 중력은 두 번 더해지지 않는다.
+이전 gravity-only 동작과 비교하거나 즉시 복구하려면 `--dynamics-profile gravity`를 명시한다.
+
+| 응답 설정 | 입력 필터 시정수 | command delay | 위치·회전 오차 보정 이득 | DLS damping | 관절 속도 / 가속도 상한 |
+| --- | --- | --- | --- | --- | --- |
+| `responsive` | 15ms | 0ms | 10/s | 0.05 | 2.5rad/s / 20rad/s² |
+| `real` | 15ms | 200ms | 10/s | 0.05 | 2.5rad/s / 20rad/s² |
+| `smooth` (기존) | 45ms | 0ms | 2.5/s | 0.08 | 1.5rad/s / 12rad/s² |
 
 중력 보상과 제한된 목표 누적으로 처짐을 줄이되, 관절 목표가 실제 값보다 0.1rad 이상
 앞서 누적되지 않게 한다. 관절 위치·기존 actuator 토크 제한과 추적 손실 정지는 유지한다.
 도달 범위·관절 제한·물체 접촉 때문에 오차가 남을 수 있다. 위 수치는 시뮬레이션용 설정이며
-실제 하드웨어 설정이나 Quest 체감 지연 측정값이 아니다. CPU 단위 테스트만 수행했으며,
+`real`의 200ms는 실물 활성 구간에서 측정된 `/kuavo_arm_traj`→`/joint_cmd` 약 197ms를
+30Hz의 6 tick으로 근사한다. 안전 정지·reset·추적 중단에서는 queue를 즉시 비운다. 나머지
+프로필 수치는 실제 하드웨어 gain이 아니다. CPU 단위 테스트만 수행했으며,
 실제 파지·접촉 안정성은 사용자가 확인해야 한다.
 컨트롤러를 멈추면 목표를 유지한다. 추적 유효성 상실 시에는 safety guard가 양팔을 정지시키며,
 재개 시 실제 자세를 기준으로 제어를 재시작한다.
@@ -390,6 +397,8 @@ scaled/맨손은 이 옵션의 영향을 받지 않는다. X 재보정 시 임�
 ```
 
 이전 방향·응답으로 비교: `--absolute-orientation pointing --arm-response smooth`.
+실물 VR command pipeline과 유사한 수집은 `--arm-response real`을 사용한다. RL policy action이
+실물에서 이 VR 경로를 거치지 않으면 학습 action에 이 200ms를 자동 적용하지 않는다.
 우선 녹화 없이 A로 따라오기를 켜고, 물체와 떨어진 곳에서 천천히 전후/좌우 이동 및 회전을 확인한다.
 `[MOTION] target error`는 로봇의 목표-실제 손 위치 오차이고 `[PERF]`는 실제 loop 속도다.
 렌더링/스트리밍 병목은 이 제어 변경만으로 해결되지 않는다. 예를 들어 설정 60Hz에 실제 loop가
@@ -451,6 +460,11 @@ LeRobot에는 같은 값이 `observation.openxr.left_controller`/`right_controll
 에피소드 metadata의 `input_mode`가 모드를 나타내며, `tracking_valid`의 left/right는 선택한 입력의 유효성이다.
 컨트롤러 모드에서 수집하지 않은 손가락 pose와 pinch는 NaN이다. 합성 손가락 데이터는 기록하지 않는다.
 입력/제어 모드나 action schema가 바뀌면 LeRobot도 새 dataset root를 사용한다.
+VR 수집 action의 `left_gripper_close` / `right_gripper_close`는 **0=열기, 1=닫기**인
+binary 명령이다. 실제 파지 성공 여부가 아니라 controller/hand 입력으로 선택된 명령을
+저장한다. gripper 관절 위치·속도 state는 연속값으로 별도 기록한다.
+HDF5와 LeRobot 모두 같은 인코딩을 쓰며 HDF5 episode의 `gripper_action_encoding`에도
+의미를 기록한다. 이전 `+1=open, -1=close` 데이터와 섞지 않도록 새 LeRobot root를 사용한다.
 새 기본 action 24차원: 좌/우 tool xyz+qwqxqyqz(base frame), head yaw/pitch,
 좌/우 gripper, base forward/left/yaw 속도, knee/leg/waist pitch 목표. 이름은 `action_layout`에 저장한다.
 기존 24차원과 길이는 같아도 마지막 6개 의미가 바뀌었으므로 파일의 이름 목록을 기준으로 해석한다.

@@ -64,7 +64,8 @@ gain을 높여 추종 지연을 보정하면 목표 위치와 떨림도 확대�
 | `--position-gain` | `1.1` | scaled/맨손 목표 변위 배율(1.0~3.0). absolute에서는 무시. relative에도 적용 |
 | `--rotation-gain` | `1.0` | 구형 relative 팔 회전 배율만 변경. scaled/absolute/맨손은 회전 1:1 |
 | `--absolute-orientation` | `downward`; `pointing` | absolute 컨트롤러만 적용. scaled/맨손의 방향을 바꾸지 않음 |
-| `--arm-response` | `auto`; `responsive`, `smooth` | IK 필터·오차 보정 이득·DLS damping·관절 속도/가속도 상한을 묶어서 선택. 명시한 프로필은 입력 모드 전환 후에도 유지 |
+| `--arm-response` | `auto`; `responsive`, `smooth`, `real` | IK 필터·오차 보정 이득·DLS damping·관절 속도/가속도 상한을 묶어서 선택. `real`은 실측 VR→motor 197ms를 200ms로 근사. 명시한 프로필은 입력 모드 전환 후에도 유지 |
+| `--dynamics-profile` | `auto`; `gravity`, `s63-arm-id` | auto는 S63 양팔에서 live inverse-dynamics가 기존 G를 대체하고 몸통은 gravity-PD 유지. 다른 모델은 gravity-only. `gravity`는 S63 비교/복구 profile |
 | `--arm-ik` | `auto`; `urdf`, `legacy` | auto는 scaled/absolute/맨손에 URDF bounded IK, relative에 기존 IK. URDF 모드는 시작 시 USD 일치 검사 |
 | `--arm-start-pose` | `auto`; `ready`, `scene` | auto는 URDF 모드이며 custom scene-config가 없을 때 준비 자세 생성. scene은 장면의 초기 팔 관절 보존 |
 | `--self-collision` / `--no-self-collision` | 켜짐 | S200062 integrated 손 전용. 제어 tick마다 가까운 후보의 현재·목표 자세만 검사. 녹화 중 충돌은 episode만 실패 종료하며 Quest/프로그램은 유지. 미녹화 중에는 VR 알림만 표시. [범위·설치·성능](QUEST_SELF_COLLISION.md) |
@@ -86,17 +87,19 @@ scaled는 시작 시 로봇 손끝 방향을 기준으로 회전 변화만 적�
 자세 선호와 위치 우선 처리를 적용하며 DLS damping도 특이 자세 근처에서 자동 증가한다.
 따라서 `smooth`는 **응답 프로필만** 이전 값으로 바꾼다. 기존 알고리즘 비교는 `--arm-ik legacy`도 필요하다.
 
-| 설정 | `responsive` (scaled/absolute 컨트롤러 기본) | `smooth` (기존) |
-| --- | --- | --- |
-| 입력 필터 시정수 | 15ms | 45ms |
-| 위치·회전 오차 보정 이득 | 10/s | 2.5/s |
-| DLS damping (특이 자세에서 IK 안정화) | 0.05 | 0.08 |
-| 관절 속도 상한 | 2.5rad/s | 1.5rad/s |
-| 관절 가속도 상한 | 20rad/s² | 12rad/s² |
+| 설정 | `responsive` (scaled/absolute 기본) | `real` (실물 VR 경로) | `smooth` (기존) |
+| --- | --- | --- | --- |
+| 입력 필터 시정수 | 15ms | 15ms | 45ms |
+| command delay | 0ms | 200ms | 0ms |
+| 위치·회전 오차 보정 이득 | 10/s | 10/s | 2.5/s |
+| DLS damping (특이 자세에서 IK 안정화) | 0.05 | 0.05 | 0.08 |
+| 관절 속도 상한 | 2.5rad/s | 2.5rad/s | 1.5rad/s |
+| 관절 가속도 상한 | 20rad/s² | 20rad/s² | 12rad/s² |
 
 느린 응답 프로필을 교체하는 것이지, 목표에 순간이동시키거나 모든 필터·제한을 없애는 것이 아니다.
 관절 위치·기존 actuator 토크 제한, 목표 누적 선행량 0.1rad 제한과 추적 손실 정지는 유지한다.
-위 수치는 측정된 Quest 지연 시간이 아니다. 필터·이득을 더 조정해야 한다면
+`real`의 delay만 실물 활성 구간에서 측정한 약 197ms를 30Hz 6 tick으로 근사한다.
+필터·이득을 더 조정해야 한다면
 `src/kuavo_isaaclab_scene/teleop/teleop_servo.py`의 프로필이 정의 위치다.
 
 ## 5. 여전히 늦거나 어긋나면

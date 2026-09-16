@@ -4,7 +4,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 from kuavo_isaaclab_scene.teleop.teleop_servo import (
-    SMOOTH, RESPONSIVE, arm_response_profile, joint_servo_step,
+    ActionDelay, REAL, SMOOTH, RESPONSIVE, arm_response_profile, joint_servo_step,
 )
 
 
@@ -15,6 +15,17 @@ def test_auto_uses_responsive_for_scaled_and_absolute_controllers():
     for mapping, mode in (("relative", "controllers"), ("scaled", "hands"), ("absolute", "hands")):
         assert arm_response_profile("auto", mapping, mode) is SMOOTH
         assert arm_response_profile("responsive", mapping, mode) is RESPONSIVE
+    assert arm_response_profile("real", "absolute", "controllers") is REAL
+
+
+def test_real_profile_delays_six_30hz_ticks_and_reset_drops_queued_motion():
+    delay = ActionDelay()
+    outputs = [delay.step(torch.tensor([[float(i + 1)]]), REAL.command_delay_s, 1 / 30)
+               for i in range(7)]
+    assert [float(x.item()) for x in outputs[:6]] == [0.] * 6
+    assert float(outputs[6].item()) == 1.
+    delay.reset()
+    assert float(delay.step(torch.tensor([[99.]]), REAL.command_delay_s, 1 / 30).item()) == 0.
 
 
 def moving_target_error(response, hz):

@@ -7,6 +7,7 @@ ISAACLAB_PYTHON="$(resolve_isaaclab_python)"
 require_supported_runtime "${ISAACLAB_PYTHON}"
 ASSET_DIR="${PROJECT_DIR}/src/kuavo_isaaclab_scene/assets"
 VARIANT_DIR="${ASSET_DIR}/kuavo_s63_twofinger"
+bash "${PROJECT_DIR}/scripts/prepare_s63_urdf.sh"
 "${ISAACLAB_PYTHON}" "${PROJECT_DIR}/scripts/build_s63_twofinger_urdf.py"
 env TERM=xterm "${ISAACLAB_PYTHON}" "${ISAACLAB_DIR}/scripts/tools/convert_urdf.py" \
     "${VARIANT_DIR}/urdf/kuavo_s63_twofinger.urdf" \

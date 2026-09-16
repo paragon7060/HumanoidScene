@@ -14,8 +14,8 @@ for argument in "$@"; do
     -h|--help)
       printf '%s\n' \
         "Usage: ./${mode}_flap_pick.sh [runner options]" \
-        'Pinned: pick / s200062 / s200062_integrated / medium_box_0 / arms-only.' \
-        'Pose: INITIAL_STATE in configs/rl_pick_arms_only.py (quest_ready_02).' \
+        'Pinned: pick / s63 / leju-twofinger / medium_box_0 / arms-only.' \
+        'Pose: INITIAL_STATE in configs/rl_pick_arms_only.py (s63_leju_ready_01).' \
         'Grasp: right hand on flap_left; opposite-hand box support allowed; 14 arm + 2 gripper actions.' \
         'Train defaults: --num-envs 2 --max-iterations 2000 --headless.' \
         'Checkpoint default: every 1000 iterations plus the final model; override --save-interval N.' \
@@ -33,7 +33,7 @@ done
 exec env KUAVO_CONFIG_DIR="${PROJECT_DIR}/configs" \
   bash "${PROJECT_DIR}/scripts/${mode}_rl.sh" \
   "${defaults[@]}" "$@" \
-  --robot-model s200062 --gripper s200062_integrated \
+  --robot-model s63 --gripper leju-twofinger \
   --task pick --boxes medium_box_0 --control-mode arms-only \
   --config "${PROJECT_DIR}/configs/rl_pick_arms_only.py" \
   --initial-states-file "${PROJECT_DIR}/configs/initial_states.json" \

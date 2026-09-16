@@ -110,14 +110,14 @@
       "robot_model": "s63",
       "gripper": "leju-twofinger",
       "coordinate_frame": "env-origin",
-      "description": "Prepared simulation pose for S63 + Leju twofinger, not a measured real-robot or VR state. Upright bent torso and elbow-bent arms; retain workcell root and configured hand linkage state.",
+      "description": "S63 + Leju prepared state: base root_pose copied from S200062 quest_ready_02; torso joints solved to match its waist_yaw_link pose despite model mounting offsets. S63 arm/head and configured hand linkage state retained. This is a simulation transfer, not a measured S63 real-robot state.",
       "assets": {
         "robot": {
           "joint_positions": {
-            "knee_joint": 0.25,
-            "leg_joint": -0.5,
-            "waist_pitch_joint": 0.25,
-            "waist_yaw_joint": 0.0,
+            "knee_joint": 0.23065070098376964,
+            "leg_joint": -0.47266920953812963,
+            "waist_pitch_joint": 0.26300891006078403,
+            "waist_yaw_joint": -0.00017328046669717878,
             "zhead_1_joint": 0.0,
             "zhead_2_joint": 0.0,
             "zarm_l1_joint": 0.25,
@@ -134,7 +134,16 @@
             "zarm_r5_joint": 0.0,
             "zarm_r6_joint": 0.0,
             "zarm_r7_joint": 0.4
-          }
+          },
+          "root_pose": [
+            -0.2409128099679947,
+            0.06612151116132736,
+            4.038214683532715e-06,
+            -0.9997323751449585,
+            -1.1920930376163597e-07,
+            -1.2312085573285003e-06,
+            0.02313828654587269
+          ]
         }
       }
     },

@@ -1,11 +1,14 @@
 # 모든 Kuavo 모델의 공통 중력 보상과 검토 결과
 
+Real-to-sim / sim-to-real의 제어·정책 입력 차이와 실물 보정 계획은
+[전이 검토](REAL_SIM_TRANSFER_REVIEW.md)에 정리했다.
+
 ## 적용 범위
 
 `envs/scene_physics.configure_robot_asset_physics()`의 모델별 분기 **이전**에
 `configure_gravity_compensation()`을 호출한다. standalone scene, manager env,
 Quest collect 및 RL scene은 모두 `GravityCompensatedArticulation`을 사용한다.
-기존 모델/그리퍼 기본 선택은 유지한다.
+기본 모델 선택은 S63 + Leju 그대로다.
 
 | 모델 | 보상 관절 | 손 옵션 |
 |---|---|---|
@@ -24,6 +27,9 @@ manager 목표는 유지되므로 보정이 누적되지 않는다. `joint_drive
 PD와 보상은 하나의 implicit drive force cap을 공유한다.
 
 S63은 `configs/s63_servo.json`, 다른 모델은 기존 asset의 PD 값을 사용한다.
+S63 `auto` profile은 몸통에 이 공통 중력 보상을 유지하고 양팔에서만 live inverse-dynamics가
+중력항을 대체한다. S200062/S56의 `auto`는 gravity-only다. 모든 모델은 CLI
+`--dynamics-profile gravity`로 gravity-only를 명시할 수 있다.
 Quest와 reward debug의 임시 800/50, 8000/200 gain 보강은 보상 모델에서 건너뛴다.
 S56의 per-motor force/velocity cap, armature 0.05 및 friction 0.02는 유지한다.
 teleop IK에 있던 팔 position gravity bias는 공통 writer가 활성화되면 0이다.
@@ -79,6 +85,7 @@ S200062의 **기존 측정 자세** `quest_ready_02`에서는 다음 잔여 오�
    WBC acceleration gain과 motor gain도 다르다. 실제 `/joint_cmd` 및 피드백 로그,
    active driver의 단위/기어비/torque constant 확인 후 joint-output Kp/Kd로 변환해야 한다.
    현재 PD는 real-equivalent로 검증된 값이 아니다.
+   [실물 SSH 확인 기록](REAL_ROBOT_CONTROL_AUDIT.md).
 2. **S63 bare 관성.** 실제 실행에서 `/Robot/head_camera_base`에 negative mass 및
    invalid inertia 경고가 발생했고 PhysX가 작은 구의 관성으로 대체했다. 자세 유지 검사는
    통과했지만 이 경로의 계산 중력 토크를 실물과 비교하기 전에 USD/URDF 관성을 확인해야 한다.

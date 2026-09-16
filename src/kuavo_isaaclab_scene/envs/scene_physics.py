@@ -6,6 +6,8 @@ Input devices and kinematic base control remain environment-specific.
 from .contact_physics import spawn_contact_box
 from ..robots.robot_inertials import spawn_s200062_robot, spawn_s56_twofinger_robot, spawn_s63_twofinger_robot
 from ..robots.robot_model import (
+    S200062_ACTUATOR_EFFORT_LIMITS,
+    S63_ACTUATOR_EFFORT_LIMITS,
     S56_ACTUATOR_LIMITS,
     S56_MUJOCO_ARMATURE,
     S56_MUJOCO_FRICTIONLOSS,
@@ -48,6 +50,14 @@ def configure_robot_asset_physics(cfg, model, gripper_settings):
     # Select the writer before any model/gripper-specific early return. This
     # also covers bare wrists and external grippers in standalone/Quest scenes.
     configure_gravity_compensation(cfg, model)
+
+    model_effort_limits = {
+        "s200062": S200062_ACTUATOR_EFFORT_LIMITS,
+        "s63": S63_ACTUATOR_EFFORT_LIMITS,
+    }.get(model.name)
+    if model_effort_limits is not None:
+        for group_name, limits in model_effort_limits.items():
+            cfg.actuators[group_name].effort_limit_sim = dict(limits)
 
     if model.name == "s200062" or gripper_settings.name in TWO_FINGER_PRESETS:
         from isaaclab.actuators import ImplicitActuatorCfg

@@ -185,19 +185,23 @@ python -m pip install -e '.[rl]'
 ./train_flap_pick.sh
 ```
 
-전용 실행 파일은 S200062 + 내장 two-finger, `pick`, `medium_box_0`,
+전용 실행 파일은 S63 + `leju-twofinger`, `pick`, `medium_box_0`,
 `arms-only`, 현재 캡처된 rack/box 배치를 선택한다. 기본값은 **2 env,
 2000 PPO iteration, headless**다. 2000 iteration은 학습량 설정일 뿐 성공률
 80%에 도달한다는 보장은 아니다. 카메라는 기본적으로 생성하지 않는다.
 
-`configs/rl_pick_arms_only.py`의 `INITIAL_STATE = "quest_ready_02"`로 고정한다.
-첫 reset과 모든 episode reset에서 같은 root pose + 36개 관절값을 적용한다.
-현재 저장된 base 위치는 env origin 기준 약 `(-0.240913, 0.066122, 0.000004)m`다.
+S63 `--dynamics-profile auto`는 몸통 gravity-PD와 팔 전용 live inverse-dynamics를
+사용한다. profile은 학습 manifest에 저장되므로 gravity-only checkpoint를 arm-id 환경에
+자동으로 불러오지 않는다. 비교 실행은 generic launcher에서 `--dynamics-profile gravity`를 사용한다.
+
+`configs/rl_pick_arms_only.py`에서 S63용 `s63_leju_ready_01`을 선택한다.
+첫 reset과 모든 episode reset에서 같은 시뮬레이션용 20개 body/arm/head 관절값을
+적용하며 root 위치는 workcell 설정을 유지한다. 실물/VR 측정 자세가 아니다.
 박스 pose는 이 프리셋에 들어 있지 않으므로 `configs/rack_box_poses.json`을 쓴다.
-초기 오른손과 목표 flap의 거리는 약 0.196m다. 30 제어 스텝의 zero-action 유지에서
-장애물 충돌로 종료되지 않았다. 다만 캡처된 박스 root 높이 1.14313m가 물리 안정화 후
-약 1.04097m로 내려앉았다. 이전 코드는 낙하 전 높이를 기준으로 저장해 실제 상승 목표가
-약 16.2cm가 되었다. 현재 기본 설정은 reset 후 0.5초 동안 동작 목표를 유지한 뒤
+S200062를 generic launcher에서 명시적으로 선택하면 기존 `quest_ready_02`를 사용한다.
+이전 S200062 측정 배치에서는 박스 root 높이 1.14313m가 안착 후 약 1.04097m로
+내려앉아 초기 높이 기준을 바꾼 적이 있다. 이 수치는 S63 배치의 검증값이 아니다.
+현재 기본 설정은 reset 후 0.5초 동안 동작 목표를 유지한 뒤
 그 시점의 높이를 한 번 저장한다. `reset_settle_timeout=0`이면 속도 안정화 gate와
 안착 타임아웃 실패를 사용하지 않는다. 따라서 그 시점에도 박스가 움직이면 기준 높이가
 안착 완료 높이와 다를 수 있다. 필요하면 초기 대기 시간을 늘린다.
@@ -257,7 +261,7 @@ root 위치 및 tool offset을 먼저 확인한다.
 | 목적 | 파일 |
 |---|---|
 | 전용 학습/평가 명령의 공통 기본값 | `scripts/flap_pick.sh` |
-| 초기 자세의 root 및 관절 값 | `configs/initial_states.json` → `states.quest_ready_02` |
+| 초기 자세의 관절 값 | `configs/initial_states.json` → `states.s63_leju_ready_01` |
 | 실험 기본값, 대상 flap, 높이·기울기·유지 시간 | `configs/rl_pick_arms_only.py` |
 | 공통 task 필드 및 검증 | `rl/tasks/specs.py` |
 | 병렬 복제, 충돌 격리 기본값 | `rl/envs/parallel_cfg.py` |

@@ -28,6 +28,8 @@ from ..workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller
 
 
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
+parser.add_argument("--joint-response-log", type=Path, default=None,
+                    help="New JSONL control-rate logical/applied joint targets and sim response; also works in RL reward debug.")
 parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=None, metavar="{0,1}",
                     help="Inspect current flap-pick RL rewards in Quest instead of recording a dataset. "
                          "0 (default, including omitted value) keeps the configured right-arm-only action space; "
@@ -74,8 +76,8 @@ parser.add_argument("--controller-mapping", choices=("scaled", "absolute", "rela
                     help="Scaled amplifies hand displacement from a comfortable reference; absolute is 1:1; relative is legacy.")
 parser.add_argument("--absolute-orientation", choices=("downward", "pointing"), default="downward",
                     help="Absolute controllers only: level forward controller -> downward gripper (default), or legacy pointing.")
-parser.add_argument("--arm-response", choices=("auto", "smooth", "responsive"), default="auto",
-                    help="Simulation IK response: auto uses responsive for scaled/absolute controllers and smooth for hands/relative.")
+parser.add_argument("--arm-response", choices=("auto", "smooth", "responsive", "real"), default="auto",
+                    help="Simulation IK response: real adds the measured 200ms real VR-to-motor command delay.")
 parser.add_argument("--arm-ik", choices=("auto", "urdf", "legacy"), default="auto",
                     help="Auto: URDF bounded IK for scaled/absolute/hands, legacy for relative. URDF validates the live USD first.")
 parser.add_argument("--arm-start-pose", choices=("auto", "ready", "scene"), default="auto",
@@ -260,6 +262,10 @@ add_rack_roller_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 parser.set_defaults(device="cpu")
 args_cli = parser.parse_args()
+if args_cli.joint_response_log is not None:
+    args_cli.joint_response_log = args_cli.joint_response_log.expanduser().resolve()
+    if args_cli.joint_response_log.exists():
+        parser.error("Joint response log exists; choose a new filename.")
 if args_cli.rl_reward_debug is not None and args_cli.rl_reward_debug not in (0, 1):
     parser.error("--rl-reward-debug takes no value, 0, or 1.")
 if args_cli.rl_config is not None and args_cli.rl_reward_debug is None:
@@ -787,6 +793,7 @@ def main() -> None:
     print(f"[CONTROL] Arm response={arm_terms[0].response.name}; "
           f"pose gain={arm_terms[0].response.pose_gain:g}/s; "
           f"filter={arm_terms[0].response.smoothing_s * 1000:g} ms; "
+          f"command delay={arm_terms[0].response.command_delay_s * 1000:g} ms; "
           f"joint speed limit={arm_terms[0].response.max_velocity:g} rad/s", flush=True)
     last_motion_report = time.perf_counter()
     last_ee_positions = _to_numpy(eef_frames.center_pose_w[0, :, :3]).copy()
@@ -903,7 +910,11 @@ def main() -> None:
         import cProfile
         profile = cProfile.Profile()
         profile.enable()
+    from ..recording.joint_response import JointResponseProbe
+    response_probe = None
     try:
+        if args_cli.joint_response_log is not None:
+            response_probe = JointResponseProbe(env, robot_model, args_cli.joint_response_log, "collector")
         while not stop_requested and simulation_app.is_running():
             if args_cli.max_episodes and episodes_toward_limit >= args_cli.max_episodes:
                 print(f"[CONTROL] Exiting because --max-episodes {args_cli.max_episodes} was reached.")
@@ -942,6 +953,8 @@ def main() -> None:
                     print(f"[CONTROL] Motion preview {'ON' if preview_enabled else 'OFF'}; no samples are being recorded.")
             if requests["calibrate"]:
                 requests["calibrate"] = False
+                if response_probe is not None:
+                    response_probe.boundary("operator_calibration")
                 if recorder.recording:
                     finish_episode(False, "operator_calibration")
                 if last_tracking_state is None or not last_tracking_state[2]:
@@ -965,6 +978,8 @@ def main() -> None:
 
             raw = xr_device.advance()
             if not view_initialized and raw.get(RawQuestOpenXRDevice.TrackingTarget.HEAD) is not None:
+                if response_probe is not None:
+                    response_probe.boundary("initial_recenter")
                 xr_device.recenter_view(*head_camera_pose())
                 for _ in range(3):
                     simulation_app.update()
@@ -996,6 +1011,8 @@ def main() -> None:
                     head_ready=xr_device.switch_head_tracked(),
                 )
                 if mode_event in {"begin", "cancel", "ready"}:
+                    if response_probe is not None:
+                        response_probe.boundary("input_mode_switch_" + mode_event)
                     if recorder.recording:
                         finish_episode(False, "input_mode_switch")
                     preview_enabled = pending_start = False
@@ -1017,6 +1034,8 @@ def main() -> None:
             next_free_view = (active_mode == "controllers" and not mode_switch.pending
                               and left_controller is not None and float(left_controller[1, 3]) >= .5)
             if next_free_view != free_view:
+                if response_probe is not None:
+                    response_probe.boundary("free_view" if next_free_view else "head_view")
                 free_view = next_free_view
                 if not free_view:
                     xr_device.recenter_view(*head_camera_pose())
@@ -1096,6 +1115,8 @@ def main() -> None:
                     requests["start"] = True
             if requests["reset"]:
                 requests["reset"] = False
+                if response_probe is not None:
+                    response_probe.boundary("operator_reset")
                 preview_enabled = False
                 if recorder.recording:
                     finish_episode(False, "operator_reset")
@@ -1140,6 +1161,8 @@ def main() -> None:
                     refreshed = map_inputs(left_input, right_input, motion_head, root_quat)
                     mapped = replace(refreshed, left_valid=mapped.left_valid, right_valid=mapped.right_valid,
                                      head_valid=mapped.head_valid)
+                if response_probe is not None:
+                    response_probe.boundary("dataset_episode_started")
                 episode_name = recorder.start_episode(
                     {
                         "seed": args_cli.seed,
@@ -1309,8 +1332,17 @@ def main() -> None:
                                                         or not camera_reported)
             if collision_guard is not None:
                 collision_guard.set_recording(recorder.recording)
+            if response_probe is not None:
+                response_probe.begin((recorder.recording or preview_enabled) and safety.control_allowed
+                                     and not free_view and not mode_switch.pending)
             env.step(action)
             collision_event = collision_guard.consume_collision_event() if collision_guard is not None else None
+            if response_probe is not None:
+                response_probe.end(tracking_valid=mapped.bimanual_valid and not safety.recording_paused,
+                    collision=collision_event is not None or bool(collision_guard and collision_guard.step_collision),
+                    context={"input_mode":active_mode,"dataset_recording":bool(recorder.recording),
+                             "base_action":body_action[:3].tolist(),
+                             "collision_modified":bool(collision_guard and collision_guard.step_modified)})
             if collision_event is None:
                 last_collision_message = None
             else:
@@ -1522,7 +1554,11 @@ def main() -> None:
             quest_overlay.close()
         if control_status is not None:
             control_status.close()
-        env.close()
+        try:
+            if response_probe is not None:
+                response_probe.close()
+        finally:
+            env.close()
         print(f"[RESULT] Completed {completed_this_run} saved episode(s); {'; '.join(dataset_descriptions)}")
 
 

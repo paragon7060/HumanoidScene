@@ -5,6 +5,12 @@ Quest CONNECT 절차는 [기존 수집기](QUEST_COLLECTOR_SETUP.md)와 같다.
 이 옵션이 없으면 기존 수집 동작은 그대로다. **옵션이 있을 때는 데이터 저장이나
 정책 학습 대신 현재 flap-pick RL 환경 1개를 수동 조작한다.**
 
+관절 목표와 실제 sim 응답을 보정 자료로 기록하려면 `--joint-response-log PATH.jsonl`을 추가한다. 이미지 데이터셋과 독립적으로 동작하며 절차는 [VR 관절 응답 기록](VR_JOINT_RESPONSE_CALIBRATION.md)을 따른다.
+
+S63의 기본 `--dynamics-profile auto`는 몸통 gravity-PD와 팔 전용 live inverse-dynamics를
+사용한다. 시작 로그의 `dynamics_profile=s63-arm-id`로 확인한다. 기존 gravity-only와
+비교하거나 문제가 있을 때는 `--dynamics-profile gravity`를 지정한다.
+
 Closed two-finger gripper의 VR 닫기 명령은 기본 `--gripper-close-force 50`으로
 한 손의 양쪽 손가락 압착력 합계 50 N(각 25 N)을 목표로 한다. 접촉 전부터
 닫기 방향의 힘 제어를 사용하며, 실제 접촉 전 센서값은 0 N이다. 닫기 중 위치
@@ -39,6 +45,11 @@ HUD의 `GRIP L/R`과 `[GRIP FORCE]` 로그에서 손가락별 힘과 합계를 �
 데이터 저장이나 정책 학습은 수행하지 않는다. RL reward debug에는 에피소드 시간제한이
 없으며, `pick`과 `pick_place` 모두 성공·실패 판정 또는 수동 일시정지/reset까지 계속
 조작할 수 있다. 학습 환경의 에피소드 제한 시간은 해당 RL config를 따른다.
+
+실물 Quest→motor command 지연까지 포함해 비교할 때만 예제의
+`--arm-response responsive`를 `--arm-response real`로 바꾼다. `real`은 200ms 입력
+queue를 사용하며 reset·일시정지·추적 중단 시 즉시 비운다. RL policy action이 실물의
+VR 입력 경로를 거치지 않는다면 학습 환경에는 이 지연을 넣지 않는다.
 
 - `pick`: 실제 flap 파지 + 초기 높이보다 6 cm 이상 lift + 기울기 허용치를
   0.5초 유지하면 carry로 넘어간다. 이 단계에서 전체 성공으로 종료하지 않는다.
@@ -145,7 +156,7 @@ sensor 경로를 유지한다. 이때 obstacle report 기본값은 30 Hz다. Rew
 
 ## 조작
 
-S63 + `leju-twofinger`는 몸통 4관절·양팔 14관절에 물리 스텝마다 공통
+기본 모델은 S63 + `leju-twofinger`이고, 몸통 4관절·양팔 14관절에 물리 스텝마다 공통
 중력 보상을 적용한다. 이 모델은 임시로 높인 몸통 PD 대신 `configs/s63_servo.json`의
 설정을 사용한다. 초기 자세는 S63용 `s63_leju_ready_01`이다. S200062도 같은 중력
 보상 경로를 사용하고 기존 `quest_ready_02`를 유지한다. S56 + `s56_twofinger`는

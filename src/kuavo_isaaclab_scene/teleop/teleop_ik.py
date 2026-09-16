@@ -4,7 +4,7 @@ import torch
 import numpy as np
 from isaaclab.envs.mdp.actions.task_space_actions import DifferentialInverseKinematicsAction
 from isaaclab.utils.math import apply_delta_pose, compute_pose_error
-from .teleop_servo import SMOOTH, joint_servo_step
+from .teleop_servo import ActionDelay, SMOOTH, joint_servo_step
 from .urdf_arm_ik import quat_matrix
 
 
@@ -37,6 +37,7 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._gravity_bias = torch.zeros_like(self._joint_command)
         self.orientation_weight = 0.5
         self.response = SMOOTH
+        self._input_delay = ActionDelay()
         self._following = True
         self._held_joints = None
         self._dt = env.step_dt
@@ -112,7 +113,11 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
             self._numpy(self._joint_velocity[0])[order], self._dt, self.response,
             self.orientation_weight, bounds[:, 0], bounds[:, 1])
         self._joint_velocity[0, order] = torch.as_tensor(velocity, device=self.device, dtype=joints.dtype)
-        command = self._joint_command + self._joint_velocity * self._dt
+        # Resolved-rate IK uses the measured configuration for both its
+        # Cartesian error and its next joint target. Integrating that error
+        # onto the previous drive target adds an unwanted integral loop:
+        # actuator lag accumulates commands, then reverses them after overshoot.
+        command = joints + self._joint_velocity * self._dt
         command = torch.clamp(command, joints - .10, joints + .10)
         self._joint_command = torch.clamp(command, limits[..., 0], limits[..., 1])
 
@@ -120,6 +125,7 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         if not enabled and (self._following or self._held_joints is None):
             self._held_joints = self._asset.data.joint_pos[:, self._joint_ids].clone()
             self._joint_velocity.zero_()
+            self._input_delay.reset()
         if enabled and not self._following:
             self.hold_current_pose()
         self._following = enabled
@@ -132,6 +138,7 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._joint_command[ids] = self._asset.data.joint_pos[:, self._joint_ids][ids]
         self._joint_velocity[ids] = 0
         self._target_ready[ids] = True
+        self._input_delay.reset()
 
     def reset(self, env_ids=None):
         super().reset(env_ids)
@@ -139,8 +146,16 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._target_ready[ids] = False
         self._joint_velocity[ids] = 0
         self._held_joints = None
+        self._input_delay.reset()
 
     def process_actions(self, actions):
+        if self._following:
+            actions = self._input_delay.step(
+                actions, self.response.command_delay_s, self._dt
+            )
+        else:
+            self._input_delay.reset()
+            actions = torch.zeros_like(actions)
         super().process_actions(actions)
         missing = torch.nonzero(~self._target_ready, as_tuple=False).flatten()
         if missing.numel():

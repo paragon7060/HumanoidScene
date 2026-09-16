@@ -197,7 +197,7 @@ openssl x509 -in "$CLOUDXR_CERTIFICATE" -noout -dates -fingerprint -sha256
 ./quest_collector.sh collect
 ```
 
-이 명령부터 실제 Isaac Sim이 실행된다. 기본은 S200062, controllers, CPU physics/IK,
+이 명령부터 실제 Isaac Sim이 실행된다. 기본은 S63 + leju-twofinger, controllers, CPU physics/IK,
 30Hz 제어 설정, compact scene, XR 배율 1.0, 양쪽 wrist RGB, head/depth OFF, HDF5다.
 PC desktop observer는 OFF이고 camera annotator에 필요한 최소 160×90 render만 유지한다.
 별도 PC camera preview도 OFF다. head RGB가 데이터셋에 필요할 때만 `--head-camera`를
