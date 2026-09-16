@@ -1,6 +1,7 @@
 """Optional branch of the existing Quest collector; real RL rewards, no dataset writer."""
 
 from argparse import Namespace
+from dataclasses import replace
 import logging
 from pathlib import Path
 import sys
@@ -52,6 +53,12 @@ def _config(args):
     cfg, _ = build_configs(rl, include_agent=False)
     if cfg.task.grasp_mode != "flap_top" or cfg.task.name not in ("pick", "pick_place"):
         raise ValueError("Quest reward inspection supports flap pick and pick_place")
+    if not getattr(args, "rl_obstacle_collision", True):
+        # Keep PhysX contacts and obstacle-force sensors available for diagnosis,
+        # but remove their task failure and reward effects for this debug run.
+        cfg.task = replace(cfg.task, collision_constraints_enabled=False)
+        cfg.commands.workcell.task = cfg.task
+        cfg.rewards.collision = None
     realtime = (
         not resolve_rack_roller_settings().enabled
         and getattr(args, "rl_obstacle_contact_hz", None) is None
@@ -198,7 +205,8 @@ def run(args, app):
               f"RL drives/initial pose/reward terms active; episode time limit=OFF. "
               f"Success/failure terminations active. Display cameras={args.enable_cameras}.",
               flush=True)
-        print("[RL REWARD] grasp/contact measurements=ON; collision constraints follow the loaded RL config; "
+        collision_mode = "ON" if cfg.task.collision_constraints_enabled else "OFF (force display only)"
+        print(f"[RL REWARD] grasp/contact measurements=ON; obstacle collision failure/penalty={collision_mode}; "
               "3D markers/overlay remain opt-in.", flush=True)
         realtime = not resolve_rack_roller_settings().enabled and args.rl_obstacle_contact_hz is None
         if realtime:

@@ -42,6 +42,9 @@ parser.add_argument("--rl-obstacle-contact-hz", type=int, choices=(15, 30, 60, 1
                     help="RL reward inspection: explicitly enable filtered robot-obstacle reports at this rate. "
                          "Omitting it uses fast aggregate contacts without rollers and 30 Hz with rollers; "
                          "use 120 for exact physics-substep comparison.")
+parser.add_argument("--rl-obstacle-collision", action=argparse.BooleanOptionalAction, default=True,
+                    help="RL reward inspection: enable obstacle-collision failure and penalty from the loaded config. "
+                         "Use --no-rl-obstacle-collision for grasp/motion debugging; physical contacts and force display remain active.")
 parser.add_argument("--rl-grasp-markers", action=argparse.BooleanOptionalAction, default=False,
                     help="RL reward inspection: opt in to finger references and paired opposite-face targets in 3D.")
 parser.add_argument("--rl-grasp-calibration", action="store_true",
@@ -274,7 +277,7 @@ if args_cli.rl_task == "pick_place" and args_cli.rl_reward_debug != 1:
     parser.error("--rl-task pick_place requires --rl-reward-debug 1 (whole-body control).")
 if args_cli.rl_reward_debug is None and (
     args_cli.rl_collision_view or args_cli.rl_grasp_markers or args_cli.rl_grasp_calibration
-    or args_cli.rl_obstacle_contact_hz is not None
+    or args_cli.rl_obstacle_contact_hz is not None or not args_cli.rl_obstacle_collision
 ):
     parser.error("RL collision/grasp/contact options require --rl-reward-debug.")
 if args_cli.rl_reward_debug is not None:

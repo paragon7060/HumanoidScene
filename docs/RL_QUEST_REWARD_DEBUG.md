@@ -34,6 +34,7 @@ HUD의 `GRIP L/R`과 `[GRIP FORCE]` 로그에서 손가락별 힘과 합계를 �
   --controller-mapping absolute --absolute-orientation downward \
   --arm-response responsive \
   --rl-reward-debug 1 --rl-task pick_place \
+  --no-rl-obstacle-collision \
   --no-rack-rollers \
   --no-quest-camera-overlay --no-camera-preview \
   --no-wrist-cameras --no-head-camera
@@ -67,7 +68,11 @@ HUD에 현재 단계, 선반 인출 잔여 거리, 컨베이어 목표 거리, �
 남은 거리가 줄면 +, 늘면 −인 진행량이며 정지에는 0이다. 파지 손실·재획득 및
 단계 전환에서는 진행량 기준을 다시 잡아 중간 이동을 소급 보상하지 않는다.
 가중치는 `rl/managers/rewards.py`의 `FlapPickPlaceRewardsCfg`에서 조정한다.
-`pick_place`는 robot-obstacle 접촉이 20 N을 넘으면 실패하며 collision penalty도 적용한다.
+`pick_place` 기본값은 robot-obstacle 접촉이 20 N을 넘으면 실패하며 collision penalty도 적용한다.
+파지·팔·몸통 동작부터 분리해서 확인할 때는 `--no-rl-obstacle-collision`을 추가한다.
+이 옵션은 obstacle collision 실패와 penalty만 끄며, **실제 PhysX 접촉, 장애물 force 센서와
+HUD의 force 표시는 유지한다.** 따라서 물체를 관통시키는 옵션이 아니며 실물 안전 검증에도
+사용하면 안 된다. 시작 로그와 HUD의 `Collision termination/penalty: OFF`로 적용 여부를 확인한다.
 Base는 각 environment 중심에서 반경 1.5 m를 벗어나면 실패한다. 실제 적용되는 base 속도에는
 항상 작은 비용을 주고, 파지 후 lift와 place 단계에는 추가 정지 비용을 준다. HUD의 `BASE` 줄에서
 병진 속도, yaw 속도와 현재 중심 이격/한계를 확인할 수 있다.
