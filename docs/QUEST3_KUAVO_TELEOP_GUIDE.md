@@ -488,7 +488,22 @@ HDF5는 샘플이 있는 실패·reset·시간 초과 episode도 저장한다. �
 
 ## 5. Rack box 배치와 함께 실행
 
-기존 rack box CLI를 collector에서도 사용할 수 있다.
+일반 Teleop collector는 별도 scene 옵션 없이도 manager-based 기본 workcell을 자동으로
+사용한다. `configs/workcell_layout.json`의 rack/robot/conveyor/fence/button 배치와
+기본 `configs/rack_box_poses.json`을 읽으며, `--scene-detail compact`는 배경 소품만
+줄이고 작업 셀의 물리 객체는 유지한다.
+
+기존 rack box CLI를 collector에서도 사용할 수 있다. SmallBox 하나만 기본 선반 배치
+규칙으로 올리고 캡처 파일의 다른 박스 배치를 무시하려면 다음처럼 실행한다.
+
+```bash
+./quest_collector.sh collect \
+  --rack-boxes '1:small' --ignore-captured-box-poses
+```
+
+`--ignore-captured-box-poses`를 빼면 기본 `rack_box_poses.json`의 Small/Medium/Large/XLarge
+위치가 다시 우선한다. 모든 box USD 인스턴스는 scene에 남지만, layout에서 제외된 박스는
+선반이 아니라 floor staging 위치에 놓인다.
 
 ```bash
 ./collect_quest_teleop.sh \

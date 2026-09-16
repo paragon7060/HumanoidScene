@@ -27,6 +27,9 @@ HUD의 `GRIP L/R`과 `[GRIP FORCE]` 로그에서 손가락별 힘과 합계를 �
 
 `--rl-task pick_place --rl-reward-debug 1`은 한 박스를 처음부터 컨베이어에
 내려놓는 연속 작업이다. 기존 `pick`은 lift 성공에서 종료된다.
+두 모드 모두 기본 task box는 `small_box_0`이다. 다른 캡처 박스를 검사할 때만
+`--rl-box medium_box_0`처럼 지정하며, 선택한 box가 현재 rack layout 또는 캡처 pose에서
+선반 위에 있어야 한다.
 
 ```bash
 ./quest_collector.sh collect \
@@ -82,6 +85,18 @@ RL scene은 `minimal_rl_v2`이며 local cuboid로 만든 정지 belt, 측면 프
 위치는 `configs/workcell_layout.json`의 `conveyor` anchor를 공유한다.
 인출·놓기 검사에서는 belt 이동과 버튼 누르기를 요구하지 않는다.
 Scene profile이 바뀌었으므로 이전 checkpoint/reset bank와의 호환을 가정하지 않는다.
+
+RL reward debug는 일반 Teleop의 factory 배경을 복제하지 않고 `minimal_rl_v2` workcell을
+생성한다. 그래도 rack의 위치·회전·scale은 같은 `configs/workcell_layout.json`, box 위치는
+같은 `configs/rack_box_poses.json`을 사용한다. 기본 SmallBox 대신 자동 배치한 SmallBox
+하나만 쓰려면 다음과 같이 캡처 pose를 끈다.
+
+```bash
+./quest_collector.sh collect \
+  --rl-reward-debug 1 --rl-task pick_place \
+  --rack-boxes '1:small' --ignore-captured-box-poses \
+  --no-rack-rollers
+```
 
 ## 실행
 

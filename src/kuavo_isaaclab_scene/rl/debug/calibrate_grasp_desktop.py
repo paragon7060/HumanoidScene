@@ -35,7 +35,7 @@ def main():
     from ..runners.common import parse_args, build_configs
 
     def arguments(parser):
-        parser.set_defaults(task="pick", boxes="medium_box_0", control_mode="arms-only",
+        parser.set_defaults(task="pick", boxes="small_box_0", control_mode="arms-only",
                             num_envs=1, prefill=0, cargo_per_box=0, no_randomization=True,
                             config=CONFIG_DIR / "rl_pick_arms_only.py")
         parser.add_argument("--points-file", type=Path, default=Path("configs/grasp_reference_points.json"))

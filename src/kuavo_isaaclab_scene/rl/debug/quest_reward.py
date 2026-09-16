@@ -38,7 +38,7 @@ def _config(args):
         raise ValueError(f"Missing RL config: {config}")
     # Use the same experiment builder as training, including named pose and physics.
     whole_body = getattr(args, "rl_reward_debug", 0) == 1
-    rl = Namespace(task=task_name, boxes="medium_box_0",
+    rl = Namespace(task=task_name, boxes=getattr(args, "rl_box", "small_box_0"),
         control_mode="whole-body" if whole_body else "arms-only",
         action_space="all-joints" if whole_body else "right-arm",
         config=config, reset_bank=None, snapshot_dir=None, max_snapshots=1,
@@ -195,7 +195,8 @@ def run(args, app):
         print("[RL REWARD] No dataset recording. A/T run/pause; B/R reset; X/C recenter; Y/H panel.", flush=True)
         print(f"[RL REWARD] dynamics_profile={getattr(env.scene['robot'], 'dynamics_profile', 'unknown')}; "
               "S63 arm-id replaces arm gravity only; body retains gravity-PD.", flush=True)
-        print(f"[RL REWARD] task={cfg.task.name}, control={cfg.task.control_mode}, active_arm={cfg.task.active_arm}, "
+        print(f"[RL REWARD] task={cfg.task.name}, boxes={','.join(cfg.task.box_names)}, "
+              f"control={cfg.task.control_mode}, active_arm={cfg.task.active_arm}, "
               f"action_space={cfg.task.action_space}, actions={env.action_manager.total_action_dim}, "
               f"flaps={cfg.task.grasp_flaps}, contact_region={cfg.task.flap_contact_region}", flush=True)
         print(f"[RL REWARD] controller_mapping={args.controller_mapping}"

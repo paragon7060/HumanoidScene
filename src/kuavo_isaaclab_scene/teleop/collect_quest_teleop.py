@@ -38,6 +38,11 @@ parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
 parser.add_argument("--rl-task", choices=("pick", "pick_place"), default="pick",
                     help="Reward debug task: pick lifts only; pick_place transfers to the stopped conveyor.")
+parser.add_argument("--rl-box", choices=(
+                        "small_box_0", "small_box_1", "medium_box_0", "medium_box_1",
+                        "large_box_0", "large_box_1", "xlarge_box_0", "xlarge_box_1"),
+                    default="small_box_0",
+                    help="Reward debug task box (default: small_box_0). It must be on the configured/captured rack.")
 parser.add_argument("--rl-obstacle-contact-hz", type=int, choices=(15, 30, 60, 120), default=None,
                     help="RL reward inspection: explicitly enable filtered robot-obstacle reports at this rate. "
                          "Omitting it uses fast aggregate contacts without rollers and 30 Hz with rollers; "
@@ -278,6 +283,7 @@ if args_cli.rl_task == "pick_place" and args_cli.rl_reward_debug != 1:
 if args_cli.rl_reward_debug is None and (
     args_cli.rl_collision_view or args_cli.rl_grasp_markers or args_cli.rl_grasp_calibration
     or args_cli.rl_obstacle_contact_hz is not None or not args_cli.rl_obstacle_collision
+    or args_cli.rl_box != "small_box_0"
 ):
     parser.error("RL collision/grasp/contact options require --rl-reward-debug.")
 if args_cli.rl_reward_debug is not None:
