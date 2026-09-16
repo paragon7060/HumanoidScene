@@ -438,6 +438,28 @@ class WorkcellCommand(CommandTerm):
     def _update_metrics(self):
         pass
 
+    def _set_debug_vis_impl(self, debug_vis):
+        if debug_vis and not hasattr(self, "grasp_markers"):
+            from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
+            from isaaclab.sim import SphereCfg, PreviewSurfaceCfg
+            colors = {"tip": (0., .7, 1.), "midpoint": (1., .8, 0.),
+                      "target": (0., 1., .2), "moving_midpoint": (1., .1, .1)}
+            self.grasp_markers = VisualizationMarkers(VisualizationMarkersCfg(
+                prim_path="/Visuals/FlapGraspReferences", markers={
+                    name: SphereCfg(radius=.003, visual_material=PreviewSurfaceCfg(diffuse_color=color))
+                    for name, color in colors.items()}))
+        if hasattr(self, "grasp_markers"):
+            self.grasp_markers.set_visibility(debug_vis)
+
+    def _debug_vis_callback(self, event):
+        if (hasattr(self, "grasp_markers") and hasattr(self, "tools")
+                and self.endeffector_center.definition):
+            # Inspect env 0 only, keeping marker overhead independent of batch size.
+            tips = self.endeffector_center.tips_w[0]
+            points = torch.cat((tips.reshape(4, 3), self.tools[0],
+                                self.grips[0], tips.mean(-2)))
+            self.grasp_markers.visualize(translations=points, marker_indices=[0]*4 + [1]*2 + [2]*2 + [3]*2)
+
 
 
 def task(env):

@@ -1,6 +1,7 @@
 """Keep termination predicates separate from shaping rewards."""
 
 from .commands import task
+from .robot_safety import robot_motion_unsafe
 
 
 def success(env):
@@ -8,4 +9,5 @@ def success(env):
 
 
 def unsafe(env):
-    return task(env).failure
+    t = task(env)
+    return t.failure | robot_motion_unsafe(t.robot)

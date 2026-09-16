@@ -3,6 +3,7 @@
 import math
 import torch
 from .commands import task
+from .robot_safety import robot_motion_unsafe
 from .settling import ready
 from .box_safety import guard_box_reward
 from .grasp_stability import grasp_stability_scores
@@ -76,7 +77,8 @@ def success(env):
 
 
 def failure(env):
-    return task(env).failure.float() / env.step_dt
+    t = task(env)
+    return (t.failure | robot_motion_unsafe(t.robot)).float() / env.step_dt
 
 
 @guard_box_reward
@@ -85,6 +87,33 @@ def flap_reaching(env):
     # Signed consecutive-step progress; acquisition/held/loss-transition deltas
     # are zeroed by the tracker. RewardManager's dt cancels this divisor.
     return t.reach_progress.delta[:, t.spec.grasp_hand_indices].mean(-1) * ready(t) / env.step_dt
+
+
+@guard_box_reward
+def flap_alignment(env):
+    t = task(env)
+    selected = t.spec.grasp_hand_indices
+    return -(1 - t.grasp_alignment[:, selected]).mean(-1) * ready(t)
+
+
+@guard_box_reward
+def flap_closing(env, distance_scale=.1, alignment_scale=.1, straddle_scale=.02,
+                 open_clearance=.04, gap_scale=.02):
+    t = task(env)
+    selected = t.spec.grasp_hand_indices
+    # Continuous preparation shaping; the hard physical grasp predicates remain
+    # in flap_grasp.py. Keep clearance while approaching and close as the plate
+    # enters the aligned jaws. Every term is a cost, never a hovering bonus.
+    preparation = torch.exp(
+        -(t.hand_target_distance[:, selected] / distance_scale).square()
+        -(1 - t.grasp_alignment[:, selected]) / alignment_scale
+        -t.jaw_straddle_error[:, selected] / straddle_scale)
+    clearance = t.flap_thickness[:, selected] + open_clearance
+    desired_gap = t.flap_thickness[:, selected] + (1 - preparation) * open_clearance
+    gap = t.jaw_gap[:, selected]
+    score = preparation * torch.exp(-(gap - desired_gap).abs() / gap_scale)
+    premature_closing = (1 - preparation) * ((clearance - gap) / open_clearance).clamp(0, 1)
+    return -(1 - score + premature_closing).mean(-1) * ready(t)
 
 
 @guard_box_reward
@@ -152,9 +181,14 @@ def settled_action_rate(env):
 
 
 @guard_box_reward
-def settled_joint_speed(env):
+def settled_joint_speed(env, max_abs_speed=100.0):
     t = task(env)
-    return ready(t) * t.robot.data.joint_vel.square().sum(-1)
+    # A terminal physics blow-up can still be finite (for example 1e30) and
+    # overflow when squared. The unsafe termination independently resets that
+    # environment; this cap keeps the terminal reward and scalar log finite.
+    velocity = torch.nan_to_num(t.robot.data.joint_vel, nan=0.0,
+                                posinf=max_abs_speed, neginf=-max_abs_speed)
+    return ready(t) * velocity.clamp(-max_abs_speed, max_abs_speed).square().sum(-1)
 
 
 @guard_box_reward

@@ -4,6 +4,31 @@ import torch
 from .grasp_contact_latch import GraspContactLatch, opposed_jaws
 
 
+def jaw_capture_geometry(pads_local, centers, halves, normal_axes, depth):
+    """Gap, plate thickness and distance of the plate outside the jaw interval."""
+    targets = centers.clone()
+    targets[..., 2] += halves[..., 2] - depth
+    signed = (pads_local - targets[:, :, None]).gather(
+        -1, normal_axes[:, :, None, None].expand(-1, -1, 2, 1)).squeeze(-1)
+    low, high = signed.amin(-1), signed.amax(-1)
+    outside = low.clamp_min(0) + (-high).clamp_min(0)
+    thickness = 2 * halves.gather(-1, normal_axes[..., None]).squeeze(-1)
+    return (high - low), thickness, outside
+
+
+def closing_geometry(pads_local, centers, halves, normal_axes, distance, alignment, depth):
+    """Describe jaw opening around the desired flap point, without assuming contact."""
+    targets = centers.clone()
+    targets[..., 2] += halves[..., 2] - depth
+    delta = pads_local - targets[:, :, None]
+    signed = delta.gather(-1, normal_axes[:, :, None, None].expand(-1, -1, 2, 1)).squeeze(-1)
+    straddling = signed[..., 0] * signed[..., 1] <= 0
+    thickness = 2 * halves.gather(-1, normal_axes[..., None]).squeeze(-1)
+    gap = (signed[..., 0] - signed[..., 1]).abs()
+    capture = straddling & (distance < .025) & (alignment > .95)
+    return gap, (gap - thickness).abs(), capture
+
+
 def upper_band_contacts(points, centers, halves, normal_axes, *, band, margin):
     """Per-finger contacts in flap-local metres; absent contacts (NaN) are false.
 
@@ -117,6 +142,13 @@ class FlapGrasp:
         alignment = (closing[:, :, None] * normal).sum(-1).abs().clamp(0, 1)
         t.grasp_candidate_alignment = alignment
         t.grasp_alignment = alignment[batch, hands, nearest_id]
+        # Optional closing diagnostics use the same selected candidate as reaching.
+        selected_jaws = jaw_local[batch, hands, nearest_id]
+        selected_centers = pair_c[batch, hands, nearest_id]
+        selected_halves = pair_h[batch, hands, nearest_id]
+        selected_axes = pair_a[batch, hands, nearest_id]
+        t.jaw_gap, t.flap_thickness, t.jaw_straddle_error = jaw_capture_geometry(
+            selected_jaws, selected_centers, selected_halves, selected_axes, t.spec.flap_grasp_depth)
         points, forces, residuals = [], [], []
         for i in range(4):
             sensor = t._env.scene[f"grasp_contact_{i}"].data

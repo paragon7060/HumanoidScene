@@ -30,7 +30,7 @@ fi
 case "$method" in sac|collect|dppo|play) ;; *) echo "Unknown method: $method" >&2; exit 2 ;; esac
 for argument in "$@"; do
   case "${argument%%=*}" in
-    --method|--task|--robot-model|--gripper|--boxes|--control-mode|--config|--initial-state|--initial-states-file|--reset-bank|--workcell-layout|--rack-box-poses|--rack-boxes|--ignore-captured-box-poses|--cargo-per-box|--prefill)
+    --method|--task|--boxes|--control-mode|--config|--initial-state|--initial-states-file|--reset-bank|--workcell-layout|--rack-box-poses|--rack-boxes|--ignore-captured-box-poses|--cargo-per-box|--prefill)
       echo "Pinned option: ${argument%%=*}. Use the alternatives Python module for another experiment." >&2
       exit 2 ;;
   esac
@@ -38,8 +38,8 @@ done
 exec env TERM=xterm PYTHONUNBUFFERED=1 PYTHONPATH="${PROJECT_DIR}/src" \
   KUAVO_CONFIG_DIR="${PROJECT_DIR}/configs" \
   "$ISAACLAB_PYTHON" -m kuavo_isaaclab_scene.rl.runners.alternatives \
-  --method "$method" --num-envs 2 --headless --device cuda:0 "$@" \
-  --robot-model s200062 --gripper s200062_integrated \
+  --method "$method" --num-envs 2 --headless --device cuda:0 \
+  --robot-model "${KUAVO_ROBOT_MODEL:-s200062}" "$@" \
   --task pick --boxes medium_box_0 --control-mode arms-only \
   --config "${PROJECT_DIR}/configs/rl_pick_arms_only.py" \
   --initial-states-file "${PROJECT_DIR}/configs/initial_states.json" \

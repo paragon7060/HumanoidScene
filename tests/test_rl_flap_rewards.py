@@ -77,13 +77,57 @@ def test_flap_shaping_uses_only_the_selected_hand(modules):
     assert (rewards.flap_reaching(env) * env.step_dt * 4).item() == pytest.approx(-.8)
 
 
+def test_settled_joint_speed_is_bounded_during_terminal_physics_blowup(modules):
+    _, rewards = modules
+    command = SimpleNamespace(settling=None, refresh=lambda: None,
+        box_safety_failure=torch.tensor([False, False]),
+        robot=SimpleNamespace(data=SimpleNamespace(
+            joint_vel=torch.tensor([[1.0, 1e30, float("inf")], [3.0, 4.0, 0.0]]))))
+    env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: command))
+    value = rewards.settled_joint_speed(env, max_abs_speed=100.0)
+    assert torch.isfinite(value).all()
+    torch.testing.assert_close(value, torch.tensor([20001.0, 25.0]))
+
+
+def test_hovering_and_closing_away_from_flap_never_pay_positive_shaping(modules):
+    _, rewards = modules
+    t = SimpleNamespace(spec=task_spec("pick", grasp_hand="right"), settling=None,
+        hand_target_distance=torch.tensor([[0., .0027]]), grasp_alignment=torch.ones(1, 2),
+        finger_grasp_contacts=torch.zeros(1, 2, 2, dtype=torch.bool),
+        hand_grasp_flags=torch.zeros(1, 2, dtype=torch.bool),
+        ready_to_close=torch.zeros(1, 2, dtype=torch.bool), jaw_gap_error=torch.zeros(1, 2),
+        jaw_gap=torch.full((1, 2), .043), flap_thickness=torch.full((1, 2), .003),
+        jaw_straddle_error=torch.zeros(1, 2),
+        refresh=lambda: None)
+    t.reach_progress = SimpleNamespace(delta=torch.zeros(1, 2))
+    t.flap_progress = SimpleNamespace(grasp_bonus=torch.zeros(1))
+    env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: t), step_dt=1/30)
+    for name in ("flap_reaching", "flap_alignment", "flap_closing", "flap_contact"):
+        assert (getattr(rewards, name)(env) <= 0).all()
+    assert rewards.flap_reaching(env).item() == 0
+    # A distant plate calls for open clearance; empty-space closing costs more.
+    t.hand_target_distance[:, 1] = .5
+    open_cost = rewards.flap_closing(env)
+    t.jaw_gap[:, 1] = .003
+    assert rewards.flap_closing(env).item() < open_cost.item()
+    # At the aligned target, reducing gap error improves the continuous cost.
+    t.hand_target_distance[:, 1] = 0
+    t.jaw_gap[:, 1] = .043
+    wide = rewards.flap_closing(env)
+    t.jaw_gap[:, 1] = .005
+    near = rewards.flap_closing(env)
+    assert wide.item() < near.item() < 0
+
+
 def test_lift_requires_grasp_and_discrete_bonuses_are_dt_independent(modules):
     _, rewards = modules
     t = SimpleNamespace(spec=task_spec("pick", lift_height=.06), settling=None, ids=torch.arange(2),
         reward_box=torch.zeros(2, dtype=torch.long), reward_phase=torch.ones(2, dtype=torch.long),
         centers=torch.tensor([[[0., 0., .3]], [[0., 0., .3]]]), initial_z=torch.full((2, 1), .2),
         grasped=torch.tensor([True, False]), transition=torch.tensor([True, False]),
-        success=torch.tensor([True, False]), failure=torch.tensor([False, True]), refresh=lambda: None)
+        success=torch.tensor([True, False]), failure=torch.tensor([False, True]), refresh=lambda: None,
+        robot=SimpleNamespace(data=SimpleNamespace(joint_pos=torch.zeros(2, 1),
+                                                   joint_vel=torch.zeros(2, 1))))
     env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda _: t),
         scene=SimpleNamespace(env_origins=torch.zeros(2, 3)))
     assert rewards.lift(env).tolist() == [1., 0.]

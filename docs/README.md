@@ -61,6 +61,8 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 | 다른 하위 task, observation/action/reward 또는 PPO를 수정한다 | [하위 task별 RL 학습](RL_TRAINING.md) |
 | SAC / diffusion 사전학습 / DPPO를 실행한다 | [대체 RL 학습 경로](RL_ALTERNATIVES.md) |
 | 오른팔 / 전체 관절 action space를 선택한다 | [공통 RL action 옵션](RL_ACTION_SPACES.md) |
+| SAC settling 데이터 필터와 curriculum 없는 닫기 보상 변경을 확인한다 | [SAC 데이터·보상 수정](SAC_DATA_REWARD_20260909.md) |
+| 체크포인트를 Google Drive에 업로드하고 로컬 보관량을 줄인다 | [Google Drive 보관](RL_GOOGLE_DRIVE.md) |
 
 각 문서의 역할은 실행·task 정의, 장면·병렬 구조, 초기 자세, 범용 manager 개발로
 구분한다. 공통 폴더와 import 경계는 [코드 구조 가이드](CODE_STRUCTURE.md)에 있다.

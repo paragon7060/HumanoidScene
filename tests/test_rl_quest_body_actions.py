@@ -98,6 +98,6 @@ def test_experiment_supports_released_torso_without_changing_locked_mode(mode, c
                               actuators={"height_axis": height, "upper_body": yaw})),
              rewards=NS(prelift_disturbance=NS(), orientation=NS(params={})),
              actions=NS(upper_body=NS(), left_gripper=NS(), right_gripper=NS()))
-    configure(cfg, NS(policy=NS()))
+    configure(cfg, NS(policy=NS(), algorithm=NS()))
     assert (height.stiffness, height.damping) == expected_height
     assert (yaw.stiffness, yaw.damping) == ((800., 50.) if mode == "whole-body" and not compensated else (120., 15.))

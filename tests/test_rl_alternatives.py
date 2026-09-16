@@ -229,7 +229,7 @@ def test_actual_sac_and_dppo_loops_complete_and_resume(tmp_path):
     from kuavo_isaaclab_scene.rl.runners.train_sac import train as train_sac
     from kuavo_isaaclab_scene.rl.runners.train_dppo import train as train_dppo
     args = SimpleNamespace(replay_capacity=64, replay_device="cpu", updates_per_step=1, batch_size=8,
-                           max_iterations=2, rollout_steps=4, learning_starts=4, save_interval=1000,
+                           max_iterations=2, rollout_steps=4, learning_starts=4, warmup_vector_steps=0, save_interval=1000,
                            keep_checkpoints=2, epochs=1, critic_warmup=0)
     sac_path, dp_path = tmp_path / "sac", tmp_path / "dppo"
     sac_path.mkdir()
@@ -277,3 +277,19 @@ def test_runner_requires_one_masked_gpu_and_maps_renderer_physically(monkeypatch
     validate_args(args)
     assert args.device == "cuda:0" and "activeGpu=2" in args.kit_args
     assert "multiGpu/enabled=false" in args.kit_args
+
+
+def test_external_retention_never_deletes_unuploaded_checkpoints(tmp_path):
+    for iteration in range(4):
+        save_checkpoint(tmp_path, {"algorithm": "test"}, iteration, keep=None)
+    assert len(list(tmp_path.glob("*.pt"))) == 4
+
+
+def test_random_diffusion_smoke_test_is_explicit_and_labels_checkpoint(tmp_path):
+    from kuavo_isaaclab_scene.rl.runners.train_dppo import train
+    args = SimpleNamespace(smoke_test=True, batch_size=8, epochs=1, critic_warmup=0,
+                           rollout_steps=2, max_iterations=1, save_interval=1000,
+                           keep_checkpoints=2, external_checkpoint_retention=True)
+    train(ToyEnv(), args, tmp_path, None)
+    state = load_checkpoint(next(tmp_path.glob("*.pt")))
+    assert state["initialization"] == "random_smoke_test_not_pretrained"

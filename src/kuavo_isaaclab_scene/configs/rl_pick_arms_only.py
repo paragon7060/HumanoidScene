@@ -77,4 +77,5 @@ def configure(env_cfg, agent_cfg):
         gripper = getattr(env_cfg.actions, side + "_gripper")
         if gripper is not None:
             gripper.delta_scale = 0.08
-    agent_cfg.policy.init_noise_std = 0.15
+    from kuavo_isaaclab_scene.rl.agents.flap_ppo import configure_flap_ppo
+    configure_flap_ppo(agent_cfg)

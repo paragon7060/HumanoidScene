@@ -117,4 +117,5 @@ def train(env, args, directory, state=None):
                            torch_peak_reserved_mib=torch.cuda.max_memory_reserved() / 2**20)
         log_metrics(directory, iteration, metrics)
         if iteration % args.save_interval == 0 or iteration == start + args.max_iterations:
-            save_checkpoint(directory, agent.checkpoint(), iteration, args.keep_checkpoints)
+            keep = None if getattr(args, "external_checkpoint_retention", False) else args.keep_checkpoints
+            save_checkpoint(directory, agent.checkpoint(), iteration, keep)

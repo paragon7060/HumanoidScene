@@ -21,6 +21,10 @@ def add_arguments(parser):
     parser.add_argument("--epochs", type=int, default=5, help="DPPO optimization epochs")
     parser.add_argument("--critic-warmup", type=int, default=5, help="DPPO iterations updating only value function")
     parser.add_argument("--keep-checkpoints", type=int, default=2)
+    parser.add_argument("--external-checkpoint-retention", action="store_true",
+                        help="Never prune in the learner; a verified backup worker owns retention")
+    parser.add_argument("--smoke-test", action="store_true",
+                        help="DPPO wiring/memory test from random diffusion; <=10 iterations, not pretrained")
     parser.add_argument("--collect-max-steps", type=int, default=10000, help="Bound collection duration in vector steps")
     parser.add_argument("--stochastic-eval", action="store_true", help="Sample diffusion chains instead of deterministic mean paths")
 
@@ -32,7 +36,10 @@ def validate_args(args):
             raise ValueError(f"--{key.replace('_', '-')} must be positive")
     if min(args.learning_starts, args.critic_warmup, getattr(args, "warmup_vector_steps", 450)) < 0:
         raise ValueError("Warmup counts must be nonnegative")
-    if args.method in ("dppo", "collect", "play") and args.checkpoint is None:
+    smoke = getattr(args, "smoke_test", False)
+    if smoke and (args.method != "dppo" or args.checkpoint is not None or args.max_iterations > 10):
+        raise ValueError("--smoke-test requires DPPO, no checkpoint, and <=10 iterations")
+    if args.method in ("dppo", "collect", "play") and args.checkpoint is None and not smoke:
         raise ValueError(f"--method {args.method} requires --checkpoint")
     if args.method == "collect" and args.num_envs > 64:
         raise ValueError("Collect demonstrations with <=64 envs")
@@ -50,14 +57,9 @@ def validate_args(args):
 def main():
     args = parse_args("train", add_arguments)
     validate_args(args)
-    # Validate checkpoint kind before paying the simulator startup cost.
+    # Keep checkpoint deserialization after Isaac scene initialization, matching
+    # the PPO runner's startup order.
     state = None
-    if args.checkpoint and args.method != "collect":
-        from .storage import load_checkpoint
-        state = load_checkpoint(args.checkpoint)
-        allowed = {"sac": ("sac",), "dppo": ("diffusion_bc", "dppo"), "play": ("sac", "diffusion_bc", "dppo")}
-        if state.get("algorithm") not in allowed[args.method]:
-            raise ValueError(f"Checkpoint {state.get('algorithm')} cannot be used for {args.method}")
     from isaaclab.app import AppLauncher
     app = AppLauncher(args).app
     install_stop_handlers()
@@ -76,11 +78,27 @@ def main():
             raise ValueError("Alternative runners currently require the shared infinite-horizon timeout convention")
         directory = run_directory(args, args.method)
         cfg.log_dir = str(directory)
-        env = TransitionEnv(cfg)
+        import faulthandler
+        # Diagnostic only; cancel as soon as construction finishes.
+        faulthandler.dump_traceback_later(180, repeat=True)
+        try:
+            env = TransitionEnv(cfg)
+        finally:
+            faulthandler.cancel_dump_traceback_later()
         settings = json.loads(json.dumps(vars(args), default=str))
         manifest = write_run_config(directory, cfg, settings, env)
+        if args.smoke_test:
+            manifest["initialization"] = "random_smoke_test_not_pretrained"
+            (directory / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False))
         if args.checkpoint:
             check_checkpoint(args.checkpoint, manifest)
+            if args.method != "collect":
+                from .storage import load_checkpoint
+                state = load_checkpoint(args.checkpoint)
+                allowed = {"sac": ("sac",), "dppo": ("diffusion_bc", "dppo"),
+                           "play": ("sac", "diffusion_bc", "dppo")}
+                if state.get("algorithm") not in allowed[args.method]:
+                    raise ValueError(f"Checkpoint {state.get('algorithm')} cannot be used for {args.method}")
         print(f"[RL] method={args.method}; artifacts={directory}; CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}", flush=True)
         if args.method == "sac":
             from .train_sac import train

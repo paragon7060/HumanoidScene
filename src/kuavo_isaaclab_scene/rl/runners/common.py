@@ -62,6 +62,8 @@ def parse_args(mode, add_arguments=None):
     parser.add_argument("--rack-boxes")
     parser.add_argument("--ignore-captured-box-poses", action="store_true")
     parser.add_argument("--log-dir", type=Path)
+    parser.add_argument("--grasp-debug-vis", action="store_true",
+                        help="Show calibrated finger points, TCP, flap target and moving midpoint in env 0.")
     add_initial_state_args(parser)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
@@ -135,6 +137,7 @@ def build_configs(args, *, active_arm_override=None, include_agent=True):
     cfg = WorkcellRLEnvCfg(task=spec, num_envs=args.num_envs, env_spacing=args.env_spacing,
                          cameras=args.enable_cameras)
     cfg.seed = args.seed
+    cfg.commands.workcell.debug_vis = args.grasp_debug_vis
     cfg.sim.device = args.device or "cuda:0"
     if include_agent:
         # rsl-rl-lib (installed via the '.[rl]' extra) is a training-only

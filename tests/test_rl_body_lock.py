@@ -115,7 +115,7 @@ def test_stationary_pick_example_configures_requested_thresholds():
     assert spec.lift_height == 0.06 and spec.cargo_per_box == 0
     actions = SimpleNamespace(upper_body=SimpleNamespace(), left_gripper=None,
                               right_gripper=SimpleNamespace())
-    agent = SimpleNamespace(policy=SimpleNamespace())
+    agent = SimpleNamespace(policy=SimpleNamespace(), algorithm=SimpleNamespace())
     rewards = SimpleNamespace(prelift_disturbance=SimpleNamespace(), orientation=SimpleNamespace(params={}))
     custom["configure"](SimpleNamespace(task=spec, actions=actions, rewards=rewards), agent)
     assert actions.upper_body.scale == 0.02 and agent.policy.init_noise_std == 0.15

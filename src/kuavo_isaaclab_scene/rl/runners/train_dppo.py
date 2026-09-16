@@ -2,22 +2,32 @@
 
 import time
 import torch
-from ..algorithms.diffusion import load_diffusion
+from ..algorithms.diffusion import load_diffusion, DiffusionPolicy
 from ..algorithms.dppo import DPPO, DPPOConfig
 from ..algorithms.common import generalized_advantage
 from .storage import save_checkpoint, log_metrics, EpisodeMetrics
 
 
 def train(env, args, directory, state):
-    policy = load_diffusion(state, env.device)
-    config = DPPOConfig(**state["dppo_config"]) if state["algorithm"] == "dppo" else DPPOConfig(
+    obs = env.reset()[0]["policy"]
+    initialization = "pretrained"
+    if state is None:
+        if not getattr(args, "smoke_test", False):
+            raise ValueError("DPPO needs a pretrained checkpoint outside an explicit smoke test")
+        policy = DiffusionPolicy(obs.shape[-1], env.action_manager.total_action_dim).to(env.device)
+        policy.normalizer.update(obs)
+        initialization = "random_smoke_test_not_pretrained"
+        print("[DPPO] RANDOM INITIALIZATION: wiring/memory test only; not a pretrained policy.", flush=True)
+    else:
+        policy = load_diffusion(state, env.device)
+        initialization = state.get("initialization", "pretrained")
+    config = DPPOConfig(**state["dppo_config"]) if state and state["algorithm"] == "dppo" else DPPOConfig(
         minibatch_size=args.batch_size, epochs=args.epochs, critic_warmup=args.critic_warmup)
     agent = DPPO(policy, config)
     start = 0
-    if state["algorithm"] == "dppo":
+    if state and state["algorithm"] == "dppo":
         agent.restore(state)
         start = state["iteration"]
-    obs = env.reset()[0]["policy"]
     if (obs.shape[-1], env.action_manager.total_action_dim) != (policy.obs_dim, policy.action_dim):
         raise ValueError("Diffusion checkpoint dimensions do not match the environment")
     steps, count = args.rollout_steps, env.num_envs
@@ -53,6 +63,11 @@ def train(env, args, directory, state):
         metrics.update(**episodes.report(), reward_per_step=rewards.mean().item(), completed_episodes=done.sum().item(),
                        critic_warmup=iteration <= config.critic_warmup,
                        transitions_per_second=steps * count / (time.monotonic() - tick))
+        if str(env.device).startswith("cuda"):
+            metrics.update(torch_peak_allocated_mib=torch.cuda.max_memory_allocated() / 2**20,
+                           torch_peak_reserved_mib=torch.cuda.max_memory_reserved() / 2**20)
         log_metrics(directory, iteration, metrics)
         if iteration % args.save_interval == 0 or iteration == start + args.max_iterations:
-            save_checkpoint(directory, agent.checkpoint(), iteration, args.keep_checkpoints)
+            checkpoint = dict(agent.checkpoint(), initialization=initialization)
+            keep = None if getattr(args, "external_checkpoint_retention", False) else args.keep_checkpoints
+            save_checkpoint(directory, checkpoint, iteration, keep)

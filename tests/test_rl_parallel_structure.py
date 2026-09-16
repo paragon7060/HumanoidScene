@@ -80,7 +80,7 @@ def test_global_floor_covers_the_cloned_grid(num_envs, spacing, extent):
     assert ParallelEnvCfg(num_envs=num_envs, env_spacing=spacing).ground_extent == extent
 
 
-def test_rl_modules_do_not_import_interactive_scene_or_teleoperation_pipelines():
+def test_rl_training_modules_do_not_import_interactive_scene_or_teleoperation_pipelines():
     forbidden = (
         "kuavo_isaaclab_scene.envs.manager_env",
         "kuavo_isaaclab_scene.envs.scene",
@@ -90,13 +90,14 @@ def test_rl_modules_do_not_import_interactive_scene_or_teleoperation_pipelines()
     )
     violations = []
     for path in sorted(RL.rglob("*.py")):
+        # Explicit Quest diagnostic entrypoints need teleoperation. Training must
+        # remain independent of both those tools and the general scene pipeline.
+        is_debug = path.is_relative_to(RL / "debug")
         for imported, line in _imports(path, _tree(path)):
-            # These optional Quest adapters deliberately connect teleop input
-            # to RL. The training/environment modules remain independent.
-            if (path.relative_to(RL).as_posix() in {"debug/quest_control.py", "debug/quest_reward.py"}
-                    and imported.startswith("kuavo_isaaclab_scene.teleop.")):
+            banned_modules = forbidden if is_debug else (*forbidden, "kuavo_isaaclab_scene.rl.debug")
+            if is_debug and imported.startswith("kuavo_isaaclab_scene.teleop"):
                 continue
-            if any(imported == banned or imported.startswith(banned + ".") for banned in forbidden):
+            if any(imported == banned or imported.startswith(banned + ".") for banned in banned_modules):
                 violations.append(f"{path.relative_to(ROOT)}:{line}: {imported}")
     assert not violations, "RL must remain independent of general pipelines:\n" + "\n".join(violations)
 

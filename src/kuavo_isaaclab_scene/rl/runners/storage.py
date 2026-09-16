@@ -17,7 +17,7 @@ def check_contract(source, target):
 
 
 def save_checkpoint(directory, state, iteration, keep=2):
-    if keep < 1:
+    if keep is not None and keep < 1:
         raise ValueError("Checkpoint retention must be positive")
     directory = Path(directory)
     destination = directory / f"checkpoint_{iteration:08d}.pt"
@@ -28,8 +28,10 @@ def save_checkpoint(directory, state, iteration, keep=2):
         temporary.replace(destination)
     finally:
         temporary.unlink(missing_ok=True)
-    for obsolete in sorted(directory.glob("checkpoint_*.pt"))[:-keep]:
-        obsolete.unlink()
+    # Drive-managed runs defer ALL deletion to checksum-verified backup workers.
+    if keep is not None:
+        for obsolete in sorted(directory.glob("checkpoint_*.pt"))[:-keep]:
+            obsolete.unlink()
     return destination
 
 

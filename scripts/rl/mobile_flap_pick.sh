@@ -11,8 +11,8 @@ require_supported_runtime "${ISAACLAB_PYTHON}"
 exec env TERM=xterm PYTHONUNBUFFERED=1 PYTHONPATH="${PROJECT_DIR}/src" \
   KUAVO_CONFIG_DIR="${PROJECT_DIR}/configs" \
   "$ISAACLAB_PYTHON" -m kuavo_isaaclab_scene.rl.runners.alternatives \
-  --method "$method" --num-envs 2 --headless --device cuda:0 "$@" \
-  --robot-model s200062 --gripper s200062_integrated \
+  --method "$method" --num-envs 2 --headless --device cuda:0 \
+  --robot-model "${KUAVO_ROBOT_MODEL:-s200062}" "$@" \
   --task pick --boxes medium_box_0 --control-mode whole-body \
   --config "${PROJECT_DIR}/configs/rl_pick_whole_body.py" \
   --initial-states-file "${PROJECT_DIR}/configs/initial_states.json" \

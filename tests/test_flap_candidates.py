@@ -10,8 +10,8 @@ from kuavo_isaaclab_scene.rl.mdp.flap_grasp import FlapGrasp
 from kuavo_isaaclab_scene.rl.tasks.specs import task_spec
 
 
-@pytest.fixture
-def state(monkeypatch):
+@pytest.fixture(params=[False, True], ids=["link-origins", "calibrated-tips"])
+def state(monkeypatch, request):
     geometry = ModuleType("kuavo_isaaclab_scene.rl.mdp.geometry")
     def rotate(q, p):
         v = q[..., 1:]
@@ -49,7 +49,8 @@ def state(monkeypatch):
     geom = NS(center=(0., 0., 0.), half_size=(.002, .1, .055))
     t = NS(spec=spec, boxes=boxes, num_envs=2, n=2, device="cpu", ids=torch.arange(2),
            active_box=torch.tensor([0, 1]), tools=tools,
-           endeffector_center=NS(definition=None),
+           endeffector_center=NS(definition={"revision": 1} if request.param else None,
+                                 tips_w=fingers.reshape(2, 2, 2, 3)),
            robot=NS(find_bodies=lambda *a, **kw: ([0, 1, 2, 3], []), data=NS(body_link_pos_w=fingers)),
            cfg=NS(geometry={name: NS(flaps={f: geom for f in spec.grasp_flaps}) for name in spec.box_names}),
            _env=NS(scene=scene, common_step_counter=0, step_dt=1/30))

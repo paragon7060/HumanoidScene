@@ -11,6 +11,7 @@ from kuavo_isaaclab_scene.rl.tasks.specs import task_spec
 from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
 from kuavo_isaaclab_scene.rl.algorithms.sac import soft_target
 from kuavo_isaaclab_scene.rl.algorithms.common import generalized_advantage
+from kuavo_isaaclab_scene.rl.mdp.robot_safety import robot_motion_unsafe
 
 
 def state():
@@ -51,6 +52,13 @@ def test_speed_guard_catches_blowup_before_position_has_moved():
     checks = box_safety_checks(centers, poses, velocities, baseline, origins, task_spec("pick"))
     assert checks["box_excessive_speed"].all()
     assert not checks["box_over_lift"].any()
+
+
+def test_robot_motion_guard_catches_finite_blowup_and_nonfinite_state():
+    robot = NS(data=NS(joint_pos=torch.zeros(3, 2), joint_vel=torch.zeros(3, 2)))
+    robot.data.joint_vel[1, 0] = 101.0
+    robot.data.joint_pos[2, 1] = float("nan")
+    assert robot_motion_unsafe(robot).tolist() == [False, True, True]
 
 
 def test_invalid_terminal_step_gets_no_nan_or_extreme_shaping():

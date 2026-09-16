@@ -181,13 +181,22 @@ SAC는 actor 평균을 사용한다. Diffusion은 고정 zero prior에서 noise 
 학습 checkpoint 기본 간격은 **1000 iteration**, 마지막 iteration에도 저장하고
 해당 실행 폴더의 최근 **2개만** 남긴다. `--keep-checkpoints`로 변경할 수 있다.
 큰 replay와 전체 rollout, 영상은 checkpoint에 넣지 않는다.
+Drive 보관 실험에는 [기존 연결과 자동 업로드 관리자](RL_GOOGLE_DRIVE.md)를 사용한다.
+`sac_with_drive.py` / `dppo_with_drive.py`는 학습기의 자체 삭제를 끄고,
+업로드·MD5 검증이 끝난 오래된 체크포인트만 정리한다.
 
 2026-09-07 구현 검증: 신규 CPU 테스트 18개와 기존 RL 관련 117개, 총 **135개 통과**.
 CPU에서 SAC·DPPO 실제 학습 loop/재개, diffusion BC entrypoint,
 Gaussian likelihood, denoising likelihood 재계산, clipping, timeout bootstrap,
 episode window, GPU CLI 격리, checkpoint 보관을 검사했다.
-GPU 1 추가 시뮬레이션은 기존 PPO/타 사용자 작업과의 경합 때문에 자동 승인 검토가
-거부하여 **새 SAC/DPPO의 실제 Isaac 실행·수렴·성공률·최대 env 수는 아직 검증하지 않았다.**
+2026-09-08에는 사용자 지정 GPU 0에서 실제 Isaac 실행을 확인했다.
+SAC 8192 env / GPU replay 100만 개 / 1 iteration은 최대 16868 MiB,
+1464.5 transition/s였으며 actor·critic·entropy 업데이트가 유한했다.
+17408 env / 6 iteration에서는 replay를 채운 뒤에도 최대 30274 MiB (29.56 GiB),
+평균 2524.4 transition/s였다. [설정·결과 기록](RL_GOOGLE_DRIVE.md)을 참고한다.
+DPPO는 2 env / 랜덤 초기화 / 2 iteration의 연결 검사만 완료했다.
+두 실행 모두 종료 후 체크포인트·로그를 기존 Drive 연결로 업로드하고 크기·MD5를 검증했다.
+이 짧은 실행은 수렴·파지 성공률·최대 env 수의 검증을 뜻하지 않는다.
 
 ```bash
 PYTHONPATH=src python -m pytest tests/test_rl_alternatives.py -q

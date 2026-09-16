@@ -33,6 +33,7 @@ S63 PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 
 | SAC 또는 diffusion 사전학습 → DPPO 실험 | [대체 RL 학습 경로](docs/RL_ALTERNATIVES.md) |
 | 오른팔 / 전체 관절 action space 선택 | [공통 RL action 옵션](docs/RL_ACTION_SPACES.md) |
 | 전신 4박스 단계별 / 전체 직접 학습 비교 | [4박스 전신 RL 실험](docs/RL_MULTI_BOX.md) |
+| 기존 Google Drive 연결 재사용·결과 업로드·로컬 보관량 관리 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
 | RL 초기 자세 수정·VR 재캡처 | [quest_ready_02 초기 상태](docs/RL_INITIAL_STATES.md) |
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |
 | Meta Quest를 처음 연결하고 수집 | [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md) |
