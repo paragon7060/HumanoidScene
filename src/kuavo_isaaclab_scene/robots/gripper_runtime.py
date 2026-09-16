@@ -178,16 +178,17 @@ class GripperForceDrive:
         self.stiffness = self.asset.data.joint_stiffness[:, self.ids].clone()
         self.damping = self.asset.data.joint_damping[:, self.ids].clone()
         self.effort_limits = self.asset.data.joint_effort_limits[:, self.ids].clone()
-        self.joint_limits = self.asset.data.joint_pos_limits[:, self.ids].clone()
         direction = (action._close_command - action._open_command).sign()
         from .twofinger_linkage import DRIVER_OPEN_MIN
-        bounds = torch.stack((torch.where(direction > 0, DRIVER_OPEN_MIN, 0.),
-                              torch.where(direction > 0, 0., -DRIVER_OPEN_MIN)), -1)
-        self.force_limits = self.joint_limits.clone()
-        self.force_limits[..., 0] = torch.maximum(self.force_limits[..., 0], bounds[:, 0])
-        self.force_limits[..., 1] = torch.minimum(self.force_limits[..., 1], bounds[:, 1])
-        if (self.force_limits[..., 0] >= self.force_limits[..., 1]).any():
-            raise ValueError("Claw force mode conflicts with live joint limits")
+        expected = torch.stack((torch.where(direction > 0, DRIVER_OPEN_MIN, 0.),
+                                torch.where(direction > 0, 0., -DRIVER_OPEN_MIN)), -1)
+        # The packaged USD owns the physical mechanism stops. Updating only a
+        # pair of limits through Isaac Lab currently resends every DOF limit;
+        # that includes the S63's unbounded wheels and makes PhysX reject their
+        # +/-infinity limits. Require the authored stops instead.
+        joint_limits = self.asset.data.joint_pos_limits[:, self.ids]
+        if not torch.allclose(joint_limits, expected.expand_as(joint_limits), atol=1e-5, rtol=0):
+            raise ValueError("Claw USD is missing the physical open/closed driver limits")
         self.servo = JawForceServo(action.cfg.force_side, env.num_envs, env.device,
                                   action.cfg.close_force_n, direction)
         self.enabled = torch.zeros(env.num_envs, 1, dtype=torch.bool, device=env.device)
@@ -210,11 +211,6 @@ class GripperForceDrive:
             damping, joint_ids=self.ids, env_ids=env_ids)
         self.asset.write_joint_effort_limit_to_sim(
             torch.where(engaged, self.effort_limits[env_ids] * .5, self.effort_limits[env_ids]),
-            joint_ids=self.ids, env_ids=env_ids)
-        # Constant torque must stop at the CAD's closed/open configuration;
-        # the donor's wider URDF limits would let the jaws cross through q=0.
-        self.asset.write_joint_position_limit_to_sim(
-            torch.where(engaged[..., None], self.force_limits[env_ids], self.joint_limits[env_ids]),
             joint_ids=self.ids, env_ids=env_ids)
         # Isaac's gain writers update PhysX/data, not actuator model buffers.
         # Keep implicit torque telemetry consistent with the live drive gains.

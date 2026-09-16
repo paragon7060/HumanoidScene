@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 
 TWO_FINGER_PRESETS = frozenset({"s200062_integrated", "s56_twofinger", "leju-twofinger"})
-LINKAGE_VERSION = 1
+LINKAGE_VERSION = 2
 DRIVER_OPEN_MIN = -0.375  # S63's measured 90 mm tip opening needs about -0.364 rad.
 FINGER_PIN = (-0.0125, 0.0, -0.021)
 # Sum of the zero-pose URDF joint origins plus FINGER_PIN minus bar_4 origin.
@@ -25,6 +25,15 @@ def pin_for(jaw: str, point: tuple[float, float, float]) -> tuple[float, float, 
     if jaw not in ("f", "b"):
         raise ValueError(f"Invalid jaw: {jaw}")
     return (point[0] if jaw == "f" else -point[0], point[1], point[2])
+
+
+def driver_joint_limits(jaw: str) -> tuple[float, float]:
+    """Return the physical crank range for one mirrored jaw, in radians."""
+    if jaw == "f":
+        return DRIVER_OPEN_MIN, 0.0
+    if jaw == "b":
+        return 0.0, -DRIVER_OPEN_MIN
+    raise ValueError(f"Invalid jaw: {jaw}")
 
 
 def _rotate(q: float, v: tuple[float, float]) -> tuple[float, float]:
@@ -119,8 +128,9 @@ def author_closed_linkages(stage, *, sides: str = "lr") -> None:
                 prim = by_name[f"{prefix}_bar_{index}_joint"]
                 joint = UsdPhysics.RevoluteJoint.Define(stage, prim.GetPath())
                 joint.CreateAxisAttr("Y")
-                joint.CreateLowerLimitAttr(math.degrees(-0.698))
-                joint.CreateUpperLimitAttr(math.degrees(0.698))
+                limits = driver_joint_limits(jaw) if index == 1 else (-0.698, 0.698)
+                joint.CreateLowerLimitAttr(math.degrees(limits[0]))
+                joint.CreateUpperLimitAttr(math.degrees(limits[1]))
                 drive = UsdPhysics.DriveAPI.Apply(prim, "angular")
                 # USD angular gains are per degree; Isaac actuator gains are
                 # per radian and overwrite these at runtime.
@@ -167,6 +177,13 @@ def require_closed_linkages(root, *, sides: str = "lr") -> None:
                                f"{root.GetPath()}/{side}_{jaw}_bar_4")
             if (str(joint.GetBody0Rel().GetTargets()[0]), str(joint.GetBody1Rel().GetTargets()[0])) != expected_bodies:
                 raise RuntimeError(f"Closure attached to the wrong bodies: {side}_{jaw}")
+            driver = UsdPhysics.RevoluteJoint(stage.GetPrimAtPath(
+                f"{root.GetPath()}/joints/{side}_{jaw}_bar_1_joint"))
+            actual_limits = (driver.GetLowerLimitAttr().Get(), driver.GetUpperLimitAttr().Get())
+            expected_limits = tuple(math.degrees(value) for value in driver_joint_limits(jaw))
+            if any(not math.isclose(actual, expected, abs_tol=1e-5)
+                   for actual, expected in zip(actual_limits, expected_limits)):
+                raise RuntimeError(f"Incorrect physical driver limits: {side}_{jaw}")
             for index in (3, 4):
                 passive = stage.GetPrimAtPath(f"{root.GetPath()}/joints/{side}_{jaw}_bar_{index}_joint")
                 if not passive.IsA(UsdPhysics.RevoluteJoint):

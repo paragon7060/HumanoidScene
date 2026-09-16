@@ -10,7 +10,8 @@ import pytest
 
 from kuavo_isaaclab_scene.core.paths import ASSET_DIR
 from kuavo_isaaclab_scene.robots.twofinger_linkage import (
-    FINGER_PIN, FOLLOWER_PIN, initial_passive_positions, passive_joint_angles, pin_for,
+    DRIVER_OPEN_MIN, FINGER_PIN, FOLLOWER_PIN, driver_joint_limits,
+    initial_passive_positions, passive_joint_angles, pin_for,
     validate_motor_commands,
 )
 
@@ -41,6 +42,13 @@ def test_fourbar_reset_is_not_four_identical_joint_targets():
     assert positions["l_b_bar_4_joint"] == -positions["l_f_bar_4_joint"]
     assert passive_joint_angles(0) == pytest.approx((0,0), abs=1e-12)
     assert pin_for("b", FINGER_PIN) == (.0125, 0, -.021)
+
+
+def test_mirrored_driver_limits_are_physical_mechanism_stops():
+    assert driver_joint_limits("f") == (DRIVER_OPEN_MIN, 0.0)
+    assert driver_joint_limits("b") == (0.0, -DRIVER_OPEN_MIN)
+    with pytest.raises(ValueError):
+        driver_joint_limits("x")
 
 
 @pytest.mark.parametrize("q", [float("nan"), float("inf"), -.4, .1])
