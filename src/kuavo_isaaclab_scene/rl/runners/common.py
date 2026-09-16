@@ -137,7 +137,10 @@ def build_configs(args, *, active_arm_override=None, include_agent=True):
     cfg = WorkcellRLEnvCfg(task=spec, num_envs=args.num_envs, env_spacing=args.env_spacing,
                          cameras=args.enable_cameras)
     cfg.seed = args.seed
-    cfg.commands.workcell.debug_vis = args.grasp_debug_vis
+    # Quest reward inspection reuses this builder with a deliberately small
+    # Namespace and has its own opt-in marker overlays.  The training-only
+    # legacy flag is therefore optional for non-runner callers.
+    cfg.commands.workcell.debug_vis = getattr(args, "grasp_debug_vis", False)
     cfg.sim.device = args.device or "cuda:0"
     if include_agent:
         # rsl-rl-lib (installed via the '.[rl]' extra) is a training-only
