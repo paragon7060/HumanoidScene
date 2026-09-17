@@ -5,7 +5,7 @@ from isaaclab.managers import ObservationGroupCfg, ObservationTermCfg as Term
 from isaaclab.utils import configclass
 from isaaclab.utils.math import quat_mul, quat_conjugate
 from ...mdp.geometry import unrotate
-from ..state import state
+from .._legacy_state import state
 
 
 def objects(env):

@@ -10,8 +10,8 @@ from ..scenes.scene_cfg import build_scene
 from ..scenes.layout import box_spawn_plan
 from ...robots.robot_model import resolve_robot_model
 from ...robots.gripper_config import resolve_gripper_settings
-from .spec import MultiBoxSpec, validate_shelves
-from .state import MultiBoxCommandCfg
+from ._legacy_spec import MultiBoxSpec, validate_shelves
+from ._legacy_state import MultiBoxCommandCfg
 from .managers.actions import ActionsCfg, RightArmActionsCfg
 from .managers.observations import ObservationsCfg
 from .managers.rewards import RewardsCfg

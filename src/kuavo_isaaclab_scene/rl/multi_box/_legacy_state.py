@@ -1,4 +1,4 @@
-"""One cached measurement per control step, independently tracking every box."""
+"""Temporary v1 state term used only while the existing runner migrates to v2."""
 from types import SimpleNamespace
 from itertools import product
 import math
@@ -10,7 +10,7 @@ from ..mdp.geometry import rotate, unrotate, projected_half_size, slot_offsets
 from ..mdp.flap_grasp import FlapGrasp
 from ...robots.end_effector import get_end_effector_frames
 from .kernels import placement_mask, advance_placement
-from .spec import SKILLS
+from ._legacy_spec import SKILLS
 
 
 class MultiBoxCommand(CommandTerm):

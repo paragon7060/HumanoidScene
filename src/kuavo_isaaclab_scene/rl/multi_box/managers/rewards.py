@@ -3,7 +3,7 @@ import torch
 from isaaclab.managers import ManagerTermBase, RewardTermCfg as Term
 from isaaclab.utils import configclass
 from isaaclab.envs import mdp
-from ..state import state
+from .._legacy_state import state
 from ..kernels import potential_delta
 
 

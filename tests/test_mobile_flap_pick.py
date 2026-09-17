@@ -12,7 +12,7 @@ import argparse
 from kuavo_isaaclab_scene.rl.mdp.settling import gate_actions
 from kuavo_isaaclab_scene.rl.tasks.specs import task_spec
 from kuavo_isaaclab_scene.rl.action_spaces import add_action_space_argument, select_task_action_space
-from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+from kuavo_isaaclab_scene.rl.multi_box._legacy_spec import MultiBoxSpec
 
 ROOT = Path(__file__).resolve().parents[1]
 

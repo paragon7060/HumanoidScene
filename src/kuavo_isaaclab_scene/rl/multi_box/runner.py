@@ -9,7 +9,7 @@ from pathlib import Path
 import runpy
 import traceback
 from uuid import uuid4
-from .spec import MultiBoxSpec, SKILLS
+from ._legacy_spec import MultiBoxSpec, SKILLS
 from ..action_spaces import add_action_space_argument
 
 

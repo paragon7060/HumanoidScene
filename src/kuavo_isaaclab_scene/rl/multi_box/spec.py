@@ -1,78 +1,174 @@
-"""Simulator-independent experiment contract; SI units throughout."""
+"""Versioned contract for the randomized rack-to-conveyor task.
+
+This module is simulator-independent.  Scene construction, observations, and
+rewards consume this contract, but must not add implicit task assumptions to it.
+"""
+
+from __future__ import annotations
+
 from dataclasses import dataclass
 import math
+
 from ..action_spaces import ACTION_SPACES
 
-SKILLS = ("pick", "extract", "carry", "place")
-PREDECESSOR = dict(zip(SKILLS[1:], SKILLS[:-1]))
+
+SCHEMA_VERSION = 2
+MAX_BOXES = 12
+BOX_TYPES = ("small", "medium")
+SKILLS = ("grasp", "carry", "place")
+PREDECESSOR = {"carry": "grasp", "place": "carry"}
+
+
+@dataclass(frozen=True)
+class RackRegionSpec:
+    """One semantic rack area; it is not a single-box placement slot."""
+
+    name: str
+    shelf: int
+    side: str
+    allowed_box_types: tuple[str, ...]
+    box_type_sampling: str = "uniform"
+
+    def validate(self) -> None:
+        expected_name = f"shelf_{self.shelf}_{self.side}"
+        if self.name != expected_name:
+            raise ValueError(f"Rack region {self.name!r} must be named {expected_name!r}.")
+        if self.shelf not in (2, 3):
+            raise ValueError("Multi-box rack regions are limited to shelves 2 and 3.")
+        if self.side not in ("right", "left"):
+            raise ValueError("Rack region side must be 'right' or 'left'.")
+        if not self.allowed_box_types or len(set(self.allowed_box_types)) != len(self.allowed_box_types):
+            raise ValueError(f"Rack region {self.name!r} needs distinct allowed box types.")
+        unknown = set(self.allowed_box_types) - set(BOX_TYPES)
+        if unknown:
+            raise ValueError(f"Rack region {self.name!r} has unsupported box types: {sorted(unknown)}")
+        if self.box_type_sampling != "uniform":
+            raise ValueError("Rack box types currently use uniform random sampling.")
+
+
+DEFAULT_RACK_REGIONS = (
+    RackRegionSpec("shelf_2_right", 2, "right", ("small", "medium")),
+    RackRegionSpec("shelf_2_left", 2, "left", ("small", "medium")),
+    RackRegionSpec("shelf_3_right", 3, "right", ("small",)),
+    RackRegionSpec("shelf_3_left", 3, "left", ("small",)),
+)
 
 
 @dataclass(frozen=True)
 class MultiBoxSpec:
-    box_names: tuple = ("small_box_0", "small_box_1", "medium_box_0", "large_box_0")
-    shelves: tuple = (1, 1, 2, 2)
+    """Task contract shared by all low-level skills and the high-level policy."""
+
+    schema_version: int = SCHEMA_VERSION
+    max_boxes: int = MAX_BOXES
+    rack_regions: tuple[RackRegionSpec, ...] = DEFAULT_RACK_REGIONS
+    region_sampling: str = "uniform"
+    low_level_spawn_count: int = 1
+    full_spawn_count_range: tuple[int, int] = (1, MAX_BOXES)
+    rack_xy_jitter: tuple[float, float] = (0.10, 0.10)
+    rack_yaw_jitter: float = math.radians(5.0)
+    conveyor_xy_jitter: tuple[float, float] = (0.05, 0.05)
+    conveyor_yaw_jitter: float = math.radians(3.0)
+
     strategy: str = "end-to-end"
     action_space: str = "all-joints"
     skill: str = "full"
-    episode_seconds: float = 120.0
-    lift_height: float = .06
-    max_box_lift_height: float = .50
-    max_box_linear_speed: float = 10.
-    max_box_angular_speed: float = 100.
-    extraction_clearance: float = .06
-    carry_distance: float = .25
-    placement_hold: float = .5
-    skill_hold: float = .2
-    max_tilt: float = math.radians(40)
-    placement_speed: float = .08
-    placement_angular_speed: float = .35
-    support_force: float = .2
-    support_tolerance: float = .035
-    clearance: float = .015
-    release_distance: float = .025
-    settle_seconds: float = .5
-    failure_floor: float = .12
-    workspace_radius: float = 4.0
-    discount: float = .99
+    episode_seconds: float | None = None
     reset_bank: str | None = None
     snapshot_dir: str | None = None
     max_snapshots: int = 128
-    # Only moving toward the robot-side rack face counts as extraction.
-    rack_outward_local: tuple = (0., 1., 0.)
 
-    def validate(self):
-        if (not all(math.isfinite(v) and v > 0 for v in (self.max_box_lift_height,
-                self.max_box_linear_speed, self.max_box_angular_speed))
-                or self.max_box_lift_height <= self.lift_height):
-            raise ValueError("Box safety limits must be finite, positive and above the lift goal.")
+    # Simulator guards are not success criteria or policy observations.
+    max_box_lift_height: float = 0.50
+    max_box_linear_speed: float = 10.0
+    max_box_angular_speed: float = 100.0
+    workspace_radius: float = 1.5
+    collision_constraints_enabled: bool = True
+
+    @property
+    def region_names(self) -> tuple[str, ...]:
+        return tuple(region.name for region in self.rack_regions)
+
+    @property
+    def spawn_shelves(self) -> tuple[int, ...]:
+        return tuple(sorted({region.shelf for region in self.rack_regions}))
+
+    def allowed_box_types(self, region_name: str) -> tuple[str, ...]:
+        for region in self.rack_regions:
+            if region.name == region_name:
+                return region.allowed_box_types
+        raise KeyError(f"Unknown rack region: {region_name}")
+
+    @property
+    def spawn_count_range(self) -> tuple[int, int]:
+        """Inclusive active-box count range for the selected training scope."""
+        if self.skill == "full":
+            return self.full_spawn_count_range
+        return (self.low_level_spawn_count, self.low_level_spawn_count)
+
+    def validate(self) -> None:
+        if self.schema_version != SCHEMA_VERSION:
+            raise ValueError(f"Multi-box schema must be version {SCHEMA_VERSION}.")
+        if self.max_boxes != MAX_BOXES:
+            raise ValueError(f"This task contract requires N_max={MAX_BOXES}.")
+        if self.region_sampling != "uniform":
+            raise ValueError("Rack regions currently use uniform random sampling.")
+        if self.low_level_spawn_count != 1:
+            raise ValueError("Each low-level skill trains with exactly one active box.")
+        if (len(self.full_spawn_count_range) != 2
+                or not all(isinstance(value, int) and not isinstance(value, bool)
+                           for value in self.full_spawn_count_range)
+                or not 1 <= self.full_spawn_count_range[0] <= self.full_spawn_count_range[1] <= self.max_boxes):
+            raise ValueError(f"Full-task spawn count must be an inclusive range inside [1, {self.max_boxes}].")
+        jitter = (*self.rack_xy_jitter, self.rack_yaw_jitter,
+                  *self.conveyor_xy_jitter, self.conveyor_yaw_jitter)
+        if (len(self.rack_xy_jitter) != 2 or len(self.conveyor_xy_jitter) != 2
+                or any(not math.isfinite(value) or value < 0 for value in jitter)):
+            raise ValueError("Rack/conveyor XY and yaw jitter limits must be finite and nonnegative.")
+
+        for region in self.rack_regions:
+            region.validate()
+        if len({region.name for region in self.rack_regions}) != len(self.rack_regions):
+            raise ValueError("Rack region names must be unique.")
+        actual = {
+            (region.shelf, region.side): frozenset(region.allowed_box_types)
+            for region in self.rack_regions
+        }
+        expected = {
+            (2, "right"): frozenset(("small", "medium")),
+            (2, "left"): frozenset(("small", "medium")),
+            (3, "right"): frozenset(("small",)),
+            (3, "left"): frozenset(("small",)),
+        }
+        if actual != expected or len(self.rack_regions) != len(expected):
+            raise ValueError(
+                "Rack regions must be shelf 2 right/left with small+medium and "
+                "shelf 3 right/left with small only."
+            )
+
+        if self.strategy not in ("staged", "end-to-end"):
+            raise ValueError("Unknown multi-box training strategy.")
+        if self.skill not in (*SKILLS, "full"):
+            raise ValueError(f"Unknown skill {self.skill!r}; choose {(*SKILLS, 'full')}.")
         if self.action_space not in ACTION_SPACES:
             raise ValueError("Unknown action space.")
-        if self.action_space == "right-arm" and self.skill in ("carry", "full"):
-            raise ValueError("Carry/full requires base motion; select --action-space all-joints.")
-        if len(self.box_names) != 4 or len(set(self.box_names)) != 4:
-            raise ValueError("Exactly four distinct boxes are required.")
-        if len(self.shelves) != 4 or sorted(self.shelves) != [1, 1, 2, 2]:
-            raise ValueError("Require two boxes on shelf 1 and two on shelf 2.")
-        if self.strategy not in ("staged", "end-to-end") or self.skill not in (*SKILLS, "full"):
-            raise ValueError("Unknown strategy or skill.")
+        if self.action_space != "all-joints":
+            raise ValueError("The two-arm rack-to-conveyor task requires all-joints control.")
         if self.strategy == "end-to-end" and self.skill != "full":
-            raise ValueError("End-to-end uses the full task.")
+            raise ValueError("End-to-end training uses the full task.")
         if self.skill in PREDECESSOR and not self.reset_bank:
             raise ValueError(f"{self.skill} needs a {PREDECESSOR[self.skill]} success reset bank.")
-        if self.skill in ("pick", "full") and self.reset_bank:
-            raise ValueError("Pick/full evaluations must start from the rack, without a reset bank.")
-        for key in ("episode_seconds", "lift_height", "placement_hold", "skill_hold",
-                    "support_force", "workspace_radius", "carry_distance"):
-            if not math.isfinite(getattr(self, key)) or getattr(self, key) <= 0:
-                raise ValueError(f"{key} must be finite and positive.")
-        if not 0 < self.discount < 1 or self.max_snapshots < 1:
-            raise ValueError("Invalid discount/snapshot limit.")
-        if self.rack_outward_local not in ((0., 1., 0.), (0., -1., 0.), (1., 0., 0.), (-1., 0., 0.)):
-            raise ValueError("Rack outward direction must be a signed local X/Y axis.")
+        if self.skill in ("grasp", "full") and self.reset_bank:
+            raise ValueError(f"{self.skill} starts from a fresh randomized rack scene.")
 
+        safety = (self.max_box_lift_height, self.max_box_linear_speed,
+                  self.max_box_angular_speed, self.workspace_radius)
+        if not all(math.isfinite(value) and value > 0 for value in safety):
+            raise ValueError("Simulator safety limits must be finite and positive.")
 
-def validate_shelves(plans, spec):
-    by_key = {p.scene_key: p for p in plans.values()}
-    for name, shelf in zip(spec.box_names, spec.shelves):
-        if name not in by_key or not by_key[name].on_rack or by_key[name].shelf != shelf:
-            raise ValueError(f"Capture {name} on shelf {shelf} in the selected rack-box-poses file.")
+        if self.episode_seconds is not None and (
+                not math.isfinite(self.episode_seconds) or self.episode_seconds <= 0):
+            raise ValueError("Optional episode timeout must be finite and positive.")
+        if not self.collision_constraints_enabled:
+            raise ValueError("Multi-box v2 requires collision constraints.")
+        if self.max_snapshots < 1:
+            raise ValueError("max_snapshots must be positive.")

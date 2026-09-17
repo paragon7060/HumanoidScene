@@ -83,6 +83,14 @@ def test_terminal_bootstrap_does_not_multiply_zero_by_nan():
 
 @pytest.mark.parametrize("limit", [float("nan"), float("inf"), 0., .05])
 def test_invalid_or_unreachable_safety_ceiling_is_rejected(limit):
-    for spec in (task_spec("pick"), MultiBoxSpec()):
-        with pytest.raises(ValueError, match="Box safety"):
-            replace(spec, max_box_lift_height=limit).validate()
+    # The legacy task has an agreed lift goal, so its ceiling must remain above
+    # that goal.  V2 success semantics are deliberately pending; its simulator
+    # ceiling is validated independently until a lift criterion is approved.
+    with pytest.raises(ValueError, match="Box safety"):
+        replace(task_spec("pick"), max_box_lift_height=limit).validate()
+    v2 = replace(MultiBoxSpec(), max_box_lift_height=limit)
+    if limit == .05:
+        v2.validate()
+    else:
+        with pytest.raises(ValueError, match="safety"):
+            v2.validate()

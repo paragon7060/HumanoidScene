@@ -1,7 +1,7 @@
 from isaaclab.managers import TerminationTermCfg as Term
 from isaaclab.utils import configclass
 from isaaclab.envs import mdp
-from ..state import state
+from .._legacy_state import state
 
 
 def success(env):

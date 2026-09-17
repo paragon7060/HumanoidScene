@@ -6,7 +6,7 @@ import torch
 from isaaclab.managers import RecorderTerm, RecorderTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, DatasetExportMode
 from isaaclab.utils import configclass
-from .spec import PREDECESSOR
+from ._legacy_spec import PREDECESSOR
 
 
 def read_bank(path, contract, skill):
