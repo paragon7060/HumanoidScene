@@ -198,9 +198,15 @@ sensor 경로를 유지한다. 이때 obstacle report 기본값은 30 Hz다. Rew
 | A / PC T | 물리·팔 추종 시작/일시정지, 손 위치·회전 기준 재설정 |
 | 왼쪽 joystick | `1` 모드에서 base 전후·좌우 이동 |
 | 오른쪽 joystick 좌우 / 상하 | `1` 모드에서 base 회전 / torso 승강 |
+| 오른쪽 아래 그립(squeeze) + 오른쪽 joystick 상하 | `1` 모드에서 몸통 전후 이동: 위=앞, 아래=뒤 |
+| 오른쪽 아래 그립(squeeze) + 오른쪽 joystick 좌우 | `1` 모드에서 waist yaw 회전 |
 | 오른쪽 검지 트리거 | 오른쪽 gripper 닫기; 놓으면 열기. 기본 오른손 실험은 왼쪽 입력 무시 |
 | B / PC R | 모델별 초기 자세로 초기화하고 정지 (**녹화 버튼 아님**) |
 | Y / PC H | reward 패널 표시/숨김 |
+
+아래 그립은 중지 `squeeze`, gripper 개폐는 위 검지 trigger다. 오른쪽 squeeze를
+놓으면 오른쪽 joystick은 base 회전/torso 승강으로 돌아가고 몸통 전후·waist yaw
+목표는 유지된다. 왼쪽 joystick의 base 전후·좌우 이동은 modifier 중에도 유지된다.
 
 정면을 보고 X → 양 컨트롤러를 편한 자세에 두고 A → 손을 움직여 검사한다.
 도달 범위가 부족하면 A로 멈추고 손을 편한 위치로 옮긴 뒤 A로 다시 시작한다.
