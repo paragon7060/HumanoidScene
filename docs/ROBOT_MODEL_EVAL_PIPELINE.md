@@ -13,7 +13,7 @@ See [code structure](CODE_STRUCTURE.md) for the full package map.
 | Layer | Responsibility | Main files |
 |---|---|---|
 | Robot asset | Complete USD/URDF, body and joint names, default pose | `robots/robot_model.py`, `assets/` |
-| End effector | Preset, hand joints, open/close convention, actuator gains | `configs/grippers.json`, `robots/gripper_runtime.py` |
+| End effector | Preset 선택, hand joints, open/close convention, actuator gains | `configs/grippers.json`, `assets/leju_claw_two_finger/config.json`, `robots/claw_assets/`, `robots/gripper_runtime.py` |
 | Hand feedback | Independent left/right measured joint and normalized claw views | `robots/gripper_io.py` |
 | Isaac manager | Physics, 15-D upper body plus configured hand actions | `envs/manager_env.py`, `envs/scene_physics.py` |
 | Policy profile | State/action order, units, limits, camera keys | `evaluation/groot_lerobot_bridge.py`, `evaluation/eval_groot.py` |

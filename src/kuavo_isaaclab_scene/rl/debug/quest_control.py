@@ -1,4 +1,4 @@
-"""Quest Cartesian goals -> existing RL incremental actions, without changing drives."""
+"""Quest Cartesian goals -> existing RL actions, without changing drives."""
 
 import numpy as np
 import torch
@@ -80,6 +80,7 @@ class QuestRLControl:
 
     def reset(self):
         self.mapper.reset()
+        self.last_body_command = None
         for solver in self.solvers.values():
             solver.reset()
             solver.hold_current_pose()
@@ -121,14 +122,23 @@ class QuestRLControl:
                 solver._joint_command, self.upper.processed_actions[:, columns], scale
             )
             gripper = self.env.action_manager.get_term(side + "_gripper")
-            desired = torch.full_like(gripper._signed_target, -1. if packets[side][1, 2] >= .5 else 1.)
-            action[:, self.term_slices[side + "_gripper"]] = normalized_delta(
-                desired, gripper._signed_target, gripper.cfg.delta_scale)
+            if hasattr(gripper, "_close_requested"):
+                # Match RL execution exactly: action 0 opens and action 1 closes.
+                action[:, self.term_slices[side + "_gripper"]] = (
+                    1.0 if packets[side][1, 2] >= .5 else 0.0
+                )
+            else:
+                # Compatibility for explicitly configured legacy incremental terms.
+                desired = torch.full_like(
+                    gripper._signed_target, -1. if packets[side][1, 2] >= .5 else 1.)
+                action[:, self.term_slices[side + "_gripper"]] = normalized_delta(
+                    desired, gripper._signed_target, gripper.cfg.delta_scale)
         if self.body_mapper is not None:
             body = torch.as_tensor(
                 self.body_mapper.advance(packets["left"], packets["right"], self.env.step_dt, enabled=True),
                 device=self.env.device,
             ).unsqueeze(0)
+            self.last_body_command = body[0].detach().cpu().tolist()
             action[:, self.term_slices["base"]] = (body[:, :3] / self.base._scale).clamp(-1, 1)
             if self.height is not None:
                 action[:, self.term_slices["height"]] = normalized_delta(

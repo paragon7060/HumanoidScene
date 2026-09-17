@@ -66,7 +66,7 @@ case "${COMMAND}" in
           RL_REWARD_DEBUG_MODE="${ARG_VALUE#*=}" ;;
         --rl-reward-debug)
           NEXT_INDEX=$((ARG_INDEX + 1))
-          if [[ "${COLLECT_ARGS[NEXT_INDEX]:-}" == "0" || "${COLLECT_ARGS[NEXT_INDEX]:-}" == "1" ]]; then
+          if [[ "${COLLECT_ARGS[NEXT_INDEX]:-}" == "0" || "${COLLECT_ARGS[NEXT_INDEX]:-}" == "1" || "${COLLECT_ARGS[NEXT_INDEX]:-}" == "2" ]]; then
             RL_REWARD_DEBUG_MODE="${COLLECT_ARGS[NEXT_INDEX]}"
             ARG_INDEX="${NEXT_INDEX}"
           else
@@ -76,7 +76,7 @@ case "${COMMAND}" in
       esac
     done
     REWARD_DEBUG_DEFAULTS=()
-    if [[ "${RL_REWARD_DEBUG_MODE}" == "1" ]]; then
+    if [[ "${RL_REWARD_DEBUG_MODE}" == "1" || "${RL_REWARD_DEBUG_MODE}" == "2" ]]; then
       REWARD_DEBUG_DEFAULTS=(
         --controller-mapping absolute
         --absolute-orientation downward
@@ -90,6 +90,11 @@ case "${COMMAND}" in
         --no-rl-obstacle-collision
         --arm-orientation-weight 0.2
       )
+      if [[ "${RL_REWARD_DEBUG_MODE}" == "2" ]]; then
+        # V2 randomizes one kinematic rack body; its asset builder deliberately
+        # rejects the legacy per-shelf roller articulations.
+        REWARD_DEBUG_DEFAULTS+=(--no-rack-rollers)
+      fi
     fi
     printf '%s\n' '[START] Connect Quest to the Runtime first; this command starts Isaac Sim and records only after an explicit start.'
     exec bash "${PROJECT_DIR}/scripts/collect_quest_teleop.sh" \

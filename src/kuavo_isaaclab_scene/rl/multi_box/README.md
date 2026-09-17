@@ -33,6 +33,18 @@ boundary currently covers:
 - independent grasp/carry/place/high-level reward composition with normalized
   potential differences, one-shot events, explicit initial weights, and no
   dependency on the legacy reward managers.
+- initial SI-unit metric normalization plus append-only JSONL/HUD shadow
+  diagnostics for measuring raw, normalized, weighted, and cumulative values
+  during one-environment VR teleoperation without changing the dataset.
+- a read-only Isaac adapter for mode-2 VR inspection.  It locks the nearest
+  active box at reset, measures live TCP/flap geometry, rack extraction,
+  conveyor footprint/alignment/clearance, bottom height, and privileged box
+  speed, then feeds the normalized grasp/carry/place dense terms.  J/L changes
+  target and 1/2/3 changes the explicitly inspected phase.
+- mode-2-only filtered reports for all four finger links against the selected
+  physical box's right/left flaps.  HUD/JSONL include per-jaw contact force,
+  actual-flap-region membership, and jaw opposition; no numerical threshold,
+  success event, or phase transition consumes these values yet.
 
 `MultiBoxTaskSkeleton.validate_scene()` permits scene work.  Training assembly
 uses `validate_training()` and fails until all four deliberate providers are
@@ -45,5 +57,5 @@ The following are intentionally absent until their design is approved:
 - full-task success and failure predicates;
 - simulator/real adapters that populate the approved state schemas;
 - observation normalization and policy-network architecture;
-- state-to-reward metric adapters and empirical weight tuning;
+- approved contact thresholds, collision/event adapters, and empirical weight tuning;
 - episode termination and timeout policy.

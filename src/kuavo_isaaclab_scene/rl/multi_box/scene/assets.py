@@ -90,8 +90,6 @@ def add_randomizable_workcell(scene, parallel):
         spawn=sim_utils.UsdFileCfg(
             usd_path=str(ASSET_DIR / "Rack.usd"), scale=scale("rack"),
             func=spawn_kinematic_rack,
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                kinematic_enabled=True, disable_gravity=True),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=position("rack"), rot=rotation("rack")),
     )

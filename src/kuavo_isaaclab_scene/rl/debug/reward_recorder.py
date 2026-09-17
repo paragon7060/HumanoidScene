@@ -62,13 +62,23 @@ class RewardProbe(RecorderTerm):
                 continue
             drive = getattr(env.action_manager.get_term(side + "_gripper"), "_force_drive", None)
             if drive is not None:
-                force_hands[side] = {
-                    "closing": bool(drive.enabled[0].item()),
-                    "target_n": drive.servo.force_n,
-                    "jaw_n": drive.measured_force[0].tolist(),
-                    "total_n": float(drive.measured_force[0].sum().item()),
-                    "sensor_valid": bool(drive.servo.valid[0].item()),
-                }
+                if hasattr(drive, "feedforward"):
+                    per_jaw = drive.feedforward.per_jaw_n
+                    force_hands[side] = {
+                        "mode": "sensor_free_pd",
+                        "closing": bool(drive.enabled[0].item()),
+                        "target_n": drive.feedforward.force_n,
+                        "commanded_jaw_n": [per_jaw, per_jaw],
+                    }
+                else:
+                    force_hands[side] = {
+                        "mode": "contact_feedback",
+                        "closing": bool(drive.enabled[0].item()),
+                        "target_n": drive.servo.force_n,
+                        "jaw_n": drive.measured_force[0].tolist(),
+                        "total_n": float(drive.measured_force[0].sum().item()),
+                        "sensor_valid": bool(drive.servo.valid[0].item()),
+                    }
         if force_hands:
             env._quest_reward_sample["gripper_force"] = force_hands
         if "base" in env.action_manager.active_terms:

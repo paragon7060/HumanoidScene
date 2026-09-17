@@ -124,7 +124,7 @@ def main():
                     gap_error=t.jaw_gap_error[:,1], capture=t.ready_to_close[:,1],
                     straddling=signed[:,0]*signed[:,1]<=0,
                     contact=t.finger_grasp_contacts[:,1], force=t.contact_force[:,2:4],
-                    grasp=t.hand_grasp_flags[:,1], signed_target=gripper._signed_target[:,0],
+                    grasp=t.hand_grasp_flags[:,1], signed_target=(1-2*gripper.raw_actions[:,0]),
                     pad_signed=signed, raw_action=raw, mean_action=mean,
                     arm_tracking=arm.processed_actions-t.robot.data.joint_pos[:,arm._joint_ids],
                     lift=t.centers[t.ids,t.active_box,2]-env.unwrapped.scene.env_origins[:,2]-t.initial_z[t.ids,t.active_box],
@@ -157,7 +157,7 @@ def main():
                 arrays.setdefault('done', []).append(dones.cpu().numpy().copy())
                 if (step+1) % 150 == 0:
                     print('[PPO_DIAG] '+json.dumps({'step':step+1,'distances':t.hand_target_distance[representatives,1].tolist(),
-                        'gripper_target':gripper._signed_target[representatives,0].tolist(),
+                        'gripper_target':(1-2*gripper.raw_actions[representatives,0]).tolist(),
                         'successes':success.sum().item(), 'elapsed_s':time.monotonic()-started}), flush=True)
         if writer is not None:
             writer.close()

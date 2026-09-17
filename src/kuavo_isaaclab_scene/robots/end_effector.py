@@ -43,7 +43,7 @@ def calibration_definition(model=None):
 
 def closed_offsets(urdf_path, offsets, settings):
     """URDF FK with the existing closed four-bar solution (no simulator required)."""
-    from .twofinger_linkage import initial_passive_positions
+    from .claw_assets.linkage import initial_passive_positions
     from ..teleop.urdf_arm_ik import axis_rotation
     joints = {j.find("child").get("link"): j for j in ET.parse(urdf_path).getroot().findall("joint")}
     result = {}

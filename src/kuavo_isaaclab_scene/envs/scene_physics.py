@@ -44,7 +44,7 @@ def build_contact_box_spawn(usd_path, scale):
 
 def configure_robot_asset_physics(cfg, model, gripper_settings):
     """Apply shared robot gravity compensation and hand contacts/inertials."""
-    from ..robots.twofinger_linkage import TWO_FINGER_PRESETS, initial_passive_positions
+    from ..robots.claw_assets.linkage import TWO_FINGER_PRESETS, initial_passive_positions
     from ..robots.gravity_compensation import configure_gravity_compensation
 
     # Select the writer before any model/gripper-specific early return. This
@@ -62,7 +62,7 @@ def configure_robot_asset_physics(cfg, model, gripper_settings):
     if model.name == "s200062" or gripper_settings.name in TWO_FINGER_PRESETS:
         from isaaclab.actuators import ImplicitActuatorCfg
         from ..robots.gripper_config import load_gripper_settings
-        from ..robots.twofinger_linkage import validate_motor_commands
+        from ..robots.claw_assets.linkage import validate_motor_commands
 
         # S200062 retains its physical integrated hand even with --gripper
         # none; its passive joints must still be configured and reset safely.

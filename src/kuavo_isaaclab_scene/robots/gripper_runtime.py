@@ -59,7 +59,8 @@ class InterpolatedJointPositionAction(ActionTerm):
             self._processed_actions[:] = initial
             self._filter_dt = sim_utils.SimulationContext.instance().get_physics_dt()
         if cfg.close_force_n is not None:
-            self._force_drive = GripperForceDrive(self, env)
+            self._force_drive = (GripperForceDrive(self, env) if cfg.force_sensor_names
+                                 else GripperClosingForceAssist(self, env))
 
     def _set_joint_targets(self, targets):
         self._desired_actions[:] = targets
@@ -158,6 +159,39 @@ class ForceBinaryGripperActionCfg(InterpolatedJointPositionActionCfg):
     class_type: type = ForceBinaryGripperAction
 
 
+class GripperClosingForceAssist:
+    """Keep position PD active and add package-configured per-jaw torque."""
+
+    def __init__(self, action, env):
+        from .claw_assets.force import JawForceFeedforward
+
+        if len(action._joint_ids) != 2 or action.cfg.force_side not in ("left", "right"):
+            raise ValueError("Gripper force assist requires the two closed-claw drivers")
+        self.action, self.asset, self.ids = action, action._asset, action._joint_ids
+        self.effort_limits = self.asset.data.joint_effort_limits[:, self.ids].clone()
+        direction = (action._close_command - action._open_command).sign()
+        self.feedforward = JawForceFeedforward(action.cfg.force_side, env.num_envs, env.device,
+                                               action.cfg.close_force_n, direction)
+        self.enabled = torch.zeros(env.num_envs, 1, dtype=torch.bool, device=env.device)
+        print(f"[GRIP ASSIST] {action.cfg.force_side}: PD + "
+              f"{self.feedforward.per_jaw_n:g} N-equivalent closing force per jaw; "
+              "no contact sensors.", flush=True)
+
+    def apply(self, closing):
+        self.enabled[:] = closing
+        torque = self.feedforward.advance(
+            self.asset.data.joint_pos[:, self.ids], closing, self.effort_limits)
+        self.asset.set_joint_effort_target(torque, joint_ids=self.ids)
+
+    def reset(self, env_ids=None):
+        ids = (torch.arange(self.asset.num_instances, device=self.asset.device) if env_ids is None
+               else torch.as_tensor(env_ids, device=self.asset.device))
+        self.enabled[ids] = False
+        self.feedforward.reset(ids)
+        self.asset.set_joint_effort_target(
+            torch.zeros(len(ids), 2, device=self.asset.device), joint_ids=self.ids, env_ids=ids)
+
+
 class GripperForceDrive:
     """Explicit force feedforward with zero stiffness and implicit viscosity.
 
@@ -166,7 +200,7 @@ class GripperForceDrive:
     """
 
     def __init__(self, action, env):
-        from .gripper_force import JawForceServo
+        from .claw_assets.force import JawForceServo
 
         self.action, self.env, self.asset = action, env, action._asset
         self.ids = action._joint_ids
@@ -179,7 +213,7 @@ class GripperForceDrive:
         self.damping = self.asset.data.joint_damping[:, self.ids].clone()
         self.effort_limits = self.asset.data.joint_effort_limits[:, self.ids].clone()
         direction = (action._close_command - action._open_command).sign()
-        from .twofinger_linkage import DRIVER_OPEN_MIN
+        from .claw_assets.linkage import DRIVER_OPEN_MIN
         expected = torch.stack((torch.where(direction > 0, DRIVER_OPEN_MIN, 0.),
                                 torch.where(direction > 0, 0., -DRIVER_OPEN_MIN)), -1)
         # The packaged USD owns the physical mechanism stops. Updating only a
@@ -489,7 +523,7 @@ def _align_and_attach(
     if missing:
         raise RuntimeError(
             f"Cannot attach {side} gripper; missing USD prim(s): {', '.join(missing)}. "
-            "Check robot_mount_body and attachment_mount_body in grippers.json."
+            "Check the selected package preset's robot_mount_body and attachment_mount_body."
         )
 
     base_mount_path = f"{base_body_path}/KuavoGripperMount"

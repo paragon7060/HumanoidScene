@@ -2,7 +2,7 @@
 
 기존 PPO와 같은 `WorkcellRLEnvCfg`를 사용한다. 오른손으로 flap 상단을 집어
 6 cm 들고 유지하며, 반대손의 박스 지지는 허용한다. 로봇과 rack/주변 장애물의
-접촉 임계값 0.1 N, 초기 안정화, 공통 손가락 마찰 5.0/4.0,
+접촉 임계값 0.1 N, 초기 안정화, Leju package 손가락 마찰 20.0/16.0,
 들기 전 박스 이동·흔들림 보상은 `configs/rl_pick_arms_only.py`와 공통 MDP에서 온다.
 새 실행기는 이 조건을 따로 복제하거나 완화하지 않는다.
 
@@ -108,7 +108,7 @@ CUDA_VISIBLE_DEVICES=N bash scripts/rl/flap_pick.sh collect \
 최대 64 env를 허용한다. 초기 PPO가 아직 집기에 성공하지 못하면 이 단계에서 먼저
 teacher를 개선해야 한다. 무작위 정책을 성공 demonstration처럼 만들지 않는다.
 
-HDF5 형식은 `format_version=1`, `action_encoding=manager_normalized_incremental_v1`,
+HDF5 형식은 `format_version=1`, `action_encoding=manager_mixed_binary_gripper_v2`,
 JSON `manifest` 속성과 `episode_XXXXXX/{obs,action}` dataset이다. `obs[t]`는
 `action[t]` **실행 전** 관측이며 각 group에는 `success`, `complete` 속성이 있다.
 

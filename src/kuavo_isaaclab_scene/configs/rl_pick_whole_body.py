@@ -19,10 +19,6 @@ def configure(env_cfg, agent_cfg):
         env_cfg.actions.head.scale = .01
     else:
         env_cfg.actions.upper_body.scale = .02
-    for side in ("left", "right"):
-        gripper = getattr(env_cfg.actions, side + "_gripper")
-        if gripper is not None:
-            gripper.delta_scale = .08
     env_cfg.rewards.prelift_disturbance.weight = -.25
     env_cfg.rewards.orientation.weight = .5
     env_cfg.rewards.orientation.params["distance_threshold"] = .10

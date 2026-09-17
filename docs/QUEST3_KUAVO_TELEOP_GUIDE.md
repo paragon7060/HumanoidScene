@@ -511,7 +511,7 @@ HDF5는 샘플이 있는 실패·reset·시간 초과 episode도 저장한다. �
 
 ```bash
 ./quest_collector.sh collect \
-  --rack-boxes '1:small' --ignore-captured-box-poses
+  --rack-boxes '2:small' --ignore-captured-box-poses
 ```
 
 `--ignore-captured-box-poses`를 빼면 기본 `rack_box_poses.json`의 Small/Medium/Large/XLarge
@@ -923,7 +923,7 @@ S200062의 접촉 형상에 다음 문제를 확인하여 Quest 환경에서 보
 - 손목·손가락·housing은 총 8개 충돌 메시를 사용하며, 집게 사이를 하나의 hull로 채우지 않는다.
 - 얇은 상자 벽·덮개와 손에 2mm contact offset / 0 rest offset을 사용하고 speculative CCD를 켰다.
 - 닫힘 목표는 0rad로 바꿨다. 기존 ±0.005rad는 얇은 벽을 놓치는 잔여 간격을 남겼다.
-- 손가락 접촉 재질의 전역 static/dynamic friction 기본값과 S200062/S56 two-finger preset은 5.0/4.0, restitution은 0이다. 시뮬레이션 설정이며 재질 실측값은 아니다.
+- Leju 손가락 접촉 재질은 공통 package config의 static/dynamic friction 20.0/16.0, restitution 0을 사용한다. 시뮬레이션 설정이며 재질 실측값은 아니다.
 
 검증 스크립트는 최종 atlas visual을 그대로 사용하며 상자 재질·텍스처를 별도로 덮어쓰지 않는다.
 물체를 손에 붙이는 고정 조인트나 자동 파지 로직도 사용하지 않는다. 상자의 덮개는 여전히 경첩으로

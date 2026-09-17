@@ -6,6 +6,7 @@ Only the small root layer is authored; existing mesh layers are not rewritten.
 """
 from pathlib import Path
 import argparse
+import json
 import os
 import sys
 
@@ -35,19 +36,22 @@ def main():
         os.execve(sys.executable, [sys.executable, *sys.argv], env)
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
     from kuavo_isaaclab_scene.core.paths import ASSET_DIR
-    from kuavo_isaaclab_scene.robots.twofinger_linkage import author_closed_linkages, require_closed_linkages
+    from kuavo_isaaclab_scene.robots.claw_assets import CLAW_ASSET_DIR
+    from kuavo_isaaclab_scene.robots.claw_assets.linkage import author_closed_linkages, require_closed_linkages
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="*", type=Path)
     parser.add_argument("--check", action="store_true", help="Validate existing assets without writing")
     parser.add_argument("--sides", choices=("l", "r", "lr"), default="lr")
     parser.add_argument("--claw-config", type=Path, help="Bake independent-claw contacts and inertials from config.json")
     args = parser.parse_args()
+    package_config = args.claw_config or CLAW_ASSET_DIR / "config.json"
+    actuator = json.loads(package_config.read_text())["actuator"]
     paths = args.paths or [ASSET_DIR / model / "usd" / f"{model}_fixed.usd"
                           for model in ("kuavo_s200062", "kuavo_s56_twofinger")]
     for path in paths:
         stage = Usd.Stage.Open(str(path.resolve()))
         if not args.check:
-            author_closed_linkages(stage, sides=args.sides)
+            author_closed_linkages(stage, sides=args.sides, actuator=actuator)
             if args.claw_config:
                 from kuavo_isaaclab_scene.robots.claw_assets.usd import author_claw_contact
                 for letter in args.sides:

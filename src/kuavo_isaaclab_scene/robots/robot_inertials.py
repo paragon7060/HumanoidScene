@@ -11,7 +11,7 @@ def _spawn_twofinger_robot(prim_path, cfg, translation=None, orientation=None,
     from pxr import Gf, Usd, UsdPhysics
 
     root = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
-    from .twofinger_linkage import require_closed_linkages
+    from .claw_assets.linkage import require_closed_linkages
     require_closed_linkages(root)
     estimates = json.loads((ASSET_DIR / "kuavo_s200062/teleop_inertials.json").read_text())["links"]
     for prim in list(Usd.PrimRange(root)):
@@ -42,10 +42,10 @@ def _spawn_twofinger_robot(prim_path, cfg, translation=None, orientation=None,
         raise RuntimeError(f"Missing S200062 hand rigid bodies for inertial correction: {sorted(remaining)}")
     if disable_wheel_contacts and wheel_colliders < 4:
         raise RuntimeError(f"Expected four or more wheel colliders, found {wheel_colliders}")
-    from ..envs.contact_physics import add_hand_colliders
+    from .claw_assets.isaaclab import author_integrated_claw_contact
     from .gripper_config import load_gripper_settings
     preset = "s56_twofinger" if model_label == "S56" else "s200062_integrated"
-    add_hand_colliders(root, load_gripper_settings(preset).finger_contact)
+    author_integrated_claw_contact(root, load_gripper_settings(preset).finger_contact)
     from .end_effector import spawn_center_prims
     spawn_center_prims(root)
     wheel_status = (f"omitted {wheel_colliders} kinematic wheel colliders"
@@ -75,14 +75,15 @@ def spawn_s200062_robot(prim_path, cfg, translation=None, orientation=None,
 def spawn_s63_twofinger_robot(prim_path, cfg, translation=None, orientation=None, **kwargs):
     """S63 variant already contains estimated claw inertials and physical loops."""
     from isaaclab.sim.spawners.from_files import spawn_from_usd
-    from .twofinger_linkage import require_closed_linkages
+    from .claw_assets.linkage import require_closed_linkages
     from .gripper_config import resolve_gripper_settings
+    from .claw_assets.package import CLAW_ASSET_DIR
     from .claw_assets.usd import author_claw_contact
     root = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
     require_closed_linkages(root)
     settings = resolve_gripper_settings()
     for side in ("left", "right"):
-        author_claw_contact(root.GetStage(), ASSET_DIR / "leju_claw_two_finger/config.json",
+        author_claw_contact(root.GetStage(), CLAW_ASSET_DIR / "config.json",
                             side=side, finger_contact=settings.finger_contact, root=root)
     return root
 

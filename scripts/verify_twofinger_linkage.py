@@ -41,7 +41,7 @@ from isaaclab.utils.math import quat_apply
 from kuavo_isaaclab_scene.display.eval_video import FfmpegVideoWriter
 from kuavo_isaaclab_scene.robots.gripper_config import FingerContactSettings, load_gripper_settings
 from kuavo_isaaclab_scene.envs.manager_env import KUAVO_CFG
-from kuavo_isaaclab_scene.robots.twofinger_linkage import FINGER_PIN, FOLLOWER_PIN, pin_for
+from kuavo_isaaclab_scene.robots.claw_assets.linkage import FINGER_PIN, FOLLOWER_PIN, pin_for
 
 
 def verify_contact_materials():

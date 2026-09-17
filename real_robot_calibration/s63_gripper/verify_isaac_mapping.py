@@ -39,8 +39,8 @@ from isaaclab.utils.math import quat_apply, quat_apply_inverse
 from kuavo_isaaclab_scene.robots.claw_assets.isaaclab import make_claw_cfg
 from kuavo_isaaclab_scene.robots.gripper_config import load_gripper_settings
 from kuavo_isaaclab_scene.robots.gripper_runtime import build_gripper_action_cfg
-from kuavo_isaaclab_scene.robots.twofinger_geometry import TwoFingerGeometry
-from kuavo_isaaclab_scene.robots.twofinger_linkage import FINGER_PIN, FOLLOWER_PIN, initial_passive_positions, pin_for
+from kuavo_isaaclab_scene.robots.claw_assets.geometry import TwoFingerGeometry
+from kuavo_isaaclab_scene.robots.claw_assets.linkage import FINGER_PIN, FOLLOWER_PIN, initial_passive_positions, pin_for
 from kuavo_isaaclab_scene.rl.mdp.actions import IncrementalGripperCfg
 
 

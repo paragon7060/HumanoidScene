@@ -24,6 +24,9 @@ def extract(donor_dir: Path, output: Path, *, mass_kg: float = 1.0) -> None:
     if output.resolve() == donor_dir.resolve() or donor_dir.resolve() in output.resolve().parents:
         raise ValueError("Extraction must not overwrite the donor model")
     source = donor_dir / "urdf/biped_s200062.urdf"
+    previous_config_path = output / "config.json"
+    previous_config = (json.loads(previous_config_path.read_text())
+                       if previous_config_path.is_file() else {})
     root = ET.parse(source).getroot()
     estimates = json.loads((donor_dir / "teleop_inertials.json").read_text())
     selected_estimates, hashes, sides = {}, {}, {}
@@ -105,15 +108,73 @@ def extract(donor_dir: Path, output: Path, *, mass_kg: float = 1.0) -> None:
                        f"D405 is {mass_kg:g} kg. Donor link mass ratios and CoMs are retained; "
                        "mass and inertia are scaled together. Host arm/torso inertials are unchanged.",
         "links": selected_estimates})
+    action = previous_config.get("action", {
+        "open": 1.0,
+        "closed": -1.0,
+        "driver_joints": ["{side}_f_bar_1_joint", "{side}_b_bar_1_joint"],
+    })
+    actuator = previous_config.get("actuator", {
+        "effort_limit_sim": 100.0,
+        "stiffness": 4000.0,
+        "damping": 400.0,
+        "friction": 0.02,
+    })
+    contact = previous_config.get("contact", {
+        "finger_static_friction": 20.0,
+        "finger_dynamic_friction": 16.0,
+        "housing_static_friction": 1.0,
+        "housing_dynamic_friction": 0.8,
+        "friction_combine_mode": "average",
+        "contact_offset_m": 0.002,
+        "rest_offset_m": 0.0,
+        "distal_pad": {
+            "size_m": [0.002, 0.018, 0.020],
+            "center_m": {
+                "f": [-0.031361, 0.0, -0.059024],
+                "b": [0.031361, 0.0, -0.059024],
+            },
+        },
+    })
+    runtime_defaults = previous_config.get("runtime_defaults", {
+        "enabled": True,
+        "integrated": True,
+        "usd_path": "integrated://robot",
+        "attachment_mount_body": "robot",
+        "joint_names": ["{side}_f_bar_1_joint", "{side}_b_bar_1_joint"],
+        "default_joint_pos": {"{side}_f_bar_1_joint": -0.25, "{side}_b_bar_1_joint": 0.25},
+        "open_command": {"{side}_f_bar_1_joint": -0.25, "{side}_b_bar_1_joint": 0.25},
+        "close_command": {"{side}_f_bar_1_joint": 0.0, "{side}_b_bar_1_joint": 0.0},
+        "pinch_close_threshold_m": 0.055,
+    })
+    basic_sides = {side: {"enabled": True, "robot_mount_body": values["root_link"],
+                           "robot_mount_pos": [0.0, 0.0, 0.0],
+                           "robot_mount_rot": [1.0, 0.0, 0.0, 0.0]}
+                   for side, values in sides.items()}
+    runtime_presets = previous_config.get("runtime_presets", {
+        name: {"sides": deepcopy(basic_sides)}
+        for name in ("leju-twofinger", "s200062_integrated", "s56_twofinger")
+    })
     write_json("config.json", {
-        "schema_version": 1, "name": "leju_claw_two_finger",
+        "schema_version": 3, "name": "leju_claw_two_finger",
         "source_model": "biped_s200062", "source_urdf_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "mesh_sha256": hashes, "sides": sides,
-        "action": {"open": 1.0, "closed": -1.0, "driver_joints": ["{side}_f_bar_1_joint", "{side}_b_bar_1_joint"]},
-        "actuator": {"effort_limit_sim": 100.0, "stiffness": 4000.0, "damping": 400.0, "friction": 0.02},
-        "contact": {"finger_static_friction": 20.0, "finger_dynamic_friction": 16.0,
-                    "housing_static_friction": 1.0, "housing_dynamic_friction": 0.8,
-                    "friction_combine_mode": "average", "contact_offset_m": 0.002, "rest_offset_m": 0.0},
+        "action": action,
+        "actuator": actuator,
+        "contact": contact,
+        # Host selection stays in grippers.json; all physical settings and
+        # host-specific two-finger calibration live with this package.
+        "runtime_defaults": runtime_defaults,
+        "runtime_presets": runtime_presets,
+        "force_control": previous_config.get("force_control", {
+            "close_force_n": 50.0,
+            "max_velocity_rad_s": 0.5,
+            "force_filter_time_constant_s": 0.02,
+            "force_ramp_time_s": 0.3,
+            "proportional_gain": 0.25,
+            "integral_gain_per_s": 4.0,
+            "integral_limit_multiplier": 4.0,
+            "max_force_multiplier": 5.0,
+        }),
     })
     print(f"Extracted two 14-link claw packages into {output}")
 

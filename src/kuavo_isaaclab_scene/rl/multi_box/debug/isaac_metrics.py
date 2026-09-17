@@ -1,0 +1,411 @@
+"""Read-only Isaac scene adapter for multi-box v2 shadow reward metrics.
+
+This module deliberately does not decide grasp/place success.  It measures
+geometry and privileged box velocity for reward calibration while contact
+sensors and deployable transition confidence are integrated separately.
+"""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+import math
+
+import torch
+
+from ....robots.end_effector import get_end_effector_frames
+from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
+from ...scenes.asset_geometry import box_geometry
+from .contact_sensors import CONTACT_SENSOR_NAMES
+from ..geometry import relative_pose, unsigned_axis_angle_error
+from ..geometry.pose import quat_apply
+from ..metrics import (
+    CarryRawMetrics,
+    GraspRawMetrics,
+    PlaceRawMetrics,
+    carry_potentials,
+    grasp_potentials,
+    place_potentials,
+)
+from ..scene.spawn import BOX_TYPE_IDS, physical_asset_names
+
+
+BELT_HALF_EXTENTS_XY = (1.275, 0.34)
+BELT_HALF_THICKNESS_M = 0.015
+EXTRACTION_GOAL_M = 0.10
+
+
+def _closest_box_surface(points: torch.Tensor, centers: torch.Tensor,
+                         halves: torch.Tensor, normal_axes: torch.Tensor) -> torch.Tensor:
+    """Closest point on either broad face of a thin flap AABB."""
+    delta = points - centers
+    nearest = delta.clamp(-halves, halves)
+    axis = normal_axes[..., None]
+    side = torch.where(delta.gather(-1, axis) >= 0, 1.0, -1.0)
+    return centers + nearest.scatter(-1, axis, side * halves.gather(-1, axis))
+
+
+def _footprint_corners_belt(box_pose: torch.Tensor, belt_pose: torch.Tensor,
+                            dimensions: tuple[float, float, float]) -> torch.Tensor:
+    """Four physical box-body footprint corners in the conveyor frame."""
+    half_x, half_y = dimensions[0] / 2.0, dimensions[1] / 2.0
+    local = box_pose.new_tensor((
+        (-half_x, -half_y, 0.0),
+        (-half_x, +half_y, 0.0),
+        (+half_x, -half_y, 0.0),
+        (+half_x, +half_y, 0.0),
+    ))
+    world = box_pose[:3] + quat_apply(box_pose[3:].expand(4, -1), local)
+    points = torch.cat((world, box_pose[3:].expand(4, -1)), dim=-1)
+    return relative_pose(belt_pose.expand(4, -1), points)[:, :2]
+
+
+def _footprint_outside(corners: torch.Tensor, half_extents: torch.Tensor) -> torch.Tensor:
+    excess = (corners.abs() - half_extents).clamp_min(0)
+    return excess.norm(dim=-1).amax().reshape(1)
+
+
+def _signed_aabb_clearance(corners: torch.Tensor, other_corners: list[torch.Tensor]) -> torch.Tensor:
+    """Positive gap or negative overlap depth against the closest active box."""
+    if not other_corners:
+        return corners.new_tensor([1.0])
+    low, high = corners.amin(0), corners.amax(0)
+    center, half = (low + high) / 2, (high - low) / 2
+    values = []
+    for other in other_corners:
+        other_low, other_high = other.amin(0), other.amax(0)
+        other_center = (other_low + other_high) / 2
+        other_half = (other_high - other_low) / 2
+        separation = (center - other_center).abs() - (half + other_half)
+        if bool((separation > 0).any()):
+            values.append(separation.clamp_min(0).norm())
+        else:
+            values.append(-(-separation).amin())
+    return torch.stack(values).amin().reshape(1)
+
+
+@dataclass(frozen=True)
+class IsaacMetricSnapshot:
+    target_logical_id: int
+    target_asset_name: str
+    target_box_type: str
+    target_region: str
+    raw_by_phase: dict[str, object]
+    potentials_by_phase: dict[str, dict[str, torch.Tensor]]
+    diagnostics: dict[str, float]
+
+    def raw_scalars(self, phase: str) -> dict[str, torch.Tensor]:
+        return asdict(self.raw_by_phase[phase])
+
+    def log_scalars(self, phase: str) -> dict[str, object]:
+        return {**self.raw_scalars(phase), **self.diagnostics}
+
+    def contact_report(self) -> str:
+        if not self.diagnostics.get("contact_adapter_available", 0.0):
+            return "CONTACT: unavailable"
+        lines = ["CONTACT RAW (no success threshold):"]
+        for hand in ("l", "r"):
+            for flap in ("right", "left"):
+                front = self.diagnostics[f"contact_{hand}_{flap}_front_n"]
+                back = self.diagnostics[f"contact_{hand}_{flap}_back_n"]
+                valid = (
+                    int(self.diagnostics[f"contact_{hand}_{flap}_front_region"]),
+                    int(self.diagnostics[f"contact_{hand}_{flap}_back_region"]),
+                )
+                opposed = int(self.diagnostics[f"contact_{hand}_{flap}_opposed"])
+                lines.append(
+                    f"{hand.upper()} {flap:<5} F={front:.2f}/{back:.2f}N "
+                    f"region={valid[0]}{valid[1]} opp={opposed}")
+        return "\n".join(lines)
+
+
+class IsaacMultiBoxMetricAdapter:
+    """Measure one locked logical target in the single-environment Quest scene."""
+
+    def __init__(self, env):
+        if env.num_envs != 1:
+            raise ValueError("Quest shadow metrics currently require exactly one environment.")
+        self.env = env
+        self.robot = env.scene["robot"]
+        self.tcp = get_end_effector_frames(self.robot)
+        self.names = physical_asset_names()
+        self.type_names = {value: key for key, value in BOX_TYPE_IDS.items()}
+        self.finger_ids, _ = self.robot.find_bodies(
+            ["l_f_finger", "l_b_finger", "r_f_finger", "r_b_finger"],
+            preserve_order=True,
+        )
+        if len(self.finger_ids) != 4:
+            raise ValueError("Multi-box v2 shadow metrics require four two-finger links.")
+        self.flap_ids = []
+        self.flap_centers = []
+        self.flap_halves = []
+        self.flap_normal_axes = []
+        for name in self.names:
+            asset = env.scene[name]
+            body_ids, _ = asset.find_bodies(["flap_right", "flap_left"], preserve_order=True)
+            if len(body_ids) != 2:
+                raise ValueError(f"{name} is missing flap_right/flap_left rigid bodies.")
+            geometry = box_geometry(
+                getattr(env.cfg.scene, name), ("flap_right", "flap_left"))
+            flap_geometry = [geometry.flaps[key] for key in ("flap_right", "flap_left")]
+            self.flap_ids.append(body_ids)
+            self.flap_centers.append([value.center for value in flap_geometry])
+            self.flap_halves.append([value.half_size for value in flap_geometry])
+            self.flap_normal_axes.append([value.half_size.index(min(value.half_size))
+                                          for value in flap_geometry])
+        self.target_logical_id = -1
+        self.initial_box_z = torch.zeros(env.cfg.multi_box.max_boxes, device=env.device)
+        self.initial_rack_y = torch.zeros_like(self.initial_box_z)
+        self.reset()
+
+    def _active_ids(self) -> list[int]:
+        return self.env._multi_box_active[0].nonzero(as_tuple=False).flatten().tolist()
+
+    def _asset_for_logical(self, logical_id: int):
+        pool_id = int(self.env._multi_box_pool_ids[0, logical_id].item())
+        if pool_id < 0:
+            raise ValueError(f"Logical box {logical_id} is inactive.")
+        return pool_id, self.env.scene[self.names[pool_id]]
+
+    def _rack_local_pose(self, world_pose: torch.Tensor) -> torch.Tensor:
+        return relative_pose(self.env.scene["rack"].data.root_pose_w[0], world_pose)
+
+    def _choose_nearest(self) -> int:
+        active = self._active_ids()
+        if not active:
+            raise RuntimeError("The randomized v2 scene has no active boxes.")
+        tcp_midpoint = self.tcp.center_pose_w[0, :, :3].mean(0)
+        distances = []
+        for logical_id in active:
+            _, asset = self._asset_for_logical(logical_id)
+            distances.append((asset.data.root_pos_w[0] - tcp_midpoint).norm())
+        return active[int(torch.stack(distances).argmin().item())]
+
+    def reset(self) -> None:
+        if not hasattr(self.env, "_multi_box_active"):
+            return
+        for logical_id in self._active_ids():
+            _, asset = self._asset_for_logical(logical_id)
+            pose = asset.data.root_pose_w[0]
+            self.initial_box_z[logical_id] = pose[2]
+            self.initial_rack_y[logical_id] = self._rack_local_pose(pose)[1]
+        self.target_logical_id = self._choose_nearest()
+
+    def cycle_target(self, direction: int) -> int:
+        active = self._active_ids()
+        if not active:
+            raise RuntimeError("The randomized v2 scene has no active boxes.")
+        if self.target_logical_id not in active:
+            self.target_logical_id = active[0]
+        else:
+            index = active.index(self.target_logical_id)
+            self.target_logical_id = active[(index + direction) % len(active)]
+        return self.target_logical_id
+
+    def _grasp_metrics(self, pool_id: int, asset, box_pose: torch.Tensor) -> GraspRawMetrics:
+        device = self.env.device
+        flap_ids = self.flap_ids[pool_id]
+        flap_pos = asset.data.body_link_pos_w[0, flap_ids]
+        flap_quat = asset.data.body_link_quat_w[0, flap_ids]
+        centers = torch.tensor(self.flap_centers[pool_id], device=device)
+        halves = torch.tensor(self.flap_halves[pool_id], device=device)
+        axes = torch.tensor(self.flap_normal_axes[pool_id], device=device, dtype=torch.long)
+
+        tcp = self.tcp.center_pose_w[0, :, :3]
+        pair_pose = torch.cat((
+            flap_pos[None].expand(2, -1, -1),
+            flap_quat[None].expand(2, -1, -1),
+        ), dim=-1)
+        tcp_pose = torch.cat((tcp[:, None].expand(-1, 2, -1),
+                              flap_quat[None].expand(2, -1, -1)), dim=-1)
+        tcp_local = relative_pose(pair_pose, tcp_pose)[..., :3]
+        nearest = _closest_box_surface(
+            tcp_local, centers[None], halves[None], axes[None])
+        distance = (tcp_local - nearest).norm(dim=-1)
+        direct_cost = distance[0, 0] + distance[1, 1]
+        swapped_cost = distance[0, 1] + distance[1, 0]
+        assignment = torch.tensor([0, 1] if direct_cost <= swapped_cost else [1, 0],
+                                  device=device, dtype=torch.long)
+        hands = torch.arange(2, device=device)
+
+        normals_local = torch.nn.functional.one_hot(axes, 3).to(tcp.dtype)
+        normals_world = quat_apply(flap_quat, normals_local)
+        assigned_normal = normals_world[assignment]
+        fingers = self.robot.data.body_link_pos_w[0, self.finger_ids].reshape(2, 2, 3)
+        closing = fingers[:, 0] - fingers[:, 1]
+        closing = closing / closing.norm(dim=-1, keepdim=True).clamp_min(1e-6)
+        alignment_error = torch.acos(
+            (closing * assigned_normal).sum(-1).abs().clamp(0, 1)).mean().reshape(1)
+
+        assigned_pose = torch.cat((flap_pos[assignment], flap_quat[assignment]), dim=-1)
+        finger_pose = torch.cat((
+            fingers,
+            flap_quat[assignment, None].expand(-1, 2, -1),
+        ), dim=-1)
+        finger_local = relative_pose(assigned_pose[:, None], finger_pose)[..., :3]
+        assigned_center = centers[assignment]
+        assigned_half = halves[assignment]
+        assigned_axis = axes[assignment]
+        delta = finger_local - assigned_center[:, None]
+        signed = delta.gather(
+            -1, assigned_axis[:, None, None].expand(-1, 2, 1)).squeeze(-1)
+        normal_outside = signed.amin(-1).clamp_min(0) + (-signed.amax(-1)).clamp_min(0)
+        midpoint_delta = finger_local.mean(1) - assigned_center
+        tangent_excess = (midpoint_delta.abs() - assigned_half).clamp_min(0)
+        tangent_excess.scatter_(1, assigned_axis[:, None], 0.0)
+        capture_error = torch.sqrt(normal_outside.square() + tangent_excess.square().sum(-1)) \
+            .mean().reshape(1)
+        proof_lift = (box_pose[2] - self.initial_box_z[self.target_logical_id]).reshape(1)
+        return GraspRawMetrics(
+            matched_flap_distance_m=distance[hands, assignment].mean().reshape(1),
+            jaw_alignment_error_rad=alignment_error,
+            capture_error_m=capture_error,
+            proof_lift_m=proof_lift,
+        )
+
+    def _all_active_footprints(self, belt_pose: torch.Tensor):
+        result = {}
+        for logical_id in self._active_ids():
+            _, asset = self._asset_for_logical(logical_id)
+            type_id = int(self.env._multi_box_box_type_ids[0, logical_id].item())
+            box_type = self.type_names[type_id]
+            pose = asset.data.root_pose_w[0]
+            corners = _footprint_corners_belt(pose, belt_pose, BOX_DIMENSIONS_M[box_type])
+            bottom = relative_pose(belt_pose, pose)[2] - BELT_HALF_THICKNESS_M
+            result[logical_id] = (corners, bottom)
+        return result
+
+    def _contact_diagnostics(self, pool_id: int, asset) -> dict[str, float]:
+        filter_count = len(self.names) * 2
+        force_rows, point_rows = [], []
+        try:
+            for sensor_name in CONTACT_SENSOR_NAMES:
+                data = self.env.scene[sensor_name].data
+                if data.force_matrix_w is None or data.contact_pos_w is None:
+                    raise RuntimeError("filtered contact tensors are unavailable")
+                force = data.force_matrix_w[0, 0]
+                point = data.contact_pos_w[0, 0]
+                if force.shape != (filter_count, 3) or point.shape != (filter_count, 3):
+                    raise RuntimeError(
+                        f"unexpected contact tensor shapes force={force.shape}, point={point.shape}")
+                force_rows.append(force.reshape(len(self.names), 2, 3)[pool_id])
+                point_rows.append(point.reshape(len(self.names), 2, 3)[pool_id])
+        except (KeyError, RuntimeError, TypeError, IndexError):
+            return {"contact_adapter_available": 0.0}
+
+        # Source order is L-front, L-back, R-front, R-back.  Reorder to
+        # [hand, candidate flap, jaw, xyz].
+        force_vector = torch.stack(force_rows).reshape(2, 2, 2, 3).permute(0, 2, 1, 3)
+        force_n = force_vector.norm(dim=-1)
+        point_world = torch.stack(point_rows).reshape(2, 2, 2, 3).permute(0, 2, 1, 3)
+
+        flap_ids = self.flap_ids[pool_id]
+        flap_pos = asset.data.body_link_pos_w[0, flap_ids]
+        flap_quat = asset.data.body_link_quat_w[0, flap_ids]
+        centers = point_world.new_tensor(self.flap_centers[pool_id])
+        halves = point_world.new_tensor(self.flap_halves[pool_id])
+        axes = torch.tensor(self.flap_normal_axes[pool_id], device=self.env.device,
+                            dtype=torch.long)
+        flap_pose = torch.cat((flap_pos, flap_quat), dim=-1)[None, :, None].expand(2, -1, 2, -1)
+        point_pose = torch.cat((point_world,
+                                flap_quat[None, :, None].expand(2, -1, 2, -1)), dim=-1)
+        point_local = relative_pose(flap_pose, point_pose)[..., :3]
+        delta = point_local - centers[None, :, None]
+        margin = 0.004
+        in_region = torch.isfinite(point_local).all(-1) \
+            & (delta.abs() <= halves[None, :, None] + margin).all(-1) \
+            & (force_n > 0)
+        signed_contact = delta.gather(
+            -1, axes[None, :, None, None].expand(2, -1, 2, 1)).squeeze(-1)
+        opposed = signed_contact[..., 0] * signed_contact[..., 1] < 0
+
+        # Contact representatives on a thin collision shape can occasionally
+        # share one face.  Report whether the physical jaw link origins still
+        # straddle the flap, but never turn this diagnostic into success here.
+        fingers = self.robot.data.body_link_pos_w[0, self.finger_ids].reshape(2, 2, 3)
+        finger_world = fingers[:, None].expand(-1, 2, -1, -1)
+        finger_pose = torch.cat((finger_world,
+                                 flap_quat[None, :, None].expand(2, -1, 2, -1)), dim=-1)
+        finger_local = relative_pose(flap_pose, finger_pose)[..., :3]
+        finger_delta = finger_local - centers[None, :, None]
+        signed_finger = finger_delta.gather(
+            -1, axes[None, :, None, None].expand(2, -1, 2, 1)).squeeze(-1)
+        opposed |= signed_finger[..., 0] * signed_finger[..., 1] < 0
+
+        result = {"contact_adapter_available": 1.0}
+        for hand_index, hand in enumerate(("l", "r")):
+            for flap_index, flap in enumerate(("right", "left")):
+                prefix = f"contact_{hand}_{flap}"
+                result[f"{prefix}_front_n"] = float(force_n[hand_index, flap_index, 0].item())
+                result[f"{prefix}_back_n"] = float(force_n[hand_index, flap_index, 1].item())
+                result[f"{prefix}_front_region"] = float(
+                    in_region[hand_index, flap_index, 0].item())
+                result[f"{prefix}_back_region"] = float(
+                    in_region[hand_index, flap_index, 1].item())
+                result[f"{prefix}_opposed"] = float(opposed[hand_index, flap_index].item())
+        return result
+
+    def measure(self) -> IsaacMetricSnapshot:
+        if self.target_logical_id not in self._active_ids():
+            self.reset()
+        logical_id = self.target_logical_id
+        pool_id, asset = self._asset_for_logical(logical_id)
+        box_pose = asset.data.root_pose_w[0]
+        belt_pose = self.env.scene["conveyor_surface"].data.root_pose_w[0]
+        type_id = int(self.env._multi_box_box_type_ids[0, logical_id].item())
+        box_type = self.type_names[type_id]
+        region_id = int(self.env._multi_box_region_ids[0, logical_id].item())
+        region = self.env.cfg.multi_box.region_names[region_id]
+
+        grasp = self._grasp_metrics(pool_id, asset, box_pose)
+        footprints = self._all_active_footprints(belt_pose)
+        corners, bottom_height = footprints[logical_id]
+        other = [value[0] for other_id, value in footprints.items()
+                 if other_id != logical_id and -0.10 <= float(value[1]) <= 0.50]
+        clearance = _signed_aabb_clearance(corners, other)
+        belt_half = box_pose.new_tensor(BELT_HALF_EXTENTS_XY)
+        outside = _footprint_outside(corners, belt_half)
+
+        rack_local = self._rack_local_pose(box_pose)
+        outward_progress = rack_local[1] - self.initial_rack_y[logical_id]
+        extraction_remaining = (box_pose.new_tensor(EXTRACTION_GOAL_M) - outward_progress) \
+            .clamp_min(0).reshape(1)
+        carry = CarryRawMetrics(
+            extraction_remaining_m=extraction_remaining,
+            footprint_distance_to_belt_m=outside,
+            free_space_clearance_m=clearance,
+            box_bottom_height_m=bottom_height.reshape(1),
+        )
+
+        box_in_belt = relative_pose(belt_pose, box_pose)
+        long_axis = quat_apply(box_in_belt[3:].reshape(1, 4),
+                               box_pose.new_tensor([[1.0, 0.0, 0.0]]))[0]
+        angle = unsigned_axis_angle_error(torch.atan2(long_axis[1], long_axis[0]).reshape(1))
+        velocity = asset.data.root_vel_w[0]
+        place = PlaceRawMetrics(
+            footprint_outside_m=outside,
+            long_axis_error_rad=angle,
+            free_space_clearance_m=clearance,
+            box_bottom_height_m=bottom_height.reshape(1),
+            linear_speed_mps=velocity[:3].norm().reshape(1),
+            angular_speed_radps=velocity[3:].norm().reshape(1),
+        )
+        raw = {"grasp": grasp, "carry": carry, "place": place}
+        potentials = {
+            "grasp": grasp_potentials(grasp),
+            "carry": carry_potentials(carry),
+            "place": place_potentials(place),
+        }
+        diagnostics = {
+            "footprint_inside": float(outside.item() <= 1e-6),
+            "long_axis_error_deg": math.degrees(float(angle.item())),
+        }
+        diagnostics.update(self._contact_diagnostics(pool_id, asset))
+        return IsaacMetricSnapshot(
+            target_logical_id=logical_id,
+            target_asset_name=self.names[pool_id],
+            target_box_type=box_type,
+            target_region=region,
+            raw_by_phase=raw,
+            potentials_by_phase=potentials,
+            diagnostics=diagnostics,
+        )

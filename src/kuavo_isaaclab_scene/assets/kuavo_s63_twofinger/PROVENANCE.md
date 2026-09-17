@@ -19,4 +19,5 @@ rpy=(0,0,0), relative to zarm_l/r7_link. They are not measured S63 mounts.
 Both claw/D405 branches retain estimated inertials. Fixed links are kept;
 four maximal-coordinate loop-closing hinges finalize the generated USD.
 The root is fixed and body position drives use stiffness=400/damping=40;
-runtime hand actuator/contact settings come from grippers.json leju-twofinger.
+runtime hand actuator/contact settings come from
+../leju_claw_two_finger/config.json; grippers.json only selects that preset.

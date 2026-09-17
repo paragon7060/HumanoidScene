@@ -14,6 +14,13 @@ S63 additionally supports `--gripper leju-twofinger`: this selects a separate
 integrated S63 + S200062-derived claw/D405 articulation without modifying any
 official S63 mesh. See [independent claw and S63 usage](LEJU_CLAW_ASSET.md).
 
+The three Leju presets (`leju-twofinger`, `s200062_integrated`, and
+`s56_twofinger`) are registry aliases. Their shared actuator, contact geometry,
+friction and force-control settings plus per-host calibration live in
+`src/kuavo_isaaclab_scene/assets/leju_claw_two_finger/config.json`. Edit that
+package file for Leju hardware changes; do not duplicate those values in the
+top-level registry.
+
 ## Run
 
 The full S200062 model is enabled by default:
@@ -111,36 +118,34 @@ composed running stage are not automatically written back to configuration.
 
 ### Finger surface friction
 
-The global finger-contact default and both `s200062_integrated` and
-`s56_twofinger` presets use an experimental high-friction setting: static
-**5.0**, dynamic **4.0**. These are simulation tuning values, not measured
-real Kuavo contact coefficients. Adjust `finger_contact` in `configs/grippers.json`:
+All three Leju presets use the package contact setting: static **20.0**,
+dynamic **16.0**. These are simulation tuning values, not measured real Kuavo
+contact coefficients. Adjust `contact` in the claw package `config.json`:
 
 ```json
-"finger_contact": {
-  "static_friction": 5.0,
-  "dynamic_friction": 4.0,
+"contact": {
+  "finger_static_friction": 20.0,
+  "finger_dynamic_friction": 16.0,
   "friction_combine_mode": "average"
 }
 ```
 
-Only the four `l/r_f/b_finger` collision-mesh groups use this material; it
-applies to the entire finger mesh, not a separately modeled rubber pad.
+Only the four `l/r_f/b_finger` collision-mesh groups and their flat distal pads
+use this material.
 Housing and wrist surfaces retain **1.0 / 0.8**, and joint `actuator.friction`
 remains **0.02**. Torque limits, PD gains, box materials and contact offsets
-are unchanged. Other hand types do not support an explicit `finger_contact`
-field and reject it instead of silently ignoring it; if contact colliders use
-`FingerContactSettings()` directly, they receive the same **5.0 / 4.0** default.
+are controlled separately. Other hand types do not support an explicit
+`finger_contact` field and reject it instead of silently ignoring it.
 
 The combined contact friction also depends on the object's material and its
 combine mode; `average` retains the previous hand-side combination rule.
 Increasing friction can reduce slipping after contact, but does not create
 contact, increase squeezing torque, or ensure a successful lift. Check contact
 stability and real-world plausibility before treating this as a hardware preset.
-Restart the scene/eval to apply edits. Old videos, policy metrics and numerical
-contact-force results below predate this increase and must not be reused as
-evidence of high-friction grasp performance. Missing `finger_contact` in an
-older custom JSON preserves the old **1.0 / 0.8** values.
+Restart the scene/eval to apply runtime edits and re-run the asset finalizer for
+USD-baked contact changes. Old videos, policy metrics and numerical contact-force
+results below predate this increase and must not be reused as evidence of
+high-friction grasp performance.
 
 High-friction regression (2026-09-02): `verify_twofinger_linkage.py` now checks
 the resolved physics-material bindings on all finger, housing and wrist collision

@@ -18,11 +18,14 @@ hand is 1.000 kg including its D405 branch, excluding the three robot-side EEF
 helper frames. All link masses and diagonal inertias are scaled together from
 the original 0.740 kg estimate; COMs, geometry and the donor asset are unchanged.
 The extraction/build script defaults to 1 kg per hand.
-The closed-loop anchors and bar_4 correction reuse robots/twofinger_linkage.py.
+The closed-loop anchors and bar_4 correction use robots/claw_assets/linkage.py.
 Only bar_1 is driven; bar_3/bar_4 are passive. The URDF alone is a tree and
 does not encode the loop-closing hinges; finalized USDs include two physical
 external hinges per hand. Housing and separate finger meshes have convex
 contact geometry, matching the project's simplified runtime contact model.
+Runtime calibration, actuator, contact, distal-pad and force-control settings
+are owned by this directory's config.json. The top-level gripper registry only
+selects a package preset.
 
 This is a reusable simulation asset extracted from S200062, not an independent
 manufacturer-issued gripper package or proof that S63 uses identical hardware.

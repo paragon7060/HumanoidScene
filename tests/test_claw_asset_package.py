@@ -8,7 +8,41 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from kuavo_isaaclab_scene.core.paths import ASSET_DIR
-from kuavo_isaaclab_scene.robots.claw_assets import append_claw_branch, load_claw_asset
+from kuavo_isaaclab_scene.robots.claw_assets import (
+    CLAW_ASSET_DIR,
+    append_claw_branch,
+    load_claw_asset,
+    load_claw_config,
+)
+from kuavo_isaaclab_scene.robots.gripper_config import load_gripper_settings
+
+
+TWO_FINGER_PRESETS = ("leju-twofinger", "s200062_integrated", "s56_twofinger")
+
+
+def test_twofinger_registry_entries_are_package_aliases():
+    expected = "${KUAVO_PACKAGE_ASSET_DIR}/leju_claw_two_finger/config.json"
+    for registry in (
+        Path(__file__).resolve().parents[1] / "configs/grippers.json",
+        Path(__file__).resolve().parents[1] / "src/kuavo_isaaclab_scene/configs/grippers.json",
+    ):
+        presets = json.loads(registry.read_text())["presets"]
+        for name in TWO_FINGER_PRESETS:
+            assert presets[name] == {"package_config": expected, "package_preset": name}
+
+
+def test_twofinger_presets_share_package_physics_and_keep_host_calibration():
+    package = load_claw_config()
+    assert package["schema_version"] == 3
+    assert set(package["runtime_presets"]) == set(TWO_FINGER_PRESETS)
+    assert package["force_control"]["close_force_n"] == 50.0
+    for name in TWO_FINGER_PRESETS:
+        settings = load_gripper_settings(name)
+        assert settings.package_config_path == CLAW_ASSET_DIR / "config.json"
+        assert settings.actuator.stiffness == package["actuator"]["stiffness"]
+        assert settings.actuator.damping == package["actuator"]["damping"]
+        assert settings.finger_contact.static_friction == package["contact"]["finger_static_friction"]
+        assert settings.finger_contact.dynamic_friction == package["contact"]["finger_dynamic_friction"]
 
 
 @pytest.mark.parametrize("side", ["left", "right"])
@@ -64,6 +98,19 @@ def test_claw_action_and_passive_reset_contract():
         claw.motor_positions(float("nan"))
     with pytest.raises(ValueError):
         load_claw_asset("l")
+
+
+def test_claw_has_flat_distal_contact_pads():
+    config = load_claw_asset("right").metadata
+    assert config["schema_version"] == 3
+    pad = config["contact"]["distal_pad"]
+    assert pad["size_m"] == [0.002, 0.018, 0.020]
+    assert pad["center_m"]["f"] == [-0.031361, 0.0, -0.059024]
+    assert pad["center_m"]["b"] == [0.031361, 0.0, -0.059024]
+    for jaw in "fb":
+        center, size = pad["center_m"][jaw], pad["size_m"]
+        assert center[2] - size[2] / 2 == pytest.approx(-0.069024)
+        assert center[2] + size[2] / 2 == pytest.approx(-0.049024)
 
 
 def test_s63_composition_is_explicit_and_preserves_host(tmp_path):

@@ -183,3 +183,62 @@ class IncrementalGripper(InterpolatedJointPositionAction):
 class IncrementalGripperCfg(InterpolatedJointPositionActionCfg):
     class_type: type = IncrementalGripper
     delta_scale: float = 0.12
+
+
+class BinaryGripper(InterpolatedJointPositionAction):
+    """Execute one binary hand command: 0=open and 1=close.
+
+    RL policies still emit a scalar in their normal continuous action vector.
+    Positive values become 1 and zero/negative values become 0, keeping the
+    two choices balanced around a freshly initialized policy mean of zero.
+    """
+
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        self._close_requested = torch.zeros(self.num_envs, 1, dtype=torch.bool, device=self.device)
+
+    def _command_enabled(self):
+        if self._env.cfg.task.reset_settle_seconds <= 0 or self._env.cfg.task.reset_bank:
+            return torch.ones(self.num_envs, 1, dtype=torch.bool, device=self.device)
+        command = self._env.command_manager.get_term("workcell")
+        return command.settling.ready[:, None]
+
+    def process_actions(self, actions):
+        close = actions > 0
+        enabled = self._command_enabled()
+        self._close_requested[:] = torch.where(enabled, close, self._close_requested)
+        self._raw_actions[:] = self._close_requested.float()
+        signed = 1. - 2. * self._raw_actions
+        if self._position_mapping is not None:
+            # Do not let a gated reset environment silently rewrite its
+            # hysteresis state to "open" while its physical pose is held.
+            held = 1. - self._position_mapping.previous_percent / 50.
+            signed = torch.where(enabled, signed, held)
+        targets = self._targets_from_signed(signed)
+        self._desired_actions[:] = torch.where(enabled, targets, self._desired_actions)
+        if self._target_filter is None:
+            self._processed_actions[:] = self._desired_actions
+
+    def _force_closing(self):
+        return self._close_requested
+
+    def reset(self, env_ids=None):
+        ids = slice(None) if env_ids is None else env_ids
+        q = self._asset.data.joint_pos[ids][:, self._joint_ids]
+        self._raw_actions[ids] = 0
+        self._close_requested[ids] = False
+        self._reset_joint_targets(q, env_ids)
+        if self._position_mapping is not None:
+            direction = self._close_command - self._open_command
+            closed = ((q - self._open_command) * direction).sum(-1) / direction.square().sum().clamp_min(1e-8)
+            self._position_mapping.reset(env_ids, closed)
+        if self._force_drive is not None:
+            self._force_drive.reset(env_ids)
+
+
+@configclass
+class BinaryGripperCfg(InterpolatedJointPositionActionCfg):
+    class_type: type = BinaryGripper
+    # Retained so existing experiment config files remain loadable. Binary
+    # control intentionally ignores incremental target scale.
+    delta_scale: float = 0.0

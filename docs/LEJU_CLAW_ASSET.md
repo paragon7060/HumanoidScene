@@ -53,21 +53,31 @@ config는 따로 준비해야 한다. 전용 S200062 four-box baseline의 제한
 bash scripts/build_s63_twofinger.sh
 ```
 
-이 명령은 S63+claw variant만 재생성한다. `grippers.json`의 integrated preset
-`robot_mount_pos`를 수정해서 장착 위치가 바뀌지는 않는다. 구동 gain, open/close
-command와 finger friction은 `configs/grippers.json`의 `leju-twofinger`에서
-수정한다. runtime 구동·마찰 설정은 시뮬레이터를 재시작하면 적용된다.
+이 명령은 S63+claw variant만 재생성한다. `grippers.json`은 preset 이름을 이
+패키지에 연결하는 registry일 뿐이다. 구동 gain, open/close command, host별 보정,
+접촉 재질, distal pad와 force control은 모두
+`assets/leju_claw_two_finger/config.json`에서 수정한다. runtime 값은 시뮬레이터를
+재시작하면 적용되고, USD에 bake되는 형상·물리 값은 아래 빌드 명령으로 재생성한다.
 구동 각도는 검증된 범위를 벗어나지 않는다.
 
-VR 수집과 RL reward debug에서는 닫기 명령을 기본 50 N 압착력 목표로 사용한다.
-이는 한 손의 양쪽 손가락 합계(각 25 N)이며 `--gripper-close-force`로 변경한다.
-접촉 전부터 닫기 방향 토크를 공급하고 접촉 후 센서 피드백으로 힘을 조절한다.
-열기는 같은 힘을 반대 방향 토크로 환산하며, 닫힘/열림 끝에서 토크를 끊는다.
-개폐 모두 위치 stiffness를 끄고 implicit damping으로 속도를 억제한다. 기존 토크
-예산의 절반씩을 외부 토크와 damping drive에 할당한다. reset 때 원래 구동 설정을
-복구한다. `--gripper-close-force 0`은 기존 위치
-개폐 동작을 사용한다. 이 옵션은 독립 claw asset이나 학습용 policy에 자동으로
-힘 제어를 추가하지 않는다.
+기본 닫기 힘은 한 손의 양쪽 손가락 합계 50 N(각 25 N)이며
+`--gripper-close-force`로 변경한다. RL 학습·평가와 RL reward debug는 binary
+`0=open`, `1=close` 위치 명령과 기존 PD를 유지하면서 sensor-free geometric
+feedforward를 더한다. 이 값은 측정 힘이 아니라 linkage에서 환산한 N-equivalent이다.
+빈 gripper가 닫힘 mechanical stop에 도달하면 보조 토크를 끊는다.
+
+일반 VR dataset 수집은 접촉센서 피드백을 사용하는 별도 진단 경로다. 접촉 전부터
+닫기 방향 토크를 공급하고 접촉 후 센서값으로 힘을 조절한다. 이 경로는 위치 stiffness를
+끄고 implicit damping으로 속도를 억제하며, 열 때도 반대 방향 힘을 사용한다.
+`--gripper-close-force 0`은 두 경로 모두 힘 보조를 끄고 위치 개폐만 사용한다.
+
+각 finger의 끝 20 mm에는 18 mm 폭, 2 mm 두께의 평평한 전용 contact pad가 있다.
+pad 접촉면은 원본 CAD convex hull보다 0.5 mm 안쪽으로 돌출되어 얇은 flap을 잡을 때
+곡면 hull보다 먼저 접촉한다. 원본 hull은 finger 나머지 부분의 충돌 보호용으로 유지한다.
+이 pad는 독립 claw와 S63 조합에는 `author_claw_contact()`로, 같은 finger 형상을
+통합한 S200062와 S56 two-finger에는 공용 `author_claw_distal_pads()`로 동일하게
+적용된다. host URDF의 지름 10 mm `zarm_*7_end_effector` 기준 sphere는 좌표
+기준일 뿐 물리 부품이 아니므로 spawn 시 collision을 비활성화한다.
 
 ## 재생성
 
@@ -82,9 +92,9 @@ python scripts/extract_leju_claw.py
 bash scripts/build_leju_claw.sh
 ```
 
-추출은 기존 donor 파일을 변경하지 않는다. `config.json`을 수동 조절한 뒤
-다시 `build_leju_claw.sh`를 실행하면 추출 기본값으로 갱신되므로, 영구 기본값은
-`scripts/extract_leju_claw.py`에서 수정한다. contact만 USD에 재적용할 때는:
+추출은 기존 donor 파일을 변경하지 않는다. 기존 `config.json`의 action, actuator,
+contact, runtime preset과 force control을 보존하므로 빌드 스크립트의 상수까지
+따로 수정할 필요가 없다. contact만 USD에 재적용할 때는:
 
 ```bash
 python scripts/finalize_twofinger_usd.py \
@@ -124,6 +134,27 @@ reset = claw.initial_positions(+1) # 두 driver + 네 passive joints
 actuator gain은 `config.json`의 `actuator`에서 수정하며 `make_claw_cfg()`가 읽는다.
 passive joint에 position target을 주거나 stiffness를 추가하지 않는다.
 finger friction 20/16은 기존 프로젝트 값이며 매우 높다. 접촉 검증 후 튜닝한다.
+
+## 패키지 코드 위치
+
+Leju two-finger 관련 구현은 `robots/claw_assets/` 아래에서 관리한다.
+
+| 파일 | 역할 |
+|---|---|
+| `package.py` | 단일 `config.json` 로딩, asset 경로, URDF branch 조합 |
+| `linkage.py` | four-bar 폐루프 기구학과 USD joint 작성 |
+| `geometry.py` | 손가락 간격과 접촉 형상 계산 |
+| `force.py` | 50 N force servo와 토크 변환 |
+| `vr.py` | Quest/RL debug용 contact sensor와 force-close action 구성 |
+| `usd.py` | friction, flat pad, EEF marker 비활성화와 USD inertial 반영 |
+| `isaaclab.py` | 독립 claw 및 S200062/S56/S63 runtime 연결 |
+
+`robots/twofinger_linkage.py`, `robots/twofinger_geometry.py`,
+`robots/gripper_force.py`, `robots/vr_gripper_force.py`는 기존 import를 위한 얇은
+호환 wrapper다. 새 구현이나
+수치 설정을 이 파일에 추가하지 않는다. 세 로봇 preset은 `grippers.json`에서
+각각 `package_preset`만 선택하므로 공통 변경은 package `config.json` 한 곳에서,
+장착/응답 보정만 `runtime_presets`의 해당 host 항목에서 수정한다.
 
 ## S63 등 다른 로봇 URDF에 합칠 때
 

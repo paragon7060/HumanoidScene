@@ -22,18 +22,27 @@ from ..robots.gripper_config import (
     resolve_gripper_settings,
     teleop_action_names,
 )
+from ..robots.claw_assets.package import default_close_force_n
 from ..robots.robot_model import add_robot_model_cli_args, export_robot_model_cli, resolve_robot_model
 from ..recording.teleop_recorder import new_session_path
+from ..core.paths import CONFIG_DIR
 from ..workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller_cli
 
 
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
 parser.add_argument("--joint-response-log", type=Path, default=None,
                     help="New JSONL control-rate logical/applied joint targets and sim response; also works in RL reward debug.")
-parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=None, metavar="{0,1}",
+parser.add_argument("--rl-shadow-log", type=Path, default=None,
+                    help="Mode 2 only: new JSONL file for pose-derived v2 raw metrics, potentials, and weighted shadow terms.")
+parser.add_argument("--rl-shadow-phase", choices=("grasp", "carry", "place"), default="grasp",
+                    help="Mode 2 initial shadow-reward phase; keyboard 1/2/3 changes it without driving task state.")
+parser.add_argument("--rl-shadow-box-count", type=int, choices=range(1, 13), default=None,
+                    help="Mode 2 only: fix the randomized active-box count; use 1 for unambiguous contact calibration.")
+parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=None, metavar="{0,1,2}",
                     help="Inspect current flap-pick RL rewards in Quest instead of recording a dataset. "
                          "0 (default, including omitted value) keeps the configured right-arm-only action space; "
-                         "1 enables all joints, including both arms, planar base, torso and head.")
+                         "1 enables all joints, including both arms, planar base, torso and head; "
+                         "2 uses the same VR defaults to inspect the randomized multi-box v2 scene.")
 parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
 parser.add_argument("--rl-task", choices=("pick", "pick_place"), default="pick",
@@ -164,8 +173,8 @@ parser.add_argument(
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--max-episodes", type=int, default=0, help="0 (default) keeps the application open between attempts.")
 parser.add_argument("--episode-seconds", type=float, default=0.0, help="Episode timeout in simulation seconds; 0 disables it.")
-parser.add_argument("--gripper-close-force", type=float, default=50., metavar="N",
-                    help="VR two-finger force: close normal force total per hand (default 50 N); open reverses it; 0 uses position control.")
+parser.add_argument("--gripper-close-force", type=float, default=default_close_force_n(), metavar="N",
+                    help="Two-finger close force total per hand (default 50 N). RL reward debug keeps binary PD and adds sensor-free force-equivalent torque; ordinary VR collection uses its contact-feedback diagnostic drive. 0 uses position control only.")
 parser.add_argument(
     "--auto-start",
     action=argparse.BooleanOptionalAction,
@@ -274,12 +283,22 @@ if args_cli.joint_response_log is not None:
     args_cli.joint_response_log = args_cli.joint_response_log.expanduser().resolve()
     if args_cli.joint_response_log.exists():
         parser.error("Joint response log exists; choose a new filename.")
-if args_cli.rl_reward_debug is not None and args_cli.rl_reward_debug not in (0, 1):
-    parser.error("--rl-reward-debug takes no value, 0, or 1.")
+if args_cli.rl_shadow_log is not None:
+    if args_cli.rl_reward_debug != 2:
+        parser.error("--rl-shadow-log requires --rl-reward-debug 2.")
+    args_cli.rl_shadow_log = args_cli.rl_shadow_log.expanduser().resolve()
+    if args_cli.rl_shadow_log.exists():
+        parser.error("RL shadow log exists; choose a new filename.")
+if args_cli.rl_shadow_box_count is not None and args_cli.rl_reward_debug != 2:
+    parser.error("--rl-shadow-box-count requires --rl-reward-debug 2.")
+if args_cli.rl_reward_debug is not None and args_cli.rl_reward_debug not in (0, 1, 2):
+    parser.error("--rl-reward-debug takes no value, 0, 1, or 2.")
 if args_cli.rl_config is not None and args_cli.rl_reward_debug is None:
     parser.error("--rl-config requires --rl-reward-debug.")
-if args_cli.rl_task == "pick_place" and args_cli.rl_reward_debug != 1:
-    parser.error("--rl-task pick_place requires --rl-reward-debug 1 (whole-body control).")
+if args_cli.rl_config is not None and args_cli.rl_reward_debug == 2:
+    parser.error("--rl-config belongs to legacy reward modes 0/1; mode 2 uses the isolated multi-box v2 scene.")
+if args_cli.rl_task == "pick_place" and args_cli.rl_reward_debug not in (1, 2):
+    parser.error("--rl-task pick_place requires whole-body --rl-reward-debug 1 or 2.")
 if args_cli.rl_reward_debug is None and (
     args_cli.rl_collision_view or args_cli.rl_grasp_markers or args_cli.rl_grasp_calibration
     or args_cli.rl_obstacle_contact_hz is not None or not args_cli.rl_obstacle_collision
@@ -295,6 +314,9 @@ if args_cli.rl_reward_debug is not None:
         parser.error("Reward inspection uses the RL scene/config; omit --scene-config and use --no-domain-randomization.")
     if args_cli.arm_ik == "legacy" or args_cli.arm_start_pose == "ready":
         parser.error("Reward inspection uses existing URDF IK and the RL named initial pose, not legacy/ready.")
+if args_cli.rl_reward_debug == 2:
+    if args_cli.rack_rollers:
+        parser.error("--rl-reward-debug 2 requires --no-rack-rollers for the randomized v2 rack.")
 if args_cli.scene_config is not None:
     args_cli.scene_config = args_cli.scene_config.expanduser().resolve()
     if not args_cli.scene_config.is_file() or args_cli.scene_config.suffix != ".py":
@@ -302,6 +324,10 @@ if args_cli.scene_config is not None:
 if not args_cli.wrist_cameras:
     args_cli.quest_camera_overlay = False
     args_cli.record_wrist_cameras = False
+if args_cli.rl_reward_debug == 2 and (
+        args_cli.head_camera or args_cli.wrist_cameras
+        or args_cli.camera_preview or args_cli.quest_camera_overlay):
+    parser.error("--rl-reward-debug 2 currently uses native XR stereo only; disable head/wrist cameras and overlays.")
 if args_cli.record_depth and not args_cli.head_camera:
     parser.error("--record-depth requires --head-camera.")
 if args_cli.max_episodes < 0 or args_cli.episode_seconds < 0:
@@ -377,6 +403,28 @@ if args_cli.ignore_captured_box_poses:
     os.environ.pop("KUAVO_RACK_BOX_POSES", None)
 elif args_cli.rack_box_poses is not None:
     os.environ["KUAVO_RACK_BOX_POSES"] = str(args_cli.rack_box_poses.expanduser().resolve())
+elif (
+    args_cli.rl_reward_debug in (0, 1)
+    and args_cli.rl_box == "small_box_0"
+    and args_cli.rack_boxes is None
+    and args_cli.rack_box_layout is None
+    and not any(
+        os.environ.get(name)
+        for name in (
+            "KUAVO_RACK_BOXES",
+            "KUAVO_RACK_BOX_LAYOUT",
+            "KUAVO_RACK_BOX_POSES",
+            "KUAVO_IGNORE_RACK_BOX_POSES",
+        )
+    )
+):
+    # The shared capture keeps all workcell boxes in their measured positions,
+    # where SmallBox_0 belongs to shelf 1. Reward inspection spawns only its
+    # selected task box, so use the former middle-shelf task pose by default
+    # without moving or overlapping boxes in the general workcell scene.
+    os.environ["KUAVO_RACK_BOX_POSES"] = str(
+        CONFIG_DIR / "rack_box_poses_small_middle.json"
+    )
 
 # Hand tracking requires the Isaac Lab OpenXR experience. RTX camera sensors
 # are enabled only when an explicitly selected head/wrist stream needs them.
@@ -447,13 +495,16 @@ def _scene_asset_or_none(scene, name: str):
 
 def main() -> None:
     if args_cli.rl_reward_debug is not None:
-        from ..rl.debug.quest_reward import run
+        if args_cli.rl_reward_debug == 2:
+            from ..rl.debug.quest_multi_box import run
+        else:
+            from ..rl.debug.quest_reward import run
         run(args_cli, simulation_app)
         return
     active_mode = args_cli.input_mode
     robot_model = resolve_robot_model()
     cfg = KuavoQuestTeleopEnvCfg()
-    from ..robots.vr_gripper_force import configure_vr_gripper_force
+    from ..robots.claw_assets.vr import configure_vr_gripper_force
     configure_vr_gripper_force(cfg, args_cli.gripper_close_force)
     # Native OpenXR/CloudXR supplies its own stereo projection. The virtual
     # eye sensors are only needed by preview_quest_browser.py.

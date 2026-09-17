@@ -7,6 +7,7 @@ resolve ``--gripper`` before :class:`isaaclab.app.AppLauncher` starts Kit.
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 from dataclasses import dataclass
 import json
 import math
@@ -67,6 +68,7 @@ class GripperSettings:
     actuator: GripperActuatorSettings
     sides: dict[str, GripperSideSettings]
     config_path: Path
+    package_config_path: Path | None = None
     integrated: bool = False
     finger_contact: FingerContactSettings = FingerContactSettings()
 
@@ -198,6 +200,57 @@ def _resolve_usd_path(value: str, config_path: Path) -> str:
     return str(candidate.resolve())
 
 
+def _deep_merge(base: dict, overrides: dict) -> dict:
+    """Merge a registry override into a package preset without mutating either."""
+    result = deepcopy(base)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = deepcopy(value)
+    return result
+
+
+def _package_preset(raw: dict, selected: str, registry_path: Path) -> tuple[dict, Path | None]:
+    """Resolve a small registry alias to its package-owned runtime preset."""
+    reference = raw.get("package_config")
+    if reference is None:
+        return raw, None
+    if not isinstance(reference, str) or not reference:
+        raise ValueError(f"Gripper preset {selected!r} package_config must be a non-empty string.")
+    package_path = Path(_resolve_usd_path(reference, registry_path))
+    try:
+        package = json.loads(package_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Gripper package configuration does not exist: {package_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid gripper package JSON {package_path}: {exc}") from exc
+    profiles = package.get("runtime_presets")
+    profile_name = raw.get("package_preset", selected)
+    if not isinstance(profiles, dict) or profile_name not in profiles:
+        raise ValueError(f"{package_path} does not define runtime preset {profile_name!r}.")
+    profile = profiles[profile_name]
+    if not isinstance(profile, dict):
+        raise ValueError(f"Package runtime preset {profile_name!r} must be an object.")
+    defaults = package.get("runtime_defaults", {})
+    if not isinstance(defaults, dict):
+        raise ValueError(f"{package_path} runtime_defaults must be an object.")
+    profile = _deep_merge(defaults, profile)
+    actuator = package.get("actuator")
+    contact = package.get("contact")
+    if not isinstance(actuator, dict) or not isinstance(contact, dict):
+        raise ValueError(f"{package_path} must define actuator and contact objects.")
+    profile["actuator"] = deepcopy(actuator)
+    profile["finger_contact"] = {
+        "static_friction": contact.get("finger_static_friction"),
+        "dynamic_friction": contact.get("finger_dynamic_friction"),
+        "friction_combine_mode": contact.get("friction_combine_mode"),
+    }
+    overrides = {key: value for key, value in raw.items()
+                 if key not in {"package_config", "package_preset"}}
+    return _deep_merge(profile, overrides), package_path
+
+
 def load_gripper_settings(
     preset: str | None = None,
     config_path: str | Path | None = None,
@@ -218,6 +271,8 @@ def load_gripper_settings(
     raw = payload["presets"][selected]
     if not isinstance(raw, dict):
         raise ValueError(f"Gripper preset {selected!r} must be an object.")
+    raw, package_path = _package_preset(raw, selected, path)
+    value_path = package_path or path
     enabled = bool(raw.get("enabled", True))
     integrated = bool(raw.get("integrated", False))
     if not enabled:
@@ -324,7 +379,7 @@ def load_gripper_settings(
             robot_mount_body=str(item.get("robot_mount_body", "")),
             robot_mount_pos=_vector(item.get("robot_mount_pos", [0.0, 0.0, 0.0]), 3, f"sides.{side}.robot_mount_pos"),
             robot_mount_rot=_vector(item.get("robot_mount_rot", [1.0, 0.0, 0.0, 0.0]), 4, f"sides.{side}.robot_mount_rot"),
-            usd_path=_resolve_usd_path(override, path) if override else None,
+            usd_path=_resolve_usd_path(override, value_path) if override else None,
             attachment_mount_body=mount_override,
             command_scale=scale,
             position_mapping=mapping,
@@ -336,7 +391,7 @@ def load_gripper_settings(
     return GripperSettings(
         name=selected,
         enabled=True,
-        usd_path=_resolve_usd_path(raw["usd_path"], path),
+        usd_path=_resolve_usd_path(raw["usd_path"], value_path),
         attachment_mount_body=str(raw["attachment_mount_body"]),
         joint_names=tuple(str(name) for name in raw["joint_names"]),
         default_joint_pos=_command(raw["default_joint_pos"], "default_joint_pos"),
@@ -346,6 +401,7 @@ def load_gripper_settings(
         actuator=actuator_cfg,
         sides=sides,
         config_path=path,
+        package_config_path=package_path,
         integrated=integrated,
         finger_contact=contact_cfg,
     )

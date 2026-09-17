@@ -8,6 +8,7 @@ from copy import deepcopy
 import json
 import math
 from pathlib import Path
+import re
 
 from ..core.paths import CONFIG_DIR
 
@@ -72,6 +73,31 @@ def load_initial_state(name, path=None, *, robot_model=None, gripper=None):
         if expected is not None and state[field] != expected:
             raise ValueError(f"Initial state {name!r} uses {field}={state[field]}, selected={expected}.")
     return state
+
+
+def merge_joint_position_defaults(defaults, overrides):
+    """Overlay exact saved joints without leaving overlapping regex defaults.
+
+    Isaac Lab rejects a joint when two configuration keys match it.  Robot
+    defaults intentionally use group expressions such as ``zarm_.*_joint``,
+    while captured/prepared states use exact joint names.  Remove only a
+    default expression that matches at least one exact override; unrelated
+    defaults, including gripper linkage initialization, remain intact.
+    """
+    if not isinstance(defaults, dict) or not isinstance(overrides, dict):
+        raise TypeError("Joint position defaults and overrides must be dictionaries.")
+    result = dict(defaults)
+    for pattern in tuple(result):
+        if pattern in overrides:
+            continue
+        try:
+            overlaps = any(re.fullmatch(pattern, joint) for joint in overrides)
+        except re.error as exc:
+            raise ValueError(f"Invalid default joint expression {pattern!r}.") from exc
+        if overlaps:
+            result.pop(pattern)
+    result.update(overrides)
+    return result
 
 
 def save_initial_state(name, state, path=None, *, overwrite=False):

@@ -12,7 +12,8 @@ Isaac Lab scene key를 변경하지 않는다.
 | `envs/` | Scene 생성, manager 환경, MDP, 공통 물리 설정 | `scene.py`, `manager_env.py`, `manager_mdp.py`, `teleop_env.py`, `scene_physics.py`, `contact_physics.py`, `task_system.py` |
 | `rl/` | 독립 병렬 scene, manager 환경, PPO/SAC/DPPO 학습·평가 | `envs/`, `scenes/`, `tasks/`, `managers/`, `mdp/`, `agents/`, `algorithms/`, `data/`, `runners/` |
 | `teleop/` | Meta Quest 연결, tracking → action 변환, 안전 제어, 수집 실행 | `quest_openxr.py`, `quest_runtime.py`, `teleop_mapping.py`, `teleop_body_action.py`, `collect_quest_teleop.py` |
-| `robots/` | Robot/gripper asset 선택과 설정, 관성, linkage, 물리 카메라 장착 위치 | `robot_model.py`, `gripper_config.py`, `gripper_runtime.py`, `robot_inertials.py`, `twofinger_linkage.py`, `wrist_camera_mount.py` |
+| `robots/` | Robot/gripper asset 선택과 설정, 관성, 물리 카메라 장착 위치 | `robot_model.py`, `gripper_config.py`, `gripper_runtime.py`, `robot_inertials.py`, `wrist_camera_mount.py` |
+| `robots/claw_assets/` | Leju two-finger asset, linkage, 접촉 형상, force control의 단일 구현 | `package.py`, `linkage.py`, `geometry.py`, `force.py`, `usd.py`, `isaaclab.py` |
 | `workcell/` | Rack/box 배치, 좌표 변환, pose 캡처, rack–conveyor 간격, flap 마찰 설정 | `workcell_layout.py`, `rack_box_layout.py`, `capture_layout.py`, `capture_rack_box_poses.py`, `workcell_gap.py`, `box_flap_friction.py` |
 | `display/` | 카메라 프레임 추출, 화면 표시, stereo 보정/합성, XR panel, 영상 저장 | `camera_frames.py`, `camera_viewports.py`, `stereo_camera_calibration.py`, `stereo_compositor.py`, `xr_camera_overlay.py`, `xr_control_status.py`, `eval_video.py` |
 | `recording/` | HDF5/LeRobot 데이터 기록과 별도 writer process | `teleop_recorder.py`, `teleop_lerobot_recorder.py`, `lerobot_writer_worker.py` |

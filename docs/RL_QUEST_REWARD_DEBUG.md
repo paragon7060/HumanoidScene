@@ -11,23 +11,24 @@ S63의 기본 `--dynamics-profile auto`는 몸통 gravity-PD와 팔 전용 live 
 사용한다. 시작 로그의 `dynamics_profile=s63-arm-id`로 확인한다. 기존 gravity-only와
 비교하거나 문제가 있을 때는 `--dynamics-profile gravity`를 지정한다.
 
-Closed two-finger gripper의 VR 닫기 명령은 기본 `--gripper-close-force 50`으로
-한 손의 양쪽 손가락 압착력 합계 50 N(각 25 N)을 목표로 한다. 접촉 전부터
-닫기 방향의 힘 제어를 사용하며, 실제 접촉 전 센서값은 0 N이다. 닫기 중 위치
-stiffness는 0이며, implicit damping으로 속도를 억제한다. 외부 토크와 damping
-drive에 원래 토크 예산의 절반씩을 할당한다. 박스와의 접촉력 중 닫힘 축 방향
-성분을 피드백하며 마찰력은 센서값에 포함되지 않는다. 열기는 같은 힘을 반대로
-환산한 토크를 사용한다. 닫힘/열림 끝에서는 토크를 끊으며 reset 때 원래 구동
-설정을 복구한다. 끝에 도달하거나 토크가 포화되면 목표 접촉력을 달성하지 못할 수 있다.
-HUD의 `GRIP L/R`과 `[GRIP FORCE]` 로그에서 손가락별 힘과 합계를 확인한다.
-`--gripper-close-force 0`은 기존 위치 개폐로 실행한다. 일반 VR 수집에도 동일한
-옵션이 적용되며 정책 학습·평가의 기존 continuous gripper action은 유지한다.
+Closed two-finger gripper의 닫기 명령은 기본 `--gripper-close-force 50`으로
+한 손의 양쪽 손가락 합계 50 N-equivalent(각 25 N)를 위치 PD에 더한다. reward
+debug는 학습과 같은 binary action(`0=open`, `1=close`), 실물 보정 position mapping,
+target filter, PD gain과 sensor-free geometric feedforward를 그대로 사용한다. 접촉
+센서를 힘 제어 루프에 추가하지 않으므로 HUD의 `GRIP L/R`과 `[GRIP ASSIST]` 로그는
+측정 접촉력이 아니라 명령한 등가 힘을 표시한다. 실제 힘은 접촉 형상, 마찰과 solver
+compliance에 따라 달라질 수 있다. 빈 gripper가 닫힘 mechanical stop에 도달하면 불필요한
+하중을 끊는다. `--gripper-close-force 0`은 보조 토크를 끄고 binary 위치 PD만 사용한다.
+
+일반 VR dataset 수집은 별도의 접촉센서 피드백 진단 경로를 계속 사용한다. 따라서
+RL과 같은 gripper 동작을 확인하려면 이 문서의 `--rl-reward-debug` 실행을 사용한다.
 
 ## 박스 인출 → 컨베이어 놓기 검사
 
 `--rl-task pick_place --rl-reward-debug 1`은 한 박스를 처음부터 컨베이어에
 내려놓는 연속 작업이다. 기존 `pick`은 lift 성공에서 종료된다.
-두 모드 모두 기본 task box는 `small_box_0`이다. 다른 캡처 박스를 검사할 때만
+두 모드 모두 기본 task box는 `small_box_0`이며, 전용 고정 pose를 사용해 기존 task
+위치인 중간 선반(2번)에 생성한다. 다른 캡처 박스를 검사할 때만
 `--rl-box medium_box_0`처럼 지정하며, 선택한 box가 현재 rack layout 또는 캡처 pose에서
 선반 위에 있어야 한다.
 
@@ -87,14 +88,14 @@ RL scene은 `minimal_rl_v2`이며 local cuboid로 만든 정지 belt, 측면 프
 Scene profile이 바뀌었으므로 이전 checkpoint/reset bank와의 호환을 가정하지 않는다.
 
 RL reward debug는 일반 Teleop의 factory 배경을 복제하지 않고 `minimal_rl_v2` workcell을
-생성한다. 그래도 rack의 위치·회전·scale은 같은 `configs/workcell_layout.json`, box 위치는
-같은 `configs/rack_box_poses.json`을 사용한다. 기본 SmallBox 대신 자동 배치한 SmallBox
-하나만 쓰려면 다음과 같이 캡처 pose를 끈다.
+생성한다. 그래도 rack의 위치·회전·scale은 같은 `configs/workcell_layout.json`을 사용한다.
+기본 SmallBox는 `configs/rack_box_poses_small_middle.json`의 고정 중간 선반 pose를 사용한다.
+자동 배치 위치를 명시적으로 시험하려면 다음처럼 기본 캡처 pose를 끈다.
 
 ```bash
 ./quest_collector.sh collect \
   --rl-reward-debug 1 --rl-task pick_place \
-  --rack-boxes '1:small' --ignore-captured-box-poses \
+  --rack-boxes '2:small' --ignore-captured-box-poses \
   --no-rack-rollers
 ```
 
@@ -118,8 +119,42 @@ RL reward debug는 일반 Teleop의 factory 배경을 복제하지 않고 `minim
 head와 양팔/양손을 모두 해제한다. 성공 조건인 `grasp_hand="right"` 한 손 파지
 판정 자체는 바뀌지 않는다.
 
+`2`는 `1`의 absolute/downward/responsive, 전체 관절, 50 N gripper, 카메라 OFF
+기본값을 이어받아 격리된 `rl/multi_box` v2 scene을 연다. 시작/reset마다 rack과
+conveyor pose 및 1~12개 box 배치를 다시 뽑는다. 두 번째 shelf에는 small/medium,
+세 번째 shelf에는 small box만 생긴다. 이 scene은 rollerless rack을 사용하므로
+wrapper가 마지막에 `--no-rack-rollers`를 자동 적용한다. mode 2 HUD는 활성 box와
+randomization 결과 외에 선택한 box의 v2 pose shadow reward를 표시한다. reset 때
+양 TCP에서 가장 가까운 활성 box를 target으로 잠그며 PC J/L로 target을 바꿀 수 있다.
+PC 1/2/3은 각각 grasp/carry/place dense reward를 검사한다. 이 phase 선택은 표시와
+로그에만 적용되고 task state나 로봇 제어를 변경하지 않는다.
+
+현재 shadow 값은 실제 TCP와 flap rigid-body 형상, box/rack/conveyor pose, box velocity로
+계산한다. 네 손가락과 18개 physical box의 두 target flap 사이에서 PhysX가 이미 계산한
+filtered contact도 읽는다. HUD/JSONL의 `CONTACT RAW`에는 현재 target box에 대한 손가락별
+접촉력, 실제 flap bounds 안의 접촉인지와 두 jaw가 flap을 사이에 두는지를 표시한다.
+이 값에는 아직 최소 접촉력 임계값을 적용하지 않는다.
+
+contact/collision/success event와 base/action/joint-limit regularization은 0으로 두며 HUD에도
+비활성이라고 표시한다. 따라서 pose 근접이나 raw contact만으로 grasp 또는 place 성공을
+선언하지 않는다. 이 값은 초기 normalization, 접촉 임계값과 weight 비율을 VR 분포로
+보정하기 위한 측정값이며 학습 reward의 최종 검증 결과가 아니다.
+
+매 control step의 raw SI 값, normalized potential, weighted term과 누적 return을 별도
+JSONL에 저장하려면 존재하지 않는 새 경로를 지정한다. 데이터셋에는 섞이지 않는다.
+
+```bash
+./quest_collector.sh collect --rl-reward-debug 2 \
+  --rl-shadow-log artifacts/multi_box_shadow_01.jsonl
+```
+
+접촉력과 파지 미끄럼을 보정할 때는 target이 실제 조작한 박스와 달라지는 것을 막기 위해
+`--rl-shadow-box-count 1`로 한 개만 생성한다. 이 옵션은 mode 2 진단 scene에만 적용되며
+학습용 full task의 1–12개 분포를 변경하지 않는다.
+
 ```bash
 ./quest_collector.sh collect --rl-reward-debug 1   # 전체 관절 풀기
+./quest_collector.sh collect --rl-reward-debug 2   # multi-box v2 VR teleop 검사
 ./quest_collector.sh collect --rl-reward-debug 0   # 기존과 동일: 활성 팔만
 ./quest_collector.sh collect --rl-reward-debug     # 값 생략 시 0과 동일
 ```
@@ -196,13 +231,15 @@ sensor 경로를 유지한다. 이때 obstacle report 기본값은 30 Hz다. Rew
 |---|---|
 | X / PC C | 시점 보정 후 일시정지 |
 | A / PC T | 물리·팔 추종 시작/일시정지, 손 위치·회전 기준 재설정 |
-| 왼쪽 joystick | `1` 모드에서 base 전후·좌우 이동 |
-| 오른쪽 joystick 좌우 / 상하 | `1` 모드에서 base 회전 / torso 승강 |
-| 오른쪽 아래 그립(squeeze) + 오른쪽 joystick 상하 | `1` 모드에서 몸통 전후 이동: 위=앞, 아래=뒤 |
-| 오른쪽 아래 그립(squeeze) + 오른쪽 joystick 좌우 | `1` 모드에서 waist yaw 회전 |
+| 왼쪽 joystick | `1`/`2` 모드에서 base 전후·좌우 이동 |
+| 오른쪽 joystick 좌우 / 상하 | `1`/`2` 모드에서 base 회전 / torso 승강 |
+| 오른쪽 아래 그립(squeeze) + 오른쪽 joystick 상하 | `1`/`2` 모드에서 몸통 전후 이동: 위=앞, 아래=뒤 |
+| 오른쪽 아래 그립(squeeze) + 오른쪽 joystick 좌우 | `1`/`2` 모드에서 waist yaw 회전 |
 | 오른쪽 검지 트리거 | 오른쪽 gripper 닫기; 놓으면 열기. 기본 오른손 실험은 왼쪽 입력 무시 |
 | B / PC R | 모델별 초기 자세로 초기화하고 정지 (**녹화 버튼 아님**) |
 | Y / PC H | reward 패널 표시/숨김 |
+| PC J / L | mode 2 shadow target을 이전/다음 활성 box로 변경 |
+| PC 1 / 2 / 3 | mode 2 shadow phase를 grasp / carry / place로 변경 |
 
 아래 그립은 중지 `squeeze`, gripper 개폐는 위 검지 trigger다. 오른쪽 squeeze를
 놓으면 오른쪽 joystick은 base 회전/torso 승강으로 돌아가고 몸통 전후·waist yaw
@@ -590,8 +627,10 @@ width/height를 일치시킨다. `pixels_per_cm`은 패널의 물리적 표시 �
 표시 코드에서 weight/dt를 다시 곱하지 않는다. Reach/Alignment state score는
 진단용 상태 점수이며 실제 step reward가 아니다.
 
-현재 이 패널은 단일 박스 flap-pick 및 pick_place를 지원한다. `rl/multi_box`의 가중치와 계산식은
-별도의 `rl/multi_box/managers/rewards.py`에 있으며 기존 Quest 패널에는 연결되지 않는다.
+Mode 0/1 패널은 단일 박스 flap-pick 및 pick_place reward를 표시한다. Mode 2는 같은
+XR panel에 multi-box 배치와 선택한 box의 read-only pose shadow reward 및 raw contact를
+표시한다. 아직 승인되지 않은 접촉 임계값·성공/충돌 event·phase transition은 계산하거나
+제어에 적용하지 않는다.
 
 ## 패널이 안 보이거나 오류 로그가 나오는 경우
 

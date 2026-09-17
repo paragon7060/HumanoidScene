@@ -84,6 +84,34 @@ def test_pause_reset_preserves_commanded_torso_instead_of_adopting_sag():
         torch.testing.assert_close(action, torch.zeros_like(action))
 
 
+def test_quest_trigger_drives_the_rl_gripper_as_zero_open_one_close():
+    cls = control_class()
+    control = cls.__new__(cls)
+    gripper = NS(_close_requested=torch.zeros(1, 1, dtype=torch.bool))
+    control.env = NS(device="cpu", step_dt=1 / 30,
+                     action_manager=NS(total_action_dim=1, get_term=lambda _name: gripper))
+    control.sides = ("left",)
+    control.term_slices = {"upper_body": slice(0, 0), "left_gripper": slice(0, 1)}
+    control.upper = NS(processed_actions=torch.zeros(1, 0), _scale=1.0)
+    control.columns = {"left": []}
+    control.frames = NS(center_pose_w=torch.zeros(1, 2, 7))
+    control.mapper = NS(target=lambda *args, **kwargs: np.zeros(7))
+    control.xr = NS(controller_aim_pose=lambda _side: None)
+    control.pose = lambda _body=None: np.zeros(7)
+    control.torso = 0
+    control.body_mapper = None
+    control.solvers = {"left": NS(
+        _joint_command=torch.zeros(1, 0),
+        process_actions=lambda _goal: None,
+    )}
+    packet = np.zeros((2, 7))
+
+    packet[1, 2] = 0.0
+    torch.testing.assert_close(control.action({"left": packet}), torch.tensor([[0.0]]))
+    packet[1, 2] = 0.5
+    torch.testing.assert_close(control.action({"left": packet}), torch.tensor([[1.0]]))
+
+
 @pytest.mark.parametrize("mode,compensated,expected_height", [
     ("arms-only", False, (400., 40.)), ("whole-body", False, (8000., 200.)),
     ("arms-only", True, (400., 40.)), ("whole-body", True, (400., 40.)),
@@ -98,6 +126,6 @@ def test_experiment_supports_released_torso_without_changing_locked_mode(mode, c
                               actuators={"height_axis": height, "upper_body": yaw})),
              rewards=NS(prelift_disturbance=NS(), orientation=NS(params={})),
              actions=NS(upper_body=NS(), left_gripper=NS(), right_gripper=NS()))
-    configure(cfg, NS(policy=NS(), algorithm=NS()))
+    configure(cfg, NS(policy=NS(), algorithm=NS(), _skip_training_setup=True))
     assert (height.stiffness, height.damping) == expected_height
     assert (yaw.stiffness, yaw.damping) == ((800., 50.) if mode == "whole-body" and not compensated else (120., 15.))

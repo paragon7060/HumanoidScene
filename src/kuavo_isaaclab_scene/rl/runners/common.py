@@ -160,6 +160,7 @@ def build_configs(args, *, active_arm_override=None, include_agent=True):
             experiment_name=f"kuavo_{args.task}", num_steps_per_env=32, save_interval=None,
             policy=types.SimpleNamespace(init_noise_std=0.35),
             algorithm=types.SimpleNamespace(num_mini_batches=4),
+            _skip_training_setup=True,
         )
     if "configure" in customization:
         customization["configure"](cfg, agent)
@@ -190,7 +191,8 @@ def build_configs(args, *, active_arm_override=None, include_agent=True):
           "factory/movers=off; collision-filtering=on", flush=True)
     from ...robots.gripper_config import resolve_gripper_settings
     gripper = resolve_gripper_settings()
-    print(f"[RL] finger contact from {gripper.config_path} [{gripper.name}]: "
+    source = gripper.package_config_path or gripper.config_path
+    print(f"[RL] finger contact from {source} [{gripper.name}]: "
           f"{asdict(gripper.finger_contact)}; checkpoint interval={agent.save_interval}", flush=True)
     return cfg, agent
 

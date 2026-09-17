@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-ACTION_ENCODING = "manager_normalized_incremental_v1"
+ACTION_ENCODING = "manager_mixed_binary_gripper_v2"
 
 
 class EpisodeWriter:
@@ -47,7 +47,7 @@ class EpisodeDataset(Dataset):
         self.file = h5py.File(path, "r")
         try:
             if self.file.attrs.get("format_version") != 1 or self.file.attrs.get("action_encoding") != ACTION_ENCODING:
-                raise ValueError("Dataset must contain the native RL incremental-action encoding")
+                raise ValueError("Dataset must contain the current RL mixed binary-gripper action encoding")
             self.manifest = json.loads(self.file.attrs["manifest"])
             self.keys, self.ends = [], []
             self.obs_dim = self.action_dim = None

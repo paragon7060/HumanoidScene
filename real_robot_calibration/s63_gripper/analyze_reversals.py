@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 from kuavo_isaaclab_scene.robots.gripper_action import DirectionalGripperMapping
 from kuavo_isaaclab_scene.robots.gripper_config import load_gripper_settings
-from kuavo_isaaclab_scene.robots.twofinger_geometry import TwoFingerGeometry
+from kuavo_isaaclab_scene.robots.claw_assets.geometry import TwoFingerGeometry
 
 
 def json_rows(path):

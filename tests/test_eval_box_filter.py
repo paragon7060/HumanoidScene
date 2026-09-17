@@ -46,3 +46,14 @@ def test_medium_only_pose_is_on_middle_shelf():
     boxes = json.loads(path.read_text())["boxes"]
     assert list(boxes) == ["MediumBox_0"]
     assert boxes["MediumBox_0"]["shelf"] == 2
+
+
+def test_quest_small_only_pose_reuses_fixed_middle_shelf_position():
+    root = Path(__file__).resolve().parents[1]
+    path = root / "configs/rack_box_poses_small_middle.json"
+    boxes = json.loads(path.read_text())["boxes"]
+    original = json.loads((root / "configs/rack_box_poses.json").read_text())["boxes"]
+    assert list(boxes) == ["SmallBox_0"]
+    assert boxes["SmallBox_0"]["shelf"] == 2
+    assert boxes["SmallBox_0"]["local_pos"] == original["MediumBox_0"]["local_pos"]
+    assert boxes["SmallBox_0"]["local_rot"] == original["MediumBox_0"]["local_rot"]

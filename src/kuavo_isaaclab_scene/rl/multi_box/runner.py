@@ -140,12 +140,17 @@ def main(strategy=None, mode="train"):
         physical_spec = asdict(spec)
         for key in ("strategy", "skill", "reset_bank", "snapshot_dir", "max_snapshots", "episode_seconds"):
             physical_spec.pop(key)
+        gripper_settings = resolve_gripper_settings()
+        gripper_package = (json.loads(gripper_settings.package_config_path.read_text())
+                           if gripper_settings.package_config_path else None)
         contract = dict(version=1, spec=physical_spec, robot=args.robot_model, gripper=args.gripper,
             actions=cfg.actions.to_dict(), observations=cfg.observations.to_dict(),
             layout=json.loads(args.workcell_layout.read_text()), boxes=json.loads(args.rack_box_poses.read_text()),
             robot_spawn=cfg.scene.robot.spawn.to_dict(), robot_actuators=cfg.scene.robot.actuators,
             geometry={n: asdict(g) for n, g in cfg.commands.workcell.geometry.items()},
-            tcp=calibration_definition(), gripper_config=json.loads(resolve_gripper_settings().config_path.read_text()),
+            tcp=calibration_definition(),
+            gripper_registry=json.loads(gripper_settings.config_path.read_text()),
+            gripper_package=gripper_package,
             sim_dt=cfg.sim.dt, decimation=cfg.decimation)
         # Serialize config objects canonically before hashing.
         contract["robot_actuators"] = {k: v.to_dict() for k, v in cfg.scene.robot.actuators.items()}

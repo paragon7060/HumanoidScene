@@ -13,6 +13,18 @@ from ...core.paths import ASSET_DIR
 CLAW_ASSET_DIR = ASSET_DIR / "leju_claw_two_finger"
 
 
+def load_claw_config(asset_dir: Path = CLAW_ASSET_DIR) -> dict:
+    """Load the single authoritative Leju claw package configuration."""
+    return json.loads((asset_dir / "config.json").read_text())
+
+
+def default_close_force_n(asset_dir: Path = CLAW_ASSET_DIR) -> float:
+    value = float(load_claw_config(asset_dir)["force_control"]["close_force_n"])
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("Package close_force_n must be positive and finite")
+    return value
+
+
 @dataclass(frozen=True)
 class ClawAsset:
     side: str
@@ -34,7 +46,7 @@ class ClawAsset:
         return dict(zip(self.motor_names, (-0.25 * fraction, 0.25 * fraction)))
 
     def initial_positions(self, signed_action: float = 1.0) -> dict[str, float]:
-        from ..twofinger_linkage import initial_passive_positions
+        from .linkage import initial_passive_positions
         commands = self.motor_positions(signed_action)
         return {**commands, **initial_passive_positions(commands)}
 
@@ -42,7 +54,7 @@ class ClawAsset:
 def load_claw_asset(side: str, asset_dir: Path = CLAW_ASSET_DIR) -> ClawAsset:
     if side not in ("left", "right"):
         raise ValueError("Claw side must be 'left' or 'right'")
-    metadata = json.loads((asset_dir / "config.json").read_text())
+    metadata = load_claw_config(asset_dir)
     return ClawAsset(side, side[0], metadata["sides"][side]["root_link"],
                      asset_dir / "urdf" / f"leju_claw_{side}.urdf",
                      asset_dir / "usd" / side / f"leju_claw_{side}.usd", metadata)

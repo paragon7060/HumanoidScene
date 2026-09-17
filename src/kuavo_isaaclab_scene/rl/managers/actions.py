@@ -2,20 +2,28 @@
 
 from isaaclab.utils import configclass
 from ...robots.gripper_config import resolve_gripper_settings
+from ...robots.claw_assets.package import default_close_force_n
+from ...robots.claw_assets.linkage import TWO_FINGER_PRESETS
 from ...robots.robot_model import resolve_robot_model
-from ..mdp.actions import PlanarDriveCfg, JointDeltaTargetsCfg, IncrementalGripperCfg, ArmsOnlyJointTargetsCfg
+from ..mdp.actions import PlanarDriveCfg, JointDeltaTargetsCfg, BinaryGripperCfg, ArmsOnlyJointTargetsCfg
 from ..mdp.body_lock import ARM_JOINT_NAMES
 from ..action_spaces import HEAD_JOINTS
 
 
 def hand_action(side):
     hand = resolve_gripper_settings()
-    return IncrementalGripperCfg(asset_name=hand.asset_name_for(side),
+    force = ({"close_force_n": default_close_force_n(), "force_side": side}
+             if hand.name in TWO_FINGER_PRESETS else {})
+    return BinaryGripperCfg(asset_name=hand.asset_name_for(side),
         joint_names=list(hand.joint_names_for(side)),
         open_command_expr=hand.command_for(side, hand.open_command),
         close_command_expr=hand.command_for(side, hand.close_command),
         position_mapping=hand.sides[side].position_mapping,
-        target_filter=hand.sides[side].target_filter)
+        target_filter=hand.sides[side].target_filter,
+        # Package value is total squeeze; the force model divides it equally
+        # between the two symmetric jaws. Other gripper packages keep binary
+        # position control without assuming this claw's linkage geometry.
+        **force)
 
 
 @configclass

@@ -1,7 +1,9 @@
 # S63 Leju two-finger 개폐 제어
 
 `--robot-model s63 --gripper leju-twofinger`에서 사용하는 관절 목표 설정이다.
-설정은 `configs/grippers.json`과 패키지 내부의 동일한 파일에 함께 반영한다.
+설정의 기준은 `src/kuavo_isaaclab_scene/assets/leju_claw_two_finger/config.json`
+한 파일이다. `configs/grippers.json`은 `leju-twofinger` 이름을 이 패키지 preset에
+연결만 하므로 같은 값을 두 파일에 중복해서 넣지 않는다.
 실물 명령 기준 0은 완전 열림, 100은 완전 닫힘이다. 시뮬레이션 continuous action은
 기존과 같이 +1이 열림, -1이 닫힘이며 명령 백분율은 `(1-action)*50`이다.
 

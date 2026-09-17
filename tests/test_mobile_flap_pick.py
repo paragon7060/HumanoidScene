@@ -64,7 +64,6 @@ def test_mobile_config_keeps_lift_goal_and_releases_both_arms_and_torso():
     assert env.actions.base.velocity_limits == (.15, .15, .5)
     assert env.actions.upper_body.scale["waist_yaw_joint"] == .01
     assert env.actions.height.scale == .015
-    assert env.actions.left_gripper.delta_scale == env.actions.right_gripper.delta_scale == .08
     assert (ROOT / "configs/rl_pick_whole_body.py").read_bytes() == (
         ROOT / "src/kuavo_isaaclab_scene/configs/rl_pick_whole_body.py").read_bytes()
 

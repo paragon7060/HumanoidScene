@@ -73,8 +73,10 @@ def _config(args):
     # Manual reward inspection can run indefinitely. Remove the timeout term
     # instead of using an infinite duration (Isaac rounds duration to steps).
     cfg.terminations.time_out = None
-    from ...robots.vr_gripper_force import configure_vr_gripper_force
-    configure_vr_gripper_force(cfg, getattr(args, "gripper_close_force", 50.), incremental=True)
+    from ...robots.claw_assets.vr import configure_rl_gripper_force
+    # Keep the exact binary action, calibrated position mapping, PD gains and
+    # sensor-free force assist used by training.  Only override its force value.
+    configure_rl_gripper_force(cfg, getattr(args, "gripper_close_force", None))
     cfg.xr = XrCfg(near_plane=.08)
     cfg.scene.conveyor_surface.class_type = StationarySurface
     cfg.recorders.quest_reward = RecorderTermCfg(class_type=RewardProbe)
@@ -202,6 +204,14 @@ def run(args, app):
         print(f"[RL REWARD] controller_mapping={args.controller_mapping}"
               + (f", absolute_orientation={args.absolute_orientation}" if args.controller_mapping == "absolute" else "")
               + f", arm_response={args.arm_response}", flush=True)
+        gripper_terms = [env.action_manager.get_term(side + "_gripper")
+                         for side in control.sides]
+        if gripper_terms:
+            force = getattr(gripper_terms[0], "_force_drive", None)
+            force_n = force.feedforward.force_n if hasattr(force, "feedforward") else 0.0
+            print(f"[RL REWARD] gripper=binary 0=open/1=close; calibrated mapping/filter=ON; "
+                  f"position PD=ON; sensor-free assist={force_n:g} N total "
+                  f"({force_n / 2:g} N-equivalent/jaw).", flush=True)
         print(f"[RL REWARD] RL control rate={1/env.step_dt:g} Hz (collector --control-hz ignored); "
               f"RL drives/initial pose/reward terms active; episode time limit=OFF. "
               f"Success/failure terminations active. Display cameras={args.enable_cameras}.",
@@ -337,16 +347,32 @@ def run(args, app):
                         reward = env._quest_reward_sample
                         response_probe.end(tracking_valid=tracked,
                             collision=bool(reward.get("failure")) or bool(reward.get("obstacle_force",0) > reward.get("obstacle_limit",0)),
-                            context={"settled":settled,"failure_reasons":reward.get("failure_reasons",[])})
+                            context={
+                                "settled": settled,
+                                "failure_reasons": reward.get("failure_reasons", []),
+                                # Persist the values that are otherwise only
+                                # printed to the console.  This lets a recorded
+                                # slip be separated from insufficient squeeze,
+                                # one-sided contact, or loss of opposed contact.
+                                "gripper_force": reward.get("gripper_force", {}),
+                                "left_grasp": bool(reward.get("left_grasp", False)),
+                                "right_grasp": bool(reward.get("right_grasp", False)),
+                                "grasp_debug": reward.get("grasp_debug", []),
+                            })
                     perf_steps += 1
                 sample = env._quest_reward_sample
                 reach_summary.update(sample, env.step_dt)
                 if start >= next_grasp_diagnostic or sample["failure"] or sample["success"] or sample["timeout"]:
                     for side, grip in sample.get("gripper_force", {}).items():
                         if grip["closing"]:
-                            print(f"[GRIP FORCE] {side}: target={grip['target_n']:g}N total; "
-                                  f"measured={grip['jaw_n'][0]:.2f}/{grip['jaw_n'][1]:.2f}N "
-                                  f"total={grip['total_n']:.2f}N", flush=True)
+                            if grip["mode"] == "sensor_free_pd":
+                                print(f"[GRIP ASSIST] {side}: PD + "
+                                      f"{grip['commanded_jaw_n'][0]:g}/"
+                                      f"{grip['commanded_jaw_n'][1]:g}N-equivalent", flush=True)
+                            else:
+                                print(f"[GRIP FORCE] {side}: target={grip['target_n']:g}N total; "
+                                      f"measured={grip['jaw_n'][0]:.2f}/{grip['jaw_n'][1]:.2f}N "
+                                      f"total={grip['total_n']:.2f}N", flush=True)
                     print(f"[RL GRASP] blocked={','.join(sample['blocked_checks']) or 'none'}; "
                           f"failure={','.join(sample['failure_reasons']) or 'none'}; "
                           f"lift={sample['lift_cm']:.1f}cm hold={sample['hold']:.2f}s; "

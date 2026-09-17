@@ -8,7 +8,7 @@ import torch
 
 from kuavo_isaaclab_scene.robots.initial_states import (
     apply_initial_state, capture_initial_state, load_initial_state,
-    read_states, save_initial_state, validate_state,
+    merge_joint_position_defaults, read_states, save_initial_state, validate_state,
 )
 
 
@@ -40,6 +40,27 @@ def test_unknown_name_and_model_mismatch(tmp_path):
     for kwargs in ({"robot_model": "s56"}, {"gripper": "none"}):
         with pytest.raises(ValueError, match="selected"):
             load_initial_state("a", path, **kwargs)
+
+
+def test_exact_saved_joints_replace_overlapping_regex_defaults_only():
+    defaults = {
+        "zarm_.*_joint": 0.0,
+        "zhead_.*_joint": 0.0,
+        "waist_yaw_joint": 0.0,
+        "[lr]_finger_joint": 0.2,
+    }
+    saved = {
+        "zarm_l1_joint": 0.25,
+        "zarm_r1_joint": 0.25,
+        "zhead_1_joint": 0.1,
+        "waist_yaw_joint": -0.01,
+    }
+    merged = merge_joint_position_defaults(defaults, saved)
+    assert "zarm_.*_joint" not in merged
+    assert "zhead_.*_joint" not in merged
+    assert merged["[lr]_finger_joint"] == 0.2
+    assert merged["waist_yaw_joint"] == -0.01
+    assert merged["zarm_l1_joint"] == merged["zarm_r1_joint"] == 0.25
 
 
 @pytest.mark.parametrize("mutation", [

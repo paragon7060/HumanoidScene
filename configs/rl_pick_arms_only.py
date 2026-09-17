@@ -69,13 +69,19 @@ def configure(env_cfg, agent_cfg):
     # Signed alignment improvement only within 10 cm and before grasp acquisition.
     env_cfg.rewards.orientation.weight = 0.5
     env_cfg.rewards.orientation.params["distance_threshold"] = 0.10
-    # Actions are normalized incremental joint targets in radians/control step.
-    # Zero holds the previous target. Use a small range for the first experiments.
+    # Arm actions are normalized incremental joint targets. Grippers use the
+    # shared 0=open, 1=close binary action with 25 N assist per jaw.
     env_cfg.actions.upper_body.scale = 0.02
     env_cfg.actions.upper_body.body_lock_tolerance = 1e-4
-    for side in ("left", "right"):
-        gripper = getattr(env_cfg.actions, side + "_gripper")
-        if gripper is not None:
-            gripper.delta_scale = 0.08
-    from kuavo_isaaclab_scene.rl.agents.flap_ppo import configure_flap_ppo
-    configure_flap_ppo(agent_cfg)
+    if getattr(agent_cfg, "_skip_training_setup", False) or agent_cfg.__class__.__module__ == "types":
+        # Config/reward inspection needs the final scalar values but must not
+        # import the optional rsl_rl implementation classes.
+        agent_cfg.policy.init_noise_std = 0.15
+        agent_cfg.policy.noise_std_type = "log"
+        agent_cfg.algorithm.entropy_coef = 0.001
+        agent_cfg.num_steps_per_env = 64
+        agent_cfg.algorithm.num_mini_batches = 32
+        agent_cfg.algorithm.num_learning_epochs = 4
+    else:
+        from kuavo_isaaclab_scene.rl.agents.flap_ppo import configure_flap_ppo
+        configure_flap_ppo(agent_cfg)

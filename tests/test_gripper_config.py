@@ -155,7 +155,7 @@ def test_invalid_quaternion_is_rejected(tmp_path) -> None:
     source = load_gripper_settings().config_path
     payload = json.loads(source.read_text(encoding="utf-8"))
     selected = payload["default"]
-    payload["presets"][selected]["sides"]["left"]["robot_mount_rot"] = [0, 0, 0, 0]
+    payload["presets"][selected]["sides"] = {"left": {"robot_mount_rot": [0, 0, 0, 0]}}
     path = tmp_path / "bad.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="quaternion"):
@@ -190,12 +190,11 @@ def test_custom_finger_contact_config(tmp_path, monkeypatch, preset, combine) ->
     assert load_gripper_settings(preset).finger_contact == FingerContactSettings(2.5, 1.5, combine)
 
 
-def test_legacy_config_preserves_contact_friction(tmp_path) -> None:
+def test_package_alias_supplies_contact_friction(tmp_path) -> None:
     payload = json.loads(DEFAULT_GRIPPER_CONFIG.read_text(encoding="utf-8"))
-    del payload["presets"]["s56_twofinger"]["finger_contact"]
     path = tmp_path / "legacy.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
-    assert load_gripper_settings("s56_twofinger", path).finger_contact == FingerContactSettings()
+    assert load_gripper_settings("s56_twofinger", path).finger_contact == FingerContactSettings(20, 16, "average")
 
 
 @pytest.mark.parametrize("contact", [

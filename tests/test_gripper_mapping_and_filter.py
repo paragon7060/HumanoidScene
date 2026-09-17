@@ -66,7 +66,8 @@ def test_two_stage_filter_is_timestep_independent_and_starts_gently():
 @pytest.mark.parametrize("value", [0,3,2.,True,float('nan')])
 def test_invalid_target_filter_stages_rejected(tmp_path,value):
     payload=json.loads(load_gripper_settings('leju-twofinger').config_path.read_text())
-    payload['presets']['leju-twofinger']['sides']['left']['target_filter']['stages']=value
+    side=payload['presets']['leju-twofinger'].setdefault('sides',{}).setdefault('left',{})
+    side.setdefault('target_filter',{})['stages']=value
     path=tmp_path/'grippers.json'
     path.write_text(json.dumps(payload))
     with pytest.raises(ValueError):load_gripper_settings('leju-twofinger',path)
@@ -76,7 +77,8 @@ def test_invalid_target_filter_stages_rejected(tmp_path,value):
 @pytest.mark.parametrize("value", [0,-1,float('nan'),float('inf'),True])
 def test_invalid_target_filter_settings_rejected(tmp_path,value):
     payload=json.loads(load_gripper_settings("leju-twofinger").config_path.read_text())
-    payload['presets']['leju-twofinger']['sides']['left']['target_filter'] = dict(closing_time_constant_s=value,opening_time_constant_s=.1)
+    side=payload['presets']['leju-twofinger'].setdefault('sides',{}).setdefault('left',{})
+    side['target_filter'] = dict(closing_time_constant_s=value,opening_time_constant_s=.1)
     path=tmp_path/'grippers.json'
     path.write_text(json.dumps(payload))
     with pytest.raises(ValueError):load_gripper_settings('leju-twofinger',path)
@@ -129,7 +131,8 @@ def test_expanded_linkage_range_closes_and_respects_follower_limits(jaw):
 def test_bad_calibration_rejected(tmp_path, field, value):
     source = load_gripper_settings("leju-twofinger").config_path
     config = json.loads(source.read_text())
-    config["presets"]["leju-twofinger"]["sides"]["left"][field] = value
+    side=config["presets"]["leju-twofinger"].setdefault("sides",{}).setdefault("left",{})
+    side[field] = value
     path = tmp_path / "grippers.json"
     path.write_text(json.dumps(config))
     with pytest.raises(ValueError):
