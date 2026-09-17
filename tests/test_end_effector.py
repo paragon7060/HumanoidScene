@@ -33,6 +33,19 @@ def test_closed_center_is_mirrored_and_not_average_of_unrelated_local_frames():
     np.testing.assert_allclose(result["left"], [.00018399152322091938, -.0011112558194255602, -.055497895148762716], atol=1e-10)
 
 
+def test_calibrated_tcp_transfers_to_every_host_carrying_the_claw():
+    # The points are local to each finger link, so the same hardware on another
+    # host resolves to the same closed midpoint rather than an uncalibrated frame.
+    donor = closed_offsets(resolve_robot_model("s200062").urdf_path, definition()["offsets"],
+                           load_gripper_settings("s200062_integrated"))
+    s63 = closed_offsets(resolve_robot_model("s63").urdf_path, definition()["offsets"],
+                         load_gripper_settings("leju-twofinger"))
+    for side in ("left", "right"):
+        np.testing.assert_allclose(s63[side], donor[side], atol=1e-6)
+    assert load_gripper_settings("leju-twofinger").package_config_path is not None
+    assert load_gripper_settings("s56_qiangnao").package_config_path is None
+
+
 @pytest.mark.parametrize("side", ["left", "right"])
 def test_center_jacobian_finite_difference(side):
     model = resolve_robot_model("s200062")

@@ -78,13 +78,17 @@ def spawn_s63_twofinger_robot(prim_path, cfg, translation=None, orientation=None
     from .claw_assets.linkage import require_closed_linkages
     from .gripper_config import resolve_gripper_settings
     from .claw_assets.package import CLAW_ASSET_DIR
-    from .claw_assets.usd import author_claw_contact
+    from .claw_assets.usd import author_claw_contact, author_host_wrist_contact
     root = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
     require_closed_linkages(root)
     settings = resolve_gripper_settings()
     for side in ("left", "right"):
         author_claw_contact(root.GetStage(), CLAW_ASSET_DIR / "config.json",
                             side=side, finger_contact=settings.finger_contact, root=root)
+    # Same wrist treatment the S200062/S56 integration already applies, so all
+    # three hosts collide with the wrist hull rather than the URDF cylinder.
+    author_host_wrist_contact(root, ("zarm_l7_link", "zarm_r7_link"),
+                              finger_contact=settings.finger_contact)
     return root
 
 

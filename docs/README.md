@@ -22,6 +22,7 @@
 
 - [Isaac Sim Workcell 편집](ISAACSIM_WORKCELL_GUIDE.md): prim 구조, 위치·회전·크기,
   rack-relative box pose 캡처와 respawn
+- [Gripper 구성](GRIPPER.md): 패키지 구조, host별 장착, 접촉 모델, pad 모델, TCP, 수정 위치
 - [Gripper 설정](GRIPPER_CONFIGURATION.md): S56 QiangNao/S200062 two-finger 선택과 외장 Leju/Robotiq 구성
 - [Third-party assets](../THIRD_PARTY_ASSETS.md): 외부 asset 출처와 라이선스
 - [독립 Leju claw asset](LEJU_CLAW_ASSET.md): 좌우 URDF/USD, 재생성, 장착 원점과 재사용 API

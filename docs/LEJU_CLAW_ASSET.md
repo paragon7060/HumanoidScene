@@ -74,10 +74,35 @@ feedforward를 더한다. 이 값은 측정 힘이 아니라 linkage에서 환�
 각 finger의 끝 20 mm에는 18 mm 폭, 2 mm 두께의 평평한 전용 contact pad가 있다.
 pad 접촉면은 원본 CAD convex hull보다 0.5 mm 안쪽으로 돌출되어 얇은 flap을 잡을 때
 곡면 hull보다 먼저 접촉한다. 원본 hull은 finger 나머지 부분의 충돌 보호용으로 유지한다.
-이 pad는 독립 claw와 S63 조합에는 `author_claw_contact()`로, 같은 finger 형상을
-통합한 S200062와 S56 two-finger에는 공용 `author_claw_distal_pads()`로 동일하게
-적용된다. host URDF의 지름 10 mm `zarm_*7_end_effector` 기준 sphere는 좌표
-기준일 뿐 물리 부품이 아니므로 spawn 시 collision을 비활성화한다.
+
+전체 구성 요약은 [Gripper 구성](GRIPPER.md)에 있다.
+
+이 pad는 기본적으로 강체가 아니라 얇고 부드러운 패드로 동작한다. PhysX compliant contact를
+사용해 하중을 받으면 눌리고, 눌린 깊이에 비례하는 힘을 돌려준다. 강체 pad가 강체
+box flap을 누를 때처럼 접촉이 on/off로 풀리면서 수직력이 순간적으로 0이 되는 현상을
+줄이는 것이 목적이다. 스프링 상수는 pad 자체의 압축 강성 `E x 면적 / 두께`이며
+`config.json`의 `contact.distal_pad.compliance`가 유일한 출처다. 기본값은
+E = 280 kPa(무른 고무/실리콘), 50 400 N/m, damping 250 Ns/m이다. PhysX는 이 스프링을
+contact point마다 적용하므로 평면끼리 만드는 4점 patch에서는 50 N 파지 시 약
+0.25 mm 눌린다. 0.6 mm 뒤의 원본 hull이 더 깊이 들어가는 것을 막는 backstop이다.
+마찰계수는 기존 finger 값을 그대로 쓰며 pad 때문에 달라지지 않는다.
+
+이전의 강체 pad도 그대로 쓸 수 있다. `--gripper-pad rigid`를 주면 같은 위치·크기의
+slab이 finger 재질을 공유하는 강체 면으로 만들어지고, `--gripper-pad soft`(기본)는
+연성 패드를 쓴다. preset의 `finger_contact.soft_pad`로 기본값을 바꿀 수도 있다.
+
+접촉 모델은 `usd.py` 한 곳에만 있다. 재질과 collider는
+`author_claw_jaw_contact()`가, soft pad와 그 재질은 `author_claw_distal_pads()`가
+만든다. 독립 claw와 S63 조합의 `author_claw_contact()`, S200062/S56 통합 경로의
+`author_integrated_claw_contact()`가 모두 이 두 함수를 호출하므로 한쪽만 수정되어
+갈라질 일이 없다.
+
+host별로 다른 것은 넘겨주는 값뿐이다. 패키지 claw와 S63은 실제 `collisions` mesh를
+가지고 있지만 S200062/S56 donor USD는 `collisions` scope가 비어 있어 `visuals`
+mesh를 collider로 쓴다. 또 이 donor들의 wrist link에는 URDF가 준 원통 collider가
+있어 `replace_colliders`로 끄고 mesh hull로 대체한다. S63은 wrist를 건드리지 않아
+원통 collider가 그대로 남는다. host URDF의 지름 10 mm `zarm_*7_end_effector` 기준
+sphere는 좌표 기준일 뿐 물리 부품이 아니므로 spawn 시 collision을 비활성화한다.
 
 ## 재생성
 

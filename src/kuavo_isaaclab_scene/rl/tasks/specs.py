@@ -86,7 +86,8 @@ class TaskSpec:
     # Physical two-finger contacts; change these when onboarding another hand.
     finger_bodies: tuple[str, ...] = ("l_f_finger", "l_b_finger", "r_f_finger", "r_b_finger")
     tool_bodies: tuple[str, str] = ("zarm_l7_end_effector", "zarm_r7_end_effector")
-    # Legacy fallback only. Calibrated S200062 uses robots/end_effector.py TCP instead.
+    # Legacy fallback only. Every Leju two-finger host now uses the calibrated
+    # closed TCP from robots/end_effector.py; this applies to other hands.
     tool_offset: tuple[float, float, float] = (0.0, 0.0, -0.12)
 
     def validate(self) -> None:

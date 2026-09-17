@@ -20,22 +20,27 @@ def calibration_definition(model=None):
     from .gripper_config import resolve_gripper_settings
     from ..core.paths import CONFIG_DIR, PACKAGE_CONFIG_DIR
     model = model or resolve_robot_model()
-    # These measurements belong only to this model/hand, never silently reuse on S63/Allegro.
-    if model.name != "s200062" or resolve_gripper_settings().name != "s200062_integrated":
+    # The offsets are finger-link-local claw geometry, so every host carrying the
+    # Leju two-finger package shares them; the closed TCP is then derived from
+    # that host's own URDF below. Other hands have no calibrated points.
+    settings = resolve_gripper_settings()
+    if settings.package_config_path is None:
         return None
     override = os.environ.get("KUAVO_GRASP_REFERENCE_POINTS")
     path = Path(override).expanduser() if override else CONFIG_DIR / "grasp_reference_points.json"
     if not path.exists() and not override:
         path = PACKAGE_CONFIG_DIR / "grasp_reference_points.json"
     data = json.loads(path.read_text())
+    # The robot_model field records where the points were measured; it does not
+    # restrict reuse, because frame states the values are local to each finger link.
     if (data.get("version") != 1 or data.get("units") != "m"
-            or data.get("frame") != "finger_link_local" or data.get("robot_model") != model.name):
+            or data.get("frame") != "finger_link_local"):
         raise ValueError(f"Incompatible gripper reference file: {path}")
     values = np.asarray([data["offsets"][n] for n in FINGERS], dtype=float)
     if values.shape != (4, 3) or not np.isfinite(values).all() or (np.abs(values) > .2).any():
         raise ValueError(f"Invalid gripper reference offsets: {path}")
     # Compute from the actual configured closed commands, not from a captured open pose.
-    closed = closed_offsets(model.urdf_path, data["offsets"], resolve_gripper_settings())
+    closed = closed_offsets(model.urdf_path, data["offsets"], settings)
     return dict(revision=1, robot_model=model.name, offsets=data["offsets"],
                 center_frame="nominal_closed_midpoint_original_eef_orientation",
                 closed_offsets=closed)

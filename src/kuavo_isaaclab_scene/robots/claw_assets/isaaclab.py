@@ -5,73 +5,34 @@ from isaaclab.sim.utils import clone
 
 
 def author_integrated_claw_contact(root, finger_contact):
-    """Apply the package contact model to claws embedded in a host robot USD."""
-    from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema
-    from isaaclab.sim import bind_physics_material
-    from isaaclab.sim.spawners.materials import spawn_rigid_body_material, RigidBodyMaterialCfg
-    from .usd import author_claw_distal_pads, disable_reference_colliders
-    contact_cfg = load_claw_config()["contact"]
-    housing_static = float(contact_cfg["housing_static_friction"])
-    housing_dynamic = float(contact_cfg["housing_dynamic_friction"])
-    contact_offset = float(contact_cfg["contact_offset_m"])
-    rest_offset = float(contact_cfg["rest_offset_m"])
+    """Apply the package contact model to claws embedded in a host robot USD.
 
+    The model itself lives in `usd.py`. This function only names the links the
+    host contributes and the mesh scope its donor USD actually carries.
+    """
+    from .usd import (author_claw_distal_pads, author_claw_jaw_contact,
+                      disable_reference_colliders, resolve_finger_contact)
+
+    contact = resolve_finger_contact(load_claw_config(), finger_contact)
     finger_links = {f"{side}_{jaw}_finger" for side in "lr" for jaw in "fb"}
-    hardware = finger_links | {f"{side}_twofinger_base" for side in "lr"}
-    wrist_links = {"zarm_l7_link", "zarm_r7_link"}
-    hardware |= wrist_links
-    material_path = str(root.GetPath()) + "/HandContactMaterial"
-    spawn_rigid_body_material(material_path, RigidBodyMaterialCfg(
-        static_friction=housing_static, dynamic_friction=housing_dynamic, restitution=0.0))
-    finger_material_path = str(root.GetPath()) + "/FingerContactMaterial"
-    spawn_rigid_body_material(finger_material_path, RigidBodyMaterialCfg(
-        static_friction=finger_contact.static_friction,
-        dynamic_friction=finger_contact.dynamic_friction,
-        friction_combine_mode=finger_contact.friction_combine_mode,
-        restitution=0.0,
-    ))
+    # These donors carry an empty `collisions` scope, so their visual meshes are
+    # the only hand geometry available; the packaged claw uses collision meshes.
+    # The wrist links ship a crude URDF cylinder that the mesh hull replaces.
+    wrists = {"zarm_l7_link", "zarm_r7_link"}
+    hardware = finger_links | {f"{side}_twofinger_base" for side in "lr"} | wrists
     helper_colliders = disable_reference_colliders(root)
-    for link in root.GetChildren():
-        if link.GetName() not in hardware:
-            continue
-        for prim in list(Usd.PrimRange(link)):
-            if prim.IsInstance():
-                prim.SetInstanceable(False)
-        if link.GetName() in wrist_links:
-            for prim in Usd.PrimRange(link):
-                if prim.HasAPI(UsdPhysics.CollisionAPI):
-                    UsdPhysics.CollisionAPI(prim).CreateCollisionEnabledAttr(False)
-        PhysxSchema.PhysxRigidBodyAPI.Apply(link).CreateEnableSpeculativeCCDAttr(True)
-    counts = {}
-    for link in root.GetChildren():
-        if link.GetName() not in hardware:
-            continue
-        count = 0
-        for prim in Usd.PrimRange(link):
-            if not prim.IsA(UsdGeom.Mesh) or "/visuals/" not in str(prim.GetPath()):
-                continue
-            UsdPhysics.CollisionAPI.Apply(prim).CreateCollisionEnabledAttr(True)
-            UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr("convexHull")
-            contact = PhysxSchema.PhysxCollisionAPI.Apply(prim)
-            contact.CreateContactOffsetAttr(contact_offset)
-            contact.CreateRestOffsetAttr(rest_offset)
-            bind_physics_material(str(prim.GetPath()),
-                                  finger_material_path if link.GetName() in finger_links else material_path)
-            count += 1
-        counts[link.GetName()] = count
-    if set(counts) != hardware or any(count == 0 for count in counts.values()):
-        raise RuntimeError(f"Missing hand collision meshes: {hardware - counts.keys()}, counts={counts}")
-    pad_count = author_claw_distal_pads(
-        root.GetStage(), root, CLAW_ASSET_DIR / "config.json", sides="lr",
-        finger_material_path=finger_material_path,
-    )
+    counts = author_claw_jaw_contact(root, contact, links=hardware, finger_links=finger_links,
+                                     mesh_scope="visuals", replace_colliders=wrists)
+    pad_count, pad_spring = author_claw_distal_pads(root, contact, sides="lr")
+    pads = (f"{pad_count} rigid distal pads" if pad_spring is None else
+            f"{pad_count} soft distal pads "
+            f"({pad_spring[0]:g} N/m, {pad_spring[1]:g} Ns/m per contact)")
     print(f"[CONTACT] Added {sum(counts.values())} hand collision meshes; separate jaws, "
-          f"{pad_count} flat distal pads; "
-          f"disabled {helper_colliders} tool-frame colliders; "
-          f"{contact_offset * 1_000:g}mm contact offset, speculative CCD; finger friction "
-          f"{finger_contact.static_friction}/{finger_contact.dynamic_friction} "
-          f"({finger_contact.friction_combine_mode}); housing/wrist friction "
-          f"{housing_static}/{housing_dynamic}.", flush=True)
+          f"{pads}; disabled {helper_colliders} tool-frame colliders; "
+          f"{contact['contact_offset_m'] * 1_000:g}mm contact offset, speculative CCD; finger friction "
+          f"{contact['finger_static_friction']}/{contact['finger_dynamic_friction']} "
+          f"({contact['friction_combine_mode']}); housing/wrist friction "
+          f"{contact['housing_static_friction']}/{contact['housing_dynamic_friction']}.", flush=True)
 
 
 @clone

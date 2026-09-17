@@ -128,10 +128,17 @@ def extract(donor_dir: Path, output: Path, *, mass_kg: float = 1.0) -> None:
         "contact_offset_m": 0.002,
         "rest_offset_m": 0.0,
         "distal_pad": {
+            "description": "Thin compliant fingertip pad covering the distal 20 mm grasping plane.",
             "size_m": [0.002, 0.018, 0.020],
             "center_m": {
                 "f": [-0.031361, 0.0, -0.059024],
                 "b": [0.031361, 0.0, -0.059024],
+            },
+            "compliance": {
+                "enabled": True,
+                "youngs_modulus_pa": 280000.0,
+                "stiffness_n_per_m": 50400.0,
+                "damping_n_s_per_m": 250.0,
             },
         },
     })
@@ -155,7 +162,7 @@ def extract(donor_dir: Path, output: Path, *, mass_kg: float = 1.0) -> None:
         for name in ("leju-twofinger", "s200062_integrated", "s56_twofinger")
     })
     write_json("config.json", {
-        "schema_version": 3, "name": "leju_claw_two_finger",
+        "schema_version": 4, "name": "leju_claw_two_finger",
         "source_model": "biped_s200062", "source_urdf_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "mesh_sha256": hashes, "sides": sides,
         "action": action,

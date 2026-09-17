@@ -20,6 +20,8 @@ from ..core.paths import ASSET_DIR, CONFIG_DIR, PACKAGE_CONFIG_DIR
 
 GRIPPER_ENV = "KUAVO_GRIPPER"
 GRIPPER_CONFIG_ENV = "KUAVO_GRIPPER_CONFIG"
+GRIPPER_PAD_ENV = "KUAVO_GRIPPER_PAD"
+GRIPPER_PAD_MODES = ("soft", "rigid")
 DEFAULT_GRIPPER_CONFIG = PACKAGE_CONFIG_DIR / "grippers.json"
 SIDES = ("left", "right")
 
@@ -39,6 +41,8 @@ class FingerContactSettings:
     static_friction: float = 5.0
     dynamic_friction: float = 4.0
     friction_combine_mode: str = "average"
+    soft_pad: bool = True
+    """Fingertip pad model: compliant when true, the previous rigid pad when false."""
 
 
 @dataclass(frozen=True)
@@ -129,6 +133,13 @@ def add_gripper_cli_args(parser: argparse.ArgumentParser) -> None:
         metavar="JSON",
         help="Alternative gripper preset JSON. Relative USD paths are resolved beside this file.",
     )
+    parser.add_argument(
+        "--gripper-pad",
+        choices=GRIPPER_PAD_MODES,
+        default=os.environ.get(GRIPPER_PAD_ENV),
+        help="Fingertip pad model for the two-finger claw: 'soft' compliant pad (default) "
+             "or 'rigid' for the previous hard pad.",
+    )
 
 
 def export_gripper_cli(args: argparse.Namespace) -> None:
@@ -141,6 +152,11 @@ def export_gripper_cli(args: argparse.Namespace) -> None:
         os.environ[GRIPPER_CONFIG_ENV] = str(Path(config_path).expanduser().resolve())
     else:
         os.environ.pop(GRIPPER_CONFIG_ENV, None)
+    pad = getattr(args, "gripper_pad", None)
+    if pad:
+        os.environ[GRIPPER_PAD_ENV] = str(pad)
+    else:
+        os.environ.pop(GRIPPER_PAD_ENV, None)
 
 
 def _config_path(path: str | Path | None) -> Path:
@@ -304,13 +320,22 @@ def load_gripper_settings(
         raise ValueError("finger_contact must be an object.")
     if "finger_contact" in raw and selected not in {"s56_twofinger", "s200062_integrated", "leju-twofinger"}:
         raise ValueError("finger_contact is supported only by the integrated two-finger presets.")
-    allowed_contact_keys = {"static_friction", "dynamic_friction", "friction_combine_mode"}
+    allowed_contact_keys = {"static_friction", "dynamic_friction", "friction_combine_mode", "soft_pad"}
     if set(contact) - allowed_contact_keys:
         raise ValueError(f"Unknown finger_contact fields: {sorted(set(contact) - allowed_contact_keys)}")
+    soft_pad = contact.get("soft_pad", True)
+    if not isinstance(soft_pad, bool):
+        raise ValueError("finger_contact.soft_pad must be true or false.")
+    pad_mode = os.environ.get(GRIPPER_PAD_ENV)
+    if pad_mode is not None:
+        if pad_mode not in GRIPPER_PAD_MODES:
+            raise ValueError(f"{GRIPPER_PAD_ENV} must be one of {list(GRIPPER_PAD_MODES)}.")
+        soft_pad = pad_mode == "soft"
     contact_cfg = FingerContactSettings(
         static_friction=_number(contact.get("static_friction", 5.0), "finger_contact.static_friction", non_negative=True),
         dynamic_friction=_number(contact.get("dynamic_friction", 4.0), "finger_contact.dynamic_friction", non_negative=True),
         friction_combine_mode=contact.get("friction_combine_mode", "average"),
+        soft_pad=soft_pad,
     )
     if contact_cfg.dynamic_friction > contact_cfg.static_friction:
         raise ValueError("finger_contact.dynamic_friction must not exceed static_friction.")

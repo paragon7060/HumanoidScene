@@ -8,6 +8,9 @@ from kuavo_isaaclab_scene.robots.gripper_config import (
     DEFAULT_GRIPPER_CONFIG,
     FingerContactSettings,
     GRIPPER_ENV,
+    GRIPPER_PAD_ENV,
+    add_gripper_cli_args,
+    export_gripper_cli,
     gripper_teleop_action,
     load_gripper_settings,
     resolve_gripper_settings,
@@ -215,6 +218,33 @@ def test_finger_contact_rejects_unsupported_hand_presets(tmp_path) -> None:
     path = _write_contact_config(tmp_path, {}, "s56_qiangnao")
     with pytest.raises(ValueError, match="only.*two-finger"):
         load_gripper_settings("s56_qiangnao", path)
+
+
+def test_pad_model_defaults_to_soft_and_follows_the_config(tmp_path, monkeypatch) -> None:
+    assert load_gripper_settings("leju-twofinger").finger_contact.soft_pad is True
+    path = _write_contact_config(tmp_path, {"soft_pad": False})
+    assert load_gripper_settings("s56_twofinger", path).finger_contact.soft_pad is False
+    path = _write_contact_config(tmp_path, {"soft_pad": "rigid"})
+    with pytest.raises(ValueError, match="soft_pad"):
+        load_gripper_settings("s56_twofinger", path)
+
+
+@pytest.mark.parametrize("mode, soft", [("soft", True), ("rigid", False)])
+def test_gripper_pad_cli_overrides_every_preset(monkeypatch, mode, soft) -> None:
+    import argparse
+    parser = argparse.ArgumentParser()
+    add_gripper_cli_args(parser)
+    export_gripper_cli(parser.parse_args(["--gripper-pad", mode]))
+    assert load_gripper_settings("leju-twofinger").finger_contact.soft_pad is soft
+    export_gripper_cli(parser.parse_args([]))
+    assert GRIPPER_PAD_ENV not in __import__("os").environ
+    assert load_gripper_settings("leju-twofinger").finger_contact.soft_pad is True
+
+
+def test_unknown_pad_mode_is_rejected(monkeypatch) -> None:
+    monkeypatch.setenv(GRIPPER_PAD_ENV, "squishy")
+    with pytest.raises(ValueError, match=GRIPPER_PAD_ENV):
+        load_gripper_settings("leju-twofinger")
 
 
 def test_packaged_and_workspace_gripper_defaults_match() -> None:

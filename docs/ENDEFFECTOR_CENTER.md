@@ -3,6 +3,8 @@
 ## 정의와 보정값
 
 `configs/grasp_reference_points.json`은 좌우 대응 손가락을 로컬 Y 반사 후 평균낸 값입니다.
+값이 손가락 링크 로컬 좌표이므로 같은 Leju two-finger claw를 쓰는 host는 모두 이 보정점을
+공유하고, 닫힘 TCP는 각 host의 URDF FK로 계산합니다. S200062와 S63에서 동일한 값이 나옵니다.
 f/b 형상 전체는 완전 대칭이 아니므로 두 손가락끼리는 억지로 평균내지 않았습니다.
 수동 보정 원본은 `configs/grasp_reference_points_manual.json`에 보존했습니다.
 배포 기본값은 `src/kuavo_isaaclab_scene/configs/grasp_reference_points.json`에도 포함됩니다.
