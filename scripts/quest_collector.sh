@@ -55,11 +55,48 @@ case "${COMMAND}" in
       --host "${CLOUDXR_HOST}" --port "${QUEST_COLLECTOR_WEB_PORT}" \
       --certificate "${CLOUDXR_CERTIFICATE}" --key "${CLOUDXR_KEY}" "$@" ;;
   collect)
+    # Whole-body reward debugging has a purpose-built collection preset. Keep
+    # these arguments before "$@" so an explicit caller option still wins.
+    RL_REWARD_DEBUG_MODE=""
+    COLLECT_ARGS=("$@")
+    for ((ARG_INDEX = 0; ARG_INDEX < ${#COLLECT_ARGS[@]}; ARG_INDEX++)); do
+      ARG_VALUE="${COLLECT_ARGS[ARG_INDEX]}"
+      case "${ARG_VALUE}" in
+        --rl-reward-debug=*)
+          RL_REWARD_DEBUG_MODE="${ARG_VALUE#*=}" ;;
+        --rl-reward-debug)
+          NEXT_INDEX=$((ARG_INDEX + 1))
+          if [[ "${COLLECT_ARGS[NEXT_INDEX]:-}" == "0" || "${COLLECT_ARGS[NEXT_INDEX]:-}" == "1" ]]; then
+            RL_REWARD_DEBUG_MODE="${COLLECT_ARGS[NEXT_INDEX]}"
+            ARG_INDEX="${NEXT_INDEX}"
+          else
+            # argparse treats the option without a value as the arms-only mode.
+            RL_REWARD_DEBUG_MODE="0"
+          fi ;;
+      esac
+    done
+    REWARD_DEBUG_DEFAULTS=()
+    if [[ "${RL_REWARD_DEBUG_MODE}" == "1" ]]; then
+      REWARD_DEBUG_DEFAULTS=(
+        --controller-mapping absolute
+        --absolute-orientation downward
+        --arm-response responsive
+        --rl-task pick_place
+        --rack-rollers
+        --no-quest-camera-overlay
+        --no-camera-preview
+        --no-wrist-cameras
+        --no-head-camera
+        --no-rl-obstacle-collision
+        --arm-orientation-weight 0.2
+      )
+    fi
     printf '%s\n' '[START] Connect Quest to the Runtime first; this command starts Isaac Sim and records only after an explicit start.'
     exec bash "${PROJECT_DIR}/scripts/collect_quest_teleop.sh" \
       --robot-model s63 --input-mode controllers --device cpu --control-hz 30 \
       --xr-resolution-scale 1.0 --scene-detail compact --render-quality performance \
       --no-desktop-render --no-camera-preview --no-head-camera --wrist-cameras --no-record-depth \
       --controller-mapping scaled --position-gain 1.1 --dataset-format hdf5 \
-      --max-episodes 0 --episode-seconds 0 --no-auto-start "$@" ;;
+      --max-episodes 0 --episode-seconds 0 --no-auto-start \
+      "${REWARD_DEBUG_DEFAULTS[@]}" "$@" ;;
 esac

@@ -112,7 +112,7 @@ def test_browser_snapshot_does_not_modify_preview(tmp_path):
     assert (source / "index.html").read_text() == "new"
 
 
-def test_wrapper_defaults_without_launching_simulator(tmp_path):
+def run_collector_wrapper(tmp_path, *extra_args):
     project = tmp_path / "project"
     scripts = project / "scripts"
     scripts.mkdir(parents=True)
@@ -129,11 +129,61 @@ def test_wrapper_defaults_without_launching_simulator(tmp_path):
         "CLOUDXR_CERTIFICATE": str(project / "server.crt"), "CLOUDXR_KEY": str(project / "server.key"),
         "CLOUDXR_JS_SAMPLES_DIR": str(project), "QUEST_COLLECTOR_WEB_PORT": "8443",
     }, False)
-    result = subprocess.run(["bash", str(launcher), "--config", str(env), "collect",
-                             "--dataset-format", "both", "--desktop-render"],
+    result = subprocess.run(["bash", str(launcher), "--config", str(env), "collect", *extra_args],
                             text=True, capture_output=True, check=True)
-    lines = result.stdout.splitlines()
+    return result.stdout.splitlines()
+
+
+def test_wrapper_defaults_without_launching_simulator(tmp_path):
+    lines = run_collector_wrapper(
+        tmp_path, "--dataset-format", "both", "--desktop-render"
+    )
     assert "--no-auto-start" in lines
     assert "--no-desktop-render" in lines
     assert "--no-head-camera" in lines
     assert lines[-3:] == ["--dataset-format", "both", "--desktop-render"]
+
+
+def test_wrapper_reward_debug_one_applies_collection_preset(tmp_path):
+    lines = run_collector_wrapper(tmp_path, "--rl-reward-debug", "1")
+    preset = [
+        "--controller-mapping", "absolute",
+        "--absolute-orientation", "downward",
+        "--arm-response", "responsive",
+        "--rl-task", "pick_place",
+        "--rack-rollers",
+        "--no-quest-camera-overlay",
+        "--no-camera-preview",
+        "--no-wrist-cameras",
+        "--no-head-camera",
+        "--no-rl-obstacle-collision",
+        "--arm-orientation-weight", "0.2",
+    ]
+    preset_start = lines.index("--absolute-orientation") - 2
+    assert lines[preset_start:preset_start + len(preset)] == preset
+    assert lines[-2:] == ["--rl-reward-debug", "1"]
+
+
+def test_wrapper_reward_debug_preset_allows_explicit_overrides(tmp_path):
+    lines = run_collector_wrapper(
+        tmp_path,
+        "--rl-reward-debug=1",
+        "--controller-mapping", "scaled",
+        "--wrist-cameras",
+        "--rl-obstacle-collision",
+        "--arm-orientation-weight", "0.7",
+    )
+    assert lines[-6:] == [
+        "--controller-mapping", "scaled",
+        "--wrist-cameras",
+        "--rl-obstacle-collision",
+        "--arm-orientation-weight", "0.7",
+    ]
+
+
+@pytest.mark.parametrize("debug_args", [("--rl-reward-debug",), ("--rl-reward-debug", "0")])
+def test_wrapper_arms_only_reward_debug_keeps_regular_defaults(tmp_path, debug_args):
+    lines = run_collector_wrapper(tmp_path, *debug_args)
+    assert "--rack-rollers" not in lines
+    assert "--no-wrist-cameras" not in lines
+    assert "--rl-task" not in lines
