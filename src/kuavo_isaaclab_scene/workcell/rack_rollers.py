@@ -29,22 +29,26 @@ from pathlib import Path
 import tempfile
 
 from ..core.paths import ASSET_DIR, RACK_ROLLER_ASSET, RACK_ROLLER_RUNTIME_ASSET
-from .rack_box_layout import RACK_RAMP_BACK_DEPTH_RAW, RACK_SHELF_CENTER_LOCAL_X_RAW
-from .workcell_layout import rack_tier_surface_z, scale as layout_scale
+from .rack_box_layout import RACK_RAMP_BACK_DEPTH_RAW
+from .workcell_layout import (
+    RACK_SHELF_CENTER_LOCAL_X_RAW,
+    RACK_SHELF_WIDTH_RAW,
+    rack_tier_surface_z,
+    scale as layout_scale,
+)
 
 Vec3 = tuple[float, float, float]
 Quat = tuple[float, float, float, float]
 
-# Locked down with the user: 7 rails across the shelf width, 26 rollers
-# along its depth, 6 cm rail-to-rail gap and 2 cm end margins so the total
-# footprint matches the shelf's measured 0.92 m usable width:
-#   0.02*2 + 0.0743*7 + 0.06*6 == 0.92
-DEFAULT_ROLLER_DIAMETER_M = 0.028
-# 52 cm of usable width divided across 7 rollers, so 2*0.02 + 7*length +
-# 6*0.06 lands exactly on the shelf's measured 0.92 m usable width.
-DEFAULT_ROLLER_LENGTH_M = 52.0 / 7.0 / 100.0
+# Locked down with the user for the resized Rack.usd: 7 rollers across the
+# shelf width, 26 rows along its depth, 3 cm diameter, 6 cm roller length,
+# 6 cm inter-roller gaps, and 5 cm margins at both ends.  The complete
+# footprint exactly matches the resized shelf's measured 0.88 m width:
+#   0.05*2 + 0.06*7 + 0.06*6 == 0.88
+DEFAULT_ROLLER_DIAMETER_M = 0.03
+DEFAULT_ROLLER_LENGTH_M = 0.06
 DEFAULT_ROLLER_GAP_M = 0.06
-DEFAULT_ROLLER_END_MARGIN_M = 0.02
+DEFAULT_ROLLER_END_MARGIN_M = 0.05
 DEFAULT_ROLLER_ROWS = 26
 DEFAULT_ROLLER_COLUMNS = 7
 DEFAULT_ROLLER_DEPTH_MARGIN_M = 0.02
@@ -70,8 +74,8 @@ DEFAULT_ROLLER_RECESS_M = 0.02
 # so it is not double-counted.
 #
 # Sized from the roller's own moment of inertia rather than picked by feel:
-# a solid cylinder I = 0.5*m*r^2 with the default 0.05 kg / 2.8 cm roller
-# is ~4.9e-6 kg*m^2, so a damping torque tau = -b*omega decays free spin
+# a solid cylinder I = 0.5*m*r^2 with the default 0.05 kg / 3.0 cm roller
+# is ~5.6e-6 kg*m^2, so a damping torque tau = -b*omega decays free spin
 # with time constant I/b. The previous 0.0008 gave I/b =~ 3-6 ms (it was
 # also duplicated on PhysxRigidBodyAPI, which applies its own separate
 # damping torque on top of the joint drive's) -- a spun-up roller with no
@@ -287,7 +291,7 @@ def resolve_rack_roller_settings(
     if settings.dynamic_friction > settings.static_friction:
         raise ValueError("Roller dynamic_friction cannot exceed static_friction.")
     rack_width_scale = layout_scale("rack")[0]
-    usable_shelf_width = 0.92 * rack_width_scale
+    usable_shelf_width = RACK_SHELF_WIDTH_RAW * rack_width_scale
     if settings.usable_width_m > usable_shelf_width + 1.0e-4:
         raise ValueError(
             f"Roller grid needs {settings.usable_width_m:.3f} m but the shelf's usable "
@@ -312,7 +316,10 @@ def export_rack_roller_environment(settings: RackRollerSettings) -> None:
 
 
 def _column_centers_raw(settings: RackRollerSettings, rack_width_scale: float) -> list[float]:
-    left_edge_raw = RACK_SHELF_CENTER_LOCAL_X_RAW - (settings.usable_width_m / 2.0) / rack_width_scale
+    left_edge_raw = (
+        RACK_SHELF_CENTER_LOCAL_X_RAW
+        - (settings.usable_width_m / 2.0) / rack_width_scale
+    )
     pitch_raw = (settings.length_m + settings.gap_m) / rack_width_scale
     first_center_raw = left_edge_raw + (settings.end_margin_m + settings.length_m / 2.0) / rack_width_scale
     return [first_center_raw + column * pitch_raw for column in range(settings.columns)]
@@ -438,8 +445,8 @@ def _tier_fragment(
         {{
             over "shelf_ramp"
             {{
-                double3 xformOp:scale = (1, 0.8799999952316284, 0.02)
-                double3 xformOp:translate = (-0.5, -0.41499999999999987, 0.032)
+                double3 xformOp:scale = ({_usda_float(RACK_SHELF_WIDTH_RAW)}, 0.8799999952316284, 0.02)
+                double3 xformOp:translate = ({_usda_float(RACK_SHELF_CENTER_LOCAL_X_RAW)}, -0.41499999999999987, 0.032)
             }}
 
             def Mesh "shelf_ramp_front" (
@@ -454,8 +461,8 @@ def _tier_fragment(
                 point3f[] points = [(-0.5, -0.5, 0.5), (0.5, -0.5, 0.5), (-0.5, 0.5, 0.5), (0.5, 0.5, 0.5), (-0.5, -0.5, -0.5), (0.5, -0.5, -0.5), (-0.5, 0.5, -0.5), (0.5, 0.5, -0.5)]
                 uniform token subdivisionScheme = "none"
                 quatd xformOp:orient = (1, 0, 0, 0)
-                double3 xformOp:scale = (1, 0.01, 0.03)
-                double3 xformOp:translate = (-0.5, 0.015, 0.02)
+                double3 xformOp:scale = ({_usda_float(RACK_SHELF_WIDTH_RAW)}, 0.01, 0.03)
+                double3 xformOp:translate = ({_usda_float(RACK_SHELF_CENTER_LOCAL_X_RAW)}, 0.015, 0.02)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
             }}
 

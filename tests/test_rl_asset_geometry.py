@@ -12,6 +12,77 @@ pytest.importorskip("pxr.Usd")
 from kuavo_isaaclab_scene.rl.scenes.asset_geometry import box_geometry, robot_rigid_body_paths
 
 
+def test_rack_constants_and_roller_defaults_match_composed_assets(monkeypatch):
+    from pxr import Usd, UsdGeom
+    from kuavo_isaaclab_scene.core.paths import ASSET_DIR, RACK_ROLLER_ASSET
+    from kuavo_isaaclab_scene.workcell import workcell_layout
+    from kuavo_isaaclab_scene.workcell.rack_rollers import (
+        resolve_rack_roller_settings,
+    )
+
+    rack = Usd.Stage.Open(str(ASSET_DIR / "Rack.usd"))
+    bounds = UsdGeom.BBoxCache(
+        Usd.TimeCode.Default(),
+        [UsdGeom.Tokens.default_, UsdGeom.Tokens.render, UsdGeom.Tokens.proxy],
+    )
+    measured = bounds.ComputeWorldBound(rack.GetDefaultPrim()).ComputeAlignedRange()
+    assert tuple(measured.GetMin()) == pytest.approx(
+        workcell_layout.RACK_RAW_BOUNDS_M[0]
+    )
+    assert tuple(measured.GetMax()) == pytest.approx(
+        workcell_layout.RACK_RAW_BOUNDS_M[1]
+    )
+    for tier in (1, 2, 3):
+        ramp = rack.GetPrimAtPath(f"/Root/Rack/shelf_0{tier}/shelf_ramp")
+        ops = {
+            op.GetOpName(): op.Get()
+            for op in UsdGeom.Xformable(ramp).GetOrderedXformOps()
+        }
+        assert ops["xformOp:translate"][0] == pytest.approx(
+            workcell_layout.RACK_SHELF_CENTER_LOCAL_X_RAW
+        )
+        assert ops["xformOp:scale"][0] == pytest.approx(
+            workcell_layout.RACK_SHELF_WIDTH_RAW
+        )
+
+    for name in (
+        "KUAVO_RACK_ROLLER_DIAMETER_M",
+        "KUAVO_RACK_ROLLER_LENGTH_M",
+        "KUAVO_RACK_ROLLER_GAP_M",
+        "KUAVO_RACK_ROLLER_END_MARGIN_M",
+        "KUAVO_RACK_ROLLER_ROWS",
+        "KUAVO_RACK_ROLLER_COLUMNS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    settings = resolve_rack_roller_settings(enabled=True)
+    assert settings.diameter_m == pytest.approx(0.03)
+    assert settings.length_m == pytest.approx(0.06)
+    assert settings.gap_m == pytest.approx(0.06)
+    assert settings.end_margin_m == pytest.approx(0.05)
+    assert settings.rows == 26
+    assert settings.columns == 7
+    assert settings.usable_width_m == pytest.approx(workcell_layout.RACK_SHELF_WIDTH_RAW)
+
+    roller_stage = Usd.Stage.Open(str(RACK_ROLLER_ASSET))
+    for tier in (1, 2, 3):
+        deck = roller_stage.GetPrimAtPath(
+            f"/RackRoller/RackBody/Rack/shelf_0{tier}/RollerDeck"
+        )
+        rollers = [
+            prim
+            for prim in deck.GetChildren()
+            if prim.GetName().startswith("Roller_r")
+            and not prim.GetName().endswith("_Joint")
+        ]
+        assert len(rollers) == settings.rows * settings.columns
+        for roller in rollers:
+            geom = roller.GetChild("Geom")
+            assert geom.GetAttribute("height").Get() == pytest.approx(settings.length_m)
+            assert geom.GetAttribute("radius").Get() == pytest.approx(
+                settings.diameter_m / 2.0
+            )
+
+
 def test_physical_wrapper_nested_scale_and_flap_size():
     root = Path(__file__).resolve().parents[1]
     cfg = SimpleNamespace(spawn=SimpleNamespace(

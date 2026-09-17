@@ -244,6 +244,9 @@ from .task_system import (
 )
 from ..workcell.workcell_layout import (
     LAYOUT_PATH,
+    RACK_RAW_DEPTH,
+    RACK_RAW_HEIGHT,
+    RACK_RAW_WIDTH,
     local_quat_to_world,
     offset as layout_offset,
     position as layout_position,
@@ -1271,7 +1274,8 @@ def run_simulator(sim: SimulationContext, scene: InteractiveScene) -> None:
     print(f"[INFO] Shared workcell layout: {LAYOUT_PATH}")
     print(
         f"[INFO] Rack slope: {RACK_SLOPE_DEG:.1f} degrees; "
-        f"105.1x88.1x216.5 cm rack, three shelf tiers."
+        f"{RACK_RAW_WIDTH * 100:.2f}x{RACK_RAW_DEPTH * 100:.2f}x"
+        f"{RACK_RAW_HEIGHT * 100:.2f} cm rack, three shelf tiers."
     )
     print(f"[INFO] Local rack-box layout: {format_rack_box_layout(RACK_BOX_LAYOUT)}")
     if CAPTURED_RACK_BOX_POSE_PATH is not None:

@@ -37,11 +37,20 @@ DEFAULT_LAYOUT_PATH = CONFIG_DIR / "workcell_layout.json"
 #                            reaches into).
 #   native Z (raw asset)  -> stays world Z (rack height).
 #
-# Measured directly from `assets/Rack.usd` (local bbox of `/Root/Rack`):
-#   size = (1.051, 0.8809538, 2.165)  ->  (X=width, Y=depth, Z=height)
-RACK_RAW_WIDTH = 1.051
-RACK_RAW_DEPTH = 0.8809538024143262
-RACK_RAW_HEIGHT = 2.165
+# Measured directly from `assets/Rack.usd` (local bbox of `/Root/Rack`).
+# Keep the asymmetric bounds as well as their sizes: the resized rack keeps
+# its local +X edge fixed and moves only the -X side inward.
+RACK_RAW_BOUNDS_M: tuple[Vec3, Vec3] = (
+    (-0.863, -0.855476901207163, 0.0),
+    (0.0255, 0.025476901207163206, 2.165),
+)
+RACK_RAW_WIDTH = RACK_RAW_BOUNDS_M[1][0] - RACK_RAW_BOUNDS_M[0][0]
+RACK_RAW_DEPTH = RACK_RAW_BOUNDS_M[1][1] - RACK_RAW_BOUNDS_M[0][1]
+RACK_RAW_HEIGHT = RACK_RAW_BOUNDS_M[1][2] - RACK_RAW_BOUNDS_M[0][2]
+# Physical shelf-ramp span in Rack-local X.  Box and roller placement share
+# these values so neither can silently retain geometry from an older asset.
+RACK_SHELF_CENTER_LOCAL_X_RAW = -0.42
+RACK_SHELF_WIDTH_RAW = 0.88
 # Raw (native meters) bottom/top of each physical shelf ramp mesh,
 # bottom-to-top, measured in the `/Root/Rack`-local frame.
 RACK_RAW_TIER_RANGES: tuple[tuple[float, float], ...] = (
@@ -50,12 +59,9 @@ RACK_RAW_TIER_RANGES: tuple[tuple[float, float], ...] = (
     (1.585878, 1.714122),
 )
 
-# Requested real-world footprint for the single rack: 88 cm deep, 34.7 cm
-# wide, 216.5 cm tall. `Rack.usd` is already close to these dimensions
-# (88.1 cm deep, 105.1 cm wide, 216.5 cm tall natively), so the default
-# scale is identity; width is intentionally left at the asset's native
-# footprint rather than force-squeezed to 34.7 cm, since re-scaling only
-# one axis of a rigid rack mesh would distort its geometry.
+# The supplied asset is authored at its intended real-world size
+# (88.85 cm wide, 88.10 cm deep, 216.5 cm tall), so the default scale is
+# identity and no runtime non-uniform correction is required.
 RACK_NOMINAL_DEPTH_M = RACK_RAW_DEPTH
 RACK_NOMINAL_WIDTH_M = RACK_RAW_WIDTH
 RACK_NOMINAL_HEIGHT_M = RACK_RAW_HEIGHT

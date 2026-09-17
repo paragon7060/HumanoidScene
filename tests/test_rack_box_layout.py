@@ -2,12 +2,59 @@
 
 from __future__ import annotations
 
+import itertools
 import json
+from pathlib import Path
 
 import pytest
 
 from kuavo_isaaclab_scene.workcell import rack_box_layout as boxes
 from kuavo_isaaclab_scene.workcell import workcell_layout as workcell
+
+
+def test_resized_rack_lateral_constants_and_automatic_rows_fit() -> None:
+    assert workcell.RACK_RAW_BOUNDS_M[0][0] == pytest.approx(-0.863)
+    assert workcell.RACK_RAW_BOUNDS_M[1][0] == pytest.approx(0.0255)
+    assert workcell.RACK_RAW_WIDTH == pytest.approx(0.8885)
+    assert boxes.RACK_SHELF_CENTER_LOCAL_X_RAW == pytest.approx(-0.42)
+    assert boxes.RACK_SHELF_USABLE_WIDTH_RAW == pytest.approx(0.88)
+
+    shelf_min = (
+        boxes.RACK_SHELF_CENTER_LOCAL_X_RAW
+        - boxes.RACK_SHELF_USABLE_WIDTH_RAW / 2.0
+    )
+    shelf_max = (
+        boxes.RACK_SHELF_CENTER_LOCAL_X_RAW
+        + boxes.RACK_SHELF_USABLE_WIDTH_RAW / 2.0
+    )
+    for row_size in (1, 2):
+        for box_types in itertools.product(boxes.BOX_DIMENSIONS_M, repeat=row_size):
+            centers = boxes._row_lateral_offsets(box_types)
+            extents = [
+                (
+                    center - boxes.BOX_DIMENSIONS_M[box_type][0] / 2.0,
+                    center + boxes.BOX_DIMENSIONS_M[box_type][0] / 2.0,
+                )
+                for box_type, center in zip(box_types, centers, strict=True)
+            ]
+            assert min(low for low, _ in extents) >= shelf_min - 1.0e-9
+            assert max(high for _, high in extents) <= shelf_max + 1.0e-9
+
+
+def test_default_captured_poses_fit_resized_shelf() -> None:
+    repository = Path(__file__).resolve().parents[1]
+    captured = boxes.load_captured_box_poses(repository / "configs/rack_box_poses.json")
+    shelf_min = (
+        workcell.RACK_SHELF_CENTER_LOCAL_X_RAW - workcell.RACK_SHELF_WIDTH_RAW / 2.0
+    )
+    shelf_max = (
+        workcell.RACK_SHELF_CENTER_LOCAL_X_RAW + workcell.RACK_SHELF_WIDTH_RAW / 2.0
+    )
+    for pose in captured.values():
+        box_type = pose.instance_name.rsplit("Box", 1)[0].lower()
+        half_width = boxes.BOX_DIMENSIONS_M[box_type][0] / 2.0
+        assert pose.local_pos[0] - half_width >= shelf_min - 1.0e-9
+        assert pose.local_pos[0] + half_width <= shelf_max + 1.0e-9
 
 
 def test_physical_box_dimensions_and_spawn_scale() -> None:

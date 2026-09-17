@@ -16,13 +16,16 @@ import math
 from pathlib import Path
 import time
 
-from .workcell_layout import AnchorPose, LAYOUT_PATH, load_layout, quat_rotate
-
-
-RACK_BOUNDS_M = (
-    (-1.0255, -0.855476901207163, 0.0),
-    (0.0255, 0.025476901207163206, 2.165),
+from .workcell_layout import (
+    AnchorPose,
+    LAYOUT_PATH,
+    RACK_RAW_BOUNDS_M,
+    load_layout,
+    quat_rotate,
 )
+
+
+RACK_BOUNDS_M = RACK_RAW_BOUNDS_M
 CONVEYOR_BOUNDS_M = (
     (-0.07405029296875, -2.7187200927734375, 0.0),
     (1.07690185546875, 0.0000396728515625, 1.1663306427001953),

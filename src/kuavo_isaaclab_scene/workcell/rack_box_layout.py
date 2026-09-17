@@ -16,8 +16,14 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from ..core.paths import CONFIG_DIR
-from .workcell_layout import local_point_to_world, local_quat_to_world
-from .workcell_layout import rack_tier_surface_z, scale as layout_scale
+from .workcell_layout import (
+    RACK_SHELF_CENTER_LOCAL_X_RAW,
+    RACK_SHELF_WIDTH_RAW,
+    local_point_to_world,
+    local_quat_to_world,
+    rack_tier_surface_z,
+    scale as layout_scale,
+)
 
 
 Vec3 = tuple[float, float, float]
@@ -94,10 +100,9 @@ STAGING_BOX_POSITIONS: dict[str, Vec3] = {
 
 MAX_INSTANCES_PER_TYPE = 2
 MAX_BOXES_PER_SHELF = 4
-# Measured directly in the authored Rack.usd root Xform. Local X runs across
-# the shelf, local Y runs along its depth, and local Z points upward.
-RACK_SHELF_CENTER_LOCAL_X_RAW = -0.50
-RACK_SHELF_USABLE_WIDTH_RAW = 0.92
+# Automatic layouts may use the complete physical shelf width.  Individual
+# layouts still account for each box width and the configured inter-box gap.
+RACK_SHELF_USABLE_WIDTH_RAW = RACK_SHELF_WIDTH_RAW
 RACK_FRONT_ROW_DEPTH_RAW = 0.16
 RACK_BACK_ROW_DEPTH_RAW = 0.52
 RACK_RAMP_BACK_DEPTH_RAW = 0.85102
@@ -426,10 +431,9 @@ def build_box_spawn_plan(
     """Build all eight poses; omitted instances remain at floor staging.
 
     extra_clearance_m raises every rack-resting box by this amount on top
-    of the normal surface clearance. Pass the roller diameter here when a
-    physical roller deck (see rack_rollers.py) sits under the boxes, so
-    they rest on the roller tops instead of clipping through them. It does
-    not affect floor-staged instances.
+    of the normal surface clearance. Pass the roller height above the
+    original shelf surface (diameter minus recess) when a physical roller
+    deck is enabled. It does not affect floor-staged instances.
     """
     instance_counts = Counter[str]()
     plan: dict[str, BoxSpawnSpec] = {}

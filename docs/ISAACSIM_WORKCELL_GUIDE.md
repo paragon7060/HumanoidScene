@@ -137,9 +137,9 @@ Move/Rotate/Scale 도구로 배치한다. `Body`, flap link, collision mesh 같�
 
 랙 크기를 바꿀 때는 `Rack` root에 Scale을 적용한다. `Rack/Visual`은 항상
 local translate `(0,0,0)`, identity rotation, scale `(1,1,1)`로 둔다. 제공된
-USD의 측정 native 크기는 X 1.051 m, Y 0.880954 m, Z 2.165 m다. 특정 실측
+USD의 측정 native 크기는 X 0.8885 m, Y 0.880954 m, Z 2.165 m다. 특정 실측
 크기로 맞출 때 필요한 축별 scale은 `목표 크기 / native 크기`다. 예를
-들어 X를 0.347 m로 맞추려면 X scale은 약 `0.33016`이다. 축 방향은 실제
+들어 X를 0.347 m로 맞추려면 X scale은 약 `0.39055`이다. 축 방향은 실제
 Stage의 local gizmo를 기준으로 확인한다.
 
 ### 4.3 편집 결과 저장
