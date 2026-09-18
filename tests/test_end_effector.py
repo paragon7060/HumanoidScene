@@ -46,12 +46,16 @@ def test_calibrated_tcp_transfers_to_every_host_carrying_the_claw():
     assert load_gripper_settings("s56_qiangnao").package_config_path is None
 
 
+@pytest.mark.parametrize("model_name, preset", [("s200062", "s200062_integrated"),
+                                                ("s63", "leju-twofinger")])
 @pytest.mark.parametrize("side", ["left", "right"])
-def test_center_jacobian_finite_difference(side):
-    model = resolve_robot_model("s200062")
+def test_center_jacobian_finite_difference(side, model_name, preset):
+    # Teleop IK solves against the calibrated TCP, so its Jacobian has to carry
+    # the tool offset on every host that mounts the claw, not just the donor.
+    model = resolve_robot_model(model_name)
     arm = UrdfArm(model.urdf_path, side)
-    arm.tool_offset = np.array(closed_offsets(model.urdf_path, definition()["offsets"],
-                                             load_gripper_settings("s200062_integrated"))[side])
+    arm.set_tool_offset(np.array(closed_offsets(model.urdf_path, definition()["offsets"],
+                                                load_gripper_settings(preset))[side]))
     q = np.array([-.2, .5, .3, -1.5, .2, -.4, .1])
     p, _, jac, points = arm.fk(q)
     np.testing.assert_allclose(points["endeffector_center"], p)
