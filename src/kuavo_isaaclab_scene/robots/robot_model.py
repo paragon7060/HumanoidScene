@@ -19,7 +19,7 @@ ROBOT_MODEL_ENV = "KUAVO_ROBOT_MODEL"
 DEFAULT_ROBOT_MODEL = "s63"
 ROBOT_MODEL_NAMES = ("s200062", "s63", "s56")
 DYNAMICS_PROFILE_ENV = "KUAVO_DYNAMICS_PROFILE"
-DYNAMICS_PROFILE_NAMES = ("auto", "gravity", "s63-arm-id")
+DYNAMICS_PROFILE_NAMES = ("auto", "gravity", "s63-arm-id", "s63-body-id")
 
 WHEEL_BODY_JOINT_NAMES = (
     "knee_joint",
@@ -295,8 +295,9 @@ def add_robot_model_cli_args(parser: argparse.ArgumentParser) -> None:
         "--dynamics-profile",
         choices=DYNAMICS_PROFILE_NAMES,
         default=os.environ.get(DYNAMICS_PROFILE_ENV, "auto"),
-        help=("Body/arm feedforward: auto uses calibrated arm inverse dynamics on S63 and "
-              "gravity-only on other models; gravity forces gravity-only on every model."),
+        help=("Body/arm feedforward: auto uses calibrated inverse dynamics on the S63 torso "
+              "and arms and gravity-only on other models; s63-arm-id keeps the torso on "
+              "gravity-PD; gravity forces gravity-only on every model."),
     )
 
 
@@ -317,9 +318,9 @@ def resolve_dynamics_profile(selection: str | None = None, model_name: str | Non
             + ", ".join(DYNAMICS_PROFILE_NAMES)
         )
     if selected == "auto":
-        return "s63-arm-id" if model == "s63" else "gravity"
-    if selected == "s63-arm-id" and model != "s63":
-        raise ValueError("The s63-arm-id dynamics profile requires --robot-model s63")
+        return "s63-body-id" if model == "s63" else "gravity"
+    if selected.startswith("s63-") and model != "s63":
+        raise ValueError(f"The {selected} dynamics profile requires --robot-model s63")
     return selected
 
 

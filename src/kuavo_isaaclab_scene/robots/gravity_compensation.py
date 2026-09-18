@@ -34,6 +34,22 @@ def wbc_acceleration_profile(joint_names, device=None, dtype=torch.float32):
     return kp, kd, limit
 
 
+def feedforward_joint_ids(joint_names, profile, kp):
+    """Joints whose feedforward is the acceleration task instead of plain gravity.
+
+    The selection follows the same profile that defines the gains, so a joint
+    cannot carry WBC gains that nothing applies. A fixed joint PD holds the
+    torso at a damping ratio that drops as the arms extend and as they pick a
+    load; the inertia-normalized task keeps it constant. ``s63-arm-id`` keeps
+    the torso on gravity-PD so the earlier behaviour stays reproducible.
+    """
+    ids = [index for index, value in enumerate(kp) if value > 0]
+    arms = [index for index in ids if re.fullmatch(r"zarm_[lr][1-7]_joint", joint_names[index])]
+    if len(arms) != 14:
+        raise ValueError(f"{profile} requires both seven-joint S63 arms")
+    return arms if profile == "s63-arm-id" else ids
+
+
 def gravity_drive_bias(gravity, stiffness, limits, joint_ids):
     """Return a solver-only target bias, without changing commanded posture.
 

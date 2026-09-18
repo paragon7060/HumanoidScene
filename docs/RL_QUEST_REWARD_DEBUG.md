@@ -7,9 +7,10 @@ Quest CONNECT 절차는 [기존 수집기](QUEST_COLLECTOR_SETUP.md)와 같다.
 
 관절 목표와 실제 sim 응답을 보정 자료로 기록하려면 `--joint-response-log PATH.jsonl`을 추가한다. 이미지 데이터셋과 독립적으로 동작하며 절차는 [VR 관절 응답 기록](VR_JOINT_RESPONSE_CALIBRATION.md)을 따른다.
 
-S63의 기본 `--dynamics-profile auto`는 몸통 gravity-PD와 팔 전용 live inverse-dynamics를
-사용한다. 시작 로그의 `dynamics_profile=s63-arm-id`로 확인한다. 기존 gravity-only와
-비교하거나 문제가 있을 때는 `--dynamics-profile gravity`를 지정한다.
+S63의 기본 `--dynamics-profile auto`는 몸통과 양팔 모두에 live inverse-dynamics를
+사용한다. 시작 로그의 `dynamics_profile=s63-body-id`와 `inverse dynamics on 18 joints`로
+확인한다. 몸통만 예전 gravity-PD로 되돌려 비교하려면 `--dynamics-profile s63-arm-id`,
+전체를 gravity-only로 되돌리려면 `--dynamics-profile gravity`를 지정한다.
 
 Closed two-finger gripper의 닫기 명령은 기본 `--gripper-close-force 50`으로
 한 손의 양쪽 손가락 합계 50 N-equivalent(각 25 N)를 위치 PD에 더한다. reward

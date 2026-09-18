@@ -22,10 +22,21 @@ RL 학습·reward debug·평가, Quest collect가 이 asset 설정을 공유한�
 wheel, head, gripper motor 및 passive four-bar 관절에는 별도 보상을 적용하지 않는다.
 arms-only 등으로 물리 관절 범위가 잠긴 관절도 제외한다.
 
-S63의 기본 `--dynamics-profile auto`는 `s63-arm-id`로 해석된다. 몸통 네 관절에는 아래
-gravity-PD 식을 그대로 사용하고, 양팔에서는 제어 tick마다 계산한
-`M(q)qdd_des+C(q,dq)+G(q)`가 단순 `G(q)`를 대체한다. 물리 substep 사이에는 계산값을
-재사용한다. `--dynamics-profile gravity`를 지정하면 모든 선택 관절이 아래 기존 식을 사용한다.
+S63의 기본 `--dynamics-profile auto`는 `s63-body-id`로 해석된다. 몸통 네 관절과 양팔
+모두에서 제어 tick마다 계산한 `M(q)qdd_des+C(q,dq)+G(q)`가 단순 `G(q)`를 대체한다.
+물리 substep 사이에는 계산값을 재사용한다. 적용 대상은 `wbc_acceleration_profile()`이
+게인을 정의한 관절과 정확히 일치하므로, 게인만 있고 적용되지 않는 관절은 생기지 않는다.
+
+몸통을 포함하는 이유는 감쇠 때문이다. 고정 joint PD(`stiffness=400, damping=40`)에서
+ready 자세 기준 축 관성은 `knee_joint` 28.2, `leg_joint` 19.2, `waist_pitch_joint`
+4.23 kg·m²이고, 감쇠비는 각각 0.19 / 0.23 / 0.49다. 랙에 부딪히거나 박스를 집어
+하중이 바뀌면 `knee_joint`가 0.6 Hz로 5초 넘게 흔들린다. 가속도 task를 더하면 유효
+게인이 `Kp+I*30`, `Kd+I*6.2`가 되어 감쇠비가 0.57~0.70, 정착 시간이 약 1초로 줄고,
+팔 자세나 파지 하중이 바뀌어도 감쇠비가 일정하게 유지된다.
+
+`--dynamics-profile s63-arm-id`는 몸통을 gravity-PD로 되돌린 비교용 profile이고,
+`--dynamics-profile gravity`를 지정하면 모든 선택 관절이 아래 기존 식을 사용한다.
+가속도 상한은 기존 값을 유지하며, 토크는 URDF가 정의한 구동 effort 한계로 제한된다.
 
 현재 구동은 PhysX implicit force drive이므로 중력 토크를 별도 외력으로 더하지 않고,
 solver에 전달하는 목표에만 `g(q)/Kp`를 더한다:

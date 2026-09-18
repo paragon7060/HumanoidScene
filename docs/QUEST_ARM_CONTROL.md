@@ -65,7 +65,7 @@ gain을 높여 추종 지연을 보정하면 목표 위치와 떨림도 확대�
 | `--rotation-gain` | `1.0` | 구형 relative 팔 회전 배율만 변경. scaled/absolute/맨손은 회전 1:1 |
 | `--absolute-orientation` | `downward`; `pointing` | absolute 컨트롤러만 적용. scaled/맨손의 방향을 바꾸지 않음 |
 | `--arm-response` | `auto`; `responsive`, `smooth`, `real` | IK 필터·오차 보정 이득·DLS damping·관절 속도/가속도 상한을 묶어서 선택. `real`은 실측 VR→motor 197ms를 200ms로 근사. 명시한 프로필은 입력 모드 전환 후에도 유지 |
-| `--dynamics-profile` | `auto`; `gravity`, `s63-arm-id` | auto는 S63 양팔에서 live inverse-dynamics가 기존 G를 대체하고 몸통은 gravity-PD 유지. 다른 모델은 gravity-only. `gravity`는 S63 비교/복구 profile |
+| `--dynamics-profile` | `auto`; `gravity`, `s63-arm-id`, `s63-body-id` | auto는 S63 몸통과 양팔에서 live inverse-dynamics가 기존 G를 대체한다. 다른 모델은 gravity-only. `s63-arm-id`는 몸통만 gravity-PD로 되돌린 비교 profile, `gravity`는 전체 복구 profile |
 | `--arm-ik` | `auto`; `urdf`, `legacy` | auto는 scaled/absolute/맨손에 URDF bounded IK, relative에 기존 IK. URDF 모드는 시작 시 USD 일치 검사 |
 | `--arm-start-pose` | `auto`; `ready`, `scene` | auto는 URDF 모드이며 custom scene-config가 없을 때 준비 자세 생성. scene은 장면의 초기 팔 관절 보존 |
 | `--self-collision` / `--no-self-collision` | 켜짐 | S200062 integrated 손 전용. 제어 tick마다 가까운 후보의 현재·목표 자세만 검사. 녹화 중 충돌은 episode만 실패 종료하며 Quest/프로그램은 유지. 미녹화 중에는 VR 알림만 표시. [범위·설치·성능](QUEST_SELF_COLLISION.md) |

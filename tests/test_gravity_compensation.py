@@ -11,8 +11,8 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.robots.gravity_compensation import (
-    configure_gravity_compensation, gravity_drive_bias, gravity_joint_ids, load_s63_servo_gains,
-    wbc_acceleration_profile,
+    configure_gravity_compensation, feedforward_joint_ids, gravity_drive_bias, gravity_joint_ids,
+    load_s63_servo_gains, wbc_acceleration_profile,
 )
 
 
@@ -111,6 +111,25 @@ def test_nonfinite_compensation_fails_explicitly(invalid):
     with pytest.raises(ValueError, match="Non-finite"):
         gravity_drive_bias(torch.tensor([[invalid]]), torch.ones(1, 1),
                            torch.tensor([[[-1., 1.]]]), [0])
+
+
+def test_body_profile_extends_inverse_dynamics_to_the_torso_that_carries_the_arms():
+    names = ["knee_joint", "leg_joint", "waist_pitch_joint", "waist_yaw_joint", "wheel_left_front_joint"] + [f"zarm_{s}{i}_joint" for s in "lr" for i in range(1, 8)]
+    kp = wbc_acceleration_profile(names)[0].tolist()
+    torso = {"knee_joint", "leg_joint", "waist_pitch_joint", "waist_yaw_joint"}
+    body = {names[i] for i in feedforward_joint_ids(names, "s63-body-id", kp)}
+    arm_only = {names[i] for i in feedforward_joint_ids(names, "s63-arm-id", kp)}
+    assert body - arm_only == torso
+    assert len(arm_only) == 14 and "wheel_left_front_joint" not in body
+    # Every joint the acceleration task defines gains for must be applied, so
+    # torso gains cannot silently become unused configuration again.
+    assert body == {name for name, gain in zip(names, kp) if gain > 0}
+
+
+def test_feedforward_selection_requires_both_complete_arms():
+    names = ["knee_joint"] + [f"zarm_l{i}_joint" for i in range(1, 8)]
+    with pytest.raises(ValueError, match="seven-joint"):
+        feedforward_joint_ids(names, "s63-body-id", wbc_acceleration_profile(names)[0].tolist())
 
 
 def test_servo_profile_supports_joint_specific_gains_and_rejects_invalid_values(tmp_path, monkeypatch):

@@ -135,15 +135,19 @@ def test_robot_cli_exposes_all_versions() -> None:
     assert parser.parse_args([]).dynamics_profile == "auto"
 
 
-def test_dynamics_profile_defaults_to_s63_arm_id_and_other_models_gravity(monkeypatch) -> None:
-    assert resolve_dynamics_profile("auto", "s63") == "s63-arm-id"
+def test_dynamics_profile_defaults_to_s63_body_id_and_other_models_gravity(monkeypatch) -> None:
+    # The torso carries the arms, so it shares their inverse dynamics by default.
+    # s63-arm-id stays selectable to compare against the earlier gravity-PD torso.
+    assert resolve_dynamics_profile("auto", "s63") == "s63-body-id"
+    assert resolve_dynamics_profile("s63-arm-id", "s63") == "s63-arm-id"
     assert resolve_dynamics_profile("auto", "s56") == "gravity"
     assert resolve_dynamics_profile("gravity", "s63") == "gravity"
-    with pytest.raises(ValueError, match="requires"):
-        resolve_dynamics_profile("s63-arm-id", "s200062")
+    for profile in ("s63-arm-id", "s63-body-id"):
+        with pytest.raises(ValueError, match="requires"):
+            resolve_dynamics_profile(profile, "s200062")
     args = argparse.Namespace(robot_model="s63", dynamics_profile="auto")
     export_robot_model_cli(args)
-    assert resolve_dynamics_profile() == "s63-arm-id"
+    assert resolve_dynamics_profile() == "s63-body-id"
 
 
 def test_integrated_and_external_grippers_cannot_overlap() -> None:

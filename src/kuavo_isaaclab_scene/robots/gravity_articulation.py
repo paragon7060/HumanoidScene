@@ -1,12 +1,12 @@
 """Isaac Lab adapter; import after AppLauncher starts Kit."""
 
 import logging
-import re
 
 import torch
 from isaaclab.assets import Articulation
 
-from .gravity_compensation import gravity_drive_bias, gravity_joint_ids, wbc_acceleration_profile
+from .gravity_compensation import (
+    feedforward_joint_ids, gravity_drive_bias, gravity_joint_ids, wbc_acceleration_profile)
 
 
 class GravityCompensatedArticulation(Articulation):
@@ -40,16 +40,8 @@ class GravityCompensatedArticulation(Articulation):
         self.total_feedforward_torque = torch.zeros_like(self.data.joint_pos_target)
         self.dynamics_profile = resolve_dynamics_profile()
         self.command_feedforward_mode = (
-            "inverse_dynamics" if self.dynamics_profile == "s63-arm-id" else "off"
+            "inverse_dynamics" if self.dynamics_profile.endswith("-id") else "off"
         )
-        if self.command_feedforward_mode == "inverse_dynamics":
-            arm_ids = [
-                index for index, name in enumerate(self.joint_names)
-                if re.fullmatch(r"zarm_[lr][1-7]_joint", name)
-            ]
-            if len(arm_ids) != 14:
-                raise ValueError("s63-arm-id requires both seven-joint S63 arms")
-            self.command_feedforward_mask[:, arm_ids] = True
         self.inverse_dynamics_torque = torch.zeros_like(self.data.joint_pos_target)
         gains = wbc_acceleration_profile(
             self.joint_names, device=self.device, dtype=self.data.joint_pos.dtype
@@ -57,12 +49,17 @@ class GravityCompensatedArticulation(Articulation):
         self._wbc_accel_kp, self._wbc_accel_kd, self._wbc_accel_limit = (
             value.unsqueeze(0) for value in gains
         )
+        if self.command_feedforward_mode == "inverse_dynamics":
+            self.command_feedforward_mask[:, feedforward_joint_ids(
+                self.joint_names, self.dynamics_profile, gains[0].tolist())] = True
         self._inverse_dynamics_update_pending = True
         self.gravity_compensation_bias = torch.zeros_like(self.data.joint_pos_target)
         logging.getLogger(__name__).info("Kuavo gravity compensation: %d body/arm joints; implicit drive force caps retained",
                                         len(self._gravity_joint_ids))
+        feedforward = int(self.command_feedforward_mask[0].sum())
         print(f"[GRAVITY] ON: {len(self._gravity_joint_ids)} body/arm joints; "
               f"dynamics_profile={self.dynamics_profile}; "
+              f"inverse dynamics on {feedforward} joints, gravity-PD on the rest; "
               "updated each physics write; locked joints excluded; "
               "logical targets and drive force caps retained.", flush=True)
 
