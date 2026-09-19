@@ -15,6 +15,7 @@ from ..tasks.specs import TASKS, PREDECESSOR, REQUIRES_RESET_BANK, task_spec
 from ...robots.robot_model import add_robot_model_cli_args, export_robot_model_cli
 from ...robots.gripper_config import add_gripper_cli_args, export_gripper_cli
 from ...workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller_cli
+from ...robots.base_drive import add_base_drive_cli_args, export_base_drive_cli
 from ...core.paths import default_artifacts_dir
 from ...robots.initial_states import add_initial_state_args, configure_initial_state
 
@@ -68,6 +69,7 @@ def parse_args(mode, add_arguments=None):
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser)
+    add_base_drive_cli_args(parser)
     if add_arguments is not None:
         add_arguments(parser)
     AppLauncher.add_app_launcher_args(parser)
@@ -89,6 +91,7 @@ def parse_args(mode, add_arguments=None):
     export_robot_model_cli(args)
     export_gripper_cli(args)
     export_rack_roller_cli(args)
+    export_base_drive_cli(args)
     for flag, key in (("workcell_layout", "KUAVO_WORKCELL_LAYOUT"), ("rack_box_poses", "KUAVO_RACK_BOX_POSES")):
         if getattr(args, flag):
             os.environ[key] = str(getattr(args, flag).expanduser().resolve())

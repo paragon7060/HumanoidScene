@@ -14,6 +14,7 @@ from ..managers.events import EventsCfg
 from ..managers.terminations import TerminationsCfg
 from ..managers.curriculum import CurriculumCfg
 from ..managers.recorders import RecordersCfg
+from ...robots.base_drive import apply_base_drive, resolve_base_drive_settings
 
 
 @configclass
@@ -84,3 +85,17 @@ class WorkcellRLEnvCfg(ManagerBasedRLEnvCfg):
         # Isaac Lab 2.3.2 deprecated the boolean alias. One extra render keeps
         # camera observations fresh after reset without emitting its warning.
         self.num_rerenders_on_reset = int(self.cameras)
+        # Base model last: it must see the action set this task ended up with.
+        settings = resolve_base_drive_settings()
+        if settings.dynamic and self.task.control_mode == "arms-only":
+            raise ValueError(
+                "--dynamic-base cannot be combined with arms-only control: that mode "
+                "physically locks the base to a fixed root."
+            )
+        if apply_base_drive(self.scene.robot, self.actions, "base", settings=settings):
+            # The PD wrench is part of the contact solve; applying it at every
+            # TGS iteration keeps root velocity and contact updates consistent.
+            self.sim.physx.enable_external_forces_every_iteration = True
+            print("[BASE] Dynamic base: floating root tracked by a PD wrench; "
+                  "carried payloads stay coupled through contact while the base moves.",
+                  flush=True)

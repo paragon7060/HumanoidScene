@@ -38,6 +38,14 @@ def configure_eval_body_lock(cfg, mode):
         raise ValueError(f"Unknown eval body mode: {mode}")
     from isaaclab.managers import EventTermCfg
 
+    actions = getattr(cfg, "actions", None)
+    base = getattr(actions, "body", None) or getattr(actions, "base", None)
+    if getattr(base, "dynamic", False):
+        raise ValueError(
+            "Evaluation body lock 'fixed' pins the articulation root, which the "
+            "dynamic base drives with a wrench. Evaluate with --no-dynamic-base, "
+            "or use the 'pd' body mode."
+        )
     cfg.scene.robot.spawn.articulation_props.fix_root_link = True
     reset = cfg.events.reset_all
     cfg.events.reset_all = EventTermCfg(

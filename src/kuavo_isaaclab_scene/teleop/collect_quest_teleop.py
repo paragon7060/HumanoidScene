@@ -27,6 +27,7 @@ from ..robots.robot_model import add_robot_model_cli_args, export_robot_model_cl
 from ..recording.teleop_recorder import new_session_path
 from ..core.paths import CONFIG_DIR
 from ..workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller_cli
+from ..robots.base_drive import add_base_drive_cli_args, export_base_drive_cli
 
 
 parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking demonstrations.")
@@ -276,6 +277,7 @@ parser.add_argument("--ignore-captured-box-poses", action="store_true")
 add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
 add_rack_roller_cli_args(parser)
+add_base_drive_cli_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 parser.set_defaults(device="cpu")
 args_cli = parser.parse_args()
@@ -357,6 +359,7 @@ if args_cli.rl_reward_debug is None and args_cli.dataset_format in {"hdf5", "bot
 export_robot_model_cli(args_cli)
 export_gripper_cli(args_cli)
 export_rack_roller_cli(args_cli)
+export_base_drive_cli(args_cli)
 try:
     GRIPPER_SETTINGS = resolve_gripper_settings()
 except (OSError, ValueError) as exc:

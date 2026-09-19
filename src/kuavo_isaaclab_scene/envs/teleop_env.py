@@ -147,6 +147,7 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
     def __post_init__(self) -> None:
         super().__post_init__()
         from ..robots.robot_model import resolve_robot_model
+        from ..robots.base_drive import apply_base_drive
         robot_model = resolve_robot_model()
         if robot_model.name == "s200062":
             from ..robots.robot_inertials import spawn_teleop_robot
@@ -219,6 +220,13 @@ class KuavoQuestTeleopEnvCfg(KuavoRobustWorkcellEnvCfg):
                 )
             }
         )
+        # Base model last, so the recorded demonstration uses the same chassis
+        # dynamics an RL policy trains against.
+        if apply_base_drive(self.scene.robot, self.actions, "body"):
+            self.sim.physx.enable_external_forces_every_iteration = True
+            print("[BASE] Dynamic base: floating root tracked by a PD wrench; "
+                  "carried payloads stay coupled through contact while the base moves.",
+                  flush=True)
 
 
 def set_domain_randomization(cfg: KuavoQuestTeleopEnvCfg, enabled: bool) -> None:

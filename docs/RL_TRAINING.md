@@ -107,6 +107,23 @@ python -m pip install -e .external/IsaacLab-v2.3.2/source/isaaclab_rl
 rack에 배치된 것으로 정의되어 있지 않으면 실행 전에 오류를 낸다.
 캡처 대신 자동 배치를 쓰려면 기존 옵션을 그대로 사용한다.
 
+## 이동 base 모델 선택
+
+기본 base는 root pose를 덮어쓰는 kinematic 추상이다. 주행 중 파지한 박스를 유지해야
+하는 과제에서는 `--dynamic-base`로 floating root + PD wrench 모델을 쓴다. 이 옵션은
+teleop 수집, Quest reward debug, 학습에서 동일하게 해석되므로(`robots/base_drive.py`,
+`KUAVO_DYNAMIC_BASE=1`) 시연을 수집한 물리와 정책이 학습하는 물리가 같아진다.
+
+```bash
+./train_rl.sh --task pick_place --boxes small_box_0 \
+  --robot-model s63 --gripper leju-twofinger \
+  --dynamic-base --num-envs 2 --headless
+```
+
+base를 물리적으로 고정하는 `--control-mode arms-only`와는 함께 쓸 수 없고, 조합하면
+환경 조립 단계에서 거부된다. 체크포인트 호환성은 base 모델이 바뀌면 보장되지 않으므로
+kinematic base로 학습한 정책을 dynamic base에서 그대로 평가하지 않는다.
+
 ```bash
 ./train_rl.sh --task pick --boxes small_box_0 \
   --rack-boxes '2:small' --ignore-captured-box-poses \

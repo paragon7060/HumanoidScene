@@ -10,6 +10,7 @@ from ..scenes.scene_cfg import build_scene
 from ..scenes.layout import box_spawn_plan
 from ...robots.robot_model import resolve_robot_model
 from ...robots.gripper_config import resolve_gripper_settings
+from ...robots.base_drive import apply_base_drive
 from ._legacy_spec import MultiBoxSpec, validate_shelves
 from ._legacy_state import MultiBoxCommandCfg
 from .managers.actions import ActionsCfg, RightArmActionsCfg
@@ -77,3 +78,8 @@ class MultiBoxEnvCfg(ManagerBasedRLEnvCfg):
         self.episode_length_s = self.multi_box.episode_seconds
         self.viewer.eye = (-3., -3., 2.2)
         self.viewer.lookat = (.1, .3, 1.1)
+        # Same base model as every other entry point; right-arm mode has no
+        # base action and therefore reports the conflict instead.
+        if apply_base_drive(self.scene.robot, self.actions, "base"):
+            self.sim.physx.enable_external_forces_every_iteration = True
+            print("[BASE] Dynamic base: floating root tracked by a PD wrench.", flush=True)

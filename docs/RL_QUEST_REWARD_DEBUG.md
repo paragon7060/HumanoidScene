@@ -82,6 +82,80 @@ Base는 각 environment 중심에서 반경 1.5 m를 벗어나면 실패한다. 
 항상 작은 비용을 주고, 파지 후 lift와 place 단계에는 추가 정지 비용을 준다. HUD의 `BASE` 줄에서
 병진 속도, yaw 속도와 현재 중심 이격/한계를 확인할 수 있다.
 
+## Dynamic base (박스를 든 채로 주행할 때)
+
+기본 base는 root pose를 매 physics step 덮어쓰는 kinematic 방식이다. 팔만 움직일 때는
+문제가 없지만, 주행을 시작하면 gripper가 순간이동하듯 옮겨지므로 물려 있던 박스의
+접촉 해는 그 속도를 따라오지 못하고 미끄러진다. 이때는 `--dynamic-base`를 추가한다.
+이 옵션은 teleop 수집, RL reward debug, RL 학습에서 동일하게 동작한다
+(`robots/base_drive.py`, 환경변수 `KUAVO_DYNAMIC_BASE=1`).
+
+```bash
+./quest_collector.sh collect \
+  --robot-model s63 --gripper leju-twofinger \
+  --controller-mapping absolute --absolute-orientation downward \
+  --arm-response responsive \
+  --rl-reward-debug 1 --rl-task pick_place \
+  --dynamic-base \
+  --no-rl-obstacle-collision --no-rack-rollers \
+  --no-quest-camera-overlay --no-camera-preview \
+  --no-wrist-cameras --no-head-camera
+```
+
+이 옵션은 world joint를 풀어 root를 floating으로 만들고(`fix_root_link=False`),
+joystick 명령을 적분한 x/y/yaw 목표를 root wrench로 추종한다. 로봇·gripper·박스가
+같은 PhysX 해에서 함께 가속하므로 root state를 덮어쓰지 않는다.
+
+수입된 바퀴는 실제 omni roller가 아니라 원기둥 collider다. floating root에서 이
+접촉을 남기면 219 kg 로봇의 마찰원(바닥 마찰 0.8 이상)을 chassis wrench로 깨야 하므로
+횡이동과 제자리 회전이 아예 걸리고 전진도 사실상 멈춘다. 그래서 floating spawn에서는
+바퀴 지면 접촉을 제거하고, drive가 전체 무게(중심 오프셋 토크 포함)를 feedforward로
+상쇄한 뒤 높이·기울기 PD로 차체를 떠받친다. 바퀴는 시각적으로만 회전한다.
+
+게인은 `robots/base_drive_control.py`의 `FloatingBaseDriveCfg`에 있고, RL의
+`PlanarDriveCfg.drive`와 teleop의 `TeleopBodyActionCfg.drive`가 같은 값을 쓴다. 추종이 무르면
+`position_stiffness`/`velocity_damping`과 `max_linear_acceleration`을 올리고,
+박스가 여전히 미끄러지면 `max_linear_acceleration`을 낮춰 가속을 완만하게 한다.
+arms-only(reward debug `0`)는 base를 물리적으로 고정하므로 이 옵션과 함께 쓰면 거부된다.
+
+### 주행 중 상체 자세 유지 (측정값)
+
+kinematic base는 root를 순간이동시키므로 관성 결합이 아예 없어 주행 중 관절 변화가
+0.0°다. dynamic base는 실제로 관절에 하중이 걸리므로 편차가 생긴다. 전진·횡이동·회전·
+대각 주행을 각각 2초씩 명령하며 목표 대비 최대 편차를 측정한 결과다.
+
+| 관절군 | floating + 중력 feedforward만 | floating + `s63-body-id` (현재) |
+| --- | --- | --- |
+| 양팔 14축 | peak 0.26~0.57° | peak 0.05~0.30°, 종료 시 ≤0.05° |
+| waist | peak 0.38~0.77° | peak 0.08~0.30°, 종료 시 ≤0.01° |
+| 승강축(knee/leg) | peak 1.07~1.90° | peak 0.03~0.45°, 종료 시 ≤0.02° |
+| head | 주행과 무관한 상시 1.18° 오프셋 | 동일 |
+
+차이는 팔 추종 정확도가 아니라 torso 축 감쇠에서 나온다. 팔만 sine으로 움직였을 때의
+추종 지연은 고정 root + ID가 peak 2.68°/rms 1.23°, floating + 중력만이 peak 2.44°/
+rms 1.25°로 사실상 같았다. 반면 승강축은 ID의 가속도 task가 빠지면 감쇠비가 낮아져
+(`docs/S63_GRAVITY_COMPENSATION.md` 참조) base 가속마다 1.9°까지 출렁였다.
+
+그래서 floating root에서도 ID를 사용한다. floating articulation은 generalized 배열
+앞에 root 6자유도가 붙으므로 mass/Coriolis의 joint block만 읽는다. 이 block은 root를
+고정한 joint-space 관성이며, root는 planar drive의 PD wrench가 잡고 있으므로 타당한
+모델이다. 덕분에 dynamic base는 actuator gain을 학습 scene과 동일하게 유지한다.
+
+head의 1.18°는 정지 상태와 kinematic base에서도 동일하게 나타나는 기존 target
+오프셋이므로 base 움직임과 무관하다.
+
+### 자세 제어 축과 관성 (2026-09-19 수정)
+
+섀시 자세 오차는 world frame rotation vector로 계산한다. 초기 구현은 Euler XYZ의
+roll/pitch를 읽어 world x/y 토크로 보정했는데, 그 각도는 몸체 축 기준이라 base를
+90° 돌리면 roll 보정이 pitch 축에 걸려 감쇠 대신 가진이 됐다. 회전 후 팔을 휘두르면
+기울기가 22.7°→30.2°로 발산했고, 수정 후 같은 동작은 0.04°에서 0.00°로 잦아든다.
+
+기울기 관성도 평행축 항을 포함해 매 step 링크 위치에서 계산한다. 이전에는 로컬 관성
+합과 `m·r²` 하한만 써서 tilt 축이 19.7 kg·m²로 잡혔지만 실제 값은 76 kg·m² 수준이다.
+팔을 뻗으면 관성이 늘어난 만큼 토크도 함께 커진다. 팔이 랙에 닿는 순간처럼 접촉이
+생기면 `max_tilt_acceleration` 상한(10 rad/s²)에 잠깐 걸리지만 곧바로 회복한다.
+
 RL scene은 `minimal_rl_v2`이며 local cuboid로 만든 정지 belt, 측면 프레임 및
 4개 다리를 갖는다. 물리 상판은 2.55×0.68 m, 두께 3 cm이고 기존 높이를 유지한다.
 위치는 `configs/workcell_layout.json`의 `conveyor` anchor를 공유한다.
