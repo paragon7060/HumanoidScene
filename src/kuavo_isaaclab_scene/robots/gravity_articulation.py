@@ -21,8 +21,7 @@ class GravityCompensatedArticulation(Articulation):
     def _initialize_impl(self):
         super()._initialize_impl()
         from .robot_model import resolve_dynamics_profile
-        if not self.is_fixed_base:
-            raise ValueError("Kuavo gravity drive compensation requires a fixed articulation root; floating-base contact dynamics need a separate controller")
+        requested_dynamics_profile = resolve_dynamics_profile()
         self._gravity_joint_ids = gravity_joint_ids(self.joint_names)
         if not self._gravity_joint_ids:
             raise ValueError("No supported Kuavo body/arm joints found for gravity compensation")
@@ -38,7 +37,11 @@ class GravityCompensatedArticulation(Articulation):
         self.command_feedforward_torque = torch.zeros_like(self.data.joint_pos_target)
         self.command_feedforward_mask = torch.zeros_like(self.data.joint_pos_target, dtype=torch.bool)
         self.total_feedforward_torque = torch.zeros_like(self.data.joint_pos_target)
-        self.dynamics_profile = resolve_dynamics_profile()
+        # A floating articulation prepends six root coordinates to every
+        # generalized quantity. The acceleration task below stays a joint-DOF
+        # task on both roots; the floating case simply reads the joint block
+        # of those arrays (see _apply_actuator_model).
+        self.dynamics_profile = requested_dynamics_profile
         self.command_feedforward_mode = (
             "inverse_dynamics" if self.dynamics_profile.endswith("-id") else "off"
         )
@@ -62,12 +65,23 @@ class GravityCompensatedArticulation(Articulation):
               f"inverse dynamics on {feedforward} joints, gravity-PD on the rest; "
               "updated each physics write; locked joints excluded; "
               "logical targets and drive force caps retained.", flush=True)
+        if not self.is_fixed_base:
+            print("[GRAVITY] Floating root: joint feedforward uses the joint block of the "
+                  "generalized mass/Coriolis arrays; base reaction is the drive's PD job.",
+                  flush=True)
 
     def _apply_actuator_model(self):
         super()._apply_actuator_model()
         # Query the complete physical robot (including claw/cameras), then
         # select only driven body/arm DOFs. No object payload is attached here.
         gravity = self.root_physx_view.get_gravity_compensation_forces()
+        # Floating articulations prepend six root generalized coordinates;
+        # actuator targets and all buffers below contain joint DOFs only.
+        # Derive this from the actuator buffer instead of an implementation
+        # detail on Articulation so lightweight test doubles follow the same
+        # path as the real simulation object.
+        joint_count = self.data.joint_pos_target.shape[1]
+        gravity = gravity[:, -joint_count:]
         ids = self._gravity_joint_ids
         self.gravity_compensation_torque.zero_()
         self.gravity_compensation_torque[:, ids] = gravity[:, ids]
@@ -82,6 +96,15 @@ class GravityCompensatedArticulation(Articulation):
                 )
                 mass = self.root_physx_view.get_generalized_mass_matrices()
                 coriolis = self.root_physx_view.get_coriolis_and_centrifugal_compensation_forces()
+                if mass.shape[-1] != joint_count:
+                    # Floating root: keep the joint block. That block is the
+                    # joint-space inertia seen with the root held, which is the
+                    # right model here because the planar drive holds the root
+                    # with its own PD wrench. The reaction the joints push back
+                    # into the chassis is that controller's load, not a term
+                    # the joint drives should try to cancel.
+                    mass = mass[:, -joint_count:, -joint_count:]
+                    coriolis = coriolis[:, -joint_count:]
                 self.inverse_dynamics_torque[:] = (
                     torch.bmm(mass, desired_acceleration.unsqueeze(-1)).squeeze(-1)
                     + coriolis + gravity
