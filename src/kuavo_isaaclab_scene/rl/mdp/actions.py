@@ -6,13 +6,14 @@ from isaaclab.utils import configclass
 from isaaclab.utils.math import quat_apply, quat_mul
 from isaaclab.envs.mdp.actions.joint_actions import JointPositionAction
 from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
+from ...robots.base_drive_control import FloatingBaseDrive, FloatingBaseDriveCfg
 from ...robots.gripper_runtime import InterpolatedJointPositionAction, InterpolatedJointPositionActionCfg
 from .body_lock import FixedBody, ARM_JOINT_NAMES
 from .settling import gate_actions
 
 
 class PlanarDrive(ActionTerm):
-    """Fixed-root simulation abstraction, NOT a contact-driven locomotion policy."""
+    """Planar velocity command with kinematic or force-driven root motion."""
 
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
@@ -20,6 +21,9 @@ class PlanarDrive(ActionTerm):
         self._velocity = torch.zeros_like(self._raw)
         self._scale = torch.tensor(cfg.velocity_limits, device=self.device)
         self._accel = torch.tensor(cfg.acceleration_limits, device=self.device)
+        self._drive = None
+        if cfg.dynamic:
+            self._drive = FloatingBaseDrive(self._asset, cfg.drive, env)
 
     @property
     def action_dim(self):
@@ -46,20 +50,38 @@ class PlanarDrive(ActionTerm):
             self._velocity[~command.settling.ready] = 0
 
     def apply_actions(self):
+        if self._drive is not None:
+            self._drive.apply(self._velocity)
+            return
         pose = self._asset.data.root_pose_w.clone()
+        orientation = pose[:, 3:].clone()
         velocity = torch.zeros(self.num_envs, 3, device=self.device)
         velocity[:, :2] = self._velocity[:, :2]
-        pose[:, :3] += quat_apply(pose[:, 3:], velocity) * self._env.physics_dt
+        linear_world = quat_apply(orientation, velocity)
+        pose[:, :3] += linear_world * self._env.physics_dt
         angle = self._velocity[:, 2] * self._env.physics_dt
-        delta = torch.zeros_like(pose[:, 3:])
+        delta = torch.zeros_like(orientation)
         delta[:, 0], delta[:, 3] = (angle / 2).cos(), (angle / 2).sin()
-        pose[:, 3:] = quat_mul(delta, pose[:, 3:])
+        pose[:, 3:] = quat_mul(delta, orientation)
         self._asset.write_root_pose_to_sim(pose)
+        # Pair the kinematic pose write with the matching root rigid-body
+        # velocity. Without this, PhysX's contact/friction solve for anything
+        # gripped by a downstream articulation link (the fingers) sees a
+        # stale/near-zero root velocity between teleported poses, so ANY base
+        # motion looks like a slip event at the grasp contact even though the
+        # gripper never moved relative to the box. Pure arm motion never hit
+        # this because it never touches the root pose.
+        root_velocity = torch.zeros(self.num_envs, 6, device=self.device)
+        root_velocity[:, :3] = linear_world
+        root_velocity[:, 5] = self._velocity[:, 2]
+        self._asset.write_root_velocity_to_sim(root_velocity)
 
     def reset(self, env_ids=None):
         ids = slice(None) if env_ids is None else env_ids
         self._raw[ids] = 0
         self._velocity[ids] = 0
+        if self._drive is not None:
+            self._drive.reset(env_ids)
 
 
 @configclass
@@ -68,6 +90,11 @@ class PlanarDriveCfg(ActionTermCfg):
     asset_name: str = "robot"
     velocity_limits: tuple[float, float, float] = (0.25, 0.25, 0.70)
     acceleration_limits: tuple[float, float, float] = (0.5, 0.5, 1.2)
+    # Dynamic mode is opt-in: it changes the task physics and needs an
+    # unfixed articulation root. Entry points set it through
+    # robots/base_drive.py so teleop, RL and evaluation agree.
+    dynamic: bool = False
+    drive: FloatingBaseDriveCfg = FloatingBaseDriveCfg()
 
 
 class JointDeltaTargets(JointPositionAction):
