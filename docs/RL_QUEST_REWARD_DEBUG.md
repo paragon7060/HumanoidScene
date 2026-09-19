@@ -84,11 +84,11 @@ Base는 각 environment 중심에서 반경 1.5 m를 벗어나면 실패한다. 
 
 ## Dynamic base (박스를 든 채로 주행할 때)
 
-기본 base는 root pose를 매 physics step 덮어쓰는 kinematic 방식이다. 팔만 움직일 때는
-문제가 없지만, 주행을 시작하면 gripper가 순간이동하듯 옮겨지므로 물려 있던 박스의
-접촉 해는 그 속도를 따라오지 못하고 미끄러진다. 이때는 `--dynamic-base`를 추가한다.
-이 옵션은 teleop 수집, RL reward debug, RL 학습에서 동일하게 동작한다
-(`robots/base_drive.py`, 환경변수 `KUAVO_DYNAMIC_BASE=1`).
+dynamic base가 기본값이다. root를 floating으로 풀고 joystick 명령을 PD wrench로 추종하므로
+로봇·gripper·박스가 같은 PhysX 해에서 함께 가속한다. 예전 kinematic base는 root pose를 매
+physics step 덮어써서 gripper가 순간이동했고, 주행을 시작하면 물려 있던 박스가 미끄러졌다.
+그 동작이 필요하면 `--no-dynamic-base`(또는 `KUAVO_DYNAMIC_BASE=0`)로 되돌린다. 이 선택은
+teleop 수집, RL reward debug, RL 학습에서 동일하게 해석된다(`robots/base_drive.py`).
 
 ```bash
 ./quest_collector.sh collect \
@@ -96,15 +96,13 @@ Base는 각 environment 중심에서 반경 1.5 m를 벗어나면 실패한다. 
   --controller-mapping absolute --absolute-orientation downward \
   --arm-response responsive \
   --rl-reward-debug 1 --rl-task pick_place \
-  --dynamic-base \
   --no-rl-obstacle-collision --no-rack-rollers \
   --no-quest-camera-overlay --no-camera-preview \
   --no-wrist-cameras --no-head-camera
 ```
 
-이 옵션은 world joint를 풀어 root를 floating으로 만들고(`fix_root_link=False`),
-joystick 명령을 적분한 x/y/yaw 목표를 root wrench로 추종한다. 로봇·gripper·박스가
-같은 PhysX 해에서 함께 가속하므로 root state를 덮어쓰지 않는다.
+이때 world joint가 풀려 root가 floating이 되고(`fix_root_link=False`), joystick 명령을
+적분한 x/y/yaw 목표를 root wrench로 추종한다. root state는 덮어쓰지 않는다.
 
 수입된 바퀴는 실제 omni roller가 아니라 원기둥 collider다. floating root에서 이
 접촉을 남기면 219 kg 로봇의 마찰원(바닥 마찰 0.8 이상)을 chassis wrench로 깨야 하므로
@@ -116,7 +114,8 @@ joystick 명령을 적분한 x/y/yaw 목표를 root wrench로 추종한다. 로�
 `PlanarDriveCfg.drive`와 teleop의 `TeleopBodyActionCfg.drive`가 같은 값을 쓴다. 추종이 무르면
 `position_stiffness`/`velocity_damping`과 `max_linear_acceleration`을 올리고,
 박스가 여전히 미끄러지면 `max_linear_acceleration`을 낮춰 가속을 완만하게 한다.
-arms-only(reward debug `0`)는 base를 물리적으로 고정하므로 이 옵션과 함께 쓰면 거부된다.
+arms-only(reward debug `0`)는 base action 자체가 없어 고정 root를 유지한다. 기본값에서는
+조용히 그대로 두고, `--dynamic-base`를 명시하면 충돌을 알린다. 바퀴가 없는 모델(S56)도 같다.
 
 ### 주행 중 상체 자세 유지 (측정값)
 

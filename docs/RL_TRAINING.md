@@ -109,20 +109,25 @@ rack에 배치된 것으로 정의되어 있지 않으면 실행 전에 오류�
 
 ## 이동 base 모델 선택
 
-기본 base는 root pose를 덮어쓰는 kinematic 추상이다. 주행 중 파지한 박스를 유지해야
-하는 과제에서는 `--dynamic-base`로 floating root + PD wrench 모델을 쓴다. 이 옵션은
-teleop 수집, Quest reward debug, 학습에서 동일하게 해석되므로(`robots/base_drive.py`,
-`KUAVO_DYNAMIC_BASE=1`) 시연을 수집한 물리와 정책이 학습하는 물리가 같아진다.
+기본 base는 floating root를 PD wrench로 추종하는 dynamic 모델이다. 로봇·gripper·박스가
+같은 PhysX 해에서 함께 가속하므로 주행 중 파지한 박스가 유지된다. teleop 수집, Quest
+reward debug, 학습이 같은 설정을 읽으므로(`robots/base_drive.py`) 시연을 수집한 물리와
+정책이 학습하는 물리가 같다.
+
+예전 kinematic base(root pose 덮어쓰기)로 학습하거나 그 체크포인트를 평가할 때는
+`--no-dynamic-base`(또는 `KUAVO_DYNAMIC_BASE=0`)를 사용한다.
 
 ```bash
 ./train_rl.sh --task pick_place --boxes small_box_0 \
   --robot-model s63 --gripper leju-twofinger \
-  --dynamic-base --num-envs 2 --headless
+  --no-dynamic-base --num-envs 2 --headless
 ```
 
-base를 물리적으로 고정하는 `--control-mode arms-only`와는 함께 쓸 수 없고, 조합하면
-환경 조립 단계에서 거부된다. 체크포인트 호환성은 base 모델이 바뀌면 보장되지 않으므로
-kinematic base로 학습한 정책을 dynamic base에서 그대로 평가하지 않는다.
+base를 움직일 수 없는 구성은 고정 root를 그대로 유지한다. `--control-mode arms-only`는
+base action이 없고, 평가의 body lock `fixed` 모드는 root를 고정하며, 바퀴가 없는 모델도
+마찬가지다. 기본값에서는 조용히 kinematic으로 남고, `--dynamic-base`를 명시하면 그 조합을
+오류로 알린다. base 모델이 다르면 체크포인트 호환은 보장되지 않으므로, 학습에 쓴 설정과
+같은 값으로 평가한다.
 
 ```bash
 ./train_rl.sh --task pick --boxes small_box_0 \

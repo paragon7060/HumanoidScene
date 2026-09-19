@@ -506,11 +506,11 @@ HDF5는 샘플이 있는 실패·reset·시간 초과 episode도 저장한다. �
 기본 `configs/rack_box_poses.json`을 읽으며, `--scene-detail compact`는 배경 소품만
 줄이고 작업 셀의 물리 객체는 유지한다.
 
-수집 중 base를 움직이며 박스를 옮긴다면 `--dynamic-base`를 추가한다. 기본 base는 root
-pose를 매 physics step 덮어써서 gripper가 순간이동하므로, 물려 있던 박스가 주행 시작과
-함께 미끄러진다. `--dynamic-base`는 root를 floating으로 풀고 같은 joystick 명령을 PD
-wrench로 추종해 로봇·gripper·박스가 한 번의 PhysX 해에서 함께 가속한다. RL 학습·reward
-debug와 동일한 옵션이므로 수집 데이터와 학습 환경의 base 물리가 일치한다.
+base는 기본적으로 dynamic 모델을 사용한다. root를 floating으로 풀고 joystick 명령을 PD
+wrench로 추종하므로 로봇·gripper·박스가 한 번의 PhysX 해에서 함께 가속하고, 주행을 시작해도
+물려 있던 박스가 미끄러지지 않는다. 예전 kinematic base(root pose를 매 physics step 덮어쓰고
+gripper가 순간이동하던 방식)가 필요하면 `--no-dynamic-base`를 쓴다. RL 학습·reward debug와
+같은 설정을 읽으므로 수집 데이터와 학습 환경의 base 물리가 일치한다.
 
 기존 rack box CLI를 collector에서도 사용할 수 있다. SmallBox 하나만 기본 선반 배치
 규칙으로 올리고 캡처 파일의 다른 박스 배치를 무시하려면 다음처럼 실행한다.

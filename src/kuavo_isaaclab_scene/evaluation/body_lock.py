@@ -37,15 +37,23 @@ def configure_eval_body_lock(cfg, mode):
     if mode != "fixed":
         raise ValueError(f"Unknown eval body mode: {mode}")
     from isaaclab.managers import EventTermCfg
+    from ..robots.base_drive import resolve_base_drive_settings
 
     actions = getattr(cfg, "actions", None)
     base = getattr(actions, "body", None) or getattr(actions, "base", None)
     if getattr(base, "dynamic", False):
-        raise ValueError(
-            "Evaluation body lock 'fixed' pins the articulation root, which the "
-            "dynamic base drives with a wrench. Evaluate with --no-dynamic-base, "
-            "or use the 'pd' body mode."
-        )
+        # This mode pins the articulation root, which a wrench-driven chassis
+        # cannot share. The base is locked here either way, so the default
+        # falls back to the kinematic base and only an explicit request is
+        # reported as a conflict.
+        if resolve_base_drive_settings().explicit:
+            raise ValueError(
+                "Evaluation body lock 'fixed' pins the articulation root, which the "
+                "dynamic base drives with a wrench. Evaluate with --no-dynamic-base, "
+                "or use the 'pd' body mode."
+            )
+        base.dynamic = False
+        print("[BASE] Evaluation body lock 'fixed': kinematic base retained.", flush=True)
     cfg.scene.robot.spawn.articulation_props.fix_root_link = True
     reset = cfg.events.reset_all
     cfg.events.reset_all = EventTermCfg(
