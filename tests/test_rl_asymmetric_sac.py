@@ -13,6 +13,7 @@ from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
 from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import (
     _reset_settling_metrics,
     _reward_breakdown,
+    _settle_initial_resets,
     _termination_snapshot,
 )
 from kuavo_isaaclab_scene.rl.multi_box.experiments.train_grasp_v2_sac import (
@@ -161,6 +162,42 @@ def test_v2_reset_settling_metrics_expose_rejection_causes():
         "reset_timeout_invalid_total": 0,
         "reset_nonfinite_invalid_total": 1,
     }
+
+
+def test_v2_initial_reset_settling_uses_zero_actions_until_every_env_is_ready():
+    class Environment:
+        step_dt = 0.1
+        cfg = SimpleNamespace(multi_box=SimpleNamespace(
+            reset_settle_timeout_seconds=1.0))
+        action_manager = SimpleNamespace(action=torch.ones(2, 3))
+        _multi_box_reset_settling = SimpleNamespace(
+            ready=torch.tensor([False, False]),
+            invalid=torch.tensor([False, False]),
+            invalid_count=torch.zeros(2, dtype=torch.long),
+            region_invalid_count=torch.zeros(2, dtype=torch.long),
+            footprint_invalid_count=torch.zeros(2, dtype=torch.long),
+            shelf_invalid_count=torch.zeros(2, dtype=torch.long),
+            timeout_invalid_count=torch.zeros(2, dtype=torch.long),
+            nonfinite_invalid_count=torch.zeros(2, dtype=torch.long),
+        )
+
+        def __init__(self):
+            self.actions = []
+
+        def step(self, action):
+            self.actions.append(action.clone())
+            if len(self.actions) == 1:
+                self._multi_box_reset_settling.ready[0] = True
+            if len(self.actions) == 2:
+                self._multi_box_reset_settling.ready[1] = True
+            return {"policy": torch.full((2, 1), len(self.actions))}, None, None, None, None
+
+    env = Environment()
+    observations, steps = _settle_initial_resets(
+        env, {"policy": torch.zeros(2, 1)})
+    assert steps == 2
+    assert observations["policy"].tolist() == [[2], [2]]
+    assert all(torch.equal(action, torch.zeros(2, 3)) for action in env.actions)
 
 
 def test_v2_sac_pilot_profile_is_bounded_but_performs_updates():

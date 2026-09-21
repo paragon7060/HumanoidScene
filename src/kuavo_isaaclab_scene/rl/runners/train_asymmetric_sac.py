@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 
 import torch
@@ -75,8 +76,32 @@ def _reset_settling_metrics(env) -> dict[str, int]:
     return result
 
 
+def _settle_initial_resets(env, observations):
+    """Finish startup roller/contact settling before the first SAC iteration."""
+    settling = getattr(env, "_multi_box_reset_settling", None)
+    if settling is None:
+        raise RuntimeError("V2 asymmetric SAC requires reset-settling state")
+    timeout = float(env.cfg.multi_box.reset_settle_timeout_seconds)
+    # The first spawn can be rejected while roller articulations snap to their
+    # joints.  Two additional timeout windows cover its partial respawn and
+    # stable-hold interval without allowing an unbounded startup loop.
+    max_steps = max(1, math.ceil(3.0 * timeout / float(env.step_dt)))
+    zero_action = torch.zeros_like(env.action_manager.action)
+    for step in range(max_steps + 1):
+        if bool(settling.ready.all()):
+            return observations, step
+        if step == max_steps:
+            break
+        with torch.no_grad():
+            observations, _, _, _, _ = env.step(zero_action)
+    metrics = _reset_settling_metrics(env)
+    raise RuntimeError(
+        f"Initial v2 reset settling did not finish in {max_steps} steps: {metrics}")
+
+
 def train(env, args, directory, state=None):
     observations, _ = env.reset(seed=args.seed)
+    observations, initial_settling_steps = _settle_initial_resets(env, observations)
     actor_obs = observations["policy"]
     critic_obs = _critic_state(observations)
     config = (
@@ -107,7 +132,8 @@ def train(env, args, directory, state=None):
     print(
         f"[V2 SAC] actor={agent.actor_obs_dim} critic={agent.critic_obs_dim} "
         f"actions={agent.action_dim} replay={replay.bytes / 2**30:.3f} GiB "
-        f"on {args.replay_device}; warmup={warmup_target}",
+        f"on {args.replay_device}; warmup={warmup_target}; "
+        f"initial_settling_steps={initial_settling_steps}",
         flush=True,
     )
 
@@ -253,6 +279,7 @@ def train(env, args, directory, state=None):
             optimizer_updates=optimizer_updates,
             terminated_episodes=terminated_episodes,
             timeout_episodes=timeout_episodes,
+            initial_settling_steps=initial_settling_steps,
             reward_breakdown_max_abs_error=breakdown_max_abs_error,
             transitions_per_second=(
                 args.rollout_steps * env.num_envs / (time.monotonic() - tick)),
