@@ -175,7 +175,7 @@ parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--max-episodes", type=int, default=0, help="0 (default) keeps the application open between attempts.")
 parser.add_argument("--episode-seconds", type=float, default=0.0, help="Episode timeout in simulation seconds; 0 disables it.")
 parser.add_argument("--gripper-close-force", type=float, default=default_close_force_n(), metavar="N",
-                    help="Two-finger close force total per hand (package default 50 N). All modes use 0=open/1=close with the package mapping/filter; VR collection uses contact feedback and RL uses package force-equivalent assist. 0 uses position control only.")
+                    help="Two-finger close force total per hand (package default 50 N). All modes use 0=open/1=close with the same package mapping/filter and sensor-free force-equivalent assist. 0 uses position control only.")
 parser.add_argument(
     "--auto-start",
     action=argparse.BooleanOptionalAction,
@@ -507,7 +507,7 @@ def main() -> None:
     configure_binary_gripper_control(
         cfg,
         args_cli.gripper_close_force,
-        contact_feedback=True,
+        contact_feedback=False,
         command_gate=None,
     )
     # Native OpenXR/CloudXR supplies its own stereo projection. The virtual

@@ -117,7 +117,7 @@ def configure_binary_gripper_control(
 def configure_vr_gripper_force(cfg, force_n=None):
     """Compatibility wrapper for direct Quest teleoperation."""
     return configure_binary_gripper_control(
-        cfg, force_n, contact_feedback=True, command_gate=None)
+        cfg, force_n, contact_feedback=False, command_gate=None)
 
 
 def configure_rl_gripper_force(cfg, force_n=None, *, command_gate="settling"):

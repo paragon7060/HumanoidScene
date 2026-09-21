@@ -88,7 +88,7 @@ case "${COMMAND}" in
         --no-wrist-cameras
         --no-head-camera
         --no-rl-obstacle-collision
-        --arm-orientation-weight 0.2
+        --arm-orientation-weight 0.5
       )
     fi
     printf '%s\n' '[START] Connect Quest to the Runtime first; this command starts Isaac Sim and records only after an explicit start.'

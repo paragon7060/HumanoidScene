@@ -88,10 +88,9 @@ sphere도 물리 부품이 아니므로 spawn 시 collision을 끈다.
 
 ## 제어
 
-RL 학습·평가와 RL reward debug는 binary 위치 명령(`0=open`, `1=close`)에
-sensor-free feedforward를 더한다. VR 데이터 수집은 접촉센서 되먹임을 쓰는 별도
-경로로, 접촉 전부터 닫기 방향 힘을 공급하고 접촉 후 측정값으로 조절한다. 기본
-파지력은 한 손 50 N이며 `--gripper-close-force`로 바꾸고, 0을 주면 두 경로 모두
+RL 학습·평가, RL reward debug와 VR 데이터 수집은 모두 binary 위치 명령
+(`0=open`, `1=close`)에 같은 sensor-free feedforward를 더한다. 기본 파지력은
+한 손 50 N-equivalent이며 `--gripper-close-force`로 바꾸고, 0을 주면 모든 경로가
 위치 개폐만 쓴다. 자세한 내용은 [RL binary gripper](RL_BINARY_GRIPPER.md)와
 [S63 개폐 제어](S63_GRIPPER_CONTROL.md)에 있다.
 

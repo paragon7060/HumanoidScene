@@ -5,6 +5,9 @@ Quest CONNECT 절차는 [기존 수집기](QUEST_COLLECTOR_SETUP.md)와 같다.
 이 옵션이 없으면 기존 수집 동작은 그대로다. **옵션이 있을 때는 데이터 저장이나
 정책 학습 대신 현재 flap-pick RL 환경 1개를 수동 조작한다.**
 
+Whole-body mode 1/2 preset의 IK orientation weight는 일반 collector와 같은 `0.5`다.
+필요하면 `--arm-orientation-weight`를 명시해 덮어쓸 수 있다.
+
 관절 목표와 실제 sim 응답을 보정 자료로 기록하려면 `--joint-response-log PATH.jsonl`을 추가한다. 이미지 데이터셋과 독립적으로 동작하며 절차는 [VR 관절 응답 기록](VR_JOINT_RESPONSE_CALIBRATION.md)을 따른다.
 
 S63의 기본 `--dynamics-profile auto`는 몸통과 양팔 모두에 live inverse-dynamics를
@@ -21,8 +24,8 @@ target filter, PD gain과 sensor-free geometric feedforward를 그대로 사용�
 compliance에 따라 달라질 수 있다. 빈 gripper가 닫힘 mechanical stop에 도달하면 불필요한
 하중을 끊는다. `--gripper-close-force 0`은 보조 토크를 끄고 binary 위치 PD만 사용한다.
 
-일반 VR dataset 수집은 별도의 접촉센서 피드백 진단 경로를 계속 사용한다. 따라서
-RL과 같은 gripper 동작을 확인하려면 이 문서의 `--rl-reward-debug` 실행을 사용한다.
+일반 VR dataset 수집도 같은 sensor-free gripper backend를 사용하므로 binary 명령,
+position mapping, target filter, 위치 PD와 50 N-equivalent 보조가 reward debug와 같다.
 
 ## 박스 인출 → 컨베이어 놓기 검사
 

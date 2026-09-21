@@ -39,7 +39,8 @@
 | 왼손 | 0.092 s | 0.076 s | 2 |
 | 오른손 | 0.077 s | 0.064 s | 2 |
 
-일반 VR, RL reward debug 1/2와 RL 학습 action에 같은 binary 명령, 매핑과 필터를 적용한다.
+일반 VR, RL reward debug 1/2와 RL 학습 action에 같은 binary 명령, 매핑과 필터를 적용하며,
+모두 sensor-free 50 N-equivalent feedforward backend를 사용한다.
 방향 반전 시 중간 필터 목표를 현재값과 새 목표 사이로 제한한다.
 reset은 필터 상태를 실제 joint 위치로 초기화하며 RL 중립 입력이 이전 명령을 이어가지 않게 한다.
 

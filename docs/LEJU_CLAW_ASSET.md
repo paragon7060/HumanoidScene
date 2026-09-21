@@ -66,10 +66,10 @@ bash scripts/build_s63_twofinger.sh
 feedforward를 더한다. 이 값은 측정 힘이 아니라 linkage에서 환산한 N-equivalent이다.
 빈 gripper가 닫힘 mechanical stop에 도달하면 보조 토크를 끊는다.
 
-일반 VR dataset 수집은 접촉센서 피드백을 사용하는 별도 진단 경로다. 접촉 전부터
-닫기 방향 토크를 공급하고 접촉 후 센서값으로 힘을 조절한다. 이 경로는 위치 stiffness를
-끄고 implicit damping으로 속도를 억제하며, 열 때도 반대 방향 힘을 사용한다.
-`--gripper-close-force 0`은 두 경로 모두 힘 보조를 끄고 위치 개폐만 사용한다.
+일반 VR dataset 수집도 RL 학습·평가와 RL reward debug와 같은 sensor-free geometric
+feedforward를 사용한다. 따라서 binary 명령, position mapping, target filter, 위치 PD와
+50 N-equivalent 보조가 모든 경로에서 동일하다. `--gripper-close-force 0`은 모든 경로의
+힘 보조를 끄고 위치 개폐만 사용한다.
 
 각 finger의 끝 20 mm에는 18 mm 폭, 2 mm 두께의 평평한 전용 contact pad가 있다.
 pad 접촉면은 원본 CAD convex hull보다 0.5 mm 안쪽으로 돌출되어 얇은 flap을 잡을 때

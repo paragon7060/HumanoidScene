@@ -78,6 +78,20 @@ def test_all_quest_paths_use_the_shared_binary_gripper_configurator():
     assert "incremental" not in package_source
 
 
+def test_dataset_collector_uses_the_rl_sensor_free_gripper_backend():
+    path = ROOT / "src/kuavo_isaaclab_scene/teleop/collect_quest_teleop.py"
+    tree = ast.parse(path.read_text())
+    call = next(
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "configure_binary_gripper_control"
+    )
+    keywords = {keyword.arg: keyword.value for keyword in call.keywords}
+    assert isinstance(keywords["contact_feedback"], ast.Constant)
+    assert keywords["contact_feedback"].value is False
+
+
 def test_default_manager_and_future_rl_envs_cannot_bypass_package_action():
     runtime_source = (
         ROOT / "src/kuavo_isaaclab_scene/robots/gripper_runtime.py"

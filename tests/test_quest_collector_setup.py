@@ -158,7 +158,7 @@ def test_wrapper_reward_debug_one_applies_collection_preset(tmp_path):
         "--no-wrist-cameras",
         "--no-head-camera",
         "--no-rl-obstacle-collision",
-        "--arm-orientation-weight", "0.2",
+        "--arm-orientation-weight", "0.5",
     ]
     preset_start = lines.index("--absolute-orientation") - 2
     assert lines[preset_start:preset_start + len(preset)] == preset
@@ -195,7 +195,7 @@ def test_wrapper_reward_debug_two_inherits_whole_body_preset_with_rollers(tmp_pa
         "--no-wrist-cameras",
         "--no-head-camera",
         "--no-rl-obstacle-collision",
-        "--arm-orientation-weight", "0.2",
+        "--arm-orientation-weight", "0.5",
     ]
     preset_start = lines.index("--absolute-orientation") - 2
     assert lines[preset_start:preset_start + len(preset)] == preset
