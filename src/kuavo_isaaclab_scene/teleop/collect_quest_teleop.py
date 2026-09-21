@@ -102,7 +102,7 @@ parser.add_argument("--arm-start-pose", choices=("auto", "ready", "scene"), defa
                     help="Auto: URDF elbow-bent ready pose unless a custom scene-config is supplied. Scene preserves configured joints.")
 parser.add_argument("--self-collision", action=argparse.BooleanOptionalAction, default=True,
                     help="Monitor endpoint clearance every control tick; a hit ends only an active recording. "
-                         "S200062 integrated grippers only.")
+                         "Supported for S200062 integrated grippers and S63 + Leju two-finger.")
 parser.add_argument("--self-collision-clearance", type=float, default=.003,
                     help="Minimum modeled non-allowed self-pair clearance in meters (default 0.003).")
 parser.add_argument("--arm-stiffness", type=float, default=None,
@@ -569,14 +569,14 @@ def main() -> None:
     from .teleop_scene_config import apply_scene_config
     extra_recording_objects = apply_scene_config(args_cli.scene_config, cfg)
     if args_cli.self_collision:
-        if robot_model.name != "s200062" or not GRIPPER_SETTINGS.integrated:
-            raise ValueError("Full self-collision policy currently covers S200062 with integrated grippers. "
-                             "Other models/attached grippers need a reviewed collision policy; not silently skipped. "
-                             "--no-self-collision explicitly opts out for legacy comparisons.")
+        from .self_collision import resolve_self_collision_policy
+        collision_policy = resolve_self_collision_policy(
+            robot_model.name, GRIPPER_SETTINGS.name, GRIPPER_SETTINGS.integrated
+        )
         from .self_collision_action import SelfCollisionActionCfg
         cfg.actions.self_collision = SelfCollisionActionCfg(
             urdf_path=robot_model.urdf_path,
-            allowed_pairs=str(Path(__file__).resolve().parents[1] / "configs/self_collision_s200062.json"),
+            allowed_pairs=str(collision_policy),
             clearance=args_cli.self_collision_clearance,
         )
     else:

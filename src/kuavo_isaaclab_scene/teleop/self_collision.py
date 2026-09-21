@@ -18,6 +18,24 @@ import trimesh
 from .urdf_arm_ik import axis_rotation, skew
 
 
+SELF_COLLISION_POLICY_FILES = {
+    ("s200062", "s200062_integrated"): "self_collision_s200062.json",
+    ("s63", "leju-twofinger"): "self_collision_s63_leju.json",
+}
+
+
+def resolve_self_collision_policy(model_name, gripper_name, integrated):
+    """Return a reviewed model/gripper policy or fail before simulation starts."""
+    key = (str(model_name), str(gripper_name))
+    if not integrated or key not in SELF_COLLISION_POLICY_FILES:
+        supported = ", ".join(f"{model}+{gripper}" for model, gripper in SELF_COLLISION_POLICY_FILES)
+        raise ValueError(
+            f"No reviewed self-collision policy for {key[0]}+{key[1]}; "
+            f"supported combinations: {supported}. --no-self-collision explicitly opts out."
+        )
+    return (Path(__file__).resolve().parents[1] / "configs" / SELF_COLLISION_POLICY_FILES[key]).resolve(strict=True)
+
+
 def load_fcl():
     try:
         return importlib.import_module("fcl")

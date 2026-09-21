@@ -1,8 +1,9 @@
 # Quest 자기충돌 검사 — 속도 우선 경량 모드
 
-`quest_collector.sh collect`의 **S200062 + integrated gripper** 수집기에 기본 적용된다.
-브라우저 미리보기에는 적용하지 않는다. 다른 모델·외장 손은 현재 형상 정책의 지원 대상이
-아니므로 시작 시 오류를 낸다. 검사 없이 실행하려면 명시적으로 `--no-self-collision`을 사용한다.
+`quest_collector.sh collect`의 **S200062 + integrated gripper** 및
+**S63 + integrated Leju two-finger** 수집기에 기본 적용된다. 브라우저 미리보기에는
+적용하지 않는다. 별도 검토 정책이 없는 다른 모델·손 조합은 시작 시 오류를 낸다.
+검사 없이 실행하려면 명시적으로 `--no-self-collision`을 사용한다.
 
 ## 실행
 
@@ -61,10 +62,16 @@ URDF/USD 불일치 같은 모델 오류는 충돌 알림으로 숨기지 않고 
 
 ## 형상 범위
 
-현재 번들 S200062 모델은 58개 형상, 허용 쌍 제외 1,454개 후보 쌍을 다룬다.
+지원 범위와 정책 파일은 다음과 같다.
+
+| 모델·손 | 형상 | 검사 후보 쌍 | 정책 |
+| --- | ---: | ---: | --- |
+| S200062 + integrated two-finger | 58 | 1,454 | `configs/self_collision_s200062.json` |
+| S63 + integrated Leju two-finger | 59 | 1,508 | `configs/self_collision_s63_leju.json` |
+
 양팔·반대 손·머리·몸통·하체·베이스를 포함한다. 같은 강체/인접 관절 링크는 제외하고,
 four-bar 조립부와 같은 손의 닫힘 접촉 등은
-`src/kuavo_isaaclab_scene/configs/self_collision_s200062.json`에 이유와 함께 명시했다.
+모델별 정책 파일에 이유와 함께 명시했다.
 이 허용은 해당 링크 쌍 전체에 적용되며 임의 초기 자세를 보고 자동으로 예외를 추가하지 않는다.
 
 URDF collision 형상을 우선하고 없으면 visual 형상의 **볼록 껍질**을 사용한다.
@@ -100,3 +107,26 @@ Isaac Sim/Quest의 실제 FPS·지연 및 시각 검증은 수행하지 않았�
 이는 30 Hz 제어 tick당 비용이며 120 Hz 물리 스텝마다 발생하는 비용이 아니다.
 한 자세의 측정으로 최악 시간이나 FPS 유지까지 보장하지 않는다. 실제 실행에는 GPU→CPU
 관절 읽기와 drive 쓰기 비용도 추가된다.
+
+## S63 + Leju 검증 근거
+
+2026-09-21에 `tests/test_self_collision.py`의 실제 FCL 형상 검사로 다음을 확인했다.
+
+- 전용 정책 선택과 미지원 조합 fail-closed 동작
+- 59개 형상과 허용 쌍 제외 1,508개 후보 쌍 유지
+- 양팔 사이, 팔-몸통, 반대 손, 손-머리 등 중요한 비허용 쌍이 검사 집합에 남음
+- 준비 자세에서 gripper command 0.0–0.25 rad를 1,001점으로 훑어 최소 3.0848 mm로 3 mm clearance 유지
+- 준비 자세 양팔에 각각 ±0.05 rad를 주고 gripper 전 범위를 섞은 고정 seed 512개 표본에서 최소 3.0849 mm 유지
+- 의도적으로 만든 `waist_yaw_link / zarm_r4_link` 관통 자세가 `ClearanceViolation`으로 차단됨
+
+재현 명령:
+
+```bash
+PYTHONPATH=.external/self-collision:src \
+  /home/seonho/miniconda3/envs/env_isaaclab_232/bin/python -m pytest \
+  tests/test_self_collision.py -q
+```
+
+오프라인 검사는 정책·URDF 형상과 필터 동작의 증거다. 실제 수집 시작 시에는
+`SelfCollisionAction.validate_live()`가 S63 USD의 모든 joint/body와 URDF FK를 다시 비교하고,
+불일치하면 physics step 전에 중단한다. 이는 여전히 연속 충돌 회피나 실제 로봇 안전 인증이 아니다.

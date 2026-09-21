@@ -1,0 +1,33 @@
+{
+  "model": "s63_leju",
+  "notes": "Reviewed mechanical-interface exclusions for the bundled S63 + integrated Leju two-finger URDF. The exclusions are tied to these link names and this geometry; all other modeled non-adjacent pairs remain checked.",
+  "allowed_pairs": [
+    {"links": ["leg_link", "waist_yaw_link"], "reason": "S63 waist support assembly meets the torso cylinder across the intermediate waist joint housing"},
+    {"links": ["zarm_l2_link", "zarm_l4_link"], "reason": "S63 left upper-arm/elbow collision primitives meet across the zero-offset shoulder-twist link"},
+    {"links": ["zarm_r2_link", "zarm_r4_link"], "reason": "Mirrored S63 upper-arm/elbow mechanical interface"},
+    {"links": ["zarm_l4_link", "zarm_l6_link"], "reason": "S63 left forearm cylinder overlaps its wrist-roll housing at the joint interface"},
+    {"links": ["zarm_r4_link", "zarm_r6_link"], "reason": "Mirrored S63 forearm/wrist-roll mechanical interface"},
+    {"links": ["zarm_l4_link", "zarm_l7_link"], "reason": "S63 left forearm cylinder overlaps the wrist-pitch housing at its end"},
+    {"links": ["zarm_r4_link", "zarm_r7_link"], "reason": "Mirrored S63 forearm/wrist-pitch mechanical interface"},
+    {"links": ["zarm_l5_link", "zarm_l7_link"], "reason": "S63 left nested wrist yaw/pitch joint housings"},
+    {"links": ["zarm_r5_link", "zarm_r7_link"], "reason": "Mirrored S63 nested wrist joint housings"},
+    {"links": ["zarm_l7_link", "l_f_bar_3"], "reason": "Integrated Leju front linkage meets the left wrist mounting sphere"},
+    {"links": ["zarm_l7_link", "l_b_bar_3"], "reason": "Integrated Leju back linkage meets the left wrist mounting sphere"},
+    {"links": ["zarm_r7_link", "r_f_bar_3"], "reason": "Mirrored integrated Leju linkage/wrist mounting interface"},
+    {"links": ["zarm_r7_link", "r_b_bar_3"], "reason": "Mirrored integrated Leju linkage/wrist mounting interface"},
+    {"links": ["l_twofinger_base", "l_f_bar_3"], "reason": "Leju four-bar linkage pivot at the left gripper base; the URDF tree opens the physical closed chain"},
+    {"links": ["l_twofinger_base", "l_b_bar_3"], "reason": "Leju four-bar linkage pivot at the left gripper base"},
+    {"links": ["r_twofinger_base", "r_f_bar_3"], "reason": "Mirrored Leju four-bar linkage pivot at the right gripper base"},
+    {"links": ["r_twofinger_base", "r_b_bar_3"], "reason": "Mirrored Leju four-bar linkage pivot at the right gripper base"},
+    {"links": ["l_f_bar_3", "l_f_bar_4"], "reason": "Leju front four-bar closing linkage shared pivot; permitted mechanical near-contact"},
+    {"links": ["l_b_bar_3", "l_b_bar_4"], "reason": "Leju back four-bar closing linkage shared pivot"},
+    {"links": ["r_f_bar_3", "r_f_bar_4"], "reason": "Mirrored Leju front four-bar closing linkage shared pivot"},
+    {"links": ["r_b_bar_3", "r_b_bar_4"], "reason": "Mirrored Leju back four-bar closing linkage shared pivot"},
+    {"links": ["l_f_finger", "l_f_bar_4"], "reason": "Left Leju front finger and closing linkage mechanically intersect in the imported tree approximation"},
+    {"links": ["l_b_finger", "l_b_bar_4"], "reason": "Left Leju back finger and closing linkage mechanically intersect in the imported tree approximation"},
+    {"links": ["r_f_finger", "r_f_bar_4"], "reason": "Mirrored right Leju finger/closing linkage interface"},
+    {"links": ["r_b_finger", "r_b_bar_4"], "reason": "Mirrored right Leju finger/closing linkage interface"},
+    {"links": ["l_f_finger", "l_b_finger"], "reason": "Intended opposing-fingertip contact at empty left-gripper closure; cross-hand contacts remain forbidden"},
+    {"links": ["r_f_finger", "r_b_finger"], "reason": "Intended opposing-fingertip contact at empty right-gripper closure; cross-hand contacts remain forbidden"}
+  ]
+}
