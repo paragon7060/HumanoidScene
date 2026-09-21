@@ -181,7 +181,7 @@ def test_wrapper_reward_debug_preset_allows_explicit_overrides(tmp_path):
     ]
 
 
-def test_wrapper_reward_debug_two_inherits_whole_body_preset_and_disables_rollers(tmp_path):
+def test_wrapper_reward_debug_two_inherits_whole_body_preset_with_rollers(tmp_path):
     lines = run_collector_wrapper(tmp_path, "--rl-reward-debug", "2")
     preset = [
         "--controller-mapping", "absolute",
@@ -195,7 +195,6 @@ def test_wrapper_reward_debug_two_inherits_whole_body_preset_and_disables_roller
         "--no-head-camera",
         "--no-rl-obstacle-collision",
         "--arm-orientation-weight", "0.2",
-        "--no-rack-rollers",
     ]
     preset_start = lines.index("--absolute-orientation") - 2
     assert lines[preset_start:preset_start + len(preset)] == preset
@@ -208,3 +207,14 @@ def test_wrapper_arms_only_reward_debug_keeps_regular_defaults(tmp_path, debug_a
     assert "--rack-rollers" not in lines
     assert "--no-wrist-cameras" not in lines
     assert "--rl-task" not in lines
+
+
+def test_direct_quest_teleop_holds_the_nonzero_reset_torso_pose():
+    source = (
+        Path(__file__).parents[1]
+        / "src/kuavo_isaaclab_scene/teleop/collect_quest_teleop.py"
+    ).read_text()
+    assert "def reset_body_mapper_from_robot()" in source
+    assert "robot.data.joint_pos[0, body_joint_ids]" in source
+    # One definition-time synchronization and one synchronization after env.reset().
+    assert source.count("reset_body_mapper_from_robot()") >= 3

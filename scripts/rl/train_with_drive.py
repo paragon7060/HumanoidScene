@@ -174,7 +174,8 @@ def main():
     parser.add_argument("--experiment-dir", type=Path, required=True,
                         help="A new, unique local parent directory; must not exist")
     parser.add_argument("--checkpoint", type=Path)
-    parser.add_argument("--remote-root", default="seonho:HumanoidScene-RL")
+    parser.add_argument("--remote-root", default=os.environ.get(
+        "RL_DRIVE_REMOTE_ROOT", "gdrive:HumanoidScene-RL"))
     parser.add_argument("--num-envs", type=int, default=16384)
     parser.add_argument("--max-iterations", type=int, default=2000)
     parser.add_argument("--save-interval", type=int, default=10)
@@ -188,7 +189,7 @@ def main():
     parent.mkdir(parents=True, exist_ok=False)
     environment = os.environ.copy()
     environment.update(CUDA_VISIBLE_DEVICES="1", OMNI_KIT_ACCEPT_EULA="YES", OMP_NUM_THREADS="8",
-                       ISAACLAB_PYTHON="/home/seonho/miniconda3/envs/env_isaaclab_232/bin/python",
+                       ISAACLAB_PYTHON=str(Path.home() / "miniconda3/envs/env_isaaclab_232/bin/python"),
                        PYTHONPATH=str(ROOT / "src"))
     command = ["bash", str(ROOT / "train_flap_pick.sh"), "--num-envs", str(args.num_envs),
                "--max-iterations", str(args.max_iterations), "--save-interval", str(args.save_interval),

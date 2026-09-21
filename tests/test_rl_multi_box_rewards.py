@@ -15,10 +15,11 @@ from kuavo_isaaclab_scene.rl.multi_box.rewards import (
 )
 
 
-def common(n=2, *, drop=False):
+def common(n=2, *, drop=False, workspace=False):
     no = torch.zeros(n, dtype=torch.bool)
     zero = torch.zeros(n)
     return CommonRewardInput(no, no, torch.full((n,), drop, dtype=torch.bool), no,
+                             torch.full((n,), workspace, dtype=torch.bool),
                              zero, zero, zero)
 
 
@@ -34,12 +35,14 @@ def grasp(n=2, *, drop=False, events=True):
 def test_default_weight_hierarchy_keeps_success_and_failures_dominant():
     weights = MultiBoxRewardWeights()
     weights.validate()
+    assert weights.discount == pytest.approx(0.999)
     assert weights.grasp.success_event > sum((weights.grasp.approach_progress,
         weights.grasp.alignment_progress, weights.grasp.capture_progress,
         weights.grasp.proof_lift_progress))
     assert weights.carry.success_event > 2.5 - 1e-6
     assert weights.place.success_event > 3.0 - 1e-6
     assert weights.common.box_drop > weights.place.success_event
+    assert weights.common.workspace_limit > weights.place.success_event
     assert weights.high_level.full_success_event > 2 * weights.high_level.first_placement
 
 
@@ -52,6 +55,17 @@ def test_grasp_success_is_positive_and_drop_outweighs_it():
     torch.testing.assert_close(
         successful.terms["box_drop"] - dropped.terms["box_drop"],
         torch.full((2,), 8.0),
+    )
+
+
+def test_workspace_hard_limit_has_a_terminal_scale_penalty():
+    model = MultiBoxRewardModel()
+    safe = model.grasp(replace(grasp(events=False), common=common()))
+    outside = model.grasp(replace(
+        grasp(events=False), common=common(workspace=True)))
+    torch.testing.assert_close(
+        safe.terms["workspace_limit"] - outside.terms["workspace_limit"],
+        torch.full((2,), model.weights.common.workspace_limit),
     )
 
 

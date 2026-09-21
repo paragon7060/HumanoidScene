@@ -39,6 +39,10 @@ def test_twofinger_presets_share_package_physics_and_keep_host_calibration():
     assert package["schema_version"] == 4
     assert set(package["runtime_presets"]) == set(TWO_FINGER_PRESETS)
     assert package["force_control"]["close_force_n"] == 50.0
+    assert package["action"]["binary_open"] == 0.0
+    assert package["action"]["binary_closed"] == 1.0
+    assert package["action"]["signed_target_open"] == 1.0
+    assert package["action"]["signed_target_closed"] == -1.0
     for name in TWO_FINGER_PRESETS:
         settings = load_gripper_settings(name)
         assert settings.package_config_path == CLAW_ASSET_DIR / "config.json"

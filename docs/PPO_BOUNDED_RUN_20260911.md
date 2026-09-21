@@ -30,7 +30,7 @@ CPU 검증: 실제 RSL-RL likelihood 대조, gradient, PPO update, checkpoint ro
 공유 Conda 패키지는 변경하지 않았다. 기존 env_isaaclab_232를 사용한다.
 
 GPU 1은 시작 전 비어 있었고 A100 80GB의 free 81153 MiB를 확인했다.
-기존 `seonho:` 원격의 free 약 4.990 TiB, 로컬 디스크 free 약 280GB를 확인했다.
+설정된 Drive remote와 로컬 디스크 여유 공간을 확인했다.
 관리자는 CUDA_VISIBLE_DEVICES=1, 내부 cuda:0, Kit renderer 물리 GPU 1로 실행한다.
 GPU 자체 사용 78000 MiB 상한과 GPU free 2048 MiB, 로컬 free 5GiB를 감시하며,
 한도 초과 시 이 관리자가 생성한 자식 프로세스 그룹에만 종료 신호를 보낸다.
@@ -60,7 +60,7 @@ VRAM을 채우기 위해 rollout batch를 더 늘리지는 않았다. 검증 모
 - 관리자 폴더: `artifacts/rl/drive_runs/ppo_bounded_gpu1_20260911_182052_764df1`
 - 실제 실행 폴더: `train_20260911_182101_98e97e`
 - 관리자 PID: 3084642, 학습 PID: 3084669 (실제 상태는 status.json 및 PID 재확인)
-- Drive: `seonho:HumanoidScene-RL/train_20260911_182101_98e97e`
+- Drive: `gdrive:HumanoidScene-RL/train_20260911_182101_98e97e`
 - checkpoint 초기값 SHA256: `f17620f5d86ef9e748909d011c01b1268557839c71697202e3ff969ba273a6c0`
 - 시작 후 현재는 본 학습용 환경 초기화 단계다. 검증 프로세스 2892312는 정상 종료했고
   본 학습 프로세스만 GPU 1을 사용하는 것을 확인했다. 다른 GPU의 프로세스는 건드리지 않았다.

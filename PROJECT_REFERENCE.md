@@ -17,7 +17,7 @@ layout JSON이 포함된다. Isaac Sim/Isaac Lab, CloudXR, LeRobot, policy weigh
 각 라이선스와 GPU 환경에 맞게 별도로 설치한다.
 
 ```bash
-git clone git@github.com:paragon7060/HumanoidScene.git
+git clone git@github.com:<owner>/HumanoidScene.git
 cd HumanoidScene
 ./install_isaaclab_stable.sh
 conda activate env_isaaclab_232
@@ -104,7 +104,7 @@ PC의 LAN IP와 기기 간 통신 가능 여부는 다시 확인한다. 공인 I
 2. [.env.example](.env.example)을 참고해 그 PC의 `.external/quest-session.env`를 작성한다.
    Runtime 관련 주석 예시는 필요한 줄의 `#`를 제거하고 실제 값을 넣는다.
    `ISAACLAB_PYTHON`, `ISAACLAB_DIR`, `XR_RUNTIME_JSON`, `CLOUDXR_RUNTIME_DIR` 등은
-   그 PC의 설치 경로여야 한다. 문서의 `/home/seonho/...`나 `/absolute/path/...`를 그대로 쓰지 않는다.
+   그 PC의 설치 경로여야 한다. 문서의 `/path/to/...`나 `/absolute/path/...`를 그대로 쓰지 않는다.
 3. `CLOUDXR_HOST`를 새 PC LAN IP로, `CLOUDXR_CERTIFICATE`와 `CLOUDXR_KEY`를 그 PC의
    인증서·개인 키 경로로 지정한다. 인증서는 접속에 사용할 IP를 포함하고 유효기간이 남아 있어야 한다.
    기존 PC의 개인 키를 공유하는 대신 새 PC에서 준비하고, Quest에서 주소와 인증서를 직접 확인한다.
@@ -122,7 +122,7 @@ echo "$CLOUDXR_HOST"             # 이 PC의 LAN IP인지 확인
 값이 비어 있거나 이전 PC의 IP가 나오면 환경 파일을 수정하고 다시 `source`한다.
 그다음 [준비된 환경 실행 안내](docs/QUEST_RUNTIME_SERVICE.md)의
 **Runtime → HTTPS 웹 서버 → Quest CONNECT → 수집기** 순서를 따른다.
-해당 문서의 `192.168.45.235`도 기존 PC의 주소이므로 새 PC의 주소로 바꾼다.
+해당 문서의 `<workstation-ip>`도 각 PC의 실제 주소로 바꾼다.
 인증서/개인 키와 환경 파일은 Git에 올리지 않고, 방화벽을 통째로 끄거나 서비스를 공용 인터넷에 노출하지 않는다.
 
 ### 1. 먼저 실행 경로를 구분하기
@@ -312,7 +312,7 @@ IWER로 로봇까지 움직여 보려면 별도 터미널에서 `./preview_quest
 ### 6. Quest 브라우저와 네트워크 설정
 
 PC에서 `hostname -I`로 LAN IP를 확인한다. 여러 주소가 나오면 Quest와 같은
-네트워크에 연결된 인터페이스의 주소를 고른다. 아래 `192.168.0.10`은 예시다.
+네트워크에 연결된 인터페이스의 주소를 고른다. 아래 `192.0.2.10`은 문서용 예시다.
 **Quest에서 `localhost`/`127.0.0.1`은 PC가 아니라 Quest 자신이다.**
 
 두 연결 방식 중 하나를 선택한다. HTTP는 신뢰할 수 있는 개발용 LAN에서만
@@ -321,7 +321,7 @@ PC에서 `hostname -I`로 LAN IP를 확인한다. 여러 주소가 나오면 Que
 | 설정 | HTTP 개발 연결 | HTTPS 연결 |
 |---|---|---|
 | PC 웹 서버 명령 끝부분 | `run dev-server` | `run dev-server:https` |
-| Quest에서 열 페이지 | `http://192.168.0.10:8080` | `https://192.168.0.10:8080` |
+| Quest에서 열 페이지 | `http://192.0.2.10:8080` | `https://192.0.2.10:8080` |
 | 클라이언트의 Server Backend | `Manual Input IP:Port` | `Manual Input IP:Port` |
 | 클라이언트의 Server IP | PC LAN IP | TLS 프록시 IP |
 | 클라이언트의 Port | `49100` | 프록시 포트, 공식 예시는 `48322` |
@@ -329,7 +329,7 @@ PC에서 `hostname -I`로 LAN IP를 확인한다. 여러 주소가 나오면 Que
 
 **HTTP 개발 연결:** Quest Browser에서 `chrome://flags`를 열고
 `unsafely-treat-insecure-origin-as-secure`를 찾아 활성화한다. 허용 origin에는
-자신의 PC 페이지 주소 하나, 예를 들어 `http://192.168.0.10:8080`을 입력하고
+자신의 PC 페이지 주소 하나, 예를 들어 `http://192.0.2.10:8080`을 입력하고
 브라우저를 Relaunch한다. 포트까지 정확히 같아야 한다. 이는 암호화나 인증을
 추가하는 설정이 아니므로 공용망에서 사용하지 않고 테스트 후 예외를 제거한다.
 [NVIDIA Quest 브라우저 설정](https://docs.nvidia.com/cloudxr-sdk/latest/usr_guide/cloudxr_js/client_setup.html#meta-quest-configuration)에 상세 절차가 있다.

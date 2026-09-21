@@ -22,6 +22,7 @@ class CommonRewardInput:
     self_collision_event: torch.Tensor
     box_drop_event: torch.Tensor
     obstacle_collision_event: torch.Tensor
+    workspace_limit_event: torch.Tensor
     normalized_base_motion: torch.Tensor
     normalized_action_rate: torch.Tensor
     normalized_joint_limit: torch.Tensor
@@ -120,6 +121,7 @@ class MultiBoxRewardModel:
             "self_collision": -w.self_collision * _event(value.self_collision_event),
             "box_drop": -w.box_drop * _event(value.box_drop_event),
             "obstacle_collision": -w.obstacle_collision * _event(value.obstacle_collision_event),
+            "workspace_limit": -w.workspace_limit * _event(value.workspace_limit_event),
             "base_motion": -w.base_motion * value.normalized_base_motion,
             "action_rate": -w.action_rate * value.normalized_action_rate,
             "joint_limit": -w.joint_limit * value.normalized_joint_limit,

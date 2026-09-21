@@ -3,6 +3,7 @@
 import argparse
 import base64
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -54,14 +55,16 @@ rospy.signal_shutdown('probe finished')
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--host',default='lab@192.168.0.22')
-    parser.add_argument('--workspace',default='/home/lab/hb/kuavo-ros-opensource')
+    parser.add_argument('--host',default=os.environ.get('KUAVO_ROBOT_SSH'))
+    parser.add_argument('--workspace',default=os.environ.get('KUAVO_ROBOT_WORKSPACE'))
     parser.add_argument('--ros-master',default='http://kuavo_master:11311')
     parser.add_argument('--duration',type=float,default=6)
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args(argv)
     if not 1<=args.duration<=20 or not args.host or args.host.startswith('-'):
-        parser.error('Duration must be 1–20 s and host must be an SSH destination')
+        parser.error('Duration must be 1–20 s; set --host or KUAVO_ROBOT_SSH')
+    if not args.workspace:
+        parser.error('Set --workspace or KUAVO_ROBOT_WORKSPACE')
     if args.output.exists():parser.error('Choose a new output folder')
     remote='set -e; source /opt/ros/noetic/setup.bash; source '+shlex.quote(args.workspace+'/devel/setup.bash')
     remote+='; export ROS_MASTER_URI='+shlex.quote(args.ros_master)+'; exec python3 -u -c '+shlex.quote(REMOTE)+' '+shlex.quote(str(args.duration))

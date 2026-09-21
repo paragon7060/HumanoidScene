@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg
 from isaaclab.devices.openxr import OpenXRDeviceCfg
-from isaaclab.envs import ManagerBasedRLEnv
+from isaaclab.envs import ManagerBasedRLEnv, mdp
 from isaaclab.utils.math import combine_frame_transforms, convert_camera_frame_orientation_convention
 
 from ...display.xr_reward_panel import QuestRewardPanel
@@ -24,6 +24,11 @@ from ..multi_box.debug import (
     format_shadow_reward,
 )
 from ..multi_box.debug.isaac_metrics import IsaacMultiBoxMetricAdapter
+from ..multi_box.debug.grasp_probe import QuestGraspProbe
+from ..multi_box.debug.carry_probe import QuestCarryProbe
+from ..multi_box.debug.place_probe import QuestPlaceProbe
+from ..multi_box.debug.contact_sensors import V2_OBSTACLE_SENSOR_NAME
+from ..multi_box.rewards import CommonRewardInput
 from ..multi_box.scene.spawn import BOX_TYPE_IDS
 from ..multi_box.teleop_env_cfg import build_quest_multi_box_cfg
 from .quest_control import QuestRLControl
@@ -43,6 +48,132 @@ def _tracked(head, packets, sides):
             for side in sides
         )
     )
+
+
+def _event_tensor(value: bool, env) -> torch.Tensor:
+    return torch.tensor([value], dtype=torch.bool, device=env.device)
+
+
+def _common_reward_input(env, snapshot, previous: dict[str, bool]):
+    """Match active grasp-training costs and convert persistent safety flags to pulses."""
+    base = env.action_manager.get_term("base")
+    velocity = base.processed_actions
+    limits = base._scale.abs().clamp_min(1e-6)
+    base_motion = (
+        (velocity[:, :2] / limits[:2]).square().sum(-1)
+        + 0.25 * (velocity[:, 2] / limits[2]).square()
+    ).clamp(0, 1)
+    action_rate = (
+        env.action_manager.action - env.action_manager.prev_action
+    ).square().mean(-1).clamp(0, 1)
+    joint_limit = mdp.joint_pos_limits(env).clamp(0, 1)
+
+    obstacle_force = env.scene[V2_OBSTACLE_SENSOR_NAME].data.net_forces_w
+    if obstacle_force is None:
+        raise RuntimeError("VR reward calibration requires obstacle contact forces.")
+    obstacle = bool(
+        env.episode_length_buf[0] > 3
+        and obstacle_force.norm(dim=-1).amax().item()
+        > float(env.cfg.task.obstacle_contact_force)
+    )
+    root = env.scene["robot"].data.root_pos_w[0]
+    radius = torch.linalg.vector_norm(
+        root[:2] - env.scene.env_origins[0, :2]).item()
+    workspace = radius > float(env.cfg.multi_box.workspace_radius)
+
+    box = env.scene[snapshot.target_asset_name]
+    box_height = float(
+        box.data.root_pos_w[0, 2] - env.scene.env_origins[0, 2])
+    raw_grasp = snapshot.raw_by_phase["grasp"]
+    raw_place = snapshot.raw_by_phase["place"]
+    box_failure = (
+        box_height < 0.12
+        or float(raw_grasp.proof_lift_m[0])
+        > float(env.cfg.multi_box.max_box_lift_height)
+        or float(raw_place.linear_speed_mps[0])
+        > float(env.cfg.multi_box.max_box_linear_speed)
+        or float(raw_place.angular_speed_radps[0])
+        > float(env.cfg.multi_box.max_box_angular_speed)
+    )
+    current = {
+        "box_drop": box_failure,
+        "obstacle_collision": obstacle,
+        "workspace_limit": workspace,
+    }
+    pulses = {}
+    for name, value in current.items():
+        # These predicates terminate a training episode.  The read-only VR
+        # run deliberately continues, so charge each terminal event once per
+        # target/reset instead of repeatedly charging every false->true edge.
+        key = name + "_rewarded"
+        pulses[name] = _event_tensor(value and not previous.get(key, False), env)
+        previous[key] = previous.get(key, False) or value
+        previous[name] = value
+    false = _event_tensor(False, env)
+    return CommonRewardInput(
+        robot_rack_collision_event=false,
+        self_collision_event=false.clone(),
+        box_drop_event=pulses["box_drop"],
+        obstacle_collision_event=pulses["obstacle_collision"],
+        workspace_limit_event=pulses["workspace_limit"],
+        normalized_base_motion=base_motion,
+        normalized_action_rate=action_rate,
+        normalized_joint_limit=joint_limit,
+    )
+
+
+def _phase_reward_events(env, grasp, carry, place, previous: dict[str, bool]):
+    """Create one-step reward events from the already approved VR predicates."""
+    bilateral = bool((
+        grasp.success.bilateral_pinch & grasp.success.opposing_flaps
+    )[0].item())
+    grasp_success = bool(grasp.success.success[0].item())
+    maintained = bool(carry.result.grasp_maintained[0].item())
+    carry_success = bool(carry.result.success[0].item())
+    support = bool(place.result.supported[0].item())
+    correct_release = bool(place.result.instantaneous[0].item())
+    released = bool(place.result.released_and_clear[0].item())
+    placement_region = bool((
+        place.result.supported
+        & place.result.footprint_inside_belt
+        & place.result.free_space
+        & place.result.axis_parallel
+    )[0].item())
+    premature_release = bool(
+        place.carry_previously_completed and released and not placement_region)
+    place_success = bool(place.result.success[0].item())
+
+    def once(name, value):
+        key = name + "_rewarded"
+        pulse = value and not previous.get(key, False)
+        previous[key] = previous.get(key, False) or value
+        return _event_tensor(pulse, env)
+
+    grasp_lost = bool(
+        carry.grasp_previously_completed
+        and previous.get("carry_maintained", False)
+        and not maintained
+    )
+    previous["carry_maintained"] = maintained
+    false = _event_tensor(False, env)
+    return {
+        "grasp": {
+            "bilateral_pinch_event": once("bilateral", bilateral),
+            "success_event": once("grasp_success", grasp_success),
+        },
+        "carry": {
+            "grasp_loss_event": once("carry_grasp_loss", grasp_lost),
+            "placed_box_disturbance_event": false,
+            "success_event": once("carry_success", carry_success),
+        },
+        "place": {
+            "support_event": once("support", support),
+            "correct_release_event": once("correct_release", correct_release),
+            "premature_release_event": once(
+                "premature_release", premature_release),
+            "success_event": once("place_success", place_success),
+        },
+    }
 
 
 def _layout_report(env, status, shadow_text=None):
@@ -65,7 +196,7 @@ def _layout_report(env, status, shadow_text=None):
         f"RACK jitter: x={rack_xy[0]:+.3f} y={rack_xy[1]:+.3f} yaw={rack_yaw:+.1f}deg",
         f"BELT jitter: x={conveyor_xy[0]:+.3f} y={conveyor_xy[1]:+.3f} yaw={conveyor_yaw:+.1f}deg",
         "B/R: randomize again | X/C: recenter | A/T: run/pause",
-        "Pose shadow + raw finger/flap contacts: ON | success adapter: pending",
+        "Pose shadow + raw contacts + read-only skill probes: ON",
     ]
     if shadow_text:
         lines.extend(("", shadow_text))
@@ -84,14 +215,22 @@ def run(args, app):
         env.reset(seed=args.seed)
         model = resolve_robot_model()
         metric_adapter = IsaacMultiBoxMetricAdapter(env)
+        grasp_probe = QuestGraspProbe(env.device)
+        carry_probe = QuestCarryProbe(env.device)
+        place_probe = QuestPlaceProbe(env.device)
+        grasp_probe_result = carry_probe_result = place_probe_result = None
+        previous_grasp_success = previous_carry_success = previous_place_success = False
+        previous_reward_events: dict[str, bool] = {}
+        previous_safety_events: dict[str, bool] = {}
         shadow_evaluator = PoseShadowRewardEvaluator(args.rl_shadow_phase)
         shadow_stats = ShadowRewardStats()
         if args.rl_shadow_log is not None:
             shadow_logger = ShadowRewardLogger(args.rl_shadow_log)
             shadow_stats = shadow_logger.stats
         shadow_snapshot = metric_adapter.measure()
-        shadow_breakdown = shadow_evaluator.evaluate(
-            shadow_snapshot.potentials_by_phase[shadow_evaluator.phase])
+        shadow_breakdowns = shadow_evaluator.evaluate_all(
+            shadow_snapshot.potentials_by_phase)
+        shadow_breakdown = shadow_breakdowns[shadow_evaluator.phase]
         if getattr(args, "joint_response_log", None) is not None:
             from ...recording.joint_response import JointResponseProbe
             response_probe = JointResponseProbe(env, model, args.joint_response_log, "rl_reward_debug_2")
@@ -158,16 +297,18 @@ def run(args, app):
         panel_ready = False
         next_panel_diagnostic = time.monotonic() + 3.0
         perf_started, perf_loops, perf_steps, shadow_step = time.monotonic(), 0, 0, 0
+        trial_index = 0
         print("[RL MULTI BOX] Mode 2: randomized v2 scene, no dataset recording.", flush=True)
         print("[RL MULTI BOX] A/T run/pause; B/R randomize reset; X/C recenter; Y/H panel.", flush=True)
         print("[RL MULTI BOX] Shadow controls: J/L target box; 1/2/3 grasp/carry/place phase.", flush=True)
         print(f"[RL MULTI BOX] prepared_state={cfg.prepared_state_name}; boxes=1-{cfg.multi_box.max_boxes}; "
               "shelf2=small/medium, shelf3=small; rack/conveyor pose jitter=ON.", flush=True)
         print(f"[RL MULTI BOX] control=whole-body, active_arm=both, action_space=all-joints, "
-              f"actions={env.action_manager.total_action_dim}, gripper_close={args.gripper_close_force:g}N.",
+              f"actions={env.action_manager.total_action_dim}, controller_mapping={args.controller_mapping}, "
+              f"gripper_close={args.gripper_close_force:g}N.",
               flush=True)
-        print("[RL MULTI BOX] pose/velocity shadow reward and raw finger/flap contacts are read-only; "
-              "contact thresholds, success transitions, collisions, and regularization remain disabled.",
+        print("[RL MULTI BOX] reward calibration is read-only; all three skill rewards, "
+              "probe event pulses, collision guards, and regularization are logged every step.",
               flush=True)
         if shadow_logger is not None:
             print(f"[RL MULTI BOX] shadow JSONL={shadow_logger.path}", flush=True)
@@ -197,9 +338,7 @@ def run(args, app):
                 if requests[key]:
                     requests[key] = False
                     shadow_evaluator.set_phase(phase)
-                    shadow_snapshot = metric_adapter.measure()
-                    shadow_breakdown = shadow_evaluator.evaluate(
-                        shadow_snapshot.potentials_by_phase[phase])
+                    shadow_breakdown = shadow_breakdowns[phase]
                     print(f"[RL MULTI BOX] Shadow phase={phase}", flush=True)
                     last_hud = 0.0
             for key, direction in (("target_prev", -1), ("target_next", 1)):
@@ -207,22 +346,41 @@ def run(args, app):
                     requests[key] = False
                     target = metric_adapter.cycle_target(direction)
                     shadow_evaluator.reset()
+                    grasp_probe.reset()
+                    carry_probe.reset()
+                    place_probe.reset()
+                    grasp_probe_result = carry_probe_result = place_probe_result = None
+                    previous_grasp_success = previous_carry_success = previous_place_success = False
+                    previous_reward_events.clear()
+                    previous_safety_events.clear()
                     shadow_snapshot = metric_adapter.measure()
-                    shadow_breakdown = shadow_evaluator.evaluate(
-                        shadow_snapshot.potentials_by_phase[shadow_evaluator.phase])
+                    shadow_breakdowns = shadow_evaluator.evaluate_all(
+                        shadow_snapshot.potentials_by_phase)
+                    shadow_breakdown = shadow_breakdowns[shadow_evaluator.phase]
                     print(f"[RL MULTI BOX] Shadow target=box[{target:02d}]", flush=True)
                     last_hud = 0.0
             if requests["reset"]:
                 requests["reset"] = False
+                trial_index += 1
                 if response_probe is not None:
                     response_probe.boundary("operator_reset")
                 env.reset()
                 control.reset()
                 metric_adapter.reset()
                 shadow_evaluator.reset()
+                grasp_probe.reset()
+                carry_probe.reset()
+                place_probe.reset()
+                grasp_probe_result = carry_probe_result = place_probe_result = None
+                previous_grasp_success = previous_carry_success = previous_place_success = False
+                previous_reward_events.clear()
+                previous_safety_events.clear()
                 shadow_snapshot = metric_adapter.measure()
-                shadow_breakdown = shadow_evaluator.evaluate(
-                    shadow_snapshot.potentials_by_phase[shadow_evaluator.phase])
+                shadow_breakdowns = shadow_evaluator.evaluate_all(
+                    shadow_snapshot.potentials_by_phase)
+                shadow_breakdown = shadow_breakdowns[shadow_evaluator.phase]
+                if shadow_logger is not None:
+                    shadow_logger.stats = ShadowRewardStats()
                 shadow_stats = ShadowRewardStats() if shadow_logger is None else shadow_logger.stats
                 running = False
                 status = "RANDOMIZED - press A"
@@ -282,10 +440,44 @@ def run(args, app):
                 perf_steps += 1
                 shadow_step += 1
                 shadow_snapshot = metric_adapter.measure()
+                grasp_probe_result = grasp_probe.update(shadow_snapshot, env.step_dt)
+                carry_probe_result = carry_probe.update(shadow_snapshot, grasp_probe_result)
+                place_probe_result = place_probe.update(
+                    shadow_snapshot, grasp_probe_result, carry_probe_result, env.step_dt)
+                current_grasp_success = bool(grasp_probe_result.success.success[0].item())
+                current_carry_success = bool(carry_probe_result.result.success[0].item())
+                current_place_success = bool(place_probe_result.result.success[0].item())
+                if current_grasp_success and not previous_grasp_success:
+                    print(f"[RL MULTI BOX] box[{shadow_snapshot.target_logical_id:02d}] "
+                          "grasp probe success (read-only)", flush=True)
+                if current_carry_success and not previous_carry_success:
+                    print(f"[RL MULTI BOX] box[{shadow_snapshot.target_logical_id:02d}] "
+                          "carry probe success (read-only)", flush=True)
+                if current_place_success and not previous_place_success:
+                    print(f"[RL MULTI BOX] box[{shadow_snapshot.target_logical_id:02d}] "
+                          "place probe success (read-only)", flush=True)
+                previous_grasp_success = current_grasp_success
+                previous_carry_success = current_carry_success
+                previous_place_success = current_place_success
                 phase = shadow_evaluator.phase
-                shadow_breakdown = shadow_evaluator.evaluate(
-                    shadow_snapshot.potentials_by_phase[phase])
+                reward_events = _phase_reward_events(
+                    env, grasp_probe_result, carry_probe_result,
+                    place_probe_result, previous_reward_events)
+                common_reward = _common_reward_input(
+                    env, shadow_snapshot, previous_safety_events)
+                shadow_breakdowns = shadow_evaluator.evaluate_all(
+                    shadow_snapshot.potentials_by_phase,
+                    events_by_phase=reward_events,
+                    common=common_reward,
+                )
+                shadow_breakdown = shadow_breakdowns[phase]
                 raw_metrics = shadow_snapshot.log_scalars(phase)
+                raw_metrics["trial_index"] = trial_index
+                raw_metrics["target_logical_id"] = shadow_snapshot.target_logical_id
+                raw_metrics["active_box_count"] = int(env._multi_box_counts[0].item())
+                raw_metrics["grasp_probe_hold_s"] = grasp_probe_result.success.hold_time_s[0]
+                raw_metrics["carry_probe_bottom_height_m"] = shadow_snapshot.box_bottom_height_m[0]
+                raw_metrics["place_probe_hold_s"] = place_probe_result.result.hold_time_s[0]
                 if shadow_logger is not None:
                     shadow_logger.record(
                         step=shadow_step,
@@ -297,8 +489,61 @@ def run(args, app):
                         events={
                             "contact_adapter_available": bool(
                                 shadow_snapshot.diagnostics.get("contact_adapter_available", 0.0)),
-                            "success": False,
-                            "collision": False,
+                            "success": {
+                                "grasp": current_grasp_success,
+                                "carry": current_carry_success,
+                                "place": current_place_success,
+                            }[phase],
+                            "grasp_probe_success": current_grasp_success,
+                            "grasp_probe_left_pinch": bool(
+                                grasp_probe_result.pinch.hand_pinching[0, 0].item()),
+                            "grasp_probe_right_pinch": bool(
+                                grasp_probe_result.pinch.hand_pinching[0, 1].item()),
+                            "grasp_probe_bilateral": bool(
+                                grasp_probe_result.success.bilateral_pinch[0].item()),
+                            "grasp_probe_opposing": bool(
+                                grasp_probe_result.success.opposing_flaps[0].item()),
+                            "grasp_probe_stable": bool(
+                                grasp_probe_result.success.stable[0].item()),
+                            "grasp_probe_lift": bool(
+                                grasp_probe_result.success.proof_lift[0].item()),
+                            "carry_probe_success": current_carry_success,
+                            "carry_probe_grasp_seen": carry_probe_result.grasp_previously_completed,
+                            "carry_probe_maintained": bool(
+                                carry_probe_result.result.grasp_maintained[0].item()),
+                            "carry_probe_belt": bool(
+                                carry_probe_result.result.footprint_inside_belt[0].item()),
+                            "carry_probe_height": bool(
+                                carry_probe_result.result.pre_place_height[0].item()),
+                            "carry_probe_free": bool(
+                                carry_probe_result.result.free_space[0].item()),
+                            "place_probe_success": current_place_success,
+                            "place_probe_carry_seen": place_probe_result.carry_previously_completed,
+                            "place_probe_support": bool(
+                                place_probe_result.result.supported[0].item()),
+                            "place_probe_released_clear": bool(
+                                place_probe_result.result.released_and_clear[0].item()),
+                            "place_probe_belt": bool(
+                                place_probe_result.result.footprint_inside_belt[0].item()),
+                            "place_probe_free": bool(
+                                place_probe_result.result.free_space[0].item()),
+                            "place_probe_parallel": bool(
+                                place_probe_result.result.axis_parallel[0].item()),
+                            "place_probe_still": bool(
+                                place_probe_result.result.motion_stable[0].item()),
+                            "collision": previous_safety_events.get(
+                                "obstacle_collision", False),
+                            **{
+                                f"reward_{reward_phase}_{name}": bool(value[0].item())
+                                for reward_phase, phase_events in reward_events.items()
+                                for name, value in phase_events.items()
+                            },
+                        },
+                        breakdowns_by_phase=shadow_breakdowns,
+                        potentials_by_phase=shadow_snapshot.potentials_by_phase,
+                        raw_by_phase={
+                            name: shadow_snapshot.raw_scalars(name)
+                            for name in shadow_evaluator.PHASES
                         },
                     )
                 else:
@@ -324,7 +569,13 @@ def run(args, app):
                             phase, shadow_snapshot.raw_scalars(phase),
                             shadow_breakdown, shadow_stats)
                         + "\n" + shadow_snapshot.contact_report()
-                        + "\nEVENT TERMS: disabled until thresholds/success adapters"
+                        + "\n" + (grasp_probe_result.report() if grasp_probe_result is not None
+                                    else "GRASP PROBE | waiting for physics step")
+                        + "\n" + (carry_probe_result.report() if carry_probe_result is not None
+                                    else "CARRY PROBE | waiting for physics step")
+                        + "\n" + (place_probe_result.report() if place_probe_result is not None
+                                    else "PLACE PROBE | waiting for physics step")
+                        + "\nCALIBRATION: all phases + event pulses logged; control/phase unchanged"
                     )
                     report = _layout_report(env, status, shadow_text)
                     ready = hud.update(

@@ -12,16 +12,18 @@ Drive 파일을 삭제하거나 공유 권한을 변경하지 않는다.
 
 ## 다른 작업·스레드에서 기존 연결 재사용
 
-같은 서버와 OS 사용자(`seonho`)로 작업하면 기존 인증을 재사용할 수 있다.
+같은 서버와 OS 사용자로 작업하면 기존 인증을 재사용할 수 있다.
 프로젝트 루트 [AGENTS.md](../AGENTS.md)에도 공통 안내를 기록했다.
 다른 checkout/worktree에서 작업할 때는 아래 **기존 checkout의 절대 경로**를
 사용하면 인증 파일을 복사할 필요가 없다.
 
 ```bash
-bash /home/seonho/HumanoidScene/scripts/rl/gdrive.sh about seonho:
-python3 /home/seonho/HumanoidScene/scripts/rl/drive_backup.py \
+cd /path/to/HumanoidScene
+export RL_DRIVE_REMOTE_ROOT='gdrive:HumanoidScene-RL'
+bash scripts/rl/gdrive.sh about "${RL_DRIVE_REMOTE_ROOT%%:*}:"
+python3 scripts/rl/drive_backup.py \
   --run-dir /absolute/path/to/unique-run-directory \
-  --remote-root seonho:HumanoidScene-RL --watch 300 --keep 2
+  --remote-root "$RL_DRIVE_REMOTE_ROOT" --watch 300 --keep 2
 ```
 
 각 실험은 서로 다른 실행 폴더 이름을 사용한다. 원격 하위 폴더 이름은
@@ -86,11 +88,9 @@ bash scripts/rl/gdrive.sh lsd gdrive:
 
 ### 이 서버의 실제 연결 (2026-09-08)
 
-인증한 remote 이름은 `seonho`다. 이 서버에서는 위 명령의 `gdrive:`를
-`seonho:`로 바꾸고, 업로더에 `--remote-root seonho:HumanoidScene-RL`을
-명시한다. 기본값 `gdrive:`는 자동으로 계정을 선택하지 않는다.
-`about seonho:`로 인증을 확인했으며 총 5 TiB, 사용 가능한 공간은
-5,489,515,262,953 bytes (약 4.99 TiB)였다. 용량은 확인 시점의 값이다.
+실제 remote 별칭은 ignored 인증 설정에만 둔다. 별칭이 `gdrive`가 아니면
+`RL_DRIVE_REMOTE_ROOT='<remote>:HumanoidScene-RL'`을 로컬 환경에서 설정한다.
+용량은 실행 전에 `about`으로 다시 확인한다.
 `HumanoidScene-RL/train_20260907_223932_c32c48`에 기존 실행의 메타데이터
 4개, `model_0.pt`, TensorBoard event 파일을 업로드하고 각각 크기/MD5를
 검증했다. 로컬 파일은 모두 유지했다. 상시 업로더와 학습 재시작은 아직 하지 않았다.
@@ -102,7 +102,7 @@ bash scripts/rl/gdrive.sh lsd gdrive:
 ```bash
 python3 scripts/rl/drive_backup.py \
   --run-dir artifacts/rl/stable_grasp/train_20260907_223932_c32c48 \
-  --remote-root seonho:HumanoidScene-RL \
+  --remote-root "$RL_DRIVE_REMOTE_ROOT" \
   --finished
 ```
 
@@ -117,7 +117,7 @@ manifest/env/agent/verification 메타데이터를 업로드한다. `--finished`
 ```bash
 python3 scripts/rl/drive_backup.py \
   --run-dir /absolute/path/to/current-run \
-  --remote-root seonho:HumanoidScene-RL \
+  --remote-root "$RL_DRIVE_REMOTE_ROOT" \
   --watch 300 --keep 2
 ```
 
@@ -152,14 +152,14 @@ python3 scripts/rl/drive_backup.py \
 ## PPO 학습과 자동 업로드를 함께 관리하기
 
 `scripts/rl/train_with_drive.py`는 새 실험 전용 폴더에서 PPO와 CPU 업로더를
-함께 관리한다. 기존 `seonho:` 인증과 `drive_backup.py`의 검증·정리 함수를
+함께 관리한다. 기존 로컬 rclone 인증과 `drive_backup.py`의 검증·정리 함수를
 재사용한다. OS 서비스가 아니므로 서버 재부팅 이후 자동 재시작되지는 않는다.
 
 ```bash
 # 반드시 이전에 사용하지 않은 고유한 경로를 지정한다.
 python3 scripts/rl/train_with_drive.py \
   --experiment-dir /absolute/path/to/unique-ppo-experiment \
-  --remote-root seonho:HumanoidScene-RL \
+  --remote-root "$RL_DRIVE_REMOTE_ROOT" \
   --num-envs 16384 --max-iterations 2000 --save-interval 4 \
   --checkpoint /absolute/path/to/previous-run/model_0.pt
 ```
@@ -187,7 +187,7 @@ python3 scripts/rl/train_with_drive.py \
 2026-09-08 시작한 PPO 재개 실험의 관리 폴더는
 `artifacts/rl/drive_runs/ppo_gpu1_drive_20260908_011530_77a6e7ff`다.
 실제 실행 폴더는 `train_20260908_011537_9c2516`이며 Drive 대상은
-`seonho:HumanoidScene-RL/train_20260908_011537_9c2516`이다.
+`gdrive:HumanoidScene-RL/train_20260908_011537_9c2516`이다.
 이 기록 자체는 실행 상태의 증거가 아니므로 현재 PID와 `status.json`을 확인한다.
 
 2026-09-08 17:31에는 충돌면 중점 기준점과 비양수 접근 비용을 적용한 새 PPO를
@@ -195,7 +195,7 @@ python3 scripts/rl/train_with_drive.py \
 기존 223-D 모델을 load하지 않는 새 학습이며 관리 폴더는
 `artifacts/rl/drive_runs/ppo_grasp_v2_gpu1_20260908_173131_887e0af4`, 실행 폴더는
 `train_20260908_173139_7e0b1e`다. Drive 대상은
-`seonho:HumanoidScene-RL/train_20260908_173139_7e0b1e`다. 자동 업로드는 300초 간격이며,
+`gdrive:HumanoidScene-RL/train_20260908_173139_7e0b1e`다. 자동 업로드는 300초 간격이며,
 종료 뒤 로그를 검증하고 로컬 디스크 5 GiB 보호 정책을 유지한다.
 `.launch.json`에 실제 명령, git revision 및 핵심 소스의 SHA256을 기록했다.
 현재 실행 여부와 업로드 완료 여부는 새 관리 폴더의 `status.json` 및 실제 PID로 확인한다.
@@ -211,7 +211,7 @@ CUDA_VISIBLE_DEVICES=0 python3 scripts/rl/sac_with_drive.py \
   --gpu 0 --num-envs 17408 --max-iterations 6 --rollout-steps 16 \
   --replay-device cuda:0 --replay-capacity 1000000 \
   --batch-size 4096 --updates-per-step 4 --learning-starts 100000 \
-  --save-interval 2 --remote-root seonho:HumanoidScene-RL
+  --save-interval 2 --remote-root "$RL_DRIVE_REMOTE_ROOT"
 ```
 
 - `--gpu`가 물리 GPU 번호이며 자식은 해당 `CUDA_VISIBLE_DEVICES`와 `cuda:0`을 사용한다.
@@ -251,7 +251,7 @@ DPPO는 동일 관리자 구조에서 `--checkpoint`가 필요하다. checkpoint
   파지 성공 정책이 확보됐다는 결과가 아니다.
 - 실제 실행 폴더:
   `artifacts/rl/drive_runs/sac_gpu0_20260908_014124_f5f29f72/sac_20260908_014132_099fab`.
-  Drive 대상은 `seonho:HumanoidScene-RL/sac_20260908_014132_099fab`이다.
+  Drive 대상은 `gdrive:HumanoidScene-RL/sac_20260908_014132_099fab`이다.
   부모의 `status.json`, `training_audit.json`으로 실행과 검증 상태를 확인한다.
 - 종료 후 원격 checkpoint 2/4/6과 로그·메타데이터 총 11개 파일의 크기·MD5를
   대조했다. 로컬에는 checkpoint 4/6만 남았으며 학습·관리 PID 모두 종료됐다.
@@ -269,13 +269,13 @@ CUDA_VISIBLE_DEVICES=2 python3 scripts/rl/sac_with_drive.py \
   --gpu 2 --num-envs 17408 --max-iterations 300 --rollout-steps 16 \
   --batch-size 4096 --updates-per-step 4 --learning-starts 100000 \
   --replay-capacity 1000000 --replay-device cuda:0 --save-interval 10 \
-  --max-seconds 86400 --remote-root seonho:HumanoidScene-RL \
+  --max-seconds 86400 --remote-root "$RL_DRIVE_REMOTE_ROOT" \
   --checkpoint artifacts/rl/drive_runs/sac_gpu0_20260908_014124_f5f29f72/sac_20260908_014132_099fab/checkpoint_00000006.pt
 ```
 
 관리 폴더는 `artifacts/rl/drive_runs/sac_gpu2_resume_20260908_032357_b27156fd`,
 실제 실행 폴더는 `sac_20260908_032408_3deaf0`다. Drive 대상은
-`seonho:HumanoidScene-RL/sac_20260908_032408_3deaf0`다.
+`gdrive:HumanoidScene-RL/sac_20260908_032408_3deaf0`다.
 앞선 `sac_gpu2_resume_20260908_031046_cd1bdbfc` 시도는 초기화 중 종료했으며
 학습 업데이트 없이 console 로그 업로드·검증을 마쳤다. 종료 시 장면 생성 시간이
 490초로 기록되어 교착 여부는 확인되지 않았다. 재시도에서는 체크포인트 역직렬화를
@@ -306,7 +306,7 @@ CPU 테스트 26개와 실제 Isaac 8 env / SAC 3 iteration 검증이 통과했�
 GPU 2를 `CUDA_VISIBLE_DEVICES=2`로 지정하고 17408 env, 300 iteration,
 rollout 16, batch 4096, updates-per-step 4, learning-starts 100000,
 GPU replay 1000000, save-interval 10, max-seconds 86400으로 실행한다.
-기존 `seonho:HumanoidScene-RL`로 300초마다 검증·업로드하며 최신 두 checkpoint를
+설정된 Drive remote로 300초마다 검증·업로드하며 최신 두 checkpoint를
 유지한다. 종료 후 닫힌 로그까지 검증하는 기존 관리자를 재사용한다.
 실제 실행 폴더와 현재 상태는 부모 `status.json`에서 확인한다.
 실행 당시 소스 SHA256과 Git 차이는 부모 옆 `.launch.json`, `.source.diff`에 기록했다.

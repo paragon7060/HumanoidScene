@@ -27,6 +27,12 @@ S63의 기본 `--dynamics-profile auto`는 `s63-body-id`로 해석된다. 몸통
 물리 substep 사이에는 계산값을 재사용한다. 적용 대상은 `wbc_acceleration_profile()`이
 게인을 정의한 관절과 정확히 일치하므로, 게인만 있고 적용되지 않는 관절은 생기지 않는다.
 
+floating base의 높이·기울기는 base drive가 별도로 유지한다. base 이동력과 무게 지지력은
+rigid-body COM으로 계산한 whole-body CoM 레버암의 couple을 함께 적용한다. inverse dynamics의
+목표 관절 가속도를 root 반작용 wrench로 미리 적용하지는 않는다. 접촉·토크 제한·implicit
+drive 때문에 실제 관절 가속도와 달라질 수 있어 floating base를 오히려 가진하기 때문이다.
+이 구성은 `configs/s63_servo.json`의 PD 값을 변경하지 않는다.
+
 몸통을 포함하는 이유는 감쇠 때문이다. 고정 joint PD(`stiffness=400, damping=40`)에서
 ready 자세 기준 축 관성은 `knee_joint` 28.2, `leg_joint` 19.2, `waist_pitch_joint`
 4.23 kg·m²이고, 감쇠비는 각각 0.19 / 0.23 / 0.49다. 랙에 부딪히거나 박스를 집어
@@ -102,8 +108,8 @@ task/contact constraint를 푸는 full QP WBC 구현은 아니다.
 robot = env.scene["robot"]
 robot.gravity_compensation_torque   # 선택된 관절의 계산 중력 토크
 robot.gravity_compensation_bias     # solver-only g/Kp 보정
-robot.inverse_dynamics_torque       # s63-arm-id의 M*qdd+C+G
-robot.dynamics_profile              # s63-arm-id 또는 gravity
+robot.inverse_dynamics_torque       # s63-body-id/arm-id의 M*qdd+C+G
+robot.dynamics_profile              # s63-body-id, s63-arm-id 또는 gravity
 robot.data.joint_pos_target         # 보정되지 않은 논리 목표
 ```
 

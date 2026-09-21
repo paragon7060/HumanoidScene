@@ -13,16 +13,13 @@ def recorded_action_names(action_names):
 
 
 def encode_recorded_action(action, action_names):
-    """Encode signed gripper requests as binary close labels on a fresh vector.
-
-    The simulator uses nonnegative=open, negative=close. Measured aperture and
-    joint states are not thresholds for this command label.
-    """
+    """Validate and copy the shared 0=open/1=close command for recording."""
     result = np.array(action, dtype=np.float32, copy=True)
     if result.shape != (len(action_names),):
         raise ValueError("Recorded action must match its named one-dimensional schema")
     indices = [i for i, name in enumerate(action_names) if name in GRIPPER_CHANNELS]
     if not np.isfinite(result[indices]).all():
         raise ValueError("Non-finite gripper command cannot be recorded as a binary action")
-    result[indices] = (result[indices] < 0).astype(np.float32)
+    if not np.isin(result[indices], (0.0, 1.0)).all():
+        raise ValueError("Gripper commands must use binary 0=open/1=close encoding")
     return result

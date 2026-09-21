@@ -73,10 +73,15 @@ def _config(args):
     # Manual reward inspection can run indefinitely. Remove the timeout term
     # instead of using an infinite duration (Isaac rounds duration to steps).
     cfg.terminations.time_out = None
-    from ...robots.claw_assets.vr import configure_rl_gripper_force
+    from ...robots.claw_assets.vr import configure_binary_gripper_control
     # Keep the exact binary action, calibrated position mapping, PD gains and
     # sensor-free force assist used by training.  Only override its force value.
-    configure_rl_gripper_force(cfg, getattr(args, "gripper_close_force", None))
+    configure_binary_gripper_control(
+        cfg,
+        getattr(args, "gripper_close_force", None),
+        contact_feedback=False,
+        command_gate="settling",
+    )
     cfg.xr = XrCfg(near_plane=.08)
     cfg.scene.conveyor_surface.class_type = StationarySurface
     cfg.recorders.quest_reward = RecorderTermCfg(class_type=RewardProbe)
@@ -195,8 +200,13 @@ def run(args, app):
         last_collision_draw = 0.
         status = "PAUSED - X then A"
         print("[RL REWARD] No dataset recording. A/T run/pause; B/R reset; X/C recenter; Y/H panel.", flush=True)
-        print(f"[RL REWARD] dynamics_profile={getattr(env.scene['robot'], 'dynamics_profile', 'unknown')}; "
-              "S63 arm-id replaces arm gravity only; body retains gravity-PD.", flush=True)
+        dynamics_profile = getattr(env.scene["robot"], "dynamics_profile", "unknown")
+        dynamics_summary = {
+            "s63-body-id": "torso+arms use inverse dynamics; remaining driven joints use gravity-PD",
+            "s63-arm-id": "arms use inverse dynamics; torso uses gravity-PD",
+            "gravity": "torso+arms use gravity-PD",
+        }.get(dynamics_profile, "custom dynamics profile")
+        print(f"[RL REWARD] dynamics_profile={dynamics_profile}; {dynamics_summary}.", flush=True)
         print(f"[RL REWARD] task={cfg.task.name}, boxes={','.join(cfg.task.box_names)}, "
               f"control={cfg.task.control_mode}, active_arm={cfg.task.active_arm}, "
               f"action_space={cfg.task.action_space}, actions={env.action_manager.total_action_dim}, "

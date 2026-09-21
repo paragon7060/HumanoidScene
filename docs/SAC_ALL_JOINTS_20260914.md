@@ -23,7 +23,7 @@
 실제 실행 폴더:
 `sac_20260914_210825_1f4e24`
 
-Drive: `seonho:HumanoidScene-RL/sac_20260914_210825_1f4e24`.
+Drive: `gdrive:HumanoidScene-RL/sac_20260914_210825_1f4e24`.
 기존 인증을 재사용했다. 50GB 예약 파일과 다른 사용자 프로세스를 유지했다.
 
 실행 소스:

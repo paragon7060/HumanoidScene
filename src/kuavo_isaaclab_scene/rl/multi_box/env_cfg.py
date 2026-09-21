@@ -78,6 +78,9 @@ class MultiBoxEnvCfg(ManagerBasedRLEnvCfg):
         self.episode_length_s = self.multi_box.episode_seconds
         self.viewer.eye = (-3., -3., 2.2)
         self.viewer.lookat = (.1, .3, 1.1)
+        from ...robots.claw_assets.vr import configure_binary_gripper_control
+        configure_binary_gripper_control(
+            self, contact_feedback=False, command_gate="ready")
         # Same base model as every other entry point; right-arm mode has no
         # base action and therefore reports the conflict instead.
         if apply_base_drive(self.scene.robot, self.actions, "base"):

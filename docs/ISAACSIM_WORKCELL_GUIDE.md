@@ -163,9 +163,33 @@ artifacts/output/measured_workcell.usda
 ./capture_layout.sh artifacts/output/measured_workcell.usda
 ```
 
-`configs/workcell_layout.json`은 robot, rack,
-conveyor, fence, button station의
-월드 position/rotation과 랙 scale을 저장한다.
+`configs/workcell_layout.json`은 robot, rack, rack_base,
+conveyor, fence, button station의 월드 position/rotation과 랙 scale을 저장한다.
+
+`rack_base`는 webpage의 `box_detection/rack.json`과 같은 논리 좌표계다.
+
+- 원점: 전면 중앙 ArUco `tag_2` 중심을 바닥으로 투영한 점
+- +X: rack 안쪽
+- +Y: rack 왼쪽
+- +Z: 위
+
+`rack`은 기존 `Rack.usd` 자산 원점이라 박스 pose와 roller 배치의 하위 호환을 위해
+남겨 둔다. `rack_base`가 JSON에 있으면 위치와 회전은 `rack_base`가 기준이며,
+runtime에서 `rack` 자산 pose를 고정 변환으로 다시 계산한다. `rack.scale`은 계속
+USD의 실제 크기를 정한다. 따라서 현장 ArUco 측정값을 반영할 때는 `rack_base`를
+수정하고 `rack` 원점을 직접 보정값으로 사용하지 않는다.
+
+현재 identity scale에서 `rack_base -> Rack.usd` 고정 변환은 translation
+`(-0.0245231, +0.4187500, 0) m`, yaw `+90 deg`다. rack scale을 바꾸면 translation은
+asset bounds로부터 다시 계산된다. 이전 형식처럼 `rack_base`가 없는 layout도 읽을 수
+있으며, 이때는 기존 `rack` pose에서 논리 프레임을 역산한다. `capture_layout.sh`는
+두 값을 함께 저장한다.
+
+실물 비교에는 `robot -> rack_base` 변환을 사용한다. 현재 기본 layout은
+translation `(0.5245231, 0.0212500, 0) m`, yaw `0 deg`다. 이 수치는 아직 실측
+정합 완료값이 아니라 현재 simulation 배치를 새 좌표계로 표현한 baseline이다.
+ArUco 정렬 후 webpage/robot 쪽에서 얻은 값을 이 값과 비교하고, 최종적으로 측정된
+`rack_base` 월드 pose를 JSON에 반영해야 한다.
 
 ### 5.1a Rack–conveyor 통로 간격을 숫자로 조절
 

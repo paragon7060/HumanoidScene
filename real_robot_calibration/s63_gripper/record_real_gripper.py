@@ -9,6 +9,7 @@ import argparse
 import base64
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -149,8 +150,8 @@ def save_camera_frame(row, output):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", default="lab@192.168.0.22")
-    parser.add_argument("--workspace", default="/home/lab/hb/kuavo-ros-opensource")
+    parser.add_argument("--host", default=os.environ.get("KUAVO_ROBOT_SSH"))
+    parser.add_argument("--workspace", default=os.environ.get("KUAVO_ROBOT_WORKSPACE"))
     parser.add_argument("--ros-master", default="http://kuavo_master:11311")
     parser.add_argument("--duration", type=float, default=120.0)
     parser.add_argument("--output", type=Path, required=True, help="New local output directory")
@@ -160,7 +161,9 @@ def main(argv=None):
     if not 0 < args.duration <= 3600:
         parser.error("--duration must be between 0 and 3600 seconds")
     if not args.host or args.host.startswith("-"):
-        parser.error("--host must be an SSH destination")
+        parser.error("Set --host or KUAVO_ROBOT_SSH to an SSH destination")
+    if not args.workspace:
+        parser.error("Set --workspace or KUAVO_ROBOT_WORKSPACE")
     if args.output.exists():
         parser.error("Output already exists; choose a new directory")
     if len(set(args.camera_sides)) != len(args.camera_sides):

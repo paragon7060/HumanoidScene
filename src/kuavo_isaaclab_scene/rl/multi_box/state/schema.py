@@ -7,8 +7,16 @@ from dataclasses import dataclass
 import torch
 
 from ..hierarchy import SkillControlState
+from ...action_spaces import HEAD_JOINTS
 from ..spec import MAX_BOXES
-from .placement import PlacementSetState
+from .placement import DeployablePlacementEstimateState
+
+
+ACTUATED_BODY_JOINTS = (
+    "knee_joint", "leg_joint", "waist_pitch_joint", "waist_yaw_joint",
+    *(f"zarm_{side}{index}_joint" for side in "lr" for index in range(1, 8)),
+    *HEAD_JOINTS,
+)
 
 
 def _shape(value: torch.Tensor, expected: tuple[int, ...], name: str, *, dtype=None) -> None:
@@ -60,8 +68,8 @@ class DeployableRobotState:
     gripper_command: torch.Tensor
 
     def validate(self, num_envs: int) -> None:
-        if self.joint_pos.ndim != 2 or self.joint_pos.shape[0] != num_envs:
-            raise ValueError("joint_pos must have shape [num_envs, num_joints].")
+        if self.joint_pos.shape != (num_envs, len(ACTUATED_BODY_JOINTS)):
+            raise ValueError("joint_pos must have the fixed 20 actuated body joints.")
         _floating(self.joint_pos, self.joint_pos.shape, "joint_pos")
         _floating(self.joint_vel, self.joint_pos.shape, "joint_vel")
         _floating(self.base_pose_world, (num_envs, 7), "base_pose_world")
@@ -79,7 +87,7 @@ class DeployableTaskState:
     robot: DeployableRobotState
     rack_pose_world: torch.Tensor
     conveyor_pose_world: torch.Tensor
-    placement: PlacementSetState
+    placement: DeployablePlacementEstimateState
     control: SkillControlState
     transition_confidence: torch.Tensor
 
@@ -89,9 +97,19 @@ class DeployableTaskState:
         _floating(self.rack_pose_world, (num_envs, 7), "rack_pose_world")
         _floating(self.conveyor_pose_world, (num_envs, 7), "conveyor_pose_world")
         _floating(self.transition_confidence, (num_envs, 3), "transition_confidence")
+        if not isinstance(self.placement, DeployablePlacementEstimateState):
+            raise TypeError("Actor placement must be a pose-based deployable estimate.")
         masks = (self.placement.active, self.placement.placed, self.placement.selectable)
         if any(value.shape != (num_envs, MAX_BOXES) for value in masks):
             raise ValueError("Placement masks must have shape [num_envs, 12].")
+        if any(value.dtype != torch.bool for value in masks):
+            raise TypeError("Placement masks must be boolean.")
+        if not torch.equal(self.placement.active, self.boxes.active):
+            raise ValueError("Placement active mask must match perceived boxes.")
+        if not torch.equal(self.placement.selectable,
+                           self.placement.active & ~self.placement.placed):
+            raise ValueError("Placement selectable mask must reflect estimated placed boxes.")
+        _floating(self.placement.hold_time_s, (num_envs, MAX_BOXES), "placement hold_time_s")
         if self.control.target_box.shape != (num_envs,) \
                 or self.control.current_skill.shape != (num_envs,):
             raise ValueError("Control target and skill must have shape [num_envs].")

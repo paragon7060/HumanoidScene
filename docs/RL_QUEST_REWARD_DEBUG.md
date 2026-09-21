@@ -135,10 +135,11 @@ kinematic base는 root를 순간이동시키므로 관성 결합이 아예 없�
 rms 1.25°로 사실상 같았다. 반면 승강축은 ID의 가속도 task가 빠지면 감쇠비가 낮아져
 (`docs/S63_GRAVITY_COMPENSATION.md` 참조) base 가속마다 1.9°까지 출렁였다.
 
-그래서 floating root에서도 ID를 사용한다. floating articulation은 generalized 배열
-앞에 root 6자유도가 붙으므로 mass/Coriolis의 joint block만 읽는다. 이 block은 root를
-고정한 joint-space 관성이며, root는 planar drive의 PD wrench가 잡고 있으므로 타당한
-모델이다. 덕분에 dynamic base는 actuator gain을 학습 scene과 동일하게 유지한다.
+그래서 floating root에서도 joint ID를 사용한다. generalized 배열의 joint block으로
+관절 토크를 계산하고, planar drive는 base의 높이·기울기와 무게 지지를 독립적으로 맡는다.
+목표 관절 가속도에서 계산한 root 반작용은 접촉·토크 제한 아래 실제 가속도와 달라져
+base를 가진할 수 있으므로 feedforward하지 않는다. dynamic base는 actuator gain을 학습
+scene과 동일하게 유지한다.
 
 head의 1.18°는 정지 상태와 kinematic base에서도 동일하게 나타나는 기존 target
 오프셋이므로 base 움직임과 무관하다.
@@ -154,6 +155,12 @@ roll/pitch를 읽어 world x/y 토크로 보정했는데, 그 각도는 몸체 �
 합과 `m·r²` 하한만 써서 tilt 축이 19.7 kg·m²로 잡혔지만 실제 값은 76 kg·m² 수준이다.
 팔을 뻗으면 관성이 늘어난 만큼 토크도 함께 커진다. 팔이 랙에 닿는 순간처럼 접촉이
 생기면 `max_tilt_acceleration` 상한(10 rad/s²)에 잠깐 걸리지만 곧바로 회복한다.
+
+base의 수평·수직 이동력은 root body COM에 적용되므로 전체 무게중심이 root보다 위에 있으면
+그 자체로 pitch/roll moment를 만든다. 특히 torso를 높이면 레버암이 커진다. drive는
+현재 whole-body CoM까지의 레버암과 이동력의 외적으로 같은 step의 보상 couple을 더한다.
+이 항은 PD gain을 높이지 않고 높이 변화와 주행 때 생기는 불필요한 pitch moment를 직접
+보상하며, 실제 관절 반작용은 base 자세 PD가 감쇠한다.
 
 RL scene은 `minimal_rl_v2`이며 local cuboid로 만든 정지 belt, 측면 프레임 및
 4개 다리를 갖는다. 물리 상판은 2.55×0.68 m, 두께 3 cm이고 기존 높이를 유지한다.
@@ -193,11 +200,17 @@ RL reward debug는 일반 Teleop의 factory 배경을 복제하지 않고 `minim
 head와 양팔/양손을 모두 해제한다. 성공 조건인 `grasp_hand="right"` 한 손 파지
 판정 자체는 바뀌지 않는다.
 
-`2`는 `1`의 absolute/downward/responsive, 전체 관절, 50 N gripper, 카메라 OFF
-기본값을 이어받아 격리된 `rl/multi_box` v2 scene을 연다. 시작/reset마다 rack과
-conveyor pose 및 1~12개 box 배치를 다시 뽑는다. 두 번째 shelf에는 small/medium,
-세 번째 shelf에는 small box만 생긴다. 이 scene은 rollerless rack을 사용하므로
-wrapper가 마지막에 `--no-rack-rollers`를 자동 적용한다. mode 2 HUD는 활성 box와
+controller mapping은 `absolute`, `scaled`, `relative`를 사용할 수 있다. `relative`를
+선택하면 일반 VR teleop과 같은 wrist delta 입력으로 로봇을 조작하고, 이 scene의
+reward·contact·grasp/carry/place probe는 조작에 개입하지 않고 관찰값만 계산한다.
+
+`2`는 `1`의 absolute/downward/responsive, 전체 관절, binary `0=open/1=close`
+및 package 50 N gripper, 카메라 OFF
+기본값을 이어받아 격리된 `rl/multi_box` v2 scene을 연다. 시작/reset마다 rack
+(X/Y ±10 cm, yaw ±15°)과 conveyor pose 및 1~12개 box 배치를 다시 뽑는다.
+두 번째 shelf에는 small/medium,
+세 번째 shelf에는 small box만 생긴다. roller rack이 기본이며 필요할 때만
+`--no-rack-rollers`로 plain rack을 선택한다. mode 2 HUD는 활성 box와
 randomization 결과 외에 선택한 box의 v2 pose shadow reward를 표시한다. reset 때
 양 TCP에서 가장 가까운 활성 box를 target으로 잠그며 PC J/L로 target을 바꿀 수 있다.
 PC 1/2/3은 각각 grasp/carry/place dense reward를 검사한다. 이 phase 선택은 표시와
@@ -207,19 +220,43 @@ PC 1/2/3은 각각 grasp/carry/place dense reward를 검사한다. 이 phase 선
 계산한다. 네 손가락과 18개 physical box의 두 target flap 사이에서 PhysX가 이미 계산한
 filtered contact도 읽는다. HUD/JSONL의 `CONTACT RAW`에는 현재 target box에 대한 손가락별
 접촉력, 실제 flap bounds 안의 접촉인지와 두 jaw가 flap을 사이에 두는지를 표시한다.
-이 값에는 아직 최소 접촉력 임계값을 적용하지 않는다.
+`GRASP PROBE`는 jaw마다 최소 5 N, 두 jaw의 유효 접촉, 양손의 서로 다른 flap 파지,
+손–박스 상대자세 변화 10 mm/10° 이내, 초기 위치보다 8 mm 상승하면서 경사진 선반과
+8 mm 이상 간격을 0.25초 유지했는지를 읽기 전용으로 표시한다. 패드 변경 이후
+5 N 기준의 재확인이 필요하다.
+`CARRY PROBE`는 파지 성공 이후 양손 opposing-flap 접촉 유지, 중력 기준 박스 기울기
+20° 이내, 박스 footprint의 벨트 안쪽 배치, 다른 박스와의 비중첩, 벨트 위 5–15 cm
+높이를 표시한다. `PLACE PROBE`는 carry 성공
+이후 실제 Box Body–belt 지지력 0.2 N 이상, 양쪽 physical grasp 해제,
+긴 변 평행 10° 이내, 박스 속도 5 cm/s·0.2 rad/s 이하를 0.5초 유지하는지를 표시한다.
+다른 박스와의 중첩은 placement state가 연결되기 전까지 벨트 근처의 모든 활성
+박스를 보수적으로 장애물로 취급한다.
 
-contact/collision/success event와 base/action/joint-limit regularization은 0으로 두며 HUD에도
-비활성이라고 표시한다. 따라서 pose 근접이나 raw contact만으로 grasp 또는 place 성공을
-선언하지 않는다. 이 값은 초기 normalization, 접촉 임계값과 weight 비율을 VR 분포로
-보정하기 위한 측정값이며 학습 reward의 최종 검증 결과가 아니다.
+VR control이나 phase는 probe가 바꾸지 않는다. 대신 weight 검증용 sidecar에는
+grasp/carry/place 세 phase를 매 step 동시에 계산한다. 승인된 probe의 pinch, skill
+success, support, release와 grasp-loss 판정을 one-step event reward로 연결하며,
+base/action/joint-limit 비용과 학습 환경의 aggregate obstacle, box, workspace guard도
+같이 기록한다. 양손 pinch를 잃었다가 다시 잡는 행동으로 보상이나 terminal penalty를
+반복 발생시키지 않도록 event는 scene reset 또는 target 변경 전까지 한 번만 지급한다.
+30 Hz에서 수 초 이상 걸리는 skill의 성공 credit을 유지하도록 v2 potential과
+SAC/PPO discount는 모두 0.999를 사용한다.
+JSONL의 최상위 `phase`, `weighted_terms`, `step_reward`는 HUD에서 선택한 phase이고,
+`weighted_terms_by_phase`, `step_reward_by_phase`, `potentials_by_phase`,
+`raw_by_phase`에 세 phase 전체 값이 들어간다. 이 값은 weight 비율의 사전 검증용이며,
+짧은 학습에서 reward 분포와 성공률을 재확인한 뒤 장기 학습을 시작한다.
 
 매 control step의 raw SI 값, normalized potential, weighted term과 누적 return을 별도
 JSONL에 저장하려면 존재하지 않는 새 경로를 지정한다. 데이터셋에는 섞이지 않는다.
+각 행의 `raw.trial_index`는 시작 시 0이며 B/R reset마다 증가한다.
+`raw.target_logical_id`와 `raw.active_box_count`로 어떤 장면과 박스를 검사했는지
+구분할 수 있다. 누적 return은 reset 때 다시 0에서 시작한다. A/T 일시정지·재개와
+X/C recenter는 물리 장면을 reset하지 않으므로 probe의 이전 성공 이력을 유지한다.
+대상 박스 변경(J/L)과 장면 reset(B/R)은 그 이력을 초기화한다.
 
 ```bash
 ./quest_collector.sh collect --rl-reward-debug 2 \
-  --rl-shadow-log artifacts/multi_box_shadow_01.jsonl
+  --rl-shadow-box-count 1 \
+  --rl-shadow-log artifacts/multi_box_grasp_probe_01.jsonl
 ```
 
 접촉력과 파지 미끄럼을 보정할 때는 target이 실제 조작한 박스와 달라지는 것을 막기 위해
@@ -595,9 +632,9 @@ disturbance는 초기 선반 위치·자세 비용과 운동 비용을 분리했
   이 영상은 표시 전용이고 RL observation에는 들어가지 않는다. Depth·데이터 기록·
   공장 배경은 생성하지 않는다. `--control-hz`, `--episode-seconds`, `--arm-stiffness`,
   `--arm-damping`, recording 관련 옵션은 이 모드에서 적용하지 않는다.
-- 지원 조합은 **controllers + scaled 또는 absolute**다. `--controller-mapping absolute`를
+- 지원 조합은 **controllers + scaled, absolute 또는 relative**다. `--controller-mapping absolute`를
   쓰면 `--absolute-orientation`(downward/pointing)도 그대로 적용되고, `AbsoluteControllerMapper`가
-  aim pose로 방향을 계산한다. `--hand-switch`, hands, relative mapping, `--scene-config`,
+  aim pose로 방향을 계산한다. `--hand-switch`, hands, `--scene-config`,
   `--domain-randomization`은 거부한다.
   수집기의 `--auto-start`와 무관하게 A로 명시적으로 시작한다.
 

@@ -1,7 +1,9 @@
 """CPU tests for the v2 rack spawn planner; never launch Isaac Sim."""
 
 from dataclasses import replace
+import math
 
+import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import (
@@ -68,6 +70,7 @@ def test_all_twelve_boxes_have_unique_physical_assets_and_nonoverlapping_poses()
 
 def test_spawn_poses_and_anchor_jitter_are_finite_bounded_and_reproducible():
     spec = MultiBoxSpec()
+    assert math.degrees(spec.rack_yaw_jitter) == pytest.approx(15.0)
     first = sample_spawn_batch(spec, 128, generator=generator(29))
     second = sample_spawn_batch(spec, 128, generator=generator(29))
     for name in first.__dataclass_fields__:
@@ -77,5 +80,7 @@ def test_spawn_poses_and_anchor_jitter_are_finite_bounded_and_reproducible():
     assert torch.allclose(norms, torch.ones_like(norms), atol=1e-6)
     assert (first.rack_xy_delta.abs() <= torch.tensor(spec.rack_xy_jitter) + 1e-7).all()
     assert (first.rack_yaw_delta.abs() <= spec.rack_yaw_jitter + 1e-7).all()
+    assert math.degrees(float(first.rack_yaw_delta.min())) < -14.0
+    assert math.degrees(float(first.rack_yaw_delta.max())) > 14.0
     assert (first.conveyor_xy_delta.abs() <= torch.tensor(spec.conveyor_xy_jitter) + 1e-7).all()
     assert (first.conveyor_yaw_delta.abs() <= spec.conveyor_yaw_jitter + 1e-7).all()

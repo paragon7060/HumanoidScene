@@ -37,7 +37,7 @@ creates a new `env_isaaclab_232` environment and leaves every existing conda
 environment untouched:
 
 ```bash
-git clone git@github.com:paragon7060/HumanoidScene.git
+git clone git@github.com:<owner>/HumanoidScene.git
 cd HumanoidScene
 
 ./install_isaaclab_stable.sh --dry-run

@@ -19,6 +19,16 @@ class PlacementSetState:
     full_success: torch.Tensor
 
 
+@dataclass(frozen=True)
+class DeployablePlacementEstimateState:
+    """Policy-visible pose estimate, distinct from privileged place truth."""
+
+    active: torch.Tensor
+    placed: torch.Tensor
+    selectable: torch.Tensor
+    hold_time_s: torch.Tensor
+
+
 class PlacementSetTracker:
     """Tracks live placement; disturbed boxes immediately become selectable."""
 

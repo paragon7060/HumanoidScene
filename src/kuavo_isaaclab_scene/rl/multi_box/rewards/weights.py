@@ -17,6 +17,7 @@ class CommonWeights:
     self_collision: float = 4.0
     box_drop: float = 8.0
     obstacle_collision: float = 4.0
+    workspace_limit: float = 8.0
     base_motion: float = 0.002
     action_rate: float = 0.001
     joint_limit: float = 0.002
@@ -67,7 +68,11 @@ class HighLevelWeights:
 
 @dataclass(frozen=True)
 class MultiBoxRewardWeights:
-    discount: float = 0.99
+    # The skills run at 30 Hz and can take several seconds.  0.99 has a
+    # roughly 2.3 s reward half-life at this rate, which made a valid carry
+    # lose nearly all success credit.  Keep this equal to the v2 learner
+    # discount so potential shaping remains policy invariant.
+    discount: float = 0.999
     common: CommonWeights = CommonWeights()
     grasp: GraspWeights = GraspWeights()
     carry: CarryWeights = CarryWeights()
@@ -95,5 +100,7 @@ class MultiBoxRewardWeights:
             raise ValueError("Each skill success weight must exceed its total dense shaping weight.")
         largest_success = max(self.grasp.success_event, self.carry.success_event,
                               self.place.success_event)
-        if self.common.box_drop <= largest_success or self.high_level.failure_event <= largest_success:
+        if (self.common.box_drop <= largest_success
+                or self.common.workspace_limit <= largest_success
+                or self.high_level.failure_event <= largest_success):
             raise ValueError("Destructive terminal penalties must exceed one low-level success.")

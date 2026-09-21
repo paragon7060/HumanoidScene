@@ -20,7 +20,6 @@ import isaaclab.sim as sim_utils
 import isaaclab.utils.string as string_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import Articulation, ArticulationCfg, AssetBaseCfg
-from isaaclab.envs import mdp
 from isaaclab.managers import ActionTerm, ActionTermCfg
 from isaaclab.sim import SpawnerCfg
 from isaaclab.utils import configclass
@@ -147,16 +146,73 @@ class InterpolatedJointPositionActionCfg(ActionTermCfg):
     force_sensor_names: tuple[str, str] | None = None
 
 
-class ForceBinaryGripperAction(InterpolatedJointPositionAction):
-    """VR open/close intent; both directions use force from command onset."""
+class BinaryGripperAction(InterpolatedJointPositionAction):
+    """Shared package action: 0 opens and 1 closes the gripper.
+
+    The actuator target remains the package's signed open/closed convention,
+    but every Quest and RL caller uses the same external binary command.  The
+    optional command gate is enabled by vectorized RL tasks and disabled by
+    direct teleoperation scenes that do not have a workcell command manager.
+    """
+
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        self._close_requested = torch.zeros(
+            self.num_envs, 1, dtype=torch.bool, device=self.device)
+
+    def _command_enabled(self):
+        if self.cfg.command_gate is None:
+            return torch.ones(
+                self.num_envs, 1, dtype=torch.bool, device=self.device)
+        command = self._env.command_manager.get_term("workcell")
+        if self.cfg.command_gate == "settling":
+            task = getattr(self._env.cfg, "task", None)
+            if task is None or task.reset_settle_seconds <= 0 or task.reset_bank:
+                return torch.ones(
+                    self.num_envs, 1, dtype=torch.bool, device=self.device)
+            return command.settling.ready[:, None]
+        if self.cfg.command_gate == "ready":
+            return command.ready[:, None]
+        raise ValueError(f"Unknown gripper command gate: {self.cfg.command_gate}")
 
     def process_actions(self, actions):
-        super().process_actions(torch.where(actions < 0, -1., 1.))
+        close = actions > 0
+        enabled = self._command_enabled()
+        self._close_requested[:] = torch.where(
+            enabled, close, self._close_requested)
+        self._raw_actions[:] = self._close_requested.float()
+        signed = 1.0 - 2.0 * self._raw_actions
+        if self._position_mapping is not None:
+            held = 1.0 - self._position_mapping.previous_percent / 50.0
+            signed = torch.where(enabled, signed, held)
+        targets = self._targets_from_signed(signed)
+        self._desired_actions[:] = torch.where(
+            enabled, targets, self._desired_actions)
+        if self._target_filter is None:
+            self._processed_actions[:] = self._desired_actions
+
+    def _force_closing(self):
+        return self._close_requested
+
+    def reset(self, env_ids=None):
+        ids = slice(None) if env_ids is None else env_ids
+        q = self._asset.data.joint_pos[ids][:, self._joint_ids]
+        self._raw_actions[ids] = 0
+        self._close_requested[ids] = False
+        self._reset_joint_targets(q, env_ids)
+        if self._position_mapping is not None:
+            direction = self._close_command - self._open_command
+            closed = ((q - self._open_command) * direction).sum(-1) \
+                / direction.square().sum().clamp_min(1e-8)
+            self._position_mapping.reset(env_ids, closed)
+        if self._force_drive is not None:
+            self._force_drive.reset(env_ids)
 
 
 @configclass
-class ForceBinaryGripperActionCfg(InterpolatedJointPositionActionCfg):
-    class_type: type = ForceBinaryGripperAction
+class BinaryGripperActionCfg(InterpolatedJointPositionActionCfg):
+    class_type: type = BinaryGripperAction
+    command_gate: str | None = None
 
 
 class GripperClosingForceAssist:
@@ -293,41 +349,6 @@ class GripperForceDrive:
         self.asset.set_joint_effort_target(zeros, joint_ids=self.ids, env_ids=ids)
 
 
-class FilteredBinaryJointPositionAction(mdp.BinaryJointPositionAction):
-    """Keep Isaac's binary sign/bool convention and filter only the PD target."""
-
-    def __init__(self, cfg, env):
-        super().__init__(cfg, env)
-        initial = self._asset.data.joint_pos[:, self._joint_ids]
-        self._desired_actions = initial.clone()
-        self._processed_actions[:] = initial
-        self._target_filter = GripperTargetFilter(initial, self._close_command-self._open_command, cfg.target_filter)
-        self._filter_dt = sim_utils.SimulationContext.instance().get_physics_dt()
-
-    def process_actions(self, actions):
-        super().process_actions(actions)
-        self._desired_actions[:] = self._processed_actions
-        self._processed_actions[:] = self._target_filter.current
-
-    def apply_actions(self):
-        self._processed_actions[:] = self._target_filter.advance(self._desired_actions, self._filter_dt)
-        super().apply_actions()
-
-    def reset(self, env_ids=None):
-        super().reset(env_ids)
-        ids = slice(None) if env_ids is None else env_ids
-        q = self._asset.data.joint_pos[ids][:, self._joint_ids]
-        self._desired_actions[ids] = q
-        self._processed_actions[ids] = q
-        self._target_filter.reset(q, env_ids)
-
-
-@configclass
-class FilteredBinaryJointPositionActionCfg(mdp.BinaryJointPositionActionCfg):
-    class_type: type = FilteredBinaryJointPositionAction
-    target_filter: dict = MISSING
-
-
 class MountedGripper(Articulation):
     """Articulation that exposes its pre-physics config to the mount spawner."""
 
@@ -455,22 +476,21 @@ def build_gripper_action_cfg(
 ):
     if side not in settings.active_sides:
         return None
-    filter_settings = settings.sides[side].target_filter
-    cfg_type = (
-        InterpolatedJointPositionActionCfg
-        if continuous
-        else (FilteredBinaryJointPositionActionCfg if filter_settings is not None else mdp.BinaryJointPositionActionCfg)
-    )
-    mapping_kwargs = ({"position_mapping": settings.sides[side].position_mapping}
-                      if cfg_type is InterpolatedJointPositionActionCfg else {})
-    if filter_settings is not None:
-        mapping_kwargs["target_filter"] = filter_settings
-    return cfg_type(
+    if not continuous:
+        from .claw_assets.linkage import TWO_FINGER_PRESETS
+        from .claw_assets.package import default_close_force_n
+        from .claw_assets.vr import build_binary_gripper_action_cfg
+
+        force = default_close_force_n() if settings.name in TWO_FINGER_PRESETS else None
+        return build_binary_gripper_action_cfg(
+            settings, side, force_n=force, command_gate=None)
+    return InterpolatedJointPositionActionCfg(
         asset_name=settings.asset_name_for(side),
         joint_names=list(settings.joint_names_for(side)),
         open_command_expr=settings.command_for(side, settings.open_command),
         close_command_expr=settings.command_for(side, settings.close_command),
-        **mapping_kwargs,
+        position_mapping=settings.sides[side].position_mapping,
+        target_filter=settings.sides[side].target_filter,
     )
 
 

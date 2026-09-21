@@ -14,6 +14,7 @@ from ..managers.rewards import RewardsCfg
 from ..managers.terminations import TerminationsCfg
 from ..tasks.specs import TaskSpec
 from ...robots.gripper_config import resolve_gripper_settings
+from ...robots.base_drive import apply_base_drive
 from ...robots.initial_states import load_initial_state, merge_joint_position_defaults
 from ...robots.robot_model import resolve_robot_model
 from ...workcell.workcell_layout import offset as layout_offset, rotation as layout_rotation
@@ -128,8 +129,13 @@ class MultiBoxTeleopEnvCfg(ManagerBasedRLEnvCfg):
         if self.actions.height is not None:
             self.actions.height.scale = 0.015
         self.actions.head.scale = 0.01
-        for side in ("left", "right"):
-            getattr(self.actions, side + "_gripper").delta_scale = 0.08
+        # Use the same base model selected by the shared Quest CLI as regular
+        # teleop and the RL environments.  In particular, mode 2 must not fall
+        # back to the old root-pose teleport while mode 1 uses the new floating
+        # base, since that would invalidate carry/slip debugging between modes.
+        if apply_base_drive(self.scene.robot, self.actions, "base"):
+            self.sim.physx.enable_external_forces_every_iteration = True
+            print("[BASE] Dynamic base: floating root tracked by a PD wrench.", flush=True)
 
         # Retain the same body-servo support used by whole-body mode 1 for
         # models that do not provide the shared gravity-compensated writer.
@@ -161,9 +167,13 @@ def build_quest_multi_box_cfg(args) -> MultiBoxTeleopEnvCfg:
     cfg = MultiBoxTeleopEnvCfg(multi_box=spec)
     cfg.seed = args.seed
     cfg.sim.device = args.device
-    from ...robots.claw_assets.vr import configure_vr_gripper_force
-    configure_vr_gripper_force(
-        cfg, getattr(args, "gripper_close_force", None), incremental=True)
+    from ...robots.claw_assets.vr import configure_binary_gripper_control
+    configure_binary_gripper_control(
+        cfg,
+        getattr(args, "gripper_close_force", None),
+        contact_feedback=False,
+        command_gate=None,
+    )
     quality = args.render_quality == "quality"
     cfg.sim.render.antialiasing_mode = "DLSS"
     cfg.sim.render.dlss_mode = 2 if quality else 0

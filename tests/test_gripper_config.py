@@ -27,8 +27,8 @@ def test_default_leju_twofinger_preset_has_two_binary_actions() -> None:
     assert settings.active_sides == ("left", "right")
     assert settings.close_command["{side}_f_bar_1_joint"] == 0.0
     assert len(teleop_action_names(settings)) == 16
-    assert gripper_teleop_action(settings, 0.02, 0.08) == (-1.0, 1.0)
-    assert gripper_teleop_action(settings, math.nan, 0.01) == (1.0, -1.0)
+    assert gripper_teleop_action(settings, 0.02, 0.08) == (1.0, 0.0)
+    assert gripper_teleop_action(settings, math.nan, 0.01) == (0.0, 1.0)
 
 
 def test_removed_robotiq_preset_is_rejected() -> None:

@@ -6,14 +6,21 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.hierarchy import SkillStateMachine
-from kuavo_isaaclab_scene.rl.multi_box.observations import build_observations
+from kuavo_isaaclab_scene.rl.multi_box.observations import (
+    build_observations,
+    flat_actor_observation_dim,
+    flatten_actor_observation,
+)
 from kuavo_isaaclab_scene.rl.multi_box.state import (
     DeployableBoxState,
+    DeployablePlacementEstimateState,
     DeployableRobotState,
     DeployableTaskState,
     MultiBoxState,
+    PerceptionFrame,
     PlacementSetTracker,
     PrivilegedTaskState,
+    assemble_deployable_task_state,
 )
 
 
@@ -25,8 +32,9 @@ def state(num_envs=2):
 
     active = torch.zeros(num_envs, 12, dtype=torch.bool)
     active[:, 0] = True
-    placement = PlacementSetTracker(num_envs, "cpu").update(
-        active, torch.zeros_like(active), 0.1)
+    placement = DeployablePlacementEstimateState(
+        active=active, placed=torch.zeros_like(active),
+        selectable=active.clone(), hold_time_s=torch.zeros(num_envs, 12))
     deployable = DeployableTaskState(
         boxes=DeployableBoxState(
             active=active,
@@ -37,8 +45,8 @@ def state(num_envs=2):
             pose_confidence=torch.ones(num_envs, 12),
         ),
         robot=DeployableRobotState(
-            joint_pos=torch.zeros(num_envs, 25),
-            joint_vel=torch.zeros(num_envs, 25),
+            joint_pos=torch.zeros(num_envs, 20),
+            joint_vel=torch.zeros(num_envs, 20),
             base_pose_world=poses(num_envs),
             base_twist_world=torch.zeros(num_envs, 6),
             tcp_pose_world=poses(num_envs, 2),
@@ -95,6 +103,36 @@ def test_state_schema_rejects_wrong_box_or_contact_tensor_shapes():
         replace(value, privileged=wrong_privileged).validate(2)
 
 
+def test_actor_rejects_privileged_placement_tracker_output():
+    value = state()
+    active = value.deployable.boxes.active
+    privileged_placement = PlacementSetTracker(2, "cpu").update(
+        active, torch.zeros_like(active), 0.1)
+    with pytest.raises(TypeError, match="pose-based deployable estimate"):
+        build_observations(replace(value, deployable=replace(
+            value.deployable, placement=privileged_placement)), torch.zeros(2, 25))
+
+
+def test_deployable_assembler_uses_only_perception_proprio_and_estimated_placement():
+    deployable = state().deployable
+    frame = PerceptionFrame(
+        boxes=deployable.boxes, rack_pose_world=deployable.rack_pose_world,
+        conveyor_pose_world=deployable.conveyor_pose_world)
+    rebuilt = assemble_deployable_task_state(
+        perception=frame, robot=deployable.robot,
+        placement=deployable.placement, control=deployable.control,
+        transition_confidence=deployable.transition_confidence)
+    assert rebuilt.boxes is frame.boxes
+    assert rebuilt.placement is deployable.placement
+    privileged_placement = PlacementSetTracker(2, "cpu").update(
+        deployable.boxes.active, torch.zeros_like(deployable.boxes.active), 0.1)
+    with pytest.raises(TypeError, match="pose-based placement estimate"):
+        assemble_deployable_task_state(
+            perception=frame, robot=deployable.robot,
+            placement=privileged_placement, control=deployable.control,
+            transition_confidence=deployable.transition_confidence)
+
+
 def test_actor_observation_uses_base_frame_and_excludes_privileged_signals():
     value = state()
     first = build_observations(value, torch.zeros(2, 25))
@@ -110,6 +148,23 @@ def test_actor_observation_uses_base_frame_and_excludes_privileged_signals():
     second = build_observations(replace(value, privileged=changed_privileged), torch.zeros(2, 25))
     assert torch.equal(first.actor.box_tokens, second.actor.box_tokens)
     assert not torch.equal(first.critic.privileged_box_tokens, second.critic.privileged_box_tokens)
+
+
+def test_actor_observation_has_stable_flat_manager_layout_without_ordinal_target():
+    observation = build_observations(state(), torch.zeros(2, 25)).actor
+    flat = flatten_actor_observation(observation)
+    expected = (
+        observation.robot_proprio.shape[1]
+        + observation.anchor_poses[0].numel()
+        + observation.box_tokens[0].numel()
+        + observation.box_mask.shape[1]
+        + observation.target_one_hot.shape[1]
+        + observation.current_skill_one_hot.shape[1]
+        + 1
+        + observation.previous_action.shape[1]
+    )
+    assert flat.shape == (2, expected)
+    assert expected == flat_actor_observation_dim(25)
 
 
 def test_common_world_translation_does_not_change_base_relative_pose_observations():

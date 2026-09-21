@@ -34,9 +34,9 @@ parser = argparse.ArgumentParser(description="Collect Kuavo Quest hand-tracking 
 parser.add_argument("--joint-response-log", type=Path, default=None,
                     help="New JSONL control-rate logical/applied joint targets and sim response; also works in RL reward debug.")
 parser.add_argument("--rl-shadow-log", type=Path, default=None,
-                    help="Mode 2 only: new JSONL file for pose-derived v2 raw metrics, potentials, and weighted shadow terms.")
+                    help="Mode 2 only: new JSONL file with all three v2 reward breakdowns, probe events, and common costs.")
 parser.add_argument("--rl-shadow-phase", choices=("grasp", "carry", "place"), default="grasp",
-                    help="Mode 2 initial shadow-reward phase; keyboard 1/2/3 changes it without driving task state.")
+                    help="Mode 2 initial HUD phase; every phase is logged, while keyboard 1/2/3 changes only the display.")
 parser.add_argument("--rl-shadow-box-count", type=int, choices=range(1, 13), default=None,
                     help="Mode 2 only: fix the randomized active-box count; use 1 for unambiguous contact calibration.")
 parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=None, metavar="{0,1,2}",
@@ -91,7 +91,7 @@ parser.add_argument("--render-quality", choices=("performance", "quality"), defa
 parser.add_argument("--xr-resolution-scale", type=float, default=1.0,
                     help="XR render-buffer scale (0.1–2.0); lower values reduce sharpness, not material quality.")
 parser.add_argument("--controller-mapping", choices=("scaled", "absolute", "relative"), default="scaled",
-                    help="Scaled amplifies hand displacement from a comfortable reference; absolute is 1:1; relative is legacy.")
+                    help="Scaled uses a clutched workspace, absolute uses calibrated grip pose, and relative uses normal VR wrist deltas.")
 parser.add_argument("--absolute-orientation", choices=("downward", "pointing"), default="downward",
                     help="Absolute controllers only: level forward controller -> downward gripper (default), or legacy pointing.")
 parser.add_argument("--arm-response", choices=("auto", "smooth", "responsive", "real"), default="auto",
@@ -175,7 +175,7 @@ parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--max-episodes", type=int, default=0, help="0 (default) keeps the application open between attempts.")
 parser.add_argument("--episode-seconds", type=float, default=0.0, help="Episode timeout in simulation seconds; 0 disables it.")
 parser.add_argument("--gripper-close-force", type=float, default=default_close_force_n(), metavar="N",
-                    help="Two-finger close force total per hand (default 50 N). RL reward debug keeps binary PD and adds sensor-free force-equivalent torque; ordinary VR collection uses its contact-feedback diagnostic drive. 0 uses position control only.")
+                    help="Two-finger close force total per hand (package default 50 N). All modes use 0=open/1=close with the package mapping/filter; VR collection uses contact feedback and RL uses package force-equivalent assist. 0 uses position control only.")
 parser.add_argument(
     "--auto-start",
     action=argparse.BooleanOptionalAction,
@@ -309,16 +309,12 @@ if args_cli.rl_reward_debug is None and (
     parser.error("RL collision/grasp/contact options require --rl-reward-debug.")
 if args_cli.rl_reward_debug is not None:
     if (args_cli.input_mode != "controllers" or args_cli.hand_switch
-            or args_cli.controller_mapping not in {"scaled", "absolute"}):
-        parser.error("--rl-reward-debug currently uses controllers with scaled or absolute mapping; "
-                     "omit --hand-switch and relative mapping.")
+            or args_cli.controller_mapping not in {"scaled", "absolute", "relative"}):
+        parser.error("--rl-reward-debug uses controller input; omit --hand-switch.")
     if args_cli.scene_config is not None or args_cli.domain_randomization:
         parser.error("Reward inspection uses the RL scene/config; omit --scene-config and use --no-domain-randomization.")
     if args_cli.arm_ik == "legacy" or args_cli.arm_start_pose == "ready":
         parser.error("Reward inspection uses existing URDF IK and the RL named initial pose, not legacy/ready.")
-if args_cli.rl_reward_debug == 2:
-    if args_cli.rack_rollers:
-        parser.error("--rl-reward-debug 2 requires --no-rack-rollers for the randomized v2 rack.")
 if args_cli.scene_config is not None:
     args_cli.scene_config = args_cli.scene_config.expanduser().resolve()
     if not args_cli.scene_config.is_file() or args_cli.scene_config.suffix != ".py":
@@ -507,8 +503,13 @@ def main() -> None:
     active_mode = args_cli.input_mode
     robot_model = resolve_robot_model()
     cfg = KuavoQuestTeleopEnvCfg()
-    from ..robots.claw_assets.vr import configure_vr_gripper_force
-    configure_vr_gripper_force(cfg, args_cli.gripper_close_force)
+    from ..robots.claw_assets.vr import configure_binary_gripper_control
+    configure_binary_gripper_control(
+        cfg,
+        args_cli.gripper_close_force,
+        contact_feedback=True,
+        command_gate=None,
+    )
     # Native OpenXR/CloudXR supplies its own stereo projection. The virtual
     # eye sensors are only needed by preview_quest_browser.py.
     cfg.scene.xr_left_eye_camera = None
@@ -753,6 +754,27 @@ def main() -> None:
         robot_model.urdf_path,
         has_wheel_base=robot_model.has_wheel_base,
     )
+    body_joint_ids = (
+        robot.find_joints(BODY_JOINTS, preserve_order=True)[0]
+        if robot_model.has_wheel_base else []
+    )
+
+    def reset_body_mapper_from_robot() -> None:
+        """Hold the reset torso pose until the operator commands a change.
+
+        Resetting the mapper without joint positions starts from a zero torso.
+        S63's prepared pose is nonzero, so that made the first neutral action
+        drive knee, leg and waist pitch toward zero.  Capture the simulator's
+        reset pose once; ordinary pauses retain the commanded posture instead
+        of adopting any measured gravity sag as a new target.
+        """
+        joints = (
+            _to_numpy(robot.data.joint_pos[0, body_joint_ids])
+            if body_joint_ids else None
+        )
+        body_mapper.reset(joints)
+
+    reset_body_mapper_from_robot()
 
     quest_overlay = None
     if args_cli.quest_camera_overlay:
@@ -844,7 +866,7 @@ def main() -> None:
     camera_reported = not args_cli.head_camera
     camera_wait_reported = False
     held_absolute_targets = np.zeros(len(action_names) - arm_action_size, dtype=np.float32)
-    held_absolute_targets[2:] = 1.0  # Binary gripper actions: nonnegative=open, negative=close.
+    held_absolute_targets[2:] = 0.0  # Shared binary gripper action: 0=open, 1=close.
     free_view = False
     view_initialized = False
     button_pressed_state = False
@@ -880,10 +902,10 @@ def main() -> None:
         mode_switch.cancel()
         tracking_guard.reset()
         tracking_pause_active = False
-        hand_gripper.sync({"left": 1., "right": 1.})
-        body_mapper.reset()
+        hand_gripper.sync({"left": 0., "right": 0.})
+        reset_body_mapper_from_robot()
         held_absolute_targets.fill(0.0)
-        held_absolute_targets[2:] = 1.0
+        held_absolute_targets[2:] = 0.0
         free_view = False
         view_initialized = False
         last_base_quat = _to_numpy(robot.data.root_quat_w[0]).copy()
@@ -1312,7 +1334,7 @@ def main() -> None:
                 for index, side in enumerate(GRIPPER_SETTINGS.active_sides):
                     # Loss of controller tracking holds the gripper, too.
                     action_np[14 + index] = (
-                        (-1.0 if controllers[side][1, 2] >= 0.5 else 1.0)
+                        (1.0 if controllers[side][1, 2] >= 0.5 else 0.0)
                         if valid[side] else held_absolute_targets[2 + index]
                     )
             else:

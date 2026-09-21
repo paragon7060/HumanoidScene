@@ -18,7 +18,7 @@ The three entries in `configs/grippers.json` are aliases that select
 | `linkage.py` | Four-bar kinematics and loop-closing USD joints |
 | `geometry.py` | Jaw gap/contact geometry |
 | `force.py` | Force feedforward and feedback servo |
-| `vr.py` | Quest/RL debug contact sensors and force-close action setup |
+| `vr.py` | Shared 0=open/1=close action builder and Quest/RL force setup |
 | `usd.py` | The contact model: inertials, colliders, materials, soft pads, marker disable |
 | `isaaclab.py` | Isaac Lab spawn; names the host's links and mesh scope only |
 
@@ -37,6 +37,12 @@ cylinder the mesh hull replaces.
 The old modules `robots/twofinger_linkage.py`,
 `robots/twofinger_geometry.py`, and `robots/gripper_force.py` only preserve
 existing imports. Add new code here.
+
+Quest collection, RL reward debug modes 1/2, and RL manager configs all build
+their gripper action through `vr.py`. The package action is always binary
+`0=open, 1=close`; the signed `+1/-1` values in `config.json` are internal
+position targets. Execution modes may select contact feedback, but they cannot
+replace the package action with an incremental action or override its mapping.
 
 Runtime-only config changes take effect after restarting the process. Rebuild
 USD-baked geometry or physics with:

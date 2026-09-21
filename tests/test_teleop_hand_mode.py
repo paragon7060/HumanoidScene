@@ -86,17 +86,17 @@ def test_middle_finger_commands_do_not_conflict_with_index_grasp():
 
 def test_gripper_hysteresis_loss_command_hold_and_transition_rearm():
     gripper = HandGripper()
-    assert gripper.update("left", hand(.02)) == -1
+    assert gripper.update("left", hand(.02)) == 1
     for sample in (None, {}, hand(.06)):
-        assert gripper.update("left", sample) == -1
-    assert gripper.update("left", hand(.1), hold=True) == -1
-    gripper.sync({"left": -1, "right": 1})
-    assert gripper.update("left", hand(.1)) == -1  # switching must not drop held box
-    assert gripper.update("left", hand(.02)) == -1  # match current jaw state to arm
-    assert gripper.update("left", hand(.1)) == 1
+        assert gripper.update("left", sample) == 1
+    assert gripper.update("left", hand(.1), hold=True) == 1
+    gripper.sync({"left": 1, "right": 0})
+    assert gripper.update("left", hand(.1)) == 1  # switching must not drop held box
+    assert gripper.update("left", hand(.02)) == 1  # match current jaw state to arm
+    assert gripper.update("left", hand(.1)) == 0
+    assert gripper.update("right", hand(.02)) == 0
+    assert gripper.update("right", hand(.1)) == 0
     assert gripper.update("right", hand(.02)) == 1
-    assert gripper.update("right", hand(.1)) == 1
-    assert gripper.update("right", hand(.02)) == -1
 
 
 def test_tracking_loss_stops_after_two_seconds_only_while_following():

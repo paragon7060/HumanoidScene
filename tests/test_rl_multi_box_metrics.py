@@ -89,6 +89,29 @@ def test_shadow_logger_keeps_dataset_independent_jsonl_and_term_summary(tmp_path
     assert row["raw"] == {"distance_m": 0.12}
 
 
+def test_shadow_logger_records_all_skill_breakdowns_in_one_v2_row(tmp_path):
+    path = tmp_path / "all_phases.jsonl"
+    breakdowns = {
+        phase: RewardBreakdown(
+            {f"{phase}_term": torch.tensor([float(index)])},
+            torch.tensor([float(index)]),
+        )
+        for index, phase in enumerate(("grasp", "carry", "place"), start=1)
+    }
+    with ShadowRewardLogger(path) as logger:
+        logger.record(
+            step=1, sim_time_s=1 / 30, phase="grasp",
+            raw={"distance_m": 0.1}, potentials={"approach": 0.2},
+            breakdown=breakdowns["grasp"], events={"success": False},
+            breakdowns_by_phase=breakdowns,
+        )
+    row = json.loads(path.read_text())
+    assert row["schema"] == "multi_box_v2_shadow_reward_v2"
+    assert row["step_reward_by_phase"] == {
+        "grasp": 1.0, "carry": 2.0, "place": 3.0}
+    assert row["weighted_terms_by_phase"]["place"] == {"place_term": 3.0}
+
+
 def test_pose_shadow_evaluator_uses_selected_phase_and_leaves_events_disabled():
     evaluator = PoseShadowRewardEvaluator("grasp")
     first = evaluator.evaluate({
@@ -120,3 +143,44 @@ def test_pose_shadow_evaluator_uses_selected_phase_and_leaves_events_disabled():
     })
     assert "footprint_progress" in place.terms
     assert place.terms["support_event"].item() == 0
+
+
+def test_pose_shadow_evaluator_calibrates_all_phases_and_real_event_pulses():
+    evaluator = PoseShadowRewardEvaluator("grasp")
+    potentials = {
+        "grasp": {
+            "approach": torch.tensor([0.2]),
+            "alignment": torch.tensor([0.3]),
+            "capture": torch.tensor([0.4]),
+            "proof_lift": torch.tensor([0.0]),
+        },
+        "carry": {
+            "extraction": torch.tensor([0.2]),
+            "belt": torch.tensor([0.3]),
+            "free_space": torch.tensor([0.4]),
+            "pre_place_height": torch.tensor([0.5]),
+        },
+        "place": {
+            "footprint": torch.tensor([0.2]),
+            "alignment": torch.tensor([0.3]),
+            "free_space": torch.tensor([0.4]),
+            "descent": torch.tensor([0.5]),
+            "stability": torch.tensor([0.6]),
+        },
+    }
+    event = torch.tensor([True])
+    results = evaluator.evaluate_all(potentials, events_by_phase={
+        "grasp": {"bilateral_pinch_event": event, "success_event": event},
+        "carry": {"success_event": event},
+        "place": {
+            "support_event": event,
+            "correct_release_event": event,
+            "success_event": event,
+        },
+    })
+    assert results["grasp"].terms["success_event"].item() == 3.0
+    assert results["carry"].terms["success_event"].item() == 4.0
+    assert results["place"].terms["success_event"].item() == 5.0
+    # Initialization uses gamma*Phi as the previous value, matching the live
+    # training manager and avoiding a synthetic first-step dense reward.
+    assert results["grasp"].terms["approach_progress"].item() == pytest.approx(0.0)

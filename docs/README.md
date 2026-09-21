@@ -3,6 +3,9 @@
 루트 [README](../README.md)는 첫 실행과 자주 쓰는 명령만 다룬다. 아래에서
 현재 목적에 맞는 문서를 선택한다.
 
+실물 S63에 VR 수집 궤적 또는 RL action을 안전 제한과 함께 배포하는 코드는
+[`real_robot_control/`](../real_robot_control/README.md)에 독립적으로 정리했다.
+
 ## 처음 시작
 
 1. [설치 및 첫 실행](INSTALL.md)
@@ -53,6 +56,7 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 |---|---|
 | 지금 한 손 flap 집기를 학습·재개·평가한다 | [1단계 flap pick](RL_FLAP_PICK.md) |
 | 전신 4박스 작업을 단계별 / 전체 직접 학습으로 비교한다 | [4박스 전신 RL 실험](RL_MULTI_BOX.md) |
+| Multi-box v2 grasp SAC를 짧게 검증한다 | [Multi-box v2 SAC pilot](RL_MULTI_BOX_V2_PILOT.md) |
 | 오른손만 학습하고 양쪽 flap 면의 거리·파지·disturbance를 수정한다 | [오른손 파지 상세와 튜닝](RL_RIGHT_HAND_PICK.md) |
 | Quest로 직접 움직이며 VR에서 항목별 reward를 확인한다 | [Quest reward 검사](RL_QUEST_REWARD_DEBUG.md) |
 | VR 없이 GUI에서 양손의 네 손가락 기준점을 맞추고 저장한다 | [데스크톱 파지 기준점 보정](GRASP_DESKTOP_CALIBRATION.md) |

@@ -67,68 +67,18 @@ RACK_NOMINAL_WIDTH_M = RACK_RAW_WIDTH
 RACK_NOMINAL_HEIGHT_M = RACK_RAW_HEIGHT
 RACK_DEFAULT_SCALE: Vec3 = (1.0, 1.0, 1.0)
 
-DEFAULT_ANCHORS: dict[str, AnchorPose] = {
-    "robot": AnchorPose((0.0, 0.0, 0.93), (1.0, 0.0, 0.0, 0.0)),
-    "rack": AnchorPose(
-        (0.96, 0.35, 0.0),
-        (0.7071068, 0.0, 0.0, 0.7071068),
-        RACK_DEFAULT_SCALE,
-    ),
-    "conveyor": AnchorPose((0.40, -0.95, 0.0), (0.7071068, 0.0, 0.0, 0.7071068)),
-    "fence": AnchorPose((1.08, 0.93, 0.92), (1.0, 0.0, 0.0, 0.0)),
-    "button_station": AnchorPose((0.45, 0.91, 0.89), (1.0, 0.0, 0.0, 0.0)),
-}
-REQUIRED_ANCHORS = tuple(DEFAULT_ANCHORS)
-
-
-def _layout_path() -> Path:
-    override = os.environ.get("KUAVO_WORKCELL_LAYOUT")
-    return Path(override).expanduser().resolve() if override else DEFAULT_LAYOUT_PATH
-
-
-def _normalize_quat(value: list[float], anchor: str) -> Quat:
-    if len(value) != 4:
-        raise ValueError(f"Layout anchor '{anchor}.rot' must be a [w, x, y, z] list.")
-    norm = math.sqrt(sum(float(component) ** 2 for component in value))
-    if norm < 1.0e-8:
-        raise ValueError(f"Layout anchor '{anchor}.rot' cannot be a zero quaternion.")
-    return tuple(float(component) / norm for component in value)  # type: ignore[return-value]
-
-
-def load_layout(path: Path | None = None) -> dict[str, AnchorPose]:
-    path = _layout_path() if path is None else path
-    with path.open("r", encoding="utf-8") as stream:
-        raw = json.load(stream)
-    missing = set(REQUIRED_ANCHORS).difference(raw)
-    if missing:
-        raise ValueError(f"Missing workcell layout anchors in {path}: {sorted(missing)}")
-
-    layout: dict[str, AnchorPose] = {}
-    for name in REQUIRED_ANCHORS:
-        value = raw[name]
-        # Backwards compatibility with the earlier translation-only layout.
-        if isinstance(value, list):
-            pos_value = value
-            rot_value = list(DEFAULT_ANCHORS[name].rot)
-            scale_value = list(DEFAULT_ANCHORS[name].scale)
-        elif isinstance(value, dict):
-            pos_value = value.get("pos")
-            rot_value = value.get("rot")
-            scale_value = value.get("scale", list(DEFAULT_ANCHORS[name].scale))
-        else:
-            raise ValueError(f"Layout anchor '{name}' must be an object with pos/rot.")
-        if not isinstance(pos_value, list) or len(pos_value) != 3:
-            raise ValueError(f"Layout anchor '{name}.pos' must be an [x, y, z] list.")
-        if not isinstance(rot_value, list):
-            raise ValueError(f"Layout anchor '{name}.rot' must be a [w, x, y, z] list.")
-        if not isinstance(scale_value, list) or len(scale_value) != 3:
-            raise ValueError(f"Layout anchor '{name}.scale' must be an [sx, sy, sz] list.")
-        layout[name] = AnchorPose(
-            tuple(float(component) for component in pos_value),  # type: ignore[arg-type]
-            _normalize_quat(rot_value, name),
-            tuple(float(component) for component in scale_value),  # type: ignore[arg-type]
-        )
-    return layout
+# Canonical rack frame shared with ``humanoid_webpage/box_detection/rack.json``:
+#
+#   origin: floor projection of the front-centre ArUco tag (tag id 2)
+#   +X:     into the rack
+#   +Y:     toward the rack's left side
+#   +Z:     up
+#
+# The physical front edge of the rack is 5 cm in front of that origin.  The
+# Rack.usd asset keeps its native coordinates; these constants describe the
+# fixed transform from the canonical rack frame to the asset anchor.
+RACK_FRONT_OFFSET_M = -0.05
+RACK_BASE_TO_ASSET_ROT: Quat = (0.7071067811865476, 0.0, 0.0, 0.7071067811865475)
 
 
 def quat_conjugate(quat: Quat) -> Quat:
@@ -150,6 +100,124 @@ def quat_rotate(quat: Quat, vector: Vec3) -> Vec3:
     vector_quat: Quat = (0.0, vector[0], vector[1], vector[2])
     rotated = quat_multiply(quat_multiply(quat, vector_quat), quat_conjugate(quat))
     return (rotated[1], rotated[2], rotated[3])
+
+
+def rack_base_to_asset_offset(rack_scale: Vec3 = RACK_DEFAULT_SCALE) -> Vec3:
+    """Position of the Rack.usd anchor expressed in canonical rack coordinates."""
+    xmin, _ymin, _zmin = RACK_RAW_BOUNDS_M[0]
+    xmax, ymax, _zmax = RACK_RAW_BOUNDS_M[1]
+    rack_width_center_x = 0.5 * (xmin + xmax)
+    return (
+        ymax * rack_scale[1] + RACK_FRONT_OFFSET_M,
+        -rack_width_center_x * rack_scale[0],
+        0.0,
+    )
+
+
+def rack_asset_pose_from_base(base_pose: AnchorPose, rack_scale: Vec3) -> AnchorPose:
+    """Convert the webpage-compatible rack base pose to the Rack.usd anchor pose."""
+    offset_world = quat_rotate(base_pose.rot, rack_base_to_asset_offset(rack_scale))
+    return AnchorPose(
+        tuple(base_pose.pos[index] + offset_world[index] for index in range(3)),  # type: ignore[arg-type]
+        quat_multiply(base_pose.rot, RACK_BASE_TO_ASSET_ROT),
+        rack_scale,
+    )
+
+
+def rack_base_pose_from_asset(asset_pose: AnchorPose) -> AnchorPose:
+    """Convert a Rack.usd anchor pose to the webpage-compatible rack base pose."""
+    base_rot = quat_multiply(asset_pose.rot, quat_conjugate(RACK_BASE_TO_ASSET_ROT))
+    offset_world = quat_rotate(base_rot, rack_base_to_asset_offset(asset_pose.scale))
+    return AnchorPose(
+        tuple(asset_pose.pos[index] - offset_world[index] for index in range(3)),  # type: ignore[arg-type]
+        base_rot,
+    )
+
+
+_DEFAULT_RACK_ASSET = AnchorPose(
+    (0.96, 0.35, 0.0),
+    (0.7071068, 0.0, 0.0, 0.7071068),
+    RACK_DEFAULT_SCALE,
+)
+_DEFAULT_RACK_BASE = rack_base_pose_from_asset(_DEFAULT_RACK_ASSET)
+
+DEFAULT_ANCHORS: dict[str, AnchorPose] = {
+    "robot": AnchorPose((0.0, 0.0, 0.93), (1.0, 0.0, 0.0, 0.0)),
+    "rack_base": _DEFAULT_RACK_BASE,
+    "rack": _DEFAULT_RACK_ASSET,
+    "conveyor": AnchorPose((0.40, -0.95, 0.0), (0.7071068, 0.0, 0.0, 0.7071068)),
+    "fence": AnchorPose((1.08, 0.93, 0.92), (1.0, 0.0, 0.0, 0.0)),
+    "button_station": AnchorPose((0.45, 0.91, 0.89), (1.0, 0.0, 0.0, 0.0)),
+}
+# ``rack_base`` was added after the original layout format.  Old captures that
+# contain only the Rack.usd anchor remain valid and get rack_base derived from
+# it at load time.
+REQUIRED_ANCHORS = tuple(name for name in DEFAULT_ANCHORS if name != "rack_base")
+
+
+def _layout_path() -> Path:
+    override = os.environ.get("KUAVO_WORKCELL_LAYOUT")
+    return Path(override).expanduser().resolve() if override else DEFAULT_LAYOUT_PATH
+
+
+def _normalize_quat(value: list[float], anchor: str) -> Quat:
+    if len(value) != 4:
+        raise ValueError(f"Layout anchor '{anchor}.rot' must be a [w, x, y, z] list.")
+    norm = math.sqrt(sum(float(component) ** 2 for component in value))
+    if norm < 1.0e-8:
+        raise ValueError(f"Layout anchor '{anchor}.rot' cannot be a zero quaternion.")
+    return tuple(float(component) / norm for component in value)  # type: ignore[return-value]
+
+
+def _parse_anchor(name: str, value: object) -> AnchorPose:
+    default = DEFAULT_ANCHORS[name]
+    # Backwards compatibility with the earlier translation-only layout.
+    if isinstance(value, list):
+        pos_value = value
+        rot_value = list(default.rot)
+        scale_value = list(default.scale)
+    elif isinstance(value, dict):
+        pos_value = value.get("pos")
+        rot_value = value.get("rot")
+        scale_value = value.get("scale", list(default.scale))
+    else:
+        raise ValueError(f"Layout anchor '{name}' must be an object with pos/rot.")
+    if not isinstance(pos_value, list) or len(pos_value) != 3:
+        raise ValueError(f"Layout anchor '{name}.pos' must be an [x, y, z] list.")
+    if not isinstance(rot_value, list):
+        raise ValueError(f"Layout anchor '{name}.rot' must be a [w, x, y, z] list.")
+    if not isinstance(scale_value, list) or len(scale_value) != 3:
+        raise ValueError(f"Layout anchor '{name}.scale' must be an [sx, sy, sz] list.")
+    return AnchorPose(
+        tuple(float(component) for component in pos_value),  # type: ignore[arg-type]
+        _normalize_quat(rot_value, name),
+        tuple(float(component) for component in scale_value),  # type: ignore[arg-type]
+    )
+
+
+def load_layout(path: Path | None = None) -> dict[str, AnchorPose]:
+    path = _layout_path() if path is None else path
+    with path.open("r", encoding="utf-8") as stream:
+        raw = json.load(stream)
+    missing = set(REQUIRED_ANCHORS).difference(raw)
+    if missing:
+        raise ValueError(f"Missing workcell layout anchors in {path}: {sorted(missing)}")
+
+    layout: dict[str, AnchorPose] = {}
+    for name in REQUIRED_ANCHORS:
+        layout[name] = _parse_anchor(name, raw[name])
+
+    if "rack_base" in raw:
+        rack_base = _parse_anchor("rack_base", raw["rack_base"])
+        if any(abs(component - 1.0) > 1.0e-8 for component in rack_base.scale):
+            raise ValueError("Layout anchor 'rack_base.scale' must remain [1, 1, 1].")
+        # rack_base is authoritative.  Keep rack.scale as the physical asset
+        # sizing input, then derive the legacy asset anchor used by scene code.
+        layout["rack_base"] = rack_base
+        layout["rack"] = rack_asset_pose_from_base(rack_base, layout["rack"].scale)
+    else:
+        layout["rack_base"] = rack_base_pose_from_asset(layout["rack"])
+    return layout
 
 
 LAYOUT_PATH = _layout_path()
@@ -179,6 +247,26 @@ def local_point_to_world(anchor: str, local_point: Vec3) -> Vec3:
 def local_quat_to_world(anchor: str, local_quat: Quat) -> Quat:
     """Transform an asset-local orientation by the captured root Xform."""
     return quat_multiply(LAYOUT[anchor].rot, local_quat)
+
+
+def relative_pose(reference: str, target: str) -> AnchorPose:
+    """Return a target anchor pose expressed in a reference anchor frame."""
+    reference_pose = LAYOUT[reference]
+    target_pose = LAYOUT[target]
+    inverse_reference_rot = quat_conjugate(reference_pose.rot)
+    world_delta = tuple(
+        target_pose.pos[index] - reference_pose.pos[index] for index in range(3)
+    )
+    return AnchorPose(
+        quat_rotate(inverse_reference_rot, world_delta),  # type: ignore[arg-type]
+        quat_multiply(inverse_reference_rot, target_pose.rot),
+        target_pose.scale,
+    )
+
+
+def robot_to_rack_base_pose() -> AnchorPose:
+    """Canonical rack pose in the robot base frame, comparable with webpage output."""
+    return relative_pose("robot", "rack_base")
 
 
 def rack_tier_surface_z(tier_index: int) -> float:

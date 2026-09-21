@@ -13,11 +13,15 @@ import math
 import torch
 
 from ....robots.end_effector import get_end_effector_frames
+from ....robots.claw_assets import load_claw_config
 from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
 from ...scenes.asset_geometry import box_geometry
-from .contact_sensors import CONTACT_SENSOR_NAMES
+from .contact_sensors import CONTACT_SENSOR_NAMES, BELT_CONTACT_SENSOR_NAMES
 from ..geometry import relative_pose, unsigned_axis_angle_error
+from ..geometry.belt import BELT_HALF_EXTENTS_XY
 from ..geometry.pose import quat_apply
+from ..geometry.rack import box_shelf_clearance_m
+from ..geometry.pad_distance import pad_to_boxes_clearance_m
 from ..metrics import (
     CarryRawMetrics,
     GraspRawMetrics,
@@ -27,9 +31,10 @@ from ..metrics import (
     place_potentials,
 )
 from ..scene.spawn import BOX_TYPE_IDS, physical_asset_names
+from ....workcell.workcell_layout import scale as workcell_scale
+from ..success.contact import FingerFlapContacts
 
 
-BELT_HALF_EXTENTS_XY = (1.275, 0.34)
 BELT_HALF_THICKNESS_M = 0.015
 EXTRACTION_GOAL_M = 0.10
 
@@ -44,19 +49,33 @@ def _closest_box_surface(points: torch.Tensor, centers: torch.Tensor,
     return centers + nearest.scatter(-1, axis, side * halves.gather(-1, axis))
 
 
-def _footprint_corners_belt(box_pose: torch.Tensor, belt_pose: torch.Tensor,
-                            dimensions: tuple[float, float, float]) -> torch.Tensor:
-    """Four physical box-body footprint corners in the conveyor frame."""
-    half_x, half_y = dimensions[0] / 2.0, dimensions[1] / 2.0
-    local = box_pose.new_tensor((
-        (-half_x, -half_y, 0.0),
-        (-half_x, +half_y, 0.0),
-        (+half_x, -half_y, 0.0),
-        (+half_x, +half_y, 0.0),
+def _body_footprint_corners_belt(
+    body_pose: torch.Tensor,
+    belt_pose: torch.Tensor,
+    body_center: torch.Tensor,
+    body_half_size: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return the projected *physical bottom* corners and bottom height.
+
+    Isaac's root pose is the rigid-link frame, not the bottom face of the
+    cardboard body.  Using that pose directly made a box appear roughly one
+    half-height above the belt.  Build the corners from the measured Body USD
+    bounds instead, including the local center offset, then transform them to
+    the belt frame.  Taking the minimum of the four z values also remains
+    correct when the box is slightly tilted.
+    """
+    half_x, half_y, half_z = body_half_size
+    cx, cy, cz = body_center
+    local = torch.stack((
+        torch.stack((cx - half_x, cy - half_y, cz - half_z)),
+        torch.stack((cx - half_x, cy + half_y, cz - half_z)),
+        torch.stack((cx + half_x, cy - half_y, cz - half_z)),
+        torch.stack((cx + half_x, cy + half_y, cz - half_z)),
     ))
-    world = box_pose[:3] + quat_apply(box_pose[3:].expand(4, -1), local)
-    points = torch.cat((world, box_pose[3:].expand(4, -1)), dim=-1)
-    return relative_pose(belt_pose.expand(4, -1), points)[:, :2]
+    world = body_pose[:3] + quat_apply(body_pose[3:].expand(4, -1), local)
+    points = torch.cat((world, body_pose[3:].expand(4, -1)), dim=-1)
+    belt_points = relative_pose(belt_pose.expand(4, -1), points)
+    return belt_points[:, :2], belt_points[:, 2].amin() - BELT_HALF_THICKNESS_M
 
 
 def _footprint_outside(corners: torch.Tensor, half_extents: torch.Tensor) -> torch.Tensor:
@@ -92,6 +111,16 @@ class IsaacMetricSnapshot:
     raw_by_phase: dict[str, object]
     potentials_by_phase: dict[str, dict[str, torch.Tensor]]
     diagnostics: dict[str, float]
+    contacts: FingerFlapContacts
+    hand_to_box_pose: torch.Tensor
+    rack_clearance_m: torch.Tensor
+    box_footprint_corners_belt: torch.Tensor
+    box_bottom_height_m: torch.Tensor
+    box_tilt_rad: torch.Tensor
+    overlaps_other_belt_box: torch.Tensor
+    belt_body_force_n: torch.Tensor
+    belt_sensor_available: torch.Tensor
+    gripper_box_distance_m: torch.Tensor
 
     def raw_scalars(self, phase: str) -> dict[str, torch.Tensor]:
         return asdict(self.raw_by_phase[phase])
@@ -135,10 +164,19 @@ class IsaacMultiBoxMetricAdapter:
         )
         if len(self.finger_ids) != 4:
             raise ValueError("Multi-box v2 shadow metrics require four two-finger links.")
+        pad = load_claw_config()["contact"]["distal_pad"]
+        self.pad_size_m = tuple(float(value) for value in pad["size_m"])
+        self.pad_centers = torch.tensor(
+            [pad["center_m"][jaw] for jaw in ("f", "b", "f", "b")],
+            device=env.device,
+        )
         self.flap_ids = []
         self.flap_centers = []
         self.flap_halves = []
         self.flap_normal_axes = []
+        self.part_ids = []
+        self.part_centers = []
+        self.part_halves = []
         for name in self.names:
             asset = env.scene[name]
             body_ids, _ = asset.find_bodies(["flap_right", "flap_left"], preserve_order=True)
@@ -146,6 +184,16 @@ class IsaacMultiBoxMetricAdapter:
                 raise ValueError(f"{name} is missing flap_right/flap_left rigid bodies.")
             geometry = box_geometry(
                 getattr(env.cfg.scene, name), ("flap_right", "flap_left"))
+            part_ids, _ = asset.find_bodies(
+                ["Body", "flap_right", "flap_left"], preserve_order=True)
+            if len(part_ids) != 3:
+                raise ValueError(f"{name} is missing a body or flap rigid link.")
+            parts = (geometry, geometry.flaps["flap_right"], geometry.flaps["flap_left"])
+            self.part_ids.append(part_ids)
+            self.part_centers.append(torch.tensor(
+                [part.center for part in parts], device=env.device))
+            self.part_halves.append(torch.tensor(
+                [part.half_size for part in parts], device=env.device))
             flap_geometry = [geometry.flaps[key] for key in ("flap_right", "flap_left")]
             self.flap_ids.append(body_ids)
             self.flap_centers.append([value.center for value in flap_geometry])
@@ -265,16 +313,20 @@ class IsaacMultiBoxMetricAdapter:
     def _all_active_footprints(self, belt_pose: torch.Tensor):
         result = {}
         for logical_id in self._active_ids():
-            _, asset = self._asset_for_logical(logical_id)
-            type_id = int(self.env._multi_box_box_type_ids[0, logical_id].item())
-            box_type = self.type_names[type_id]
-            pose = asset.data.root_pose_w[0]
-            corners = _footprint_corners_belt(pose, belt_pose, BOX_DIMENSIONS_M[box_type])
-            bottom = relative_pose(belt_pose, pose)[2] - BELT_HALF_THICKNESS_M
+            pool_id, asset = self._asset_for_logical(logical_id)
+            body_id = self.part_ids[pool_id][0]
+            body_pose = torch.cat((
+                asset.data.body_link_pos_w[0, body_id],
+                asset.data.body_link_quat_w[0, body_id],
+            ))
+            corners, bottom = _body_footprint_corners_belt(
+                body_pose, belt_pose,
+                self.part_centers[pool_id][0], self.part_halves[pool_id][0],
+            )
             result[logical_id] = (corners, bottom)
         return result
 
-    def _contact_diagnostics(self, pool_id: int, asset) -> dict[str, float]:
+    def _contact_diagnostics(self, pool_id: int, asset) -> tuple[dict[str, float], FingerFlapContacts]:
         filter_count = len(self.names) * 2
         force_rows, point_rows = [], []
         try:
@@ -290,7 +342,13 @@ class IsaacMultiBoxMetricAdapter:
                 force_rows.append(force.reshape(len(self.names), 2, 3)[pool_id])
                 point_rows.append(point.reshape(len(self.names), 2, 3)[pool_id])
         except (KeyError, RuntimeError, TypeError, IndexError):
-            return {"contact_adapter_available": 0.0}
+            shape = (1, 2, 2, 2)
+            return {"contact_adapter_available": 0.0}, FingerFlapContacts(
+                force_n=torch.zeros(shape, device=self.env.device),
+                in_region=torch.zeros(shape, dtype=torch.bool, device=self.env.device),
+                opposed=torch.zeros(shape[:3], dtype=torch.bool, device=self.env.device),
+                available=torch.zeros(1, dtype=torch.bool, device=self.env.device),
+            )
 
         # Source order is L-front, L-back, R-front, R-back.  Reorder to
         # [hand, candidate flap, jaw, xyz].
@@ -342,7 +400,36 @@ class IsaacMultiBoxMetricAdapter:
                 result[f"{prefix}_back_region"] = float(
                     in_region[hand_index, flap_index, 1].item())
                 result[f"{prefix}_opposed"] = float(opposed[hand_index, flap_index].item())
-        return result
+        return result, FingerFlapContacts(
+            force_n=force_n.unsqueeze(0),
+            in_region=in_region.unsqueeze(0),
+            opposed=opposed.unsqueeze(0),
+            available=torch.ones(1, dtype=torch.bool, device=self.env.device),
+        )
+
+    def _belt_body_force(self, pool_id: int) -> tuple[torch.Tensor, torch.Tensor]:
+        try:
+            matrix = self.env.scene[BELT_CONTACT_SENSOR_NAMES[pool_id]].data.force_matrix_w
+            if matrix is None or matrix.shape != (1, 1, 1, 3):
+                raise RuntimeError("body-to-belt force matrix is unavailable")
+        except (KeyError, RuntimeError, TypeError, IndexError):
+            return (torch.zeros(1, device=self.env.device),
+                    torch.zeros(1, dtype=torch.bool, device=self.env.device))
+        return matrix[0, 0, 0].norm().reshape(1), torch.ones(
+            1, dtype=torch.bool, device=self.env.device)
+
+    def _pad_box_distance(self, pool_id: int, asset) -> torch.Tensor:
+        finger_pos = self.robot.data.body_link_pos_w[0, self.finger_ids]
+        finger_quat = self.robot.data.body_link_quat_w[0, self.finger_ids]
+        pad_pos = finger_pos + quat_apply(finger_quat, self.pad_centers)
+        pad_pose = torch.cat((pad_pos, finger_quat), dim=-1)
+        part_ids = self.part_ids[pool_id]
+        part_poses = torch.cat((asset.data.body_link_pos_w[0, part_ids],
+                                asset.data.body_link_quat_w[0, part_ids]), dim=-1)
+        distance = pad_to_boxes_clearance_m(
+            pad_pose, self.pad_size_m, part_poses,
+            self.part_centers[pool_id], self.part_halves[pool_id])
+        return distance.reshape(1, 2, 2).amin(dim=-1)
 
     def measure(self) -> IsaacMetricSnapshot:
         if self.target_logical_id not in self._active_ids():
@@ -377,6 +464,11 @@ class IsaacMultiBoxMetricAdapter:
         )
 
         box_in_belt = relative_pose(belt_pose, box_pose)
+        box_up_world = quat_apply(
+            box_pose[3:].reshape(1, 4),
+            box_pose.new_tensor([[0.0, 0.0, 1.0]]),
+        )[0]
+        box_tilt = torch.acos(box_up_world[2].clamp(-1.0, 1.0)).reshape(1)
         long_axis = quat_apply(box_in_belt[3:].reshape(1, 4),
                                box_pose.new_tensor([[1.0, 0.0, 0.0]]))[0]
         angle = unsigned_axis_angle_error(torch.atan2(long_axis[1], long_axis[0]).reshape(1))
@@ -397,9 +489,28 @@ class IsaacMultiBoxMetricAdapter:
         }
         diagnostics = {
             "footprint_inside": float(outside.item() <= 1e-6),
+            "box_tilt_deg": math.degrees(float(box_tilt.item())),
             "long_axis_error_deg": math.degrees(float(angle.item())),
         }
-        diagnostics.update(self._contact_diagnostics(pool_id, asset))
+        contact_diagnostics, contacts = self._contact_diagnostics(pool_id, asset)
+        diagnostics.update(contact_diagnostics)
+        belt_body_force_n, belt_sensor_available = self._belt_body_force(pool_id)
+        gripper_box_distance_m = self._pad_box_distance(pool_id, asset)
+        diagnostics["belt_body_force_n"] = float(belt_body_force_n.item())
+        diagnostics["belt_sensor_available"] = float(belt_sensor_available.item())
+        diagnostics["gripper_box_distance_left_m"] = float(gripper_box_distance_m[0, 0].item())
+        diagnostics["gripper_box_distance_right_m"] = float(gripper_box_distance_m[0, 1].item())
+        hand_to_box_pose = relative_pose(
+            box_pose, self.tcp.center_pose_w[0]).unsqueeze(0)
+        shelf = self.env.cfg.multi_box.rack_regions[region_id].shelf
+        shelf_gap = box_shelf_clearance_m(
+            box_pose.unsqueeze(0), self.env.scene["rack"].data.root_pose_w,
+            BOX_DIMENSIONS_M[box_type], shelf=shelf, rack_scale=workcell_scale("rack"))
+        # A spawned box begins with a small shelf gap, so the proof lift also
+        # requires 8 mm of motion above its own reset position.
+        rack_clearance = torch.minimum(grasp.proof_lift_m, shelf_gap)
+        diagnostics["rack_shelf_gap_m"] = float(shelf_gap.item())
+        diagnostics["rack_clearance_m"] = float(rack_clearance.item())
         return IsaacMetricSnapshot(
             target_logical_id=logical_id,
             target_asset_name=self.names[pool_id],
@@ -408,4 +519,14 @@ class IsaacMultiBoxMetricAdapter:
             raw_by_phase=raw,
             potentials_by_phase=potentials,
             diagnostics=diagnostics,
+            contacts=contacts,
+            hand_to_box_pose=hand_to_box_pose,
+            rack_clearance_m=rack_clearance,
+            box_footprint_corners_belt=corners.unsqueeze(0),
+            box_bottom_height_m=bottom_height.reshape(1),
+            box_tilt_rad=box_tilt,
+            overlaps_other_belt_box=(clearance < 0),
+            belt_body_force_n=belt_body_force_n,
+            belt_sensor_available=belt_sensor_available,
+            gripper_box_distance_m=gripper_box_distance_m,
         )

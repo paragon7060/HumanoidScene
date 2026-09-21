@@ -21,10 +21,8 @@ def configure(env_cfg, agent_cfg):
     env_cfg.rewards.action_rate.weight = -0.015
     if getattr(env_cfg.actions, "base", None) is not None:
         env_cfg.actions.base.velocity_limits = (0.20, 0.20, 0.60)
-    for side in ("left", "right"):
-        gripper = getattr(env_cfg.actions, side + "_gripper", None)
-        if gripper is not None:
-            gripper.delta_scale = 0.08
+    # Gripper actions are package-owned binary commands (0=open, 1=close).
+    # Adjust force/mapping/filter in the Leju claw package, not per task.
     agent_cfg.algorithm.learning_rate = 2e-4
     agent_cfg.num_steps_per_env = 32
     # Set a term to None to remove it, for example:

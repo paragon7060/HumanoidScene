@@ -463,11 +463,11 @@ def gripper_teleop_action(
     left_pinch_m: float,
     right_pinch_m: float,
 ) -> tuple[float, ...]:
-    """Return binary manager inputs: positive=open, negative=close."""
+    """Return package binary manager inputs: 0=open and 1=close."""
     pinches = {"left": float(left_pinch_m), "right": float(right_pinch_m)}
     return tuple(
-        -1.0
+        1.0
         if math.isfinite(pinches[side]) and pinches[side] <= settings.pinch_close_threshold_m
-        else 1.0
+        else 0.0
         for side in settings.active_sides
     )

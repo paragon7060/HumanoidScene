@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _production_method(class_name, method_name):
-    path = ROOT / "src/kuavo_isaaclab_scene/rl/mdp/actions.py"
+    path = ROOT / "src/kuavo_isaaclab_scene/robots/gripper_runtime.py"
     tree = ast.parse(path.read_text())
     cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == class_name)
     method = next(node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == method_name)
@@ -29,7 +29,7 @@ def _force_module():
 
 
 def test_policy_scalar_is_executed_as_zero_open_or_one_close():
-    process = _production_method("BinaryGripper", "process_actions")
+    process = _production_method("BinaryGripperAction", "process_actions")
     term = NS(
         _command_enabled=lambda: torch.ones(3, 1, dtype=torch.bool),
         _close_requested=torch.zeros(3, 1, dtype=torch.bool),
@@ -51,7 +51,8 @@ def test_shared_rl_config_selects_binary_grippers_with_50_newtons_total():
     function = next(node for node in tree.body
                     if isinstance(node, ast.FunctionDef) and node.name == "hand_action")
     returned = next(node.value for node in ast.walk(function) if isinstance(node, ast.Return))
-    assert isinstance(returned, ast.Call) and returned.func.id == "BinaryGripperCfg"
+    assert isinstance(returned, ast.Call)
+    assert returned.func.id == "build_binary_gripper_action_cfg"
     assert "default_close_force_n()" in ast.unparse(function)
     assert "hand.name in TWO_FINGER_PRESETS" in ast.unparse(function)
 
@@ -59,23 +60,40 @@ def test_shared_rl_config_selects_binary_grippers_with_50_newtons_total():
     assert default_close_force_n() == 50.0
 
 
-def test_reward_debug_keeps_rl_binary_pd_force_path():
-    reward_path = ROOT / "src/kuavo_isaaclab_scene/rl/debug/quest_reward.py"
-    reward_source = reward_path.read_text()
-    assert "configure_rl_gripper_force" in reward_source
-    assert "configure_vr_gripper_force" not in reward_source
+def test_all_quest_paths_use_the_shared_binary_gripper_configurator():
+    paths = (
+        ROOT / "src/kuavo_isaaclab_scene/teleop/collect_quest_teleop.py",
+        ROOT / "src/kuavo_isaaclab_scene/rl/debug/quest_reward.py",
+        ROOT / "src/kuavo_isaaclab_scene/rl/multi_box/teleop_env_cfg.py",
+    )
+    for path in paths:
+        source = path.read_text()
+        assert "configure_binary_gripper_control" in source
+        assert "IncrementalGripperCfg" not in source
 
-    vr_path = ROOT / "src/kuavo_isaaclab_scene/robots/claw_assets/vr.py"
-    tree = ast.parse(vr_path.read_text())
-    function = next(node for node in tree.body
-                    if isinstance(node, ast.FunctionDef) and node.name == "configure_rl_gripper_force")
-    source = ast.unparse(function)
-    assert "action.force_sensor_names = None" in source
-    assert "action.close_force_n = force_n or None" in source
+    package_source = (
+        ROOT / "src/kuavo_isaaclab_scene/robots/claw_assets/vr.py"
+    ).read_text()
+    assert "build_binary_gripper_action_cfg" in package_source
+    assert "incremental" not in package_source
+
+
+def test_default_manager_and_future_rl_envs_cannot_bypass_package_action():
+    runtime_source = (
+        ROOT / "src/kuavo_isaaclab_scene/robots/gripper_runtime.py"
+    ).read_text()
+    assert "build_binary_gripper_action_cfg(" in runtime_source
+    assert "FilteredBinaryJointPositionAction" not in runtime_source
+    for relative in (
+        "src/kuavo_isaaclab_scene/envs/manager_env.py",
+        "src/kuavo_isaaclab_scene/rl/envs/env_cfg.py",
+        "src/kuavo_isaaclab_scene/rl/multi_box/env_cfg.py",
+    ):
+        assert "configure_binary_gripper_control" in (ROOT / relative).read_text()
 
 
 def test_binary_command_holds_the_reset_pose_until_environment_is_ready():
-    process = _production_method("BinaryGripper", "process_actions")
+    process = _production_method("BinaryGripperAction", "process_actions")
     term = NS(
         _command_enabled=lambda: torch.tensor([[False], [True]]),
         _close_requested=torch.zeros(2, 1, dtype=torch.bool),

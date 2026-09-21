@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import math
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -142,8 +143,8 @@ def print_preview(plan, send=False):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", default="lab@192.168.0.22")
-    parser.add_argument("--workspace", default="/home/lab/hb/kuavo-ros-opensource")
+    parser.add_argument("--host", default=os.environ.get("KUAVO_ROBOT_SSH"))
+    parser.add_argument("--workspace", default=os.environ.get("KUAVO_ROBOT_WORKSPACE"))
     parser.add_argument("--ros-master", default="http://kuavo_master:11311")
     parser.add_argument("--urdf", type=Path, default=DEFAULT_URDF)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -174,7 +175,9 @@ def main(argv=None):
     rec.add_argument("--vr-inputs", action="store_true", help="Also passively record Quest/IK inputs; no prepare or command ownership required")
     args = parser.parse_args(argv)
     if not args.host or args.host.startswith("-"):
-        parser.error("Invalid SSH destination")
+        parser.error("Set --host or KUAVO_ROBOT_SSH to an SSH destination")
+    if not args.workspace:
+        parser.error("Set --workspace or KUAVO_ROBOT_WORKSPACE")
     try:
         if args.command == "plan":
             if args.output.suffix != ".json":

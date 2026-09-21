@@ -8,11 +8,11 @@ from dataclasses import dataclass
 class GripperCommandLatch:
     """Keep the last gripper command when its corresponding hand disappears."""
 
-    def __init__(self, active_sides: tuple[str, ...], initial_command: float = 1.0) -> None:
+    def __init__(self, active_sides: tuple[str, ...], initial_command: float = 0.0) -> None:
         self.active_sides = tuple(active_sides)
         self._commands = {side: float(initial_command) for side in self.active_sides}
 
-    def reset(self, command: float = 1.0) -> None:
+    def reset(self, command: float = 0.0) -> None:
         for side in self.active_sides:
             self._commands[side] = float(command)
 

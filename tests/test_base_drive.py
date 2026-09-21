@@ -1,6 +1,7 @@
 """Base-model selection shared by teleop, RL and evaluation entry points."""
 
 import argparse
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -99,3 +100,13 @@ def test_apply_requires_articulation_properties(monkeypatch):
     robot = SimpleNamespace(spawn=SimpleNamespace(articulation_props=None))
     with pytest.raises(ValueError, match="articulation properties"):
         apply_base_drive(robot, SimpleNamespace(base=SimpleNamespace(dynamic=False)), "base")
+
+
+def test_floating_drive_computes_wrench_levers_from_rigid_body_coms():
+    source = (
+        Path(__file__).parents[1]
+        / "src/kuavo_isaaclab_scene/robots/base_drive_control.py"
+    ).read_text()
+    assert "body_com_pos_w" in source
+    assert "root_com_pos_w" in source
+    assert "root_dynamic_feedforward_wrench_w" not in source

@@ -9,6 +9,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 import math
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -64,14 +65,16 @@ def main(argv=None):
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--send", action="store_true", help="Send one setpoint: this moves the real gripper")
     mode.add_argument("--check", action="store_true", help="Read service type and current state only")
-    parser.add_argument("--host", default="lab@192.168.0.22")
-    parser.add_argument("--workspace", default="/home/lab/hb/kuavo-ros-opensource")
+    parser.add_argument("--host", default=os.environ.get("KUAVO_ROBOT_SSH"))
+    parser.add_argument("--workspace", default=os.environ.get("KUAVO_ROBOT_WORKSPACE"))
     parser.add_argument("--ros-master", default="http://kuavo_master:11311")
     parser.add_argument("--log", type=Path,
                         default=Path(__file__).resolve().parent / "data/real_gripper_commands.jsonl")
     args = parser.parse_args(argv)
     if not args.host or args.host.startswith("-"):
-        parser.error("--host must be an SSH destination")
+        parser.error("Set --host or KUAVO_ROBOT_SSH to an SSH destination")
+    if not args.workspace:
+        parser.error("Set --workspace or KUAVO_ROBOT_WORKSPACE")
     if args.position is None and not args.check:
         parser.error("--position is required unless using --check")
     if args.position is not None:

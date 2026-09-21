@@ -97,6 +97,65 @@ def test_articulation_write_does_not_accumulate_bias_or_change_logical_targets()
     torch.testing.assert_close(robot.total_feedforward_torque, torch.tensor([[11.4, 30., 1.]]))
 
 
+def test_floating_inverse_dynamics_uses_joint_block_without_predicting_root_reaction():
+    path = Path(__file__).parents[1] / "src/kuavo_isaaclab_scene/robots/gravity_articulation.py"
+    tree = ast.parse(path.read_text())
+    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef))
+
+    class Base:
+        def _apply_actuator_model(self):
+            self._joint_pos_target_sim[:] = self.data.joint_pos_target
+            self.data.computed_torque[:] = 0
+
+    ns = {"Articulation": Base, "torch": torch, "gravity_drive_bias": gravity_drive_bias}
+    exec(compile(ast.Module(body=[cls], type_ignores=[]), str(path), "exec"), ns)
+    robot = ns[cls.name]()
+    robot._gravity_joint_ids = [0, 1]
+    robot.data = NS(
+        joint_pos_target=torch.tensor([[1.0, 2.0]]),
+        joint_vel_target=torch.zeros(1, 2),
+        joint_pos=torch.zeros(1, 2),
+        joint_vel=torch.zeros(1, 2),
+        joint_stiffness=torch.full((1, 2), 100.0),
+        joint_pos_limits=torch.tensor([[[-3.0, 3.0]] * 2]),
+        joint_effort_limits=torch.full((1, 2), 100.0),
+        computed_torque=torch.zeros(1, 2),
+        applied_torque=torch.zeros(1, 2),
+    )
+    mass = torch.eye(8).unsqueeze(0)
+    mass[0, 0, 6] = 2.0
+    mass[0, 4, 7] = 3.0
+    gravity = torch.tensor([[10., 20., 30., 40., 50., 60., 7., 8.]])
+    coriolis = torch.tensor([[1., 2., 3., 4., 5., 6., .1, .2]])
+    robot.root_physx_view = NS(
+        get_gravity_compensation_forces=lambda: gravity,
+        get_generalized_mass_matrices=lambda: mass,
+        get_coriolis_and_centrifugal_compensation_forces=lambda: coriolis,
+    )
+    robot._joint_pos_target_sim = torch.zeros(1, 2)
+    robot.gravity_compensation_torque = torch.zeros(1, 2)
+    robot.command_feedforward_torque = torch.zeros(1, 2)
+    robot.command_feedforward_mask = torch.ones(1, 2, dtype=torch.bool)
+    robot.total_feedforward_torque = torch.zeros(1, 2)
+    robot.command_feedforward_mode = "inverse_dynamics"
+    robot.inverse_dynamics_torque = torch.zeros(1, 2)
+    robot._wbc_accel_kp = torch.ones(1, 2)
+    robot._wbc_accel_kd = torch.zeros(1, 2)
+    robot._wbc_accel_limit = torch.full((1, 2), 20.0)
+    robot._inverse_dynamics_update_pending = True
+    robot.gravity_compensation_bias = torch.zeros(1, 2)
+
+    robot._apply_actuator_model()
+
+    torch.testing.assert_close(robot.inverse_dynamics_torque, torch.tensor([[8.1, 10.2]]))
+    torch.testing.assert_close(robot.total_feedforward_torque, torch.tensor([[8.1, 10.2]]))
+    source = path.read_text()
+    # Root/joint cross terms are intentionally not exported as an external
+    # wrench: desired acceleration is not achieved acceleration under contact
+    # and actuator limits, so that prediction can excite the floating base.
+    assert "root_dynamic_feedforward_wrench_w" not in source
+
+
 def test_wbc_acceleration_profile_matches_active_s63_task_and_excludes_other_joints():
     names = ["knee_joint", "waist_yaw_joint", "zarm_l1_joint", "zarm_r4_joint",
              "zarm_l7_joint", "zhead_1_joint", "l_f_bar_1_joint"]

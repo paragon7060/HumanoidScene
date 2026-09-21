@@ -24,8 +24,8 @@ stop.
 This is a commanded force equivalent, not measured force regulation. Actual
 contact force can differ with object geometry, friction and contact solver
 compliance. The RL path adds no contact sensors and performs only a two-jaw
-table interpolation per physics step. Quest force diagnostics retain their
-separate contact-feedback controller.
+table interpolation per physics step. Direct Quest collection selects the
+contact-feedback backend through the same binary action builder.
 
 Change `force_control.close_force_n` in
 `src/kuavo_isaaclab_scene/assets/leju_claw_two_finger/config.json` to tune the

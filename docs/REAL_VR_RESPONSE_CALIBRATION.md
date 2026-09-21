@@ -4,7 +4,7 @@
 
 ## 확인된 코드와 실행 상태
 
-로봇 작업공간은 `/home/lab/hb/kuavo-ros-opensource`다. H12의 `robot_state/ocs2_before_callback.py`와 `multi_before_callback.py`는 `LAUNCH_VR_REMOTE_CONTROL_CMD` 환경변수를 읽고 VR launch를 시작한다. `config/h12_vr_launch.yaml`을 적용하고 현장 override는 `~/.config/lejuconfig/h12_vr_launch.yaml`이다. 읽기 검사 당시 override는 없었다.
+로봇 작업공간은 `$KUAVO_ROBOT_WORKSPACE`로 지정한다. H12의 `robot_state/ocs2_before_callback.py`와 `multi_before_callback.py`는 `LAUNCH_VR_REMOTE_CONTROL_CMD` 환경변수를 읽고 VR launch를 시작한다. `config/h12_vr_launch.yaml`을 적용하고 현장 override는 `~/.config/lejuconfig/h12_vr_launch.yaml`이다. 읽기 검사 당시 override는 없었다.
 
 표준 Quest launch는 `noitom_hi5_hand_udp_python/launch/launch_quest3_ik.launch`다. 2026-09-16 연결 기록에서는 `/monitor_quest3`, Python `/ik_ros_uni`, `/humanoid_quest_control_with_arm`, `/quest_torso_height`, `/quest_turn_180`이 활성화됐다. `/use_cpp_incremental_ik=false`, `/wheel_ik=true`, `/control_torso=false`, `/single_hand_mode=true`, `/reset_joint_to_default=true`였다. 네 노드가 `/kuavo_arm_traj` publisher로 등록돼 있었지만 실제 기록 메시지는 모두 `/ik_ros_uni`에서 왔다.
 
@@ -16,7 +16,7 @@
 2. 먼저 연결 상태의 읽기 기록으로 입력 경로를 확인한다. 이 확인을 위해 의도적으로 팔을 움직일 필요는 없다. 사람이 컨트롤러를 완전히 고정해야 하는 검사는 아니다.
 
 ```bash
-cd /home/seonho/ksh_ws/HumanoidScene
+cd /path/to/HumanoidScene
 REAL_VR_LOG="$PWD/real_robot_calibration/s63_body_arms/data/real_vr_$(date +%Y%m%d_%H%M%S)/connection.jsonl"
 python3 real_robot_calibration/s63_body_arms/calibrate.py record \
   --vr-inputs --duration-s 15 --log "$REAL_VR_LOG"

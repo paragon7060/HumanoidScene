@@ -1,6 +1,6 @@
 # 실제 로봇 제어 확인 — 2026-09-15
 
-`lab@192.168.0.22`에 키 인증으로 접속해 코드·ROS 파라미터를 읽기 전용으로 확인했다.
+로컬에 설정된 로봇 SSH 대상에 키 인증으로 접속해 코드·ROS 파라미터를 읽기 전용으로 확인했다.
 로봇 구동 명령, 서비스 호출, 파라미터 변경, 원격 파일 수정은 수행하지 않았다.
 
 ## 실행 설정과 확인 범위
@@ -8,10 +8,10 @@
 - ROS `/robot_version`: `63`.
 - 실행 launch: `humanoid_controllers/load_kuavo_real_wheel.launch`, `joystick_type:=h12`, `start_way:=auto`.
 - `/wbc_frequency`, `/sensor_frequency`: 각각 `500` Hz (설정값이며 실측 주파수는 아님).
-- ROS `/taskFile`: `/home/lab/hb/kuavo-ros-opensource/src/humanoid-wheel-control/humanoid_wheel_interface/config/kuavo_s63/task.info`.
-- ROS `/urdfFile`: `/home/lab/hb/kuavo-ros-opensource/src/kuavo_assets/models/biped_s63/urdf/biped_s63.urdf`.
-- 활성 설정이 가리키는 작업공간: `/home/lab/hb/kuavo-ros-opensource`, HEAD `f709b69b9`, 기존 미커밋 변경 있음.
-- 별도 `/home/lab/kuavo-ros-opensource`도 있으나 HEAD `1f7b43651`이며 활성 task 파일 경로와 다르다.
+- ROS `/taskFile`: `$KUAVO_ROBOT_WORKSPACE/src/humanoid-wheel-control/humanoid_wheel_interface/config/kuavo_s63/task.info`.
+- ROS `/urdfFile`: `$KUAVO_ROBOT_WORKSPACE/src/kuavo_assets/models/biped_s63/urdf/biped_s63.urdf`.
+- 활성 설정이 가리키는 작업공간은 `$KUAVO_ROBOT_WORKSPACE`로 관리하며, 확인 당시 기존 미커밋 변경이 있었다.
+- 별도 checkout도 있었으나 활성 task 파일 경로와 달랐다.
 - `/hardware/is_ready=0`, `/hardware/ready_to_start=1`.
 - `/joint_cmd`의 publisher/subscriber는 `/nodelet_manager`. 5초간 한 메시지 읽기를 시도했으나 수신하지 못했다.
 - 실행 프로세스 `/proc/5231/maps`는 읽기 권한이 없어, 로드된 바이너리와 현재 소스의 일치 여부는 확인하지 못했다.
@@ -97,7 +97,7 @@ EC_MASTER PD는 설치된 하드웨어 인터페이스에서 `int32_t` 형태로
 
 ## 추가로 확인한 드라이버 자료
 
-원격 `/home/lab/EC_Master_Tools/src/Sharelib/User/ObjectDiction.h`에서
+원격 `$HOME/EC_Master_Tools/src/Sharelib/User/ObjectDiction.h`에서
 `JOINT_CSP_KP=0x3500`은 위치 루프 P, `JOINT_CSV_KP=0x3504`는 속도 루프 P로 정의한다.
 `dirver_lunbi2_4m.json` 설명에는 각각 ×10, ×1000 스케일이 명시되어 있다.
 설치된 `EC_Master/.../EcDemoApp.h`의 PDO도 `position_kp`, `velocity_kp` 필드를 가진다.

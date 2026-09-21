@@ -46,7 +46,7 @@ main을 dbbe8b3에서 a14c1c3까지 fast-forward pull했다. 기존 수정/새 �
 사용한 S200062 integrated gripper preset은 기존 source snapshot과 같다.
 새로운 중력 보상 제어는 원격 변경에 포함되어 있지 않다.
 
-백업: `/home/seonho/HumanoidScene/artifacts/rl/git_sync/pull_20260915_232000`.
+백업: `artifacts/rl/git_sync/pull_20260915_232000`.
 
 ## 결론
 
@@ -111,9 +111,9 @@ manager에 연결되지 않은 점, 움직임/박스 흔들림 비용 회피, �
 ## 검증 및 재현 파일
 
 pull 후 관련 CPU 회귀 테스트 29개 통과. whitespace 검사 및 미해결 충돌 검사 통과.
-진단 결과: `/home/seonho/HumanoidScene/artifacts/rl/diagnostics/gravity_review_20260915_232214/play_20260915_232221_f3b72d/gravity_probe.json`.
-실행 명령: `/home/seonho/HumanoidScene/artifacts/rl/diagnostics/gravity_review_20260915_232214/launch.json`.
-진단 코드: `/home/seonho/HumanoidScene/artifacts/rl/diagnostics/gravity_review_20260915_232214/gravity_probe_source.py`.
+진단 결과: `artifacts/rl/diagnostics/gravity_review_20260915_232214/play_20260915_232221_f3b72d/gravity_probe.json`.
+실행 명령: `artifacts/rl/diagnostics/gravity_review_20260915_232214/launch.json`.
+진단 코드: `artifacts/rl/diagnostics/gravity_review_20260915_232214/gravity_probe_source.py`.
 전체 학습은 `docs/SAC_SAFE_RESTART_20260915.md`를 참고한다.
 
 ## 추가 확인: 기존 teleop 중력 보상

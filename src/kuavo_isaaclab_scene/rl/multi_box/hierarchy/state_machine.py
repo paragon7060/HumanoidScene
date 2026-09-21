@@ -79,11 +79,28 @@ class SkillStateMachine:
         if selectable_boxes.shape != (self.num_envs, MAX_BOXES):
             raise ValueError(f"selectable_boxes must have shape [num_envs, {MAX_BOXES}].")
         waiting_ids = self.needs_target.nonzero(as_tuple=False).flatten()
-        if selection.box_index.shape != (len(waiting_ids),):
-            raise ValueError("Selection batch must match environments needing a target.")
-        selection.validate(selectable_boxes[waiting_ids])
-        self.target_box[waiting_ids] = selection.box_index
-        self.current_skill[waiting_ids] = SKILL_IDS["grasp"]
+        self.assign_subset(waiting_ids, selection, selectable_boxes)
+
+    def assign_subset(self, env_ids: torch.Tensor, selection: HighLevelSelection,
+                      selectable_boxes: torch.Tensor) -> None:
+        """Assign only waiting rows that have at least one selectable box."""
+        if selectable_boxes.shape != (self.num_envs, MAX_BOXES) \
+                or selectable_boxes.dtype != torch.bool:
+            raise ValueError(f"selectable_boxes must be boolean [num_envs, {MAX_BOXES}].")
+        if selectable_boxes.device != self.device:
+            raise ValueError("selectable_boxes and state machine must share one device.")
+        if env_ids.ndim != 1 or env_ids.dtype != torch.long or env_ids.device != self.device:
+            raise ValueError("env_ids must be torch.long [selected_envs] on the tracker device.")
+        if bool(((env_ids < 0) | (env_ids >= self.num_envs)).any()) \
+                or len(torch.unique(env_ids)) != len(env_ids):
+            raise ValueError("env_ids must contain distinct valid environments.")
+        if selection.box_index.shape != (len(env_ids),):
+            raise ValueError("Selection batch must match selected waiting environments.")
+        if not bool(self.needs_target[env_ids].all()):
+            raise ValueError("Cannot replace a locked target before place completion.")
+        selection.validate(selectable_boxes[env_ids])
+        self.target_box[env_ids] = selection.box_index
+        self.current_skill[env_ids] = SKILL_IDS["grasp"]
 
     def dispatch(self, active_boxes: torch.Tensor) -> tuple[torch.Tensor, SkillDispatch]:
         """Return controller rows and deterministic skill assignments."""

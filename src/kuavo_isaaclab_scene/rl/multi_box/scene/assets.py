@@ -15,8 +15,21 @@ from ...scenes.workcell import group, spawn_kinematic_rack
 from ....core.paths import ASSET_DIR, BOX_ATLAS_ASSETS
 from ....envs.scene_physics import build_contact_box_spawn
 from ....workcell.box_flap_friction import resolve_flap_friction_settings
-from ....workcell.rack_rollers import resolve_rack_roller_settings
-from ....workcell.workcell_layout import offset, position, remap_quat, rotation, scale
+from ....workcell.rack_rollers import (
+    RACK_ROLLER_TIERS,
+    RACK_SHELF_LOCAL_Z_OFFSETS,
+    rack_roller_status,
+    rack_visual_asset,
+    resolve_rack_roller_settings,
+)
+from ....workcell.workcell_layout import (
+    local_point_to_world,
+    offset,
+    position,
+    remap_quat,
+    rotation,
+    scale,
+)
 
 
 CONVEYOR_PART_NAMES = (
@@ -28,6 +41,7 @@ CONVEYOR_PART_NAMES = (
     "conveyor_leg_2",
     "conveyor_leg_3",
 )
+RACK_ROLLER_ASSET_NAMES = tuple(f"rack_roller_deck_{tier:02d}" for tier in RACK_ROLLER_TIERS)
 
 
 @dataclass(frozen=True)
@@ -65,8 +79,7 @@ def _kinematic_cuboid(path, size, pos, color, *, rot, visible=True, material=Non
 
 def add_randomizable_workcell(scene, parallel):
     """Add only the physical assets needed by rack-to-conveyor training."""
-    if resolve_rack_roller_settings().enabled:
-        raise ValueError("Randomized multi-box v2 currently requires rollerless racks.")
+    roller_settings = resolve_rack_roller_settings()
     scene.ground = AssetBaseCfg(
         prim_path="/World/Ground", collision_group=-1,
         spawn=sim_utils.CuboidCfg(
@@ -84,15 +97,55 @@ def add_randomizable_workcell(scene, parallel):
     ):
         setattr(scene, key, group("{ENV_REGEX_NS}/Workcell" + suffix))
 
-    scene.rack = RigidObjectCfg(
-        class_type=PoseControlledKinematicObject,
-        prim_path="{ENV_REGEX_NS}/Workcell/Racks/Rack",
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=str(ASSET_DIR / "Rack.usd"), scale=scale("rack"),
-            func=spawn_kinematic_rack,
-        ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=position("rack"), rot=rotation("rack")),
-    )
+    rack_path = "{ENV_REGEX_NS}/Workcell/Racks/Rack"
+    if roller_settings.enabled:
+        print(rack_roller_status(roller_settings, include_clearance=True), flush=True)
+        scene.rack_assembly = AssetBaseCfg(
+            prim_path=rack_path,
+            spawn=sim_utils.UsdFileCfg(
+                usd_path=str(rack_visual_asset(roller_settings)),
+                scale=scale("rack"),
+                articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+                    solver_position_iteration_count=32,
+                    solver_velocity_iteration_count=8,
+                ),
+            ),
+            init_state=AssetBaseCfg.InitialStateCfg(
+                pos=position("rack"), rot=rotation("rack")),
+        )
+        # Register the already spawned physics roots separately. Reset moves
+        # RackBody and all three RollerDeck articulations with one rigid
+        # transform, preserving the randomized rack as a coherent assembly.
+        scene.rack = RigidObjectCfg(
+            class_type=PoseControlledKinematicObject,
+            prim_path=rack_path + "/RackBody",
+            spawn=None,
+            init_state=RigidObjectCfg.InitialStateCfg(
+                pos=position("rack"), rot=rotation("rack")),
+        )
+        for tier, name in zip(RACK_ROLLER_TIERS, RACK_ROLLER_ASSET_NAMES, strict=True):
+            setattr(scene, name, ArticulationCfg(
+                prim_path=rack_path + f"/RollerDeck_{tier:02d}",
+                spawn=None,
+                init_state=ArticulationCfg.InitialStateCfg(
+                    pos=local_point_to_world(
+                        "rack", (0.0, 0.0, RACK_SHELF_LOCAL_Z_OFFSETS[tier])),
+                    rot=rotation("rack"),
+                    joint_vel={".*": 0.0},
+                ),
+                actuators={},
+            ))
+    else:
+        scene.rack = RigidObjectCfg(
+            class_type=PoseControlledKinematicObject,
+            prim_path=rack_path,
+            spawn=sim_utils.UsdFileCfg(
+                usd_path=str(ASSET_DIR / "Rack.usd"), scale=scale("rack"),
+                func=spawn_kinematic_rack,
+            ),
+            init_state=RigidObjectCfg.InitialStateCfg(
+                pos=position("rack"), rot=rotation("rack")),
+        )
 
     conveyor_rot = remap_quat("conveyor", (1.0, 0.0, 0.0, 0.0))
     belt_material = sim_utils.RigidBodyMaterialCfg(

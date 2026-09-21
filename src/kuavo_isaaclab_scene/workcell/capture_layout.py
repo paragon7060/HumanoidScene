@@ -18,6 +18,7 @@ from pathlib import Path
 from isaaclab.app import AppLauncher
 
 from ..core.paths import CONFIG_DIR
+from .workcell_layout import AnchorPose, rack_base_pose_from_asset
 
 
 parser = argparse.ArgumentParser(description="Capture Kuavo workcell anchors from a saved USD stage.")
@@ -93,6 +94,23 @@ def main() -> None:
             ],
             "scale": scale_values,
         }
+
+    # The stage contains the legacy Rack.usd asset anchor.  Persist the
+    # webpage-compatible logical frame alongside it so subsequent edits use
+    # rack_base as the authoritative rack pose.
+    captured_rack = layout["rack"]
+    rack_base = rack_base_pose_from_asset(
+        AnchorPose(
+            tuple(captured_rack["pos"]),  # type: ignore[arg-type]
+            tuple(captured_rack["rot"]),  # type: ignore[arg-type]
+            tuple(captured_rack["scale"]),  # type: ignore[arg-type]
+        )
+    )
+    layout["rack_base"] = {
+        "pos": [round(component, 10) for component in rack_base.pos],
+        "rot": [round(component, 10) for component in rack_base.rot],
+        "scale": [1.0, 1.0, 1.0],
+    }
 
     output_path = args_cli.output.expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)

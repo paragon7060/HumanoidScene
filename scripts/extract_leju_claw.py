@@ -109,8 +109,10 @@ def extract(donor_dir: Path, output: Path, *, mass_kg: float = 1.0) -> None:
                        "mass and inertia are scaled together. Host arm/torso inertials are unchanged.",
         "links": selected_estimates})
     action = previous_config.get("action", {
-        "open": 1.0,
-        "closed": -1.0,
+        "binary_open": 0.0,
+        "binary_closed": 1.0,
+        "signed_target_open": 1.0,
+        "signed_target_closed": -1.0,
         "driver_joints": ["{side}_f_bar_1_joint", "{side}_b_bar_1_joint"],
     })
     actuator = previous_config.get("actuator", {

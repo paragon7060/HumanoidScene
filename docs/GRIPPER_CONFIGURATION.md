@@ -61,10 +61,12 @@ waist_yaw(1), left_arm(7), right_arm(7), left_gripper(1), right_gripper(1)
 ```
 
 That is 17 dimensions with the default two hands and 15 dimensions with
-`--gripper none`. A positive gripper value opens the hand and a negative value
-closes it. Meta Quest and browser teleoperation append two channels to the
-existing 14-D bimanual IK/head command, producing a 16-D action. Pinch distance
-at or below 0.055 m closes the corresponding hand.
+`--gripper none`. Every standard manager, Meta Quest, browser, and RL gripper
+channel uses `0=open`, `1=close`. Meta Quest and browser teleoperation append
+two channels to the existing 14-D bimanual IK/head command, producing a 16-D
+action. Pinch distance at or below 0.055 m closes the corresponding hand.
+Only an evaluator that explicitly requests `continuous=True` uses the internal
+signed interpolation convention for an existing continuous-action checkpoint.
 
 S56 is a fixed-root biped rather than a wheel-base model. Its source home pose
 places the torso root at 0.98 m, so the launcher applies that height

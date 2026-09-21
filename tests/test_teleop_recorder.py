@@ -176,13 +176,13 @@ def test_binary_gripper_command_recording_preserves_control_and_measured_state(t
     names = tuple(f"arm_{i}" for i in range(arm_dim)) + tuple(f"{s}_gripper" for s in sides) + ("knee_joint",)
     raw = np.linspace(-.4, .4, len(names), dtype=np.float32)
     for i, side in enumerate(sides):
-        raw[names.index(side + "_gripper")] = 1. if i == 0 else -1.
+        raw[names.index(side + "_gripper")] = 0. if i == 0 else 1.
     original = raw.copy()
     encoded = encode_recorded_action(raw, names)
     labels = recorded_action_names(names)
     for i, name in enumerate(names):
         if name.endswith("_gripper"):
-            assert encoded[i] == (0. if original[i] >= 0 else 1.)
+            assert encoded[i] == original[i]
             assert labels[i] == name + "_close"
         else:
             assert encoded[i] == original[i]

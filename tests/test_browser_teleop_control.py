@@ -1,5 +1,6 @@
 import json
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -33,6 +34,14 @@ def sample(**kwargs):
 
 def mapper():
     return TeleopBodyMapper(ASSET_DIR / "kuavo_s200062/urdf/biped_s200062.urdf")
+
+
+def test_browser_runtime_initializes_body_mapper_from_robot_pose():
+    source = (
+        Path(__file__).parents[1]
+        / "src/kuavo_isaaclab_scene/teleop/preview_quest_browser.py"
+    ).read_text()
+    assert "robot.data.joint_pos[0, body_joint_ids]" in source
 
 
 def test_browser_controller_axes_become_native_openxr_axes():
@@ -111,7 +120,7 @@ def test_stale_bridge_removes_controller_inputs_and_recovery_stops_base():
     assert guard.advance(True, 1.2).control_allowed
 
 
-@pytest.mark.parametrize("grippers", [(), (1.0,), (1.0, -1.0)])
+@pytest.mark.parametrize("grippers", [(), (1.0,), (1.0, 0.0)])
 def test_browser_action_has_body_channels_even_without_tracking(grippers):
     body = browser_body_action(BrowserTeleopBridge().latest(), mapper(), .1, control_allowed=False)
     action = compose_browser_action(np.arange(14), grippers, body)

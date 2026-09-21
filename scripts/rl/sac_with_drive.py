@@ -34,7 +34,8 @@ def main():
     parser.add_argument("--replay-capacity", type=int, default=1000000)
     parser.add_argument("--replay-device", choices=("cpu", "cuda:0"), default="cuda:0")
     parser.add_argument("--save-interval", type=int, default=2)
-    parser.add_argument("--remote-root", default="seonho:HumanoidScene-RL")
+    parser.add_argument("--remote-root", default=os.environ.get(
+        "RL_DRIVE_REMOTE_ROOT", "gdrive:HumanoidScene-RL"))
     parser.add_argument("--gpu-limit-mib", type=int, default=34816)
     parser.add_argument("--gpu-reserve-mib", type=int, default=8192)
     parser.add_argument("--max-seconds", type=int, default=3600)

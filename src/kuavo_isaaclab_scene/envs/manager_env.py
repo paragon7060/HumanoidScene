@@ -1228,3 +1228,9 @@ class KuavoRobustWorkcellEnvCfg(ManagerBasedRLEnvCfg):
         self.viewer.eye = (3.45, -3.35, 2.45)
         self.viewer.lookat = (0.85, 0.0, 0.85)
         self.rerender_on_reset = True
+        # Standard manager environments use the same package binary action as
+        # Quest and RL. This also enables per-iteration force application for
+        # package force assist; continuous evaluators replace the action later.
+        from ..robots.claw_assets.vr import configure_binary_gripper_control
+        configure_binary_gripper_control(
+            self, contact_feedback=False, command_gate=None)

@@ -237,7 +237,7 @@ cd HumanoidScene
   --xr-runtime-json /absolute/path/to/openxr_cloudxr.json \
   --dataset-format lerobot \
   --lerobot-root datasets/kuavo_quest_lerobot \
-  --lerobot-repo-id paragon7060/kuavo_quest_teleop \
+  --lerobot-repo-id <hf-user>/kuavo_quest_teleop \
   --max-episodes 20 \
   --episode-seconds 30
 ```
@@ -724,7 +724,7 @@ export LEROBOT_PYTHON=/absolute/path/to/lerobot-v3-environment/bin/python
   --xr-runtime-json /absolute/path/to/openxr_cloudxr.json \
   --dataset-format lerobot \
   --lerobot-root datasets/kuavo_quest_lerobot \
-  --lerobot-repo-id paragon7060/kuavo_quest_teleop
+  --lerobot-repo-id <hf-user>/kuavo_quest_teleop
 ```
 
 HDF5도 동시에 남기려면:
@@ -734,7 +734,7 @@ HDF5도 동시에 남기려면:
   --xr-runtime-json /absolute/path/to/openxr_cloudxr.json \
   --dataset-format both \
   --lerobot-root datasets/kuavo_quest_lerobot \
-  --lerobot-repo-id paragon7060/kuavo_quest_teleop
+  --lerobot-repo-id <hf-user>/kuavo_quest_teleop
 ```
 
 다른 Python 3.12 LeRobot v3 환경을 쓰려면 `LEROBOT_PYTHON`을 export하거나
@@ -783,7 +783,7 @@ ${LEROBOT_PYTHON} - <<'PY'
 from lerobot.datasets import LeRobotDataset
 
 dataset = LeRobotDataset(
-    repo_id="paragon7060/kuavo_quest_teleop",
+    repo_id="<hf-user>/kuavo_quest_teleop",
     root="datasets/kuavo_quest_lerobot",
 )
 print(dataset)

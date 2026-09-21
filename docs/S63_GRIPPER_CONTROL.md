@@ -4,8 +4,9 @@
 설정의 기준은 `src/kuavo_isaaclab_scene/assets/leju_claw_two_finger/config.json`
 한 파일이다. `configs/grippers.json`은 `leju-twofinger` 이름을 이 패키지 preset에
 연결만 하므로 같은 값을 두 파일에 중복해서 넣지 않는다.
-실물 명령 기준 0은 완전 열림, 100은 완전 닫힘이다. 시뮬레이션 continuous action은
-기존과 같이 +1이 열림, -1이 닫힘이며 명령 백분율은 `(1-action)*50`이다.
+실물 명령 기준 0은 완전 열림, 100은 완전 닫힘이다. Quest와 RL manager action은
+`0=open`, `1=close`로 통일했다. package 내부의 연속 관절 목표만 +1이 열림,
+-1이 닫힘이며 명령 백분율은 `(1-action)*50`이다.
 
 ## 개폐 매핑
 
@@ -38,7 +39,7 @@
 | 왼손 | 0.092 s | 0.076 s | 2 |
 | 오른손 | 0.077 s | 0.064 s | 2 |
 
-binary, continuous, RL action에 같은 필터를 적용한다. RL의 기존 증분 입력은 유지한다.
+일반 VR, RL reward debug 1/2와 RL 학습 action에 같은 binary 명령, 매핑과 필터를 적용한다.
 방향 반전 시 중간 필터 목표를 현재값과 새 목표 사이로 제한한다.
 reset은 필터 상태를 실제 joint 위치로 초기화하며 RL 중립 입력이 이전 명령을 이어가지 않게 한다.
 

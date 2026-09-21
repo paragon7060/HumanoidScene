@@ -6,7 +6,12 @@ from isaaclab.controllers import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
 from ...teleop.teleop_ik import PersistentTeleopIKAction
 from ...teleop.teleop_body import BODY_JOINTS, TeleopBodyMapper
-from ...teleop.teleop_mapping import AbsoluteControllerMapper, ScaledControllerMapper
+from ...teleop.teleop_mapping import (
+    AbsoluteControllerMapper,
+    BimanualTeleopMapper,
+    ScaledControllerMapper,
+    TeleopMappingCfg,
+)
 from ...teleop.urdf_arm_ik import UrdfArm
 from ...teleop.teleop_servo import arm_response_profile
 
@@ -40,6 +45,11 @@ class QuestRLControl:
         missing = required - self.term_slices.keys()
         if missing:
             raise ValueError(f"Reward inspection is missing action terms: {sorted(missing)}")
+        nonbinary = [name for name in required if name.endswith("_gripper")
+                     and not hasattr(env.action_manager.get_term(name), "_close_requested")]
+        if nonbinary:
+            raise ValueError(
+                f"Reward inspection requires shared binary gripper terms: {sorted(nonbinary)}")
         self.upper = env.action_manager.get_term("upper_body")
         self.body_mapper = None
         if env.cfg.task.control_mode == "whole-body":
@@ -54,11 +64,20 @@ class QuestRLControl:
                 self.upper._joint_ids.index(self.body_joint_ids[3])
                 if self.body_joint_ids else None
             )
-        if args.controller_mapping == "absolute":
+        self.relative_mapping = args.controller_mapping == "relative"
+        if self.relative_mapping:
+            self.mapper = None
+            self.relative_mapper = BimanualTeleopMapper(TeleopMappingCfg(
+                position_gain=args.position_gain,
+                rotation_gain=args.rotation_gain,
+            ))
+        elif args.controller_mapping == "absolute":
             self.mapper = AbsoluteControllerMapper(tool_forward_sign=model.tool_forward_sign,
                                                    orientation_mode=args.absolute_orientation)
+            self.relative_mapper = None
         else:
             self.mapper = ScaledControllerMapper(position_gain=args.position_gain, tool_forward_sign=model.tool_forward_sign)
+            self.relative_mapper = None
         self.torso = self.robot.find_bodies("waist_yaw_link")[0][0]
         self.solvers, self.columns = {}, {}
         for side, letter in (("left", "l"), ("right", "r")):
@@ -68,7 +87,8 @@ class QuestRLControl:
                 class_type=PersistentTeleopIKAction, asset_name="robot",
                 joint_names=[f"zarm_{letter}{i}_joint" for i in range(1, 8)],
                 body_name=f"zarm_{letter}7_end_effector", scale=1.,
-                controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=False,
+                controller=DifferentialIKControllerCfg(
+                    command_type="pose", use_relative_mode=self.relative_mapping,
                                                        ik_method="dls"), debug_vis=False)
             solver = PersistentTeleopIKAction(cfg, env)
             solver.response = arm_response_profile(args.arm_response, args.controller_mapping, "controllers")
@@ -79,7 +99,12 @@ class QuestRLControl:
         self.reset()
 
     def reset(self):
-        self.mapper.reset()
+        mapper = getattr(self, "mapper", None)
+        relative_mapper = getattr(self, "relative_mapper", None)
+        if mapper is not None:
+            mapper.reset()
+        if relative_mapper is not None:
+            relative_mapper.reset()
         self.last_body_command = None
         for solver in self.solvers.values():
             solver.reset()
@@ -103,36 +128,42 @@ class QuestRLControl:
     def action(self, packets):
         action = torch.zeros((1, self.env.action_manager.total_action_dim), device=self.env.device)
         upper_slice = self.term_slices["upper_body"]
+        relative_actions = None
+        relative_mapper = getattr(self, "relative_mapper", None)
+        if relative_mapper is not None:
+            root_quat = self.robot.data.root_quat_w[0].detach().cpu().numpy()
+            relative_actions = relative_mapper.advance_controllers(
+                packets["left"], packets["right"], None, root_quat).action
         for side in self.sides:
             solver = self.solvers[side]
             tcp = self.frames.center_pose_w[0, 0 if side == "left" else 1].detach().cpu().numpy()
-            goal = self.mapper.target(side, packets[side], tcp, self.pose(),
-                                      following=True, aim_pose=self.xr.controller_aim_pose(side),
-                                      reference_pose_w=self.pose(self.torso))
             # Standalone IK only computes a target. Never call apply_actions():
             # the unchanged RL action manager is the only articulation writer.
             columns = self.columns[side]
             solver._joint_command[:] = self.upper.processed_actions[:, columns]
-            solver.process_actions(torch.as_tensor(np.asarray(goal), device=self.env.device,
-                                                  dtype=torch.float32).unsqueeze(0))
+            if relative_mapper is not None:
+                index = 0 if side == "left" else 6
+                solver.process_actions(torch.as_tensor(
+                    relative_actions[index:index + 6], device=self.env.device,
+                    dtype=torch.float32).unsqueeze(0))
+            else:
+                goal = self.mapper.target(
+                    side, packets[side], tcp, self.pose(), following=True,
+                    aim_pose=self.xr.controller_aim_pose(side),
+                    reference_pose_w=self.pose(self.torso))
+                solver.process_actions(torch.as_tensor(
+                    np.asarray(goal), device=self.env.device,
+                    dtype=torch.float32).unsqueeze(0))
             scale = self.upper._scale
             if isinstance(scale, torch.Tensor):
                 scale = scale[:, columns]
             action[:, [upper_slice.start + column for column in columns]] = normalized_delta(
                 solver._joint_command, self.upper.processed_actions[:, columns], scale
             )
-            gripper = self.env.action_manager.get_term(side + "_gripper")
-            if hasattr(gripper, "_close_requested"):
-                # Match RL execution exactly: action 0 opens and action 1 closes.
-                action[:, self.term_slices[side + "_gripper"]] = (
-                    1.0 if packets[side][1, 2] >= .5 else 0.0
-                )
-            else:
-                # Compatibility for explicitly configured legacy incremental terms.
-                desired = torch.full_like(
-                    gripper._signed_target, -1. if packets[side][1, 2] >= .5 else 1.)
-                action[:, self.term_slices[side + "_gripper"]] = normalized_delta(
-                    desired, gripper._signed_target, gripper.cfg.delta_scale)
+            # Match every Quest/RL execution path: 0 opens and 1 closes.
+            action[:, self.term_slices[side + "_gripper"]] = (
+                1.0 if packets[side][1, 2] >= .5 else 0.0
+            )
         if self.body_mapper is not None:
             body = torch.as_tensor(
                 self.body_mapper.advance(packets["left"], packets["right"], self.env.step_dt, enabled=True),

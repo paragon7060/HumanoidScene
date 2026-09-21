@@ -3,9 +3,9 @@ from kuavo_isaaclab_scene.teleop.teleop_safety import GripperCommandLatch, Track
 
 def test_gripper_latch_holds_only_the_lost_hand_command():
     latch = GripperCommandLatch(("left", "right"))
-    assert latch.advance((-1.0, -1.0), left_valid=True, right_valid=True) == (-1.0, -1.0)
-    assert latch.advance((1.0, 1.0), left_valid=False, right_valid=True) == (-1.0, 1.0)
-    assert latch.advance((1.0, -1.0), left_valid=False, right_valid=False) == (-1.0, 1.0)
+    assert latch.advance((1.0, 1.0), left_valid=True, right_valid=True) == (1.0, 1.0)
+    assert latch.advance((0.0, 0.0), left_valid=False, right_valid=True) == (1.0, 0.0)
+    assert latch.advance((0.0, 1.0), left_valid=False, right_valid=False) == (1.0, 0.0)
 
 
 def test_tracking_guard_pauses_then_requires_stable_recovery():

@@ -12,7 +12,6 @@ from ..geometry import footprint_inside_rectangle, unsigned_axis_angle_error
 
 @dataclass(frozen=True)
 class PlaceSuccessConfig:
-    gripper_clearance_m: float = 0.02
     max_parallel_error_rad: float = math.radians(10.0)
     max_linear_speed_mps: float = 0.05
     max_angular_speed_radps: float = 0.20
@@ -20,7 +19,6 @@ class PlaceSuccessConfig:
 
     def validate(self) -> None:
         values = (
-            self.gripper_clearance_m,
             self.max_parallel_error_rad,
             self.max_linear_speed_mps,
             self.max_angular_speed_radps,
@@ -122,9 +120,11 @@ class PlaceSuccessTracker:
         if not math.isfinite(dt) or dt <= 0:
             raise ValueError("dt must be finite and positive.")
 
-        finite_distance = torch.isfinite(measurements.gripper_box_distance_m).all(dim=-1)
-        released = (~measurements.gripper_grasping.any(dim=-1)) & finite_distance \
-            & (measurements.gripper_box_distance_m >= self.config.gripper_clearance_m).all(dim=-1)
+        # Release is the loss of both physical grasp predicates.  A separate
+        # 2 cm TCP/pad retreat was explicitly removed from the task contract:
+        # the hands may remain close after opening as long as the box is
+        # supported and the remaining placement conditions hold.
+        released = ~measurements.gripper_grasping.any(dim=-1)
         inside = footprint_inside_rectangle(
             measurements.box_footprint_corners_belt,
             measurements.belt_half_extents_xy,

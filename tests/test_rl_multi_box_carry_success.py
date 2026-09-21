@@ -21,6 +21,7 @@ def sample(num_envs=5):
         box_footprint_corners_belt=corners,
         belt_half_extents_xy=torch.tensor([1.275, 0.34]),
         box_bottom_height_m=torch.full((num_envs,), 0.10),
+        box_tilt_rad=torch.zeros(num_envs),
         overlaps_placed_box=torch.zeros(num_envs, dtype=torch.bool),
     )
 
@@ -31,12 +32,14 @@ def test_carry_requires_grasp_full_footprint_free_space_and_height_range():
     values.box_footprint_corners_belt[1, 0, 0] = 1.276
     values.overlaps_placed_box[2] = True
     values.box_bottom_height_m[3] = 0.049
+    values.box_tilt_rad[4] = torch.deg2rad(torch.tensor(20.1))
     result = carry_success(values)
-    assert result.success.tolist() == [False, False, False, False, True]
+    assert result.success.tolist() == [False, False, False, False, False]
     assert not result.grasp_maintained[0]
     assert not result.footprint_inside_belt[1]
     assert not result.free_space[2]
     assert not result.pre_place_height[3]
+    assert not result.box_tilt_ok[4]
 
 
 def test_carry_accepts_approved_height_boundaries_and_batched_belt_extents():
@@ -44,6 +47,12 @@ def test_carry_accepts_approved_height_boundaries_and_batched_belt_extents():
     values.box_bottom_height_m[:] = torch.tensor([0.05, 0.15])
     values = replace(values, belt_half_extents_xy=torch.tensor([[1.0, 0.3], [1.2, 0.3]]))
     assert carry_success(values).success.all()
+
+
+def test_carry_accepts_twenty_degree_box_tilt_boundary():
+    values = sample(1)
+    values.box_tilt_rad[:] = torch.deg2rad(torch.tensor(20.0))
+    assert carry_success(values).success.item()
 
 
 def test_carry_height_config_must_be_ordered_and_finite():

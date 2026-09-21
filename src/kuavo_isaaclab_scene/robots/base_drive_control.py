@@ -97,13 +97,14 @@ class FloatingBaseDrive:
         quat[..., 3] = (yaw / 2).sin()
         return quat
 
-    def _inertia(self, position):
+    def _inertia(self):
         """Inertia about the root in world axes, parallel-axis terms included.
 
         Recomputed from live link positions so an extended arm raises the
         commanded torque instead of quietly lowering the effective gain.
         """
-        offsets = self._asset.data.body_pos_w - position.unsqueeze(1)
+        root_com = self._asset.data.root_com_pos_w
+        offsets = self._asset.data.body_com_pos_w - root_com.unsqueeze(1)
         squares = self._body_mass.unsqueeze(-1) * offsets.square()
         moments = torch.stack(
             (squares[..., 1] + squares[..., 2],
@@ -167,21 +168,28 @@ class FloatingBaseDrive:
             - cfg.height_damping * self._asset.data.root_lin_vel_w[:, 2]
         ).clamp(-cfg.max_vertical_acceleration, cfg.max_vertical_acceleration)
 
-        inertia = self._inertia(position)
+        inertia = self._inertia()
         force_w = torch.zeros(self._num_envs, 3, device=self._device)
         torque_w = torch.zeros_like(force_w)
         force_w[:, :2] = self._total_mass[:, None] * acceleration
         force_w[:, 2] = self._total_mass * vertical_acceleration
         torque_w[:, :2] = inertia[:, :2] * tilt_acceleration
         torque_w[:, 2] = inertia[:, 2] * yaw_acceleration
-        # Weight feedforward. Without it the height/tilt PD has to produce the
-        # entire support from its own error, which means a permanent sag and a
-        # permanent lean, and it leaves nothing to reject disturbances with.
-        # Gravity pulls at the whole-body centre of mass, so cancelling it at
-        # the root also needs the matching couple.
+        whole_body_com = (
+            self._body_mass[:, :, None] * self._asset.data.body_com_pos_w
+        ).sum(dim=1) / self._total_mass[:, None]
+        lever = whole_body_com - self._asset.data.root_com_pos_w
+        # This force is applied on the root body, below the whole-body CoM.
+        # Add its equivalent couple so accelerating a raised torso translates
+        # the robot instead of pitching it.
+        torque_w += torch.cross(lever, force_w, dim=-1)
+
+        # Cancel weight at the whole-body CoM.  Commanded joint acceleration is
+        # deliberately not converted to a root feedforward wrench: contacts,
+        # actuator limits and the implicit drive can make achieved acceleration
+        # differ from that prediction, which pumps the floating base instead of
+        # damping it.  The attitude loop rejects the actual joint reaction.
         weight_w = -self._total_mass[:, None] * self._gravity
-        lever = (self._body_mass[:, :, None] * self._asset.data.body_pos_w).sum(dim=1) \
-            / self._total_mass[:, None] - position
         force_w += weight_w
         torque_w += torch.cross(lever, weight_w, dim=-1)
         # WrenchComposer caches link poses for permanent wrenches. Convert the

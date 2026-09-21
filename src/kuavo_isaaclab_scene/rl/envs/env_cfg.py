@@ -85,6 +85,9 @@ class WorkcellRLEnvCfg(ManagerBasedRLEnvCfg):
         # Isaac Lab 2.3.2 deprecated the boolean alias. One extra render keeps
         # camera observations fresh after reset without emitting its warning.
         self.num_rerenders_on_reset = int(self.cameras)
+        from ...robots.claw_assets.vr import configure_binary_gripper_control
+        configure_binary_gripper_control(
+            self, contact_feedback=False, command_gate="settling")
         # Base model last: it must see the action set this task ended up with.
         # arms-only has no base action, so it keeps its fixed root from above.
         if apply_base_drive(self.scene.robot, self.actions, "base"):

@@ -9,7 +9,7 @@
 ## 1. 먼저 VR 기록
 
 ```bash
-cd /home/seonho/ksh_ws/HumanoidScene
+cd /path/to/HumanoidScene
 VR_LOG="$PWD/recordings/joint_response_$(date +%Y%m%d_%H%M%S).jsonl"
 echo "$VR_LOG"
 ./quest_collector.sh collect \

@@ -111,7 +111,7 @@ from ..display.stereo_compositor import compose_stereo_atlas
 from .teleop_safety import GripperCommandLatch, TrackingLossGuard
 from ..envs.teleop_env import KuavoQuestTeleopEnvCfg, set_domain_randomization
 from .teleop_mapping import BimanualTeleopMapper, TeleopMappingCfg
-from .teleop_body import TeleopBodyMapper
+from .teleop_body import BODY_JOINTS, TeleopBodyMapper
 
 
 def _to_numpy(tensor: torch.Tensor) -> np.ndarray:
@@ -209,6 +209,9 @@ def main() -> None:
     body_mapper = TeleopBodyMapper(robot_model.urdf_path, has_wheel_base=robot_model.has_wheel_base)
     arm_terms = [env.action_manager.get_term(name) for name in ("left_arm", "right_arm")]
     robot = env.scene["robot"]
+    if robot_model.has_wheel_base:
+        body_joint_ids = robot.find_joints(BODY_JOINTS, preserve_order=True)[0]
+        body_mapper.reset(_to_numpy(robot.data.joint_pos[0, body_joint_ids]))
     stream_interval = max(1, int(round((1.0 / float(env.step_dt)) / args_cli.stream_fps)))
     previous_clients = -1
     previous_tracking = None
@@ -291,7 +294,7 @@ def main() -> None:
             for index, side in enumerate(GRIPPER_SETTINGS.active_sides):
                 controller = controllers[side]
                 if controller is not None:
-                    desired_gripper[index] = -1.0 if controller.trigger >= 0.5 else 1.0
+                    desired_gripper[index] = 1.0 if controller.trigger >= 0.5 else 0.0
             safe_gripper = gripper_latch.advance(
                 tuple(desired_gripper),
                 left_valid=mapped.left_valid,

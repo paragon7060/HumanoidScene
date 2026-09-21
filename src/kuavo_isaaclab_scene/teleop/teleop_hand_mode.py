@@ -133,7 +133,7 @@ class HandCommands:
 class HandGripper:
     def __init__(self, close_distance=.055):
         self.close_distance = close_distance
-        self.values = {"left": 1., "right": 1.}
+        self.values = {"left": 0., "right": 0.}
         self.armed = {"left": True, "right": True}
 
     def sync(self, values):
@@ -144,13 +144,13 @@ class HandGripper:
         distance = _pinch_distance(hand)
         if not hold and hand_packet(hand) is not None and math.isfinite(distance):
             if not self.armed[side]:
-                self.armed[side] = (distance <= self.close_distance if self.values[side] < 0
+                self.armed[side] = (distance <= self.close_distance if self.values[side] > 0
                                     else distance >= self.close_distance + .015)
                 return self.values[side]
             if distance <= self.close_distance:
-                self.values[side] = -1.
-            elif distance >= self.close_distance + .015:
                 self.values[side] = 1.
+            elif distance >= self.close_distance + .015:
+                self.values[side] = 0.
         return self.values[side]
 
 

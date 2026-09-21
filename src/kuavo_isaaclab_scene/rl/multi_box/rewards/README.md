@@ -9,7 +9,7 @@ The initial ratio is:
 
 | Scope | Dense total | Pinch/support/release events | Success | Major failure |
 |---|---:|---:|---:|---:|
-| Grasp | 1.50 | 1.00 | 3.00 | drop 8.00 |
+| Grasp | 1.50 | 1.00 | 3.00 | drop/workspace 8.00 |
 | Carry | 2.50 | — | 4.00 | grasp loss 3.00, drop 8.00 |
 | Place | 3.00 | 1.50 | 5.00 | premature release 2.50, drop 8.00 |
 | High level | — | first placement 5.00 | full task 12.00 | failure 8.00 |

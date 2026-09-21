@@ -12,11 +12,10 @@ geometry (small cylinders on free revolute joints) so the resulting contact
 dynamics stay close to what a robot will experience on the physical rack,
 which matters when a policy trained here must also run on real hardware.
 
-This is opt-in and additive: the default scene keeps using the plain
-Rack.usd shelf surface exactly as before. Passing --rack-rollers (or
-setting KUAVO_RACK_ROLLERS=1) spawns three extra per-tier articulations,
-many small free-spinning roller cylinders each, without modifying
-Rack.usd or any existing box/flap/gripper physics.
+This is the default rack model. Passing --no-rack-rollers (or setting
+KUAVO_RACK_ROLLERS=0) restores the plain Rack.usd shelf surface. The roller
+model spawns three extra per-tier articulations with small free-spinning
+cylinders, without modifying Rack.usd or box/flap/gripper physics.
 """
 
 from __future__ import annotations
@@ -201,8 +200,7 @@ def add_rack_roller_cli_args(parser: argparse.ArgumentParser) -> None:
         help=(
             "Spawn a physically modeled gravity-roller deck (small free-spinning "
             "cylinders) under rack boxes instead of the bare Rack.usd shelf surface. "
-            "Off by default (or set KUAVO_RACK_ROLLERS=1); existing scenes/"
-            "checkpoints are unchanged."
+            "On by default (or set KUAVO_RACK_ROLLERS=0 to disable)."
         ),
     )
 
@@ -231,7 +229,7 @@ def resolve_rack_roller_settings(
 ) -> RackRollerSettings:
     """Resolve CLI, environment, and code defaults, then validate them."""
     settings = RackRollerSettings(
-        enabled=(_env_bool("KUAVO_RACK_ROLLERS", False) if enabled is None else bool(enabled)),
+        enabled=(_env_bool("KUAVO_RACK_ROLLERS", True) if enabled is None else bool(enabled)),
         diameter_m=(
             _env_float("KUAVO_RACK_ROLLER_DIAMETER_M", DEFAULT_ROLLER_DIAMETER_M)
             if diameter_m is None else float(diameter_m)

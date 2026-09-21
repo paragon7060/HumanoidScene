@@ -65,7 +65,7 @@ class MultiBoxSpec:
     low_level_spawn_count: int = 1
     full_spawn_count_range: tuple[int, int] = (1, MAX_BOXES)
     rack_xy_jitter: tuple[float, float] = (0.10, 0.10)
-    rack_yaw_jitter: float = math.radians(5.0)
+    rack_yaw_jitter: float = math.radians(15.0)
     conveyor_xy_jitter: tuple[float, float] = (0.05, 0.05)
     conveyor_yaw_jitter: float = math.radians(3.0)
 

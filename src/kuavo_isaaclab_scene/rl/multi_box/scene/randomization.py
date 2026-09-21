@@ -6,7 +6,7 @@ import torch
 from isaaclab.envs import mdp as base_mdp
 from isaaclab.utils.math import quat_apply, quat_from_euler_xyz, quat_mul
 
-from .assets import CONVEYOR_PART_NAMES
+from .assets import CONVEYOR_PART_NAMES, RACK_ROLLER_ASSET_NAMES
 from .spawn import SpawnBatch, physical_asset_names, sample_spawn_batch
 from ....workcell.workcell_layout import position, scale
 
@@ -64,6 +64,17 @@ def _move_rack(env, ids, batch):
     delta_q = _yaw_quaternion(batch.rack_yaw_delta)
     pose[:, 3:] = quat_mul(delta_q, pose[:, 3:])
     rack.write_root_pose_to_sim(pose, env_ids=ids)
+    for name in RACK_ROLLER_ASSET_NAMES:
+        if getattr(env.cfg.scene, name, None) is None:
+            continue
+        deck = env.scene[name]
+        default = _default_pose(deck, env, ids)
+        rack_default = _default_pose(rack, env, ids)
+        relative = default[:, :3] - rack_default[:, :3]
+        deck_pose = default
+        deck_pose[:, :3] = pose[:, :3] + quat_apply(delta_q, relative)
+        deck_pose[:, 3:] = quat_mul(delta_q, default[:, 3:])
+        deck.write_root_pose_to_sim(deck_pose, env_ids=ids)
     return pose
 
 
@@ -115,3 +126,11 @@ def reset_randomized_scene(env, env_ids):
     _move_conveyor(env, ids, batch)
     _move_active_boxes(env, ids, batch, rack_pose)
     _remember(env, ids, batch)
+    privileged_grasp = getattr(env, "_multi_box_privileged_grasp", None)
+    if privileged_grasp is not None:
+        privileged_grasp.reset(ids)
+    # A post-reset critic observation may be requested before the global step
+    # counter advances. Invalidate shared manager caches so it cannot receive
+    # the preceding episode's privileged tensors.
+    env._multi_box_privileged_grasp_counter = -1
+    env._multi_box_grasp_safety_counter = -1

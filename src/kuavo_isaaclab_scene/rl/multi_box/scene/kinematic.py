@@ -8,7 +8,7 @@ class PoseControlledKinematicObject(RigidObject):
     """Allow pose resets while suppressing invalid zero-velocity PhysX writes."""
 
     def write_root_velocity_to_sim(self, root_velocity, env_ids=None):
-        rigid_props = self.cfg.spawn.rigid_props
+        rigid_props = None if self.cfg.spawn is None else self.cfg.spawn.rigid_props
         # USD rack rigid-body properties are authored by its custom spawn
         # function after the reference is loaded, so its config field is None.
         if rigid_props is not None and not rigid_props.kinematic_enabled:

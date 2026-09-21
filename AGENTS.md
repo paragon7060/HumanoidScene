@@ -7,20 +7,22 @@ For training, checkpoint storage, or disk-space work, read
 connection, verified backup, commands, and limitations; do not infer that a
 background uploader or training job is running from the presence of this setup.
 
-On this server, the authenticated rclone remote is **`seonho:`** and the dedicated
-destination is **`seonho:HumanoidScene-RL`**. It was authenticated and tested with
-real uploads on 2026-09-08. Check current quota/status when needed; recorded
-capacity is only a snapshot. Reuse this connection rather than starting a new
-login while it works. Do not change Drive sharing or copy credentials to Git,
-chat, another account, or another checkout.
+The authenticated rclone remote name is host-local configuration. Discover it
+with `gdrive.sh listremotes` or set `RL_DRIVE_REMOTE_ROOT`; do not record the
+account-specific alias in Git. The dedicated destination is the
+`HumanoidScene-RL` folder. Reuse the existing connection rather than starting a
+new login while it works. Do not change Drive sharing or copy credentials to
+Git, chat, another account, or another checkout.
 
 The existing checkout provides shared entrypoints for other tasks on this server:
 
 ```bash
-bash /home/seonho/HumanoidScene/scripts/rl/gdrive.sh about seonho:
-python3 /home/seonho/HumanoidScene/scripts/rl/drive_backup.py \
+cd /path/to/HumanoidScene
+export RL_DRIVE_REMOTE_ROOT='<remote>:HumanoidScene-RL'
+bash scripts/rl/gdrive.sh about "${RL_DRIVE_REMOTE_ROOT%%:*}:"
+python3 scripts/rl/drive_backup.py \
   --run-dir /absolute/path/to/unique-run-directory \
-  --remote-root seonho:HumanoidScene-RL --watch 300 --keep 2
+  --remote-root "$RL_DRIVE_REMOTE_ROOT" --watch 300 --keep 2
 ```
 
 The wrapper privately uses the ignored `.external/rclone-auth/rclone.conf` in

@@ -86,13 +86,17 @@ def test_terminal_mixin_preserves_pre_reset_obs_for_only_reset_envs():
     class FakeBase:
         def __init__(self):
             self.state = torch.zeros(3, 4)
-            self.observation_manager = SimpleNamespace(compute=lambda **kw: {"policy": self.state})
+            self.privileged = torch.zeros(3, 2)
+            self.observation_manager = SimpleNamespace(compute=lambda **kw: {
+                "policy": self.state, "critic": self.privileged})
         def _reset_idx(self, ids):
             self.state[ids] = -5
+            self.privileged[ids] = -7
         def step(self, action):
             self.state[:] = torch.tensor([[1.], [2.], [3.]])
+            self.privileged[:] = torch.tensor([[10.], [20.], [30.]])
             self._reset_idx(torch.tensor([1]))
-            return {"policy": self.state}, torch.zeros(3), torch.zeros(3, dtype=torch.bool), torch.tensor([False, True, False]), {}
+            return {"policy": self.state, "critic": self.privileged}, torch.zeros(3), torch.zeros(3, dtype=torch.bool), torch.tensor([False, True, False]), {}
     class Env(TerminalObservationMixin, FakeBase):
         pass
     env = Env()
@@ -100,6 +104,9 @@ def test_terminal_mixin_preserves_pre_reset_obs_for_only_reset_envs():
     obs, _, _, _, extras = env.step(None)
     torch.testing.assert_close(obs["policy"][1], torch.full((4,), -5.))
     torch.testing.assert_close(extras["transition_next_obs"], torch.tensor([[1.]*4, [2.]*4, [3.]*4]))
+    torch.testing.assert_close(
+        extras["transition_next_observations"]["critic"],
+        torch.tensor([[10.]*2, [20.]*2, [30.]*2]))
 
 
 @pytest.mark.parametrize("steps", [1, 4, 20])

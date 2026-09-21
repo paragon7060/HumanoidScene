@@ -66,8 +66,8 @@ class GravityCompensatedArticulation(Articulation):
               "updated each physics write; locked joints excluded; "
               "logical targets and drive force caps retained.", flush=True)
         if not self.is_fixed_base:
-            print("[GRAVITY] Floating root: joint feedforward uses the joint block of the "
-                  "generalized mass/Coriolis arrays; base reaction is the drive's PD job.",
+            print("[GRAVITY] Floating root: joint feedforward uses the joint block; "
+                  "the base drive independently holds root height and attitude.",
                   flush=True)
 
     def _apply_actuator_model(self):
@@ -94,17 +94,20 @@ class GravityCompensatedArticulation(Articulation):
                 desired_acceleration = torch.clamp(
                     desired_acceleration, -self._wbc_accel_limit, self._wbc_accel_limit
                 )
-                mass = self.root_physx_view.get_generalized_mass_matrices()
-                coriolis = self.root_physx_view.get_coriolis_and_centrifugal_compensation_forces()
-                if mass.shape[-1] != joint_count:
+                mass_full = self.root_physx_view.get_generalized_mass_matrices()
+                coriolis_full = self.root_physx_view.get_coriolis_and_centrifugal_compensation_forces()
+                if mass_full.shape[-1] != joint_count:
                     # Floating root: keep the joint block. That block is the
                     # joint-space inertia seen with the root held, which is the
-                    # right model here because the planar drive holds the root
-                    # with its own PD wrench. The reaction the joints push back
-                    # into the chassis is that controller's load, not a term
-                    # the joint drives should try to cancel.
-                    mass = mass[:, -joint_count:, -joint_count:]
-                    coriolis = coriolis[:, -joint_count:]
+                    # model used by the independently stabilized planar base.
+                    # Do not turn desired joint acceleration into a root wrench:
+                    # it is only a model command and can differ substantially
+                    # from achieved acceleration under limits and contacts.
+                    mass = mass_full[:, -joint_count:, -joint_count:]
+                    coriolis = coriolis_full[:, -joint_count:]
+                else:
+                    mass = mass_full
+                    coriolis = coriolis_full
                 self.inverse_dynamics_torque[:] = (
                     torch.bmm(mass, desired_acceleration.unsqueeze(-1)).squeeze(-1)
                     + coriolis + gravity

@@ -36,6 +36,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | SAC 또는 diffusion 사전학습 → DPPO 실험 | [대체 RL 학습 경로](docs/RL_ALTERNATIVES.md) |
 | 오른팔 / 전체 관절 action space 선택 | [공통 RL action 옵션](docs/RL_ACTION_SPACES.md) |
 | 전신 4박스 단계별 / 전체 직접 학습 비교 | [4박스 전신 RL 실험](docs/RL_MULTI_BOX.md) |
+| Multi-box v2 grasp SAC 짧은 pilot 실행 | [Multi-box v2 SAC pilot](docs/RL_MULTI_BOX_V2_PILOT.md) |
 | 기존 Google Drive 연결 재사용·결과 업로드·로컬 보관량 관리 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
 | RL 초기 자세 수정·VR 재캡처 | [모델별 초기 상태](docs/RL_INITIAL_STATES.md) |
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |
@@ -50,6 +51,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | GR00T N1.7 범용 평가 | [GR00T 평가](docs/GROOT_N1_7_EVAL_GUIDE.md) |
 | RwH-Kuavo V2를 S56에서 평가 | [S56 checkpoint-40K 평가](docs/RWH_KUAVO_V2_S56_EVAL.md) |
 | 새 로봇/체크포인트를 평가 파이프라인에 추가 | [로봇 모델 평가 파이프라인](docs/ROBOT_MODEL_EVAL_PIPELINE.md) |
+| VR 수집 궤적·RL action을 실물 S63 팔 제어에 연결 | [실물 로봇 제어 배포](real_robot_control/README.md) |
 | 기존 상세 scene 설명과 검증 기록 | [프로젝트 상세 참조](PROJECT_REFERENCE.md) |
 
 ## 지원 환경
@@ -68,7 +70,7 @@ Isaac Sim/Lab, CloudXR, LeRobot과 policy weight는 각 라이선스와 GPU 환�
 ## 1. 설치와 첫 실행
 
 ```bash
-git clone git@github.com:paragon7060/HumanoidScene.git
+git clone git@github.com:<owner>/HumanoidScene.git
 cd HumanoidScene
 ./install_isaaclab_stable.sh
 conda activate env_isaaclab_232
@@ -174,6 +176,9 @@ RL 전용 환경에서는 선택하지 않은 box를 아예 생성하지 않는�
 
 prim 경로와 world/local 좌표 규칙은
 [Isaac Sim Workcell 가이드](docs/ISAACSIM_WORKCELL_GUIDE.md)를 따른다.
+Rack 정합 시에는 USD 원점인 `rack`이 아니라, ArUco `tag_2`의 바닥 투영점을
+원점으로 하는 `rack_base`를 사용한다. 좌표축과 고정 변환은 같은 가이드의
+[layout 캡처 절](docs/ISAACSIM_WORKCELL_GUIDE.md#51-랙로봇컨베이어펜스-위치-캡처)에 정리되어 있다.
 
 ## 5. Box flap friction과 randomization
 

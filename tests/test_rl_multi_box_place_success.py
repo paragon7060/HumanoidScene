@@ -28,7 +28,7 @@ def test_place_requires_every_approved_condition_continuously():
     values = sample()
     values.belt_support[0] = False
     values.gripper_grasping[1, 0] = True
-    values.gripper_box_distance_m[2, 1] = 0.019
+    values.angular_speed_radps[2] = 0.201
     values.box_footprint_corners_belt[3, 0, 1] = 0.341
     values.overlaps_placed_box[4] = True
     values.long_axis_yaw_error_rad[5] = math.radians(10.1)

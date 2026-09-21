@@ -2,7 +2,7 @@
 
 > 새 PC의 권장 진입점은 [수집기 설치·간편 실행](QUEST_COLLECTOR_SETUP.md)이다.
 > `setup_quest_collector.sh`로 PC별 설정을 생성하면 `quest_collector.sh`가 자동으로
-> 불러온다. 아래의 `/home/seonho/...`, `192.168.45.235`, 8080은 기존 PC의
+> 불러온다. 아래의 `/path/to/...`, `<workstation-ip>`, 8080은 PC별 값의
 > 수동 실행 기록이며 그대로 복사하지 않는다. 새 wrapper의 수집용 HTTPS 기본 포트는 8443이다.
 
 이 저장소는 별도로 설치한 NVIDIA CloudXR Runtime 6.x를 실행하는
@@ -15,7 +15,7 @@ Kuavo를 조작하는 구성이다. SDK 다운로드부터 필요한 경우
 
 **Runtime → HTTPS 웹 서버 → Quest에서 CONNECT → 수집기** 순서로 시작한다.
 아래 터미널 1·2·3은 각각 별도 터미널에서 실행하고 작업이 끝날 때까지 켜 둔다.
-현재 PC 주소는 `192.168.45.235`다. PC는 공유기에 유선, Quest는 같은 공유기의 Wi-Fi에
+PC 주소는 `<workstation-ip>`로 표시한다. PC는 공유기에 유선, Quest는 같은 공유기의 Wi-Fi에
 연결하면 된다. IP가 바뀌면 `.external/quest-session.env`와 인증서도 확인해야 한다.
 이미 설치된 이 PC에서는 SDK 재설치, JSON/tgz 재다운로드, 웹 재빌드가 필요 없다.
 
@@ -119,7 +119,7 @@ B로 실제 녹화 시작·종료, 작업을 끝까지 수행한 수집 데이�
 [.env.example](../.env.example)의 변수를 실제 경로로 지정한다.
 
 ```bash
-cd /home/seonho/ksh_ws/HumanoidScene
+cd /path/to/HumanoidScene
 source .external/quest-session.env
 ./run_cloudxr_runtime.sh --check
 ./quest_doctor.sh --require-runtime
@@ -146,7 +146,7 @@ API 오류가 나면 실행기는 0이 아닌 종료 코드를 반환한다.
 ## 터미널 2: HTTPS 웹페이지
 
 ```bash
-cd /home/seonho/ksh_ws/HumanoidScene
+cd /path/to/HumanoidScene
 source .external/quest-session.env
 ./run_quest_browser.sh \
   --host "$CLOUDXR_HOST" \
@@ -171,7 +171,7 @@ npm --prefix .external/cloudxr-js-samples/simple run build
 1. Quest와 PC를 같은 신뢰할 수 있는 LAN에 연결하고 좌우 컨트롤러를 준비한다.
    `--input-mode hands` 또는 `--hand-switch`를 사용할 때 맨손 추적도 켠다.
 2. Quest Browser에서 `https://<CLOUDXR_HOST>:8080`을 연다. 현재 이 PC는
-   `https://192.168.45.235:8080`이다.
+   `https://<workstation-ip>:8080`이다.
 3. 이 PC에서 만든 자체 서명 인증서를 확인하고 신뢰할지 **사용자가 직접** 결정한다.
    연결할 IP가 맞는지 확인한다. 브라우저의 인증서 경고는 자동으로 우회하지 않는다.
 4. Runtime의 `https://<CLOUDXR_HOST>:49100`도 방문해 같은 인증서를 확인한다.
@@ -215,7 +215,7 @@ WebXR·손 추적 권한 요청은 헤드셋에서 허용한다.
 ## 터미널 3: 수집기
 
 ```bash
-cd /home/seonho/ksh_ws/HumanoidScene
+cd /path/to/HumanoidScene
 source .external/quest-session.env
 ./collect_quest_teleop.sh \
   --robot-model s200062 \

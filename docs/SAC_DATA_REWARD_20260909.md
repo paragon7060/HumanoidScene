@@ -53,7 +53,7 @@ Reset 자세·분포와 curriculum은 변경하지 않는다. 초기 박스–�
 | Batch / updates | 1024 / 전체 env가 유효한 step당 4회 |
 | Rollout / iterations | 16 / 1500 (최대 총 98,304,000 raw transition) |
 | Checkpoint | 50 iteration마다 및 정상 종료 시, replay 제외 |
-| Drive | 기존 seonho:HumanoidScene-RL, 300초 간격 |
+| Drive | 설정된 Drive remote, 300초 간격 |
 
 실제 사용량/성능은 실행 지표로 판단한다. 새 보상으로 fresh initialization을
 사용하며 기존 checkpoint 300의 Q/optimizer를 복원하지 않는다.

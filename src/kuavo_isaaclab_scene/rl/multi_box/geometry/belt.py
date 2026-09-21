@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import torch
 
+BELT_HALF_EXTENTS_XY = (1.275, 0.34)
+
 
 def footprint_inside_rectangle(corners_xy: torch.Tensor, half_extents_xy: torch.Tensor) -> torch.Tensor:
     """Whether all four local-frame footprint corners lie inside a rectangle."""

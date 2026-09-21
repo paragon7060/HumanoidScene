@@ -1,7 +1,6 @@
 """Shared action ordering for every skill and the end-to-end policy."""
 from isaaclab.utils import configclass
 from ...mdp.actions import PlanarDrive, PlanarDriveCfg, JointDeltaTargets, JointDeltaTargetsCfg
-from ...mdp.actions import BinaryGripper
 from ...managers.actions import hand_action
 from ...mdp.actions import ArmsOnlyJointTargets, ArmsOnlyJointTargetsCfg
 from ...action_spaces import RIGHT_ARM_JOINTS, HEAD_JOINTS
@@ -21,20 +20,13 @@ class FullJointTargets(JointDeltaTargets):
         super().process_actions(gate(self._env, actions))
 
 
-class FullGripper(BinaryGripper):
-    def _command_enabled(self):
-        return self._env.command_manager.get_term("workcell").ready[:, None]
-
-
 class RightArmTargets(ArmsOnlyJointTargets):
     def process_actions(self, actions):
         super().process_actions(gate(self._env, actions))
 
 
 def gripper(side):
-    cfg = hand_action(side)
-    cfg.class_type = FullGripper
-    return cfg
+    return hand_action(side, command_gate="ready")
 
 
 @configclass
