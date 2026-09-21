@@ -1,6 +1,7 @@
 """Exercise real reward/phase code with CPU state, without starting Isaac Sim."""
 
 import importlib.util
+import ast
 from dataclasses import replace
 from pathlib import Path
 import sys
@@ -12,6 +13,23 @@ import torch
 from kuavo_isaaclab_scene.rl.tasks.specs import task_spec
 from kuavo_isaaclab_scene.rl.mdp.reach_progress import ReachProgress
 from kuavo_isaaclab_scene.rl.mdp.flap_progress import FlapProgress
+
+
+def test_flap_reward_manager_wires_continuous_closing_cost():
+    path = Path(__file__).resolve().parents[1] / "src/kuavo_isaaclab_scene/rl/managers/rewards.py"
+    tree = ast.parse(path.read_text())
+    cls = next(node for node in tree.body
+               if isinstance(node, ast.ClassDef) and node.name == "FlapPickRewardsCfg")
+    assignment = next(node for node in cls.body
+                      if isinstance(node, ast.Assign)
+                      and any(isinstance(target, ast.Name) and target.id == "closing"
+                              for target in node.targets))
+    call = assignment.value
+    assert isinstance(call, ast.Call)
+    function = next(keyword.value for keyword in call.keywords if keyword.arg == "func")
+    assert isinstance(function, ast.Attribute) and function.attr == "flap_closing"
+    weight = next(keyword.value for keyword in call.keywords if keyword.arg == "weight")
+    assert isinstance(weight, ast.Constant) and weight.value == pytest.approx(.25)
 
 
 @pytest.fixture
@@ -324,11 +342,12 @@ def test_flap_observation_fixed_wait_is_finite_with_timeout_disabled(modules):
 
 
 @pytest.mark.parametrize("relative", ["configs", "src/kuavo_isaaclab_scene/configs"])
-def test_pick_presets_disable_collision_constraints(relative):
+def test_pick_presets_enforce_point_one_newton_collision_limit(relative):
     path = Path(__file__).resolve().parents[1] / relative / "rl_pick_arms_only.py"
     spec = importlib.util.spec_from_file_location("pick_preset", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     configured = module.configure_task(task_spec("pick"))
     configured.validate()
-    assert not configured.collision_constraints_enabled
+    assert configured.collision_constraints_enabled
+    assert configured.obstacle_contact_force == pytest.approx(.1)

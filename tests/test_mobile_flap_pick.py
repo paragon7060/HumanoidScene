@@ -56,7 +56,8 @@ def test_mobile_config_keeps_lift_goal_and_releases_both_arms_and_torso():
     assert spec.control_mode == "whole-body" and spec.active_arm == "both"
     assert spec.grasp_hand == "right" and spec.required_grasp_hands == 1
     assert spec.lift_height == .06 and spec.hold_seconds == .5
-    assert not spec.randomization and not spec.collision_constraints_enabled
+    assert not spec.randomization and spec.collision_constraints_enabled
+    assert spec.obstacle_contact_force == pytest.approx(.1)
     env = NS(task=spec, actions=NS(base=NS(), upper_body=NS(), height=NS(), head=NS(),
         left_gripper=NS(), right_gripper=NS()), rewards=NS(prelift_disturbance=NS(),
         orientation=NS(params={})))

@@ -28,7 +28,7 @@ Scene은 일반/teleop 환경과 독립적인 `rl/scenes/`에서 생성한다.
 | 속도 제한 | pick 성공 조건에서는 선속도·각속도 제한 없음 |
 | 유지 시간 | 위 조건을 연속 0.5초 유지 |
 | 추가 접촉 제한 | pick 성공에서 잔여 접촉력 제한 제거; 파지 판정용 flap 접촉력은 유지 |
-| 주변 장애물 | 현재 collision_constraints_enabled=False: 충돌 실패/비용 OFF, 물리·센서는 유지 |
+| 주변 장애물 | robot–rack/주변 물체 접촉력이 0.1N을 초과하면 실패; 물리·센서는 유지 |
 | 내용물·선점 박스 | 모두 0개 |
 | randomization | 첫 실험 OFF |
 
@@ -134,7 +134,7 @@ TCP(노랑), 최근접 flap 목표(초록), 움직이는 두 손가락점의 중
 추가했고, 파지 이력 및 후보 ID도 관측한다. 전체 입력 차원은 로봇 link/관절 수와
 `active_arm`에 따른 actuator 목표·이전 action 크기에 의존하므로 종전 223/227차원으로 고정하지 않는다.
 안착 전에는 두 보상을 비활성화한다. 성공은 6cm 상승·0.5초 유지·기울기 조건을 사용한다.
-현재 preset은 속도와 잔여 손가락 힘으로 성공을 차단하지 않으며 충돌 제한도 꺼져 있다. 마찰값을 바꾸는 대신 현재 물리 상태에서 보상으로 유도한다.
+현재 preset은 속도와 잔여 손가락 힘으로 성공을 차단하지 않는다. robot–rack/주변 물체 충돌은 0.1N 초과 시 실패로 처리한다. 마찰값을 바꾸는 대신 현재 물리 상태에서 보상으로 유도한다.
 
 **현재 revision 3은 후보·관측·action 계약이 변경되어 이전 checkpoint를 직접 재개/평가할 수 없다.**
 아래 학습 명령에서 `--checkpoint` 없이 새 실험을 시작한다. 실행 중인 기존 프로세스에는
@@ -143,13 +143,13 @@ TCP(노랑), 최근접 flap 목표(초록), 움직이는 두 손가락점의 중
 
 장애물 센서는 모든 로봇 rigid link(손가락 포함)에 하나씩 생성한다. 랙·펜스·버튼·컨베이어와
 그 위 선점 물체만 필터링하고 작업 박스는 제외한다. 물리 4스텝의 힘 이력에서 최대 접촉을
-측정한다. 현재 기본 preset은 `collision_constraints_enabled=False`로 충돌 실패와
-`collision` 보상 항 전체를 비활성화한다. True로 복구하면 >20N 충돌은 첫 스텝부터 실패하며
-초기 3스텝 유예와 180N 기준은 이 과제에 적용하지 않는다.
+측정한다. 현재 기본 preset은 `collision_constraints_enabled=True`이며 0.1N 초과 충돌을
+첫 스텝부터 실패로 처리하고 `collision` 비용도 적용한다. 초기 3스텝 유예와
+180N 기준은 이 과제에 적용하지 않는다.
 센서별 단일 link 배정은 [Isaac Lab의 filtered contact 제약](https://isaac-sim.github.io/IsaacLab/v2.3.2/_modules/isaaclab/sensors/contact_sensor/contact_sensor_cfg.html)을 따른다.
 GPU의 filtered contact가 고정 장애물도 읽도록 랙과 펜스는 움직이지 않는 kinematic rigid body로 생성한다.
 필터마다 환경당 rigid body 하나만 지정한다. 종료 규칙만으로 학습 정책의 무충돌을 보장하지는 않는다.
-박스가 랙에 놓여 있는 지지 접촉 등 물리 충돌은 그대로 유지한다. 충돌 제한 OFF는 학습 전용이며 무충돌을 보장하지 않는다.
+박스가 랙에 놓여 있는 지지 접촉 등 물리 충돌은 그대로 유지한다.
 
 `--rack-rollers`를 켜면 GPU contact filter에 랙 전체 prim이나 RollerDeck articulation root를
 지정하지 않는다. 그런 경로는 여러 rigid body를 포함해 PhysX GPU가 무시할 수 있다.

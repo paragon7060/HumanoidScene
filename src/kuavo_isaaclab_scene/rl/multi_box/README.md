@@ -82,7 +82,7 @@ boundary currently covers:
 - the staged grasp reward manager now consumes those privileged tensors using
   the approved potential/event weights, applies base-motion, action-rate and
   joint-limit costs, and terminates on exact grasp success. Arm/torso obstacle
-  contact above 20 N, a dropped/unstable box, excessive box lift/speed, and a
+  contact above 0.1 N, a dropped/unstable box, excessive box lift/speed, and a
   base position beyond the 1.5 m workspace are hard failures. Structural rack
   and roller contact have their own filtered `robot_rack_collision` input and penalty;
   simultaneous aggregate contact is not charged a second time as an obstacle.
@@ -116,6 +116,10 @@ boundary currently covers:
   for a four-step, one-update wiring check. Every SAC iteration also checks
   that the Isaac reward equals the sum of the v2 breakdown and records each
   weighted term plus its nonzero rate in `metrics.jsonl`.
+- SAC self-collision checking is enabled by default and requires the reviewed
+  URDF/FCL dependency. Pass `--no-self-collision` for an explicitly unguarded
+  experiment; the self-collision reward, termination and FCL evaluation then
+  remain disabled while the critic tensor shape stays unchanged.
 - a bounded learning pilot at
   `bash scripts/rl/multi_box.sh grasp-v2-sac-pilot --device cuda:0`. It caps
   the run at 64 environments, 20 iterations and 50k replay transitions, starts

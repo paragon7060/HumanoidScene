@@ -160,7 +160,7 @@ class IsaacResetSettling:
         self.just_ready.zero_()
         if counter != self._last_counter:
             self._last_counter = counter
-            _logical, pose, velocity, type_id, region_id = self._selected()
+            logical, pose, velocity, type_id, region_id = self._selected()
             pending = ~self.ready & ~self.invalid
             finite = torch.isfinite(pose).all(-1) & torch.isfinite(velocity).all(-1)
             self.footprint_in_region = finite & self._footprint_in_region(

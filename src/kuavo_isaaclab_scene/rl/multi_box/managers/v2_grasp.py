@@ -87,11 +87,21 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
     threshold = float(env.cfg.task.obstacle_contact_force)
     robot_rack_collision = (rack_force > threshold) & grace_over
 
-    if getattr(env, "_multi_box_self_collision", None) is None:
-        from ..state.isaac_self_collision import IsaacSelfCollisionAdapter
-        env._multi_box_self_collision = IsaacSelfCollisionAdapter(env)
-    self_collision_step = env._multi_box_self_collision.measure()
-    self_collision = self_collision_step.collision & grace_over
+    if env.cfg.multi_box.self_collision_enabled:
+        if getattr(env, "_multi_box_self_collision", None) is None:
+            from ..state.isaac_self_collision import IsaacSelfCollisionAdapter
+            env._multi_box_self_collision = IsaacSelfCollisionAdapter(env)
+        self_collision_step = env._multi_box_self_collision.measure()
+        self_collision = self_collision_step.collision & grace_over
+        self_collision_distance = self_collision_step.minimum_distance_m
+    else:
+        self_collision = torch.zeros(
+            env.num_envs, dtype=torch.bool, device=env.device)
+        self_collision_distance = torch.full(
+            (env.num_envs,),
+            4.0 * float(env.cfg.multi_box.self_collision_clearance),
+            device=env.device,
+        )
     # The aggregate sensor also contains rack contacts. Attribute a step to
     # the more specific rack event first so one physical collision does not
     # receive both common penalties.
@@ -128,7 +138,7 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
         base_distance_m=base_distance,
         rack_force_n=rack_force,
         obstacle_force_n=obstacle_force,
-        self_collision_distance_m=self_collision_step.minimum_distance_m,
+        self_collision_distance_m=self_collision_distance,
     )
     env._multi_box_grasp_safety_step = result
     env._multi_box_grasp_safety_counter = counter

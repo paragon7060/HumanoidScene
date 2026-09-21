@@ -33,6 +33,7 @@ class FlapPickRewardsCfg(RewardsCfg):
     button_reach = None
     reaching = Reward(func=rewards.flap_reaching, weight=4.0)
     orientation = Reward(func=rewards.flap_orientation, weight=0.5, params={"distance_threshold": 0.10})
+    closing = Reward(func=rewards.flap_closing, weight=0.25)
     flap_contact = Reward(func=rewards.flap_contact, weight=3.0)
     lift = Reward(func=rewards.flap_lift_progress, weight=5.0)
     holding = Reward(func=rewards.flap_hold, weight=5.0)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from datetime import datetime
 import fcntl
 import json
@@ -82,6 +83,12 @@ def main() -> None:
     parser.add_argument("--hidden", type=int, default=256)
     parser.add_argument("--save-interval", type=int, default=50)
     parser.add_argument("--keep-checkpoints", type=int, default=2)
+    parser.add_argument(
+        "--self-collision",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable the privileged URDF/FCL self-collision penalty and termination.",
+    )
     parser.add_argument("--log-dir", type=Path)
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument(
@@ -152,6 +159,9 @@ def main() -> None:
             torch.manual_seed(args.seed)
             cfg = MultiBoxGraspAssemblyEnvCfg(
                 num_envs=args.num_envs, env_spacing=args.env_spacing)
+            cfg.multi_box = replace(
+                cfg.multi_box, self_collision_enabled=bool(args.self_collision))
+            cfg.multi_box.validate()
             cfg.seed = args.seed
             cfg.sim.device = args.device or "cuda:0"
             parent = (
@@ -196,13 +206,15 @@ def main() -> None:
                     "success": "exact_grasp_success",
                     "invalid_reset": "partial_respawn_excluded_from_replay",
                     "unsafe": [
-                        "robot_rack_collision", "self_collision",
+                        "robot_rack_collision",
+                        *(["self_collision"] if args.self_collision else []),
                         "obstacle_collision", "workspace_limit", "box_drop",
                         "box_lift_limit", "box_speed_limit",
                     ],
                     "timeouts_bootstrap": True,
                 },
                 "self_collision": {
+                    "enabled": bool(args.self_collision),
                     "backend": "reviewed_urdf_fcl",
                     "clearance_m": float(cfg.multi_box.self_collision_clearance),
                     "actor_observation": False,

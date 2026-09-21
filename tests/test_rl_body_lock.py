@@ -113,6 +113,7 @@ def test_stationary_pick_example_configures_requested_thresholds():
     assert spec.grasp_hand == "right" and spec.grasp_hand_indices == (1,)
     assert spec.active_arm == "right" and spec.flap_contact_region == "surface"
     assert spec.lift_height == 0.06 and spec.cargo_per_box == 0
+    assert spec.collision_constraints_enabled and spec.obstacle_contact_force == pytest.approx(.1)
     actions = SimpleNamespace(upper_body=SimpleNamespace(), left_gripper=None,
                               right_gripper=SimpleNamespace())
     agent = SimpleNamespace(policy=SimpleNamespace(), algorithm=SimpleNamespace())

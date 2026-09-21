@@ -83,6 +83,7 @@ class MultiBoxSpec:
     max_box_angular_speed: float = 100.0
     workspace_radius: float = 1.5
     self_collision_clearance: float = 0.003
+    self_collision_enabled: bool = True
     collision_constraints_enabled: bool = True
 
     # Reset physics is outside the task MDP.  A reset becomes trainable only
