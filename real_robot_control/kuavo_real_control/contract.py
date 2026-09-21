@@ -28,6 +28,8 @@ def _finite_tuple(raw: Any, name: str, length: int) -> Tuple[float, ...]:
 @dataclass(frozen=True)
 class ControlConfig:
     robot_model: str
+    operational_limits_provenance: str
+    operational_limits_evidence: Dict[str, Any]
     arm_joint_names: Tuple[str, ...]
     sensor_joint_indices: Tuple[int, ...]
     joint_lower_rad: Tuple[float, ...]
@@ -43,6 +45,8 @@ class ControlConfig:
     external_command_quiet_s: float
     publish_hz: float
     handover_hold_s: float
+    approach_settle_s: float
+    max_approach_error_rad: float
     finish_hold_s: float
     rl_delta_scale_rad: float
     ros: Dict[str, str]
@@ -60,6 +64,25 @@ def load_config(path: Path) -> ControlConfig:
     raw = json.loads(Path(path).read_text())
     if raw.get("schema_version") != 1 or raw.get("robot_model") != "s63":
         raise ValueError("Expected schema_version=1 for robot_model=s63")
+    provenance = raw.get("operational_limits_provenance")
+    if provenance != "observed_real_vr_p99_operational_cap_not_hardware_rating":
+        raise ValueError("S63 operational limits must declare their measured operational provenance")
+    evidence = raw.get("operational_limits_evidence")
+    evidence_fields = {
+        "source_log",
+        "joint_command_abs_velocity_p99_rad_s",
+        "joint_command_abs_acceleration_p99_rad_s2",
+        "controller_mode_transition_velocity_rad_s",
+    }
+    if not isinstance(evidence, dict) or set(evidence) != evidence_fields:
+        raise ValueError("operational_limits_evidence must contain exactly {}".format(sorted(evidence_fields)))
+    if not isinstance(evidence["source_log"], str) or not evidence["source_log"]:
+        raise ValueError("operational_limits_evidence.source_log must be a non-empty string")
+    for name in evidence_fields - {"source_log"}:
+        value = float(evidence[name])
+        if not math.isfinite(value) or value <= 0.0:
+            raise ValueError("operational_limits_evidence.{} must be finite and positive".format(name))
+        evidence[name] = value
     names = tuple(raw.get("arm_joint_names", ()))
     if names != ARM_JOINT_NAMES:
         raise ValueError("S63 arm joint order differs from the verified left7,right7 contract")
@@ -83,6 +106,8 @@ def load_config(path: Path) -> ControlConfig:
         "external_command_quiet_s",
         "publish_hz",
         "handover_hold_s",
+        "approach_settle_s",
+        "max_approach_error_rad",
         "finish_hold_s",
         "rl_delta_scale_rad",
     )
@@ -98,6 +123,17 @@ def load_config(path: Path) -> ControlConfig:
         raise ValueError("publish_hz must be in [10, 100]")
     if scalars["rl_delta_scale_rad"] > scalars["max_source_step_rad"]:
         raise ValueError("One normalized RL action could exceed max_source_step_rad")
+    evidence_pairs = (
+        ("max_command_velocity_rad_s", "joint_command_abs_velocity_p99_rad_s"),
+        ("max_command_acceleration_rad_s2", "joint_command_abs_acceleration_p99_rad_s2"),
+    )
+    for limit_name, evidence_name in evidence_pairs:
+        observed = evidence[evidence_name]
+        configured = scalars[limit_name]
+        if configured < observed or configured > observed * 1.05:
+            raise ValueError(
+                "{} must be the observed p99 rounded up by no more than 5%".format(limit_name)
+            )
 
     ros = raw.get("ros")
     required_ros = {
@@ -115,6 +151,8 @@ def load_config(path: Path) -> ControlConfig:
 
     return ControlConfig(
         robot_model="s63",
+        operational_limits_provenance=provenance,
+        operational_limits_evidence=dict(evidence),
         arm_joint_names=names,
         sensor_joint_indices=indices,
         joint_lower_rad=lower,

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+import select
+import sys
 import threading
 import time
 from typing import Optional, Tuple
@@ -12,6 +14,7 @@ from typing import Optional, Tuple
 import numpy as np
 
 from .contract import ControlConfig
+from .replay import quintic_approach
 from .safety import SafetyError, SafetySupervisor
 from .trajectory import Trajectory
 
@@ -28,6 +31,7 @@ class Ros1ArmRuntime:
         enable_gripper: bool,
         log_path: Path,
         dry_run_speed: float = 1.0,
+        approach_seconds: float = 3.0,
     ):
         try:
             import rospy
@@ -51,6 +55,9 @@ class Ros1ArmRuntime:
         if self.enable_motion and dry_run_speed != 1.0:
             raise ValueError("Live robot execution must use dry_run_speed=1")
         self.dry_run_speed = float(dry_run_speed)
+        if not math.isfinite(approach_seconds) or approach_seconds <= 0.0:
+            raise ValueError("approach_seconds must be finite and positive")
+        self.approach_seconds = float(approach_seconds)
         self._lock = threading.RLock()
         self._state_q: Optional[np.ndarray] = None
         self._state_v: Optional[np.ndarray] = None
@@ -163,14 +170,122 @@ class Ros1ArmRuntime:
         validator = SafetySupervisor(self.config)
         validator.synchronize(initial_q)
         validator.check_first_target(targets[0])
-        previous_time = None
-        for index, (stamp, target) in enumerate(zip(self.trajectory.timestamps_s, targets)):
-            dt_s = 1.0 / self.config.publish_hz if previous_time is None else float(stamp - previous_time)
+        # The current-to-first discontinuity belongs to the explicit quintic
+        # approach phase, not to the recorded source path.
+        validator.synchronize(targets[0])
+        direct_validated = (
+            self.trajectory.kind == "joint_position_rad"
+            and self.trajectory.metadata.get("deployment_ready") is True
+        )
+        previous_time = float(self.trajectory.timestamps_s[0])
+        for index in range(1, len(targets)):
+            stamp = float(self.trajectory.timestamps_s[index])
+            target = targets[index]
+            dt_s = stamp - previous_time
             try:
-                validator.project(target, validator.command, dt_s)
+                if direct_validated:
+                    validator.accept_validated_target(target, validator.command, dt_s)
+                else:
+                    validator.project(target, validator.command, dt_s)
             except SafetyError as exc:
                 raise SafetyError("trajectory sample {} failed prevalidation: {}".format(index, exc))
-            previous_time = float(stamp)
+            previous_time = stamp
+
+    def _check_foreign_command(self, now: float) -> None:
+        with self._lock:
+            foreign = self._foreign_command
+        if foreign is not None and now - foreign[0] < self.config.external_command_quiet_s:
+            raise SafetyError("Foreign arm command received during execution from {}".format(foreign[1]))
+
+    @staticmethod
+    def _read_operator_line() -> Optional[str]:
+        ready, _, _ = select.select([sys.stdin], [], [], 0.0)
+        if not ready:
+            return None
+        line = sys.stdin.readline()
+        if line == "":
+            return "EOF"
+        return line.strip().upper()
+
+    def _run_approach(self, supervisor: SafetySupervisor, start_q: np.ndarray, target_q: np.ndarray) -> None:
+        timestamps, positions = quintic_approach(
+            start_q, target_q, self.approach_seconds, self.config.publish_hz
+        )
+        started = time.monotonic()
+        last_tick = started
+        period = 1.0 / self.config.publish_hz
+        for index in range(1, len(timestamps)):
+            deadline = started + float(timestamps[index])
+            while time.monotonic() < deadline:
+                time.sleep(min(0.005, max(0.0, deadline - time.monotonic())))
+            now = time.monotonic()
+            actual_dt_s = now - last_tick
+            if actual_dt_s < period * 0.5 or actual_dt_s > 0.2:
+                raise SafetyError("Approach control timing stalled or caught up at {:.3f} s".format(actual_dt_s))
+            self._check_foreign_command(now)
+            measured_q, _ = self._snapshot()
+            command, velocity = supervisor.project(positions[index], measured_q, actual_dt_s)
+            self._publish(command, velocity, "approach", index)
+            last_tick = now
+
+        settle_end = time.monotonic() + self.config.approach_settle_s
+        while time.monotonic() < settle_end and not self.rospy.is_shutdown():
+            now = time.monotonic()
+            self._check_foreign_command(now)
+            measured_q, _ = self._snapshot()
+            command, velocity = supervisor.project(target_q, measured_q, period)
+            self._publish(command, velocity, "approach_settle", -1)
+            time.sleep(period)
+        measured_q, _ = self._snapshot()
+        error = np.abs(measured_q - target_q)
+        worst = int(np.argmax(error))
+        if error[worst] > self.config.max_approach_error_rad:
+            raise SafetyError(
+                "approach tracking error at {} is {:.3f} rad (limit {:.3f})".format(
+                    self.config.arm_joint_names[worst],
+                    error[worst],
+                    self.config.max_approach_error_rad,
+                )
+            )
+        self._write_log(
+            "approach_complete",
+            duration_s=self.approach_seconds,
+            max_measured_error_rad=float(np.max(error)),
+        )
+
+    def _wait_for_play(self, supervisor: SafetySupervisor) -> None:
+        if not sys.stdin.isatty():
+            raise SafetyError("Live replay requires an interactive terminal for the post-approach PLAY gate")
+        print(
+            "[ARMED] First pose reached. Inspect the robot, then type PLAY and Enter; "
+            "type STOP to abort.",
+            flush=True,
+        )
+        period = 1.0 / self.config.publish_hz
+        while not self.rospy.is_shutdown():
+            now = time.monotonic()
+            self._check_foreign_command(now)
+            self._snapshot()
+            command, velocity = supervisor.hold()
+            self._publish(command, velocity, "armed_wait", -1)
+            line = self._read_operator_line()
+            if line == "PLAY":
+                self._write_log("operator_play")
+                return
+            if line in ("STOP", "ABORT", "EOF"):
+                raise SafetyError("Operator aborted at the PLAY gate")
+            if line:
+                print("[ARMED] Type exactly PLAY or STOP.", flush=True)
+            time.sleep(period)
+
+    def _operator_stop_requested(self) -> bool:
+        line = self._read_operator_line()
+        if line in ("STOP", "ABORT", "EOF"):
+            self._write_log("operator_stop")
+            return True
+        if line:
+            self._write_log("operator_input_ignored", value=line)
+        return False
 
     def _change_arm_mode(self, mode: int) -> None:
         from kuavo_msgs.srv import changeArmCtrlMode, changeArmCtrlModeRequest
@@ -238,6 +353,13 @@ class Ros1ArmRuntime:
         supervisor = SafetySupervisor(self.config)
         supervisor.synchronize(initial_q)
         targets = self.trajectory.absolute_targets(initial_q, self.config.rl_delta_scale_rad)
+        if (
+            self.trajectory.metadata.get("source_type") == "kuavo_quest_teleop_hdf5"
+            and self.trajectory.metadata.get("deployment_ready") is not True
+        ):
+            raise SafetyError(
+                "Quest HDF5 trajectory is not deployment-ready; prepare it without --keep-source-timing"
+            )
         if self.trajectory.kind == "normalized_joint_delta":
             expected_scale = float(self.trajectory.metadata.get("delta_scale_rad", float("nan")))
             if not math.isclose(expected_scale, self.config.rl_delta_scale_rad, rel_tol=0.0, abs_tol=1e-12):
@@ -277,12 +399,18 @@ class Ros1ArmRuntime:
                 command, velocity = supervisor.hold()
                 self._publish(command, velocity, "handover_hold", -1)
                 time.sleep(period)
+            self._run_approach(supervisor, initial_q, targets[0])
+            self._wait_for_play(supervisor)
 
         started = time.monotonic()
         time_scale = 1.0 if self.enable_motion else self.dry_run_speed
         loop_period = period / time_scale
         last_tick = started - loop_period
         last_index = -1
+        direct_validated = (
+            self.trajectory.kind == "joint_position_rad"
+            and self.trajectory.metadata.get("deployment_ready") is True
+        )
         while not self.rospy.is_shutdown():
             now = time.monotonic()
             dt_s = now - last_tick
@@ -297,14 +425,29 @@ class Ros1ArmRuntime:
             index = max(0, min(index, len(targets) - 1))
             if index != last_index and last_index >= 0 and index != last_index + 1:
                 raise SafetyError("Control timing skipped trajectory samples {} -> {}".format(last_index, index))
+            if direct_validated and index == last_index:
+                last_tick = now
+                continue
             measured_q, _ = self._snapshot()
             shadow_measured = measured_q if self.enable_motion else supervisor.command
-            command, velocity = supervisor.project(targets[index], shadow_measured, source_dt_s)
+            if direct_validated:
+                command_dt_s = (
+                    period
+                    if last_index < 0
+                    else float(
+                        self.trajectory.timestamps_s[index]
+                        - self.trajectory.timestamps_s[last_index]
+                    )
+                )
+                command, velocity = supervisor.accept_validated_target(
+                    targets[index], shadow_measured, command_dt_s
+                )
+            else:
+                command, velocity = supervisor.project(targets[index], shadow_measured, source_dt_s)
             if self.enable_motion:
-                with self._lock:
-                    foreign = self._foreign_command
-                if foreign is not None and now - foreign[0] < self.config.external_command_quiet_s:
-                    raise SafetyError("Foreign arm command received during execution from {}".format(foreign[1]))
+                self._check_foreign_command(now)
+                if self._operator_stop_requested():
+                    raise SafetyError("Operator requested STOP during replay")
                 self._publish(command, velocity, "source", index)
                 if self.enable_gripper and self.trajectory.gripper_close is not None:
                     self._command_gripper(self.trajectory.gripper_close[index])

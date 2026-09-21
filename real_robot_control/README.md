@@ -37,10 +37,15 @@ real_robot_control/
 
 ## 1. VR 데이터 준비
 
-Quest 수집기의 HDF5는 EE delta action을 그대로 실물에 보내지 않는다. 수집 후 기록된
-`robot_joint_position` 중 정확한 14개 팔 관절을 이름으로 선택해 관절 궤적으로 만든다.
-현재 recorder가 action 적용 후 상태를 묶으므로 결과 metadata도
-`post-step measured simulated arm state replay`로 명시한다.
+Quest 수집기의 Cartesian EE action을 그대로 실물에 보내지 않는다. 기본 변환은
+`self_collision_safe_joint_target`에서 정확한 14개 팔 관절을 이름으로 선택한다. 즉
+bounded IK와 self-collision guard를 지난 논리 목표가 명령 원본이고,
+`robot_joint_position`은 비교용 측정 상태다. safe target이 없는 이전 HDF5에 한해서만
+측정 상태로 fallback하며 metadata에 source를 명시한다.
+
+성공으로 끝난 episode만 기본 허용한다. `success=false`는 변환을 거부하며
+`--allow-unsuccessful`은 offline 검토용 artifact에만 쓴다. 이렇게 만든 artifact도
+`deployment_ready=false`라 live runner가 거부한다.
 
 ```bash
 python3 real_robot_control/prepare_teleop_hdf5.py \
@@ -52,8 +57,35 @@ python3 real_robot_control/inspect_trajectory.py \
   real_robot_control/trajectories/quest_demo_00000.npz
 ```
 
+변환기는 원본을 실기 VR 로그에서 관측한 replay 운용 cap인 1.5 rad/s의 90% 이하로
+느리게 만들고 30 Hz로 다시
+표본화한다. 같은 acceleration supervisor를 offline으로 통과시켜 source 종료 시점에
+limiter가 뒤처진 채 궤적이 잘리는 것을 막는다. 원본/출력 시간, 최대 속도·가속도,
+filter 오차와 source SHA256은 NPZ metadata에 남는다. joint safe limit을 넘으면 clamp하지
+않고 변환을 실패시킨다. 원본 timing만 비교하려면 `--keep-source-timing`을 쓸 수 있지만
+그 결과는 live 실행할 수 없다.
+
 기록된 sim 자세와 현재 실물 자세의 첫 프레임 차이가 관절별 0.25 rad를 넘으면 실행기는
 거부한다. 이는 sim 궤적을 임의 offset해 실물에 맞추지 않기 위한 의도적인 제한이다.
+
+2026-09-21 새 수집분의 offline 검사 결과:
+
+- `kuavo_quest_20260921-203936-881819_190d02f4.hdf5`: 성공 episode지만
+  `zarm_l1_joint`가 39 sample에서 0.03 rad safe margin을 넘고 일부는 URDF hard limit에
+  도달했으므로 변환을 거부했다. 자동 clamp하지 않는다.
+- `kuavo_quest_20260921-204112-770396_ff0ab300.hdf5`: 성공 episode, 최소 self-collision
+  거리 0.00300086 m, safe target 선택. 원본 최대 2.83494 rad/s를 2.62494배 retime하여
+  30 Hz 313 sample, 10.400초 deployment artifact로 검증했다. 출력 최대 속도
+  1.06535 rad/s, 최대 가속도 8.0 rad/s²다. 이는 offline 명령 검증이며 실물 안전이나
+  task 성공을 입증하지 않는다.
+
+두 번째 episode의 첫 자세는 기록된 `s63_leju_vr_collect_01` 초기 팔 자세와 최대
+2.41279 rad(왼팔 2번, 138.243°) 차이가 난다. HDF5의 첫 measured state도 최대
+2.40765 rad 차이가 나므로 변환 과정에서 생긴 차이가 아니라 녹화를 누른 시점에 이미
+로봇이 초기 preset에서 이동해 있었던 것이다. 따라서 실물이 그 초기 자세에 있으면
+0.25 rad start gate가 mode 전환 전에 실행을 거부한다. 이 차이를 허용하도록 gate를
+넓히지 않는다. 다음 수집에서는 초기 자세 hold부터 실제 이동 경로를 episode에 포함하거나,
+별도로 시뮬레이션에서 충돌 검증된 transition trajectory를 만들어야 한다.
 
 ## 2. RL action 준비
 
@@ -122,22 +154,48 @@ python3 run_robot.py trajectories/rl_rollout_01.npz \
   --confirm S63_CLEAR_AND_ESTOP_READY
 ```
 
-실행 순서는 현재 state 동기화 → mode 2 → 0.75초 현재 자세 hold → 30 Hz source →
-0.5초 마지막 자세 hold → mode 0이다. 정상 종료나 예외에서 mode 1(home/auto-swing)로
-자동 복귀시키지 않는다. mode 0 전환도 하드웨어 E-stop을 대신하지 않는다.
+실행 순서는 현재 state 동기화 → 전체 trajectory prevalidation → mode 2 → 0.75초 현재
+자세 hold → 3초 quintic first-pose approach → 0.5초 settle 및 실제 추종 오차 검사 →
+운영자의 `PLAY` 입력을 기다리며 first pose hold → 30 Hz source → 0.5초 마지막 자세
+hold → mode 0이다. source 중에는 같은 terminal에 `STOP` Enter로 중단할 수 있고
+Ctrl+C도 context cleanup을 거쳐 mode 0을 요청한다. terminal 입력은 하드웨어 deadman이나
+E-stop이 아니다. 정상 종료나 예외에서 mode 1(home/auto-swing)로 자동 복귀시키지 않는다.
+mode 0 전환도 하드웨어 E-stop을 대신하지 않는다.
 
 ## 안전 경계
 
+아래 수치는 제조사 정격이나 실물 식별 결과가 아니다. 2026-09-16 실기 VR 로그의
+`/joint_cmd` 절대 속도 p99=1.495663 rad/s, 절대 가속도 p99=7.704488 rad/s²를 반올림해
+replay 운용 cap으로 정한 값이다. `config/s63.json`에 근거 로그와 수치를 함께 기록한다.
+활성 컨트롤러의 `/arm_move_spd=1.2`는 mode 2 진입 시 첫 외부 목표로 이동하는 전환
+속도이며 연속 replay cap이 아니다. 실제 WBC와 모터의 허용 속도·가속도는 별도 계측과
+제조사 자료로 확정해야 한다. URDF velocity는 simulation/model 값이므로 이 cap의
+근거로 사용하지 않는다.
+
 - URDF hard limit 안쪽 0.03 rad만 사용하며, 범위를 벗어난 target은 clamp하지 않고 중단한다.
-- 명령 속도 0.35 rad/s, 가속도 1.5 rad/s², source step 0.18 rad로 제한한다.
+- 명령 속도 1.5 rad/s, 가속도 8.0 rad/s², source step 0.18 rad로 제한한다.
 - 첫 자세 오차 0.25 rad를 넘으면 시작하지 않는다.
+- first-pose approach 뒤 실측 오차가 0.10 rad를 넘으면 `PLAY` 단계로 가지 않는다.
 - 명령–측정 오차 0.35 rad가 0.25초 지속되거나 state가 0.1초 stale이면 중단한다.
 - action, timestamp, joint order, scale, NaN/Inf, binary gripper를 실행 전에 검증한다.
+- 성공 Quest episode와 deployment-ready retiming metadata가 없으면 live 실행을 거부한다.
 - `/joint_cmd.tau`, motor gain, gravity torque는 발행하지 않는다.
 
-초기 한계는 보수적인 bring-up 값이며 실물 성공을 보장하지 않는다. 첫 live 시험은
+이 운용 cap은 관측 로그를 벗어나지 않기 위한 값이며 실물 성공을 보장하지 않는다. 첫 live 시험은
 0 action 또는 현재 자세 근처의 단일 관절 소각도 궤적으로 수행하고 로그와
 `/sensors_data_raw`를 대조한 뒤 범위를 넓힌다.
+
+## 다음 검증 순서
+
+1. `s63_leju_vr_collect_01`에서 artifact 첫 자세까지의 transition을 만들고 S63+Leju
+   self-collision model로 전 구간을 검사한다. 현재 큰 첫 자세 차이 때문에 이 단계 전에는
+   start gate를 완화하지 않는다.
+2. transition과 10.4초 replay를 Isaac dynamics에서 연속 실행해 target clearance,
+   실제 joint tracking, base 안정성과 gripper 간섭을 확인한다.
+3. 운영자가 로봇 PC에서 dry-run을 실행해 live joint order/state, foreign publisher,
+   enable 상태를 확인한다. 이 저장소 작업에서는 로봇 명령을 원격 실행하지 않는다.
+4. 실물은 hold → 현재 자세 주변 단일 관절 소각도 → 팔 replay(gripper off) → gripper
+   포함 replay 순서로 확대하고, 각 단계에서 로그를 보존한다.
 
 ## 테스트
 

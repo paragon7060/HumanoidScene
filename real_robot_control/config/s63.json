@@ -1,6 +1,13 @@
 {
   "schema_version": 1,
   "robot_model": "s63",
+  "operational_limits_provenance": "observed_real_vr_p99_operational_cap_not_hardware_rating",
+  "operational_limits_evidence": {
+    "source_log": "real_robot_calibration/s63_body_arms/data/real_vr_guided_20260916_retry01/record.jsonl",
+    "joint_command_abs_velocity_p99_rad_s": 1.495663,
+    "joint_command_abs_acceleration_p99_rad_s2": 7.704488,
+    "controller_mode_transition_velocity_rad_s": 1.2
+  },
   "arm_joint_names": [
     "zarm_l1_joint",
     "zarm_l2_joint",
@@ -51,8 +58,8 @@
     0.698131700797732
   ],
   "position_limit_margin_rad": 0.03,
-  "max_command_velocity_rad_s": 0.35,
-  "max_command_acceleration_rad_s2": 1.5,
+  "max_command_velocity_rad_s": 1.5,
+  "max_command_acceleration_rad_s2": 8.0,
   "max_source_step_rad": 0.18,
   "max_start_error_rad": 0.25,
   "max_tracking_error_rad": 0.35,
@@ -61,6 +68,8 @@
   "external_command_quiet_s": 0.5,
   "publish_hz": 30.0,
   "handover_hold_s": 0.75,
+  "approach_settle_s": 0.5,
+  "max_approach_error_rad": 0.1,
   "finish_hold_s": 0.5,
   "rl_delta_scale_rad": 0.035,
   "ros": {

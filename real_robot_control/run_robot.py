@@ -22,6 +22,10 @@ def main(argv=None):
     parser.add_argument("--dry-run-speed", type=float, default=1.0)
     parser.add_argument("--enable-motion", action="store_true", help="Actually publish arm targets and change WBC mode")
     parser.add_argument("--enable-gripper", action="store_true", help="Also send binary Leju claw commands")
+    parser.add_argument(
+        "--approach-seconds", type=float, default=3.0,
+        help="Minimum-jerk current-to-first-pose duration before the PLAY gate.",
+    )
     parser.add_argument("--confirm", default="", help="Required exact live-motion acknowledgement")
     args = parser.parse_args(argv)
     if args.enable_motion and args.confirm != LIVE_CONFIRMATION:
@@ -40,6 +44,7 @@ def main(argv=None):
             enable_gripper=args.enable_gripper,
             log_path=log_path,
             dry_run_speed=args.dry_run_speed,
+            approach_seconds=args.approach_seconds,
         ) as runtime:
             runtime.run()
     except Exception as exc:
