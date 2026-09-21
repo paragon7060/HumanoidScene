@@ -162,11 +162,18 @@ class IsaacResetSettling:
             self._last_counter = counter
             logical, pose, velocity, type_id, region_id = self._selected()
             pending = ~self.ready & ~self.invalid
-            finite = torch.isfinite(pose).all(-1) & torch.isfinite(velocity).all(-1)
+            finite = (
+                torch.isfinite(pose).all(-1)
+                & torch.isfinite(velocity).all(-1)
+                & (pose[:, 3:].norm(dim=-1) > 1e-8)
+            )
+            safe_pose = pose.clone()
+            safe_pose[~finite, :3] = 0.0
+            safe_pose[~finite, 3:] = safe_pose.new_tensor((1.0, 0.0, 0.0, 0.0))
             self.footprint_in_region = finite & self._footprint_in_region(
-                pose, type_id, region_id)
+                safe_pose, type_id, region_id)
             self.on_assigned_shelf = finite & self._on_assigned_shelf(
-                pose, type_id, region_id)
+                safe_pose, type_id, region_id)
             self.in_assigned_region = (
                 self.footprint_in_region & self.on_assigned_shelf)
             self.stable = finite & (
