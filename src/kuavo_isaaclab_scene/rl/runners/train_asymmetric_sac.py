@@ -89,6 +89,7 @@ def train(env, args, directory, state=None):
     )
 
     transitions = valid_transitions = optimizer_updates = skipped_nonfinite = 0
+    skipped_settling = invalid_resets = 0
     update_credit = 0.0
     reward_names = env.reward_manager.active_terms
     for iteration in range(start + 1, start + args.max_iterations + 1):
@@ -104,11 +105,17 @@ def train(env, args, directory, state=None):
         termination_counts: dict[str, int] = {}
         for _ in range(args.rollout_steps):
             with torch.no_grad():
+                reset_settling = getattr(env, "_multi_box_reset_settling", None)
+                ready_before = (
+                    reset_settling.ready.clone() if reset_settling is not None
+                    else torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
+                )
                 finite_current = torch.isfinite(actor_obs).all(-1) \
                     & torch.isfinite(critic_obs).all(-1)
-                if finite_current.any():
+                normalizer_mask = finite_current & ready_before
+                if normalizer_mask.any():
                     agent.update_normalizers(
-                        actor_obs[finite_current], critic_obs[finite_current])
+                        actor_obs[normalizer_mask], critic_obs[normalizer_mask])
                 warming_up = valid_transitions < warmup_target
                 safe_actor_obs = torch.where(
                     torch.isfinite(actor_obs), actor_obs, torch.zeros_like(actor_obs))
@@ -149,6 +156,14 @@ def train(env, args, directory, state=None):
                 for value in breakdown_terms.values():
                     finite_transition &= torch.isfinite(value)
                 skipped_nonfinite += int((~finite_transition).sum().item())
+                # Reset settling is outside the task MDP.  Its zero-action,
+                # zero-reward frames and invalid partial respawns must never
+                # enter replay or observation normalizers.
+                finite_transition &= ready_before
+                skipped_settling += int((~ready_before).sum().item())
+                invalid = termination_terms.get("invalid_reset")
+                if invalid is not None:
+                    invalid_resets += int(invalid.sum().item())
                 count = int(finite_transition.sum().item())
                 if count:
                     error = (
@@ -210,6 +225,8 @@ def train(env, args, directory, state=None):
             replay_size=replay.size,
             replay_gib=replay.bytes / 2**30,
             nonfinite_transitions=skipped_nonfinite,
+            settling_transitions_skipped=skipped_settling,
+            invalid_resets=invalid_resets,
             optimizer_updates=optimizer_updates,
             terminated_episodes=terminated_episodes,
             timeout_episodes=timeout_episodes,

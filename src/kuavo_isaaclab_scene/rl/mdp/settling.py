@@ -44,6 +44,9 @@ def ready(command):
 
 
 def gate_actions(env, actions):
+    multi_box = getattr(env, "_multi_box_reset_settling", None)
+    if getattr(env.cfg, "validate_randomized_resets", False) and multi_box is not None:
+        actions = actions * multi_box.ready[:, None]
     if env.cfg.task.reset_settle_seconds <= 0 or env.cfg.task.reset_bank:
         return actions
     command = env.command_manager.get_term("workcell")

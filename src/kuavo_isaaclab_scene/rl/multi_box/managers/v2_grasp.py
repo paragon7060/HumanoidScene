@@ -16,7 +16,13 @@ from ..debug.contact_sensors import (
     V2_RACK_SENSOR_NAMES,
 )
 from ..debug.contact_force import maximum_filtered_force
-from ..rewards import CommonRewardInput, GraspRewardInput, MultiBoxRewardModel
+from ..rewards import (
+    CommonRewardInput,
+    GraspRewardInput,
+    MultiBoxRewardModel,
+    RewardBreakdown,
+)
+from ..scene.reset_settling import reset_settling_step
 from ..success import SkillTerminationInput, low_level_termination
 from ..state.isaac_privileged_grasp import (
     IsaacPrivilegedGraspAdapter,
@@ -74,9 +80,10 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
         raise RuntimeError("V2 obstacle contact forces are unavailable.")
     obstacle_force = force.norm(dim=-1).amax(dim=-1)
     rack_force = maximum_filtered_force(env, V2_RACK_SENSOR_NAMES)
-    # Ignore import/reset snap impulses for three control steps. Subsequent
+    settling = reset_settling_step(env)
+    # Ignore import/reset snap impulses and the first three task control steps. Subsequent
     # rack, conveyor, box, or floor contact by arm/torso links is terminal.
-    grace_over = env.episode_length_buf > 3
+    grace_over = settling.ready & (settling.ready_steps > 3)
     threshold = float(env.cfg.task.obstacle_contact_force)
     robot_rack_collision = (rack_force > threshold) & grace_over
 
@@ -93,20 +100,23 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
 
     base_offset = env.scene["robot"].data.root_pos_w - env.scene.env_origins
     base_distance = base_offset[:, :2].norm(dim=-1)
-    workspace_limit = base_distance > float(env.cfg.multi_box.workspace_radius)
+    workspace_limit = settling.ready & (
+        base_distance > float(env.cfg.multi_box.workspace_radius))
 
     origin_z = env.scene.env_origins[:, 2]
     finite = torch.isfinite(grasp.box_pose_world).all(-1) \
         & torch.isfinite(grasp.box_velocity_world).all(-1)
-    box_drop = (grasp.box_pose_world[:, 2] - origin_z < 0.12) | ~finite
-    box_lift_limit = grasp.lift_from_reset_m > float(env.cfg.multi_box.max_box_lift_height)
-    box_speed_limit = (
+    box_drop = settling.ready & (
+        (grasp.box_pose_world[:, 2] - origin_z < 0.12) | ~finite)
+    box_lift_limit = settling.ready & (
+        grasp.lift_from_reset_m > float(env.cfg.multi_box.max_box_lift_height))
+    box_speed_limit = settling.ready & ((
         grasp.box_velocity_world[:, :3].norm(dim=-1)
         > float(env.cfg.multi_box.max_box_linear_speed)
     ) | (
         grasp.box_velocity_world[:, 3:].norm(dim=-1)
         > float(env.cfg.multi_box.max_box_angular_speed)
-    )
+    ))
     result = V2GraspSafetyStep(
         robot_rack_collision=robot_rack_collision,
         self_collision=self_collision,
@@ -128,10 +138,11 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
 def grasp_terminal_step(env):
     grasp = privileged_grasp_step(env)
     safety = grasp_safety_step(env)
+    settling = reset_settling_step(env)
     false = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
     true = torch.ones_like(false)
     return low_level_termination("grasp", SkillTerminationInput(
-        success=grasp.success.success,
+        success=grasp.success.success & settling.ready,
         unsafe=safety.unsafe,
         phase_armed=true,
         grasp_maintained=true,
@@ -147,6 +158,16 @@ def grasp_success(env) -> torch.Tensor:
 
 def grasp_unsafe(env) -> torch.Tensor:
     return grasp_terminal_step(env).failure
+
+
+def invalid_reset(env) -> torch.Tensor:
+    """Request a partial respawn without labeling reset physics as task failure."""
+    return reset_settling_step(env).invalid
+
+
+def task_time_out(env) -> torch.Tensor:
+    """Count the episode horizon only after reset acceptance."""
+    return reset_settling_step(env).ready_steps >= env.max_episode_length
 
 
 def _base_motion(env) -> torch.Tensor:
@@ -180,6 +201,7 @@ class V2GraspReward(ManagerTermBase):
     def __call__(self, env) -> torch.Tensor:
         grasp = privileged_grasp_step(env)
         safety = grasp_safety_step(env)
+        settling = reset_settling_step(env)
         current = grasp.potentials
         # Potential shaping pays no artificial reset bonus. Choosing gamma*Phi
         # as the first previous value makes the first delta exactly zero.
@@ -222,7 +244,15 @@ class V2GraspReward(ManagerTermBase):
         ))
         for name, value in current.items():
             self.previous[name].copy_(value)
-        self.initialized.fill_(True)
+        self.initialized |= settling.ready
+        trainable = settling.ready & ~settling.just_ready
+        if not bool(trainable.all()):
+            terms = {
+                name: torch.where(trainable, value, torch.zeros_like(value))
+                for name, value in breakdown.terms.items()
+            }
+            breakdown = RewardBreakdown(
+                terms=terms, total=torch.stack(tuple(terms.values())).sum(0))
         env._multi_box_grasp_reward_breakdown = breakdown
         # RewardManager multiplies every term by dt. The v2 model defines one
         # potential/event reward per control step, so undo that outer scaling.
@@ -238,4 +268,5 @@ class V2GraspRewardsCfg:
 class V2GraspTerminationsCfg:
     success = Done(func=grasp_success)
     unsafe = Done(func=grasp_unsafe)
-    time_out = Done(func=mdp.time_out, time_out=True)
+    invalid_reset = Done(func=invalid_reset)
+    time_out = Done(func=task_time_out, time_out=True)

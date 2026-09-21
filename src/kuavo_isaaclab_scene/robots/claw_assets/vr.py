@@ -21,7 +21,7 @@ def build_binary_gripper_action_cfg(
     """Build the package-owned 0=open/1=close action for one hand."""
     from ..gripper_runtime import BinaryGripperActionCfg
 
-    if command_gate not in (None, "settling", "ready"):
+    if command_gate not in (None, "settling", "ready", "multi_box_reset"):
         raise ValueError(f"Unknown gripper command gate: {command_gate}")
     return BinaryGripperActionCfg(
         asset_name=hand.asset_name_for(side),

@@ -21,6 +21,7 @@ from ..geometry.pose import quat_apply
 from ..geometry.rack import box_shelf_clearance_m
 from ..metrics import GraspRawMetrics, grasp_potentials
 from ..scene.spawn import BOX_TYPE_IDS, physical_asset_names
+from ..scene.reset_settling import reset_settling_step
 from ..success import (
     FingerFlapContacts,
     GraspSuccessInput,
@@ -55,6 +56,7 @@ class IsaacPrivilegedGraspStep:
     target_logical_id: torch.Tensor
     target_pool_id: torch.Tensor
     box_pose_world: torch.Tensor
+    initial_box_pose_world: torch.Tensor
     box_velocity_world: torch.Tensor
     lift_from_reset_m: torch.Tensor
     contacts: FingerFlapContacts
@@ -111,6 +113,8 @@ class IsaacPrivilegedGraspAdapter:
             self.num_envs, self.device)
         self.success_tracker = GraspSuccessTracker(self.num_envs, self.device)
         self.initial_box_z = torch.zeros(self.num_envs, device=self.device)
+        self.initial_box_pose_world = torch.zeros(
+            self.num_envs, 7, device=self.device)
         self.target_logical_id = torch.full(
             (self.num_envs,), -1, dtype=torch.long, device=self.device)
         self.target_pool_id = torch.full_like(self.target_logical_id, -1)
@@ -336,11 +340,11 @@ class IsaacPrivilegedGraspAdapter:
         )
 
     def measure(self, dt: float) -> IsaacPrivilegedGraspStep:
+        settling = reset_settling_step(self.env)
         logical, pool = self._targets()
         box_pose = self._selected_box_pose(pool)
         box_velocity = self._selected_box_velocity(pool)
-        changed = (~self.initialized) | (logical != self.target_logical_id) | (
-            pool != self.target_pool_id)
+        changed = (logical != self.target_logical_id) | (pool != self.target_pool_id)
         if bool(changed.any()):
             ids = changed.nonzero(as_tuple=False).flatten()
             self.pose_stability.reset(ids)
@@ -348,9 +352,20 @@ class IsaacPrivilegedGraspAdapter:
             self.stability_armed[ids] = False
             self.bilateral_rewarded[ids] = False
             self.success_rewarded[ids] = False
-            self.initial_box_z[ids] = box_pose[ids, 2]
             self.target_logical_id[ids] = logical[ids]
             self.target_pool_id[ids] = pool[ids]
+            self.initialized[ids] = False
+
+        capture = settling.ready & ~self.initialized
+        if bool(capture.any()):
+            ids = capture.nonzero(as_tuple=False).flatten()
+            self.initial_box_pose_world[ids] = box_pose[ids]
+            self.initial_box_z[ids] = box_pose[ids, 2]
+            self.pose_stability.reset(ids)
+            self.success_tracker.reset(ids)
+            self.stability_armed[ids] = False
+            self.bilateral_rewarded[ids] = False
+            self.success_rewarded[ids] = False
             self.initialized[ids] = True
 
         rows = torch.arange(self.num_envs, device=self.device)
@@ -367,13 +382,13 @@ class IsaacPrivilegedGraspAdapter:
         valid_flaps = ((pinch.hand_flap_index >= 0) & (pinch.hand_flap_index < 2)).all(-1)
         opposing = valid_flaps & (
             pinch.hand_flap_index[:, 0] != pinch.hand_flap_index[:, 1])
-        ready = (
+        ready = settling.ready & (
             pinch.hand_pinching.all(-1)
             & opposing
             & (rack_clearance >= self.success_tracker.config.proof_lift_m)
         )
         self.stability_armed |= ready
-        track = pinch.hand_pinching.all(-1) & opposing & self.stability_armed
+        track = settling.ready & pinch.hand_pinching.all(-1) & opposing & self.stability_armed
         hand_to_box = relative_pose(box_pose, self.tcp.center_pose_w)
         stable = self.pose_stability.update(
             hand_to_box, pinch.hand_pinching & track[:, None])
@@ -396,8 +411,11 @@ class IsaacPrivilegedGraspAdapter:
             target_logical_id=logical,
             target_pool_id=pool,
             box_pose_world=box_pose,
+            initial_box_pose_world=self.initial_box_pose_world.clone(),
             box_velocity_world=box_velocity,
-            lift_from_reset_m=box_pose[:, 2] - self.initial_box_z,
+            lift_from_reset_m=torch.where(
+                self.initialized, box_pose[:, 2] - self.initial_box_z,
+                torch.zeros_like(self.initial_box_z)),
             contacts=contacts,
             pinch=pinch,
             stable_hands=stable,

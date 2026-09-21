@@ -8,6 +8,11 @@ import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import (
     BOX_TYPE_IDS,
+    DEPTH_GAP_M,
+    LOW_LEVEL_FRONT_DEPTH_JITTER_M,
+    RACK_BOX_FRONT_REFERENCE_DEPTH_RAW,
+    RACK_BOX_REAR_MARGIN_M,
+    REGION_DEPTHS_RAW,
     logical_cells,
     physical_asset_names,
     physical_asset_types,
@@ -15,6 +20,7 @@ from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import (
 )
 from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
 from kuavo_isaaclab_scene.workcell.rack_box_layout import BOX_DIMENSIONS_M
+from kuavo_isaaclab_scene.workcell.rack_box_layout import RACK_RAMP_BACK_DEPTH_RAW
 
 
 def generator(seed=7):
@@ -34,6 +40,11 @@ def test_low_level_spawns_one_box_across_all_regions_and_allowed_types():
     shelf_two = batch.active & (batch.region_ids < 2)
     assert set(batch.box_type_ids[shelf_two].tolist()) == {
         BOX_TYPE_IDS["small"], BOX_TYPE_IDS["medium"]}
+    depths = -batch.rack_local_positions[..., 1][batch.active]
+    assert bool((depths >= RACK_BOX_FRONT_REFERENCE_DEPTH_RAW
+                 - LOW_LEVEL_FRONT_DEPTH_JITTER_M - 1e-7).all())
+    assert bool((depths <= RACK_BOX_FRONT_REFERENCE_DEPTH_RAW
+                 + LOW_LEVEL_FRONT_DEPTH_JITTER_M + 1e-7).all())
 
 
 def test_full_task_count_is_random_and_region_load_is_balanced():
@@ -44,6 +55,27 @@ def test_full_task_count_is_random_and_region_load_is_balanced():
     for env_id in range(len(batch.counts)):
         loads = torch.stack([(batch.region_ids[env_id] == region).sum() for region in range(4)])
         assert int(loads.max() - loads.min()) <= 1
+
+
+def test_full_task_packs_each_region_from_front_using_actual_box_depths():
+    batch = sample_spawn_batch(MultiBoxSpec(), 512, generator=generator(13))
+    dimensions = torch.tensor([BOX_DIMENSIONS_M[name] for name in ("small", "medium")])
+    for env_id in range(len(batch.counts)):
+        for region_id in range(4):
+            mask = batch.active[env_id] & (batch.region_ids[env_id] == region_id)
+            if not bool(mask.any()):
+                continue
+            depths = -batch.rack_local_positions[env_id, mask, 1]
+            half_depths = dimensions[batch.box_type_ids[env_id, mask], 1] / 2.0
+            order = torch.argsort(depths)
+            depths = depths[order]
+            half_depths = half_depths[order]
+            assert float(depths[0]) == pytest.approx(RACK_BOX_FRONT_REFERENCE_DEPTH_RAW)
+            if len(depths) > 1:
+                expected = half_depths[:-1] + DEPTH_GAP_M + half_depths[1:]
+                torch.testing.assert_close(depths[1:] - depths[:-1], expected)
+            assert float(depths[-1] + half_depths[-1]) <= (
+                RACK_RAMP_BACK_DEPTH_RAW - RACK_BOX_REAR_MARGIN_M + 1e-6)
 
 
 def test_all_twelve_boxes_have_unique_physical_assets_and_nonoverlapping_poses():
@@ -84,3 +116,20 @@ def test_spawn_poses_and_anchor_jitter_are_finite_bounded_and_reproducible():
     assert math.degrees(float(first.rack_yaw_delta.max())) > 14.0
     assert (first.conveyor_xy_delta.abs() <= torch.tensor(spec.conveyor_xy_jitter) + 1e-7).all()
     assert (first.conveyor_yaw_delta.abs() <= spec.conveyor_yaw_jitter + 1e-7).all()
+
+
+def test_depth_cells_use_measured_front_reference_and_largest_box_spacing():
+    assert REGION_DEPTHS_RAW == pytest.approx((0.21, 0.47, 0.73))
+    medium_half_depth = BOX_DIMENSIONS_M["medium"][1] / 2.0
+    assert REGION_DEPTHS_RAW[-1] + medium_half_depth < 0.85102
+
+
+def test_roller_clearance_raises_box_roots_without_changing_horizontal_reference():
+    spec = replace(MultiBoxSpec(), strategy="staged", skill="grasp")
+    plain = sample_spawn_batch(spec, 32, generator=generator(41))
+    rollers = sample_spawn_batch(
+        spec, 32, generator=generator(41), rack_surface_extra_clearance_m=0.01)
+    torch.testing.assert_close(
+        rollers.rack_local_positions[..., :2], plain.rack_local_positions[..., :2])
+    dz = rollers.rack_local_positions[..., 2] - plain.rack_local_positions[..., 2]
+    torch.testing.assert_close(dz[plain.active], torch.full_like(dz[plain.active], 0.01))

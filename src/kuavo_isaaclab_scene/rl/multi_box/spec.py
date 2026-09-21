@@ -85,6 +85,16 @@ class MultiBoxSpec:
     self_collision_clearance: float = 0.003
     collision_constraints_enabled: bool = True
 
+    # Reset physics is outside the task MDP.  A reset becomes trainable only
+    # after its selected box remains on the assigned shelf/region and is still
+    # for the configured hold time.
+    reset_settle_min_seconds: float = 0.25
+    reset_settle_hold_seconds: float = 0.25
+    reset_settle_timeout_seconds: float = 2.0
+    reset_settle_linear_speed: float = 0.01
+    reset_settle_angular_speed: float = 0.05
+    reset_shelf_clearance_range: tuple[float, float] = (-0.02, 0.05)
+
     @property
     def region_names(self) -> tuple[str, ...]:
         return tuple(region.name for region in self.rack_regions)
@@ -168,6 +178,23 @@ class MultiBoxSpec:
             raise ValueError("Simulator safety limits must be finite and positive.")
         if self.self_collision_clearance >= 0.04:
             raise ValueError("Self-collision clearance must be below the 4 cm influence range.")
+
+        settling = (
+            self.reset_settle_min_seconds,
+            self.reset_settle_hold_seconds,
+            self.reset_settle_timeout_seconds,
+            self.reset_settle_linear_speed,
+            self.reset_settle_angular_speed,
+        )
+        if not all(math.isfinite(value) and value > 0 for value in settling):
+            raise ValueError("Reset settling limits must be finite and positive.")
+        if self.reset_settle_timeout_seconds < (
+                self.reset_settle_min_seconds + self.reset_settle_hold_seconds):
+            raise ValueError("Reset settling timeout must cover minimum and hold times.")
+        low_clearance, high_clearance = self.reset_shelf_clearance_range
+        if (not math.isfinite(low_clearance) or not math.isfinite(high_clearance)
+                or low_clearance >= high_clearance):
+            raise ValueError("Reset shelf-clearance range must be finite and ordered.")
 
         if self.episode_seconds is not None and (
                 not math.isfinite(self.episode_seconds) or self.episode_seconds <= 0):

@@ -63,6 +63,7 @@ def main() -> None:
                 observation, reward, _, _, _ = env.step(action)
             grasp = env._multi_box_privileged_grasp_step
             safety = env._multi_box_grasp_safety_step
+            settling = env._multi_box_reset_settling
             policy = observation["policy"]
             critic = observation["critic"]
             print(
@@ -75,6 +76,21 @@ def main() -> None:
                 f"contact_shape={tuple(grasp.contacts.force_n.shape)} "
                 f"reward={reward.tolist()} "
                 f"unsafe={safety.unsafe.tolist()} "
+                f"reset_ready={settling.ready.tolist()} "
+                f"reset_invalid={settling.invalid.tolist()} "
+                f"reset_in_region={settling.in_assigned_region.tolist()} "
+                f"reset_footprint_ok={settling.footprint_in_region.tolist()} "
+                f"reset_shelf_ok={settling.on_assigned_shelf.tolist()} "
+                f"reset_elapsed_s={settling.elapsed.tolist()} "
+                f"reset_invalid_count={settling.invalid_count.tolist()} "
+                f"reset_region_invalid_count={settling.region_invalid_count.tolist()} "
+                f"reset_footprint_invalid_count={settling.footprint_invalid_count.tolist()} "
+                f"reset_shelf_invalid_count={settling.shelf_invalid_count.tolist()} "
+                f"reset_timeout_count={settling.timeout_invalid_count.tolist()} "
+                f"last_invalid_logical={settling.last_invalid_logical_id.tolist()} "
+                f"last_invalid_type={settling.last_invalid_type_id.tolist()} "
+                f"last_invalid_region={settling.last_invalid_region_id.tolist()} "
+                f"last_invalid_spawn_depth_m={settling.last_invalid_spawn_depth_m.tolist()} "
                 f"obstacle_force_n={safety.obstacle_force_n.tolist()} "
                 f"reward_terms={env.reward_manager.active_terms} "
                 f"termination_terms={env.termination_manager.active_terms} "

@@ -164,6 +164,12 @@ class BinaryGripperAction(InterpolatedJointPositionAction):
         if self.cfg.command_gate is None:
             return torch.ones(
                 self.num_envs, 1, dtype=torch.bool, device=self.device)
+        if self.cfg.command_gate == "multi_box_reset":
+            settling = getattr(self._env, "_multi_box_reset_settling", None)
+            if settling is None:
+                return torch.ones(
+                    self.num_envs, 1, dtype=torch.bool, device=self.device)
+            return settling.ready[:, None]
         command = self._env.command_manager.get_term("workcell")
         if self.cfg.command_gate == "settling":
             task = getattr(self._env.cfg, "task", None)

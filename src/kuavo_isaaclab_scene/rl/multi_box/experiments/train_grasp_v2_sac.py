@@ -21,8 +21,10 @@ def apply_run_profile(args) -> None:
     if args.smoke_test:
         args.num_envs = min(args.num_envs, 4)
         args.max_iterations = 1
-        args.rollout_steps = 4
-        args.batch_size = args.num_envs * args.rollout_steps
+        # Includes the 0.5 s reset acceptance window and still leaves enough
+        # task transitions for one optimizer wiring update.
+        args.rollout_steps = 64
+        args.batch_size = args.num_envs * 4
         args.replay_capacity = max(64, args.batch_size)
         args.learning_starts = 0
         args.warmup_vector_steps = 0
@@ -192,6 +194,7 @@ def main() -> None:
                 ),
                 "terminal_contract": {
                     "success": "exact_grasp_success",
+                    "invalid_reset": "partial_respawn_excluded_from_replay",
                     "unsafe": [
                         "robot_rack_collision", "self_collision",
                         "obstacle_collision", "workspace_limit", "box_drop",

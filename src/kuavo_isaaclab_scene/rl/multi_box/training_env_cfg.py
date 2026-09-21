@@ -58,6 +58,7 @@ class MultiBoxGraspAssemblyEnvCfg(ManagerBasedRLEnvCfg):
         ),
     )
     prepared_state_name: str = ""
+    validate_randomized_resets: bool = True
 
     def __post_init__(self):
         self.multi_box.validate()
@@ -91,7 +92,7 @@ class MultiBoxGraspAssemblyEnvCfg(ManagerBasedRLEnvCfg):
 
         from ...robots.claw_assets.vr import configure_binary_gripper_control
         configure_binary_gripper_control(
-            self, contact_feedback=False, command_gate=None)
+            self, contact_feedback=False, command_gate="multi_box_reset")
         self.episode_length_s = float(self.multi_box.episode_seconds)
         self.sim.render_interval = self.decimation
         self.viewer.eye = (3.0, -3.0, 2.5)

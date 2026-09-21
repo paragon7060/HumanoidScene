@@ -9,6 +9,7 @@ from isaaclab.utils.math import quat_apply, quat_from_euler_xyz, quat_mul
 from .assets import CONVEYOR_PART_NAMES, RACK_ROLLER_ASSET_NAMES
 from .spawn import SpawnBatch, physical_asset_names, sample_spawn_batch
 from ....workcell.workcell_layout import position, scale
+from ....workcell.rack_rollers import resolve_rack_roller_settings
 
 
 SPAWN_BUFFER_FIELDS = (
@@ -120,12 +121,26 @@ def reset_randomized_scene(env, env_ids):
     if not len(ids):
         return
     base_mdp.reset_scene_to_default(env, ids, reset_joint_targets=True)
+    rollers = resolve_rack_roller_settings()
     batch = sample_spawn_batch(
-        env.cfg.multi_box, len(ids), device=env.device, rack_scale=scale("rack"))
+        env.cfg.multi_box,
+        len(ids),
+        device=env.device,
+        rack_scale=scale("rack"),
+        rack_surface_extra_clearance_m=(
+            rollers.box_clearance_m if rollers.enabled else 0.0),
+    )
     rack_pose = _move_rack(env, ids, batch)
     _move_conveyor(env, ids, batch)
     _move_active_boxes(env, ids, batch, rack_pose)
     _remember(env, ids, batch)
+    if getattr(env.cfg, "validate_randomized_resets", False):
+        settling = getattr(env, "_multi_box_reset_settling", None)
+        if settling is None:
+            from .reset_settling import IsaacResetSettling
+            settling = IsaacResetSettling(env)
+            env._multi_box_reset_settling = settling
+        settling.reset(ids)
     privileged_grasp = getattr(env, "_multi_box_privileged_grasp", None)
     if privileged_grasp is not None:
         privileged_grasp.reset(ids)

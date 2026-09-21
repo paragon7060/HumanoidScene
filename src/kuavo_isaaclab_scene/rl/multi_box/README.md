@@ -86,6 +86,17 @@ boundary currently covers:
   base position beyond the 1.5 m workspace are hard failures. Structural rack
   and roller contact have their own filtered `robot_rack_collision` input and penalty;
   simultaneous aggregate contact is not charged a second time as an obstacle.
+- randomized resets use the measured front box-root reference and box-footprint
+  spacing, including the roller deck's 1 cm support height.  Full-task scenes
+  pack every region's selected boxes into a contiguous front-to-back queue
+  using the actual small/medium footprint and retain a 1 cm rear ramp margin;
+  sparse randomized selections therefore leave no physical holes. Policy actions,
+  task reward, task failures, observation normalization, and replay insertion
+  stay disabled until the selected box remains still on its assigned shelf and
+  lateral region for 0.25 s after a 0.25 s minimum wait.  An out-of-region or
+  2 s timeout reset is partially respawned and counted as `invalid_reset`; once
+  accepted, its settled 7D pose becomes the proof-lift reference and later
+  drops remain ordinary task failures.
 - v2 potential shaping and the v2 SAC/PPO learners use the same 0.999 discount.
   At 30 Hz this retains credit across multi-second skills; the generic SAC
   implementation keeps its independent 0.99 default.

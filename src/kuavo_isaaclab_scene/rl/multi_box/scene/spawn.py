@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+from typing import Sequence
 
 import torch
 
@@ -24,9 +25,56 @@ from ....workcell.workcell_layout import RACK_RAW_TIER_RANGES
 
 
 POSITIONS_PER_REGION = 3
-REGION_DEPTHS_RAW = (0.16, 0.455, 0.75)
 COLUMN_GAP_M = 0.04
+RACK_BOX_FRONT_REFERENCE_DEPTH_RAW = 0.21
+LOW_LEVEL_FRONT_DEPTH_JITTER_M = 0.02
+DEPTH_GAP_M = 0.04
+RACK_BOX_REAR_MARGIN_M = 0.01
 BOX_TYPE_IDS = {name: index for index, name in enumerate(BOX_TYPES)}
+
+
+def region_depths_raw() -> tuple[float, ...]:
+    """Root-centre depths measured from the Rack USD anchor.
+
+    The front position is the measured stable box reference, rather than the
+    rack mesh's asymmetric origin.  Remaining positions are spaced using the
+    largest permitted box footprint so a mixed small/medium queue cannot
+    overlap.  The final medium-box back face remains inside the ramp span.
+    """
+    stride = max(BOX_DIMENSIONS_M[name][1] for name in BOX_TYPES) + DEPTH_GAP_M
+    return tuple(
+        RACK_BOX_FRONT_REFERENCE_DEPTH_RAW + index * stride
+        for index in range(POSITIONS_PER_REGION)
+    )
+
+
+REGION_DEPTHS_RAW = region_depths_raw()
+
+
+def packed_region_depths(box_types: Sequence[str]) -> tuple[float, ...]:
+    """Pack one region's selected boxes from the measured front reference.
+
+    Logical cells select independent backing assets.  Their physical depth is
+    computed from the selected box sizes so sparse full-task scenes do not
+    leave holes and mixed small/medium queues keep the requested clearance.
+    """
+    depths: list[float] = []
+    previous_half_depth = 0.0
+    for box_type in box_types:
+        if box_type not in BOX_DIMENSIONS_M:
+            raise ValueError(f"Unknown physical box type: {box_type}")
+        half_depth = BOX_DIMENSIONS_M[box_type][1] / 2.0
+        if depths:
+            depth = depths[-1] + previous_half_depth + DEPTH_GAP_M + half_depth
+        else:
+            depth = RACK_BOX_FRONT_REFERENCE_DEPTH_RAW
+        if depth + half_depth > RACK_RAMP_BACK_DEPTH_RAW - RACK_BOX_REAR_MARGIN_M:
+            raise ValueError(
+                "Selected box queue does not fit inside the rack ramp with "
+                f"{RACK_BOX_REAR_MARGIN_M:.3f} m rear margin: {tuple(box_types)}")
+        depths.append(depth)
+        previous_half_depth = half_depth
+    return tuple(depths)
 
 
 @dataclass(frozen=True)
@@ -38,7 +86,13 @@ class RackCell:
     side: str
     depth_index: int
 
-    def local_pose(self, box_type: str, rack_scale=(1.0, 1.0, 1.0)):
+    def local_pose(
+        self,
+        box_type: str,
+        rack_scale=(1.0, 1.0, 1.0),
+        rack_surface_extra_clearance_m: float = 0.0,
+        depth_raw: float | None = None,
+    ):
         """Return rack-local root position/quaternion for one physical box."""
         if box_type not in BOX_DIMENSIONS_M:
             raise ValueError(f"Unknown physical box type: {box_type}")
@@ -47,13 +101,19 @@ class RackCell:
         # From the robot-facing rack front, local -X is right and +X is left.
         side_sign = -1.0 if self.side == "right" else 1.0
         local_x = RACK_SHELF_CENTER_LOCAL_X_RAW * sx + side_sign * (max_width + COLUMN_GAP_M) / 2.0
-        depth_raw = REGION_DEPTHS_RAW[self.depth_index]
+        depth_raw = (
+            REGION_DEPTHS_RAW[self.depth_index]
+            if depth_raw is None else float(depth_raw)
+        )
         local_y = -depth_raw * sy
         surface_raw = RACK_RAW_TIER_RANGES[self.shelf - 1][1] - math.tan(RACK_SLOPE_RAD) * (
             RACK_RAMP_BACK_DEPTH_RAW - depth_raw)
         # The physical wrapper's body root sits about 0.5% of body height above its bottom.
         bottom_offset = 0.005 * BOX_DIMENSIONS_M[box_type][2]
-        local_z = surface_raw * sz + bottom_offset + RACK_SURFACE_CLEARANCE_M
+        local_z = (
+            surface_raw * sz + bottom_offset + RACK_SURFACE_CLEARANCE_M
+            + float(rack_surface_extra_clearance_m)
+        )
         half_angle = -RACK_SLOPE_RAD / 2.0
         return ((local_x, local_y, local_z),
                 (math.cos(half_angle), math.sin(half_angle), 0.0, 0.0))
@@ -140,6 +200,7 @@ def sample_spawn_batch(
     device: str | torch.device = "cpu",
     generator: torch.Generator | None = None,
     rack_scale=(1.0, 1.0, 1.0),
+    rack_surface_extra_clearance_m: float = 0.0,
 ) -> SpawnBatch:
     """Sample active logical boxes, physical variants, poses, and anchor jitter."""
     spec.validate()
@@ -162,14 +223,42 @@ def sample_spawn_batch(
 
     for env_id, count in enumerate(counts.tolist()):
         selected = _balanced_cell_order(cells, device=device, generator=generator)[:count]
+        selected_types: dict[int, str] = {}
         for logical_id in selected:
             cell = cells[logical_id]
             region = spec.rack_regions[cell.region_id]
             type_choice = int(torch.randint(
                 len(region.allowed_box_types), (1,), device=device, generator=generator).item())
-            box_type = region.allowed_box_types[type_choice]
+            selected_types[logical_id] = region.allowed_box_types[type_choice]
+
+        region_depths: dict[int, float] = {}
+        if spec.skill == "full":
+            for region_id in range(len(spec.rack_regions)):
+                region_logical_ids = [
+                    logical_id for logical_id in selected
+                    if cells[logical_id].region_id == region_id
+                ]
+                depths = packed_region_depths(
+                    [selected_types[logical_id] for logical_id in region_logical_ids])
+                region_depths.update(zip(region_logical_ids, depths, strict=True))
+
+        for logical_id in selected:
+            cell = cells[logical_id]
+            box_type = selected_types[logical_id]
             type_id = BOX_TYPE_IDS[box_type]
-            position, quaternion = cell.local_pose(box_type, rack_scale)
+            if spec.skill == "full":
+                depth_override = region_depths[logical_id]
+            else:
+                depth_override = RACK_BOX_FRONT_REFERENCE_DEPTH_RAW + float(
+                    _symmetric(
+                        (1,), (LOW_LEVEL_FRONT_DEPTH_JITTER_M,),
+                        device=device, generator=generator,
+                    ).item()
+                )
+            position, quaternion = cell.local_pose(
+                box_type, rack_scale, rack_surface_extra_clearance_m,
+                depth_raw=depth_override,
+            )
             active[env_id, logical_id] = True
             box_type_ids[env_id, logical_id] = type_id
             region_ids[env_id, logical_id] = cell.region_id
