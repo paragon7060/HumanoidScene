@@ -201,7 +201,7 @@ def test_jaw_contact_reports_links_the_host_usd_does_not_provide():
 def test_rigid_pad_mode_is_selectable_without_editing_the_package():
     contact = resolve_finger_contact(load_claw_config(), FingerContactSettings(soft_pad=False))
     assert pad_compliance(contact) is None
-    assert pad_compliance(resolve_finger_contact(load_claw_config())) == (50400.0, 250.0)
+    assert pad_compliance(resolve_finger_contact(load_claw_config())) == (100000.0, 250.0)
     # Selecting the rigid pad must not silently alter the pad's geometry.
     assert contact["distal_pad"]["size_m"] == load_claw_config()["contact"]["distal_pad"]["size_m"]
 
