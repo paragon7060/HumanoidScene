@@ -52,6 +52,29 @@ def _termination_snapshot(env) -> tuple[dict[str, torch.Tensor], torch.Tensor, t
     return terms, terminated, truncated
 
 
+def _reset_settling_metrics(env) -> dict[str, int]:
+    """Expose cumulative reset rejection causes without coupling SAC to Isaac types."""
+    settling = getattr(env, "_multi_box_reset_settling", None)
+    if settling is None:
+        return {}
+    result = {
+        "reset_ready_envs": int(settling.ready.sum().item()),
+        "reset_settling_envs": int((~settling.ready & ~settling.invalid).sum().item()),
+    }
+    for metric, attribute in (
+        ("reset_invalid_total", "invalid_count"),
+        ("reset_region_invalid_total", "region_invalid_count"),
+        ("reset_footprint_invalid_total", "footprint_invalid_count"),
+        ("reset_shelf_invalid_total", "shelf_invalid_count"),
+        ("reset_timeout_invalid_total", "timeout_invalid_count"),
+        ("reset_nonfinite_invalid_total", "nonfinite_invalid_count"),
+    ):
+        value = getattr(settling, attribute, None)
+        if value is not None:
+            result[metric] = int(value.sum().item())
+    return result
+
+
 def train(env, args, directory, state=None):
     observations, _ = env.reset(seed=args.seed)
     actor_obs = observations["policy"]
@@ -252,6 +275,7 @@ def train(env, args, directory, state=None):
             f"termination/{name}": count
             for name, count in termination_counts.items()
         })
+        metrics.update(_reset_settling_metrics(env))
         if str(env.device).startswith("cuda"):
             metrics.update(
                 torch_peak_allocated_mib=torch.cuda.max_memory_allocated() / 2**20,
@@ -259,5 +283,7 @@ def train(env, args, directory, state=None):
             )
         log_metrics(directory, iteration, metrics)
         if iteration % args.save_interval == 0 or iteration == start + args.max_iterations:
-            save_checkpoint(directory, agent.checkpoint(), iteration, args.keep_checkpoints)
+            keep = None if getattr(args, "external_checkpoint_retention", False) \
+                else args.keep_checkpoints
+            save_checkpoint(directory, agent.checkpoint(), iteration, keep)
     return agent

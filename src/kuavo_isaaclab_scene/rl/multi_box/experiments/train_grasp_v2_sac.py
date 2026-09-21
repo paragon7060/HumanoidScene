@@ -84,6 +84,10 @@ def main() -> None:
     parser.add_argument("--save-interval", type=int, default=50)
     parser.add_argument("--keep-checkpoints", type=int, default=2)
     parser.add_argument(
+        "--external-checkpoint-retention", action="store_true",
+        help="Leave checkpoint deletion to the checksum-verifying Drive backup worker.",
+    )
+    parser.add_argument(
         "--self-collision",
         action=argparse.BooleanOptionalAction,
         default=True,

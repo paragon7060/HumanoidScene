@@ -11,6 +11,7 @@ from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import (
 )
 from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
 from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import (
+    _reset_settling_metrics,
     _reward_breakdown,
     _termination_snapshot,
 )
@@ -135,6 +136,31 @@ def test_v2_terminal_snapshot_separates_failures_from_timeout():
     assert set(terms) == {"success", "unsafe", "time_out"}
     assert terminated.tolist() == [True, True, False]
     assert truncated.tolist() == [False, False, True]
+
+
+def test_v2_reset_settling_metrics_expose_rejection_causes():
+    settling = SimpleNamespace(
+        ready=torch.tensor([True, False, False]),
+        invalid=torch.tensor([False, True, False]),
+        invalid_count=torch.tensor([0, 2, 0]),
+        region_invalid_count=torch.tensor([0, 2, 0]),
+        footprint_invalid_count=torch.tensor([0, 1, 0]),
+        shelf_invalid_count=torch.tensor([0, 2, 0]),
+        timeout_invalid_count=torch.tensor([0, 0, 0]),
+        nonfinite_invalid_count=torch.tensor([0, 1, 0]),
+    )
+    metrics = _reset_settling_metrics(SimpleNamespace(
+        _multi_box_reset_settling=settling))
+    assert metrics == {
+        "reset_ready_envs": 1,
+        "reset_settling_envs": 1,
+        "reset_invalid_total": 2,
+        "reset_region_invalid_total": 2,
+        "reset_footprint_invalid_total": 1,
+        "reset_shelf_invalid_total": 2,
+        "reset_timeout_invalid_total": 0,
+        "reset_nonfinite_invalid_total": 1,
+    }
 
 
 def test_v2_sac_pilot_profile_is_bounded_but_performs_updates():

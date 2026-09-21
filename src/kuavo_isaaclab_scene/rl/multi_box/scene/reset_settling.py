@@ -53,6 +53,7 @@ class IsaacResetSettling:
         self.footprint_invalid_count = torch.zeros_like(self.invalid_count)
         self.shelf_invalid_count = torch.zeros_like(self.invalid_count)
         self.timeout_invalid_count = torch.zeros_like(self.invalid_count)
+        self.nonfinite_invalid_count = torch.zeros_like(self.invalid_count)
         self.last_invalid_logical_id = torch.full(
             (n,), -1, dtype=torch.long, device=self.device)
         self.last_invalid_type_id = torch.full_like(self.last_invalid_logical_id, -1)
@@ -209,6 +210,7 @@ class IsaacResetSettling:
             self.shelf_invalid_count += (
                 newly_invalid & ~self.on_assigned_shelf).to(torch.long)
             self.timeout_invalid_count += (newly_invalid & timed_out).to(torch.long)
+            self.nonfinite_invalid_count += (newly_invalid & ~finite).to(torch.long)
             if bool(newly_invalid.any()):
                 ids = newly_invalid.nonzero(as_tuple=False).flatten()
                 self.last_invalid_logical_id[ids] = logical[ids]

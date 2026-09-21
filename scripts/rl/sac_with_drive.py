@@ -16,7 +16,11 @@ from train_with_drive import archive, supervise, add_action_space_argument
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiment-dir", type=Path)
-    parser.add_argument("--experiment", choices=("flap-pick", "mobile-flap-pick"), default="flap-pick")
+    parser.add_argument(
+        "--experiment",
+        choices=("flap-pick", "mobile-flap-pick", "multi-box-v2-grasp"),
+        default="flap-pick",
+    )
     parser.add_argument("--robot-model", choices=("s200062", "s63", "s56"), default="s200062")
     parser.add_argument("--gripper", help="Model-compatible gripper preset; omitted uses the model default")
     add_action_space_argument(parser)
@@ -34,6 +38,10 @@ def main():
     parser.add_argument("--replay-capacity", type=int, default=1000000)
     parser.add_argument("--replay-device", choices=("cpu", "cuda:0"), default="cuda:0")
     parser.add_argument("--save-interval", type=int, default=2)
+    parser.add_argument(
+        "--self-collision", action=argparse.BooleanOptionalAction, default=True,
+        help="Multi-box v2 only: enable the reviewed URDF/FCL self-collision check.",
+    )
     parser.add_argument("--remote-root", default=os.environ.get(
         "RL_DRIVE_REMOTE_ROOT", "gdrive:HumanoidScene-RL"))
     parser.add_argument("--gpu-limit-mib", type=int, default=34816)
@@ -49,8 +57,12 @@ def main():
     if args.checkpoint and not args.checkpoint.is_file():
         parser.error("Missing checkpoint")
     source = args.source_root.resolve()
-    launcher = source / "scripts/rl" / ("mobile_flap_pick.sh" if args.experiment == "mobile-flap-pick"
-                                       else "flap_pick.sh")
+    launcher_name = {
+        "flap-pick": "flap_pick.sh",
+        "mobile-flap-pick": "mobile_flap_pick.sh",
+        "multi-box-v2-grasp": "multi_box.sh",
+    }[args.experiment]
+    launcher = source / "scripts/rl" / launcher_name
     if not launcher.is_file():
         parser.error(f"Missing experiment launcher: {launcher}")
     parent = (args.experiment_dir or ROOT / "artifacts/rl/drive_runs" /
@@ -60,12 +72,17 @@ def main():
     environment.update(CUDA_VISIBLE_DEVICES=str(args.gpu), OMNI_KIT_ACCEPT_EULA="YES", OMP_NUM_THREADS="8",
                        ISAACLAB_PYTHON=str(Path.home() / "miniconda3/envs/env_isaaclab_232/bin/python"),
                        PYTHONPATH=str(source / "src"))
-    command = ["bash", str(launcher), "sac", "--external-checkpoint-retention"]
+    mode = "grasp-v2-sac" if args.experiment == "multi-box-v2-grasp" else "sac"
+    command = ["bash", str(launcher), mode, "--external-checkpoint-retention"]
     command.extend(("--robot-model", args.robot_model))
     if args.gripper:
         command.extend(("--gripper", args.gripper))
+    if args.action_space and args.experiment == "multi-box-v2-grasp":
+        parser.error("Multi-box v2 grasp requires its fixed all-joints action contract")
     if args.action_space:
         command.extend(("--action-space", args.action_space))
+    if args.experiment == "multi-box-v2-grasp":
+        command.append("--self-collision" if args.self_collision else "--no-self-collision")
     for name in ("num_envs", "max_iterations", "rollout_steps", "batch_size", "updates_per_step",
                  "learning_starts", "warmup_vector_steps", "replay_capacity", "replay_device", "save_interval"):
         command.extend(("--" + name.replace("_", "-"), str(getattr(args, name))))
