@@ -12,6 +12,7 @@ from kuavo_isaaclab_scene.rl.multi_box.success import (
 )
 from kuavo_isaaclab_scene.rl.multi_box.geometry.rack import box_shelf_clearance_m
 from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_probe import QuestGraspProbe
+from kuavo_isaaclab_scene.rl.multi_box.debug.contact_force import maximum_filtered_force
 from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import logical_cells
 from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
 from kuavo_isaaclab_scene.workcell.rack_box_layout import BOX_DIMENSIONS_M
@@ -27,6 +28,28 @@ def _contacts():
         region[0, hand, flap] = True
         opposed[0, hand, flap] = True
     return FingerFlapContacts(force, region, opposed, torch.ones(1, dtype=torch.bool))
+
+
+def test_filtered_rack_force_takes_the_maximum_over_links_and_contacts():
+    scene = {
+        "rack_0": SimpleNamespace(data=SimpleNamespace(
+            force_matrix_w=torch.tensor([
+                [[[3.0, 4.0, 0.0]]],
+                [[[0.0, 0.0, 0.0]]],
+            ]),
+        )),
+        "rack_1": SimpleNamespace(data=SimpleNamespace(
+            force_matrix_w=torch.tensor([
+                [[[0.0, 0.0, 12.0]]],
+                [[[0.0, 8.0, 0.0]]],
+            ]),
+        )),
+    }
+    env = SimpleNamespace(scene=scene, num_envs=2)
+    torch.testing.assert_close(
+        maximum_filtered_force(env, ("rack_0", "rack_1")),
+        torch.tensor([12.0, 8.0]),
+    )
 
 
 def test_each_hand_must_have_two_valid_jaws_on_one_flap():

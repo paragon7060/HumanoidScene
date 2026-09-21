@@ -11,7 +11,11 @@ from isaaclab.managers import RewardTermCfg as RewardTerm
 from isaaclab.managers import TerminationTermCfg as Done
 from isaaclab.utils import configclass
 
-from ..debug.contact_sensors import V2_OBSTACLE_SENSOR_NAME
+from ..debug.contact_sensors import (
+    V2_OBSTACLE_SENSOR_NAME,
+    V2_RACK_SENSOR_NAMES,
+)
+from ..debug.contact_force import maximum_filtered_force
 from ..rewards import CommonRewardInput, GraspRewardInput, MultiBoxRewardModel
 from ..success import SkillTerminationInput, low_level_termination
 from ..state.isaac_privileged_grasp import (
@@ -22,18 +26,21 @@ from ..state.isaac_privileged_grasp import (
 
 @dataclass(frozen=True)
 class V2GraspSafetyStep:
+    robot_rack_collision: torch.Tensor
     obstacle_collision: torch.Tensor
     workspace_limit: torch.Tensor
     box_drop: torch.Tensor
     box_lift_limit: torch.Tensor
     box_speed_limit: torch.Tensor
     base_distance_m: torch.Tensor
+    rack_force_n: torch.Tensor
     obstacle_force_n: torch.Tensor
 
     @property
     def unsafe(self) -> torch.Tensor:
         return (
-            self.obstacle_collision
+            self.robot_rack_collision
+            | self.obstacle_collision
             | self.workspace_limit
             | self.box_drop
             | self.box_lift_limit
@@ -63,11 +70,17 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
     if force is None or force.shape[0] != env.num_envs:
         raise RuntimeError("V2 obstacle contact forces are unavailable.")
     obstacle_force = force.norm(dim=-1).amax(dim=-1)
+    rack_force = maximum_filtered_force(env, V2_RACK_SENSOR_NAMES)
     # Ignore import/reset snap impulses for three control steps. Subsequent
     # rack, conveyor, box, or floor contact by arm/torso links is terminal.
     grace_over = env.episode_length_buf > 3
+    threshold = float(env.cfg.task.obstacle_contact_force)
+    robot_rack_collision = (rack_force > threshold) & grace_over
+    # The aggregate sensor also contains rack contacts. Attribute a step to
+    # the more specific rack event first so one physical collision does not
+    # receive both common penalties.
     obstacle_collision = (
-        obstacle_force > float(env.cfg.task.obstacle_contact_force)) & grace_over
+        (obstacle_force > threshold) & grace_over & ~robot_rack_collision)
 
     base_offset = env.scene["robot"].data.root_pos_w - env.scene.env_origins
     base_distance = base_offset[:, :2].norm(dim=-1)
@@ -86,12 +99,14 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
         > float(env.cfg.multi_box.max_box_angular_speed)
     )
     result = V2GraspSafetyStep(
+        robot_rack_collision=robot_rack_collision,
         obstacle_collision=obstacle_collision,
         workspace_limit=workspace_limit,
         box_drop=box_drop,
         box_lift_limit=box_lift_limit,
         box_speed_limit=box_speed_limit,
         base_distance_m=base_distance,
+        rack_force_n=rack_force,
         obstacle_force_n=obstacle_force,
     )
     env._multi_box_grasp_safety_step = result
@@ -185,7 +200,7 @@ class V2GraspReward(ManagerTermBase):
             # the same physics step; do not pay success on a failed terminal.
             success_event=grasp.success_event & ~safety.unsafe,
             common=CommonRewardInput(
-                robot_rack_collision_event=false,
+                robot_rack_collision_event=safety.robot_rack_collision,
                 self_collision_event=false,
                 box_drop_event=box_failure,
                 obstacle_collision_event=safety.obstacle_collision,

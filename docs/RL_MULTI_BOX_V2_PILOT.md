@@ -39,7 +39,9 @@ only when backup is needed.
 
 ## Terminal contract
 
-Grasp success terminates without bootstrap. Obstacle contact above 20 N,
+Grasp success terminates without bootstrap. Robot-to-rack structural or roller contact
+above 20 N is recorded as `robot_rack_collision`; other aggregate obstacle
+contact above 20 N is recorded separately. Either event, together with a
 workspace radius above 1.5 m, box drop, excessive lift, or excessive linear or
 angular box speed terminates as unsafe. If success and unsafe occur on the same
 step, unsafe wins and no success bonus is paid. Timeouts are truncated and may

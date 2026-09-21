@@ -15,10 +15,11 @@ from kuavo_isaaclab_scene.rl.multi_box.rewards import (
 )
 
 
-def common(n=2, *, drop=False, workspace=False):
+def common(n=2, *, rack=False, drop=False, workspace=False):
     no = torch.zeros(n, dtype=torch.bool)
     zero = torch.zeros(n)
-    return CommonRewardInput(no, no, torch.full((n,), drop, dtype=torch.bool), no,
+    return CommonRewardInput(torch.full((n,), rack, dtype=torch.bool), no,
+                             torch.full((n,), drop, dtype=torch.bool), no,
                              torch.full((n,), workspace, dtype=torch.bool),
                              zero, zero, zero)
 
@@ -67,6 +68,18 @@ def test_workspace_hard_limit_has_a_terminal_scale_penalty():
         safe.terms["workspace_limit"] - outside.terms["workspace_limit"],
         torch.full((2,), model.weights.common.workspace_limit),
     )
+
+
+def test_robot_rack_collision_uses_its_dedicated_penalty():
+    model = MultiBoxRewardModel()
+    safe = model.grasp(replace(grasp(events=False), common=common()))
+    rack = model.grasp(replace(
+        grasp(events=False), common=common(rack=True)))
+    torch.testing.assert_close(
+        safe.terms["robot_rack_collision"] - rack.terms["robot_rack_collision"],
+        torch.full((2,), model.weights.common.robot_rack_collision),
+    )
+    assert rack.terms["obstacle_collision"].eq(0).all()
 
 
 def test_static_potential_cannot_produce_repeated_positive_reward():

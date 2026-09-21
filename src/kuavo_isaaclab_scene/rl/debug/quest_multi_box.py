@@ -27,7 +27,11 @@ from ..multi_box.debug.isaac_metrics import IsaacMultiBoxMetricAdapter
 from ..multi_box.debug.grasp_probe import QuestGraspProbe
 from ..multi_box.debug.carry_probe import QuestCarryProbe
 from ..multi_box.debug.place_probe import QuestPlaceProbe
-from ..multi_box.debug.contact_sensors import V2_OBSTACLE_SENSOR_NAME
+from ..multi_box.debug.contact_sensors import (
+    V2_OBSTACLE_SENSOR_NAME,
+    V2_RACK_SENSOR_NAMES,
+)
+from ..multi_box.debug.contact_force import maximum_filtered_force
 from ..multi_box.rewards import CommonRewardInput
 from ..multi_box.scene.spawn import BOX_TYPE_IDS
 from ..multi_box.teleop_env_cfg import build_quest_multi_box_cfg
@@ -71,10 +75,16 @@ def _common_reward_input(env, snapshot, previous: dict[str, bool]):
     obstacle_force = env.scene[V2_OBSTACLE_SENSOR_NAME].data.net_forces_w
     if obstacle_force is None:
         raise RuntimeError("VR reward calibration requires obstacle contact forces.")
+    threshold = float(env.cfg.task.obstacle_contact_force)
+    rack_force = maximum_filtered_force(env, V2_RACK_SENSOR_NAMES)
+    robot_rack = bool(
+        env.episode_length_buf[0] > 3
+        and rack_force[0].item() > threshold
+    )
     obstacle = bool(
         env.episode_length_buf[0] > 3
-        and obstacle_force.norm(dim=-1).amax().item()
-        > float(env.cfg.task.obstacle_contact_force)
+        and obstacle_force.norm(dim=-1).amax().item() > threshold
+        and not robot_rack
     )
     root = env.scene["robot"].data.root_pos_w[0]
     radius = torch.linalg.vector_norm(
@@ -97,6 +107,7 @@ def _common_reward_input(env, snapshot, previous: dict[str, bool]):
     )
     current = {
         "box_drop": box_failure,
+        "robot_rack_collision": robot_rack,
         "obstacle_collision": obstacle,
         "workspace_limit": workspace,
     }
@@ -111,7 +122,7 @@ def _common_reward_input(env, snapshot, previous: dict[str, bool]):
         previous[name] = value
     false = _event_tensor(False, env)
     return CommonRewardInput(
-        robot_rack_collision_event=false,
+        robot_rack_collision_event=pulses["robot_rack_collision"],
         self_collision_event=false.clone(),
         box_drop_event=pulses["box_drop"],
         obstacle_collision_event=pulses["obstacle_collision"],
@@ -531,8 +542,10 @@ def run(args, app):
                                 place_probe_result.result.axis_parallel[0].item()),
                             "place_probe_still": bool(
                                 place_probe_result.result.motion_stable[0].item()),
-                            "collision": previous_safety_events.get(
-                                "obstacle_collision", False),
+                            "collision": (
+                                previous_safety_events.get("robot_rack_collision", False)
+                                or previous_safety_events.get("obstacle_collision", False)
+                            ),
                             **{
                                 f"reward_{reward_phase}_{name}": bool(value[0].item())
                                 for reward_phase, phase_events in reward_events.items()
