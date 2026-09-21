@@ -170,6 +170,7 @@ def test_user_pose_packaged_copy_and_all_36_joints():
 
 @pytest.mark.parametrize("name,model,gripper,count,urdf", [
     ("s63_leju_ready_01", "s63", "leju-twofinger", 20, "kuavo_s63_twofinger/urdf/kuavo_s63_twofinger.urdf"),
+    ("s63_leju_vr_collect_01", "s63", "leju-twofinger", 20, "kuavo_s63_twofinger/urdf/kuavo_s63_twofinger.urdf"),
     ("s56_twofinger_ready_01", "s56", "s56_twofinger", 29, "kuavo_s56/urdf/kuavo_s56_twofinger.urdf"),
 ])
 def test_prepared_states_are_separate_and_within_their_urdf_limits(name, model, gripper, count, urdf):
@@ -177,9 +178,11 @@ def test_prepared_states_are_separate_and_within_their_urdf_limits(name, model, 
     from kuavo_isaaclab_scene.core.paths import ASSET_DIR
     state = load_initial_state(name, robot_model=model, gripper=gripper)
     robot = state["assets"]["robot"]
-    if model == "s63":
+    if name == "s63_leju_ready_01":
         old = load_initial_state("quest_ready_02")["assets"]["robot"]
         assert robot["root_pose"] == old["root_pose"]
+    elif name == "s63_leju_vr_collect_01":
+        assert robot["root_pose"] == [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
     else:
         assert "root_pose" not in robot
     assert len(robot["joint_positions"]) == count
@@ -228,3 +231,25 @@ def test_s63_reproduces_saved_s200062_torso_pose_despite_mounting_offsets():
     actual = torso_pose(ASSET_DIR / "kuavo_s63_twofinger/urdf/kuavo_s63_twofinger.urdf", new)
     np.testing.assert_allclose(actual, wanted, atol=1e-10, rtol=0)
     assert new["zarm_l4_joint"] == new["zarm_r4_joint"] == -.65
+
+    requested = load_initial_state(
+        "s63_leju_vr_collect_01", robot_model="s63", gripper="leju-twofinger"
+    )["assets"]["robot"]
+    values = requested["joint_positions"]
+    actual = torso_pose(
+        ASSET_DIR / "kuavo_s63_twofinger/urdf/kuavo_s63_twofinger.urdf", values
+    )
+    np.testing.assert_allclose(actual[:3, 3], [0.0, 0.0, 1.30], atol=1e-12, rtol=0)
+    np.testing.assert_allclose(actual[:3, :3], np.eye(3), atol=1e-12, rtol=0)
+    np.testing.assert_allclose(
+        np.degrees([values[f"zarm_l{i}_joint"] for i in range(1, 8)]),
+        [14.0, 0.0, 0.0, -37.0, 0.0, 0.0, 22.5], atol=1e-12, rtol=0,
+    )
+    np.testing.assert_allclose(
+        np.degrees([values[f"zarm_r{i}_joint"] for i in range(1, 8)]),
+        [14.5, 0.0, 0.0, -37.0, 0.0, 0.0, 23.0], atol=1e-12, rtol=0,
+    )
+    np.testing.assert_allclose(
+        np.degrees([values["zhead_1_joint"], values["zhead_2_joint"]]),
+        [1.0, 3.0], atol=1e-12, rtol=0,
+    )

@@ -17,6 +17,16 @@ from kuavo_isaaclab_scene.teleop.self_collision import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _s63_named_state_q(model, name):
+    state = json.loads(
+        (ROOT / "src/kuavo_isaaclab_scene/configs/initial_states.json").read_text()
+    )
+    initial = dict(state["states"][name]["assets"]["robot"]["joint_positions"])
+    gripper = load_gripper_settings("leju-twofinger")
+    initial.update(gripper.command_for_all_sides(gripper.default_joint_pos))
+    return np.asarray([initial.get(joint, 0.0) for joint in model.names])
+
+
 @pytest.fixture(scope="module")
 def robot():
     cfg = resolve_robot_model("s200062")
@@ -40,12 +50,7 @@ def s63_robot():
     cfg = resolve_robot_model("s63", "leju-twofinger")
     policy = resolve_self_collision_policy("s63", "leju-twofinger", True)
     model = RobotCollisionModel(cfg.urdf_path, policy)
-    state = json.loads((ROOT / "src/kuavo_isaaclab_scene/configs/initial_states.json").read_text())
-    initial = dict(state["states"]["s63_leju_ready_01"]["assets"]["robot"]["joint_positions"])
-    gripper = load_gripper_settings("leju-twofinger")
-    initial.update(gripper.command_for_all_sides(gripper.default_joint_pos))
-    q = np.asarray([initial.get(name, 0.0) for name in model.names])
-    return model, q
+    return model, _s63_named_state_q(model, "s63_leju_ready_01")
 
 
 def test_whole_robot_coverage_and_exclusion_scope(robot):
@@ -103,6 +108,14 @@ def test_s63_leju_whole_robot_geometry_and_forbidden_pairs(s63_robot):
         assert frozenset((a, b)) in pairs
     assert frozenset(("l_f_finger", "l_b_finger")) not in pairs
     assert all(reason for _, _, reason in model.exclusions)
+
+
+def test_s63_vr_collection_initial_pose_keeps_reviewed_clearance(s63_robot):
+    model, _ = s63_robot
+    q = _s63_named_state_q(model, "s63_leju_vr_collect_01")
+    distances, _ = model.distances(q, 0.003)
+    nearest = int(np.argmin(distances))
+    assert distances[nearest] >= 0.003, model.pair_name(nearest)
 
 
 @pytest.mark.parametrize("grip", np.linspace(0.0, 0.25, 11))

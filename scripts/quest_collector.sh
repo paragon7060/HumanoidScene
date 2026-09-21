@@ -76,6 +76,7 @@ case "${COMMAND}" in
       esac
     done
     REWARD_DEBUG_DEFAULTS=()
+    INITIAL_STATE_DEFAULTS=()
     if [[ "${RL_REWARD_DEBUG_MODE}" == "1" || "${RL_REWARD_DEBUG_MODE}" == "2" ]]; then
       REWARD_DEBUG_DEFAULTS=(
         --controller-mapping absolute
@@ -90,6 +91,8 @@ case "${COMMAND}" in
         --no-rl-obstacle-collision
         --arm-orientation-weight 0.5
       )
+    elif [[ -z "${RL_REWARD_DEBUG_MODE}" ]]; then
+      INITIAL_STATE_DEFAULTS=(--initial-state s63_leju_vr_collect_01)
     fi
     printf '%s\n' '[START] Connect Quest to the Runtime first; this command starts Isaac Sim and records only after an explicit start.'
     exec bash "${PROJECT_DIR}/scripts/collect_quest_teleop.sh" \
@@ -98,5 +101,5 @@ case "${COMMAND}" in
       --no-desktop-render --no-camera-preview --no-head-camera --wrist-cameras --no-record-depth \
       --controller-mapping scaled --position-gain 1.1 --dataset-format hdf5 \
       --max-episodes 0 --episode-seconds 0 --no-auto-start \
-      "${REWARD_DEBUG_DEFAULTS[@]}" "$@" ;;
+      "${INITIAL_STATE_DEFAULTS[@]}" "${REWARD_DEBUG_DEFAULTS[@]}" "$@" ;;
 esac

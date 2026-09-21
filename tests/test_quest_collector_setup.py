@@ -142,11 +142,21 @@ def test_wrapper_defaults_without_launching_simulator(tmp_path):
     assert "--no-auto-start" in lines
     assert "--no-desktop-render" in lines
     assert "--no-head-camera" in lines
+    initial = lines.index("--initial-state")
+    assert lines[initial:initial + 2] == ["--initial-state", "s63_leju_vr_collect_01"]
     assert lines[-3:] == ["--dataset-format", "both", "--desktop-render"]
+
+
+def test_wrapper_initial_state_can_be_overridden(tmp_path):
+    lines = run_collector_wrapper(
+        tmp_path, "--initial-state", "s63_leju_ready_01"
+    )
+    assert lines[-2:] == ["--initial-state", "s63_leju_ready_01"]
 
 
 def test_wrapper_reward_debug_one_applies_collection_preset(tmp_path):
     lines = run_collector_wrapper(tmp_path, "--rl-reward-debug", "1")
+    assert "--initial-state" not in lines
     preset = [
         "--controller-mapping", "absolute",
         "--absolute-orientation", "downward",
@@ -184,6 +194,7 @@ def test_wrapper_reward_debug_preset_allows_explicit_overrides(tmp_path):
 
 def test_wrapper_reward_debug_two_inherits_whole_body_preset_with_rollers(tmp_path):
     lines = run_collector_wrapper(tmp_path, "--rl-reward-debug", "2")
+    assert "--initial-state" not in lines
     preset = [
         "--controller-mapping", "absolute",
         "--absolute-orientation", "downward",
@@ -232,3 +243,13 @@ def test_direct_quest_teleop_imports_body_joints_used_during_startup():
         if isinstance(node, ast.ImportFrom) and node.module == "teleop_body"
     )
     assert "BODY_JOINTS" in {alias.name for alias in body_import.names}
+
+
+def test_direct_quest_teleop_applies_and_records_named_initial_state():
+    source = (
+        Path(__file__).parents[1]
+        / "src/kuavo_isaaclab_scene/teleop/collect_quest_teleop.py"
+    ).read_text()
+    assert "initial_state_metadata = configure_initial_state(cfg, args_cli)" in source
+    assert '"initial_state_name"' in source
+    assert '"initial_state": initial_state_metadata or {}' in source

@@ -199,6 +199,10 @@ openssl x509 -in "$CLOUDXR_CERTIFICATE" -noout -dates -fingerprint -sha256
 
 이 명령부터 실제 Isaac Sim이 실행된다. 기본은 S63 + leju-twofinger, controllers, CPU physics/IK,
 30Hz 제어 설정, compact scene, XR 배율 1.0, 양쪽 wrist RGB, head/depth OFF, HDF5다.
+기본 초기 상태는 `configs/initial_states.json`의 `s63_leju_vr_collect_01`이다. 이 preset은
+양팔 14/14.5°, elbow -37°, wrist 22.5/23°, head yaw/pitch 1/3°와
+`waist_yaw_link`의 x/y/z 0/0/1.30 m, pitch/yaw 0°를 저장한다. reset에도 같은 상태가
+다시 적용되며 HDF5 episode metadata에 preset 이름과 전체 값이 기록된다.
 PC desktop observer는 OFF이고 camera annotator에 필요한 최소 160×90 render만 유지한다.
 별도 PC camera preview도 OFF다. head RGB가 데이터셋에 필요할 때만 `--head-camera`를
 추가한다. 최초 EULA가 나타나면
@@ -207,6 +211,18 @@ PC desktop observer는 OFF이고 camera annotator에 필요한 최소 160×90 re
 `[XR] OpenXR session and display are active.`와 양팔/head tracking을 확인한다.
 preview 시뮬레이터와 동시에 돌리면 GPU/입력 혼동이 생길 수 있으므로 첫 검증은
 수집기만 실행한다. 이 실행기는 다른 앱을 자동 종료하지 않는다.
+
+다른 저장 자세는 이름으로 선택한다. wrapper 기본 옵션보다 사용자가 뒤에 적은 값이 우선한다.
+
+```bash
+./quest_collector.sh collect --initial-state s63_leju_ready_01
+./quest_collector.sh collect \
+  --initial-state custom_pose \
+  --initial-states-file /absolute/path/to/initial_states.json
+```
+
+각 preset은 `robot_model`과 `gripper`가 현재 선택과 일치해야 한다. RL reward debug는 자체 RL
+초기 상태를 사용하므로 이 두 옵션을 받지 않는다.
 
 ### 시작할 때 다른 scene 설정 선택
 

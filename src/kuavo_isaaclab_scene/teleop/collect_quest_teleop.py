@@ -24,6 +24,7 @@ from ..robots.gripper_config import (
 )
 from ..robots.claw_assets.package import default_close_force_n
 from ..robots.robot_model import add_robot_model_cli_args, export_robot_model_cli, resolve_robot_model
+from ..robots.initial_states import add_initial_state_args, configure_initial_state
 from ..recording.teleop_recorder import new_session_path
 from ..core.paths import CONFIG_DIR
 from ..workcell.rack_rollers import add_rack_roller_cli_args, export_rack_roller_cli
@@ -278,6 +279,7 @@ add_robot_model_cli_args(parser)
 add_gripper_cli_args(parser)
 add_rack_roller_cli_args(parser)
 add_base_drive_cli_args(parser)
+add_initial_state_args(parser)
 AppLauncher.add_app_launcher_args(parser)
 parser.set_defaults(device="cpu")
 args_cli = parser.parse_args()
@@ -308,6 +310,8 @@ if args_cli.rl_reward_debug is None and (
 ):
     parser.error("RL collision/grasp/contact options require --rl-reward-debug.")
 if args_cli.rl_reward_debug is not None:
+    if args_cli.initial_state is not None or args_cli.initial_states_file is not None:
+        parser.error("Reward inspection selects its RL initial state; omit --initial-state/--initial-states-file.")
     if (args_cli.input_mode != "controllers" or args_cli.hand_switch
             or args_cli.controller_mapping not in {"scaled", "absolute", "relative"}):
         parser.error("--rl-reward-debug uses controller input; omit --hand-switch.")
@@ -568,6 +572,7 @@ def main() -> None:
     # PhysX tensor views. Editing stage topology after env.reset invalidates them.
     from .teleop_scene_config import apply_scene_config
     extra_recording_objects = apply_scene_config(args_cli.scene_config, cfg)
+    initial_state_metadata = configure_initial_state(cfg, args_cli)
     if args_cli.self_collision:
         from .self_collision import resolve_self_collision_policy
         collision_policy = resolve_self_collision_policy(
@@ -587,13 +592,21 @@ def main() -> None:
     from kuavo_isaaclab_scene.robots.end_effector import center_offset
     for side, arm in urdf_arms.items():
         arm.set_tool_offset(center_offset(side))
-    use_ready_pose = args_cli.arm_start_pose == "ready" or (
-        args_cli.arm_start_pose == "auto" and use_urdf_ik and args_cli.scene_config is None)
+    use_ready_pose = initial_state_metadata is None and (
+        args_cli.arm_start_pose == "ready" or (
+            args_cli.arm_start_pose == "auto" and use_urdf_ik and args_cli.scene_config is None
+        )
+    )
     if use_ready_pose:
         for arm in urdf_arms.values():
             cfg.scene.robot.init_state.joint_pos.update(dict(zip(arm.names, arm.ready_pose().tolist())))
+    initial_arm_label = (
+        f"named state {initial_state_metadata['name']}"
+        if initial_state_metadata is not None
+        else "URDF ready" if use_ready_pose else "scene (preserved)"
+    )
     print(f"[URDF IK] solver={'urdf' if use_urdf_ik else 'legacy'}; "
-          f"initial arms={'URDF ready' if use_ready_pose else 'scene (preserved)'}", flush=True)
+          f"initial arms={initial_arm_label}", flush=True)
 
     env = ManagerBasedRLEnv(cfg=cfg)
     env.reset(seed=args_cli.seed)
@@ -1251,6 +1264,11 @@ def main() -> None:
                 episode_name = recorder.start_episode(
                     {
                         "seed": args_cli.seed,
+                        "initial_state_name": (
+                            initial_state_metadata["name"]
+                            if initial_state_metadata is not None else "scene-default"
+                        ),
+                        "initial_state": initial_state_metadata or {},
                         "endeffector_frame": eef_frames.definition or {"center_frame": "original_urdf_eef"},
                         "input_mode": active_mode,
                         "arm_control": ("scaled_hand_pose_v1" if active_mode == "hands"
@@ -1270,7 +1288,11 @@ def main() -> None:
                         "self_collision_joint_names": collision_guard.model.names if collision_guard is not None else [],
                         "self_collision_exclusions": collision_guard.model.exclusions if collision_guard is not None else [],
                         "arm_urdf": robot_model.urdf_path if use_urdf_ik else "",
-                        "arm_start_pose": "urdf_ready" if use_ready_pose else "scene",
+                        "arm_start_pose": (
+                            f"initial_state:{initial_state_metadata['name']}"
+                            if initial_state_metadata is not None
+                            else "urdf_ready" if use_ready_pose else "scene"
+                        ),
                         "arm_reference_joint_positions": ({side: env.action_manager.get_term(f"{side}_arm")._urdf_rest.tolist()
                                                            for side in urdf_arms} if use_urdf_ik else {}),
                         "arm_response": vars(arm_response_profile(args_cli.arm_response, args_cli.controller_mapping, active_mode)),
