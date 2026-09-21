@@ -193,10 +193,16 @@ def main() -> None:
                 "terminal_contract": {
                     "success": "exact_grasp_success",
                     "unsafe": [
+                        "robot_rack_collision", "self_collision",
                         "obstacle_collision", "workspace_limit", "box_drop",
                         "box_lift_limit", "box_speed_limit",
                     ],
                     "timeouts_bootstrap": True,
+                },
+                "self_collision": {
+                    "backend": "reviewed_urdf_fcl",
+                    "clearance_m": float(cfg.multi_box.self_collision_clearance),
+                    "actor_observation": False,
                 },
             }
             (directory / "manifest.json").write_text(

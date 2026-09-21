@@ -14,7 +14,7 @@ from ..geometry.pose import quat_apply, quat_conjugate
 from ..state.isaac_deployable import IsaacDeployableStateAdapter
 
 
-GRASP_PRIVILEGED_DIM = 64
+GRASP_PRIVILEGED_DIM = 66
 
 
 class DeployableActorObservation(ManagerTermBase):
@@ -103,9 +103,12 @@ class PrivilegedGraspObservation(ManagerTermBase):
                 (safety.rack_force_n / float(env.cfg.task.obstacle_contact_force)).clamp(0, 4),
                 (safety.obstacle_force_n / float(env.cfg.task.obstacle_contact_force)).clamp(0, 4),
                 (safety.base_distance_m / float(env.cfg.multi_box.workspace_radius)).clamp(0, 2),
+                (safety.self_collision_distance_m
+                 / float(env.cfg.multi_box.self_collision_clearance)).clamp(-1, 4),
             ), dim=-1),
             torch.stack((
                 safety.robot_rack_collision,
+                safety.self_collision,
                 safety.obstacle_collision,
                 safety.workspace_limit,
                 safety.box_drop,

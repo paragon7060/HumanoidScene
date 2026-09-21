@@ -82,6 +82,7 @@ class MultiBoxSpec:
     max_box_linear_speed: float = 10.0
     max_box_angular_speed: float = 100.0
     workspace_radius: float = 1.5
+    self_collision_clearance: float = 0.003
     collision_constraints_enabled: bool = True
 
     @property
@@ -161,9 +162,12 @@ class MultiBoxSpec:
             raise ValueError(f"{self.skill} starts from a fresh randomized rack scene.")
 
         safety = (self.max_box_lift_height, self.max_box_linear_speed,
-                  self.max_box_angular_speed, self.workspace_radius)
+                  self.max_box_angular_speed, self.workspace_radius,
+                  self.self_collision_clearance)
         if not all(math.isfinite(value) and value > 0 for value in safety):
             raise ValueError("Simulator safety limits must be finite and positive.")
+        if self.self_collision_clearance >= 0.04:
+            raise ValueError("Self-collision clearance must be below the 4 cm influence range.")
 
         if self.episode_seconds is not None and (
                 not math.isfinite(self.episode_seconds) or self.episode_seconds <= 0):

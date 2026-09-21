@@ -27,6 +27,7 @@ from ..state.isaac_privileged_grasp import (
 @dataclass(frozen=True)
 class V2GraspSafetyStep:
     robot_rack_collision: torch.Tensor
+    self_collision: torch.Tensor
     obstacle_collision: torch.Tensor
     workspace_limit: torch.Tensor
     box_drop: torch.Tensor
@@ -35,11 +36,13 @@ class V2GraspSafetyStep:
     base_distance_m: torch.Tensor
     rack_force_n: torch.Tensor
     obstacle_force_n: torch.Tensor
+    self_collision_distance_m: torch.Tensor
 
     @property
     def unsafe(self) -> torch.Tensor:
         return (
             self.robot_rack_collision
+            | self.self_collision
             | self.obstacle_collision
             | self.workspace_limit
             | self.box_drop
@@ -76,6 +79,12 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
     grace_over = env.episode_length_buf > 3
     threshold = float(env.cfg.task.obstacle_contact_force)
     robot_rack_collision = (rack_force > threshold) & grace_over
+
+    if getattr(env, "_multi_box_self_collision", None) is None:
+        from ..state.isaac_self_collision import IsaacSelfCollisionAdapter
+        env._multi_box_self_collision = IsaacSelfCollisionAdapter(env)
+    self_collision_step = env._multi_box_self_collision.measure()
+    self_collision = self_collision_step.collision & grace_over
     # The aggregate sensor also contains rack contacts. Attribute a step to
     # the more specific rack event first so one physical collision does not
     # receive both common penalties.
@@ -100,6 +109,7 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
     )
     result = V2GraspSafetyStep(
         robot_rack_collision=robot_rack_collision,
+        self_collision=self_collision,
         obstacle_collision=obstacle_collision,
         workspace_limit=workspace_limit,
         box_drop=box_drop,
@@ -108,6 +118,7 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
         base_distance_m=base_distance,
         rack_force_n=rack_force,
         obstacle_force_n=obstacle_force,
+        self_collision_distance_m=self_collision_step.minimum_distance_m,
     )
     env._multi_box_grasp_safety_step = result
     env._multi_box_grasp_safety_counter = counter
@@ -184,7 +195,6 @@ class V2GraspReward(ManagerTermBase):
             env.action_manager.action - env.action_manager.prev_action
         ).square().mean(-1).clamp(0, 1)
         joint_limit = mdp.joint_pos_limits(env).clamp(0, 1)
-        false = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
         box_failure = safety.box_drop | safety.box_lift_limit | safety.box_speed_limit
         breakdown = self.model.grasp(GraspRewardInput(
             previous_approach=previous["approach"],
@@ -201,7 +211,7 @@ class V2GraspReward(ManagerTermBase):
             success_event=grasp.success_event & ~safety.unsafe,
             common=CommonRewardInput(
                 robot_rack_collision_event=safety.robot_rack_collision,
-                self_collision_event=false,
+                self_collision_event=safety.self_collision,
                 box_drop_event=box_failure,
                 obstacle_collision_event=safety.obstacle_collision,
                 workspace_limit_event=safety.workspace_limit,
