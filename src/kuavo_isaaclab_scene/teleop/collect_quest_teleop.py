@@ -457,7 +457,7 @@ from ..envs.teleop_env import (
 )
 from .teleop_mapping import (AbsoluteControllerMapper, ScaledControllerMapper, BimanualTeleopMapper, TeleopMappingCfg,
                              _quat_multiply, _quat_conjugate, _quat_to_pitch_yaw)
-from .teleop_body import BODY_ACTION_NAMES, TeleopBodyMapper, controller_axis
+from .teleop_body import BODY_ACTION_NAMES, BODY_JOINTS, TeleopBodyMapper, controller_axis
 from .teleop_servo import arm_response_profile
 from .urdf_arm_ik import UrdfArm
 from .teleop_hand_mode import (HandModeSwitch, HandCommands, HandGripper, HandTrackingGuard,

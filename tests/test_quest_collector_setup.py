@@ -1,3 +1,4 @@
+import ast
 import importlib.util
 import io
 from pathlib import Path
@@ -218,3 +219,16 @@ def test_direct_quest_teleop_holds_the_nonzero_reset_torso_pose():
     assert "robot.data.joint_pos[0, body_joint_ids]" in source
     # One definition-time synchronization and one synchronization after env.reset().
     assert source.count("reset_body_mapper_from_robot()") >= 3
+
+
+def test_direct_quest_teleop_imports_body_joints_used_during_startup():
+    source = (
+        Path(__file__).parents[1]
+        / "src/kuavo_isaaclab_scene/teleop/collect_quest_teleop.py"
+    ).read_text()
+    tree = ast.parse(source)
+    body_import = next(
+        node for node in tree.body
+        if isinstance(node, ast.ImportFrom) and node.module == "teleop_body"
+    )
+    assert "BODY_JOINTS" in {alias.name for alias in body_import.names}
