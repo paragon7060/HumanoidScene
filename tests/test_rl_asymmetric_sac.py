@@ -200,6 +200,28 @@ def test_v2_initial_reset_settling_uses_zero_actions_until_every_env_is_ready():
     assert all(torch.equal(action, torch.zeros(2, 3)) for action in env.actions)
 
 
+def test_v2_initial_reset_settling_can_start_with_ready_majority():
+    class Environment:
+        num_envs = 10
+        step_dt = 0.1
+        cfg = SimpleNamespace(multi_box=SimpleNamespace(
+            reset_settle_timeout_seconds=0.1))
+        action_manager = SimpleNamespace(action=torch.ones(10, 3))
+        _multi_box_reset_settling = SimpleNamespace(
+            ready=torch.tensor([True] * 9 + [False]),
+            invalid=torch.zeros(10, dtype=torch.bool),
+        )
+
+        def step(self, action):
+            assert torch.equal(action, torch.zeros(10, 3))
+            return {"policy": torch.zeros(10, 1)}, None, None, None, None
+
+    observations, steps = _settle_initial_resets(
+        Environment(), {"policy": torch.ones(10, 1)})
+    assert steps == 4
+    assert torch.equal(observations["policy"], torch.zeros(10, 1))
+
+
 def test_v2_sac_pilot_profile_is_bounded_but_performs_updates():
     args = SimpleNamespace(
         smoke_test=False, pilot=True, num_envs=4096, max_iterations=2000,

@@ -82,9 +82,9 @@ def _settle_initial_resets(env, observations):
     if settling is None:
         raise RuntimeError("V2 asymmetric SAC requires reset-settling state")
     timeout = float(env.cfg.multi_box.reset_settle_timeout_seconds)
-    # The first spawn can be rejected while roller articulations snap to their
-    # joints.  Two additional timeout windows cover its partial respawn and
-    # stable-hold interval without allowing an unbounded startup loop.
+    # The first articulated-box teleport can be rejected even without rollers.
+    # Two additional timeout windows cover its partial respawn and stable-hold
+    # interval without allowing an unbounded startup loop.
     max_steps = max(1, math.ceil(3.0 * timeout / float(env.step_dt)))
     zero_action = torch.zeros_like(env.action_manager.action)
     for step in range(max_steps + 1):
@@ -95,8 +95,22 @@ def _settle_initial_resets(env, observations):
         with torch.no_grad():
             observations, _, _, _, _ = env.step(zero_action)
     metrics = _reset_settling_metrics(env)
-    raise RuntimeError(
-        f"Initial v2 reset settling did not finish in {max_steps} steps: {metrics}")
+    # A few spawn regions may need further respawns.  The rollout already
+    # excludes unready rows from replay and normalizers, so do not block the
+    # ready majority on the slowest reset.  Still fail if startup is broadly
+    # unhealthy, which would otherwise waste a long run on invalid samples.
+    minimum_ready = math.ceil(0.9 * env.num_envs)
+    if metrics["reset_ready_envs"] < minimum_ready:
+        raise RuntimeError(
+            f"Initial v2 reset settling left too few ready environments "
+            f"after {max_steps} steps (minimum {minimum_ready}): {metrics}")
+    print(
+        f"[V2 SAC] Initial settling reached {metrics['reset_ready_envs']}/"
+        f"{env.num_envs} ready envs after {max_steps} steps; remaining rows "
+        "will be excluded until their reset is accepted.",
+        flush=True,
+    )
+    return observations, max_steps
 
 
 def train(env, args, directory, state=None):

@@ -55,7 +55,8 @@ class MultiBoxGraspAssemblyEnvCfg(ManagerBasedRLEnvCfg):
         render_interval=4,
         physx=PhysxCfg(
             gpu_max_rigid_contact_count=2**22,
-            gpu_max_rigid_patch_count=2**20,
+            # 1664 roller environments exceeded 2**20 patches during reset.
+            gpu_max_rigid_patch_count=2**21,
         ),
     )
     prepared_state_name: str = ""
