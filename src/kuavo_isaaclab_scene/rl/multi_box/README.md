@@ -82,10 +82,12 @@ boundary currently covers:
 - the staged grasp reward manager now consumes those privileged tensors using
   the approved potential/event weights, applies base-motion, action-rate and
   joint-limit costs, and terminates on exact grasp success. Arm/torso obstacle
-  contact above 0.1 N, a dropped/unstable box, excessive box lift/speed, and a
+  contact above 5 N, a dropped/unstable box, excessive box lift/speed, and a
   base position beyond the 1.5 m workspace are hard failures. Structural rack
-  and roller contact have their own filtered `robot_rack_collision` input and penalty;
-  simultaneous aggregate contact is not charged a second time as an obstacle.
+  and roller contact have their own filtered `robot_rack_collision` input and penalty
+  above 10 N. Their force is removed from the aggregate signal before testing
+  other obstacles (including boxes, conveyor, and floor) at 5 N, so simultaneous
+  rack and non-rack contacts are evaluated independently.
 - randomized resets use the measured front box-root reference and box-footprint
   spacing, including the roller deck's 1 cm support height.  Full-task scenes
   pack every region's selected boxes into a contiguous front-to-back queue

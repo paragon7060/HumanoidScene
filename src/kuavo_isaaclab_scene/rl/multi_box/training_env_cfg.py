@@ -36,7 +36,7 @@ class MultiBoxGraspAssemblyEnvCfg(ManagerBasedRLEnvCfg):
     task: TaskSpec = TaskSpec(
         name="pick_place", control_mode="whole-body", active_arm="both",
         action_space="all-joints", grasp_mode="flap_top", episode_length_s=30.0,
-        obstacle_contact_force=0.1,
+        obstacle_contact_force=5.0,
     )
     scene = None
     num_envs: int = 64

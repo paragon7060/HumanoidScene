@@ -82,6 +82,7 @@ class MultiBoxSpec:
     max_box_linear_speed: float = 10.0
     max_box_angular_speed: float = 100.0
     workspace_radius: float = 1.5
+    rack_contact_force: float = 10.0
     self_collision_clearance: float = 0.003
     self_collision_enabled: bool = True
     collision_constraints_enabled: bool = True
@@ -174,7 +175,7 @@ class MultiBoxSpec:
 
         safety = (self.max_box_lift_height, self.max_box_linear_speed,
                   self.max_box_angular_speed, self.workspace_radius,
-                  self.self_collision_clearance)
+                  self.rack_contact_force, self.self_collision_clearance)
         if not all(math.isfinite(value) and value > 0 for value in safety):
             raise ValueError("Simulator safety limits must be finite and positive.")
         if self.self_collision_clearance >= 0.04:
