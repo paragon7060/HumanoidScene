@@ -209,6 +209,14 @@ def main() -> None:
                 "terminal_contract": {
                     "success": "exact_grasp_success",
                     "invalid_reset": "partial_respawn_excluded_from_replay",
+                    "safety_thresholds": {
+                        "rack_contact_force_n": float(cfg.multi_box.rack_contact_force),
+                        "obstacle_contact_force_n": float(cfg.task.obstacle_contact_force),
+                        "workspace_radius_m": float(cfg.multi_box.workspace_radius),
+                        "max_box_lift_height_m": float(cfg.multi_box.max_box_lift_height),
+                        "max_box_linear_speed_mps": float(cfg.multi_box.max_box_linear_speed),
+                        "max_box_angular_speed_radps": float(cfg.multi_box.max_box_angular_speed),
+                    },
                     "unsafe": [
                         "robot_rack_collision",
                         *(["self_collision"] if args.self_collision else []),

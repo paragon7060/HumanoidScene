@@ -13,6 +13,55 @@ from ..multi_box.rewards import MultiBoxRewardWeights
 from .storage import log_metrics, save_checkpoint
 
 
+_SAFETY_CAUSES = (
+    "robot_rack_collision", "obstacle_collision", "workspace_limit",
+    "box_drop", "box_lift_limit", "box_speed_limit", "self_collision",
+)
+_CONTACT_FORCE_LIMITS_N = (0.1, 5.0, 10.0, 20.0)
+
+
+class _SafetyDiagnostics:
+    """Count exact failure predicates and contact-force bands per iteration."""
+
+    def __init__(self, device):
+        self.causes = torch.zeros(len(_SAFETY_CAUSES), dtype=torch.long, device=device)
+        self.overlap = torch.zeros((), dtype=torch.long, device=device)
+        self.unattributed = torch.zeros((), dtype=torch.long, device=device)
+        self.eligible = torch.zeros((), dtype=torch.long, device=device)
+        self.force_limits = torch.tensor(_CONTACT_FORCE_LIMITS_N, device=device)
+        self.force_bands = torch.zeros(2, len(_CONTACT_FORCE_LIMITS_N), dtype=torch.long, device=device)
+        self.force_max = torch.zeros(2, device=device)
+
+    def record(self, safety, unsafe):
+        causes = torch.stack([getattr(safety, name) & unsafe for name in _SAFETY_CAUSES])
+        self.causes += causes.sum(-1)
+        count = causes.sum(0)
+        self.overlap += ((count > 1) & unsafe).sum()
+        self.unattributed += ((count == 0) & unsafe).sum()
+        eligible = safety.contact_eligible
+        self.eligible += eligible.sum()
+        for index, force in enumerate((safety.rack_force_n, safety.obstacle_force_n)):
+            self.force_bands[index] += ((force[:, None] > self.force_limits) & eligible[:, None]).sum(0)
+            finite_force = torch.nan_to_num(force, nan=0.0, posinf=1e6, neginf=0.0).clamp(0, 1e6)
+            self.force_max[index] = torch.maximum(
+                self.force_max[index], torch.where(eligible, finite_force, 0.0).max())
+
+    def report(self) -> dict[str, int | float]:
+        metrics = {
+            f"unsafe_cause/{name}": int(value)
+            for name, value in zip(_SAFETY_CAUSES, self.causes.tolist(), strict=True)
+        }
+        metrics["unsafe_cause/overlap"] = int(self.overlap.item())
+        metrics["unsafe_cause/unattributed"] = int(self.unattributed.item())
+        metrics["contact_force/eligible_samples"] = int(self.eligible.item())
+        for index, family in enumerate(("rack", "obstacle")):
+            metrics[f"contact_force/{family}_max_n"] = float(self.force_max[index].item())
+            for threshold, count in zip(_CONTACT_FORCE_LIMITS_N, self.force_bands[index].tolist(), strict=True):
+                label = str(threshold).replace(".", "p")
+                metrics[f"contact_force/{family}_gt_{label}_n"] = int(count)
+        return metrics
+
+
 def _critic_state(observations: dict[str, torch.Tensor]) -> torch.Tensor:
     """RSL parity: critic receives deployable policy plus privileged features."""
     return torch.cat((observations["policy"], observations["critic"]), dim=-1)
@@ -166,6 +215,7 @@ def train(env, args, directory, state=None):
         iteration_valid = iteration_warmup = 0
         terminated_episodes = timeout_episodes = 0
         termination_counts: dict[str, int] = {}
+        safety_diagnostics = _SafetyDiagnostics(env.device)
         for _ in range(args.rollout_steps):
             with torch.no_grad():
                 reset_settling = getattr(env, "_multi_box_reset_settling", None)
@@ -204,6 +254,10 @@ def train(env, args, directory, state=None):
                 for name, value in termination_terms.items():
                     termination_counts[name] = termination_counts.get(name, 0) \
                         + int(value.sum().item())
+                safety = getattr(env, "_multi_box_grasp_safety_step", None)
+                if safety is None:
+                    raise RuntimeError("V2 SAC requires per-cause grasp safety measurements")
+                safety_diagnostics.record(safety, termination_terms["unsafe"])
                 terminal = info.get("transition_next_observations")
                 if terminal is None or "policy" not in terminal or "critic" not in terminal:
                     raise RuntimeError(
@@ -316,6 +370,7 @@ def train(env, args, directory, state=None):
             f"termination/{name}": count
             for name, count in termination_counts.items()
         })
+        metrics.update(safety_diagnostics.report())
         metrics.update(_reset_settling_metrics(env))
         if str(env.device).startswith("cuda"):
             metrics.update(

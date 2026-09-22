@@ -40,6 +40,7 @@ class V2GraspSafetyStep:
     box_drop: torch.Tensor
     box_lift_limit: torch.Tensor
     box_speed_limit: torch.Tensor
+    contact_eligible: torch.Tensor
     base_distance_m: torch.Tensor
     rack_force_n: torch.Tensor
     obstacle_force_n: torch.Tensor
@@ -146,6 +147,7 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
         box_drop=box_drop,
         box_lift_limit=box_lift_limit,
         box_speed_limit=box_speed_limit,
+        contact_eligible=grace_over,
         base_distance_m=base_distance,
         rack_force_n=rack_force,
         obstacle_force_n=obstacle_force,

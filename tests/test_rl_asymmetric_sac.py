@@ -11,6 +11,7 @@ from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import (
 )
 from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
 from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import (
+    _SafetyDiagnostics,
     _reset_settling_metrics,
     _reward_breakdown,
     _settle_initial_resets,
@@ -19,6 +20,32 @@ from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import (
 from kuavo_isaaclab_scene.rl.multi_box.experiments.train_grasp_v2_sac import (
     apply_run_profile,
 )
+
+
+def test_v2_safety_diagnostics_separates_unsafe_causes_and_force_bands():
+    monitor = _SafetyDiagnostics("cpu")
+    false = torch.zeros(3, dtype=torch.bool)
+    monitor.record(SimpleNamespace(
+        robot_rack_collision=torch.tensor([False, True, False]),
+        obstacle_collision=torch.tensor([False, True, False]),
+        workspace_limit=false, box_drop=torch.tensor([False, False, True]),
+        box_lift_limit=false, box_speed_limit=false, self_collision=false,
+        contact_eligible=torch.tensor([True, True, False]),
+        rack_force_n=torch.tensor([0.2, 12.0, 100.0]),
+        obstacle_force_n=torch.tensor([0.0, 6.0, 100.0]),
+    ), torch.tensor([False, True, True]))
+
+    result = monitor.report()
+    assert result["unsafe_cause/robot_rack_collision"] == 1
+    assert result["unsafe_cause/obstacle_collision"] == 1
+    assert result["unsafe_cause/box_drop"] == 1
+    assert result["unsafe_cause/overlap"] == 1
+    assert result["unsafe_cause/unattributed"] == 0
+    assert result["contact_force/eligible_samples"] == 2
+    assert result["contact_force/rack_gt_0p1_n"] == 2
+    assert result["contact_force/rack_gt_10p0_n"] == 1
+    assert result["contact_force/obstacle_gt_5p0_n"] == 1
+    assert result["contact_force/rack_max_n"] == 12.0
 
 
 def _batch(count=32):
