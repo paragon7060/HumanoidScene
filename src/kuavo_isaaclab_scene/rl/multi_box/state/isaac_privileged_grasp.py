@@ -19,7 +19,10 @@ from ..debug.contact_sensors import CONTACT_SENSOR_NAMES
 from ..geometry import relative_pose
 from ..geometry.pose import quat_apply
 from ..geometry.rack import box_shelf_clearance_m
-from ..metrics import GraspRawMetrics, MetricScaleConfig, grasp_reward_potentials
+from ..metrics import (
+    GRASP_APPROACH_REWARD_SCALE_M, GraspRawMetrics, MetricScaleConfig, grasp_reward_potentials,
+    opposing_flap_reach_assignment,
+)
 from ..scene.spawn import BOX_TYPE_IDS, physical_asset_names
 from ..scene.reset_settling import reset_settling_step
 from ..success import (
@@ -34,7 +37,6 @@ from ..success import (
 
 
 MIN_JAW_FORCE_N = 5.0
-GRASP_APPROACH_REWARD_SCALE_M = 1.0 / 12.0
 GRASP_CAPTURE_REWARD_SCALE_M = 0.10
 FLAP_NAMES = ("flap_right", "flap_left")
 FINGER_NAMES = ("l_f_finger", "l_b_finger", "r_f_finger", "r_b_finger")
@@ -302,13 +304,8 @@ class IsaacPrivilegedGraspAdapter:
         nearest = _closest_flap_surface(
             tcp_local, centers[:, None], halves[:, None], axes[:, None])
         distance = (tcp_local - nearest).norm(dim=-1)
-        direct = distance[:, 0, 0] + distance[:, 1, 1]
-        swapped = distance[:, 0, 1] + distance[:, 1, 0]
-        assignment = torch.where(
-            (direct <= swapped)[:, None],
-            torch.tensor((0, 1), device=self.device),
-            torch.tensor((1, 0), device=self.device),
-        )
+        _, assignment = opposing_flap_reach_assignment(
+            distance, self.reward_scale.grasp_approach_m)
         env_rows = torch.arange(self.num_envs, device=self.device)[:, None]
         hand_rows = torch.arange(2, device=self.device)[None]
         matched_distance = distance[env_rows, hand_rows, assignment]

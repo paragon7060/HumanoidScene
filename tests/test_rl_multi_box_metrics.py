@@ -19,6 +19,7 @@ from kuavo_isaaclab_scene.rl.multi_box.metrics import (
     grasp_gated_lift_inputs,
     grasp_potentials,
     grasp_reward_potentials,
+    opposing_flap_reach_assignment,
     place_potentials,
 )
 from kuavo_isaaclab_scene.rl.multi_box.rewards import RewardBreakdown
@@ -52,6 +53,24 @@ def test_grasp_reward_pays_each_hand_but_prefers_opposing_flaps():
         torch.full((4, 2), 0.02), torch.full((4, 2), 0.01), torch.zeros(4))
     assert values["approach"][1] > values["approach"][0]
     assert values["approach"][3] > values["approach"][2]
+
+
+def test_opposing_flap_reach_rewards_weaker_hand_without_same_flap_shortcut():
+    distances = torch.tensor([
+        [[0.0, 10.0], [10.0, 10.0]],  # Only the left hand reaches.
+        [[0.0, 10.0], [0.0, 10.0]],   # Both hands reach the same flap.
+        [[0.0, 10.0], [10.0, 0.0]],   # Both hands reach distinct flaps.
+        [[10.0, 0.0], [0.0, 10.0]],   # Swapped assignment also succeeds.
+    ])
+    reach, assignment = opposing_flap_reach_assignment(distances, 1.0 / 12.0)
+    torch.testing.assert_close(reach, torch.tensor([0.25, 0.25, 1.0, 1.0]),
+                               rtol=0, atol=1e-6)
+    assert assignment.tolist() == [[0, 1], [0, 1], [0, 1], [1, 0]]
+    matched = distances[torch.arange(4)[:, None], torch.arange(2)[None], assignment]
+    potentials = grasp_reward_potentials(
+        distances, matched, torch.ones(4, 2), torch.zeros(4, 2),
+        torch.full((4, 2), 0.02), torch.full((4, 2), 0.01), torch.zeros(4))
+    torch.testing.assert_close(potentials["approach"], reach)
 
 
 def test_grasp_reward_gap_preparation_and_premature_close():

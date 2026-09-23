@@ -7,12 +7,18 @@ from dataclasses import asdict, replace
 from datetime import datetime
 import fcntl
 import json
+import os
 from pathlib import Path
+import re
 import traceback
 from uuid import uuid4
 
 
-LOCK_PATH = Path("/tmp/kuavo_multi_box_v2_grasp_sac.lock")
+def _gpu_lock_path() -> Path:
+    """Allow separate physical GPUs while preventing duplicate runs on one GPU."""
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "unscoped")
+    identifier = re.sub(r"[^a-zA-Z0-9_-]", "_", visible)
+    return Path(f"/tmp/kuavo_multi_box_v2_grasp_sac_gpu_{identifier}.lock")
 
 
 def apply_run_profile(args) -> None:
@@ -138,7 +144,7 @@ def main() -> None:
     export_rack_roller_cli(args)
     export_base_drive_cli(args)
 
-    with LOCK_PATH.open("a") as lock:
+    with _gpu_lock_path().open("a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
@@ -216,7 +222,7 @@ def main() -> None:
                     "weights": asdict(MultiBoxRewardWeights()),
                     "approach_scale_m": GRASP_APPROACH_REWARD_SCALE_M,
                     "capture_scale_m": GRASP_CAPTURE_REWARD_SCALE_M,
-                    "geometry_profile": "per_hand_nearest_plus_opposing_gap_and_pinch_gated_lift_v1",
+                    "geometry_profile": "opposing_flap_weaker_hand_reach_and_pinch_gated_lift_v2",
                 },
                 "exploration": {
                     "min_alpha": args.min_alpha,

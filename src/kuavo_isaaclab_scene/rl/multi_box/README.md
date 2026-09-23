@@ -122,9 +122,11 @@ boundary currently covers:
   `contact_force/*` counts above 0.1, 5, 10, and 20 N for rack and remaining
   obstacles after the reset grace period. The run manifest preserves the actual
   safety thresholds so excessive termination conditions can be reviewed. The
-  grasp reward keeps the two-hand opposing-flap success test. Each hand gets
-  approach credit toward its nearest flap, while a distinct-flap assignment
-  provides the other half of approach shaping. Near-flap closing-axis alignment,
+  grasp reward keeps the two-hand opposing-flap success test. For each distinct-flap
+  assignment, the reach score is `0.25*(sL+sR)+0.5*min(sL,sR)`, with each
+  hand's score `s=exp(-distance/approach_scale)`. The best assignment wins:
+  one hand alone can earn at most 0.25, while both at their flaps earn 1.
+  Near-flap closing-axis alignment,
   jaw capture and calibrated tip gap provide further progress. A first one-hand
   pinch earns +2, opposing-hand pinch +1, and final success +5. Lift progress
   requires a continuous opposing-flap pinch; initial acquisition and loss rebase

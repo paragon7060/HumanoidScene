@@ -24,10 +24,12 @@ from ..geometry.rack import box_shelf_clearance_m
 from ..geometry.pad_distance import pad_to_boxes_clearance_m
 from ..metrics import (
     CarryRawMetrics,
+    GRASP_APPROACH_REWARD_SCALE_M,
     GraspRawMetrics,
     PlaceRawMetrics,
     carry_potentials,
     grasp_reward_potentials,
+    opposing_flap_reach_assignment,
     place_potentials,
 )
 from ..scene.spawn import BOX_TYPE_IDS, physical_asset_names
@@ -269,10 +271,9 @@ class IsaacMultiBoxMetricAdapter:
         nearest = _closest_box_surface(
             tcp_local, centers[None], halves[None], axes[None])
         distance = (tcp_local - nearest).norm(dim=-1)
-        direct_cost = distance[0, 0] + distance[1, 1]
-        swapped_cost = distance[0, 1] + distance[1, 0]
-        assignment = torch.tensor([0, 1] if direct_cost <= swapped_cost else [1, 0],
-                                  device=device, dtype=torch.long)
+        _, assignment = opposing_flap_reach_assignment(
+            distance[None], GRASP_APPROACH_REWARD_SCALE_M)
+        assignment = assignment[0]
         hands = torch.arange(2, device=device)
 
         normals_local = torch.nn.functional.one_hot(axes, 3).to(tcp.dtype)

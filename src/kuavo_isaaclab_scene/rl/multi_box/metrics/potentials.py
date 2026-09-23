@@ -12,6 +12,8 @@ import math
 
 import torch
 
+GRASP_APPROACH_REWARD_SCALE_M = 1.0 / 12.0
+
 
 @dataclass(frozen=True)
 class MetricScaleConfig:
@@ -109,10 +111,10 @@ def grasp_reward_potentials(
     flap_thickness_m: torch.Tensor,
     proof_lift_m: torch.Tensor,
     *,
-    approach_scale_m: float = 1.0 / 12.0,
+    approach_scale_m: float = GRASP_APPROACH_REWARD_SCALE_M,
     capture_scale_m: float = 0.10,
 ) -> dict[str, torch.Tensor]:
-    """V2 grasp shaping: independent hand progress plus opposing-flap coverage.
+    """V2 grasp shaping: reward both hands reaching different flaps.
 
     The gap score uses calibrated finger tips.  Its preparation factor keeps
     closing useful only after a hand approaches and straddles its flap.
@@ -127,13 +129,7 @@ def grasp_reward_potentials(
         raise ValueError("Grasp reward geometry needs [env, hand, flap] and [env, hand] tensors")
     if approach_scale_m <= 0 or capture_scale_m <= 0:
         raise ValueError("Grasp reward distance scales must be positive")
-    candidate_score = torch.exp(-candidate_distance_m.clamp_min(0) / approach_scale_m)
-    nearest = candidate_score.amax(-1).mean(-1)
-    distinct_distance = torch.minimum(
-        candidate_distance_m[:, 0, 0] + candidate_distance_m[:, 1, 1],
-        candidate_distance_m[:, 0, 1] + candidate_distance_m[:, 1, 0],
-    ) * 0.5
-    distinct = torch.exp(-distinct_distance.clamp_min(0) / approach_scale_m)
+    approach, _ = opposing_flap_reach_assignment(candidate_distance_m, approach_scale_m)
     alignment = jaw_alignment_cos.clamp(0, 1).square()
     near = (1.0 - matched_distance_m.clamp_min(0) / 0.10).clamp(0, 1)
     capture = torch.exp(-capture_error_m.clamp_min(0) / capture_scale_m)
@@ -148,7 +144,7 @@ def grasp_reward_potentials(
         (flap_thickness_m + open_clearance - jaw_gap_m) / open_clearance
     ).clamp(0, 1)
     return {
-        "approach": (nearest + distinct) * 0.5,
+        "approach": approach,
         "alignment": alignment.mean(-1),
         "alignment_proximity": near.mean(-1),
         "capture": capture.mean(-1),
@@ -156,6 +152,29 @@ def grasp_reward_potentials(
         "premature_close": premature_close.mean(-1),
         "proof_lift": (proof_lift_m / 0.008).clamp(0, 1),
     }
+
+
+def opposing_flap_reach_assignment(
+    candidate_distance_m: torch.Tensor, approach_scale_m: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Select the distinct-flap pairing with the best weaker-hand reach score."""
+    if candidate_distance_m.ndim != 3 or candidate_distance_m.shape[1:] != (2, 2):
+        raise ValueError("Candidate distances need [env, hand, flap] shape")
+    if approach_scale_m <= 0:
+        raise ValueError("Approach scale must be positive")
+    scores = torch.exp(-candidate_distance_m.clamp_min(0) / approach_scale_m)
+
+    def paired_score(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+        return 0.25 * (left + right) + 0.5 * torch.minimum(left, right)
+
+    direct = paired_score(scores[:, 0, 0], scores[:, 1, 1])
+    swapped = paired_score(scores[:, 0, 1], scores[:, 1, 0])
+    assignment = torch.where(
+        (direct >= swapped)[:, None],
+        torch.tensor((0, 1), device=scores.device),
+        torch.tensor((1, 0), device=scores.device),
+    )
+    return torch.maximum(direct, swapped), assignment
 
 
 def grasp_gated_lift_inputs(
