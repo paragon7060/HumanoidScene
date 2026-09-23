@@ -159,7 +159,10 @@ def main() -> None:
             from ....robots.robot_model import resolve_robot_model
             from ...envs.terminal_observation import TerminalObservationMixin
             from ..rewards import MultiBoxRewardWeights
-            from ..state.isaac_privileged_grasp import GRASP_CAPTURE_REWARD_SCALE_M
+            from ..state.isaac_privileged_grasp import (
+                GRASP_APPROACH_REWARD_SCALE_M,
+                GRASP_CAPTURE_REWARD_SCALE_M,
+            )
             from ..training_env_cfg import MultiBoxGraspAssemblyEnvCfg
 
             class TransitionEnv(TerminalObservationMixin, ManagerBasedRLEnv):
@@ -211,7 +214,9 @@ def main() -> None:
                 "discount": MultiBoxRewardWeights().discount,
                 "reward_profile": {
                     "weights": asdict(MultiBoxRewardWeights()),
+                    "approach_scale_m": GRASP_APPROACH_REWARD_SCALE_M,
                     "capture_scale_m": GRASP_CAPTURE_REWARD_SCALE_M,
+                    "geometry_profile": "per_hand_nearest_plus_opposing_gap_and_pinch_gated_lift_v1",
                 },
                 "exploration": {
                     "min_alpha": args.min_alpha,

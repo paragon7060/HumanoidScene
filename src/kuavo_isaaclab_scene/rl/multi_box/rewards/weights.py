@@ -27,13 +27,15 @@ class CommonWeights:
 class GraspWeights:
     base_motion: float = 0.0002
     action_rate: float = 0.0001
-    approach_progress: float = 0.80
-    alignment_progress: float = 0.40
+    approach_progress: float = 2.00
+    alignment_progress: float = 0.50
     capture_progress: float = 0.50
+    jaw_gap_progress: float = 0.30
+    premature_close: float = 0.002
     proof_lift_progress: float = 0.40
-    one_hand_pinch_event: float = 0.50
+    one_hand_pinch_event: float = 2.00
     bilateral_pinch_event: float = 1.00
-    success_event: float = 3.00
+    success_event: float = 5.00
 
 
 @dataclass(frozen=True)
@@ -91,7 +93,8 @@ class MultiBoxRewardWeights:
                 if not math.isfinite(value) or value < 0:
                     raise ValueError(f"Reward weight {field.name} must be finite and nonnegative.")
         grasp_dense = sum((self.grasp.approach_progress, self.grasp.alignment_progress,
-                           self.grasp.capture_progress, self.grasp.proof_lift_progress))
+                           self.grasp.capture_progress, self.grasp.jaw_gap_progress,
+                           self.grasp.proof_lift_progress))
         carry_dense = sum((self.carry.extraction_progress, self.carry.belt_progress,
                            self.carry.free_space_progress, self.carry.pre_place_height_progress))
         place_dense = sum((self.place.footprint_progress, self.place.alignment_progress,

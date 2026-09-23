@@ -90,7 +90,10 @@ class PrivilegedGraspObservation(ManagerTermBase):
             grasp.stable_hands.to(torch.float32),
             (grasp.rack_clearance_m / 0.008).clamp(-4, 4)[:, None],
             (success.hold_time_s / 0.25).clamp(0, 1)[:, None],
-            torch.stack(tuple(grasp.potentials.values()), dim=-1),
+            # Keep the critic observation contract stable when reward-only
+            # shaping diagnostics gain additional keys.
+            torch.stack(tuple(grasp.potentials[name] for name in (
+                "approach", "alignment", "capture", "proof_lift")), dim=-1),
             torch.stack((
                 success.bilateral_pinch,
                 success.opposing_flaps,

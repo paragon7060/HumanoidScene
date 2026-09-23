@@ -34,8 +34,12 @@ class GraspRewardInput:
     approach: torch.Tensor
     previous_alignment: torch.Tensor
     alignment: torch.Tensor
+    alignment_proximity: torch.Tensor
     previous_capture: torch.Tensor
     capture: torch.Tensor
+    previous_jaw_gap: torch.Tensor
+    jaw_gap: torch.Tensor
+    premature_close: torch.Tensor
     previous_proof_lift: torch.Tensor
     proof_lift: torch.Tensor
     one_hand_pinch_event: torch.Tensor
@@ -131,20 +135,32 @@ class MultiBoxRewardModel:
     def grasp(self, value: GraspRewardInput) -> RewardBreakdown:
         w, gamma = self.weights.grasp, self.weights.discount
         terms = self._common(value.common)
+        unsafe = (
+            value.common.robot_rack_collision_event
+            | value.common.self_collision_event
+            | value.common.box_drop_event
+            | value.common.obstacle_collision_event
+            | value.common.workspace_limit_event
+        )
         terms["base_motion"] = -w.base_motion * value.common.normalized_base_motion
         terms["action_rate"] = -w.action_rate * value.common.normalized_action_rate
         terms.update({
             "approach_progress": w.approach_progress * potential_progress(
                 value.previous_approach, value.approach, gamma),
-            "alignment_progress": w.alignment_progress * potential_progress(
-                value.previous_alignment, value.alignment, gamma),
+            "alignment_progress": w.alignment_progress * value.alignment_proximity * (
+                value.alignment - value.previous_alignment),
             "capture_progress": w.capture_progress * potential_progress(
                 value.previous_capture, value.capture, gamma),
+            "jaw_gap_progress": w.jaw_gap_progress * potential_progress(
+                value.previous_jaw_gap, value.jaw_gap, gamma),
+            "premature_close": -w.premature_close * value.premature_close,
             "proof_lift_progress": w.proof_lift_progress * potential_progress(
                 value.previous_proof_lift, value.proof_lift, gamma),
-            "one_hand_pinch_event": w.one_hand_pinch_event * _event(value.one_hand_pinch_event),
-            "bilateral_pinch_event": w.bilateral_pinch_event * _event(value.bilateral_pinch_event),
-            "success_event": w.success_event * _event(value.success_event),
+            "one_hand_pinch_event": w.one_hand_pinch_event * _event(
+                value.one_hand_pinch_event) * (~unsafe),
+            "bilateral_pinch_event": w.bilateral_pinch_event * _event(
+                value.bilateral_pinch_event) * (~unsafe),
+            "success_event": w.success_event * _event(value.success_event) * (~unsafe),
         })
         return _sum(terms)
 

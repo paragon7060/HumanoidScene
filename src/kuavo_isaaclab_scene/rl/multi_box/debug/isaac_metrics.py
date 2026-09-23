@@ -27,7 +27,7 @@ from ..metrics import (
     GraspRawMetrics,
     PlaceRawMetrics,
     carry_potentials,
-    grasp_potentials,
+    grasp_reward_potentials,
     place_potentials,
 )
 from ..scene.spawn import BOX_TYPE_IDS, physical_asset_names
@@ -249,7 +249,7 @@ class IsaacMultiBoxMetricAdapter:
             self.target_logical_id = active[(index + direction) % len(active)]
         return self.target_logical_id
 
-    def _grasp_metrics(self, pool_id: int, asset, box_pose: torch.Tensor) -> GraspRawMetrics:
+    def _grasp_metrics(self, pool_id: int, asset, box_pose: torch.Tensor):
         device = self.env.device
         flap_ids = self.flap_ids[pool_id]
         flap_pos = asset.data.body_link_pos_w[0, flap_ids]
@@ -278,11 +278,12 @@ class IsaacMultiBoxMetricAdapter:
         normals_local = torch.nn.functional.one_hot(axes, 3).to(tcp.dtype)
         normals_world = quat_apply(flap_quat, normals_local)
         assigned_normal = normals_world[assignment]
-        fingers = self.robot.data.body_link_pos_w[0, self.finger_ids].reshape(2, 2, 3)
+        fingers = (self.tcp.tips_w[0] if self.tcp.definition else
+                   self.robot.data.body_link_pos_w[0, self.finger_ids].reshape(2, 2, 3))
         closing = fingers[:, 0] - fingers[:, 1]
         closing = closing / closing.norm(dim=-1, keepdim=True).clamp_min(1e-6)
-        alignment_error = torch.acos(
-            (closing * assigned_normal).sum(-1).abs().clamp(0, 1)).mean().reshape(1)
+        alignment_cos = (closing * assigned_normal).sum(-1).abs().clamp(0, 1)
+        alignment_error = torch.acos(alignment_cos).mean().reshape(1)
 
         assigned_pose = torch.cat((flap_pos[assignment], flap_quat[assignment]), dim=-1)
         finger_pose = torch.cat((
@@ -300,15 +301,24 @@ class IsaacMultiBoxMetricAdapter:
         midpoint_delta = finger_local.mean(1) - assigned_center
         tangent_excess = (midpoint_delta.abs() - assigned_half).clamp_min(0)
         tangent_excess.scatter_(1, assigned_axis[:, None], 0.0)
-        capture_error = torch.sqrt(normal_outside.square() + tangent_excess.square().sum(-1)) \
-            .mean().reshape(1)
+        capture_by_hand = torch.sqrt(
+            normal_outside.square() + tangent_excess.square().sum(-1))
+        capture_error = capture_by_hand.mean().reshape(1)
+        jaw_gap = (signed[:, 0] - signed[:, 1]).abs()
+        thickness = 2.0 * assigned_half.gather(-1, assigned_axis[:, None]).squeeze(-1)
         proof_lift = (box_pose[2] - self.initial_box_z[self.target_logical_id]).reshape(1)
-        return GraspRawMetrics(
+        raw = GraspRawMetrics(
             matched_flap_distance_m=distance[hands, assignment].mean().reshape(1),
             jaw_alignment_error_rad=alignment_error,
             capture_error_m=capture_error,
             proof_lift_m=proof_lift,
         )
+        potentials = grasp_reward_potentials(
+            distance[None], distance[hands, assignment][None],
+            alignment_cos[None], capture_by_hand[None], jaw_gap[None],
+            thickness[None], proof_lift,
+        )
+        return raw, potentials
 
     def _all_active_footprints(self, belt_pose: torch.Tensor):
         result = {}
@@ -443,7 +453,7 @@ class IsaacMultiBoxMetricAdapter:
         region_id = int(self.env._multi_box_region_ids[0, logical_id].item())
         region = self.env.cfg.multi_box.region_names[region_id]
 
-        grasp = self._grasp_metrics(pool_id, asset, box_pose)
+        grasp, grasp_values = self._grasp_metrics(pool_id, asset, box_pose)
         footprints = self._all_active_footprints(belt_pose)
         corners, bottom_height = footprints[logical_id]
         other = [value[0] for other_id, value in footprints.items()
@@ -483,7 +493,7 @@ class IsaacMultiBoxMetricAdapter:
         )
         raw = {"grasp": grasp, "carry": carry, "place": place}
         potentials = {
-            "grasp": grasp_potentials(grasp),
+            "grasp": grasp_values,
             "carry": carry_potentials(carry),
             "place": place_potentials(place),
         }
@@ -509,6 +519,7 @@ class IsaacMultiBoxMetricAdapter:
         # A spawned box begins with a small shelf gap, so the proof lift also
         # requires 8 mm of motion above its own reset position.
         rack_clearance = torch.minimum(grasp.proof_lift_m, shelf_gap)
+        potentials["grasp"]["proof_lift"] = (rack_clearance / 0.008).clamp(0, 1)
         diagnostics["rack_shelf_gap_m"] = float(shelf_gap.item())
         diagnostics["rack_clearance_m"] = float(rack_clearance.item())
         return IsaacMetricSnapshot(

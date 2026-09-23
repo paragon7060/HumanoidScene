@@ -17,6 +17,7 @@ from ..debug.contact_sensors import (
     V2_RACK_SENSOR_NAMES,
 )
 from ..debug.contact_force import maximum_filtered_force, maximum_non_rack_force
+from ..metrics import grasp_gated_lift_inputs
 from ..rewards import (
     CommonRewardInput,
     GraspRewardInput,
@@ -210,14 +211,19 @@ class V2GraspReward(ManagerTermBase):
         self.model = MultiBoxRewardModel()
         self.previous = {
             name: torch.zeros(env.num_envs, device=env.device)
-            for name in ("approach", "alignment", "capture", "proof_lift")
+            for name in ("approach", "alignment", "capture", "jaw_gap", "proof_lift")
         }
         self.initialized = torch.zeros(
             env.num_envs, dtype=torch.bool, device=env.device)
+        self.previous_assignment = torch.full(
+            (env.num_envs, 2), -1, dtype=torch.long, device=env.device)
+        self.lift_armed = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
     def reset(self, env_ids=None) -> None:
         ids = slice(None) if env_ids is None else env_ids
         self.initialized[ids] = False
+        self.previous_assignment[ids] = -1
+        self.lift_armed[ids] = False
         for value in self.previous.values():
             value[ids] = 0.0
 
@@ -225,17 +231,26 @@ class V2GraspReward(ManagerTermBase):
         grasp = privileged_grasp_step(env)
         safety = grasp_safety_step(env)
         settling = reset_settling_step(env)
-        current = grasp.potentials
-        # Potential shaping pays no artificial reset bonus. Choosing gamma*Phi
-        # as the first previous value makes the first delta exactly zero.
+        current = dict(grasp.potentials)
+        bilateral_eligible = grasp.success.bilateral_pinch & grasp.success.opposing_flaps
+        lift_previous, current["proof_lift"] = grasp_gated_lift_inputs(
+            current["proof_lift"], self.previous["proof_lift"],
+            bilateral_eligible, self.lift_armed, self.model.weights.discount)
+        assignment_changed = (
+            grasp.assigned_flap_index != self.previous_assignment).any(-1)
+        # Rebase after reset or a flap-assignment switch so geometry changes
+        # cannot create artificial progress on the boundary step.
         previous = {
             name: torch.where(
-                self.initialized,
+                self.initialized
+                & (~assignment_changed if name in ("alignment", "capture", "jaw_gap") else True),
                 self.previous[name],
-                self.model.weights.discount * current[name],
+                (current[name] if name == "alignment"
+                 else self.model.weights.discount * current[name]),
             )
             for name in self.previous
         }
+        previous["proof_lift"] = lift_previous
         action_rate = (
             env.action_manager.action - env.action_manager.prev_action
         ).square().mean(-1).clamp(0, 1)
@@ -246,8 +261,12 @@ class V2GraspReward(ManagerTermBase):
             approach=current["approach"],
             previous_alignment=previous["alignment"],
             alignment=current["alignment"],
+            alignment_proximity=current["alignment_proximity"],
             previous_capture=previous["capture"],
             capture=current["capture"],
+            previous_jaw_gap=previous["jaw_gap"],
+            jaw_gap=current["jaw_gap"],
+            premature_close=current["premature_close"],
             previous_proof_lift=previous["proof_lift"],
             proof_lift=current["proof_lift"],
             one_hand_pinch_event=grasp.one_hand_pinch_event,
@@ -267,7 +286,10 @@ class V2GraspReward(ManagerTermBase):
             ),
         ))
         for name, value in current.items():
-            self.previous[name].copy_(value)
+            if name in self.previous:
+                self.previous[name].copy_(value)
+        self.previous_assignment.copy_(grasp.assigned_flap_index)
+        self.lift_armed.copy_(bilateral_eligible)
         self.initialized |= settling.ready
         trainable = settling.ready & ~settling.just_ready
         if not bool(trainable.all()):

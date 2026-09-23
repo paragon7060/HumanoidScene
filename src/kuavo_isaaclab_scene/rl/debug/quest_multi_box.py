@@ -138,6 +138,7 @@ def _phase_reward_events(env, grasp, carry, place, previous: dict[str, bool]):
     bilateral = bool((
         grasp.success.bilateral_pinch & grasp.success.opposing_flaps
     )[0].item())
+    one_hand = bool((grasp.pinch.hand_pinching.sum(-1) == 1)[0].item())
     grasp_success = bool(grasp.success.success[0].item())
     maintained = bool(carry.result.grasp_maintained[0].item())
     carry_success = bool(carry.result.success[0].item())
@@ -169,6 +170,8 @@ def _phase_reward_events(env, grasp, carry, place, previous: dict[str, bool]):
     false = _event_tensor(False, env)
     return {
         "grasp": {
+            "one_hand_pinch_event": once("one_hand", one_hand),
+            "bilateral_pinch_state": _event_tensor(bilateral, env),
             "bilateral_pinch_event": once("bilateral", bilateral),
             "success_event": once("grasp_success", grasp_success),
         },

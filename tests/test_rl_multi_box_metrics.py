@@ -16,7 +16,9 @@ from kuavo_isaaclab_scene.rl.multi_box.metrics import (
     GraspRawMetrics,
     PlaceRawMetrics,
     carry_potentials,
+    grasp_gated_lift_inputs,
     grasp_potentials,
+    grasp_reward_potentials,
     place_potentials,
 )
 from kuavo_isaaclab_scene.rl.multi_box.rewards import RewardBreakdown
@@ -34,6 +36,53 @@ def test_grasp_potentials_are_monotonic_and_proof_lift_is_bounded():
     assert values["alignment"][1] > values["alignment"][0]
     assert values["capture"][1] > values["capture"][0]
     assert values["proof_lift"].tolist() == [0.0, 1.0]
+
+
+def test_grasp_reward_pays_each_hand_but_prefers_opposing_flaps():
+    distances = torch.tensor([
+        [[0.30, 0.30], [0.30, 0.30]],
+        [[0.02, 0.30], [0.30, 0.30]],
+        [[0.02, 0.30], [0.03, 0.30]],
+        [[0.02, 0.30], [0.30, 0.03]],
+    ])
+    matched = torch.tensor([[0.30, 0.30], [0.02, 0.30],
+                            [0.02, 0.30], [0.02, 0.03]])
+    values = grasp_reward_potentials(
+        distances, matched, torch.ones(4, 2), torch.zeros(4, 2),
+        torch.full((4, 2), 0.02), torch.full((4, 2), 0.01), torch.zeros(4))
+    assert values["approach"][1] > values["approach"][0]
+    assert values["approach"][3] > values["approach"][2]
+
+
+def test_grasp_reward_gap_preparation_and_premature_close():
+    distance = torch.tensor([[[0.01, 0.30], [0.30, 0.01]]]).expand(4, -1, -1)
+    matched = torch.tensor([[0.01, 0.01], [0.01, 0.01],
+                            [0.30, 0.30], [0.01, 0.01]])
+    gap = torch.tensor([[0.02, 0.02], [0.08, 0.08],
+                        [0.005, 0.005], [0.005, 0.005]])
+    values = grasp_reward_potentials(
+        distance, matched, torch.ones(4, 2), torch.zeros(4, 2),
+        gap, torch.full((4, 2), 0.01), torch.zeros(4))
+    assert values["jaw_gap"][0] > values["jaw_gap"][1]
+    assert values["premature_close"][2] == 0
+    assert values["premature_close"][3] > values["premature_close"][0]
+
+
+def test_box_bounce_cannot_earn_lift_without_continuous_opposing_pinch():
+    gamma = 0.999
+    false = torch.tensor([False])
+    true = torch.tensor([True])
+    prior, current = grasp_gated_lift_inputs(
+        torch.tensor([1.0]), torch.tensor([0.0]), false, false, gamma)
+    torch.testing.assert_close(gamma * current - prior, torch.zeros(1))
+    prior, current = grasp_gated_lift_inputs(
+        torch.tensor([0.5]), torch.tensor([0.0]), true, false, gamma)
+    torch.testing.assert_close(gamma * current - prior, torch.zeros(1))
+    prior, current = grasp_gated_lift_inputs(
+        torch.tensor([1.0]), current, true, true, gamma)
+    assert (gamma * current - prior > 0).all()
+    prior, current = grasp_gated_lift_inputs(current, current, false, true, gamma)
+    torch.testing.assert_close(gamma * current - prior, torch.zeros(1))
 
 
 def test_carry_height_scores_interval_and_free_space_penalizes_overlap():
@@ -178,7 +227,7 @@ def test_pose_shadow_evaluator_calibrates_all_phases_and_real_event_pulses():
             "success_event": event,
         },
     })
-    assert results["grasp"].terms["success_event"].item() == 3.0
+    assert results["grasp"].terms["success_event"].item() == 5.0
     assert results["carry"].terms["success_event"].item() == 4.0
     assert results["place"].terms["success_event"].item() == 5.0
     # Initialization uses gamma*Phi as the previous value, matching the live

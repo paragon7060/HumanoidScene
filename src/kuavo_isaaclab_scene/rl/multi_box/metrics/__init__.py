@@ -6,7 +6,9 @@ from .potentials import (
     MetricScaleConfig,
     PlaceRawMetrics,
     carry_potentials,
+    grasp_gated_lift_inputs,
     grasp_potentials,
+    grasp_reward_potentials,
     place_potentials,
 )
 
@@ -16,6 +18,8 @@ __all__ = (
     "MetricScaleConfig",
     "PlaceRawMetrics",
     "carry_potentials",
+    "grasp_gated_lift_inputs",
     "grasp_potentials",
+    "grasp_reward_potentials",
     "place_potentials",
 )

@@ -28,8 +28,14 @@ def grasp(n=2, *, drop=False, events=True):
     zero, one = torch.zeros(n), torch.ones(n)
     event = torch.full((n,), events, dtype=torch.bool)
     return GraspRewardInput(
-        zero, one, zero, one, zero, one, zero, one,
-        event, event, event, common(n, drop=drop),
+        previous_approach=zero, approach=one,
+        previous_alignment=zero, alignment=one, alignment_proximity=one,
+        previous_capture=zero, capture=one,
+        previous_jaw_gap=zero, jaw_gap=one,
+        premature_close=zero,
+        previous_proof_lift=zero, proof_lift=one,
+        one_hand_pinch_event=event, bilateral_pinch_event=event,
+        success_event=event, common=common(n, drop=drop),
     )
 
 
@@ -39,7 +45,7 @@ def test_default_weight_hierarchy_keeps_success_and_failures_dominant():
     assert weights.discount == pytest.approx(0.999)
     assert weights.grasp.success_event > sum((weights.grasp.approach_progress,
         weights.grasp.alignment_progress, weights.grasp.capture_progress,
-        weights.grasp.proof_lift_progress))
+        weights.grasp.jaw_gap_progress, weights.grasp.proof_lift_progress))
     assert weights.carry.success_event > 2.5 - 1e-6
     assert weights.place.success_event > 3.0 - 1e-6
     assert weights.common.box_drop > weights.place.success_event
@@ -53,6 +59,9 @@ def test_grasp_success_is_positive_and_drop_outweighs_it():
     dropped = model.grasp(grasp(drop=True))
     assert (successful.total > 5).all()
     assert (dropped.total < 0).all()
+    assert dropped.terms["one_hand_pinch_event"].eq(0).all()
+    assert dropped.terms["bilateral_pinch_event"].eq(0).all()
+    assert dropped.terms["success_event"].eq(0).all()
     torch.testing.assert_close(
         successful.terms["box_drop"] - dropped.terms["box_drop"],
         torch.full((2,), 8.0),
@@ -63,9 +72,20 @@ def test_one_hand_pinch_gives_progress_without_declaring_success():
     model = MultiBoxRewardModel()
     value = replace(grasp(events=False), one_hand_pinch_event=torch.ones(2, dtype=torch.bool))
     result = model.grasp(value)
-    assert result.terms["one_hand_pinch_event"].eq(0.5).all()
+    assert result.terms["one_hand_pinch_event"].eq(2.0).all()
     assert result.terms["bilateral_pinch_event"].eq(0).all()
     assert result.terms["success_event"].eq(0).all()
+
+
+def test_alignment_only_pays_angle_improvement_near_flap():
+    model = MultiBoxRewardModel()
+    value = grasp(events=False)
+    far = model.grasp(replace(value, alignment_proximity=torch.zeros(2)))
+    near = model.grasp(value)
+    assert far.terms["alignment_progress"].eq(0).all()
+    assert near.terms["alignment_progress"].gt(0).all()
+    stationary = model.grasp(replace(value, previous_alignment=value.alignment))
+    assert stationary.terms["alignment_progress"].eq(0).all()
 
 
 def test_grasp_motion_costs_are_lower_than_other_skills():
@@ -110,6 +130,7 @@ def test_static_potential_cannot_produce_repeated_positive_reward():
         previous_approach=one, approach=one,
         previous_alignment=one, alignment=one,
         previous_capture=one, capture=one,
+        previous_jaw_gap=one, jaw_gap=one,
         previous_proof_lift=one, proof_lift=one)
     result = model.grasp(value)
     assert (result.total < 0).all()

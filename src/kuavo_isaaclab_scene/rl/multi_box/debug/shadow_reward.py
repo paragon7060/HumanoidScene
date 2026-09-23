@@ -10,6 +10,7 @@ from typing import Mapping
 
 import torch
 
+from ..metrics import grasp_gated_lift_inputs
 from ..rewards import (
     CarryRewardInput,
     CommonRewardInput,
@@ -147,6 +148,7 @@ class PoseShadowRewardEvaluator:
         self.model = model or MultiBoxRewardModel()
         self.phase = ""
         self.previous_by_phase: dict[str, dict[str, torch.Tensor]] = {}
+        self.lift_armed: torch.Tensor | None = None
         self.set_phase(phase)
 
     def set_phase(self, phase: str) -> None:
@@ -156,6 +158,7 @@ class PoseShadowRewardEvaluator:
 
     def reset(self) -> None:
         self.previous_by_phase.clear()
+        self.lift_armed = None
 
     @staticmethod
     def _common(reference: torch.Tensor) -> CommonRewardInput:
@@ -201,17 +204,31 @@ class PoseShadowRewardEvaluator:
             # Match the training reward manager: the first step after reset has
             # zero potential delta instead of an artificial reset bonus.
             previous = {
-                name: self.model.weights.discount * value.detach().clone()
+                name: (value.detach().clone() if phase == "grasp" and name == "alignment"
+                       else self.model.weights.discount * value.detach().clone())
                 for name, value in current.items()
             }
         reference = next(iter(current.values()))
         events = events or {}
         common = common or self._common(reference)
         if phase == "grasp":
+            if "bilateral_pinch_state" in events:
+                eligible = self._event(events, "bilateral_pinch_state", reference)
+                was_eligible = (self.lift_armed if self.lift_armed is not None
+                                else torch.zeros_like(eligible))
+                previous["proof_lift"], current["proof_lift"] = grasp_gated_lift_inputs(
+                    current["proof_lift"], previous["proof_lift"], eligible,
+                    was_eligible, self.model.weights.discount)
+                self.lift_armed = eligible.detach().clone()
             result = self.model.grasp(GraspRewardInput(
                 previous_approach=previous["approach"], approach=current["approach"],
                 previous_alignment=previous["alignment"], alignment=current["alignment"],
+                alignment_proximity=current.get(
+                    "alignment_proximity", torch.ones_like(reference)),
                 previous_capture=previous["capture"], capture=current["capture"],
+                previous_jaw_gap=previous.get("jaw_gap", torch.zeros_like(reference)),
+                jaw_gap=current.get("jaw_gap", torch.zeros_like(reference)),
+                premature_close=current.get("premature_close", torch.zeros_like(reference)),
                 previous_proof_lift=previous["proof_lift"], proof_lift=current["proof_lift"],
                 one_hand_pinch_event=self._event(
                     events, "one_hand_pinch_event", reference),

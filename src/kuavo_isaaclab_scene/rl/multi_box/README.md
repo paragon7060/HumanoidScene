@@ -122,14 +122,20 @@ boundary currently covers:
   `contact_force/*` counts above 0.1, 5, 10, and 20 N for rack and remaining
   obstacles after the reset grace period. The run manifest preserves the actual
   safety thresholds so excessive termination conditions can be reviewed. The
-  grasp reward keeps the two-hand opposing-flap success test and adds a one-time
-  +0.5 reward when exactly one hand first pinches a flap. Grasp-only base and
-  action-rate costs are 0.0002 and 0.0001; approach, alignment, and capture
-  progress weights are 0.8, 0.4, and 0.5. Capture shaping uses a 0.10 m scale.
+  grasp reward keeps the two-hand opposing-flap success test. Each hand gets
+  approach credit toward its nearest flap, while a distinct-flap assignment
+  provides the other half of approach shaping. Near-flap closing-axis alignment,
+  jaw capture and calibrated tip gap provide further progress. A first one-hand
+  pinch earns +2, opposing-hand pinch +1, and final success +5. Lift progress
+  requires a continuous opposing-flap pinch; initial acquisition and loss rebase
+  the lift potential, so a bouncing ungrasped box earns no lift reward. Grasp
+  approach/alignment/capture/gap/lift weights are 2/0.5/0.5/0.3/0.4.
+  Premature closing costs at most 0.002 per control step. Grasp-only base and
+  action-rate costs remain 0.0002 and 0.0001.
   V2 SAC holds each random warmup action for four control steps and keeps
   entropy coefficient alpha at or above 0.01; `metrics.jsonl` records policy
   log-probability and sampled action spread after updates. `manifest.json`
-  records the weights, capture scale, and exploration parameters.
+  records the weights, geometry scales, and exploration parameters.
 - SAC self-collision checking is enabled by default and requires the reviewed
   URDF/FCL dependency. Pass `--no-self-collision` for an explicitly unguarded
   experiment; the self-collision reward, termination and FCL evaluation then

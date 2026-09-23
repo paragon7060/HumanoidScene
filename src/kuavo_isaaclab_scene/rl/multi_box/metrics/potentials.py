@@ -100,6 +100,82 @@ def grasp_potentials(raw: GraspRawMetrics, config=None) -> dict[str, torch.Tenso
     }
 
 
+def grasp_reward_potentials(
+    candidate_distance_m: torch.Tensor,
+    matched_distance_m: torch.Tensor,
+    jaw_alignment_cos: torch.Tensor,
+    capture_error_m: torch.Tensor,
+    jaw_gap_m: torch.Tensor,
+    flap_thickness_m: torch.Tensor,
+    proof_lift_m: torch.Tensor,
+    *,
+    approach_scale_m: float = 1.0 / 12.0,
+    capture_scale_m: float = 0.10,
+) -> dict[str, torch.Tensor]:
+    """V2 grasp shaping: independent hand progress plus opposing-flap coverage.
+
+    The gap score uses calibrated finger tips.  Its preparation factor keeps
+    closing useful only after a hand approaches and straddles its flap.
+    """
+    n = proof_lift_m.shape[0]
+    if candidate_distance_m.shape != (n, 2, 2) or any(
+        value.shape != (n, 2) for value in (
+            matched_distance_m, jaw_alignment_cos, capture_error_m,
+            jaw_gap_m, flap_thickness_m,
+        )
+    ):
+        raise ValueError("Grasp reward geometry needs [env, hand, flap] and [env, hand] tensors")
+    if approach_scale_m <= 0 or capture_scale_m <= 0:
+        raise ValueError("Grasp reward distance scales must be positive")
+    candidate_score = torch.exp(-candidate_distance_m.clamp_min(0) / approach_scale_m)
+    nearest = candidate_score.amax(-1).mean(-1)
+    distinct_distance = torch.minimum(
+        candidate_distance_m[:, 0, 0] + candidate_distance_m[:, 1, 1],
+        candidate_distance_m[:, 0, 1] + candidate_distance_m[:, 1, 0],
+    ) * 0.5
+    distinct = torch.exp(-distinct_distance.clamp_min(0) / approach_scale_m)
+    alignment = jaw_alignment_cos.clamp(0, 1).square()
+    near = (1.0 - matched_distance_m.clamp_min(0) / 0.10).clamp(0, 1)
+    capture = torch.exp(-capture_error_m.clamp_min(0) / capture_scale_m)
+    preparation = (
+        torch.exp(-matched_distance_m.clamp_min(0) / 0.10)
+        * alignment * torch.exp(-capture_error_m.clamp_min(0) / 0.02)
+    )
+    open_clearance = 0.04
+    desired_gap = flap_thickness_m + (1.0 - preparation) * open_clearance
+    gap_score = preparation * torch.exp(-(jaw_gap_m - desired_gap).abs() / 0.02)
+    premature_close = near * (1.0 - preparation) * (
+        (flap_thickness_m + open_clearance - jaw_gap_m) / open_clearance
+    ).clamp(0, 1)
+    return {
+        "approach": (nearest + distinct) * 0.5,
+        "alignment": alignment.mean(-1),
+        "alignment_proximity": near.mean(-1),
+        "capture": capture.mean(-1),
+        "jaw_gap": gap_score.mean(-1),
+        "premature_close": premature_close.mean(-1),
+        "proof_lift": (proof_lift_m / 0.008).clamp(0, 1),
+    }
+
+
+def grasp_gated_lift_inputs(
+    current: torch.Tensor,
+    previous: torch.Tensor,
+    eligible: torch.Tensor,
+    was_eligible: torch.Tensor,
+    discount: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Only continuous opposing-flap pinches can earn box-lift progress."""
+    if (current.shape != previous.shape or current.shape != eligible.shape
+            or current.shape != was_eligible.shape or eligible.dtype != torch.bool
+            or was_eligible.dtype != torch.bool):
+        raise ValueError("Lift inputs need matching scalar batches and boolean pinch masks")
+    active = torch.where(eligible, current, torch.zeros_like(current))
+    baseline = torch.where(
+        eligible & was_eligible, previous, discount * active)
+    return baseline, active
+
+
 def carry_potentials(raw: CarryRawMetrics, config=None) -> dict[str, torch.Tensor]:
     config = config or MetricScaleConfig()
     config.validate()
