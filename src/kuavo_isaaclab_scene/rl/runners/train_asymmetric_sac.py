@@ -33,14 +33,15 @@ class _SafetyDiagnostics:
         self.force_max = torch.zeros(2, device=device)
 
     def record(self, safety, unsafe):
-        causes = torch.stack([getattr(safety, name) & unsafe for name in _SAFETY_CAUSES])
+        get = safety.__getitem__ if isinstance(safety, dict) else lambda name: getattr(safety, name)
+        causes = torch.stack([get(name) & unsafe for name in _SAFETY_CAUSES])
         self.causes += causes.sum(-1)
         count = causes.sum(0)
         self.overlap += ((count > 1) & unsafe).sum()
         self.unattributed += ((count == 0) & unsafe).sum()
-        eligible = safety.contact_eligible
+        eligible = get("contact_eligible")
         self.eligible += eligible.sum()
-        for index, force in enumerate((safety.rack_force_n, safety.obstacle_force_n)):
+        for index, force in enumerate((get("rack_force_n"), get("obstacle_force_n"))):
             self.force_bands[index] += ((force[:, None] > self.force_limits) & eligible[:, None]).sum(0)
             finite_force = torch.nan_to_num(force, nan=0.0, posinf=1e6, neginf=0.0).clamp(0, 1e6)
             self.force_max[index] = torch.maximum(
@@ -254,9 +255,9 @@ def train(env, args, directory, state=None):
                 for name, value in termination_terms.items():
                     termination_counts[name] = termination_counts.get(name, 0) \
                         + int(value.sum().item())
-                safety = getattr(env, "_multi_box_grasp_safety_step", None)
+                safety = info.get("transition_safety")
                 if safety is None:
-                    raise RuntimeError("V2 SAC requires per-cause grasp safety measurements")
+                    raise RuntimeError("V2 SAC requires pre-reset grasp safety measurements")
                 safety_diagnostics.record(safety, termination_terms["unsafe"])
                 terminal = info.get("transition_next_observations")
                 if terminal is None or "policy" not in terminal or "critic" not in terminal:

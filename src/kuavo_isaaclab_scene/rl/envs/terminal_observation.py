@@ -6,6 +6,16 @@ class TerminalObservationMixin:
 
     def _reset_idx(self, env_ids):
         if getattr(self, "_capture_terminal", False) and len(env_ids):
+            safety = getattr(self, "_multi_box_grasp_safety_step", None)
+            if safety is not None and self._terminal_safety is None:
+                # The reset event invalidates and recomputes this cache for the
+                # respawned state.  Preserve the just-terminated physics step
+                # before any manager or observation reset can overwrite it.
+                self._terminal_safety = {
+                    name: value.clone()
+                    for name, value in vars(safety).items()
+                    if hasattr(value, "clone")
+                }
             observations = self.observation_manager.compute(update_history=False)
             self._terminal_ids = env_ids.clone()
             self._terminal_observations = {
@@ -24,6 +34,7 @@ class TerminalObservationMixin:
         self._terminal_ids = self._terminal_obs = None
         self._terminal_observations = None
         self._terminal_task_metrics = None
+        self._terminal_safety = None
         self._capture_terminal = True
         try:
             obs, reward, terminated, truncated, extras = super().step(action)
@@ -38,6 +49,16 @@ class TerminalObservationMixin:
         result = dict(extras)
         result["transition_next_observations"] = next_observations
         result["transition_next_obs"] = next_observations["policy"]
+        if self._terminal_safety is not None:
+            result["transition_safety"] = self._terminal_safety
+        else:
+            safety = getattr(self, "_multi_box_grasp_safety_step", None)
+            if safety is not None:
+                result["transition_safety"] = {
+                    name: value.clone()
+                    for name, value in vars(safety).items()
+                    if hasattr(value, "clone")
+                }
         if getattr(self, "_capture_task_metrics", False):
             command = self.command_manager.get_term("workcell")
             task_metrics = {name: value.clone() for name, value in command.metrics.items()}
