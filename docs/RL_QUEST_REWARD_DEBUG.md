@@ -273,6 +273,45 @@ X/C recenter는 물리 장면을 reset하지 않으므로 probe의 이전 성공
 ./quest_collector.sh collect --rl-reward-debug     # 값 생략 시 0과 동일
 ```
 
+V2 grasp SAC에 쓸 Quest 시연 전이를 기록하려면 mode 2에 **별도 파일 옵션**을 붙인다.
+기존 수집(옵션 없음)과 mode 1/2 보상 검사(파일 옵션 없음)는 그대로 동작한다.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
+  --robot-model s63 --gripper leju-twofinger --rl-reward-debug 2 \
+  --device cuda:0 --no-rl-demo-self-collision \
+  --rl-demo-dataset datasets/v2_grasp_quest_001.hdf5
+```
+
+예시는 self-collision을 끈 SAC 실행에 맞췄다. 켠 실행의 시연을 모을 때에는
+`--no-rl-demo-self-collision`을 빼면 된다. 기본값은 V2 학습 설정과 같이 켜짐이다.
+
+이 경로는 mode 2의 전체 장면 shadow reward 대신 **실제
+`MultiBoxGraspAssemblyEnvCfg` staged-grasp 환경**을 실행한다. 따라서 보상, 종료,
+관측, 정규화 전 25차원 관절 action은 V2 SAC와 같은 코드에서 나온다. `A/T`로
+조작/일시정지, `B/R`로 현재 시도 종료·새 장면 reset, `X/C`로 recenter한다.
+성공·안전 위반·30초 timeout 때에는 마지막 terminal 관측을 저장하고 자동으로
+일시정지한다. 다음 시도는 `A/T`로 시작할 수 있다. 초기 박스 settling 단계의
+zero-action frame은 데이터에 넣지 않는다. `--max-episodes`로 종료할 시도 수를
+지정할 수 있다.
+reset 검증 실패(`invalid_reset`)가 발생하면 학습기와 같이 해당 전이는 제외하고
+시도를 중단한다.
+기존 reward-debug preset의 `--no-rl-obstacle-collision`은 이 수집 경로에
+적용되지 않는다. V2 학습의 장애물 충돌 판정을 그대로 사용한다.
+
+파일은 독점 생성하며 기존 경로를 덮어쓰지 않는다. 루트 `manifest_json`에는
+로봇, 그리퍼, 행동 항목 순서/차원, 관측 차원, 제어 주기, 설정을 담는다.
+`episodes/episode_XXXXXX/transitions`에는 action 직전 `actor_obs`와
+`critic_obs`, 실제 적용한 `action`, `reward`, terminal reset 이전의
+`next_actor_obs`/`next_critic_obs`, `terminated`/`truncated`, 성공·안전 종료
+플래그와 simulation time을 저장한다. `critic_obs`는 SAC replay와 같이
+`policy + privileged` 결합이다. 사람이 B/R로 중단한 에피소드 및 프로세스 종료
+시 미완료 에피소드는 실패/미완료로 표시한다. **이 파일의 수집은 구현되었지만,
+기존 SAC 학습기에 데모를 자동 주입하는 loader는 아직 없다.** 먼저 데이터 품질과
+동일 설정 재생을 확인해야 한다. mode 1은 legacy task 계약이라 V2 SAC 데이터셋
+옵션을 받지 않는다. `--rl-shadow-box-count`/`--rl-shadow-log`는 전체 장면
+진단 전용이므로 함께 지정할 수 없다.
+
 전체 관절 모드에서는 왼쪽 컨트롤러의 위치·회전도 왼팔 IK 목표로 쓰이므로, 실행 중
 추적 유효성 검사(`tracked`)도 왼쪽 컨트롤러까지 함께 요구한다. 콘솔의
 `[RL REWARD] control=..., action_space=...`로 실제 적용된 값을 확인할 수 있다.

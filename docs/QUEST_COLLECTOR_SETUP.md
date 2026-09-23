@@ -7,6 +7,8 @@
 RL 보상을 검사하려면 기존 연결 뒤 `./quest_collector.sh collect --rl-reward-debug`로
 실행한다. 이 모드는 데이터 저장 대신 VR에 항목별 보상을 표시한다.
 조작·제약은 [Quest reward 검사](RL_QUEST_REWARD_DEBUG.md)를 참고한다.
+V2 grasp SAC 시연 전이를 저장하려면 같은 연결에서
+`--rl-reward-debug 2 --rl-demo-dataset <새 파일 경로>`를 사용한다.
 
 ## 1. 처음 준비하기
 
@@ -211,6 +213,28 @@ PC desktop observer는 OFF이고 camera annotator에 필요한 최소 160×90 re
 `[XR] OpenXR session and display are active.`와 양팔/head tracking을 확인한다.
 preview 시뮬레이터와 동시에 돌리면 GPU/입력 혼동이 생길 수 있으므로 첫 검증은
 수집기만 실행한다. 이 실행기는 다른 앱을 자동 종료하지 않는다.
+
+### V2 grasp SAC 시연 수집
+
+Runtime·웹 서버·Quest CONNECT는 위 절차와 같다. 터미널 3의 기본 수집 명령을
+아래 명령으로 바꾸면 SAC의 staged-grasp 환경에서 controller 입력을 RL action으로
+변환해 전이를 기록한다. 사용할 GPU 번호와 출력 파일명을 정한다.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
+  --robot-model s63 --gripper leju-twofinger \
+  --rl-reward-debug 2 --device cuda:0 \
+  --no-rl-demo-self-collision \
+  --rl-demo-dataset datasets/v2_grasp_quest_001.hdf5
+```
+
+예시는 self-collision을 끈 학습에 맞춘다. 켠 학습이면 해당 `--no-` 옵션을 뺀다.
+`X/C` 보정, `A/T` 실행·일시정지, `B/R` 시도 중단·새 장면 reset이다.
+성공·안전 위반·timeout 시 terminal 전이를 저장하고 일시정지한다.
+파일은 기존 경로를 덮어쓰지 않으며, `--max-episodes`로 종료할 시도 수를
+정할 수 있다. 기존 수집 형식은 옵션 없는 `collect`로 유지된다.
+정확한 HDF5 필드와 SAC loader 미연결 범위는
+[Quest RL 시연 수집](RL_QUEST_REWARD_DEBUG.md)을 참고한다.
 
 다른 저장 자세는 이름으로 선택한다. wrapper 기본 옵션보다 사용자가 뒤에 적은 값이 우선한다.
 

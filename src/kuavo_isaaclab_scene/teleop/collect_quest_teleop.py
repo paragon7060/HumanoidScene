@@ -45,6 +45,10 @@ parser.add_argument("--rl-reward-debug", type=int, nargs="?", const=0, default=N
                          "0 (default, including omitted value) keeps the configured right-arm-only action space; "
                          "1 enables all joints, including both arms, planar base, torso and head; "
                          "2 uses the same VR defaults to inspect the randomized multi-box v2 scene.")
+parser.add_argument("--rl-demo-dataset", type=Path, default=None,
+                    help="With --rl-reward-debug 2, record Quest transitions in the exact v2 staged-grasp SAC observation/action/reward contract. Existing files are never overwritten.")
+parser.add_argument("--rl-demo-self-collision", action=argparse.BooleanOptionalAction,
+                    default=True, help="V2 staged-grasp demonstration: match the SAC self-collision setting (default enabled).")
 parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
 parser.add_argument("--rl-task", choices=("pick", "pick_place"), default="pick",
@@ -295,6 +299,16 @@ if args_cli.rl_shadow_log is not None:
         parser.error("RL shadow log exists; choose a new filename.")
 if args_cli.rl_shadow_box_count is not None and args_cli.rl_reward_debug != 2:
     parser.error("--rl-shadow-box-count requires --rl-reward-debug 2.")
+if args_cli.rl_demo_dataset is not None:
+    if args_cli.rl_reward_debug != 2:
+        parser.error("--rl-demo-dataset requires --rl-reward-debug 2 (the v2 SAC task).")
+    args_cli.rl_demo_dataset = args_cli.rl_demo_dataset.expanduser().resolve()
+    if args_cli.rl_demo_dataset.exists():
+        parser.error(f"RL demonstration dataset already exists: {args_cli.rl_demo_dataset}")
+    if args_cli.rl_shadow_box_count is not None or args_cli.rl_shadow_log is not None:
+        parser.error("--rl-demo-dataset uses the staged grasp task; omit full-scene shadow options.")
+elif not args_cli.rl_demo_self_collision:
+    parser.error("--no-rl-demo-self-collision requires --rl-demo-dataset.")
 if args_cli.rl_reward_debug is not None and args_cli.rl_reward_debug not in (0, 1, 2):
     parser.error("--rl-reward-debug takes no value, 0, 1, or 2.")
 if args_cli.rl_config is not None and args_cli.rl_reward_debug is None:
@@ -498,7 +512,9 @@ def _scene_asset_or_none(scene, name: str):
 
 def main() -> None:
     if args_cli.rl_reward_debug is not None:
-        if args_cli.rl_reward_debug == 2:
+        if args_cli.rl_demo_dataset is not None:
+            from ..rl.debug.quest_grasp_demo import run
+        elif args_cli.rl_reward_debug == 2:
             from ..rl.debug.quest_multi_box import run
         else:
             from ..rl.debug.quest_reward import run

@@ -59,6 +59,7 @@ Quest 문서의 역할은 다음과 같이 구분한다.
 | Multi-box v2 grasp SAC를 짧게 검증한다 | [Multi-box v2 SAC pilot](RL_MULTI_BOX_V2_PILOT.md) |
 | 오른손만 학습하고 양쪽 flap 면의 거리·파지·disturbance를 수정한다 | [오른손 파지 상세와 튜닝](RL_RIGHT_HAND_PICK.md) |
 | Quest로 직접 움직이며 VR에서 항목별 reward를 확인한다 | [Quest reward 검사](RL_QUEST_REWARD_DEBUG.md) |
+| Quest로 V2 grasp SAC와 같은 형식의 시연 전이를 기록한다 | [Quest RL 시연 수집](RL_QUEST_REWARD_DEBUG.md) |
 | VR 없이 GUI에서 양손의 네 손가락 기준점을 맞추고 저장한다 | [데스크톱 파지 기준점 보정](GRASP_DESKTOP_CALIBRATION.md) |
 | 보정한 TCP 중심, RL/IK/기록 적용 범위와 VR 표시를 확인한다 | [공통 endeffector_center](ENDEFFECTOR_CENTER.md) |
 | 일반 환경과의 차이, 병렬 복제·좌표·충돌 격리를 수정한다 | [배경 없는 RL 병렬 환경](RL_PARALLEL_ENVS.md) |
@@ -89,9 +90,12 @@ Runtime/web이 이미 켜져 있으면 앞의 두 명령은 다시 실행하지 
 
 X로 시점을 보정하고 A로 시작/정지한다. 오른손 검지 트리거로 gripper를 조작하며,
 Y로 reward 패널 표시/숨김, B로 초기 자세 복원 후 새 시도를 준비한다.
-체크포인트 없이 직접 움직이며 검사하며, 데이터 수집이나 학습은 수행하지 않는다.
-일반 수집기와 동시에 실행하지 않는다. 현재 검사 대상은 **단일 박스 flap-pick**이며,
-`rl/multi_box`의 4박스 단계별/전체 학습 환경을 검사하는 모드는 아직 아니다.
+체크포인트 없이 직접 움직이며 검사한다. 이 명령은 데이터 수집이나 학습을 수행하지
+않는다. 일반 수집기와 동시에 실행하지 않는다. 값 없는 `--rl-reward-debug`는
+legacy 단일 박스 flap-pick 검사이며, `--rl-reward-debug 2`는 multi-box v2
+진단 장면을 검사한다. V2 grasp SAC 환경에서 시연 전이를 저장하려면
+`--rl-reward-debug 2 --rl-demo-dataset <새 HDF5 경로>`를 사용한다.
+명령 전체와 데이터 schema는 [Quest RL 시연 수집](RL_QUEST_REWARD_DEBUG.md)에 있다.
 
 패널에는 실제 가중치·제어시간이 적용된 항목별 step reward, 합계/누적 return,
 파지·상승·유지 상태와 부족한 성공 조건이 표시된다. 종료 시에는 자동 reset 전의

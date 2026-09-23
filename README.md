@@ -37,6 +37,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 오른팔 / 전체 관절 action space 선택 | [공통 RL action 옵션](docs/RL_ACTION_SPACES.md) |
 | 전신 4박스 단계별 / 전체 직접 학습 비교 | [4박스 전신 RL 실험](docs/RL_MULTI_BOX.md) |
 | Multi-box v2 grasp SAC 짧은 pilot 실행 | [Multi-box v2 SAC pilot](docs/RL_MULTI_BOX_V2_PILOT.md) |
+| Quest로 V2 grasp SAC 시연 데이터 수집 | [Quest RL 시연 수집](docs/RL_QUEST_REWARD_DEBUG.md) |
 | 기존 Google Drive 연결 재사용·결과 업로드·로컬 보관량 관리 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
 | RL 초기 자세 수정·VR 재캡처 | [모델별 초기 상태](docs/RL_INITIAL_STATES.md) |
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |
@@ -246,6 +247,26 @@ manager-based 환경은 reset마다 randomize한다.
 
 각 서비스는 별도 터미널에서 유지한다. 생성된 환경 파일을 자동으로 읽으며,
 preview의 HTTP 8080/WebSocket 8765와 구분한다.
+
+V2 grasp SAC와 같은 관측·행동·보상·종료 설정으로 Quest 시연을 수집할 때는
+터미널 3에서 기본 `collect` 대신 아래 명령을 사용한다. `CUDA_VISIBLE_DEVICES`의
+`0`은 예시이므로 사용할 GPU 번호로 바꾼다. 출력 파일명은 매번 새로 지정한다.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
+  --robot-model s63 --gripper leju-twofinger \
+  --rl-reward-debug 2 --device cuda:0 \
+  --no-rl-demo-self-collision \
+  --rl-demo-dataset datasets/v2_grasp_quest_001.hdf5
+```
+
+예시는 self-collision을 끈 SAC 실행에 맞춘다. 켠 실행이라면
+`--no-rl-demo-self-collision`을 뺀다. Quest에서 `X`로 시점을 보정하고 `A`로
+조작을 시작한다. 성공·안전 위반·30초 timeout은 시도를 종료하며, `B`는 현재
+시도를 중단하고 새 장면으로 reset한다. 기존 Quest HDF5 수집은 옵션 없는
+`collect`를 계속 사용한다. 데이터 형식, 기록 시점, mode 1/2 차이와 제한 사항은
+[Quest RL 시연 수집 안내](docs/RL_QUEST_REWARD_DEBUG.md)를 참고한다. 이 명령은
+시연 데이터만 저장하며 기존 SAC 학습기에 자동으로 주입하지는 않는다.
 
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에
 중복하지 않는다. 처음에는 [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md)을 따른다.
