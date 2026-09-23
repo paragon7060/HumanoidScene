@@ -213,6 +213,8 @@ class PoseShadowRewardEvaluator:
                 previous_alignment=previous["alignment"], alignment=current["alignment"],
                 previous_capture=previous["capture"], capture=current["capture"],
                 previous_proof_lift=previous["proof_lift"], proof_lift=current["proof_lift"],
+                one_hand_pinch_event=self._event(
+                    events, "one_hand_pinch_event", reference),
                 bilateral_pinch_event=self._event(
                     events, "bilateral_pinch_event", reference),
                 success_event=self._event(events, "success_event", reference),

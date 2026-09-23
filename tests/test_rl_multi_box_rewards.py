@@ -29,7 +29,7 @@ def grasp(n=2, *, drop=False, events=True):
     event = torch.full((n,), events, dtype=torch.bool)
     return GraspRewardInput(
         zero, one, zero, one, zero, one, zero, one,
-        event, event, common(n, drop=drop),
+        event, event, event, common(n, drop=drop),
     )
 
 
@@ -57,6 +57,26 @@ def test_grasp_success_is_positive_and_drop_outweighs_it():
         successful.terms["box_drop"] - dropped.terms["box_drop"],
         torch.full((2,), 8.0),
     )
+
+
+def test_one_hand_pinch_gives_progress_without_declaring_success():
+    model = MultiBoxRewardModel()
+    value = replace(grasp(events=False), one_hand_pinch_event=torch.ones(2, dtype=torch.bool))
+    result = model.grasp(value)
+    assert result.terms["one_hand_pinch_event"].eq(0.5).all()
+    assert result.terms["bilateral_pinch_event"].eq(0).all()
+    assert result.terms["success_event"].eq(0).all()
+
+
+def test_grasp_motion_costs_are_lower_than_other_skills():
+    model = MultiBoxRewardModel()
+    moving = replace(common(), normalized_base_motion=torch.ones(2),
+                     normalized_action_rate=torch.ones(2))
+    reward = model.grasp(replace(grasp(events=False), common=moving))
+    torch.testing.assert_close(reward.terms["base_motion"], torch.full((2,), -0.0002))
+    torch.testing.assert_close(reward.terms["action_rate"], torch.full((2,), -0.0001))
+    assert model.weights.common.base_motion == 0.002
+    assert model.weights.common.action_rate == 0.001
 
 
 def test_workspace_hard_limit_has_a_terminal_scale_penalty():

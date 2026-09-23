@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import math
 
 import torch
 from torch import nn
@@ -82,6 +83,8 @@ class AsymmetricSAC(nn.Module):
         self.critic_obs_dim = critic_obs_dim
         self.action_dim = action_dim
         cfg = self.config
+        if not 0 <= cfg.min_alpha <= cfg.initial_alpha:
+            raise ValueError("min_alpha must be between zero and initial_alpha")
         self.actor_normalizer = ObservationNormalizer(actor_obs_dim)
         self.critic_normalizer = ObservationNormalizer(critic_obs_dim)
         self.actor = SquashedActor(actor_obs_dim, action_dim, cfg.hidden)
@@ -150,6 +153,8 @@ class AsymmetricSAC(nn.Module):
         alpha_loss = -(self.log_alpha * (logp.detach() - self.action_dim)).mean()
         optimize(self.alpha_optimizer, alpha_loss, [self.log_alpha])
         with torch.no_grad():
+            if cfg.min_alpha > 0:
+                self.log_alpha.clamp_(min=math.log(cfg.min_alpha))
             for source, target_network in (
                 (self.q1, self.target1), (self.q2, self.target2)
             ):
@@ -161,6 +166,8 @@ class AsymmetricSAC(nn.Module):
             "q_loss": q_loss.item(),
             "actor_loss": actor_loss.item(),
             "alpha": self.log_alpha.exp().item(),
+            "policy_logp_mean": logp.detach().mean().item(),
+            "policy_action_std_mean": action.detach().std(dim=0, unbiased=False).mean().item(),
         }
 
     @property

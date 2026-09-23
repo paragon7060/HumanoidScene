@@ -173,6 +173,7 @@ def train(env, args, directory, state=None):
         if state else SACConfig(
             hidden=args.hidden,
             gamma=MultiBoxRewardWeights().discount,
+            min_alpha=getattr(args, "min_alpha", 0.0),
         )
     )
     agent = AsymmetricSAC(
@@ -197,6 +198,8 @@ def train(env, args, directory, state=None):
         f"[V2 SAC] actor={agent.actor_obs_dim} critic={agent.critic_obs_dim} "
         f"actions={agent.action_dim} replay={replay.bytes / 2**30:.3f} GiB "
         f"on {args.replay_device}; warmup={warmup_target}; "
+        f"warmup_action_hold={getattr(args, 'warmup_action_hold_steps', 1)}; "
+        f"min_alpha={config.min_alpha}; "
         f"initial_settling_steps={initial_settling_steps}",
         flush=True,
     )
@@ -204,6 +207,11 @@ def train(env, args, directory, state=None):
     transitions = valid_transitions = optimizer_updates = skipped_nonfinite = 0
     skipped_settling = invalid_resets = 0
     update_credit = 0.0
+    warmup_action = None
+    warmup_vector_step = 0
+    warmup_action_hold = getattr(args, "warmup_action_hold_steps", 1)
+    if warmup_action_hold < 1:
+        raise ValueError("warmup_action_hold_steps must be positive")
     reward_names = env.reward_manager.active_terms
     for iteration in range(start + 1, start + args.max_iterations + 1):
         tick = time.monotonic()
@@ -233,11 +241,14 @@ def train(env, args, directory, state=None):
                 warming_up = valid_transitions < warmup_target
                 safe_actor_obs = torch.where(
                     torch.isfinite(actor_obs), actor_obs, torch.zeros_like(actor_obs))
-                action = (
-                    torch.rand(
-                        (env.num_envs, agent.action_dim), device=env.device) * 2 - 1
-                    if warming_up else agent.act(safe_actor_obs)
-                )
+                if warming_up:
+                    if warmup_action is None or warmup_vector_step % warmup_action_hold == 0:
+                        warmup_action = torch.rand(
+                            (env.num_envs, agent.action_dim), device=env.device) * 2 - 1
+                    action = warmup_action.clone()
+                    warmup_vector_step += 1
+                else:
+                    action = agent.act(safe_actor_obs)
                 next_observations, reward, terminated, truncated, info = env.step(action)
                 breakdown_terms, breakdown_total = _reward_breakdown(env)
                 termination_terms, expected_terminated, expected_truncated = \

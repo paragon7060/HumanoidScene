@@ -25,10 +25,13 @@ class CommonWeights:
 
 @dataclass(frozen=True)
 class GraspWeights:
-    approach_progress: float = 0.50
-    alignment_progress: float = 0.30
-    capture_progress: float = 0.30
+    base_motion: float = 0.0002
+    action_rate: float = 0.0001
+    approach_progress: float = 0.80
+    alignment_progress: float = 0.40
+    capture_progress: float = 0.50
     proof_lift_progress: float = 0.40
+    one_hand_pinch_event: float = 0.50
     bilateral_pinch_event: float = 1.00
     success_event: float = 3.00
 

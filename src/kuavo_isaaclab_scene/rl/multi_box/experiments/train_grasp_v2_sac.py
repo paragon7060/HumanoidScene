@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import datetime
 import fcntl
 import json
@@ -54,6 +54,7 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
     for key in (
         "task_family", "schema_version", "skill", "algorithm", "robot_model",
         "gripper", "actions", "observations", "critic_mapping",
+        "reward_profile", "exploration",
     ):
         if source.get(key) != manifest.get(key):
             raise ValueError(f"Checkpoint {key} differs from this v2 SAC environment")
@@ -79,6 +80,8 @@ def main() -> None:
     parser.add_argument("--replay-device", choices=("cpu", "cuda:0"), default="cpu")
     parser.add_argument("--learning-starts", type=int, default=100_000)
     parser.add_argument("--warmup-vector-steps", type=int, default=450)
+    parser.add_argument("--warmup-action-hold-steps", type=int, default=4)
+    parser.add_argument("--min-alpha", type=float, default=0.01)
     parser.add_argument("--updates-per-step", type=int, default=4)
     parser.add_argument("--hidden", type=int, default=256)
     parser.add_argument("--save-interval", type=int, default=50)
@@ -113,10 +116,12 @@ def main() -> None:
     positive = (
         args.num_envs, args.max_iterations, args.rollout_steps, args.batch_size,
         args.replay_capacity, args.updates_per_step, args.hidden,
-        args.save_interval, args.keep_checkpoints,
+        args.save_interval, args.keep_checkpoints, args.warmup_action_hold_steps,
     )
     if min(positive) < 1 or min(args.learning_starts, args.warmup_vector_steps) < 0:
         parser.error("Counts must be positive and warmup counts nonnegative")
+    if not 0 <= args.min_alpha <= 0.1:
+        parser.error("--min-alpha must be between zero and the initial alpha 0.1")
     if args.env_spacing < 5.0:
         parser.error("--env-spacing must be at least 5 metres")
     if args.checkpoint:
@@ -154,6 +159,7 @@ def main() -> None:
             from ....robots.robot_model import resolve_robot_model
             from ...envs.terminal_observation import TerminalObservationMixin
             from ..rewards import MultiBoxRewardWeights
+            from ..state.isaac_privileged_grasp import GRASP_CAPTURE_REWARD_SCALE_M
             from ..training_env_cfg import MultiBoxGraspAssemblyEnvCfg
 
             class TransitionEnv(TerminalObservationMixin, ManagerBasedRLEnv):
@@ -203,6 +209,14 @@ def main() -> None:
                 "num_envs": args.num_envs,
                 "seed": args.seed,
                 "discount": MultiBoxRewardWeights().discount,
+                "reward_profile": {
+                    "weights": asdict(MultiBoxRewardWeights()),
+                    "capture_scale_m": GRASP_CAPTURE_REWARD_SCALE_M,
+                },
+                "exploration": {
+                    "min_alpha": args.min_alpha,
+                    "warmup_action_hold_steps": args.warmup_action_hold_steps,
+                },
                 "run_profile": (
                     "smoke" if args.smoke_test else "pilot" if args.pilot else "train"
                 ),

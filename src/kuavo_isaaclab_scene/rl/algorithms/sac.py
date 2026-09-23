@@ -16,6 +16,7 @@ class SACConfig:
     gamma: float = .99
     tau: float = .005
     initial_alpha: float = .1
+    min_alpha: float = 0.0
 
 
 class ReplayBuffer:

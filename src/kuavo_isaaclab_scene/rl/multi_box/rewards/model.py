@@ -38,6 +38,7 @@ class GraspRewardInput:
     capture: torch.Tensor
     previous_proof_lift: torch.Tensor
     proof_lift: torch.Tensor
+    one_hand_pinch_event: torch.Tensor
     bilateral_pinch_event: torch.Tensor
     success_event: torch.Tensor
     common: CommonRewardInput
@@ -130,6 +131,8 @@ class MultiBoxRewardModel:
     def grasp(self, value: GraspRewardInput) -> RewardBreakdown:
         w, gamma = self.weights.grasp, self.weights.discount
         terms = self._common(value.common)
+        terms["base_motion"] = -w.base_motion * value.common.normalized_base_motion
+        terms["action_rate"] = -w.action_rate * value.common.normalized_action_rate
         terms.update({
             "approach_progress": w.approach_progress * potential_progress(
                 value.previous_approach, value.approach, gamma),
@@ -139,6 +142,7 @@ class MultiBoxRewardModel:
                 value.previous_capture, value.capture, gamma),
             "proof_lift_progress": w.proof_lift_progress * potential_progress(
                 value.previous_proof_lift, value.proof_lift, gamma),
+            "one_hand_pinch_event": w.one_hand_pinch_event * _event(value.one_hand_pinch_event),
             "bilateral_pinch_event": w.bilateral_pinch_event * _event(value.bilateral_pinch_event),
             "success_event": w.success_event * _event(value.success_event),
         })

@@ -19,7 +19,7 @@ from ..debug.contact_sensors import CONTACT_SENSOR_NAMES
 from ..geometry import relative_pose
 from ..geometry.pose import quat_apply
 from ..geometry.rack import box_shelf_clearance_m
-from ..metrics import GraspRawMetrics, grasp_potentials
+from ..metrics import GraspRawMetrics, MetricScaleConfig, grasp_potentials
 from ..scene.spawn import BOX_TYPE_IDS, physical_asset_names
 from ..scene.reset_settling import reset_settling_step
 from ..success import (
@@ -34,6 +34,7 @@ from ..success import (
 
 
 MIN_JAW_FORCE_N = 5.0
+GRASP_CAPTURE_REWARD_SCALE_M = 0.10
 FLAP_NAMES = ("flap_right", "flap_left")
 FINGER_NAMES = ("l_f_finger", "l_b_finger", "r_f_finger", "r_b_finger")
 
@@ -66,6 +67,7 @@ class IsaacPrivilegedGraspStep:
     raw: GraspRawMetrics
     potentials: dict[str, torch.Tensor]
     success: GraspSuccessResult
+    one_hand_pinch_event: torch.Tensor
     bilateral_pinch_event: torch.Tensor
     success_event: torch.Tensor
 
@@ -112,6 +114,8 @@ class IsaacPrivilegedGraspAdapter:
         self.pose_stability = RelativePoseStabilityTracker(
             self.num_envs, self.device)
         self.success_tracker = GraspSuccessTracker(self.num_envs, self.device)
+        self.reward_scale = MetricScaleConfig(
+            grasp_capture_m=GRASP_CAPTURE_REWARD_SCALE_M)
         self.initial_box_z = torch.zeros(self.num_envs, device=self.device)
         self.initial_box_pose_world = torch.zeros(
             self.num_envs, 7, device=self.device)
@@ -121,6 +125,7 @@ class IsaacPrivilegedGraspAdapter:
         self.initialized = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device)
         self.stability_armed = torch.zeros_like(self.initialized)
+        self.one_hand_rewarded = torch.zeros_like(self.initialized)
         self.bilateral_rewarded = torch.zeros_like(self.initialized)
         self.success_rewarded = torch.zeros_like(self.initialized)
 
@@ -136,6 +141,7 @@ class IsaacPrivilegedGraspAdapter:
         self.success_tracker.reset(ids)
         self.initialized[ids] = False
         self.stability_armed[ids] = False
+        self.one_hand_rewarded[ids] = False
         self.bilateral_rewarded[ids] = False
         self.success_rewarded[ids] = False
         self.target_logical_id[ids] = -1
@@ -350,6 +356,7 @@ class IsaacPrivilegedGraspAdapter:
             self.pose_stability.reset(ids)
             self.success_tracker.reset(ids)
             self.stability_armed[ids] = False
+            self.one_hand_rewarded[ids] = False
             self.bilateral_rewarded[ids] = False
             self.success_rewarded[ids] = False
             self.target_logical_id[ids] = logical[ids]
@@ -364,6 +371,7 @@ class IsaacPrivilegedGraspAdapter:
             self.pose_stability.reset(ids)
             self.success_tracker.reset(ids)
             self.stability_armed[ids] = False
+            self.one_hand_rewarded[ids] = False
             self.bilateral_rewarded[ids] = False
             self.success_rewarded[ids] = False
             self.initialized[ids] = True
@@ -400,6 +408,11 @@ class IsaacPrivilegedGraspAdapter:
         ), dt)
         # Event rewards are episode-once latches. A policy must not farm the
         # pinch bonus by repeatedly losing and reacquiring the same box.
+        one_hand_event = (
+            settling.ready & (pinch.hand_pinching.sum(-1) == 1)
+            & ~self.one_hand_rewarded
+        )
+        self.one_hand_rewarded |= one_hand_event
         bilateral_event = success.bilateral_pinch & ~self.bilateral_rewarded
         success_event = success.success & ~self.success_rewarded
         self.bilateral_rewarded |= success.bilateral_pinch
@@ -421,8 +434,9 @@ class IsaacPrivilegedGraspAdapter:
             stable_hands=stable,
             rack_clearance_m=rack_clearance,
             raw=raw,
-            potentials=grasp_potentials(raw),
+            potentials=grasp_potentials(raw, self.reward_scale),
             success=success,
+            one_hand_pinch_event=one_hand_event,
             bilateral_pinch_event=bilateral_event,
             success_event=success_event,
         )

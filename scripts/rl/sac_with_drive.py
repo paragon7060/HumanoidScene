@@ -35,6 +35,8 @@ def main():
     parser.add_argument("--updates-per-step", type=int, default=16)
     parser.add_argument("--learning-starts", type=int, default=100000)
     parser.add_argument("--warmup-vector-steps", type=int, default=450)
+    parser.add_argument("--warmup-action-hold-steps", type=int, default=4)
+    parser.add_argument("--min-alpha", type=float, default=0.01)
     parser.add_argument("--replay-capacity", type=int, default=1000000)
     parser.add_argument("--replay-device", choices=("cpu", "cuda:0"), default="cuda:0")
     parser.add_argument("--save-interval", type=int, default=2)
@@ -49,9 +51,12 @@ def main():
     parser.add_argument("--max-seconds", type=int, default=3600)
     args = parser.parse_args()
     if (min(args.num_envs, args.max_iterations, args.rollout_steps, args.batch_size, args.updates_per_step,
-            args.replay_capacity, args.save_interval, args.gpu_limit_mib, args.max_seconds) < 1
+            args.replay_capacity, args.save_interval, args.gpu_limit_mib, args.max_seconds,
+            args.warmup_action_hold_steps) < 1
             or min(args.gpu, args.gpu_reserve_mib, args.learning_starts, args.warmup_vector_steps) < 0):
         parser.error("Invalid counts or resource budget")
+    if not 0 <= args.min_alpha <= 0.1:
+        parser.error("--min-alpha must be between zero and the initial alpha 0.1")
     if args.replay_capacity < args.num_envs:
         parser.error("Replay capacity must hold a full vector step")
     if args.checkpoint and not args.checkpoint.is_file():
@@ -84,8 +89,12 @@ def main():
     if args.experiment == "multi-box-v2-grasp":
         command.append("--self-collision" if args.self_collision else "--no-self-collision")
     for name in ("num_envs", "max_iterations", "rollout_steps", "batch_size", "updates_per_step",
-                 "learning_starts", "warmup_vector_steps", "replay_capacity", "replay_device", "save_interval"):
+                 "learning_starts", "warmup_vector_steps", "replay_capacity", "replay_device",
+                 "save_interval"):
         command.extend(("--" + name.replace("_", "-"), str(getattr(args, name))))
+    if args.experiment == "multi-box-v2-grasp":
+        for name in ("warmup_action_hold_steps", "min_alpha"):
+            command.extend(("--" + name.replace("_", "-"), str(getattr(args, name))))
     command.extend(("--log-dir", str(parent)))
     if args.checkpoint:
         command.extend(("--checkpoint", str(args.checkpoint.resolve())))

@@ -99,6 +99,16 @@ def test_asymmetric_sac_updates_and_restores_without_privileged_actor_input():
     )
 
 
+def test_asymmetric_sac_exploration_floor_and_diagnostics():
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16, min_alpha=0.01))
+    with torch.no_grad():
+        agent.log_alpha.fill_(torch.tensor(0.001).log())
+    report = agent.update(_batch())
+    assert report["alpha"] >= 0.01 - 1e-7
+    assert torch.isfinite(torch.tensor(report["policy_logp_mean"]))
+    assert report["policy_action_std_mean"] > 0
+
+
 def test_asymmetric_sac_rejects_checkpoint_dimension_mismatch():
     state = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16)).checkpoint()
     target = AsymmetricSAC(4, 8, 2, SACConfig(hidden=16))

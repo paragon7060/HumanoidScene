@@ -250,6 +250,7 @@ class V2GraspReward(ManagerTermBase):
             capture=current["capture"],
             previous_proof_lift=previous["proof_lift"],
             proof_lift=current["proof_lift"],
+            one_hand_pinch_event=grasp.one_hand_pinch_event,
             bilateral_pinch_event=grasp.bilateral_pinch_event,
             # Failure wins if success and a hard safety predicate arrive on
             # the same physics step; do not pay success on a failed terminal.
