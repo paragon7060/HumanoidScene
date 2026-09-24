@@ -22,6 +22,12 @@ def test_host_requires_explicit_non_loopback_ipv4():
             setup.ipv4(value)
 
 
+def test_host_is_local_detects_addresses_this_pc_does_not_own():
+    assert setup.host_is_local("127.0.0.1") is True
+    # 192.0.2.0/24 is TEST-NET-1 (RFC 5737) and is never assigned to a real PC.
+    assert setup.host_is_local("192.0.2.1") is False
+
+
 def make_archive(path, name, *, symlink=None):
     with tarfile.open(path, "w:gz") as archive:
         member = tarfile.TarInfo(name)
@@ -113,7 +119,7 @@ def test_browser_snapshot_does_not_modify_preview(tmp_path):
     assert (source / "index.html").read_text() == "new"
 
 
-def run_collector_wrapper(tmp_path, *extra_args):
+def run_wrapper(tmp_path, command, *extra_args, host="192.168.0.18", extra_env=None):
     project = tmp_path / "project"
     scripts = project / "scripts"
     scripts.mkdir(parents=True)
@@ -126,13 +132,49 @@ def run_collector_wrapper(tmp_path, *extra_args):
     env = project / "session.env"
     setup.write_env(env, {
         "ISAACLAB_PYTHON": "/unused/python", "XR_RUNTIME_JSON": str(project / "manifest.json"),
-        "CLOUDXR_RUNTIME_DIR": str(project), "CLOUDXR_HOST": "192.168.0.18",
+        "CLOUDXR_RUNTIME_DIR": str(project), "CLOUDXR_HOST": host,
         "CLOUDXR_CERTIFICATE": str(project / "server.crt"), "CLOUDXR_KEY": str(project / "server.key"),
         "CLOUDXR_JS_SAMPLES_DIR": str(project), "QUEST_COLLECTOR_WEB_PORT": "8443",
+        **(extra_env or {}),
     }, False)
-    result = subprocess.run(["bash", str(launcher), "--config", str(env), "collect", *extra_args],
-                            text=True, capture_output=True, check=True)
+    return subprocess.run(["bash", str(launcher), "--config", str(env), command, *extra_args],
+                          text=True, capture_output=True)
+
+
+def run_collector_wrapper(tmp_path, *extra_args):
+    result = run_wrapper(tmp_path, "collect", *extra_args)
+    assert result.returncode == 0, result.stderr
     return result.stdout.splitlines()
+
+
+def test_check_stops_when_configured_ip_left_this_pc(tmp_path):
+    result = run_wrapper(tmp_path, "check", host="192.0.2.1",
+                         extra_env={"LEROBOT_PYTHON": "/unused/lerobot"})
+    assert result.returncode == 1
+    assert "[ERROR] Configured CLOUDXR_HOST 192.0.2.1 is not assigned" in result.stderr
+    # The suggested command carries over the custom arguments that --update-config needs.
+    assert "--isaaclab-python /unused/python" in result.stderr
+    assert "--lerobot-python /unused/lerobot" in result.stderr
+    assert "--update-config" in result.stderr
+
+
+def test_info_only_warns_about_stale_ip(tmp_path):
+    result = run_wrapper(tmp_path, "info", host="192.0.2.1")
+    assert result.returncode == 0
+    assert "Quest page: https://192.0.2.1:8443" in result.stdout
+    assert "[WARN] Configured CLOUDXR_HOST 192.0.2.1 is not assigned" in result.stderr
+
+
+def test_check_passes_host_test_for_local_ip(tmp_path):
+    # The empty test certificate fails later; only the host test is asserted here.
+    result = run_wrapper(tmp_path, "check", host="127.0.0.1")
+    assert "is not assigned" not in result.stderr
+
+
+def test_collect_does_not_require_host_test(tmp_path):
+    result = run_wrapper(tmp_path, "collect", host="192.0.2.1")
+    assert result.returncode == 0, result.stderr
+    assert "is not assigned" not in result.stderr
 
 
 def test_wrapper_defaults_without_launching_simulator(tmp_path):

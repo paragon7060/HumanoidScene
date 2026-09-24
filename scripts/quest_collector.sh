@@ -28,11 +28,52 @@ source "${CONFIG}"
 : "${CLOUDXR_HOST:?}" "${CLOUDXR_CERTIFICATE:?}" "${CLOUDXR_KEY:?}"
 : "${CLOUDXR_JS_SAMPLES_DIR:?}" "${QUEST_COLLECTOR_WEB_PORT:?}"
 cd "${PROJECT_DIR}"
+
+# The configured IP is fixed at setup time. After a Wi-Fi/router change it can
+# silently point at an address this PC no longer owns, while the certificate
+# still matches that old IP. Binding a throwaway UDP socket is a read-only test:
+# 0 = assigned to this PC, 1 = not assigned, 2 = could not determine.
+host_assignment() {
+  python3 - "$1" <<'PY'
+import errno, socket, sys
+try:
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+        probe.bind((sys.argv[1], 0))
+except OSError as exc:
+    sys.exit(1 if exc.errno == errno.EADDRNOTAVAIL else 2)
+PY
+}
+
+report_stale_host() {
+  local level="$1" current
+  current="$(ip -4 -o address show scope global 2>/dev/null | awk '{split($4, a, "/"); printf "  %s  %s\n", $2, a[1]}' || true)"
+  printf '[%s] Configured CLOUDXR_HOST %s is not assigned to this PC (network changed?).\n' "${level}" "${CLOUDXR_HOST}" >&2
+  if [[ -n "${current}" ]]; then
+    printf 'Current IPv4 addresses (pick the one on the same network as Quest):\n%s\n' "${current}" >&2
+  else
+    printf 'Check current addresses with: ip -4 -brief address\n' >&2
+  fi
+  printf 'Update the collector config (keeps the old config/certificate as backup):\n' >&2
+  printf '  ./setup_quest_collector.sh --host <NEW_PC_IP> --isaaclab-python %q' "${ISAACLAB_PYTHON}" >&2
+  [[ "${QUEST_COLLECTOR_WEB_PORT}" == 8443 ]] || printf ' --web-port %q' "${QUEST_COLLECTOR_WEB_PORT}" >&2
+  [[ -z "${LEROBOT_PYTHON:-}" ]] || printf ' --lerobot-python %q' "${LEROBOT_PYTHON}" >&2
+  printf ' --update-config\nThen re-trust the new certificates on Quest. See docs/QUEST_COLLECTOR_SETUP.md section 3.\n' >&2
+}
+
+HOST_STATUS=0
+if [[ "${COMMAND}" != collect ]]; then
+  host_assignment "${CLOUDXR_HOST}" || HOST_STATUS=$?
+fi
 if [[ "${COMMAND}" == info ]]; then
   printf 'Config: %s\nQuest page: https://%s:%s\nBackend: Manual Input IP:Port\nRuntime: %s:49100 (WSS)\nSDK: %s\nPython: %s\n' \
     "${CONFIG}" "${CLOUDXR_HOST}" "${QUEST_COLLECTOR_WEB_PORT}" "${CLOUDXR_HOST}" "${CLOUDXR_RUNTIME_DIR}" "${ISAACLAB_PYTHON}"
+  [[ "${HOST_STATUS}" -ne 1 ]] || report_stale_host WARN
   exit 0
 fi
+case "${HOST_STATUS}" in
+  1) report_stale_host ERROR; exit 1 ;;
+  2) printf '[WARN] Could not verify that %s is assigned to this PC; continuing.\n' "${CLOUDXR_HOST}" >&2 ;;
+esac
 for REQUIRED_FILE in "${XR_RUNTIME_JSON}" "${CLOUDXR_CERTIFICATE}" "${CLOUDXR_KEY}"; do
   [[ -f "${REQUIRED_FILE}" ]] || { printf 'Missing file: %s\n' "${REQUIRED_FILE}" >&2; exit 1; }
 done
@@ -46,7 +87,8 @@ case "${COMMAND}" in
     bash "${PROJECT_DIR}/scripts/run_cloudxr_runtime.sh" --check
     bash "${PROJECT_DIR}/scripts/quest_doctor.sh" --require-runtime
     [[ -f "${CLOUDXR_JS_SAMPLES_DIR}/simple/build/index.html" ]] || { echo 'Missing collector web build.' >&2; exit 1; }
-    printf '%s\n' '[OK] Files, certificate, SDK loading and Isaac/OpenXR metadata checked. No service or simulator was started.' ;;
+    printf '%s\n' '[OK] Host IP on this PC, files, certificate, SDK loading and Isaac/OpenXR metadata checked. No service or simulator was started.' \
+      'Not checked: whether Quest can reach this PC (same Wi-Fi, client isolation, firewall).' ;;
   runtime)
     exec bash "${PROJECT_DIR}/scripts/run_cloudxr_runtime.sh" \
       --host "${CLOUDXR_HOST}" --certificate "${CLOUDXR_CERTIFICATE}" --key "${CLOUDXR_KEY}" "$@" ;;

@@ -1,9 +1,13 @@
 # 준비된 PC에서 Quest teleop 시작하기
 
-> 새 PC의 권장 진입점은 [수집기 설치·간편 실행](QUEST_COLLECTOR_SETUP.md)이다.
-> `setup_quest_collector.sh`로 PC별 설정을 생성하면 `quest_collector.sh`가 자동으로
-> 불러온다. 아래의 `/path/to/...`, `<workstation-ip>`, 8080은 PC별 값의
-> 수동 실행 기록이며 그대로 복사하지 않는다. 새 wrapper의 수집용 HTTPS 기본 포트는 8443이다.
+> **현재 권장 경로는 [수집기 설치·간편 실행](QUEST_COLLECTOR_SETUP.md)이다.**
+> `setup_quest_collector.sh`로 PC별 설정(`.external/quest-collector/session.env`)을 생성하면
+> `quest_collector.sh`가 자동으로 불러온다. **Wi-Fi·공유기 변경으로 PC IP가 바뀌었다면**
+> [네트워크나 IP가 바뀌었을 때](QUEST_COLLECTOR_SETUP.md#3-네트워크나-ip가-바뀌었을-때)를 따른다.
+>
+> 이 문서는 예전 수동 경로(`.external/quest-session.env`, HTTPS 8080)의 기록이다. 아래의
+> `/path/to/...`, `<workstation-ip>`, 8080은 PC별 값이며 그대로 복사하지 않는다.
+> 새 wrapper로 준비한 PC에는 `.external/quest-session.env`가 없을 수 있다.
 
 이 저장소는 별도로 설치한 NVIDIA CloudXR Runtime 6.x를 실행하는
 `run_cloudxr_runtime.sh`와 빌드된 웹 클라이언트를 제공하는
@@ -16,7 +20,8 @@ Kuavo를 조작하는 구성이다. SDK 다운로드부터 필요한 경우
 **Runtime → HTTPS 웹 서버 → Quest에서 CONNECT → 수집기** 순서로 시작한다.
 아래 터미널 1·2·3은 각각 별도 터미널에서 실행하고 작업이 끝날 때까지 켜 둔다.
 PC 주소는 `<workstation-ip>`로 표시한다. PC는 공유기에 유선, Quest는 같은 공유기의 Wi-Fi에
-연결하면 된다. IP가 바뀌면 `.external/quest-session.env`와 인증서도 확인해야 한다.
+연결하면 된다. IP가 바뀌면 새 인증서와 환경 파일이 필요하다. wrapper 사용 시에는
+[수집기 문서 3절](QUEST_COLLECTOR_SETUP.md#3-네트워크나-ip가-바뀌었을-때)을 따른다.
 이미 설치된 이 PC에서는 SDK 재설치, JSON/tgz 재다운로드, 웹 재빌드가 필요 없다.
 
 이번 실행 설정은 **컨트롤러, 팔 이동 1.1배, 방향은 재개 시점 기준 1:1 회전, 30Hz 제어, VR 렌더 배율 1.0,

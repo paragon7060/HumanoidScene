@@ -1,9 +1,14 @@
 # Meta Quest 3/3S 빠른 시작
 
 이 문서는 이미 Isaac Lab scene을 실행할 수 있는 PC에서 Meta Quest 연결과 첫
-HDF5 episode 저장까지의 최소 흐름만 설명한다. CloudXR SDK 설치, 인증서 또는
-네트워크를 새로 구성해야 한다면 [Runtime 실행 가이드](QUEST_RUNTIME_SERVICE.md)와
-[Quest 상세 가이드](QUEST3_KUAVO_TELEOP_GUIDE.md)를 함께 사용한다.
+HDF5 episode 저장까지의 최소 흐름만 설명한다.
+
+> CloudXR SDK 설치, 인증서 준비, **Wi-Fi·IP 변경**은
+> [수집기 설치·간편 실행](QUEST_COLLECTOR_SETUP.md)을 따른다. IP가 바뀐 경우는
+> [3절](QUEST_COLLECTOR_SETUP.md#3-네트워크나-ip가-바뀌었을-때)만 진행하면 된다.
+> 아래의 `.external/quest-session.env`는 예전 수동 경로이며, 새 wrapper는
+> `.external/quest-collector/session.env`를 자동으로 읽는다. 조작 전체는
+> [Quest 상세 가이드](QUEST3_KUAVO_TELEOP_GUIDE.md)를 참고한다.
 
 ## 실행 경로 구분
 

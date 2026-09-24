@@ -43,6 +43,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |
 | Meta Quest를 처음 연결하고 수집 | [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md) |
 | 실제 수집기 SDK·인증서 준비 및 간편 실행 | [수집기 설치·실행](docs/QUEST_COLLECTOR_SETUP.md) |
+| Wi-Fi·공유기 변경으로 PC IP가 바뀐 뒤 Quest 재연결 | [네트워크·IP 변경](docs/QUEST_COLLECTOR_SETUP.md#3-네트워크나-ip가-바뀌었을-때) |
 | Quest 전체 옵션과 조작법 | [Quest 상세 가이드](docs/QUEST3_KUAVO_TELEOP_GUIDE.md) |
 | scaled/absolute 위치·방향·팔 응답 옵션 | [Quest 팔 제어 옵션](docs/QUEST_ARM_CONTROL.md) |
 | URDF 기반 IK·준비 자세·관절 한계 진단 | [Quest URDF IK](docs/QUEST_URDF_IK.md) |
@@ -238,7 +239,7 @@ manager-based 환경은 reset마다 randomize한다.
 별도로 준비하고, 이후에는 아래 명령만 사용한다.
 
 ```bash
-./quest_collector.sh check     # 서비스/시뮬레이터 없이 파일·SDK 로딩 점검
+./quest_collector.sh check     # 서비스/시뮬레이터 없이 IP·파일·SDK 로딩 점검
 ./quest_collector.sh runtime   # 터미널 1
 ./quest_collector.sh web       # 터미널 2, HTTPS 8443
 # Quest에서 Manual backend / PC IP / 49100으로 CONNECT한 뒤:
@@ -247,6 +248,9 @@ manager-based 환경은 reset마다 randomize한다.
 
 각 서비스는 별도 터미널에서 유지한다. 생성된 환경 파일을 자동으로 읽으며,
 preview의 HTTP 8080/WebSocket 8765와 구분한다.
+Wi-Fi를 바꿔 PC IP가 달라지면 `check`가 멈추고 갱신 명령을 안내한다.
+[네트워크·IP 변경 절차](docs/QUEST_COLLECTOR_SETUP.md#3-네트워크나-ip가-바뀌었을-때)대로
+setup을 `--update-config`로 한 번 다시 실행하고 Quest에서 새 인증서를 신뢰한다.
 
 V2 grasp SAC와 같은 관측·행동·보상·종료 설정으로 Quest 시연을 수집할 때는
 터미널 3에서 기본 `collect` 대신 아래 명령을 사용한다. `CUDA_VISIBLE_DEVICES`의

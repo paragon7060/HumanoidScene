@@ -7,6 +7,7 @@ in .external/quest-collector; no global shell, firewall, or preview files change
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import ipaddress
 import json
@@ -14,6 +15,7 @@ import os
 from pathlib import Path, PurePosixPath
 import shlex
 import shutil
+import socket
 import subprocess
 import tarfile
 import tempfile
@@ -42,6 +44,16 @@ def ipv4(value: str) -> str:
         return str(address)
     except ValueError as exc:
         raise argparse.ArgumentTypeError(f"Invalid LAN IPv4: {value}: {exc}") from exc
+
+
+def host_is_local(host: str) -> bool | None:
+    """Return whether this PC owns the IPv4 address; None when it cannot be tested."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.bind((host, 0))
+    except OSError as exc:
+        return False if exc.errno == errno.EADDRNOTAVAIL else None
+    return True
 
 
 def safe_extract(archive: Path, destination: Path) -> None:
@@ -223,6 +235,9 @@ def main() -> int:
         parser.error("Use a web port in 1024..65535 other than runtime 49100 or preview bridge 8765.")
     if not shutil.which("openssl"):
         parser.error("openssl is required; install it using your OS package manager.")
+    if host_is_local(args.host) is False:
+        print(f"[WARN] {args.host} is not assigned to this PC right now. Continue only if you are "
+              "preparing for another network; check 'ip -4 -brief address'.")
     state = PROJECT / ".external/quest-collector"
     os.umask(0o077)
     state.mkdir(parents=True, exist_ok=True)
@@ -250,6 +265,8 @@ def main() -> int:
         print(f"[READY] {state / 'session.env'}")
         print(f"Quest page: https://{args.host}:{args.web_port}; Manual backend: {args.host}:49100")
         print("Next: ./quest_collector.sh check (no GUI/services), then runtime / web / Quest CONNECT / collect.")
+        print(f"If the IP or certificate changed, trust https://{args.host}:49100 and "
+              f"https://{args.host}:{args.web_port} again on Quest before CONNECT.")
         print("No service was started. No firewall/global shell/preview source settings were changed.")
         print("SDK may bind signaling on all interfaces. Restrict access to your trusted LAN; TLS is not client authentication.")
     except (ValueError, OSError, subprocess.CalledProcessError, tarfile.TarError, KeyError) as exc:

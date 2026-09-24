@@ -10,6 +10,25 @@ RL 보상을 검사하려면 기존 연결 뒤 `./quest_collector.sh collect --r
 V2 grasp SAC 시연 전이를 저장하려면 같은 연결에서
 `--rl-reward-debug 2 --rl-demo-dataset <새 파일 경로>`를 사용한다.
 
+## 상황별 바로가기
+
+| 지금 상황 | 할 일 |
+|---|---|
+| 이 PC에서 처음 준비 | [1. 처음 준비하기](#1-처음-준비하기) → [4. 시작 전 점검](#4-시작-전-점검) |
+| **Wi-Fi·공유기를 바꿨거나 PC IP가 달라짐** | [3. 네트워크나 IP가 바뀌었을 때](#3-네트워크나-ip가-바뀌었을-때) |
+| 이미 준비된 PC에서 다시 수집 | [5. 매번 실행: 터미널 3개](#5-매번-실행-터미널-3개) |
+| 인증서 30일 만료 | [8. 문제 해결](#8-문제-해결)의 인증서 만료 항목 |
+| 다른 PC로 옮김 | `session.env`를 복사하지 말고 1절부터 다시 실행 |
+
+처음 준비할 때 한 번만 하는 일과 네트워크가 바뀔 때마다 하는 일은 다음과 같다.
+
+| 작업 | 처음 준비 | 네트워크·IP 변경 | 매번 실행 |
+|---|:---:|:---:|:---:|
+| Runtime SDK 다운로드, 웹 client build | ✅ | — | — |
+| `setup_quest_collector.sh --host <IP>` | ✅ | ✅ (`--update-config`) | — |
+| Quest에서 49100·8443 인증서 신뢰 | ✅ | ✅ | — |
+| `runtime` / `web` / Quest CONNECT / `collect` | ✅ | ✅ | ✅ |
+
 ## 1. 처음 준비하기
 
 이미 [Isaac 설치](INSTALL.md)를 끝낸 Linux PC가 대상이다. 기준은 Python 3.11,
@@ -25,6 +44,8 @@ ip -4 -brief address
 
 유선망과 Wi-Fi가 동시에 있는 PC에서는 기본 인터넷 경로가 아니라 **Quest와 통신하는
 인터페이스의 IP**를 선택한다. IP는 자동 추정하지 않고 `--host`로 명시한다.
+출력의 `172.30.1.14/24`처럼 `/` 앞부분만 사용한다. `docker0`, VPN 등 Quest와
+관계없는 인터페이스는 제외한다.
 
 ### 웹 클라이언트가 이미 빌드되어 있는 PC
 
@@ -101,14 +122,22 @@ npm --prefix "$CLOUDXR_JS_SAMPLES_DIR/simple" run build
 같은 설정으로 재실행하면 SDK·인증서·웹 snapshot·환경 파일을 재사용한다.
 
 기존 환경과 다른 설정은 기본적으로 거부한다. IP/경로를 바꾸려면 이전 설정을
-백업한 후 갱신하는 `--update-config`를 명시한다. 처음 사용한 Python/LeRobot 등
-사용자 정의 인자도 함께 전달한다.
+백업한 후 갱신하는 `--update-config`를 명시한다. 이 옵션은 `session.env` 전체를
+새 값으로 다시 쓴다. 처음 setup에서 지정한 사용자 정의 인자를 빠뜨리면 기본값으로
+돌아가므로 **매번 함께 전달한다.**
 
-```bash
-./setup_quest_collector.sh --host <NEW_PC_IP> --update-config
-```
+| 처음 setup에서 지정했다면 | `--update-config` 때도 전달 | 빠뜨리면 |
+|---|---|---|
+| `--isaaclab-python` | 같은 경로 | `~/{anaconda3,miniconda3,miniforge3}/envs/env_isaaclab_232` 자동 탐색 |
+| `--isaaclab-dir` | 같은 경로 | `.external/IsaacLab-v2.3.2` |
+| `--web-port` | 같은 포트 | 8443 |
+| `--lerobot-python` | 같은 경로 | `LEROBOT_PYTHON`이 설정에서 **빠짐** |
+
+현재 값은 `./quest_collector.sh info` 또는 `grep -v KEY .external/quest-collector/session.env`로
+확인한다. 네트워크 변경 절차는 [3절](#3-네트워크나-ip가-바뀌었을-때)에 모았다.
 
 인증서 만료 시 새 쌍을 만들고 환경 파일을 갱신한다. 이전 인증서는 보존된다.
+IP만 바뀐 경우에는 `--renew-certificate`가 필요 없다.
 
 ```bash
 ./setup_quest_collector.sh \
@@ -124,23 +153,88 @@ preview가 바뀌어도 수집용 snapshot은 자동으로 변경되지 않는�
   --browser-build /absolute/path/to/simple/build
 ```
 
-## 3. 시작 전 점검
+## 3. 네트워크나 IP가 바뀌었을 때
+
+Wi-Fi·공유기를 바꾸거나 공유기가 새 주소를 배정하면 PC IP가 달라진다. 수집기 설정과
+TLS 인증서는 setup 때의 IP에 묶여 있으므로 아래를 **한 번** 진행한다. SDK 다운로드,
+웹 client build, Isaac 설치는 다시 하지 않는다.
+
+> **알아채는 방법:** `./quest_collector.sh info`가
+> `[WARN] Configured CLOUDXR_HOST ... is not assigned to this PC`를 표시하거나
+> `check`·`runtime`·`web`이 같은 내용의 `[ERROR]`로 멈춘다. 메시지에 현재 IPv4 목록과
+> 현재 설정값을 채운 갱신 명령이 함께 나온다.
+
+### 3-1. 새 IP 확인
+
+```bash
+ip -4 -brief address
+```
+
+Quest가 연결될 네트워크의 인터페이스를 고른다. 예를 들어
+`wlp3s0  UP  172.30.1.14/24`라면 새 IP는 `172.30.1.14`다.
+
+### 3-2. 설정 갱신과 점검
+
+```bash
+./setup_quest_collector.sh \
+  --host <NEW_PC_IP> \
+  --isaaclab-python /absolute/path/to/env_isaaclab_232/bin/python \
+  --update-config
+./quest_collector.sh check
+```
+
+- 새 IP용 30일 인증서를 `certs/<NEW_PC_IP>/`에 만든다. `--renew-certificate`는 필요 없다.
+- 이전 `session.env`는 `session.env.backup-*`로, 이전 인증서는 원래 폴더에 그대로 남는다.
+- 예전 네트워크로 돌아가면 같은 명령을 예전 IP로 실행한다. 유효기간이 하루 넘게 남은
+  기존 인증서를 재사용하므로 Quest에서 다시 신뢰할 필요가 없을 수 있다. 하루 미만이면
+  `--renew-certificate`를 추가하라는 오류가 나온다.
+- [2절](#2-생성-파일과-재설정-규칙)의 표처럼 처음 지정한 사용자 정의 인자는 함께 전달한다.
+
+### 3-3. Quest에서 다시 신뢰하고 연결
+
+1. Quest를 PC와 **같은 Wi-Fi**에 연결한다.
+2. [5절](#5-매번-실행-터미널-3개)의 터미널 1·2로 `runtime`과 `web`을 실행한다.
+3. Quest 브라우저에서 `https://<NEW_PC_IP>:49100`을 열어 새 인증서의 IP·지문을 확인하고
+   신뢰한다. 확인 뒤 빈 화면이나 HTTP 오류가 나오는 것은 정상이다.
+4. `https://<NEW_PC_IP>:8443`을 열어 같은 방식으로 신뢰한다.
+5. **Server IP 입력칸을 새 IP로 바꾼다.** 이전 값이 남아 있을 수 있다. Port는 49100이다.
+6. `CONNECT` 후 Runtime 터미널의 `[CLIENT] Connected`를 확인하고 `collect`를 실행한다.
+
+### 3-4. 새 네트워크에서 확인할 것
+
+`check`는 Quest가 PC에 실제로 닿는지 검사하지 않는다. 아래는 사용자가 확인한다.
+
+| 항목 | 확인 내용 |
+|---|---|
+| 같은 네트워크 | Quest와 PC의 IP 앞자리 대역이 같아야 한다(예: 둘 다 `172.30.1.x`) |
+| 기기 간 통신 | 게스트망·AP(클라이언트) 격리가 켜진 망에서는 8443 페이지부터 열리지 않는다. 설정 갱신으로는 해결되지 않으므로 다른 망을 사용한다 |
+| 신뢰하는 망 | Runtime 신호 포트는 모든 인터페이스에 열릴 수 있다. 공용 Wi-Fi에서는 사용하지 않는다 |
+| PC 연결 방식 | PC 유선 + Quest Wi-Fi를 권장한다. PC도 Wi-Fi이면 끊김·지연이 늘 수 있으니 `[PERF]`와 화질을 확인한다 |
+| 반복되는 IP 변경 | 공유기의 DHCP 예약으로 PC IP를 고정하면 매번 3절을 반복하지 않아도 된다 |
+
+## 4. 시작 전 점검
 
 ```bash
 ./quest_collector.sh info
 ./quest_collector.sh check
 ```
 
-`check`는 인증서 유효기간/IP, SDK 버전·library loading, Isaac/OpenXR metadata와
-웹 파일 존재를 확인한다. 최초 한 번 C++ 실행기를 컴파일한다. **서비스나 Isaac Sim은
-시작하지 않는다.** Quest 영상·실제 tracking·encoding 성능을 검증하는 명령은 아니다.
+`check`는 다음을 확인한다. 최초 한 번 C++ 실행기를 컴파일한다.
+**서비스나 Isaac Sim은 시작하지 않는다.**
+
+- 설정된 `CLOUDXR_HOST`가 현재 이 PC의 IP인지(아니면 [3절](#3-네트워크나-ip가-바뀌었을-때) 안내 후 중단)
+- 인증서 유효기간과 인증서 IP
+- SDK 버전·library loading, Isaac/OpenXR metadata, 웹 파일 존재
+
+Quest가 PC에 닿는지, Quest 영상·실제 tracking·encoding 성능은 검증하지 않는다.
+`runtime`·`web`도 시작 전에 같은 IP·인증서 검사를 한다.
 
 여러 네트워크에 연결된 PC는 실행 전 방화벽 정책을 확인한다. Runtime SDK는
 `--host`와 무관하게 신호 포트를 모든 인터페이스에 열 수 있다. 허용 대상은
 신뢰하는 Quest/LAN으로 제한하고, 연구실 유선망이나 인터넷에 서비스를 공개하지 않는다.
 TLS는 암호화이지 사용자 인증이 아니다. 도구는 방화벽 전체 해제나 포트 포워딩을 하지 않는다.
 
-## 4. 매번 실행: 터미널 3개
+## 5. 매번 실행: 터미널 3개
 
 각 터미널에서 저장소 루트로 이동한다. `quest_collector.sh`가 환경 파일을 자동으로
 읽으므로 매번 conda activate나 `source`를 반복할 필요는 없다.
@@ -262,7 +356,7 @@ CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
 **수집기 실행 중에는 Pause 상태라도 물리 prim 삭제/추가, layer 교체, USD Open/Import를 하지 않는다.**
 physics tensor view가 무효화되면 Play 재개로 복구되지 않으므로 수집기를 재실행한다.
 
-## 5. 조작·저장·종료
+## 6. 조작·저장·종료
 
 `X` 보정 → `A`로 따라오기 확인 → `B`로 녹화 → 작업 완료 후 PC `M`으로 성공 저장.
 PC 없이 진행하려면 작업 완료 후 오른쪽 그립을 `--success-hold-seconds`(기본 1.5초) 동안
@@ -279,14 +373,17 @@ HDF5는 `datasets/kuavo_quest_<timestamp>_<id>.hdf5`에 시도별로 저장한�
 Runtime Ctrl+C → 웹 서버 Ctrl+C** 순서다. 서버는 foreground로만 실행되며
 자동 시작 서비스/백그라운드 daemon을 등록하지 않는다.
 
-## 6. LeRobot과 옵션 변경
+## 7. LeRobot과 옵션 변경
 
 별도 v3 writer 환경은 준비 단계에서 지정한다. Isaac 환경에 LeRobot을 설치하지 않는다.
 
 ```bash
 ./setup_quest_collector.sh --host <PC_WIFI_IP> \
+  --isaaclab-python /absolute/path/to/env_isaaclab_232/bin/python \
   --lerobot-python /absolute/path/to/lerobot-v3/bin/python --update-config
 ```
+
+이후 IP 변경 등으로 `--update-config`를 다시 실행할 때도 `--lerobot-python`을 함께 전달한다.
 
 HDF5와 LeRobot 동시 수집:
 
@@ -313,17 +410,21 @@ wrapper 뒤의 옵션은 기본값보다 우선한다.
 `collect_quest_teleop.sh`도 변경 없이 사용할 수 있다. 직접 사용할 때만
 `.external/quest-collector/session.env`를 source한다.
 
-## 7. 문제 해결
+## 8. 문제 해결
 
 | 증상 | 확인 |
 |---|---|
 | Missing config | setup을 먼저 실행했는지 확인 |
+| `CLOUDXR_HOST ... is not assigned to this PC` | 네트워크·IP 변경. [3절](#3-네트워크나-ip가-바뀌었을-때) 진행 |
+| `[WARN] Could not verify ...` | IP 소유 여부를 검사하지 못함(권한 제한 등). `ip -4 -brief address`와 `info`의 IP가 같은지 직접 확인 |
 | SHA-256 mismatch | 6.2.1 공식 Linux SDK인지 확인; 파일을 지우거나 검사를 우회하지 않음 |
 | 다른 Python/OpenXR 경로 | `--isaaclab-python`, `--isaaclab-dir` 지정 |
-| 인증서 만료/새 IP | `--renew-certificate --update-config`, Quest에서 새 인증서 확인 |
-| 8443 페이지 접속 실패 | `https`, PC LAN IP, web 실행, 기기 간 통신 차단 확인 |
+| 인증서 만료 | `--renew-certificate --update-config`(처음 쓴 사용자 정의 인자 포함), Quest에서 새 인증서 확인 |
+| 새 IP로 갱신 후 Quest에서 인증서 경고 | 정상. 3-3의 순서로 49100과 8443을 다시 신뢰 |
+| 8443 페이지 접속 실패 | `https`, PC LAN IP, web 실행, 같은 Wi-Fi, 게스트망·AP 격리 확인([3-4](#3-4-새-네트워크에서-확인할-것)) |
 | Address already in use | 해당 포트의 기존 프로세스 확인; 도구는 자동 종료하지 않음 |
-| 페이지는 열리지만 CONNECT 실패 | Runtime 49100 인증서, Manual backend, 방화벽 확인 |
+| 페이지는 열리지만 CONNECT 실패 | Server IP 입력칸이 새 IP인지, Runtime 49100 인증서, Manual backend, 방화벽 확인 |
+| LeRobot 설정이 사라짐 | `--update-config` 때 `--lerobot-python`을 빠뜨림. 다시 포함해 실행 |
 | FORM_FACTOR_UNAVAILABLE | Quest CONNECT 이후 collect를 실행했는지 확인 |
 | LeRobot 데이터 없음 | v3 writer 설정, 녹화 시작, 성공 처리, 정상 종료 확인 |
 
