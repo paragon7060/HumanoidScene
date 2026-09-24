@@ -299,6 +299,60 @@ reset 검증 실패(`invalid_reset`)가 발생하면 학습기와 같이 해당 
 기존 reward-debug preset의 `--no-rl-obstacle-collision`은 이 수집 경로에
 적용되지 않는다. V2 학습의 장애물 충돌 판정을 그대로 사용한다.
 
+### 안전 종료(unsafe) 원인 확인
+
+안전 위반으로 끝나면 걸린 판정과 측정값, 그리고 접촉한 링크를 콘솔에 함께 출력한다.
+
+```
+[V2 DEMO] episode_000000: unsafe (robot_rack_collision), success=False
+[V2 DEMO]   rack 41.2/10.0 N | obstacle 0.0/5.0 N | base 0.22/1.50 m | self-collision off | box z 1.21 m | lift 0.00/0.50 m | box speed 0.03/10.0 m/s, 0.10/100.0 rad/s
+[V2 DEMO]   rack zarm_r4_link 41.2 N at (1.05, -0.21, 1.48) m
+```
+
+판정은 `robot_rack_collision`(랙·롤러 접촉 10 N 초과), `obstacle_collision`(랙을 제외한
+박스·벨트·바닥 접촉 5 N 초과), `self_collision`, `workspace_limit`(base 중심에서 1.5 m),
+`box_drop`, `box_lift_limit`(0.5 m), `box_speed_limit` 일곱 가지다. 표시값은 termination
+manager가 그 스텝에 이미 계산한 스냅숏을 읽은 것이며 다시 측정하지 않는다. HDF5의
+`end_reason`은 기존과 같이 `unsafe`로 저장한다.
+
+충돌 판정 대상은 손가락 4개를 제외한 `base_link`, `waist_yaw_link`,
+`zarm_l2/l4/l7_link`, `zarm_r2/r4/r7_link`, 좌우 `twofinger_base` 10개 링크다. 손가락과
+박스의 접촉만 파지 신호이므로, **손바닥(`twofinger_base`)이나 팔뚝이 박스를 5 N 넘게
+누르면 장애물 충돌로 종료**된다. 랙 접촉은 롤러 포함 10 N이 기준이다.
+
+접촉 중인 링크 위치에는 기본으로 구를 표시한다. 빨강은 랙·롤러, 주황은 그 외
+(박스·벨트·바닥)이고 1 N부터 나타난다. 종료를 일으킨 접촉 표시는 `A/T`로 다음 시도를
+시작하거나 `B/R`로 reset할 때까지 남는다. 콘솔에도 1초에 한 번
+`[V2 CONTACT] rack zarm_r4_link 6.2 N at (...) m`을 출력한다. 구는 링크 원점에 그리므로
+접촉 패치의 정확한 위치는 아니며, 물리·보상·관측에는 들어가지 않는다. 표시를 끄려면
+`--no-rl-demo-contact-markers`를 추가한다.
+
+실패·성공으로 끝난 프레임은 Isaac의 자동 reset 뒤에 **종료 직전 로봇·박스 자세로 되돌려
+정지 상태로 유지**한다. 그래서 어디서 부딪혔는지 그 장면 그대로 둘러볼 수 있다. 이때
+물리는 진행하지 않으며 표시 전용 복원이다. `A/T`를 누르면 실제 `env.reset()`으로 새 장면을
+만들고 다음 시도를 시작하고, `B/R`도 즉시 새 장면으로 넘어간다. 기록된 전이는 이미 종료
+시점에 저장되므로 이 복원은 데이터에 영향을 주지 않는다. 바로 reset되던 이전 동작이
+필요하면 `--no-rl-demo-hold-terminal-frame`을 추가한다.
+
+## 성공 데모만 추출해 공유하기
+
+`scripts/rl/export_demo_subset.py`는 기록된 파일에서 **완료된 성공 에피소드만** 새 파일로
+복사한다. 값은 수정하지 않고 gzip으로만 압축하며, 기존 파일을 덮어쓰지 않는다.
+
+```bash
+python3 scripts/rl/export_demo_subset.py \
+  datasets/v2_grasp_quest_005.hdf5 --output datasets/v2_grasp_success.hdf5
+```
+
+여러 파일을 함께 주면 병합하되, 관측·행동·보상 계약(`action_dim`, 관측 차원,
+`control_dt`, gripper force, roller, `multi_box`/`task` 설정)이 다르면 거부한다.
+`controller_mapping`이나 seed처럼 사람이 조작한 방식만 다르면 병합하고 manifest의 해당
+키를 `"mixed"`로 표시하며, 에피소드마다 `source_file`/`source_episode`를 남긴다.
+`--all-episodes`는 실패 에피소드까지, `--allow-incomplete`는 중단된 기록까지 포함한다.
+
+예시 결과물은 [examples/demos](../examples/demos/README.md)에 올려 두었다.
+
+
 파일은 독점 생성하며 기존 경로를 덮어쓰지 않는다. 루트 `manifest_json`에는
 로봇, 그리퍼, 행동 항목 순서/차원, 관측 차원, 제어 주기, 설정을 담는다.
 `episodes/episode_XXXXXX/transitions`에는 action 직전 `actor_obs`와

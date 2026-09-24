@@ -49,6 +49,10 @@ parser.add_argument("--rl-demo-dataset", type=Path, default=None,
                     help="With --rl-reward-debug 2, record Quest transitions in the exact v2 staged-grasp SAC observation/action/reward contract. Existing files are never overwritten.")
 parser.add_argument("--rl-demo-self-collision", action=argparse.BooleanOptionalAction,
                     default=True, help="V2 staged-grasp demonstration: match the SAC self-collision setting (default enabled).")
+parser.add_argument("--rl-demo-contact-markers", action=argparse.BooleanOptionalAction,
+                    default=True, help="V2 staged-grasp demonstration: mark the robot links that touch the rack (red) or another obstacle (orange) in the Quest view.")
+parser.add_argument("--rl-demo-hold-terminal-frame", action=argparse.BooleanOptionalAction,
+                    default=True, help="V2 staged-grasp demonstration: replay the terminating frame after Isaac's automatic reset so the operator can inspect it before the next attempt.")
 parser.add_argument("--rl-config", type=Path,
                     help="Reward inspection only: trusted RL configure_task/configure Python file.")
 parser.add_argument("--rl-task", choices=("pick", "pick_place"), default="pick",
@@ -309,6 +313,10 @@ if args_cli.rl_demo_dataset is not None:
         parser.error("--rl-demo-dataset uses the staged grasp task; omit full-scene shadow options.")
 elif not args_cli.rl_demo_self_collision:
     parser.error("--no-rl-demo-self-collision requires --rl-demo-dataset.")
+elif not args_cli.rl_demo_contact_markers:
+    parser.error("--no-rl-demo-contact-markers requires --rl-demo-dataset.")
+elif not args_cli.rl_demo_hold_terminal_frame:
+    parser.error("--no-rl-demo-hold-terminal-frame requires --rl-demo-dataset.")
 if args_cli.rl_reward_debug is not None and args_cli.rl_reward_debug not in (0, 1, 2):
     parser.error("--rl-reward-debug takes no value, 0, 1, or 2.")
 if args_cli.rl_config is not None and args_cli.rl_reward_debug is None:

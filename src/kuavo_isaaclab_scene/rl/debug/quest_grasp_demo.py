@@ -22,16 +22,79 @@ from ...workcell.workcell_layout import offset as layout_offset, rotation as lay
 from ..envs.terminal_observation import TerminalObservationMixin
 from ..multi_box.scene.reset_settling import reset_settling_step
 from ..multi_box.training_env_cfg import MultiBoxGraspAssemblyEnvCfg
+from .contact_probe import ContactProbe, describe as describe_contacts
 from .quest_control import QuestRLControl
 from .quest_multi_box import _tracked
+from .unsafe_reason import BoxSafetyValues, safety_measurements, unsafe_causes
 
 
 class _TransitionEnv(TerminalObservationMixin, ManagerBasedRLEnv):
-    pass
+    """Also snapshot the per-link contact breakdown before the automatic reset."""
+
+    def step(self, action):
+        # Never let a previous attempt's contact snapshot describe this step.
+        self._terminal_contacts = self._terminal_scene = None
+        return super().step(action)
+
+    def _reset_idx(self, env_ids):
+        probe = getattr(self, "_contact_probe", None)
+        if probe is not None and len(env_ids):
+            self._terminal_contacts = probe.measure()
+        if getattr(self, "_hold_terminal_frame", False) and len(env_ids):
+            self._terminal_scene = _scene_snapshot(self)
+        return super()._reset_idx(env_ids)
 
 
 def _vector(value):
     return value[0].detach().cpu().numpy().copy()
+
+
+def _scene_snapshot(env):
+    """Copy the robot and box poses of the terminating step before Isaac resets."""
+    from ..multi_box.scene.spawn import physical_asset_names
+    snapshot = {}
+    for name in ("robot", *physical_asset_names()):
+        data = env.scene[name].data
+        joint_pos = getattr(data, "joint_pos", None)
+        snapshot[name] = (data.root_pose_w.clone(),
+                          None if joint_pos is None else joint_pos.clone())
+    return snapshot
+
+
+def _restore_scene(env, snapshot):
+    """Display-only replay of the held frame after the automatic reset.
+
+    Velocities are written as zero because the frame is inspected while physics
+    is paused, and the next attempt always starts from a real environment reset.
+    """
+    for name, (root_pose, joint_pos) in snapshot.items():
+        asset = env.scene[name]
+        asset.write_root_pose_to_sim(root_pose)
+        asset.write_root_velocity_to_sim(
+            torch.zeros((root_pose.shape[0], 6), device=root_pose.device))
+        if joint_pos is not None and joint_pos.shape[-1]:
+            asset.write_joint_state_to_sim(joint_pos, torch.zeros_like(joint_pos))
+    env.sim.forward()
+    env.sim.render()
+
+
+def _box_values(env):
+    """Read the target-box snapshot this step's termination decision already used.
+
+    The adapter caches one measurement per control step and stores gathered
+    copies, so the cache still describes the terminating step after the
+    automatic reset.  Measuring again would describe the fresh scene instead.
+    """
+    grasp = getattr(env, "_multi_box_privileged_grasp_step", None)
+    if grasp is None or getattr(env, "_multi_box_privileged_grasp_counter", -1) != int(
+            env.common_step_counter):
+        return None
+    return BoxSafetyValues(
+        height_m=float(grasp.box_pose_world[0, 2] - env.scene.env_origins[0, 2]),
+        lift_m=float(grasp.lift_from_reset_m[0]),
+        linear_speed=float(grasp.box_velocity_world[0, :3].norm()),
+        angular_speed=float(grasp.box_velocity_world[0, 3:].norm()),
+    )
 
 
 def _transition(pre, action, reward, terminated, truncated, info, env):
@@ -160,9 +223,20 @@ def run(args, app):
 
         running = view_ready = False
         zero_action = torch.zeros((1, env.action_manager.total_action_dim), device=env.device)
+        probe = ContactProbe(env, show_markers=bool(args.rl_demo_contact_markers))
+        env._contact_probe = probe
+        env._hold_terminal_frame = bool(args.rl_demo_hold_terminal_frame)
+        held = False
+        contact_logged = 0.0
         print(f"[V2 DEMO] Recording SAC transitions to {recorder.path}", flush=True)
         print("[V2 DEMO] X/C recenter; A/T run or pause; B/R discard current attempt and randomize.", flush=True)
         print("[V2 DEMO] Success, unsafe, and timeout end an episode and pause control.", flush=True)
+        if args.rl_demo_contact_markers:
+            print("[V2 DEMO] Contact spheres: red = rack/roller, orange = box, belt or floor. "
+                  "The terminal contact stays visible until the next attempt starts.", flush=True)
+        if args.rl_demo_hold_terminal_frame:
+            print("[V2 DEMO] The final frame of each attempt is held for inspection; "
+                  "A/T starts the next attempt and resets the scene.", flush=True)
         while app.is_running():
             started = time.monotonic()
             raw = xr.advance()
@@ -182,6 +256,8 @@ def run(args, app):
                     break
                 obs, _ = env.reset()
                 control.reset()
+                probe.clear()
+                held = False
                 running = False
             if requests["recenter"] or (not view_ready and tracked):
                 requests["recenter"] = False
@@ -196,7 +272,13 @@ def run(args, app):
                 requests["toggle"] = False
                 if tracked and view_ready:
                     running = not running
+                    if running and held:
+                        # The held frame is only a replay; start from a real reset.
+                        obs, _ = env.reset()
+                        held = False
                     control.reset()
+                    if running:
+                        probe.clear()
                     print(f"[V2 DEMO] {'RUN' if running else 'PAUSED'}", flush=True)
             if running and not tracked:
                 running = False
@@ -236,12 +318,38 @@ def run(args, app):
                         recorder.start_episode()
                     recorder.append(sample)
                     obs = next_obs
+                    contacts = getattr(env, "_terminal_contacts", None)
+                    if not (sample["terminated"] or sample["truncated"]):
+                        contacts = probe.measure()
+                        probe.show(contacts)
+                        if contacts and time.monotonic() - contact_logged >= 1.0:
+                            contact_logged = time.monotonic()
+                            print(f"[V2 CONTACT] {describe_contacts(contacts)}", flush=True)
                     if sample["terminated"] or sample["truncated"]:
                         terms = env.termination_manager
                         reason = next((name for name in terms.active_terms
                                        if bool(terms.get_term(name)[0].item())), "terminated")
                         name = recorder.finish_episode(success=sample["success"], reason=reason)
-                        print(f"[V2 DEMO] {name}: {reason}, success={sample['success']}", flush=True)
+                        cause, measured = "", ""
+                        if reason == "unsafe":
+                            # The environment publishes the predicate snapshot it
+                            # terminated on, captured before the automatic reset.
+                            safety = info["transition_safety"]
+                            cause = " (" + ", ".join(unsafe_causes(safety)) + ")"
+                            measured = safety_measurements(safety, env.cfg, _box_values(env))
+                        print(f"[V2 DEMO] {name}: {reason}{cause}, "
+                              f"success={sample['success']}", flush=True)
+                        if measured:
+                            print(f"[V2 DEMO]   {measured}", flush=True)
+                        if reason == "unsafe":
+                            probe.latch(contacts or ())
+                            print(f"[V2 DEMO]   {describe_contacts(contacts or ())}", flush=True)
+                        snapshot = getattr(env, "_terminal_scene", None)
+                        if snapshot is not None:
+                            _restore_scene(env, snapshot)
+                            held = True
+                            print("[V2 DEMO]   Holding the final frame. A/T = next attempt, "
+                                  "B/R = reset now.", flush=True)
                         running = False
                         control.reset()
                         if args.max_episodes and recorder.finished >= args.max_episodes:
