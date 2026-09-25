@@ -6,6 +6,7 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.hierarchy import SkillStateMachine
+from kuavo_isaaclab_scene.rl.multi_box.demo_replay import convert_legacy_actor_observation
 from kuavo_isaaclab_scene.rl.multi_box.observations import (
     build_observations,
     flat_actor_observation_dim,
@@ -135,9 +136,17 @@ def test_deployable_assembler_uses_only_perception_proprio_and_estimated_placeme
 
 def test_actor_observation_uses_base_frame_and_excludes_privileged_signals():
     value = state()
+    value = replace(value, deployable=replace(
+        value.deployable, control=replace(
+            value.deployable.control,
+            target_box=torch.zeros(2, dtype=torch.long),
+        ),
+    ))
     first = build_observations(value, torch.zeros(2, 25))
     assert first.actor.box_tokens.shape == (2, 12, 22)
     assert first.actor.anchor_poses.shape == (2, 2, 9)
+    assert first.actor.hand_flap_relations.shape == (2, 2, 2, 9)
+    assert first.actor.opposing_flap_assignment.shape == (2, 2)
     assert first.critic.privileged_box_tokens.shape[-1] > first.actor.box_tokens.shape[-1]
 
     changed_privileged = replace(
@@ -147,6 +156,9 @@ def test_actor_observation_uses_base_frame_and_excludes_privileged_signals():
     )
     second = build_observations(replace(value, privileged=changed_privileged), torch.zeros(2, 25))
     assert torch.equal(first.actor.box_tokens, second.actor.box_tokens)
+    assert torch.equal(first.actor.hand_flap_relations, second.actor.hand_flap_relations)
+    assert torch.equal(first.actor.opposing_flap_assignment,
+                       second.actor.opposing_flap_assignment)
     assert not torch.equal(first.critic.privileged_box_tokens, second.critic.privileged_box_tokens)
 
 
@@ -157,6 +169,8 @@ def test_actor_observation_has_stable_flat_manager_layout_without_ordinal_target
         observation.robot_proprio.shape[1]
         + observation.anchor_poses[0].numel()
         + observation.box_tokens[0].numel()
+        + observation.hand_flap_relations[0].numel()
+        + observation.opposing_flap_assignment.shape[1]
         + observation.box_mask.shape[1]
         + observation.target_one_hot.shape[1]
         + observation.current_skill_one_hot.shape[1]
@@ -165,6 +179,86 @@ def test_actor_observation_has_stable_flat_manager_layout_without_ordinal_target
     )
     assert flat.shape == (2, expected)
     assert expected == flat_actor_observation_dim(25)
+    assert expected == 441
+
+
+def test_hand_flap_goal_uses_fixed_centers_and_masks_missing_target():
+    value = state()
+    boxes = value.deployable.boxes
+    size = boxes.size_m.clone()
+    size[:, 0] = torch.tensor((0.266, 0.185, 0.130))
+    pose = boxes.pose_world.clone()
+    pose[0, 0, :3] = torch.tensor((1.0, 2.0, 0.4))
+    tcp = value.deployable.robot.tcp_pose_world.clone()
+    tcp[0, 0, :3] = torch.tensor((1.3, 2.0, 0.58065))
+    tcp[0, 1, :3] = torch.tensor((0.7, 2.0, 0.58065))
+    target = value.deployable.control.target_box.clone()
+    target[0] = 0
+    deployable = replace(
+        value.deployable,
+        boxes=replace(boxes, size_m=size, pose_world=pose),
+        robot=replace(value.deployable.robot, tcp_pose_world=tcp),
+        control=replace(value.deployable.control, target_box=target),
+    )
+    actor = build_observations(replace(value, deployable=deployable), torch.zeros(2, 25)).actor
+    assert actor.opposing_flap_assignment[0].tolist() == [1.0, 0.0]
+    torch.testing.assert_close(
+        actor.hand_flap_relations[0, 0, 0, :3],
+        torch.tensor((0.266 / 1.01 * 0.5 - 0.3, 0.0, 0.0)), atol=1e-6, rtol=0,
+    )
+    torch.testing.assert_close(
+        actor.hand_flap_relations[0, 1, 1, :3],
+        torch.tensor((0.3 - 0.266 / 1.01 * 0.5, 0.0, 0.0)), atol=1e-6, rtol=0,
+    )
+    shifted_tcp = tcp.clone()
+    shifted_tcp[0, 0, 1] += 0.03
+    shifted_actor = build_observations(replace(
+        value, deployable=replace(
+            deployable, robot=replace(deployable.robot, tcp_pose_world=shifted_tcp)),
+    ), torch.zeros(2, 25)).actor
+    torch.testing.assert_close(
+        shifted_actor.hand_flap_relations[0, 0, 0, :3],
+        actor.hand_flap_relations[0, 0, 0, :3] - torch.tensor((0.0, 0.03, 0.0)),
+        atol=1e-6, rtol=0,
+    )
+    assert torch.count_nonzero(actor.hand_flap_relations[1]) == 0
+    assert torch.count_nonzero(actor.opposing_flap_assignment[1]) == 0
+
+    no_confidence = boxes.pose_confidence.clone()
+    no_confidence[0, 0] = 0
+    hidden = build_observations(replace(
+        value, deployable=replace(
+            deployable, boxes=replace(deployable.boxes, pose_confidence=no_confidence)),
+    ), torch.zeros(2, 25)).actor
+    assert torch.count_nonzero(hidden.hand_flap_relations[0]) == 0
+    assert torch.count_nonzero(hidden.opposing_flap_assignment[0]) == 0
+
+
+def test_legacy_demo_conversion_reconstructs_current_observation_from_recorded_poses():
+    value = state()
+    boxes = value.deployable.boxes
+    pose = boxes.pose_world.clone()
+    pose[0, 0, :3] = torch.tensor((0.7, -0.2, 0.3))
+    pose[0, 0, 3:] = torch.tensor((0.9238795, 0.0, 0.0, 0.3826834))
+    size = boxes.size_m.clone()
+    size[0, 0] = torch.tensor((0.266, 0.185, 0.130))
+    tcp = value.deployable.robot.tcp_pose_world.clone()
+    tcp[0, 0, :3] = torch.tensor((0.9, -0.05, 0.5))
+    tcp[0, 1, :3] = torch.tensor((0.55, -0.4, 0.5))
+    tcp[0, 1, 3:] = torch.tensor((0.9659258, 0.0, 0.0, -0.2588190))
+    target = value.deployable.control.target_box.clone()
+    target[0] = 0
+    deployable = replace(
+        value.deployable,
+        boxes=replace(boxes, pose_world=pose, size_m=size),
+        robot=replace(value.deployable.robot, tcp_pose_world=tcp),
+        control=replace(value.deployable.control, target_box=target),
+    )
+    current = flatten_actor_observation(build_observations(
+        replace(value, deployable=deployable), torch.zeros(2, 25)).actor)
+    legacy = torch.cat((current[:, :350], current[:, 388:]), dim=-1)
+    converted = convert_legacy_actor_observation(legacy)
+    torch.testing.assert_close(converted, current, atol=2e-6, rtol=1e-6)
 
 
 def test_common_world_translation_does_not_change_base_relative_pose_observations():

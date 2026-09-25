@@ -17,6 +17,7 @@ from ....workcell.workcell_layout import scale as workcell_scale
 from ...scenes.asset_geometry import box_geometry
 from ..debug.contact_sensors import CONTACT_SENSOR_NAMES
 from ..geometry import relative_pose
+from ..geometry.grasp import closest_flap_surface
 from ..geometry.pose import quat_apply
 from ..geometry.rack import box_shelf_clearance_m
 from ..metrics import (
@@ -40,19 +41,6 @@ MIN_JAW_FORCE_N = 5.0
 GRASP_CAPTURE_REWARD_SCALE_M = 0.10
 FLAP_NAMES = ("flap_right", "flap_left")
 FINGER_NAMES = ("l_f_finger", "l_b_finger", "r_f_finger", "r_b_finger")
-
-
-def _closest_flap_surface(
-    points: torch.Tensor,
-    centers: torch.Tensor,
-    halves: torch.Tensor,
-    normal_axes: torch.Tensor,
-) -> torch.Tensor:
-    delta = points - centers
-    nearest = delta.clamp(-halves, halves)
-    axis = normal_axes[..., None]
-    side = torch.where(delta.gather(-1, axis) >= 0, 1.0, -1.0)
-    return centers + nearest.scatter(-1, axis, side * halves.gather(-1, axis))
 
 
 @dataclass(frozen=True)
@@ -301,7 +289,7 @@ class IsaacPrivilegedGraspAdapter:
             flap_pose[:, None, :, 3:].expand(-1, 2, -1, -1),
         ), dim=-1)
         tcp_local = relative_pose(pair_pose, tcp_for_flaps)[..., :3]
-        nearest = _closest_flap_surface(
+        nearest = closest_flap_surface(
             tcp_local, centers[:, None], halves[:, None], axes[:, None])
         distance = (tcp_local - nearest).norm(dim=-1)
         _, assignment = opposing_flap_reach_assignment(

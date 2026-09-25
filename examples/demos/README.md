@@ -53,5 +53,12 @@ with h5py.File("examples/demos/v2_grasp_quest_success.hdf5") as file:
 
 - 사람이 조작한 시연이라 **최적 궤적이 아니다.** 접근 중 멈칫거림, 접촉 손실 후 재파지, 불필요한 몸통 이동이 들어 있다.
 - 2개 에피소드는 정책을 지도학습하기에 턱없이 적다. off-policy replay의 초기 seed 용도로만 쓴다.
-- 이 데이터를 SAC 학습기에 자동 주입하는 loader는 아직 없다.
-
+- 현재 V2 SAC는 `--demo-dataset examples/demos/v2_grasp_quest_success.hdf5
+  --no-self-collision`으로 두 에피소드를 별도 replay에 넣는다. 기록된
+  base-relative TCP/박스 자세로 403→441 actor 관측과 469→507 critic 관측을
+  다시 계산하므로 Isaac 물리 재생은 필요 없다. 원본 `reward`와 terminal 전후
+  관측은 유지하며, 파일 SHA256과 변환 계약을 run manifest에 남긴다.
+- 기본 `--demo-batch-fraction 0.2`는 각 SAC minibatch의 20%를 이 별도
+  replay에서 표본 추출한다. 시연이 2개뿐이므로 일반화나 성공을 보장하지 않는다.
+  원본에는 현재 보상의 버전 해시가 없어 과거 dense reward를 정확히 재계산·
+  동등성 검증할 수 없다.

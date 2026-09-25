@@ -67,10 +67,15 @@ boundary currently covers:
   single-process lock, owns and closes exactly one Isaac app/environment, and
   never starts OpenXR. It is for integration inspection, not reward validation.
 - base-relative actor observations with 12 masked box tokens, rotation-6D poses,
-  robot proprioception/TCP poses, target and current skill, plus a separate
-  asymmetric critic view containing privileged physics measurements.
+  robot proprioception/TCP poses, target and current skill.  Each hand also sees
+  the fixed center pose of both opposing flaps in its own TCP frame (2 x 2 x
+  9 values), plus the two-way opposing-flap reach assignment.  The assignment
+  still uses hand-to-flap-surface distances, as the reward does. These 38 values
+  use the selected perceived box pose, size and known neutral flap geometry;
+  they are zero without a confident active target and never use exact simulator
+  flap-link or contact truth.  The critic has a separate privileged view.
 - a bootable staged-grasp manager assembly with 25 unified S63/Leju actions and
-  a fixed 403-value deployable actor observation.  Run the isolated GPU smoke
+  a fixed 441-value deployable actor observation.  Run the isolated GPU smoke
   check with `python -m kuavo_isaaclab_scene.rl.multi_box.experiments.inspect_grasp_assembly
   --steps 2 --num-envs 1 --headless --device cuda:0`.
 - a vectorized privileged grasp adapter that maps each environment's active
@@ -102,8 +107,8 @@ boundary currently covers:
 - v2 potential shaping and the v2 SAC/PPO learners use the same 0.999 discount.
   At 30 Hz this retains credit across multi-second skills; the generic SAC
   implementation keeps its independent 0.99 default.
-- an asymmetric PPO contract with a 403-value deployable actor group and a
-  separate 62-value simulator-only critic group. RSL-RL maps the critic to
+- an asymmetric PPO contract with a 441-value deployable actor group and a
+  separate 66-value simulator-only critic group. RSL-RL maps the critic to
   `policy + critic` while the actor receives only `policy`.
 - an isolated v2 training entrypoint at `bash scripts/rl/multi_box.sh grasp-v2`.
   Add `--smoke-test --num-envs 4` for one short wiring update. It writes a
@@ -111,17 +116,19 @@ boundary currently covers:
   outside Git and may be uploaded to the configured private Drive destination.
 - an isolated asymmetric SAC entrypoint at
   `bash scripts/rl/multi_box.sh grasp-v2-sac`. The actor receives only the
-  403-value deployable observation; twin Q critics receive that observation
-  plus the 62 privileged values. Replay stores both current/next views so
+  441-value deployable observation; twin Q critics receive that observation
+  plus the 66 privileged values. Replay stores both current/next views so
   terminal transitions bootstrap from their pre-reset observations. The
-  default 250k CPU replay is about 1.7 GiB; use `--smoke-test --num-envs 4`
+  default 250k CPU replay is about 1.9 GiB; use `--smoke-test --num-envs 4`
   for a four-step, one-update wiring check. Every SAC iteration also checks
   that the Isaac reward equals the sum of the v2 breakdown and records each
   weighted term plus its nonzero rate in `metrics.jsonl`. It records the seven
   `unsafe_cause/*` counts separately, including overlapping causes, and
   `contact_force/*` counts above 0.1, 5, 10, and 20 N for rack and remaining
   obstacles after the reset grace period. The run manifest preserves the actual
-  safety thresholds so excessive termination conditions can be reviewed. The
+  safety thresholds so excessive termination conditions can be reviewed. Older
+  403-value checkpoints cannot be resumed with the new 441-value policy. The
+  checked-in Quest demonstrations can be converted on load. The
   grasp reward keeps the two-hand opposing-flap success test. For each distinct-flap
   assignment, the reach score is `0.25*(sL+sR)+0.5*min(sL,sR)`, with each
   hand's score `s=exp(-distance/approach_scale)`. The best assignment wins:
@@ -134,14 +141,25 @@ boundary currently covers:
   approach/alignment/capture/gap/lift weights are 2/0.5/0.5/0.3/0.4.
   Premature closing costs at most 0.002 per control step. Grasp-only base and
   action-rate costs remain 0.0002 and 0.0001.
-  V2 SAC holds each random warmup action for four control steps and keeps
-  entropy coefficient alpha at or above 0.01; `metrics.jsonl` records policy
+  V2 SAC holds each random warmup action for eight control steps, samples
+  continuous action components in [-0.35, 0.35] and each binary gripper in
+  {-1, +1}. The entropy coefficient alpha has a 0.005 floor; `metrics.jsonl` records policy
   log-probability and sampled action spread after updates. `manifest.json`
   records the weights, geometry scales, and exploration parameters.
 - SAC self-collision checking is enabled by default and requires the reviewed
   URDF/FCL dependency. Pass `--no-self-collision` for an explicitly unguarded
   experiment; the self-collision reward, termination and FCL evaluation then
   remain disabled while the critic tensor shape stays unchanged.
+- successful Quest demonstrations can seed a persistent second replay:
+  `bash scripts/rl/multi_box.sh grasp-v2-sac --no-self-collision
+  --demo-dataset examples/demos/v2_grasp_quest_success.hdf5 --demo-batch-fraction 0.2`.
+  The original 403/469-D observations are converted from recorded TCP/box
+  poses to the current 441/507-D contract before training. The two successful
+  episodes provide 910 transitions; 20% of each minibatch comes from that
+  separate replay while online warmup still counts only real rollout transitions.
+  The run manifest records the dataset checksum and conversion version. The
+  old stored rewards are reused because exact reward reconstruction needs
+  unrecorded contact and flap-link state.
 - a bounded learning pilot at
   `bash scripts/rl/multi_box.sh grasp-v2-sac-pilot --device cuda:0`. It caps
   the run at 64 environments, 20 iterations and 50k replay transitions, starts

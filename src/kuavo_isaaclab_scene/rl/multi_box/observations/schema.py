@@ -12,6 +12,8 @@ class ActorObservation:
     robot_proprio: torch.Tensor
     anchor_poses: torch.Tensor
     box_tokens: torch.Tensor
+    hand_flap_relations: torch.Tensor
+    opposing_flap_assignment: torch.Tensor
     box_mask: torch.Tensor
     target_box: torch.Tensor
     target_one_hot: torch.Tensor

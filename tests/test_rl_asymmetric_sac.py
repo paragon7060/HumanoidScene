@@ -1,5 +1,6 @@
 """CPU checks for the multi-box deployable-actor/privileged-critic SAC."""
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -14,10 +15,13 @@ from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import (
     _SafetyDiagnostics,
     _reset_settling_metrics,
     _reward_breakdown,
+    _sample_mixed_replay,
+    _sample_warmup_action,
     _settle_initial_resets,
     _termination_snapshot,
 )
 from kuavo_isaaclab_scene.rl.multi_box.experiments.train_grasp_v2_sac import (
+    _compatible_checkpoint,
     apply_run_profile,
 )
 
@@ -71,6 +75,38 @@ def test_asymmetric_replay_keeps_actor_and_critic_views_separate():
     sample = replay.sample(12, "cpu")
     assert sample["next_actor_obs"].shape == (12, 4)
     assert sample["next_critic_obs"].shape == (12, 7)
+
+
+def test_demo_replay_remains_in_each_minibatch_after_online_replay_wraps():
+    online = AsymmetricReplayBuffer(5, 4, 7, 2)
+    demo = AsymmetricReplayBuffer(2, 4, 7, 2)
+    online_batch = _batch(12)
+    online_batch["reward"].fill_(0)
+    online.add(**online_batch)
+    demo_batch = _batch(2)
+    demo_batch["reward"].fill_(5)
+    demo.add(**demo_batch)
+    sampled = _sample_mixed_replay(online, demo, 20, 0.2, "cpu")
+    assert len(sampled["reward"]) == 20
+    assert int((sampled["reward"] == 5).sum()) == 4
+
+
+def test_warmup_limits_continuous_actions_but_explores_binary_grippers():
+    widths = {"base": 3, "left_gripper": 1, "right_gripper": 1, "head": 2}
+    env = SimpleNamespace(
+        num_envs=100,
+        device="cpu",
+        action_manager=SimpleNamespace(
+            total_action_dim=sum(widths.values()),
+            active_terms=tuple(widths),
+            get_term=lambda name: SimpleNamespace(action_dim=widths[name]),
+        ),
+    )
+    action = _sample_warmup_action(env, 0.35)
+    assert action.shape == (100, 7)
+    assert bool((action[:, :3].abs() <= 0.35).all())
+    assert bool((action[:, 5:].abs() <= 0.35).all())
+    assert set(action[:, 3:5].unique().tolist()) == {-1.0, 1.0}
 
 
 def test_asymmetric_sac_updates_and_restores_without_privileged_actor_input():
@@ -282,3 +318,19 @@ def test_v2_sac_profiles_are_mutually_exclusive():
     args = SimpleNamespace(smoke_test=True, pilot=True)
     with pytest.raises(ValueError, match="mutually exclusive"):
         apply_run_profile(args)
+
+
+def test_same_dimension_checkpoint_cannot_resume_with_changed_flap_goal(tmp_path):
+    original = {name: None for name in (
+        "task_family", "schema_version", "skill", "algorithm", "robot_model",
+        "gripper", "actions", "observations", "observation_contract",
+        "critic_mapping", "reward_profile", "exploration", "demonstrations",
+        "self_collision",
+    )}
+    original["observation_contract"] = "nearest_surface_tcp_frame_v1"
+    (tmp_path / "manifest.json").write_text(json.dumps(original))
+    checkpoint = tmp_path / "checkpoint_00000001.pt"
+    checkpoint.touch()
+    updated = dict(original, observation_contract="neutral_flap_center_tcp_frame_v1")
+    with pytest.raises(ValueError, match="observation_contract"):
+        _compatible_checkpoint(checkpoint, updated)

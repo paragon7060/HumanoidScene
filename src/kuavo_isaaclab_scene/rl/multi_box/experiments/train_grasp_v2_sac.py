@@ -59,8 +59,8 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
     source = json.loads(source_path.read_text())
     for key in (
         "task_family", "schema_version", "skill", "algorithm", "robot_model",
-        "gripper", "actions", "observations", "critic_mapping",
-        "reward_profile", "exploration",
+        "gripper", "actions", "observations", "observation_contract", "critic_mapping",
+        "reward_profile", "exploration", "demonstrations", "self_collision",
     ):
         if source.get(key) != manifest.get(key):
             raise ValueError(f"Checkpoint {key} differs from this v2 SAC environment")
@@ -86,8 +86,13 @@ def main() -> None:
     parser.add_argument("--replay-device", choices=("cpu", "cuda:0"), default="cpu")
     parser.add_argument("--learning-starts", type=int, default=100_000)
     parser.add_argument("--warmup-vector-steps", type=int, default=450)
-    parser.add_argument("--warmup-action-hold-steps", type=int, default=4)
-    parser.add_argument("--min-alpha", type=float, default=0.01)
+    parser.add_argument("--warmup-action-hold-steps", type=int, default=8)
+    parser.add_argument("--warmup-continuous-scale", type=float, default=0.35)
+    parser.add_argument("--min-alpha", type=float, default=0.005)
+    parser.add_argument("--demo-dataset", type=Path,
+                        help="Successful Quest v2 HDF5 episodes; convert 403-D observations offline.")
+    parser.add_argument("--demo-batch-fraction", type=float, default=0.2,
+                        help="Fraction of each SAC minibatch sampled from the persistent demo replay.")
     parser.add_argument("--updates-per-step", type=int, default=4)
     parser.add_argument("--hidden", type=int, default=256)
     parser.add_argument("--save-interval", type=int, default=50)
@@ -128,12 +133,22 @@ def main() -> None:
         parser.error("Counts must be positive and warmup counts nonnegative")
     if not 0 <= args.min_alpha <= 0.1:
         parser.error("--min-alpha must be between zero and the initial alpha 0.1")
+    if not 0 < args.warmup_continuous_scale <= 1:
+        parser.error("--warmup-continuous-scale must be in (0, 1]")
+    if not 0 <= args.demo_batch_fraction < 1:
+        parser.error("--demo-batch-fraction must be in [0, 1)")
+    if args.demo_dataset and args.demo_batch_fraction == 0:
+        parser.error("--demo-batch-fraction must be positive with --demo-dataset")
     if args.env_spacing < 5.0:
         parser.error("--env-spacing must be at least 5 metres")
     if args.checkpoint:
         args.checkpoint = args.checkpoint.expanduser().resolve()
         if not args.checkpoint.is_file():
             parser.error(f"Missing checkpoint: {args.checkpoint}")
+    if args.demo_dataset:
+        args.demo_dataset = args.demo_dataset.expanduser().resolve()
+        if not args.demo_dataset.is_file():
+            parser.error(f"Missing demonstration dataset: {args.demo_dataset}")
     try:
         apply_run_profile(args)
     except ValueError as error:
@@ -165,6 +180,7 @@ def main() -> None:
             from ....robots.robot_model import resolve_robot_model
             from ...envs.terminal_observation import TerminalObservationMixin
             from ..rewards import MultiBoxRewardWeights
+            from ..demo_replay import load_v2_grasp_demonstrations
             from ..state.isaac_privileged_grasp import (
                 GRASP_APPROACH_REWARD_SCALE_M,
                 GRASP_CAPTURE_REWARD_SCALE_M,
@@ -183,6 +199,12 @@ def main() -> None:
             cfg.multi_box.validate()
             cfg.seed = args.seed
             cfg.sim.device = args.device or "cuda:0"
+            demonstration_batch = demonstration_meta = None
+            if args.demo_dataset:
+                demonstration_batch, demonstration_meta = load_v2_grasp_demonstrations(
+                    args.demo_dataset,
+                    self_collision_enabled=bool(args.self_collision),
+                )
             parent = (
                 args.log_dir.expanduser().resolve() if args.log_dir
                 else default_artifacts_dir() / "rl" / "multi_box_v2" / "grasp_sac")
@@ -201,6 +223,13 @@ def main() -> None:
                 name: env.action_manager.get_term(name).action_dim
                 for name in env.action_manager.active_terms
             }
+            if demonstration_batch is not None:
+                if demonstration_meta["action_terms"] != [
+                    [name, width] for name, width in action_dims.items()
+                ] or demonstration_batch["actor_obs"].shape[1] != observation_dims["policy"][0] \
+                        or demonstration_batch["critic_obs"].shape[1] != sum(
+                            dimension[0] for dimension in observation_dims.values()):
+                    raise ValueError("Converted demonstration action/observation contract differs from environment")
             manifest = {
                 "version": 2,
                 "task_family": "multi_box_v2",
@@ -211,6 +240,7 @@ def main() -> None:
                 "gripper": resolve_gripper_settings().name,
                 "actions": action_dims,
                 "observations": observation_dims,
+                "observation_contract": "neutral_flap_center_tcp_frame_v1",
                 "critic_mapping": {
                     "actor": ["policy"],
                     "critic": ["policy", "critic"],
@@ -227,7 +257,14 @@ def main() -> None:
                 "exploration": {
                     "min_alpha": args.min_alpha,
                     "warmup_action_hold_steps": args.warmup_action_hold_steps,
+                    "warmup_continuous_scale": args.warmup_continuous_scale,
                 },
+                "demonstrations": (
+                    {key: value for key, value in demonstration_meta.items() if key != "path"}
+                    | {"batch_fraction": args.demo_batch_fraction}
+                    if demonstration_meta else None
+                ),
+                "demo_source_path": demonstration_meta["path"] if demonstration_meta else None,
                 "run_profile": (
                     "smoke" if args.smoke_test else "pilot" if args.pilot else "train"
                 ),
@@ -262,7 +299,7 @@ def main() -> None:
             dump_yaml(str(directory / "env.yaml"), cfg)
             dump_yaml(str(directory / "agent.yaml"), {
                 key: value for key, value in vars(args).items()
-                if key not in {"log_dir", "checkpoint"}
+                if key not in {"log_dir", "checkpoint", "demo_dataset"}
             })
 
             state = None
@@ -276,7 +313,7 @@ def main() -> None:
                 f"privileged={observation_dims['critic']} run={directory.name}",
                 flush=True,
             )
-            train(env, args, directory, state)
+            train(env, args, directory, state, demonstration_batch)
             (directory / "status.json").write_text(json.dumps({
                 "status": "complete",
                 "algorithm": "asymmetric_sac",

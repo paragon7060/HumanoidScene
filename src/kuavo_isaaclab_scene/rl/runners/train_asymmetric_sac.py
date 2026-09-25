@@ -68,6 +68,47 @@ def _critic_state(observations: dict[str, torch.Tensor]) -> torch.Tensor:
     return torch.cat((observations["policy"], observations["critic"]), dim=-1)
 
 
+def _sample_warmup_action(env, continuous_scale: float) -> torch.Tensor:
+    """Explore small joint increments while sampling binary grippers fully."""
+    if not 0 < continuous_scale <= 1:
+        raise ValueError("Warmup continuous scale must be in (0, 1]")
+    action = torch.empty(
+        env.num_envs, env.action_manager.total_action_dim, device=env.device)
+    offset = 0
+    for name in env.action_manager.active_terms:
+        width = env.action_manager.get_term(name).action_dim
+        selected = action[:, offset:offset + width]
+        if "gripper" in name:
+            selected.copy_(torch.where(
+                torch.rand_like(selected) < 0.5, -1.0, 1.0))
+        else:
+            selected.uniform_(-continuous_scale, continuous_scale)
+        offset += width
+    if offset != action.shape[1]:
+        raise RuntimeError("Warmup action terms do not cover the action space")
+    return action
+
+
+def _sample_mixed_replay(
+    replay: AsymmetricReplayBuffer,
+    demonstration: AsymmetricReplayBuffer | None,
+    batch_size: int,
+    demonstration_fraction: float,
+    device: str,
+) -> dict[str, torch.Tensor]:
+    """Keep the small successful demo set available after online replay wraps."""
+    if not 0 <= demonstration_fraction < 1:
+        raise ValueError("Demonstration fraction must be in [0, 1)")
+    demo_count = (
+        min(batch_size - 1, max(1, round(batch_size * demonstration_fraction)))
+        if demonstration is not None and demonstration_fraction > 0 else 0)
+    online = replay.sample(batch_size - demo_count, device)
+    if not demo_count:
+        return online
+    demo = demonstration.sample(demo_count, device)
+    return {key: torch.cat((value, demo[key]), dim=0) for key, value in online.items()}
+
+
 def _reward_breakdown(env) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
     """Return the v2 per-step reward terms and verify their composition."""
     breakdown = getattr(env, "_multi_box_grasp_reward_breakdown", None)
@@ -163,7 +204,7 @@ def _settle_initial_resets(env, observations):
     return observations, max_steps
 
 
-def train(env, args, directory, state=None):
+def train(env, args, directory, state=None, demonstration_batch=None):
     observations, _ = env.reset(seed=args.seed)
     observations, initial_settling_steps = _settle_initial_resets(env, observations)
     actor_obs = observations["policy"]
@@ -194,11 +235,20 @@ def train(env, args, directory, state=None):
     replay = AsymmetricReplayBuffer(
         args.replay_capacity, agent.actor_obs_dim, agent.critic_obs_dim,
         agent.action_dim, args.replay_device)
+    demonstration = None
+    if demonstration_batch is not None:
+        demonstration = AsymmetricReplayBuffer(
+            len(demonstration_batch["reward"]), agent.actor_obs_dim,
+            agent.critic_obs_dim, agent.action_dim, "cpu")
+        demonstration.add(**demonstration_batch)
     print(
         f"[V2 SAC] actor={agent.actor_obs_dim} critic={agent.critic_obs_dim} "
         f"actions={agent.action_dim} replay={replay.bytes / 2**30:.3f} GiB "
         f"on {args.replay_device}; warmup={warmup_target}; "
         f"warmup_action_hold={getattr(args, 'warmup_action_hold_steps', 1)}; "
+        f"warmup_continuous_scale={getattr(args, 'warmup_continuous_scale', 1.0)}; "
+        f"demo_transitions={demonstration.size if demonstration else 0}; "
+        f"demo_batch_fraction={getattr(args, 'demo_batch_fraction', 0.0)}; "
         f"min_alpha={config.min_alpha}; "
         f"initial_settling_steps={initial_settling_steps}",
         flush=True,
@@ -243,8 +293,8 @@ def train(env, args, directory, state=None):
                     torch.isfinite(actor_obs), actor_obs, torch.zeros_like(actor_obs))
                 if warming_up:
                     if warmup_action is None or warmup_vector_step % warmup_action_hold == 0:
-                        warmup_action = torch.rand(
-                            (env.num_envs, agent.action_dim), device=env.device) * 2 - 1
+                        warmup_action = _sample_warmup_action(
+                            env, getattr(args, "warmup_continuous_scale", 1.0))
                     action = warmup_action.clone()
                     warmup_vector_step += 1
                 else:
@@ -339,7 +389,9 @@ def train(env, args, directory, state=None):
                 updates = int(update_credit)
                 update_credit -= updates
                 for _ in range(updates):
-                    metrics = agent.update(replay.sample(args.batch_size, env.device))
+                    metrics = agent.update(_sample_mixed_replay(
+                        replay, demonstration, args.batch_size,
+                        getattr(args, "demo_batch_fraction", 0.0), env.device))
                     optimizer_updates += 1
 
         metrics.update(
@@ -352,6 +404,7 @@ def train(env, args, directory, state=None):
             warmup_complete=valid_transitions >= warmup_target,
             warmup_transitions_this_iteration=iteration_warmup,
             replay_size=replay.size,
+            demo_replay_size=demonstration.size if demonstration else 0,
             replay_gib=replay.bytes / 2**30,
             nonfinite_transitions=skipped_nonfinite,
             settling_transitions_skipped=skipped_settling,
