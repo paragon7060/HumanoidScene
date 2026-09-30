@@ -2,7 +2,8 @@
 
 ## Latest measured result and active run
 
-At iteration 185 of the 64-env episodic-guidance follow-up, online IK episodes
+The 64-env episodic-guidance follow-up stopped cleanly at iteration 193, saved
+`checkpoint_00000193.pt` and returned exit code zero. Online IK episodes
 had produced **two new held successes**, while SAC from reset had produced
 **zero**. The protected replay contained three terminal success rows including
 the restored one. With imitation/expert decay exhausted, latest left/right
@@ -11,9 +12,14 @@ reference; this is still a control/learning-data failure rather than verified
 SAC grasp learning. The existing Drive connection currently returns HTTP 401;
 failed backups do not prune unverified files.
 
-The next fresh GPU 3 run will use 1,024 environments, 900 IK warmup vector
-steps, teacher pretraining and initial 20% imitation/expert episodes decaying
-across a new 1,000-iteration schedule. It will not inherit an exhausted decay
+The fresh GPU 3 run started in
+`artifacts/rl/drive_runs/sac_mbv2_success_tail_gpu3_20260930_2238/`
+with child run `sac_20260930_224055_32301e`, source revision `777e922`.
+It uses 1,024 environments, 900 IK warmup vector steps, teacher pretraining and
+initial 20% imitation/expert episodes decaying across a new 1,000-iteration schedule.
+Initialization is in progress; the previous GPU writer is confirmed stopped.
+Its remaining CPU-only supervisor retries final upload after authentication
+recovers. This is not a second GPU training process. It will not inherit an exhausted decay
 counter. The 3,000,000-transition CUDA replay uses approximately 22.50 GiB for
 464-D actor / 530-D critic / 24-D action transitions, excluding simulation,
 models and allocator overhead. Actual GPU use must be measured after setup.
@@ -42,7 +48,10 @@ Three data corrections precede that launch:
 Validation: 41 CPU SAC/demo checks passed, including chronological ring tails,
 partial resets, expired priority membership, checkpoint compatibility and
 separation of hypothetical labels from Q transitions. Runtime behavior after
-these changes is not yet established.
+these changes is not yet established. The new initialization log confirms
+S63 gravity compensation enabled on eighteen body/arm joints.
+
+![SAC distances and controller-attributed successes](assets/rl_v2_recovery_20260930.png)
 
 The previous GPU 3 follow-up is
 `artifacts/rl/drive_runs/sac_mbv2_episodic_guidance_gpu3_20260930_2120/`,
