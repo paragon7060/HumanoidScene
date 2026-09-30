@@ -18,6 +18,17 @@ updates 124, Q loss 1.558, mean policy Q 2.986, target mean 1.908, alpha
 values do not prove long-run convergence. Own VRAM is about 54.5 GiB.
 The first Drive verification completed at 04:41 KST.
 
+At 05:00 KST / iteration 49, 392,646 valid transitions, 2,380 critic updates
+(1,235 restored) and 1,145 actor updates were logged. Q loss 27.100, mean policy
+Q 5.393, target 4.519 and alpha 0.000007232 are finite and far below the previous
+divergent values. **SAC-from-reset/handoff success remains zero.** Mean SAC
+hand-to-flap distances are 0.922/0.883 m. There have been 1,207 unsafe episodes,
+including 1,201 robot-rack collisions, and zero numerical failures. Safe entry
+and grasp performance are still unresolved; this does not establish that the
+task will converge. Mixed online teacher/VR imitation MSE is 0.06791, on a
+different distribution from the fixed pretraining fit. The run continues and
+Drive verification has no errors (last 04:56 KST).
+
 ### New teacher-fit actor video (no SAC actor updates yet)
 
 [![Teacher-fit checkpoint 36 at 19.6 s: distance 44.2 cm, pinch 0, success 0](assets/rl_v2_teacher_36_20261001.png)](assets/rl_v2_teacher_36_20261001.mp4)
