@@ -2,7 +2,49 @@
 
 ## Latest measured result and active run
 
-The active GPU 3 follow-up is
+At iteration 185 of the 64-env episodic-guidance follow-up, online IK episodes
+had produced **two new held successes**, while SAC from reset had produced
+**zero**. The protected replay contained three terminal success rows including
+the restored one. With imitation/expert decay exhausted, latest left/right
+flap distances were 0.777/0.656 m. Torso pitch remained close to its upright
+reference; this is still a control/learning-data failure rather than verified
+SAC grasp learning. The existing Drive connection currently returns HTTP 401;
+failed backups do not prune unverified files.
+
+The next fresh GPU 3 run will use 1,024 environments, 900 IK warmup vector
+steps, teacher pretraining and initial 20% imitation/expert episodes decaying
+across a new 1,000-iteration schedule. It will not inherit an exhausted decay
+counter. The 3,000,000-transition CUDA replay uses approximately 22.50 GiB for
+464-D actor / 530-D critic / 24-D action transitions, excluding simulation,
+models and allocator overhead. Actual GPU use must be measured after setup.
+Batch 4,096 and 16 updates per vector step retain 64 sampled critic rows per
+new transition. Save interval is 50 iterations; Drive retry remains every five
+minutes and checksum-verified retention remains two. No relaxed success or
+reset curriculum is introduced.
+
+Three data corrections precede that launch:
+
+- Preserve the last 64 **executed**, valid transitions of every successful
+  episode (about 2.13 s), including the successful terminal row. Clear each
+  environment's history at termination, truncation or any excluded transition.
+  Protected replay now retains the Q-learning chain leading to the terminal
+  event, rather than only an isolated terminal state.
+- Within each teacher imitation batch, sample half from rows where both
+  neutral flap centers are within 0.25 m or the controller proposes closure,
+  and half uniformly. Overall initial imitation fraction remains 20% and
+  continues to decay. Priority membership expires on overwrite and is rebuilt
+  from restored labels; it adds no hypothetical Q rewards.
+- Anchor teacher servo acceleration limits to measured joint velocities when
+  generating hypothetical correction labels. Its previous internal velocity
+  tracked queries that SAC might never execute. The existing servo already
+  anchors joint position commands to measured position and is unchanged.
+
+Validation: 41 CPU SAC/demo checks passed, including chronological ring tails,
+partial resets, expired priority membership, checkpoint compatibility and
+separation of hypothetical labels from Q transitions. Runtime behavior after
+these changes is not yet established.
+
+The previous GPU 3 follow-up is
 `artifacts/rl/drive_runs/sac_mbv2_episodic_guidance_gpu3_20260930_2120/`,
 64 environments and 180 additional iterations from policy checkpoint 60.
 It uses `--online-ik-episode-fraction 0.2`, online correction labels, CPU

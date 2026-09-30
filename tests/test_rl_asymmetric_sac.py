@@ -11,6 +11,7 @@ from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import (
     ActorImitationBuffer,
     AsymmetricReplayBuffer,
     AsymmetricSAC,
+    SuccessfulTransitionHistory,
 )
 from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
 from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import (
@@ -299,6 +300,35 @@ def test_counterfactual_controller_labels_stay_out_of_critic_experience():
     assert report["final_mse"] < report["initial_mse"]
     assert all(torch.equal(value, before[key]) for key, value in agent.q1.state_dict().items())
     torch.testing.assert_close(executed, torch.ones(8, 2))
+
+
+def test_imitation_priority_keeps_precise_labels_and_expires_overwritten_rows():
+    labels = ActorImitationBuffer(4, 2, 1,
+        priority_fn=lambda obs, action: obs[:, 0] > 0, priority_fraction=0.5)
+    labels.add(actor_obs=torch.tensor([[1., 0.], [-1., 0.], [-1., 0.], [-1., 0.]]),
+               action=torch.zeros(4, 1))
+    batch = labels.sample(100, "cpu")
+    assert (batch["actor_obs"][:, 0] > 0).sum() >= 50
+    labels.add(actor_obs=torch.tensor([[-1., 0.]]), action=torch.zeros(1, 1))
+    assert not labels.priority.any()
+    assert (labels.sample(100, "cpu")["actor_obs"][:, 0] < 0).all()
+
+
+def test_success_history_keeps_contiguous_tail_without_crossing_reset():
+    history = SuccessfulTransitionHistory(2, 3, 4, 7, 2)
+    for step in range(5):
+        batch = _batch(2)
+        batch["reward"].fill_(step)
+        batch["terminated"].fill_(step == 4)
+        history.add(torch.tensor([0, 1]), **batch)
+        if step == 2:
+            history.reset(torch.tensor([False, True]))
+    tail = history.tails(torch.tensor([0, 1]))
+    assert tail["reward"].tolist() == [2, 3, 4, 3, 4]
+    assert tail["terminated"].tolist() == [False, False, True, False, True]
+    history.reset(torch.tensor([True, False]))
+    assert history.tails(torch.tensor([0]))["reward"].numel() == 0
+    assert history.tails(torch.tensor([1]))["reward"].tolist() == [3, 4]
 
 
 def test_critic_warmup_preserves_pretrained_actor_and_entropy_coefficient():

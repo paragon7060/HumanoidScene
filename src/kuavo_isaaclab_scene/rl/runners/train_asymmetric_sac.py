@@ -7,11 +7,13 @@ import time
 
 import torch
 
-from ..algorithms.asymmetric_sac import ActorImitationBuffer, AsymmetricReplayBuffer, AsymmetricSAC
+from ..algorithms.asymmetric_sac import (
+    ActorImitationBuffer, AsymmetricReplayBuffer, AsymmetricSAC, SuccessfulTransitionHistory,
+)
 from ..algorithms.sac import SACConfig
 from ..multi_box.rewards import MultiBoxRewardWeights
 from ..multi_box.experiments.guided_exploration import (
-    GraspActionProjector, GuidedDemoWarmup,
+    GraspActionProjector, GuidedDemoWarmup, critical_teacher_rows,
 )
 from ..multi_box.experiments.episode_guidance import EpisodicIKGuidance
 from .storage import log_metrics, save_checkpoint
@@ -354,7 +356,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
     teacher_replay = ActorImitationBuffer(
         min(args.replay_capacity, max(goal_capacity, warmup_target + env.num_envs))
         if getattr(args, "guided_warmup_mode", "bc") == "ik" else goal_capacity,
-        agent.actor_obs_dim, agent.action_dim)
+        agent.actor_obs_dim, agent.action_dim,
+        priority_fn=critical_teacher_rows, priority_fraction=0.5)
     if state and state.get("teacher_imitation"):
         teacher_replay.add(**state["teacher_imitation"])
     success_replay = AsymmetricReplayBuffer(
@@ -362,6 +365,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         agent.critic_obs_dim, agent.action_dim, "cpu")
     if state and state.get("success_replay"):
         success_replay.add(**state["success_replay"])
+    success_history = SuccessfulTransitionHistory(
+        env.num_envs, 64, agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim)
     teacher_pretraining = (state or {}).get("teacher_pretraining", {
         "steps": 0, "initial_mse": 0.0, "final_mse": 0.0})
     teacher_fitted = bool((state or {}).get("teacher_fitted", False))
@@ -590,10 +595,11 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                         terminated=terminated[finite_transition],
                     )
                     replay.add(**transition_batch)
+                    valid_env_ids = torch.where(finite_transition)[0]
+                    success_history.add(valid_env_ids, **transition_batch)
                     success_rows = termination_terms["success"][finite_transition]
                     if success_rows.any():
-                        success_replay.add(**{
-                            key: value[success_rows] for key, value in transition_batch.items()})
+                        success_replay.add(**success_history.tails(valid_env_ids[success_rows]))
                     if warming_up and getattr(args, "guided_warmup_mode", "bc") == "ik":
                         teacher_replay.add(actor_obs=transition_batch["actor_obs"],
                                            action=transition_batch["action"])
@@ -668,6 +674,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                             breakdown_sums[name] += selected.sum()
                             breakdown_nonzero[name] += int((selected != 0).sum().item())
                 valid_transitions += count
+                success_history.reset((terminated | truncated) | ~finite_transition)
                 iteration_valid += count
                 iteration_warmup += count if warming_up else 0
                 iteration_guided_warmup += count if warming_up and guided_warmup else 0
@@ -738,6 +745,9 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         metrics.update(
             goal_replay_size=goal_replay.size,
             teacher_replay_size=teacher_replay.size,
+            teacher_critical_rows=int(teacher_replay.priority[:teacher_replay.size].sum()),
+            teacher_critical_batch_fraction=teacher_replay.priority_fraction,
+            success_history_steps=success_history.horizon,
             online_teacher_labels_this_iteration=online_teacher_labels,
             success_replay_size=success_replay.size,
             success_samples_this_iteration=success_samples,

@@ -31,6 +31,12 @@ def assigned_flap_center_distance(actor_obs: torch.Tensor) -> torch.Tensor:
     return torch.where(valid[:, None], distance, torch.full_like(distance, torch.inf))
 
 
+def critical_teacher_rows(actor_obs, action):
+    """Give precise bilateral approach/closure labels their own imitation stratum."""
+    near_both = assigned_flap_center_distance(actor_obs).amax(-1) <= 0.25
+    return near_both | (action[:, 20:22] > 0).any(-1)
+
+
 class GuidedDemoWarmup:
     """Follow the pretrained actor with correlated continuous perturbations.
 

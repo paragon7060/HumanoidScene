@@ -390,6 +390,13 @@ def main() -> None:
                        "usage": "actor_behavior_cloning_only; recorded_rewards_ignored"}
                     if demonstration_meta else None
                 ),
+                "collection_data_contract": {
+                    "teacher_critical_fraction": 0.5,
+                    "teacher_critical_rows": "both_flaps_within_0p25m_or_close_label",
+                    "teacher_servo_velocity": "measured_joint_velocity",
+                    "protected_success_history_steps": 64,
+                    "history_crosses_resets": False,
+                },
                 "demo_source_path": demonstration_meta["path"] if demonstration_meta else None,
                 "run_profile": (
                     "smoke" if args.smoke_test else "pilot" if args.pilot else "train"

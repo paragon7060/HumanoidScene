@@ -109,10 +109,16 @@ class AsymmetricReplayBuffer:
 class ActorImitationBuffer:
     """Controller labels only: never represent hypothetical actions as Q transitions."""
 
-    def __init__(self, capacity: int, obs_dim: int, action_dim: int):
+    def __init__(self, capacity: int, obs_dim: int, action_dim: int,
+                 priority_fn=None, priority_fraction=0.0):
         if capacity < 1:
             raise ValueError("Imitation capacity must be positive")
+        if not 0 <= priority_fraction < 1 or (priority_fraction and priority_fn is None):
+            raise ValueError("Imitation priority fraction requires a predicate")
         self.capacity, self.size, self.cursor = capacity, 0, 0
+        self.priority_fn, self.priority_fraction = priority_fn, priority_fraction
+        self.priority = torch.zeros(capacity, dtype=torch.bool)
+        self._priority_indices = None
         self.data = {
             "actor_obs": torch.empty(capacity, obs_dim),
             "action": torch.empty(capacity, action_dim),
@@ -126,6 +132,10 @@ class ActorImitationBuffer:
         ids = (torch.arange(count) + self.cursor) % self.capacity
         self.data["actor_obs"][ids] = actor_obs[-count:].detach().cpu()
         self.data["action"][ids] = action[-count:].detach().cpu()
+        if self.priority_fn is not None:
+            self.priority[ids] = self.priority_fn(
+                self.data["actor_obs"][ids], self.data["action"][ids])
+            self._priority_indices = None
         self.cursor = (self.cursor + count) % self.capacity
         self.size = min(self.size + count, self.capacity)
 
@@ -133,12 +143,52 @@ class ActorImitationBuffer:
         if not self.size:
             raise ValueError("Cannot sample empty controller labels")
         ids = torch.randint(self.size, (count,))
+        if self._priority_indices is None:
+            self._priority_indices = torch.where(self.priority[:self.size])[0]
+        selected = self._priority_indices
+        prioritized = round(count * self.priority_fraction) if len(selected) else 0
+        if prioritized:
+            ids[:prioritized] = selected[torch.randint(len(selected), (prioritized,))]
         return {key: value[ids].to(device) for key, value in self.data.items()}
 
     def snapshot(self, max_rows=100_000):
         if self.size <= max_rows:
             return {key: value[:self.size].clone() for key, value in self.data.items()}
         return self.sample(max_rows, "cpu")
+
+
+class SuccessfulTransitionHistory:
+    """Retain genuine contiguous pre-success transitions separately per environment."""
+
+    def __init__(self, num_envs, horizon, actor_dim, critic_dim, action_dim):
+        if min(num_envs, horizon) < 1:
+            raise ValueError("Success history dimensions must be positive")
+        self.horizon = horizon
+        self.data = AsymmetricReplayBuffer(
+            num_envs * horizon, actor_dim, critic_dim, action_dim, "cpu").data
+        self.cursor = torch.zeros(num_envs, dtype=torch.long)
+        self.count = torch.zeros_like(self.cursor)
+
+    def add(self, env_ids, **batch):
+        env_ids = env_ids.detach().cpu()
+        ids = env_ids * self.horizon + self.cursor[env_ids]
+        for key, storage in self.data.items():
+            storage[ids] = batch[key].detach().cpu()
+        self.cursor[env_ids] = (self.cursor[env_ids] + 1) % self.horizon
+        self.count[env_ids] = (self.count[env_ids] + 1).clamp_max(self.horizon)
+
+    def tails(self, env_ids):
+        env_ids = env_ids.detach().cpu()
+        step = torch.arange(self.horizon)[None]
+        count = self.count[env_ids, None]
+        index = (self.cursor[env_ids, None] - count + step) % self.horizon
+        ids = (env_ids[:, None] * self.horizon + index)[step < count]
+        return {key: value[ids] for key, value in self.data.items()}
+
+    def reset(self, mask):
+        mask = mask.detach().cpu()
+        self.cursor[mask] = 0
+        self.count[mask] = 0
 
 
 class AsymmetricSAC(nn.Module):

@@ -88,6 +88,7 @@ class KinematicGraspExplorer:
         from ....workcell.workcell_layout import RACK_RAW_BOUNDS_M
         from ....workcell.workcell_layout import scale as workcell_scale
         from ..metrics.potentials import FRONT_STAGE_CLEARANCE_M
+        from ..state.schema import ACTUATED_BODY_JOINTS
 
         self.env = env
         if grasp_goal not in ("center", "demo", "center-to-demo") or not 0.008 <= lift_distance_m <= 0.15 \
@@ -108,6 +109,7 @@ class KinematicGraspExplorer:
             offset += width
         self.upper = env.action_manager.get_term("upper_body")
         self.solvers, self.columns = [], []
+        self.velocity_columns = []
         for letter in "lr":
             solver = PersistentTeleopIKAction(DifferentialInverseKinematicsActionCfg(
                 asset_name="robot", joint_names=[f"zarm_{letter}{i}_joint" for i in range(1, 8)],
@@ -117,6 +119,7 @@ class KinematicGraspExplorer:
             solver.orientation_weight = 0.5
             self.solvers.append(solver)
             self.columns.append([self.upper._joint_ids.index(i) for i in solver._joint_ids])
+            self.velocity_columns.append([ACTUATED_BODY_JOINTS.index(name) for name in solver._joint_names])
         demo = demonstrations["actor_obs"].to(env.device)
         tokens, _ = target_token(demo)
         box_rotation = _rotation_matrix(tokens[:, 15:21])
@@ -177,6 +180,9 @@ class KinematicGraspExplorer:
         for hand, solver in enumerate(self.solvers):
             columns = self.columns[hand]
             solver._joint_command[:] = self.upper.processed_actions[:, columns]
+            # A hypothetical label was not executed by SAC. Bound the next
+            # servo step around measured velocity, rather than its ghost momentum.
+            solver._joint_velocity[:] = observation[:, 20:40][:, self.velocity_columns[hand]]
             solver.process_actions(torch.cat((target[:, hand], orientation[:, hand]), -1))
             scale = self.upper._scale[:, columns]
             delta = (solver._joint_command - self.upper.processed_actions[:, columns]) / scale

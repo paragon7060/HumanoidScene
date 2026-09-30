@@ -175,6 +175,13 @@ boundary currently covers:
   distances, pinch fractions and success counts, including
   `successful_sac_from_reset_episodes` which excludes warmup handoffs. Hypothetical
   IK labels cannot start lift until the actual command and measured jaws close.
+  Teacher servo acceleration limits use measured joint velocities, including
+  when labels are queried without executing IK. Half of each teacher imitation
+  batch is drawn from bilateral flap distances within 0.25 m or close labels;
+  the remaining half is uniform. This does not increase the overall demo fraction.
+  Successful episodes protect their last 64 actual transitions (about 2.13 s),
+  stopping at resets or excluded transitions, so Q learning retains the approach
+  to a successful terminal state rather than only its terminal row.
   `metrics.jsonl` records policy
   log-probability and sampled action spread after updates. `manifest.json`
   records the weights, geometry scales, and exploration parameters.
