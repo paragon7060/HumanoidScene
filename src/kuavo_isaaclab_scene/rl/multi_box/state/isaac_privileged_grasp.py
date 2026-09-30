@@ -425,7 +425,7 @@ class IsaacPrivilegedGraspAdapter:
             hand_flap_index=pinch.hand_flap_index,
             relative_pose_stable=stable,
             rack_clearance_m=rack_clearance,
-        ), dt)
+        ), dt, step_id=int(self.env.common_step_counter))
         # Event rewards are episode-once latches. A policy must not farm the
         # pinch bonus by repeatedly losing and reacquiring the same box.
         one_hand_event = (

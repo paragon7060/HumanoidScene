@@ -92,14 +92,18 @@ class GraspSuccessTracker:
         self.config = config or GraspSuccessConfig()
         self.config.validate()
         self.hold_time_s = torch.zeros(num_envs, device=device)
+        self.last_step_id = torch.full((num_envs,), -1, dtype=torch.long, device=device)
 
     def reset(self, env_ids=None) -> None:
         if env_ids is None:
             self.hold_time_s.zero_()
+            self.last_step_id.fill_(-1)
         else:
             self.hold_time_s[env_ids] = 0.0
+            self.last_step_id[env_ids] = -1
 
-    def update(self, measurements: GraspSuccessInput, dt: float) -> GraspSuccessResult:
+    def update(self, measurements: GraspSuccessInput, dt: float, *,
+               step_id: int | None = None) -> GraspSuccessResult:
         measurements.validate()
         if len(measurements.rack_clearance_m) != len(self.hold_time_s):
             raise ValueError("Grasp-success batch size does not match the tracker.")
@@ -116,9 +120,18 @@ class GraspSuccessTracker:
         stable = measurements.relative_pose_stable.all(dim=-1)
         proof_lift = measurements.rack_clearance_m >= self.config.proof_lift_m
         instantaneous = bilateral & opposing & stable & proof_lift
-        self.hold_time_s = torch.where(
+        next_hold = torch.where(
             instantaneous, self.hold_time_s + dt, torch.zeros_like(self.hold_time_s))
-        success = self.hold_time_s >= self.config.hold_seconds
+        # A partial reset invalidates the shared state cache, so measuring the
+        # other environments again must not add another tick or consume their
+        # success event before the next reward/termination computation.
+        if step_id is None:
+            self.hold_time_s = next_hold
+        else:
+            self.hold_time_s = torch.where(
+                self.last_step_id != step_id, next_hold, self.hold_time_s)
+            self.last_step_id.fill_(step_id)
+        success = instantaneous & (self.hold_time_s >= self.config.hold_seconds)
         return GraspSuccessResult(
             bilateral, opposing, stable, proof_lift, instantaneous,
             self.hold_time_s.clone(), success,

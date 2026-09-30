@@ -49,6 +49,22 @@ def test_brief_loss_resets_hold_instead_of_latching_success():
     assert not tracker.update(values, 0.20).success.item()
 
 
+def test_partial_reset_cache_refresh_does_not_advance_other_environment_hold():
+    tracker = GraspSuccessTracker(2, "cpu")
+    values = sample(2)
+    for step in range(4):
+        tracker.update(values, 0.05, step_id=step)
+    tracker.reset(torch.tensor([1]))
+    values.hand_pinching[1] = False
+    # Refreshing after environment 1 resets cannot fabricate a fifth physical
+    # tick for environment 0 and consume its success reward early.
+    duplicate = tracker.update(values, 0.05, step_id=3)
+    assert duplicate.hold_time_s[0].item() == pytest.approx(0.20)
+    assert not duplicate.success.any()
+    actual_next = tracker.update(values, 0.05, step_id=4)
+    assert actual_next.success.tolist() == [True, False]
+
+
 def test_only_approved_flap_pair_and_proof_lift_ranges_are_accepted():
     GraspSuccessConfig().validate()
     with pytest.raises(ValueError, match="opposing"):

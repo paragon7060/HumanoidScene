@@ -333,11 +333,12 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         min(args.replay_capacity, warmup_target + env.num_envs)
         if getattr(args, "guided_warmup_mode", "bc") == "ik" else goal_capacity,
         agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim, "cpu")
-    teacher_pretraining = {"steps": 0, "initial_mse": 0.0, "final_mse": 0.0}
-    teacher_fitted = False
-    demo_decay_updates = max(1, math.ceil(
+    teacher_pretraining = (state or {}).get("teacher_pretraining", {
+        "steps": 0, "initial_mse": 0.0, "final_mse": 0.0})
+    teacher_fitted = bool((state or {}).get("teacher_fitted", False))
+    demo_decay_updates = (state or {}).get("demo_decay_updates", max(1, math.ceil(
         args.max_iterations * args.rollout_steps * args.updates_per_step
-        * getattr(args, "demo_decay_fraction", 0.3)))
+        * getattr(args, "demo_decay_fraction", 0.3))))
     print(
         f"[V2 SAC] actor={agent.actor_obs_dim} critic={agent.critic_obs_dim} "
         f"actions={agent.action_dim} replay={replay.bytes / 2**30:.3f} GiB "
@@ -353,7 +354,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         flush=True,
     )
 
-    transitions = valid_transitions = optimizer_updates = skipped_nonfinite = 0
+    transitions = valid_transitions = skipped_nonfinite = 0
+    optimizer_updates = int((state or {}).get("optimizer_updates", 0))
     skipped_settling = invalid_resets = 0
     update_credit = 0.0
     warmup_action = None
@@ -748,5 +750,11 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         if iteration % args.save_interval == 0 or iteration == start + args.max_iterations:
             keep = None if getattr(args, "external_checkpoint_retention", False) \
                 else args.keep_checkpoints
-            save_checkpoint(directory, agent.checkpoint(), iteration, keep)
+            payload = agent.checkpoint() | {
+                "optimizer_updates": optimizer_updates,
+                "demo_decay_updates": demo_decay_updates,
+                "teacher_fitted": teacher_fitted,
+                "teacher_pretraining": teacher_pretraining,
+            }
+            save_checkpoint(directory, payload, iteration, keep)
     return agent

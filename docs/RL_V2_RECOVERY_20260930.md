@@ -100,6 +100,23 @@ then SAC with 4 updates/vector step. Its 40 iterations test unguided SAC
 rollout after transfer. Checkpoints are saved every ten iterations and
 checksum-verified by the existing Drive supervisor every five minutes.
 
+This first transfer pilot stopped just after initial imitation with
+`A success terminal transition is missing its success reward`.
+Partial resets invalidated a global grasp cache and recomputed all environments;
+this added a second hold-time tick for environments that had not reset and
+could consume their success-event latch before the next physical reward step.
+The success tracker now accepts the physical step ID and advances each row at
+most once per step; resetting one row clears only that row's timing. A CPU
+regression reproduces the former early-success sequence. The fixed rerun is
+`artifacts/rl/drive_runs/sac_mbv2_ik_transfer_fix_gpu3_20260930_1800/`.
+Previously reported instantaneous/held IK milestones may include this timing
+error; physical contact distances and bilateral pinch remain useful, but
+successful held-grasp episodes must be checked again with the fix.
+
+Checkpoints also retain the optimizer-update counter, imitation decay horizon
+and completed teacher-fit flag. Resuming a trained actor does not reset its
+demo schedule or refit it to the initial guide. Online replay still starts empty.
+
 ## Reproduce the transfer pilot
 
 Discover the existing host-local remote with `bash scripts/rl/gdrive.sh listremotes`
