@@ -275,6 +275,10 @@ CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
 성공 시연을 actor 모방에 사용한다. 현재 upright torso 설정은 action 24차원,
 actor/critic 관측 464/530차원이며, 기존 25차원 데모도 변환해 읽는다.
 누적 PD 목표–실제 관절 오차 20개, base 명령 3개와 제어 데이터 유효 여부를 포함한다.
+초기 성공 전이를 계속 수집하려면 IK warmup과 함께
+`--online-ik-episode-fraction 0.2`를 사용할 수 있다. 새 에피소드마다 초기 20%의
+환경이 IK를 실행하며 모방 일정에 따라 줄어든다. SAC·IK 성능과 reset부터 수행한
+SAC 성공은 별도 지표로 기록된다. 기본값 0은 SAC만 실행한다.
 [데모·IK 탐색 연결과 실행 예시](docs/RL_V2_RECOVERY_20260930.md)를 참고한다.
 
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에

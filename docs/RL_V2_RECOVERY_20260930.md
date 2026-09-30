@@ -334,6 +334,42 @@ described above, rather than discarding the first new successful transition.
 This also shows why an early zero-pinch window is not enough to declare the
 collector incapable; the continuation still needs a learned-policy check.
 
+## Continued expert collection and deployable closing evidence
+
+The 20,000-update transfer fit reached MSE 0.000732, but after the first
+actor-frozen SAC rollouts the hands again moved roughly 0.7 m away. No held
+SAC success was observed through iteration 54. Increasing offline fit alone
+therefore did not establish a usable entry controller.
+
+`--online-ik-episode-fraction 0.2` adds episode-stable expert collection while
+SAC continues to optimize. Each new episode is assigned to IK with the
+configured initial probability, declining with the stored actor-update
+imitation schedule. An active episode keeps its assignment until termination;
+the default zero retains pure SAC behavior. This is an additional collection
+option, separate from the 20% actor-imitation minibatch. Q replay receives the
+actual executed action and measured reward for both controllers, with no
+invented next state. Reset distributions, success criteria, action dimensions
+and collision thresholds are unchanged.
+
+Logs separate online IK/SAC distances, bilateral pinch and held successes.
+`successful_sac_from_reset_episodes` excludes episodes that first used warmup
+or expert actions, so a handoff cannot appear as end-to-end SAC success.
+
+The correction guide also previously advanced its close counter whenever it
+*proposed* closed jaws, even when SAC had actually left them open. Lift readiness
+now requires both actual close commands and measured closure over 50%, for the
+same 15 ticks. This controller telemetry is deployable and does not substitute
+for the unchanged physical contact/success checks. CPU regressions cover
+hypothetical closing, episode-stable sampling, decay-at-reset and warmup
+handoff attribution. Related SAC/demo checks pass: 37 tests.
+
+To enable continued collection on either the direct SAC entrypoint or Drive
+supervisor, add:
+
+```bash
+--guided-warmup-mode ik --online-teacher-labels --online-ik-episode-fraction 0.2
+```
+
 ## Reproduce the transfer pilot
 
 Discover the existing host-local remote with `bash scripts/rl/gdrive.sh listremotes`

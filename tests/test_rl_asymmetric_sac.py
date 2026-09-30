@@ -33,7 +33,10 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import (
     assigned_flap_center_distance,
 )
 from kuavo_isaaclab_scene.rl.multi_box.observations import flat_actor_observation_dim
-from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import entry_geometry
+from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import (
+    entry_geometry, observed_close_ticks,
+)
+from kuavo_isaaclab_scene.rl.multi_box.experiments.episode_guidance import EpisodicIKGuidance
 
 
 def test_v2_safety_diagnostics_separates_unsafe_causes_and_force_bands():
@@ -179,6 +182,48 @@ def test_kinematic_entry_goals_remain_outside_front_plane_before_insertion():
     torch.testing.assert_close(stage[..., 1], torch.full((1, 2), 0.08))
     torch.testing.assert_close(stage[..., [0, 2]], centers[..., [0, 2]])
     torch.testing.assert_close(outward, torch.tensor([[0., 1., 0.]]))
+
+
+def test_hypothetical_close_labels_cannot_start_lift_with_actual_open_jaws():
+    obs = torch.zeros(3, 464)
+    obs[1, 48:50] = 1  # command pending; measured jaws remain open
+    obs[2, 46:50] = 1  # actually closing/closed
+    ticks = torch.zeros(3, dtype=torch.long)
+    close = torch.ones(3, 2, dtype=torch.bool)
+    for _ in range(15):
+        ticks = observed_close_ticks(ticks, close, obs)
+    torch.testing.assert_close(ticks, torch.tensor([0, 0, 15]))
+    obs[2, 48] = 0
+    assert observed_close_ticks(ticks, close, obs)[2] == 0
+
+
+def test_guidance_stays_with_the_episode_and_retires_only_on_reset():
+    torch.manual_seed(1)
+    guide = EpisodicIKGuidance(100, "cpu", .2, 100)
+    ready = torch.ones(100, dtype=torch.bool)
+    selected = guide.select(warming_up=False, ready=ready, actor_updates=0)
+    assert 0 < selected.sum() < 100
+    torch.testing.assert_close(
+        guide.select(warming_up=False, ready=ready, actor_updates=100), selected)
+    guide.reset(selected, 100)
+    assert not guide.mask.any()
+    assert selected.any()  # saved transition attribution must not mutate on reset
+
+
+def test_guidance_successes_exclude_warmup_handoffs_from_sac_from_reset():
+    guide = EpisodicIKGuidance(2, "cpu", 0, 100)
+    ready = torch.ones(2, dtype=torch.bool)
+    success = ready.clone()
+    guide.select(warming_up=True, ready=ready, actor_updates=0)
+    assert guide.successes(success, warming_up=True) == (2, 0, 0, 0)
+    guide.select(warming_up=False, ready=ready, actor_updates=0)
+    assert guide.successes(success, warming_up=False) == (0, 0, 2, 0)
+    guide.reset(torch.tensor([True, False]), 0)
+    guide.select(warming_up=False, ready=ready, actor_updates=0)
+    assert guide.successes(success, warming_up=False) == (0, 0, 2, 1)
+    guide.mask[1] = True
+    guide.select(warming_up=False, ready=ready, actor_updates=0)
+    assert guide.successes(success, warming_up=False) == (0, 1, 1, 1)
 
 
 def test_saturated_variance_logits_cannot_exceed_configured_exploration_cap():

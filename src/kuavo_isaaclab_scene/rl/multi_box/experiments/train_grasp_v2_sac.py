@@ -110,6 +110,8 @@ def main() -> None:
                         help="Fit the SAC actor to new IK-collected actions once warmup ends.")
     parser.add_argument("--online-teacher-labels", action=argparse.BooleanOptionalAction, default=False,
                         help="Label SAC-visited states for actor imitation without overriding its actions.")
+    parser.add_argument("--online-ik-episode-fraction", type=float, default=0.0,
+                        help="Expert episode fraction at SAC start; decays at episode boundaries.")
     parser.add_argument("--actor-lr", type=float, default=0.00003)
     parser.add_argument("--critic-warmup-updates", type=int, default=500,
                         help="Learn Q before allowing it to change the pretrained actor.")
@@ -184,6 +186,9 @@ def main() -> None:
     if args.online_teacher_labels and (args.guided_warmup_mode != "ik"
                                       or not args.demo_guided_warmup):
         parser.error("Online teacher labels require enabled IK guidance")
+    if not 0 <= args.online_ik_episode_fraction < 1 or (args.online_ik_episode_fraction and (
+            args.guided_warmup_mode != "ik" or not args.demo_guided_warmup or not args.demo_dataset)):
+        parser.error("Online IK episodes require a fraction in [0,1) and enabled IK guidance")
     if args.teacher_pretrain_steps < 0:
         parser.error("--teacher-pretrain-steps must be nonnegative")
     if not 0.008 <= args.ik_lift_distance_m <= 0.15:
@@ -351,6 +356,7 @@ def main() -> None:
                     "ik_base_clearance_m": args.ik_base_clearance_m,
                     "ik_torso_forward_m": args.ik_torso_forward_m,
                     "online_teacher_labels": args.online_teacher_labels,
+                    "online_ik_episode_fraction": args.online_ik_episode_fraction,
                     "actor_lr": args.actor_lr,
                     "critic_warmup_updates": args.critic_warmup_updates,
                     "success_replay_capacity": args.success_replay_capacity,

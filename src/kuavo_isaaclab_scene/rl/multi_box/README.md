@@ -168,6 +168,13 @@ boundary currently covers:
   unavailable flag rather than invented control targets. An optional
   `--guided-warmup-mode ik` collects real pose-based servo transitions and
   `--teacher-pretrain-steps` transfers their actions before SAC takes over.
+  With `--online-ik-episode-fraction 0.2`, whole IK-controlled episodes continue
+  to supply real new-dynamics transitions after warmup. The expected fraction
+  declines with the imitation schedule; assignments change only at reset.
+  The default zero preserves SAC-only rollout. Metrics separate online IK/SAC
+  distances, pinch fractions and success counts, including
+  `successful_sac_from_reset_episodes` which excludes warmup handoffs. Hypothetical
+  IK labels cannot start lift until the actual command and measured jaws close.
   `metrics.jsonl` records policy
   log-probability and sampled action spread after updates. `manifest.json`
   records the weights, geometry scales, and exploration parameters.
@@ -186,8 +193,9 @@ boundary currently covers:
   because the SAC actor uses the action sign for the gripper.
   The two successful
   episodes provide 910 transitions. Actor imitation starts with 20% of its
-  minibatch from the separate replay and a 0.2 loss weight, both declining
-  linearly to zero over the first 30% of planned SAC updates
+  minibatch from the separate replay. Its loss multiplier is that fraction
+  times `--demo-bc-strength` (default 10, hence initial multiplier 2). Both decline
+  linearly to zero over the first 30% of planned actor updates
   (`--demo-decay-fraction`). Online warmup still counts only real rollout transitions.
   The run manifest records the dataset checksum and conversion version. The
   old stored rewards are ignored because exact reconstruction needs unrecorded

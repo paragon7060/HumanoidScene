@@ -64,6 +64,18 @@ def successful_demo_grasp_offsets(demonstrations, front_y):
     return torch.stack(goals)
 
 
+def observed_close_ticks(previous_ticks, proposed_close, observation):
+    """Advance lift readiness only after the executed controller starts closing.
+
+    A correction query is hypothetical: its positive jaw label does not mean
+    the SAC policy executed that label. Commands and measured closure are
+    deployable telemetry, not simulator pinch or success annotations.
+    """
+    observed = (observation[:, 48:50] > 0.5) & (observation[:, 46:48] > 0.5)
+    closing = proposed_close.all(-1) & observed.all(-1)
+    return torch.where(closing, previous_ticks + 1, torch.zeros_like(previous_ticks))
+
+
 class KinematicGraspExplorer:
     """Use successful demo wrist orientations and a shared bounded IK servo."""
 
@@ -152,7 +164,7 @@ class KinematicGraspExplorer:
         self.phase[recover] = 0
         self.close_ticks[recover] = 0
         close = (self.phase[:, None] > 0) & (center_error < 0.035)
-        self.close_ticks = torch.where(close.all(-1), self.close_ticks + 1, torch.zeros_like(self.close_ticks))
+        self.close_ticks = observed_close_ticks(self.close_ticks, close, observation)
         begin_lift = (self.phase == 1) & (self.close_ticks >= 15)
         self.lift_goal[begin_lift] = centers[begin_lift]
         if self.grasp_goal == "center-to-demo":

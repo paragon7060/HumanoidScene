@@ -13,6 +13,7 @@ from ..multi_box.rewards import MultiBoxRewardWeights
 from ..multi_box.experiments.guided_exploration import (
     GraspActionProjector, GuidedDemoWarmup,
 )
+from ..multi_box.experiments.episode_guidance import EpisodicIKGuidance
 from .storage import log_metrics, save_checkpoint
 
 
@@ -366,6 +367,9 @@ def train(env, args, directory, state=None, demonstration_batch=None):
     demo_decay_updates = (state or {}).get("demo_decay_updates", max(1, math.ceil(
         args.max_iterations * args.rollout_steps * args.updates_per_step
         * getattr(args, "demo_decay_fraction", 0.3))))
+    episode_guidance = EpisodicIKGuidance(
+        env.num_envs, env.device, getattr(args, "online_ik_episode_fraction", 0.0),
+        demo_decay_updates)
     print(
         f"[V2 SAC] actor={agent.actor_obs_dim} critic={agent.critic_obs_dim} "
         f"actions={agent.action_dim} replay={replay.bytes / 2**30:.3f} GiB "
@@ -418,6 +422,11 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         flap_near_count = torch.zeros(2, device=env.device)
         front_near_count = torch.zeros(2, device=env.device)
         both_flap_near_count = torch.zeros((), device=env.device)
+        sac_flap_distance_sum = torch.zeros(2, device=env.device)
+        online_ik_flap_distance_sum = torch.zeros(2, device=env.device)
+        sac_bilateral_count = torch.zeros((), device=env.device)
+        online_ik_bilateral_count = torch.zeros((), device=env.device)
+        sac_valid = online_ik_valid = 0
         pinch_count = torch.zeros(2, device=env.device)
         bilateral_pinch_count = torch.zeros((), device=env.device)
         instantaneous_success_count = torch.zeros((), device=env.device)
@@ -433,7 +442,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         breakdown_max_abs_error = 0.0
         iteration_valid = iteration_warmup = 0
         iteration_guided_warmup = 0
-        warmup_successes = sac_successes = 0
+        warmup_successes = sac_successes = online_ik_successes = pure_sac_successes = 0
+        iteration_online_ik = 0
         success_samples = 0
         demo_samples = 0
         online_teacher_labels = 0
@@ -460,7 +470,13 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     agent.update_normalizers(
                         actor_obs[normalizer_mask], critic_obs[normalizer_mask])
                 warming_up = valid_transitions < warmup_target
+                online_ik_mask = episode_guidance.select(
+                    warming_up=warming_up, ready=ready_before, actor_updates=actor_updates)
                 teacher_action = None
+                label_visited_states = (
+                    getattr(args, "online_teacher_labels", False)
+                    and _demo_fraction(getattr(args, "demo_batch_fraction", 0.0),
+                                       actor_updates, demo_decay_updates) > 0)
                 safe_actor_obs = torch.where(
                     torch.isfinite(actor_obs), actor_obs, torch.zeros_like(actor_obs))
                 if warming_up:
@@ -476,13 +492,12 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     warmup_vector_step += 1
                 else:
                     action = agent.act(safe_actor_obs)
-                    if (getattr(args, "online_teacher_labels", False)
+                    if ((label_visited_states or bool(online_ik_mask.any()))
                             and guided_warmup is not None
-                            and getattr(args, "guided_warmup_mode", "bc") == "ik"
-                            and _demo_fraction(getattr(args, "demo_batch_fraction", 0.0),
-                                               actor_updates, demo_decay_updates) > 0):
+                            and getattr(args, "guided_warmup_mode", "bc") == "ik"):
                         teacher_action = projection(
                             safe_actor_obs, guided_warmup.act(safe_actor_obs))
+                        action = torch.where(online_ik_mask[:, None], teacher_action, action)
                 action = projection(safe_actor_obs, action)
                 next_observations, reward, terminated, truncated, info = env.step(action)
                 if guided_warmup is not None:
@@ -503,9 +518,13 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 for name, value in termination_terms.items():
                     termination_counts[name] = termination_counts.get(name, 0) \
                         + int(value.sum().item())
-                successful = int(termination_terms["success"].sum().item())
-                warmup_successes += successful if warming_up else 0
-                sac_successes += successful if not warming_up else 0
+                warmup_count, online_ik_count, sac_count, pure_count = episode_guidance.successes(
+                    termination_terms["success"], warming_up=warming_up)
+                warmup_successes += warmup_count
+                online_ik_successes += online_ik_count
+                sac_successes += sac_count
+                pure_sac_successes += pure_count
+                episode_guidance.reset(terminated | truncated, actor_updates)
                 safety = info.get("transition_safety")
                 if safety is None:
                     raise RuntimeError("V2 SAC requires pre-reset grasp safety measurements")
@@ -578,9 +597,11 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                         teacher_replay.add(actor_obs=transition_batch["actor_obs"],
                                            action=transition_batch["action"])
                     elif teacher_action is not None:
-                        teacher_replay.add(actor_obs=transition_batch["actor_obs"],
-                                           action=teacher_action[finite_transition])
-                        online_teacher_labels += count
+                        label_mask = (torch.ones(count, dtype=torch.bool, device=env.device)
+                                      if label_visited_states else online_ik_mask[finite_transition])
+                        teacher_replay.add(actor_obs=transition_batch["actor_obs"][label_mask],
+                                           action=teacher_action[finite_transition][label_mask])
+                        online_teacher_labels += int(label_mask.sum())
                     reached = geometry["matched_flap_distance_m"][finite_transition].amin(-1) <= 0.25
                     reached |= hand_pinching[finite_transition].any(-1)
                     if reached.any():
@@ -595,6 +616,15 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     front_near_count += (front_distance < 0.10).sum(0)
                     both_flap_near_count += (flap_distance < 0.10).all(-1).sum()
                     pinching = hand_pinching[finite_transition]
+                    if not warming_up:
+                        expert_rows = online_ik_mask[finite_transition]
+                        sac_rows = ~expert_rows
+                        sac_valid += int(sac_rows.sum())
+                        online_ik_valid += int(expert_rows.sum())
+                        sac_flap_distance_sum += flap_distance[sac_rows].sum(0)
+                        online_ik_flap_distance_sum += flap_distance[expert_rows].sum(0)
+                        sac_bilateral_count += pinching[sac_rows].all(-1).sum()
+                        online_ik_bilateral_count += pinching[expert_rows].all(-1).sum()
                     pinch_count += pinching.sum(0)
                     bilateral_pinch_count += pinching.all(-1).sum()
                     instantaneous_success_count += instantaneous_success[finite_transition].sum()
@@ -640,6 +670,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 iteration_valid += count
                 iteration_warmup += count if warming_up else 0
                 iteration_guided_warmup += count if warming_up and guided_warmup else 0
+                iteration_online_ik += int((online_ik_mask & finite_transition).sum())
                 transitions += env.num_envs
                 terminated_episodes += int(terminated.sum().item())
                 timeout_episodes += int(truncated.sum().item())
@@ -709,10 +740,18 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             success_samples_this_iteration=success_samples,
             successful_warmup_episodes=warmup_successes,
             successful_sac_episodes=sac_successes,
+            successful_sac_from_reset_episodes=pure_sac_successes,
+            successful_online_ik_episodes=online_ik_successes,
+            online_ik_transitions_this_iteration=iteration_online_ik,
+            online_ik_episode_fraction=episode_guidance.fraction(actor_updates),
+            sac_valid_transitions_this_iteration=sac_valid,
+            online_ik_valid_transitions_this_iteration=online_ik_valid,
             teacher_pretrain_steps=teacher_pretraining["steps"],
             teacher_pretrain_initial_mse=teacher_pretraining["initial_mse"],
             teacher_pretrain_final_mse=teacher_pretraining["final_mse"],
-            rollout_policy=("mixed_warmup_sac" if 0 < iteration_warmup < iteration_valid
+            rollout_policy=("mixed_warmup_sac_ik" if iteration_online_ik and iteration_warmup
+                            else "mixed_sac_ik" if iteration_online_ik
+                            else "mixed_warmup_sac" if 0 < iteration_warmup < iteration_valid
                             else (getattr(args, "guided_warmup_mode", "bc") + "_warmup"
                                   if iteration_warmup else "sac")),
             actor_encoded_dim=agent.actor_features.output_dim,
@@ -785,6 +824,14 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             metrics[f"grasp/{name}_fraction"] = (
                 value.item() / iteration_valid if iteration_valid else None)
         metrics["grasp/max_hold_time_s"] = max_hold_time.item()
+        for name, total, bilateral, samples in (
+                ("sac", sac_flap_distance_sum, sac_bilateral_count, sac_valid),
+                ("online_ik", online_ik_flap_distance_sum, online_ik_bilateral_count, online_ik_valid)):
+            for hand, index in (("left", 0), ("right", 1)):
+                metrics[f"distance/{name}_{hand}_flap_mean_m"] = (
+                    total[index].item() / samples if samples else None)
+            metrics[f"grasp/{name}_bilateral_pinch_fraction"] = (
+                bilateral.item() / samples if samples else None)
         for hand, index in (("left", 0), ("right", 1)):
             metrics[f"grasp/{hand}_pinch_fraction"] = (
                 pinch_count[index].item() / iteration_valid if iteration_valid else None)

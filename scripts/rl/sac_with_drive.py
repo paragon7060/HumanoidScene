@@ -48,6 +48,8 @@ def main():
     parser.add_argument("--ik-torso-forward-m", type=float, default=0.0)
     parser.add_argument("--teacher-pretrain-steps", type=int, default=5000)
     parser.add_argument("--online-teacher-labels", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--online-ik-episode-fraction", type=float, default=0.0,
+                        help="Initial expert episode fraction, retired with the imitation schedule")
     parser.add_argument("--actor-lr", type=float, default=0.00003)
     parser.add_argument("--critic-warmup-updates", type=int, default=500)
     parser.add_argument("--success-replay-capacity", type=int, default=10000)
@@ -105,6 +107,10 @@ def main():
                                       or args.guided_warmup_mode != "ik"
                                       or not args.demo_guided_warmup):
         parser.error("Online teacher labels require v2 demos and enabled IK guidance")
+    if not 0 <= args.online_ik_episode_fraction < 1 or (args.online_ik_episode_fraction and (
+            args.experiment != "multi-box-v2-grasp" or not args.demo_dataset
+            or args.guided_warmup_mode != "ik" or not args.demo_guided_warmup)):
+        parser.error("Online IK episodes require a fraction in [0,1), v2 demos and enabled IK guidance")
     if args.replay_capacity < args.num_envs:
         parser.error("Replay capacity must hold a full vector step")
     if not 0.008 <= args.ik_lift_distance_m <= 0.15:
@@ -162,6 +168,7 @@ def main():
                      "teacher_pretrain_steps",
                      "ik_grasp_goal", "ik_lift_distance_m",
                      "ik_base_clearance_m", "ik_torso_forward_m",
+                     "online_ik_episode_fraction",
                      "actor_lr", "critic_warmup_updates", "success_replay_capacity", "success_batch_fraction",
                      "reward_scale", "actor_feature_mode",
                      "goal_replay_capacity", "goal_batch_fraction",
