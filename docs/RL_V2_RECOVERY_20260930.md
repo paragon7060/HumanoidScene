@@ -2,6 +2,39 @@
 
 ## Latest measured result and next run
 
+**Current execution (2026-10-01 04:31 KST):** source `a3048fc`, GPU 3 /
+1,024 environments, run
+`sac_mbv2_stabilized_gpu3_20261001_0431/sac_20261001_043153_70e2c1`.
+It resumes the new stable pilot checkpoint 36, not the earlier divergent
+checkpoint 133. Additional iterations 964 target a total of 1,000. Initial
+startup is in progress; actor-update health and learned grasp success remain
+to be checked. CUDA visibility is restricted to GPU 3. Uniform CUDA replay is
+3,000,000 transitions, batch 4,096, four updates/vector step, checkpoint interval
+50, verified Drive upload every 300 seconds with latest two local checkpoints.
+At iteration 40, replay refill completed (131,072 valid transitions) and actual
+SAC actor updates began: critic updates 1,359 including restored 1,235, actor
+updates 124, Q loss 1.558, mean policy Q 2.986, target mean 1.908, alpha
+0.000009835. Learned SAC held-grasp success is still zero; these early finite
+values do not prove long-run convergence. Own VRAM is about 54.5 GiB.
+The first Drive verification completed at 04:41 KST.
+
+### New teacher-fit actor video (no SAC actor updates yet)
+
+[![Teacher-fit checkpoint 36 at 19.6 s: distance 44.2 cm, pinch 0, success 0](assets/rl_v2_teacher_36_20261001.png)](assets/rl_v2_teacher_36_20261001.mp4)
+
+[H.264 video: teacher-fit checkpoint 36, 20 seconds](assets/rl_v2_teacher_36_20261001.mp4)
+and [recorded metadata](assets/rl_v2_teacher_36_20261001.json).
+Same seed 42, one real PhysX environment, current 464/530/24 contract and
+deployable deterministic actor; no online IK action replacement. It completed
+600 control steps, 20 seconds, with zero success/unsafe/invalid-reset/timeout
+terminations. At the last sampled frame (19.6 s), flap distance is 44.2 cm and
+bilateral pinch is absent. The actor is teacher-fitted but has **zero SAC actor
+updates**; its critic has 1,235 updates. This demonstrates safe motion in one
+short example, not grasp success or an effect of SAC fine-tuning. Its endpoint
+cannot be directly compared with the earlier 9.5-second video as a matched-time
+improvement estimate. The frames are captured before any reset and use actual
+physics poses rendered with CPU USD meshes. Native video/photo are also in Notion.
+
 **2026-10-01 03:37 KST: the critical-retention run was stopped deliberately at
 iteration 133 because SAC learning diverged, not because grasp was solved.**
 It collected 2,583,590 valid transitions during this resume and 24 additional
