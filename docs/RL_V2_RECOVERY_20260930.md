@@ -2,6 +2,28 @@
 
 ## Latest measured result and next run
 
+Latest 2026-10-01 01:42 KST: source `bf63054` resumed on GPU 3 / 1,024
+environments in `artifacts/rl/drive_runs/sac_mbv2_critical_retention_gpu3_20261001_0141/`,
+child `sac_20261001_014208_f5427a`. It restores policy checkpoint 51 and imports
+actor-only labels exported from checkpoint 29, with persistent critical-label
+storage described below. Additional iterations: 949, targeting iteration 1,000.
+The fitted actor, Q/optimizers and imitation-decay counter are preserved. Uniform
+Q replay refills until 100,000 valid transitions; another teacher fit is not run.
+
+The previous run stopped cleanly at iteration 51, with 10,785 critic / 6,785
+actor updates, **nine new online IK held successes**, zero SAC-from-reset or
+SAC-handoff successes, and zero numerical failures across this resume. Its
+protected replay now contains 1,024 actual success-tail transitions (16 successes
+including the seven restored). Checkpoints and final logs are Drive verified;
+local checkpoints 50/51 remain. Source 29's labels were recovered from its
+verified Drive checkpoint into a distinct immutable actor-only seed artifact,
+without policy, optimizer, reward or Q fields. All unrelated user processes
+remained untouched. Before/after fit videos and photos below are also attached
+natively in [the Notion experiment record](https://app.notion.com/p/3eb63918d42a81f694a9e060aeffe7cc).
+
+The new run is initializing; the retention change has CPU coverage and will
+be checked in its live metrics. Learned SAC grasp success remains unverified.
+
 The first fresh 1,024-env GPU 3 run
 `artifacts/rl/drive_runs/sac_mbv2_success_tail_gpu3_20260930_2238/`
 ended at IK warmup iteration 18 with `ValueError: Non-finite robot gravity
