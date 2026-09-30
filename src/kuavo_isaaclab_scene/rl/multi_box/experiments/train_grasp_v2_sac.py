@@ -161,6 +161,8 @@ def main() -> None:
     )
     parser.add_argument("--log-dir", type=Path)
     parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--teacher-label-checkpoint", type=Path,
+                        help="Import actor-only controller labels from a compatible older v2 checkpoint.")
     parser.add_argument(
         "--smoke-test", action="store_true",
         help="Run four vector steps and one SAC update with at most four environments.")
@@ -230,6 +232,10 @@ def main() -> None:
         args.checkpoint = args.checkpoint.expanduser().resolve()
         if not args.checkpoint.is_file():
             parser.error(f"Missing checkpoint: {args.checkpoint}")
+    if args.teacher_label_checkpoint:
+        args.teacher_label_checkpoint = args.teacher_label_checkpoint.expanduser().resolve()
+        if not args.teacher_label_checkpoint.is_file():
+            parser.error(f"Missing teacher label checkpoint: {args.teacher_label_checkpoint}")
     if args.demo_dataset:
         args.demo_dataset = args.demo_dataset.expanduser().resolve()
         if not args.demo_dataset.is_file():
@@ -438,12 +444,21 @@ def main() -> None:
                     "actor_observation": False,
                 },
             }
+            manifest["teacher_imitation_retention"] = {
+                "persistent_critical_capacity": 100_000,
+                "critical_batch_fraction": 0.5,
+                "checkpoint_snapshot_max_rows": 100_000,
+                "teacher_label_source": str(args.teacher_label_checkpoint) if args.teacher_label_checkpoint else None,
+                "critic_uses_imported_teacher_labels": False,
+            }
+            if args.teacher_label_checkpoint:
+                _compatible_checkpoint(args.teacher_label_checkpoint, manifest)
             (directory / "manifest.json").write_text(
                 json.dumps(manifest, indent=2, allow_nan=False))
             dump_yaml(str(directory / "env.yaml"), cfg)
             dump_yaml(str(directory / "agent.yaml"), {
                 key: value for key, value in vars(args).items()
-                if key not in {"log_dir", "checkpoint", "demo_dataset"}
+                if key not in {"log_dir", "checkpoint", "demo_dataset", "teacher_label_checkpoint"}
             })
 
             state = None

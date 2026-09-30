@@ -68,6 +68,70 @@ The supervisor uses the existing authenticated Drive connection, checks every
 keeps the latest two checksum-verified checkpoints. Local free space was
 109 GiB at launch; verified Drive free capacity was 4.984 TiB.
 
+Measured after refill: iteration 29 completed teacher fit (20,000 updates),
+reducing action MSE from 0.13151 to 0.00080953. This checkpoint has 16 critic
+updates and zero SAC actor updates. At iteration 32, critic updates reached
+1,552; numerical failures remain zero, successful tails remain 448, and
+SAC hand-to-flap distances were 0.603/0.522 m. The critic-only warmup deliberately
+holds the fitted actor for the first 4,000 optimizer updates. Action MSE and
+short-range progress are not held grasp-success evidence.
+
+### Current-contract video before teacher fit
+
+[![Checkpoint 21 terminal before reset: distance 105.7 cm, pinch 0, unsafe 1](assets/rl_v2_teacher_before_terminal_20261001.png)](assets/rl_v2_teacher_before_20261001.mp4)
+
+[H.264 video: current-contract checkpoint 21 before teacher fit](assets/rl_v2_teacher_before_20261001.mp4).
+Same seed 42, one environment, S63/Leju, rack-rollers and current 464/530/24
+observation/action contract. Deterministic policy ended at control step 84
+(2.8 seconds), zero grasp success and one unsafe termination. The checkpoint
+contains Quest BC initialization but **no online teacher fit or SAC updates**.
+Photos and video are captured after termination computation but **before reset**;
+the terminal image is not the respawned state. They render CPU USD meshes at
+actual PhysX poses. This view alone does not identify the specific unsafe cause.
+The terminal mean flap distance was 105.7 cm.
+
+### Same-contract video after teacher fit
+
+[![Checkpoint 29 at 9.5 seconds: distance 73.7 cm, pinch 0, unsafe 0](assets/rl_v2_teacher_after_late_20261001.png)](assets/rl_v2_teacher_after_20261001.mp4)
+
+[H.264 video after teacher fit](assets/rl_v2_teacher_after_20261001.mp4).
+Same seed 42 and physical/control configuration. The deterministic rollout
+completed 300 control steps / 10 seconds without unsafe, invalid-reset or timeout
+termination. Held success remained zero. The photo is the last sampled frame
+at 9.5 seconds; its mean flap distance is 73.7 cm, with no bilateral pinch.
+Checkpoint 29 contains the completed teacher fit and 16 critic updates, but
+zero SAC actor updates. This comparison establishes longer safe motion in one
+case, not grasp success. Endpoint distances are at different times (2.8 versus
+9.5 seconds), so they are not a paired distance-improvement estimate.
+
+### Protect critical teacher labels from FIFO churn
+
+The resumed run reached iteration 38 with 4,493 critic / 493 actor updates,
+zero numerical failures and zero SAC-from-reset successes. A separate data
+issue became visible: critical rows in its ordinary 500,000-label teacher FIFO
+fell from 56,011 to 13,109 as newer off-target labels overwrote them. At 1,024
+environments and 30 Hz this FIFO covers only about 16.3 simulated seconds,
+shorter than a 30-second episode. Priority **sampling** did not protect
+priority **storage**. Episode ages and resets also affect mean distance, so
+the label drop alone does not establish the cause of a distance increase.
+
+The fix adds a separate CPU FIFO of 100,000 critical actor-only labels. New
+off-target labels never overwrite that stratum; new critical labels replace
+older critical labels when it fills. Half each teacher batch still comes from
+critical labels, and the existing total 20% initial imitation and decay schedule
+are unchanged. Extra CPU storage is about 186 MiB with this observation/action
+contract, with no additional CUDA replay allocation. Checkpoint snapshots remain
+bounded to 100,000 labels, so ordinary checkpoint size does not increase.
+
+`--teacher-label-checkpoint` optionally restores actor-only labels from an older
+compatible v2 checkpoint while policy/optimizer/Q restoration uses `--checkpoint`.
+The source manifest must match the environment/observation/action contract;
+labels must have matching dimensions and finite normalized actions. This path
+never imports the source policy, optimizer, reward or Q transitions. The next
+resume uses checkpoint 29 as its label source, retaining the more recent policy
+checkpoint. CPU tests cover retention through FIFO overwrite, bounded snapshots,
+restore, and rejection of incompatible/non-finite labels; 66 relevant checks pass.
+
 ![IK successes, distances and outcomes in the corrected run](assets/rl_v2_ik_success_progress_20261001.png)
 
 The earlier 64-env episodic-guidance run stopped cleanly at iteration 193.

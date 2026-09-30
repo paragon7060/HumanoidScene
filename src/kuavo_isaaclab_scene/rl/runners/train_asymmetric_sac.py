@@ -16,7 +16,7 @@ from ..multi_box.experiments.guided_exploration import (
     GraspActionProjector, GuidedDemoWarmup, critical_teacher_rows,
 )
 from ..multi_box.experiments.episode_guidance import EpisodicIKGuidance
-from .storage import log_metrics, save_checkpoint
+from .storage import load_checkpoint, log_metrics, save_checkpoint
 from .common import stop_requested
 
 
@@ -26,6 +26,26 @@ _SAFETY_CAUSES = (
 )
 _CONTACT_FORCE_LIMITS_N = (0.1, 5.0, 10.0, 20.0)
 _MAX_REASONABLE_GRASP_DISTANCE_M = 5.0
+
+
+def _teacher_labels_from_checkpoint(path, actor_dim, action_dim):
+    """Import compatible actor labels only; never restore another policy or Q."""
+    source = load_checkpoint(path, device="cpu")
+    labels = source.get("teacher_imitation")
+    if (source.get("algorithm") != "asymmetric_sac"
+            or source.get("actor_obs_dim") != actor_dim
+            or source.get("action_dim") != action_dim
+            or not isinstance(labels, dict)
+            or set(labels) != {"actor_obs", "action"}):
+        raise ValueError("Teacher label checkpoint has an incompatible actor/action contract")
+    obs, action = labels["actor_obs"], labels["action"]
+    if (obs.ndim != 2 or action.ndim != 2 or not len(action)
+            or obs.shape != (len(action), actor_dim)
+            or action.shape[1] != action_dim
+            or not torch.isfinite(obs).all() or not torch.isfinite(action).all()
+            or (action.abs() > 1.00001).any()):
+        raise ValueError("Teacher label checkpoint requires finite normalized controller labels")
+    return labels
 _FRONT_DISTANCE_BINS_M = (0.25, 0.5, 1.0, 2.0)
 _FRONT_DISTANCE_LABELS = ("le_0p25m", "0p25_to_0p5m", "0p5_to_1m", "1_to_2m", "over_2m")
 
@@ -357,9 +377,19 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         min(args.replay_capacity, max(goal_capacity, warmup_target + env.num_envs))
         if getattr(args, "guided_warmup_mode", "bc") == "ik" else goal_capacity,
         agent.actor_obs_dim, agent.action_dim,
-        priority_fn=critical_teacher_rows, priority_fraction=0.5)
+        priority_fn=critical_teacher_rows, priority_fraction=0.5,
+        priority_capacity=100_000)
     if state and state.get("teacher_imitation"):
         teacher_replay.add(**state["teacher_imitation"])
+    teacher_label_source = getattr(args, "teacher_label_checkpoint", None)
+    teacher_bootstrap_rows = 0
+    if teacher_label_source is not None:
+        labels = _teacher_labels_from_checkpoint(
+            teacher_label_source, agent.actor_obs_dim, agent.action_dim)
+        teacher_replay.add(**labels)
+        teacher_bootstrap_rows = len(labels["action"])
+        print(f"[V2 SAC] Imported actor-only teacher labels: {teacher_bootstrap_rows}; "
+              f"persistent critical rows={teacher_replay.priority_size}", flush=True)
     success_replay = AsymmetricReplayBuffer(
         getattr(args, "success_replay_capacity", 10_000), agent.actor_obs_dim,
         agent.critic_obs_dim, agent.action_dim, "cpu")
@@ -784,6 +814,9 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             goal_replay_size=goal_replay.size,
             teacher_replay_size=teacher_replay.size,
             teacher_critical_rows=int(teacher_replay.priority[:teacher_replay.size].sum()),
+            teacher_persistent_critical_rows=teacher_replay.priority_size,
+            teacher_persistent_critical_capacity=teacher_replay.priority_capacity,
+            teacher_bootstrap_rows=teacher_bootstrap_rows,
             teacher_critical_batch_fraction=teacher_replay.priority_fraction,
             success_history_steps=success_history.horizon,
             numerical_failure_episodes=numerical_failures,

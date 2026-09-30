@@ -110,11 +110,13 @@ class ActorImitationBuffer:
     """Controller labels only: never represent hypothetical actions as Q transitions."""
 
     def __init__(self, capacity: int, obs_dim: int, action_dim: int,
-                 priority_fn=None, priority_fraction=0.0):
+                 priority_fn=None, priority_fraction=0.0, priority_capacity=0):
         if capacity < 1:
             raise ValueError("Imitation capacity must be positive")
         if not 0 <= priority_fraction < 1 or (priority_fraction and priority_fn is None):
             raise ValueError("Imitation priority fraction requires a predicate")
+        if priority_capacity < 0 or (priority_capacity and priority_fn is None):
+            raise ValueError("Persistent imitation priority requires a predicate")
         self.capacity, self.size, self.cursor = capacity, 0, 0
         self.priority_fn, self.priority_fraction = priority_fn, priority_fraction
         self.priority = torch.zeros(capacity, dtype=torch.bool)
@@ -123,19 +125,35 @@ class ActorImitationBuffer:
             "actor_obs": torch.empty(capacity, obs_dim),
             "action": torch.empty(capacity, action_dim),
         }
+        # Sampling priority alone cannot keep rare labels alive when a large
+        # batch of off-target states overwrites the ordinary FIFO.
+        self.priority_capacity = priority_capacity
+        self.priority_size = self.priority_cursor = 0
+        self.priority_data = {key: torch.empty(priority_capacity, *value.shape[1:])
+                              for key, value in self.data.items()}
 
     @torch.no_grad()
     def add(self, *, actor_obs, action):
+        actor_obs, action = actor_obs.detach().cpu(), action.detach().cpu()
+        selected = self.priority_fn(actor_obs, action) if self.priority_fn is not None else None
         count = min(len(action), self.capacity)
         if not count:
             return
         ids = (torch.arange(count) + self.cursor) % self.capacity
-        self.data["actor_obs"][ids] = actor_obs[-count:].detach().cpu()
-        self.data["action"][ids] = action[-count:].detach().cpu()
+        self.data["actor_obs"][ids] = actor_obs[-count:]
+        self.data["action"][ids] = action[-count:]
         if self.priority_fn is not None:
-            self.priority[ids] = self.priority_fn(
-                self.data["actor_obs"][ids], self.data["action"][ids])
+            self.priority[ids] = selected[-count:]
             self._priority_indices = None
+        if self.priority_capacity:
+            critical = selected.nonzero(as_tuple=False).flatten()[-self.priority_capacity:]
+            n = len(critical)
+            if n:
+                slots = (torch.arange(n) + self.priority_cursor) % self.priority_capacity
+                self.priority_data["actor_obs"][slots] = actor_obs[critical]
+                self.priority_data["action"][slots] = action[critical]
+                self.priority_cursor = (self.priority_cursor + n) % self.priority_capacity
+                self.priority_size = min(self.priority_size + n, self.priority_capacity)
         self.cursor = (self.cursor + count) % self.capacity
         self.size = min(self.size + count, self.capacity)
 
@@ -143,6 +161,11 @@ class ActorImitationBuffer:
         if not self.size:
             raise ValueError("Cannot sample empty controller labels")
         ids = torch.randint(self.size, (count,))
+        if self.priority_size:
+            prioritized = round(count * self.priority_fraction)
+            critical_ids = torch.randint(self.priority_size, (prioritized,))
+            return {key: torch.cat((self.priority_data[key][critical_ids], value[ids[prioritized:]])).to(device)
+                    for key, value in self.data.items()}
         if self._priority_indices is None:
             self._priority_indices = torch.where(self.priority[:self.size])[0]
         selected = self._priority_indices
@@ -152,9 +175,9 @@ class ActorImitationBuffer:
         return {key: value[ids].to(device) for key, value in self.data.items()}
 
     def snapshot(self, max_rows=100_000):
-        if self.size <= max_rows:
+        if self.size <= max_rows and not self.priority_size:
             return {key: value[:self.size].clone() for key, value in self.data.items()}
-        return self.sample(max_rows, "cpu")
+        return self.sample(min(max_rows, max(self.size, self.priority_size)), "cpu")
 
 
 class SuccessfulTransitionHistory:

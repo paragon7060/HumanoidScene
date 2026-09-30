@@ -314,6 +314,47 @@ def test_imitation_priority_keeps_precise_labels_and_expires_overwritten_rows():
     assert (labels.sample(100, "cpu")["actor_obs"][:, 0] < 0).all()
 
 
+def test_persistent_critical_imitation_survives_far_fifo_overwrites_and_restore():
+    predicate = lambda obs, action: obs[:, 0] > 0
+    labels = ActorImitationBuffer(4, 2, 1, priority_fn=predicate,
+                                 priority_fraction=0.5, priority_capacity=3)
+    labels.add(actor_obs=torch.tensor([[9., 0.]]), action=torch.tensor([[.7]]))
+    labels.add(actor_obs=torch.full((12, 2), -1.), action=torch.zeros(12, 1))
+    assert not labels.priority.any() and labels.priority_size == 1
+    batch = labels.sample(100, "cpu")
+    assert (batch["actor_obs"][:, 0] > 0).sum() == 50
+    torch.testing.assert_close(batch["action"][:50], torch.full((50, 1), .7))
+    snapshot = labels.snapshot(max_rows=20)
+    assert len(snapshot["action"]) <= 20
+    restored = ActorImitationBuffer(4, 2, 1, priority_fn=predicate,
+                                   priority_fraction=0.5, priority_capacity=3)
+    restored.add(**snapshot)
+    restored.add(actor_obs=torch.full((4, 2), -1.), action=torch.zeros(4, 1))
+    assert (restored.sample(100, "cpu")["actor_obs"][:, 0] > 0).sum() == 50
+    # The critical FIFO changes only when new critical labels arrive.
+    labels.add(actor_obs=torch.tensor([[1., 0.], [2., 0.], [3., 0.], [4., 0.]]),
+               action=torch.ones(4, 1))
+    assert labels.priority_size == 3
+    assert set(labels.priority_data["actor_obs"][:, 0].tolist()) == {2., 3., 4.}
+
+
+def test_teacher_label_checkpoint_loads_only_compatible_finite_actor_labels(tmp_path):
+    from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import _teacher_labels_from_checkpoint
+    from kuavo_isaaclab_scene.rl.runners.storage import save_checkpoint
+    source = dict(algorithm="asymmetric_sac", actor_obs_dim=4, action_dim=2,
+        teacher_imitation=dict(actor_obs=torch.zeros(3, 4), action=torch.ones(3, 2)),
+        success_replay={"reward": torch.tensor([123.])}, model={"irrelevant": torch.tensor([999.])})
+    path = save_checkpoint(tmp_path, source, 1)
+    labels = _teacher_labels_from_checkpoint(path, 4, 2)
+    assert set(labels) == {"actor_obs", "action"}
+    with pytest.raises(ValueError, match="contract"):
+        _teacher_labels_from_checkpoint(path, 5, 2)
+    source["teacher_imitation"]["action"][0, 0] = float('nan')
+    path = save_checkpoint(tmp_path, source, 2)
+    with pytest.raises(ValueError, match="finite"):
+        _teacher_labels_from_checkpoint(path, 4, 2)
+
+
 def test_success_history_keeps_contiguous_tail_without_crossing_reset():
     history = SuccessfulTransitionHistory(2, 3, 4, 7, 2)
     for step in range(5):

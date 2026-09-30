@@ -27,6 +27,8 @@ def main():
     parser.add_argument("--source-root", type=Path, default=ROOT,
                         help="Optional frozen source checkout; Drive auth stays in the original checkout")
     parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--teacher-label-checkpoint", type=Path,
+                        help="V2 only: recover actor-only teacher labels independently of the policy checkpoint")
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--num-envs", type=int, default=16384)
     parser.add_argument("--max-iterations", type=int, default=6)
@@ -119,6 +121,9 @@ def main():
         parser.error("Invalid IK base clearance or bounded upright torso assistance")
     if args.checkpoint and not args.checkpoint.is_file():
         parser.error("Missing checkpoint")
+    if args.teacher_label_checkpoint and (args.experiment != "multi-box-v2-grasp"
+                                         or not args.teacher_label_checkpoint.is_file()):
+        parser.error("Teacher label checkpoint requires a v2 grasp run and an existing file")
     source = args.source_root.resolve()
     launcher_name = {
         "flap-pick": "flap_pick.sh",
@@ -187,6 +192,8 @@ def main():
     command.extend(("--log-dir", str(parent)))
     if args.checkpoint:
         command.extend(("--checkpoint", str(args.checkpoint.resolve())))
+    if args.teacher_label_checkpoint:
+        command.extend(("--teacher-label-checkpoint", str(args.teacher_label_checkpoint.resolve())))
     (parent / "launch.json").write_text(json.dumps(dict(command=command, remote_root=args.remote_root,
         args=vars(args)), default=str, indent=2))
     budget = GpuBudget(parent, args.gpu, args.gpu_limit_mib, args.gpu_reserve_mib, args.max_seconds, "sac_")

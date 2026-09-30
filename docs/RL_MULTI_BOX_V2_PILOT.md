@@ -68,6 +68,19 @@ collection, see [the recovery experiments and command](RL_V2_RECOVERY_20260930.m
 The standard 20-iteration pilot does not run the full recovery warmup; use its
 explicit command when checking the transfer from IK to the SAC actor.
 
+Teacher imitation retains up to 100,000 critical actor-only labels in a
+separate CPU FIFO so off-target collection cannot evict all approach/closure
+examples. Half each teacher batch uses this stratum; the overall imitation
+fraction still decays from its configured initial value. Metrics distinguish
+`teacher_critical_rows` in ordinary FIFO from `teacher_persistent_critical_rows`
+in protected storage. Checkpoint label snapshots remain capped at 100,000 rows.
+
+When resuming a policy, `--teacher-label-checkpoint /absolute/path/to/older.pt`
+can recover labels from a compatible earlier v2 checkpoint independently of
+`--checkpoint`. `sac_with_drive.py` forwards this option for v2 runs. Source
+manifest and label dimensions/actions are checked. Only `actor_obs` and `action`
+are imported through this path; policy, optimizer, reward and Q data are not.
+
 The pilot passes the wiring and numerical check when `status.json` is complete,
 `nonfinite_transitions` stays zero, reward breakdown error stays at or below
 floating-point tolerance, optimizer updates occur, and terminal counts match
