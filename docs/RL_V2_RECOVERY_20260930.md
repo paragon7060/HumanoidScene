@@ -21,8 +21,11 @@ without policy, optimizer, reward or Q fields. All unrelated user processes
 remained untouched. Before/after fit videos and photos below are also attached
 natively in [the Notion experiment record](https://app.notion.com/p/3eb63918d42a81f694a9e060aeffe7cc).
 
-The new run is initializing; the retention change has CPU coverage and will
-be checked in its live metrics. Learned SAC grasp success remains unverified.
+At 01:55 KST, startup/reset settling completed (87 control steps), model and
+optimizers restored, and the actor-only import log confirmed 100,000 imported
+labels and 100,000 retained critical rows. Label-row counts can include repeated
+snapshot samples; they are not counts of independent grasps. Uniform replay
+refill is active. Learned SAC grasp success remains unverified.
 
 The first fresh 1,024-env GPU 3 run
 `artifacts/rl/drive_runs/sac_mbv2_success_tail_gpu3_20260930_2238/`
