@@ -110,6 +110,34 @@ The video is an earlier failure case, **not footage of the new policy**.
 New success footage must be attributed to the controller that actually drove
 it; an IK collection success is not SAC-from-reset success.
 
+## Entropy target feasibility correction
+
+![Observed alpha growth and the infeasible entropy target](assets/rl_v2_entropy_cap_20260930.png)
+
+A further exploration defect was identified while the fresh run collected IK
+warmup data: asymmetric SAC kept target entropy `-1` per active action despite
+its latent Gaussian standard-deviation cap `0.02`. Even before tanh, the largest
+available differential entropy is `log(0.02) + 0.5*log(2*pi*e) = -2.493` nats
+per dimension. Tanh can only lower that entropy. The target was unattainable,
+so increasing alpha could never satisfy it once variance reached the cap.
+The preceding run's logged alpha rose from 0.0000288 at iteration 61 to
+0.003408 at iteration 193 while std remained near 0.02. This demonstrates the
+mismatch, but does not isolate it as the sole cause of policy failure.
+
+Asymmetric SAC now targets the smaller of `-1` and the Gaussian upper bound
+minus 0.5 nats per active dimension: `-2.993` at cap 0.02. Broad default caps
+retain `-1`. Blocked grippers still contribute neither log-probability nor
+entropy target. Target, active dimensions and signed entropy error are logged
+and the entropy contract is recorded in checkpoints/manifests. This changes
+training optimization, not physical action or task compatibility.
+
+Validation: 42 SAC/demo CPU checks passed. The new regression places a zero-mean
+actor at the 0.02 cap and confirms that alpha can decrease with the attainable
+target, whereas the previous target would keep increasing it. The running
+777e922 process does **not** hot-reload this change; it will be checkpointed
+and relaunched before prolonged SAC optimization. Successful data and teacher
+fit are to be preserved through that transition.
+
 ## Baseline and scope
 
 The preceding GPU 3 run `sac_mbv2_safe_front_gpu3_20260929_230917` stopped

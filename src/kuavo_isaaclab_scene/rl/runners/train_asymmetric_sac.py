@@ -387,6 +387,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         f"demo_decay_updates={demo_decay_updates}; demo_usage=actor_bc_only; "
         f"demo_pretraining={pretraining}; guided_warmup={guided_warmup is not None}; "
         f"min_alpha={config.min_alpha}; "
+        f"target_entropy_per_dim={agent.target_entropy_per_dim}; "
         f"initial_settling_steps={initial_settling_steps}",
         flush=True,
     )

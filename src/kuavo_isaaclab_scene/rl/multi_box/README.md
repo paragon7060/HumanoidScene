@@ -161,7 +161,11 @@ boundary currently covers:
   This reduces unstructured sampling but does not prove a collision-free path.
   The recovery defaults use alpha 0.001 with a 0.00001 floor, Gaussian std
   0.15 with a 0.3 cap, fixed actor normalization after pretraining, a 198-D
-  target-centric actor encoder and no critic entropy backup. The observation
+  target-centric actor encoder and no critic entropy backup. The adaptive
+  entropy target respects the actual std cap: min(-1, Gaussian maximum entropy
+  minus 0.5 nats) per unblocked action dimension. At a 0.02 cap this is -2.993,
+  avoiding an unreachable -1 target that would keep raising alpha. The
+  observation
   includes the 20 logical PD target errors, three local base commands and one
   telemetry-availability flag. Dynamic bases report measured root velocity;
   kinematic bases use their commanded twist. Older demonstrations use an

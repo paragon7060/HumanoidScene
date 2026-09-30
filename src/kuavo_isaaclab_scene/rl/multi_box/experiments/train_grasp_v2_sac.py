@@ -397,6 +397,7 @@ def main() -> None:
                     "protected_success_history_steps": 64,
                     "history_crosses_resets": False,
                 },
+                "entropy_contract": "std_cap_feasible_active_dims_v1",
                 "demo_source_path": demonstration_meta["path"] if demonstration_meta else None,
                 "run_profile": (
                     "smoke" if args.smoke_test else "pilot" if args.pilot else "train"

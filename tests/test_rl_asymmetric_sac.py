@@ -331,6 +331,26 @@ def test_success_history_keeps_contiguous_tail_without_crossing_reset():
     assert history.tails(torch.tensor([1]))["reward"].tolist() == [3, 4]
 
 
+def test_std_capped_entropy_target_is_reachable_and_alpha_can_decrease():
+    torch.manual_seed(42)
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16,
+        initial_policy_std=0.02, max_policy_std=0.02))
+    # Zero mean at the largest allowed std approximates maximum entropy.
+    with torch.no_grad():
+        output = agent.actor.network[-1]
+        output.weight.zero_()
+        output.bias[:2].zero_()
+        output.bias[2:].fill_(torch.tensor(0.02).log())
+    before = agent.log_alpha.item()
+    report = agent.update(_batch(4096))
+    assert agent.target_entropy_per_dim == pytest.approx(-2.99308447)
+    assert report["policy_entropy_error_mean"] > 0
+    assert agent.log_alpha.item() < before
+    assert agent.checkpoint()["entropy_contract"]["name"] == "std_cap_feasible_active_dims_v1"
+    # Broad default variance retains legacy -1/dim behavior.
+    assert AsymmetricSAC(4, 7, 2, SACConfig(hidden=16)).target_entropy_per_dim == -1
+
+
 def test_critic_warmup_preserves_pretrained_actor_and_entropy_coefficient():
     agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16, actor_lr=0.00003))
     agent.pretrain_actor(torch.randn(16, 4), torch.zeros(16, 2), steps=2, batch_size=8)

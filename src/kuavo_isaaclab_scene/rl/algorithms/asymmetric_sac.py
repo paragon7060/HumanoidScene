@@ -222,6 +222,12 @@ class AsymmetricSAC(nn.Module):
         self.actor_normalizer = ObservationNormalizer(actor_features.output_dim)
         self.critic_normalizer = ObservationNormalizer(critic_obs_dim)
         self.actor = SquashedActor(actor_features.output_dim, action_dim, cfg.hidden, cfg.max_policy_std)
+        # H(tanh(N)) <= H(N). A fixed -1/dim target is unattainable
+        # under tight std caps (e.g. 0.02 => at most -2.493 nats/dim).
+        # Leave 0.5 nats/dim below that bound, preserving the usual target
+        # whenever the cap already permits it.
+        self.target_entropy_per_dim = min(
+            -1.0, self.actor.log_std_max + 0.5 * math.log(2 * math.pi * math.e) - 0.5)
         if cfg.initial_policy_std != 1.0:
             with torch.no_grad():
                 output = self.actor.network[-1]
@@ -370,7 +376,8 @@ class AsymmetricSAC(nn.Module):
             self.q1.requires_grad_(True)
             self.q2.requires_grad_(True)
 
-        alpha_loss = -(self.log_alpha * (logp.detach() - active_dims)).mean()
+        target_entropy = active_dims * self.target_entropy_per_dim
+        alpha_loss = -(self.log_alpha * (logp.detach() + target_entropy)).mean()
         optimize(self.alpha_optimizer, alpha_loss, [self.log_alpha])
         with torch.no_grad():
             if cfg.min_alpha > 0:
@@ -389,6 +396,9 @@ class AsymmetricSAC(nn.Module):
             "target_value_mean": target.detach().mean().item(),
             "entropy_bonus_mean": (-alpha * logp.detach()).mean().item(),
             "policy_gaussian_std_mean": log_std.exp().mean().item(),
+            "target_entropy_per_dim": self.target_entropy_per_dim,
+            "active_entropy_dims_mean": active_dims.mean().item(),
+            "policy_entropy_error_mean": (-logp.detach() - target_entropy).mean().item(),
         }
 
     @property
@@ -404,6 +414,10 @@ class AsymmetricSAC(nn.Module):
             "action_dim": self.action_dim,
             "action_projection": (
                 self.action_projector.name if self.action_projector is not None else "none"),
+            "entropy_contract": {
+                "name": "std_cap_feasible_active_dims_v1",
+                "target_per_dim": self.target_entropy_per_dim,
+            },
             "model": self.state_dict(),
             "optimizers": [optimizer.state_dict() for optimizer in self.optimizers],
         }
