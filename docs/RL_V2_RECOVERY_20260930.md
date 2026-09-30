@@ -30,6 +30,15 @@ exception also attempts an atomic recovery checkpoint. These protect initial
 collection without increasing ordinary checkpoint frequency. Safety, reset,
 bilateral grasp/proof-lift success and the no-curriculum contract remain unchanged.
 
+Measured 2026-10-01 00:14 KST: the new run passed iteration 18 and reached
+iteration 19, collecting 620,566 valid transitions and 60,579 priority labels.
+It recorded **three IK warmup held successes**, protecting 192 genuine
+pre-success transitions (64 per success). Numerical failures remained zero
+in this run so far. SAC had not started, so these are successful collection
+results rather than learned-policy successes.
+
+![IK successes, distances and outcomes in the corrected run](assets/rl_v2_ik_success_progress_20261001.png)
+
 The earlier 64-env episodic-guidance run stopped cleanly at iteration 193.
 Online IK episodes produced **two new held successes**, while SAC from reset
 produced **zero**. Its final checkpoint/log upload is checksum-verified after
