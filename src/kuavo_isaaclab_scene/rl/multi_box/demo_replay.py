@@ -11,13 +11,17 @@ import torch
 from torch.nn import functional as F
 
 from .geometry.grasp import (
-    GRASP_APPROACH_REWARD_SCALE_M,
+    GRASP_ASSIGNMENT_SCALE_M,
     closest_flap_surface,
     nominal_flap_geometry,
     opposing_flap_reach_assignment,
 )
 from .observations import flat_actor_observation_dim
+from .geometry.upright_torso import (
+    TORSO_XZ_SPEED_M_S, planar_jacobian, torso_links_from_urdf,
+)
 from .spec import MAX_BOXES
+from ...robots.robot_model import resolve_robot_model
 
 
 LEGACY_ACTOR_DIM = 403
@@ -26,6 +30,33 @@ DEMO_FORMAT = "kuavo_v2_grasp_sac_transitions"
 _OLD_BOX_TOKENS_START = 68 + 2 * 9
 _OLD_BOX_MASK_START = _OLD_BOX_TOKENS_START + MAX_BOXES * 22
 _OLD_TARGET_START = _OLD_BOX_MASK_START + MAX_BOXES
+_LEGACY_TORSO_DELTA_RAD = 0.015
+_CONTROL_DT_S = 1.0 / 30.0
+_LEGACY_ACTION_TERMS = [
+    ["base", 3], ["upper_body", 15], ["height", 3],
+    ["left_gripper", 1], ["right_gripper", 1], ["head", 2],
+]
+
+
+def convert_legacy_action(action: torch.Tensor, joint_pos: torch.Tensor) -> torch.Tensor:
+    """Project the old three-joint delta onto upright torso X/Z motion."""
+    if action.ndim != 2 or action.shape[1] != 25 or joint_pos.shape != (len(action), 3):
+        raise ValueError("Legacy action conversion needs [steps,25] actions and [steps,3] torso poses")
+    links = torch.tensor(
+        torso_links_from_urdf(resolve_robot_model("s63", "leju-twofinger").urdf_path),
+        device=action.device, dtype=action.dtype,
+    )
+    joint_delta = action[:, 18:20].clamp(-1, 1) * _LEGACY_TORSO_DELTA_RAD
+    displacement = torch.bmm(
+        planar_jacobian(joint_pos[:, :2], links), joint_delta[..., None]
+    ).squeeze(-1)
+    upright_action = (displacement / (TORSO_XZ_SPEED_M_S * _CONTROL_DT_S)).clamp(-1, 1)
+    converted = torch.cat((action[:, :18], upright_action, action[:, 21:]), dim=-1)
+    # The Quest recorder stores binary 0=open/1=close. SAC uses tanh actions
+    # and the runtime closes on any positive value, so a zero BC target can
+    # accidentally command closing. Use an unambiguous negative open target.
+    converted[:, 20:22] = torch.where(converted[:, 20:22] > 0, 1.0, -1.0)
+    return converted
 
 
 def _rotation_matrix(rotation6: torch.Tensor) -> torch.Tensor:
@@ -84,13 +115,15 @@ def convert_legacy_actor_observation(actor_obs: torch.Tensor) -> torch.Tensor:
     relations = torch.cat((relative_position, relative_rotation6), dim=-1)
     relations *= valid[:, None, None, None]
     _, assignment = opposing_flap_reach_assignment(
-        distances, GRASP_APPROACH_REWARD_SCALE_M)
+        distances, GRASP_ASSIGNMENT_SCALE_M)
     assignment_one_hot = F.one_hot(assignment[:, 0], 2).to(actor_obs.dtype) * valid[:, None]
     result = torch.cat((
         actor_obs[:, :_OLD_BOX_MASK_START], relations.flatten(1),
         assignment_one_hot, actor_obs[:, _OLD_BOX_MASK_START:],
     ), dim=-1)
-    if result.shape[1] != flat_actor_observation_dim(25):
+    previous_action = convert_legacy_action(result[:, -25:], result[:, :3])
+    result = torch.cat((result[:, :-25], previous_action), dim=-1)
+    if result.shape[1] != flat_actor_observation_dim(24):
         raise RuntimeError("Converted v2 actor observation has the wrong dimension")
     return result
 
@@ -110,17 +143,24 @@ def load_v2_grasp_demonstrations(
         if source.attrs.get("format") != DEMO_FORMAT or source.attrs.get("format_version") != 1:
             raise ValueError("Unsupported v2 grasp demonstration format")
         manifest = json.loads(source.attrs["manifest_json"])
+        native = manifest.get("action_dim") == 24
+        source_actor_dim = flat_actor_observation_dim(24) if native else LEGACY_ACTOR_DIM
+        source_critic_dim = source_actor_dim + 66
         required = {
             "task_family": "multi_box_v2", "skill": "grasp",
             "robot_model": "s63", "gripper": "leju-twofinger",
-            "rack_rollers": True, "action_dim": 25,
-            "actor_obs_dim": LEGACY_ACTOR_DIM,
-            "critic_obs_dim": LEGACY_CRITIC_DIM,
+            "rack_rollers": True, "action_dim": 24 if native else 25,
+            "actor_obs_dim": source_actor_dim,
+            "critic_obs_dim": source_critic_dim,
             "controller_mapping": "scaled",
         }
         for name, expected in required.items():
             if manifest.get(name) != expected:
                 raise ValueError(f"Demonstration {name} differs from current v2 grasp contract")
+        expected_terms = [[name, 2 if native and name == "height" else width]
+                          for name, width in _LEGACY_ACTION_TERMS]
+        if manifest.get("action_terms") != expected_terms:
+            raise ValueError("Demonstration action term order differs from the 25-D converter")
         if manifest.get("multi_box", {}).get("self_collision_enabled") != self_collision_enabled:
             raise ValueError("Demonstration self-collision setting differs from training")
         if abs(float(manifest.get("control_dt", 0)) - 1 / 30) > 1e-6:
@@ -129,6 +169,8 @@ def load_v2_grasp_demonstrations(
         if episodes is None:
             raise ValueError("Demonstration file has no episodes")
         accepted = 0
+        torso_saturated = torso_values = 0
+        discarded_pitch_rad = 0.0
         for episode in episodes.values():
             if not bool(episode.attrs.get("success", False)):
                 continue
@@ -137,24 +179,35 @@ def load_v2_grasp_demonstrations(
             next_actor = torch.from_numpy(transitions["next_actor_obs"][:])
             critic = torch.from_numpy(transitions["critic_obs"][:])
             next_critic = torch.from_numpy(transitions["next_critic_obs"][:])
-            if critic.shape != (len(current), LEGACY_CRITIC_DIM) \
-                    or next_critic.shape != (len(current), LEGACY_CRITIC_DIM) \
+            if critic.shape != (len(current), source_critic_dim) \
+                    or next_critic.shape != (len(current), source_critic_dim) \
                     or next_actor.shape != current.shape \
-                    or not torch.equal(critic[:, :LEGACY_ACTOR_DIM], current) \
-                    or not torch.equal(next_critic[:, :LEGACY_ACTOR_DIM], next_actor):
+                    or not torch.equal(critic[:, :source_actor_dim], current) \
+                    or not torch.equal(next_critic[:, :source_actor_dim], next_actor):
                 raise ValueError("Demonstration critic views do not match actor views")
-            actor_new = convert_legacy_actor_observation(current)
-            next_new = convert_legacy_actor_observation(next_actor)
+            actor_new = current.clone() if native else convert_legacy_actor_observation(current)
+            next_new = next_actor.clone() if native else convert_legacy_actor_observation(next_actor)
+            original_action = torch.from_numpy(transitions["action"][:])
+            converted_action = original_action.clone() if native else convert_legacy_action(original_action, current[:, :3])
+            if native:
+                for observation in (actor_new, next_new):
+                    observation[:, -4:-2] = torch.where(observation[:, -4:-2] > 0, 1.0, -1.0)
+                converted_action[:, 20:22] = torch.where(converted_action[:, 20:22] > 0, 1.0, -1.0)
+            torso_saturated += int((converted_action[:, 18:20].abs() >= 0.999).sum())
+            torso_values += converted_action[:, 18:20].numel()
+            if not native:
+                discarded_pitch_rad += float((original_action[:, 20].abs() *
+                                              _LEGACY_TORSO_DELTA_RAD).sum())
             raw = {
                 "actor_obs": actor_new,
-                "critic_obs": torch.cat((actor_new, critic[:, LEGACY_ACTOR_DIM:]), dim=-1),
-                "action": torch.from_numpy(transitions["action"][:]),
+                "critic_obs": torch.cat((actor_new, critic[:, source_actor_dim:]), dim=-1),
+                "action": converted_action,
                 "reward": torch.from_numpy(transitions["reward"][:]).float(),
                 "next_actor_obs": next_new,
-                "next_critic_obs": torch.cat((next_new, next_critic[:, LEGACY_ACTOR_DIM:]), dim=-1),
+                "next_critic_obs": torch.cat((next_new, next_critic[:, source_actor_dim:]), dim=-1),
                 "terminated": torch.from_numpy(transitions["terminated"][:]),
             }
-            if raw["action"].shape != (len(current), 25) \
+            if raw["action"].shape != (len(current), 24) \
                     or any(len(value) != len(current) for value in raw.values()) \
                     or any(not bool(torch.isfinite(value).all()) for value in raw.values()):
                 raise ValueError("Demonstration contains invalid transitions")
@@ -170,9 +223,15 @@ def load_v2_grasp_demonstrations(
     return result, {
         "path": str(path), "sha256": digest,
         "episodes": accepted, "transitions": len(result["reward"]),
-        "action_terms": manifest.get("action_terms"),
-        "source_actor_dim": LEGACY_ACTOR_DIM,
+        "action_terms": [[name, 2 if name == "height" else width]
+                         for name, width in manifest.get("action_terms", [])],
+        "action_conversion": ("native_upright_binary_gripper_v3" if native
+                              else "s63_upright_xz_jacobian_binary_gripper_v2"),
+        "source_actor_dim": source_actor_dim,
         "converted_actor_dim": result["actor_obs"].shape[-1],
         "converted_critic_dim": result["critic_obs"].shape[-1],
-        "observation_conversion": "nominal_flap_center_v1",
+        "observation_conversion": "native_flap_center_v1" if native else "nominal_flap_center_v1",
+        "torso_action_saturated_fraction": torso_saturated / torso_values,
+        "mean_discarded_waist_pitch_command_rad": (
+            discarded_pitch_rad / len(result["action"])),
     }

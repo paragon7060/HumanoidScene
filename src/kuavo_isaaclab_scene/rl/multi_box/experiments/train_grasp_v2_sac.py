@@ -37,6 +37,8 @@ def apply_run_profile(args) -> None:
         args.warmup_vector_steps = 0
         args.updates_per_step = 1
         args.save_interval = 1
+        if hasattr(args, "demo_pretrain_steps"):
+            args.demo_pretrain_steps = min(args.demo_pretrain_steps, 4)
     elif args.pilot:
         # About 41k transitions at the defaults: enough to exercise warmup,
         # optimization, terminal statistics and checkpoints without silently
@@ -50,6 +52,8 @@ def apply_run_profile(args) -> None:
         args.warmup_vector_steps = min(args.warmup_vector_steps, 64)
         args.updates_per_step = 1
         args.save_interval = min(args.save_interval, 5)
+        if hasattr(args, "demo_pretrain_steps"):
+            args.demo_pretrain_steps = min(args.demo_pretrain_steps, 100)
 
 
 def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
@@ -59,8 +63,9 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
     source = json.loads(source_path.read_text())
     for key in (
         "task_family", "schema_version", "skill", "algorithm", "robot_model",
-        "gripper", "actions", "observations", "observation_contract", "critic_mapping",
+        "gripper", "actions", "action_contract", "observations", "observation_contract", "critic_mapping",
         "reward_profile", "exploration", "demonstrations", "self_collision",
+        "action_projection",
     ):
         if source.get(key) != manifest.get(key):
             raise ValueError(f"Checkpoint {key} differs from this v2 SAC environment")
@@ -88,11 +93,33 @@ def main() -> None:
     parser.add_argument("--warmup-vector-steps", type=int, default=450)
     parser.add_argument("--warmup-action-hold-steps", type=int, default=8)
     parser.add_argument("--warmup-continuous-scale", type=float, default=0.35)
-    parser.add_argument("--min-alpha", type=float, default=0.005)
+    parser.add_argument("--min-alpha", type=float, default=0.00001)
+    parser.add_argument("--initial-alpha", type=float, default=0.001)
+    parser.add_argument("--initial-policy-std", type=float, default=0.15)
+    parser.add_argument("--max-policy-std", type=float, default=0.3)
+    parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
+    parser.add_argument("--teacher-pretrain-steps", type=int, default=5000,
+                        help="Fit the SAC actor to new IK-collected actions once warmup ends.")
+    parser.add_argument("--reward-scale", type=float, default=10.0)
+    parser.add_argument("--entropy-backup", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--actor-feature-mode", choices=("flat", "grasp_target"), default="grasp_target")
+    parser.add_argument("--freeze-actor-normalizer", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--goal-replay-capacity", type=int, default=100_000)
+    parser.add_argument("--goal-batch-fraction", type=float, default=0.25)
     parser.add_argument("--demo-dataset", type=Path,
                         help="Successful Quest v2 HDF5 episodes; convert 403-D observations offline.")
     parser.add_argument("--demo-batch-fraction", type=float, default=0.2,
-                        help="Fraction of each SAC minibatch sampled from the persistent demo replay.")
+                        help="Initial actor imitation weight and demo minibatch fraction; critic uses online replay only.")
+    parser.add_argument("--demo-bc-strength", type=float, default=10.0,
+                        help="Independent loss scale; sampling still starts at 20% and decays.")
+    parser.add_argument("--demo-decay-fraction", type=float, default=0.3,
+                        help="Fraction of planned SAC updates over which demo imitation decays to zero.")
+    parser.add_argument("--demo-pretrain-steps", type=int, default=1000,
+                        help="Actor-only behavior-cloning updates before online rollout.")
+    parser.add_argument("--demo-pretrain-batch-size", type=int, default=256)
+    parser.add_argument("--demo-guided-warmup", action=argparse.BooleanOptionalAction, default=True,
+                        help="Use the pretrained actor with correlated noise during warmup.")
+    parser.add_argument("--demo-warmup-noise-scale", type=float, default=0.12)
     parser.add_argument("--updates-per-step", type=int, default=4)
     parser.add_argument("--hidden", type=int, default=256)
     parser.add_argument("--save-interval", type=int, default=50)
@@ -131,12 +158,30 @@ def main() -> None:
     )
     if min(positive) < 1 or min(args.learning_starts, args.warmup_vector_steps) < 0:
         parser.error("Counts must be positive and warmup counts nonnegative")
-    if not 0 <= args.min_alpha <= 0.1:
-        parser.error("--min-alpha must be between zero and the initial alpha 0.1")
+    if not 0 <= args.min_alpha <= args.initial_alpha <= 0.1:
+        parser.error("Require 0 <= min-alpha <= initial-alpha <= 0.1")
+    if not 0 < args.initial_policy_std <= 1 or not 0 < args.reward_scale < 1000:
+        parser.error("Invalid policy standard deviation or reward scale")
+    if not args.initial_policy_std <= args.max_policy_std <= 1:
+        parser.error("Require initial-policy-std <= max-policy-std <= 1")
+    if args.guided_warmup_mode == "ik" and not args.demo_dataset:
+        parser.error("IK warmup needs successful demos for wrist orientations")
+    if args.teacher_pretrain_steps < 0:
+        parser.error("--teacher-pretrain-steps must be nonnegative")
+    if args.goal_replay_capacity < 1 or not 0 <= args.goal_batch_fraction < 1:
+        parser.error("Invalid goal replay configuration")
     if not 0 < args.warmup_continuous_scale <= 1:
         parser.error("--warmup-continuous-scale must be in (0, 1]")
     if not 0 <= args.demo_batch_fraction < 1:
         parser.error("--demo-batch-fraction must be in [0, 1)")
+    if not 0 <= args.demo_bc_strength <= 1000:
+        parser.error("Invalid demonstration loss strength")
+    if not 0 < args.demo_decay_fraction <= 1:
+        parser.error("--demo-decay-fraction must be in (0, 1]")
+    if args.demo_pretrain_steps < 0 or args.demo_pretrain_batch_size < 1:
+        parser.error("Demo pretraining steps must be nonnegative and batch size positive")
+    if not 0 <= args.demo_warmup_noise_scale <= 1:
+        parser.error("--demo-warmup-noise-scale must be in [0, 1]")
     if args.demo_dataset and args.demo_batch_fraction == 0:
         parser.error("--demo-batch-fraction must be positive with --demo-dataset")
     if args.env_spacing < 5.0:
@@ -185,7 +230,13 @@ def main() -> None:
                 GRASP_APPROACH_REWARD_SCALE_M,
                 GRASP_CAPTURE_REWARD_SCALE_M,
             )
+            from ..geometry.grasp import GRASP_ASSIGNMENT_SCALE_M
+            from ..metrics.potentials import (
+                FRONT_STAGE_CLEARANCE_M, FRONT_STAGE_LANE_TOLERANCE_M,
+                FRONT_STAGE_REWARD_SCALE_M,
+            )
             from ..training_env_cfg import MultiBoxGraspAssemblyEnvCfg
+            from .guided_exploration import GraspActionProjector
 
             class TransitionEnv(TerminalObservationMixin, ManagerBasedRLEnv):
                 pass
@@ -239,6 +290,8 @@ def main() -> None:
                 "robot_model": resolve_robot_model().name,
                 "gripper": resolve_gripper_settings().name,
                 "actions": action_dims,
+                "action_contract": "s63_upright_torso_xz_fixed_pitch_v1",
+                "action_projection": GraspActionProjector.name,
                 "observations": observation_dims,
                 "observation_contract": "neutral_flap_center_tcp_frame_v1",
                 "critic_mapping": {
@@ -251,17 +304,39 @@ def main() -> None:
                 "reward_profile": {
                     "weights": asdict(MultiBoxRewardWeights()),
                     "approach_scale_m": GRASP_APPROACH_REWARD_SCALE_M,
+                    "assignment_scale_m": GRASP_ASSIGNMENT_SCALE_M,
                     "capture_scale_m": GRASP_CAPTURE_REWARD_SCALE_M,
-                    "geometry_profile": "opposing_flap_weaker_hand_reach_and_pinch_gated_lift_v2",
+                    "front_stage_clearance_m": FRONT_STAGE_CLEARANCE_M,
+                    "front_stage_lane_tolerance_m": FRONT_STAGE_LANE_TOLERANCE_M,
+                    "front_stage_scale_m": FRONT_STAGE_REWARD_SCALE_M,
+                    "geometry_profile": "rack_front_lane_then_opposing_flap_reach_v3",
                 },
                 "exploration": {
                     "min_alpha": args.min_alpha,
+                    "initial_alpha": args.initial_alpha,
+                    "initial_policy_std": args.initial_policy_std,
+                    "max_policy_std": args.max_policy_std,
+                    "guided_warmup_mode": args.guided_warmup_mode,
+                    "teacher_pretrain_steps": args.teacher_pretrain_steps,
+                    "reward_scale": args.reward_scale,
+                    "entropy_backup": args.entropy_backup,
+                    "actor_feature_mode": args.actor_feature_mode,
+                    "freeze_actor_normalizer": args.freeze_actor_normalizer,
+                    "goal_replay_capacity": args.goal_replay_capacity,
+                    "goal_batch_fraction": args.goal_batch_fraction,
                     "warmup_action_hold_steps": args.warmup_action_hold_steps,
                     "warmup_continuous_scale": args.warmup_continuous_scale,
+                    "demo_guided_warmup": args.demo_guided_warmup,
+                    "demo_warmup_noise_scale": args.demo_warmup_noise_scale,
                 },
                 "demonstrations": (
                     {key: value for key, value in demonstration_meta.items() if key != "path"}
-                    | {"batch_fraction": args.demo_batch_fraction}
+                    | {"initial_batch_fraction": args.demo_batch_fraction,
+                       "decay_fraction": args.demo_decay_fraction,
+                       "pretrain_steps": args.demo_pretrain_steps,
+                       "pretrain_batch_size": args.demo_pretrain_batch_size,
+                       "bc_strength": args.demo_bc_strength,
+                       "usage": "actor_behavior_cloning_only; recorded_rewards_ignored"}
                     if demonstration_meta else None
                 ),
                 "demo_source_path": demonstration_meta["path"] if demonstration_meta else None,

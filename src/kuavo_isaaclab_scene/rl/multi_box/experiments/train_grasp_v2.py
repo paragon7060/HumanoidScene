@@ -17,7 +17,7 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
     source = json.loads(source_path.read_text())
     for key in (
         "task_family", "schema_version", "skill", "robot_model", "gripper",
-        "actions", "observations", "critic_mapping",
+        "actions", "action_contract", "observations", "critic_mapping",
     ):
         if source.get(key) != manifest.get(key):
             raise ValueError(f"Checkpoint {key} differs from the v2 grasp environment.")
@@ -137,6 +137,7 @@ def main() -> None:
                 name: base_env.action_manager.get_term(name).action_dim
                 for name in base_env.action_manager.active_terms
             },
+            "action_contract": "s63_upright_torso_xz_fixed_pitch_v1",
             "observations": observation_dims,
             "critic_mapping": agent.obs_groups,
             "num_envs": args.num_envs,

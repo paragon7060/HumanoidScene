@@ -11,6 +11,9 @@ from kuavo_isaaclab_scene.rl.multi_box.success import (
     classify_pinches,
 )
 from kuavo_isaaclab_scene.rl.multi_box.geometry.rack import box_shelf_clearance_m
+from kuavo_isaaclab_scene.rl.multi_box.geometry.pose import (
+    relative_pose, replace_invalid_poses,
+)
 from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_probe import QuestGraspProbe
 from kuavo_isaaclab_scene.rl.multi_box.debug.contact_force import maximum_filtered_force
 from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import logical_cells
@@ -28,6 +31,18 @@ def _contacts():
         region[0, hand, flap] = True
         opposed[0, hand, flap] = True
     return FingerFlapContacts(force, region, opposed, torch.ones(1, dtype=torch.bool))
+
+
+def test_invalid_flap_quaternion_is_isolated_to_its_environment():
+    poses = torch.tensor([
+        [[1., 2., 3., 1., 0., 0., 0.], [1., 2., 4., 1., 0., 0., 0.]],
+        [[5., 6., 7., 0., 0., 0., 0.], [float("nan"), 0., 0., 1., 0., 0., 0.]],
+    ])
+    safe, invalid = replace_invalid_poses(poses)
+    assert invalid.tolist() == [[False, False], [True, True]]
+    torch.testing.assert_close(safe[0], poses[0])
+    torch.testing.assert_close(safe[1, :, 3], torch.ones(2))
+    assert torch.isfinite(relative_pose(safe, safe)).all()
 
 
 def test_filtered_rack_force_takes_the_maximum_over_links_and_contacts():

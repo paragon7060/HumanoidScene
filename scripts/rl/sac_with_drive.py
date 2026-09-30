@@ -36,7 +36,28 @@ def main():
     parser.add_argument("--learning-starts", type=int, default=100000)
     parser.add_argument("--warmup-vector-steps", type=int, default=450)
     parser.add_argument("--warmup-action-hold-steps", type=int, default=4)
-    parser.add_argument("--min-alpha", type=float, default=0.01)
+    parser.add_argument("--warmup-continuous-scale", type=float, default=0.35)
+    parser.add_argument("--min-alpha", type=float, default=0.00001)
+    parser.add_argument("--initial-alpha", type=float, default=0.001)
+    parser.add_argument("--initial-policy-std", type=float, default=0.15)
+    parser.add_argument("--max-policy-std", type=float, default=0.3)
+    parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
+    parser.add_argument("--teacher-pretrain-steps", type=int, default=5000)
+    parser.add_argument("--reward-scale", type=float, default=10.0)
+    parser.add_argument("--entropy-backup", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--actor-feature-mode", choices=("flat", "grasp_target"), default="grasp_target")
+    parser.add_argument("--freeze-actor-normalizer", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--goal-replay-capacity", type=int, default=100_000)
+    parser.add_argument("--goal-batch-fraction", type=float, default=0.25)
+    parser.add_argument("--demo-dataset", type=Path,
+                        help="Multi-box v2 only: successful Quest demonstrations for replay")
+    parser.add_argument("--demo-batch-fraction", type=float, default=0.2)
+    parser.add_argument("--demo-bc-strength", type=float, default=10.0)
+    parser.add_argument("--demo-decay-fraction", type=float, default=0.3)
+    parser.add_argument("--demo-pretrain-steps", type=int, default=1000)
+    parser.add_argument("--demo-pretrain-batch-size", type=int, default=256)
+    parser.add_argument("--demo-guided-warmup", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--demo-warmup-noise-scale", type=float, default=0.12)
     parser.add_argument("--replay-capacity", type=int, default=1000000)
     parser.add_argument("--replay-device", choices=("cpu", "cuda:0"), default="cuda:0")
     parser.add_argument("--save-interval", type=int, default=2)
@@ -57,6 +78,19 @@ def main():
         parser.error("Invalid counts or resource budget")
     if not 0 <= args.min_alpha <= 0.1:
         parser.error("--min-alpha must be between zero and the initial alpha 0.1")
+    if not 0 < args.warmup_continuous_scale <= 1:
+        parser.error("--warmup-continuous-scale must be in (0, 1]")
+    if not 0 <= args.demo_batch_fraction < 1:
+        parser.error("--demo-batch-fraction must be in [0, 1)")
+    if not 0 < args.demo_decay_fraction <= 1:
+        parser.error("--demo-decay-fraction must be in (0, 1]")
+    if args.demo_pretrain_steps < 0 or args.demo_pretrain_batch_size < 1 \
+            or not 0 <= args.demo_warmup_noise_scale <= 1:
+        parser.error("Invalid demonstration warmup configuration")
+    if args.demo_dataset and args.experiment != "multi-box-v2-grasp":
+        parser.error("--demo-dataset is only supported for multi-box v2 grasp")
+    if args.demo_dataset and not args.demo_dataset.is_file():
+        parser.error("Missing demonstration dataset")
     if args.replay_capacity < args.num_envs:
         parser.error("Replay capacity must hold a full vector step")
     if args.checkpoint and not args.checkpoint.is_file():
@@ -93,8 +127,28 @@ def main():
                  "save_interval"):
         command.extend(("--" + name.replace("_", "-"), str(getattr(args, name))))
     if args.experiment == "multi-box-v2-grasp":
-        for name in ("warmup_action_hold_steps", "min_alpha"):
+        if not 0 <= args.min_alpha <= args.initial_alpha <= 0.1:
+            parser.error("V2 SAC requires 0 <= min-alpha <= initial-alpha <= 0.1")
+        if not 0 < args.initial_policy_std <= 1 or not 0 < args.reward_scale < 1000 \
+                or args.goal_replay_capacity < 1 or not 0 <= args.goal_batch_fraction < 1 \
+                or not args.initial_policy_std <= args.max_policy_std <= 1 \
+                or args.teacher_pretrain_steps < 0 or not 0 <= args.demo_bc_strength <= 1000:
+            parser.error("Invalid V2 SAC recovery configuration")
+        for name in ("warmup_action_hold_steps", "warmup_continuous_scale", "min_alpha",
+                     "initial_alpha", "initial_policy_std", "max_policy_std", "guided_warmup_mode",
+                     "teacher_pretrain_steps",
+                     "reward_scale", "actor_feature_mode",
+                     "goal_replay_capacity", "goal_batch_fraction",
+                     "demo_batch_fraction", "demo_bc_strength", "demo_decay_fraction", "demo_pretrain_steps",
+                     "demo_pretrain_batch_size", "demo_warmup_noise_scale"):
             command.extend(("--" + name.replace("_", "-"), str(getattr(args, name))))
+        command.append("--entropy-backup" if args.entropy_backup else "--no-entropy-backup")
+        command.append("--freeze-actor-normalizer" if args.freeze_actor_normalizer
+                       else "--no-freeze-actor-normalizer")
+        command.append("--demo-guided-warmup" if args.demo_guided_warmup
+                       else "--no-demo-guided-warmup")
+        if args.demo_dataset:
+            command.extend(("--demo-dataset", str(args.demo_dataset.resolve())))
     command.extend(("--log-dir", str(parent)))
     if args.checkpoint:
         command.extend(("--checkpoint", str(args.checkpoint.resolve())))

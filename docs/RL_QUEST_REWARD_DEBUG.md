@@ -288,7 +288,9 @@ CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
 
 이 경로는 mode 2의 전체 장면 shadow reward 대신 **실제
 `MultiBoxGraspAssemblyEnvCfg` staged-grasp 환경**을 실행한다. 따라서 보상, 종료,
-관측, 정규화 전 25차원 관절 action은 V2 SAC와 같은 코드에서 나온다. `A/T`로
+관측, 정규화 전 24차원 action은 V2 SAC와 같은 코드에서 나온다. torso는 전후·상하
+X/Z 두 축이며 pitch를 독립적으로 명령하지 않는다. actor/critic 관측은 440/506차원이다.
+일반 Quest 수집은 기존 설정을 유지한다. `A/T`로
 조작/일시정지, `B/R`로 현재 시도 종료·새 장면 reset, `X/C`로 recenter한다.
 성공·안전 위반·30초 timeout 때에는 마지막 terminal 관측을 저장하고 자동으로
 일시정지한다. 다음 시도는 `A/T`로 시작할 수 있다. 초기 박스 settling 단계의
@@ -360,9 +362,11 @@ python3 scripts/rl/export_demo_subset.py \
 `next_actor_obs`/`next_critic_obs`, `terminated`/`truncated`, 성공·안전 종료
 플래그와 simulation time을 저장한다. `critic_obs`는 SAC replay와 같이
 `policy + privileged` 결합이다. 사람이 B/R로 중단한 에피소드 및 프로세스 종료
-시 미완료 에피소드는 실패/미완료로 표시한다. **이 파일의 수집은 구현되었지만,
-기존 SAC 학습기에 데모를 자동 주입하는 loader는 아직 없다.** 먼저 데이터 품질과
-동일 설정 재생을 확인해야 한다. mode 1은 legacy task 계약이라 V2 SAC 데이터셋
+시 미완료 에피소드는 실패/미완료로 표시한다. SAC의 `--demo-dataset`으로 성공 시연을
+명시적으로 연결한다. 현재 24-action 파일은 직접 읽고, 기존 25-action/403-D 파일은
+flap-center 관계 및 upright X/Z action으로 변환한다. 옛 reward/next-state는 critic에
+주입하지 않고 actor 모방에만 쓴다. [학습 연결과 한계](RL_V2_RECOVERY_20260930.md).
+mode 1은 legacy task 계약이라 V2 SAC 데이터셋
 옵션을 받지 않는다. `--rl-shadow-box-count`/`--rl-shadow-log`는 전체 장면
 진단 전용이므로 함께 지정할 수 없다.
 

@@ -28,9 +28,15 @@ class GraspWeights:
     base_motion: float = 0.0002
     action_rate: float = 0.0001
     approach_progress: float = 2.00
+    front_staging_progress: float = 1.00
+    # A bounded distance cost keeps approaching useful even before a first
+    # success. At 30 Hz, each cost totals at most 1.8 over a 30 s episode.
+    front_distance_cost: float = 0.002
+    approach_distance_cost: float = 0.002
     alignment_progress: float = 0.50
     capture_progress: float = 0.50
-    jaw_gap_progress: float = 0.30
+    # Closing alone is not grasping; actual contact earns the pinch events.
+    jaw_gap_progress: float = 0.00
     premature_close: float = 0.002
     proof_lift_progress: float = 0.40
     one_hand_pinch_event: float = 2.00
@@ -92,7 +98,8 @@ class MultiBoxRewardWeights:
                 value = getattr(group, field.name)
                 if not math.isfinite(value) or value < 0:
                     raise ValueError(f"Reward weight {field.name} must be finite and nonnegative.")
-        grasp_dense = sum((self.grasp.approach_progress, self.grasp.alignment_progress,
+        grasp_dense = sum((self.grasp.approach_progress, self.grasp.front_staging_progress,
+                           self.grasp.alignment_progress,
                            self.grasp.capture_progress, self.grasp.jaw_gap_progress,
                            self.grasp.proof_lift_progress))
         carry_dense = sum((self.carry.extraction_progress, self.carry.belt_progress,

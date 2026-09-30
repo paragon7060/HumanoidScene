@@ -57,6 +57,9 @@ def test_sac_squash_log_probability_matches_transformed_distribution():
     actor = SquashedActor(4, 2, 16)
     obs = torch.randn(32, 4)
     action, logp = actor(obs)
+    _, by_dim = actor(obs, deterministic=True, return_per_dim=True)
+    _, deterministic_logp = actor(obs, deterministic=True)
+    torch.testing.assert_close(by_dim.sum(-1), deterministic_logp)
     mean, log_std = actor.network(obs).chunk(2, -1)
     distribution = torch.distributions.TransformedDistribution(
         torch.distributions.Normal(mean, log_std.clamp(-5, 2).exp()),
@@ -89,6 +92,9 @@ def test_terminal_mixin_preserves_pre_reset_obs_for_only_reset_envs():
             self.privileged = torch.zeros(3, 2)
             self._multi_box_grasp_safety_step = SimpleNamespace(
                 obstacle_collision=torch.tensor([False, True, False]))
+            self._multi_box_privileged_grasp_step = SimpleNamespace(
+                matched_flap_distance_m=torch.zeros(3, 2),
+                front_staging_distance_m=torch.zeros(3, 2))
             self.observation_manager = SimpleNamespace(compute=lambda **kw: {
                 "policy": self.state, "critic": self.privileged})
         def _reset_idx(self, ids):
@@ -96,11 +102,17 @@ def test_terminal_mixin_preserves_pre_reset_obs_for_only_reset_envs():
             self.privileged[ids] = -7
             self._multi_box_grasp_safety_step = SimpleNamespace(
                 obstacle_collision=torch.zeros(3, dtype=torch.bool))
+            self._multi_box_privileged_grasp_step = SimpleNamespace(
+                matched_flap_distance_m=torch.zeros(3, 2),
+                front_staging_distance_m=torch.zeros(3, 2))
         def step(self, action):
             self.state[:] = torch.tensor([[1.], [2.], [3.]])
             self.privileged[:] = torch.tensor([[10.], [20.], [30.]])
             self._multi_box_grasp_safety_step = SimpleNamespace(
                 obstacle_collision=torch.tensor([False, True, False]))
+            self._multi_box_privileged_grasp_step = SimpleNamespace(
+                matched_flap_distance_m=torch.tensor([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]),
+                front_staging_distance_m=torch.tensor([[0.2, 0.3], [0.4, 0.5], [0.6, 0.7]]))
             self._reset_idx(torch.tensor([1]))
             return {"policy": self.state, "critic": self.privileged}, torch.zeros(3), torch.zeros(3, dtype=torch.bool), torch.tensor([False, True, False]), {}
     class Env(TerminalObservationMixin, FakeBase):
@@ -114,6 +126,9 @@ def test_terminal_mixin_preserves_pre_reset_obs_for_only_reset_envs():
         extras["transition_next_observations"]["critic"],
         torch.tensor([[10.]*2, [20.]*2, [30.]*2]))
     assert extras["transition_safety"]["obstacle_collision"].tolist() == [False, True, False]
+    torch.testing.assert_close(
+        extras["transition_grasp_geometry"]["matched_flap_distance_m"],
+        torch.tensor([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]))
 
 
 @pytest.mark.parametrize("steps", [1, 4, 20])

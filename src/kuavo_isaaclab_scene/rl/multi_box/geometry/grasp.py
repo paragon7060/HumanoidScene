@@ -9,7 +9,12 @@ from ..spec import BOX_TYPES
 from .pose import quat_apply, relative_pose
 
 
-GRASP_APPROACH_REWARD_SCALE_M = 1.0 / 12.0
+# Keep the original discrete flap pairing stable for existing observations.
+GRASP_ASSIGNMENT_SCALE_M = 1.0 / 12.0
+# The initial 8.3 cm reward scale made reach nearly flat at the 50-70 cm
+# hand distances seen before entering the rack. Keep precision near the flap
+# through the existing capture/alignment terms.
+GRASP_APPROACH_REWARD_SCALE_M = 0.22
 
 
 def closest_flap_surface(

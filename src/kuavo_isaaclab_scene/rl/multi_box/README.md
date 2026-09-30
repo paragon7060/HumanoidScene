@@ -74,7 +74,7 @@ boundary currently covers:
   use the selected perceived box pose, size and known neutral flap geometry;
   they are zero without a confident active target and never use exact simulator
   flap-link or contact truth.  The critic has a separate privileged view.
-- a bootable staged-grasp manager assembly with 25 unified S63/Leju actions and
+- a bootable staged-grasp manager assembly with 24 unified S63/Leju actions and
   a fixed 441-value deployable actor observation.  Run the isolated GPU smoke
   check with `python -m kuavo_isaaclab_scene.rl.multi_box.experiments.inspect_grasp_assembly
   --steps 2 --num-envs 1 --headless --device cuda:0`.
@@ -107,7 +107,7 @@ boundary currently covers:
 - v2 potential shaping and the v2 SAC/PPO learners use the same 0.999 discount.
   At 30 Hz this retains credit across multi-second skills; the generic SAC
   implementation keeps its independent 0.99 default.
-- an asymmetric PPO contract with a 441-value deployable actor group and a
+- an asymmetric PPO contract with a 440-value deployable actor group and a
   separate 66-value simulator-only critic group. RSL-RL maps the critic to
   `policy + critic` while the actor receives only `policy`.
 - an isolated v2 training entrypoint at `bash scripts/rl/multi_box.sh grasp-v2`.
@@ -116,7 +116,7 @@ boundary currently covers:
   outside Git and may be uploaded to the configured private Drive destination.
 - an isolated asymmetric SAC entrypoint at
   `bash scripts/rl/multi_box.sh grasp-v2-sac`. The actor receives only the
-  441-value deployable observation; twin Q critics receive that observation
+  440-value deployable observation; twin Q critics receive that observation
   plus the 66 privileged values. Replay stores both current/next views so
   terminal transitions bootstrap from their pre-reset observations. The
   default 250k CPU replay is about 1.9 GiB; use `--smoke-test --num-envs 4`
@@ -127,39 +127,69 @@ boundary currently covers:
   `contact_force/*` counts above 0.1, 5, 10, and 20 N for rack and remaining
   obstacles after the reset grace period. The run manifest preserves the actual
   safety thresholds so excessive termination conditions can be reviewed. Older
-  403-value checkpoints cannot be resumed with the new 441-value policy. The
+  403- or 441-value checkpoints cannot be resumed with the new 440-value policy. The
   checked-in Quest demonstrations can be converted on load. The
   grasp reward keeps the two-hand opposing-flap success test. For each distinct-flap
   assignment, the reach score is `0.25*(sL+sR)+0.5*min(sL,sR)`, with each
   hand's score `s=exp(-distance/approach_scale)`. The best assignment wins:
   one hand alone can earn at most 0.25, while both at their flaps earn 1.
-  Near-flap closing-axis alignment,
-  jaw capture and calibrated tip gap provide further progress. A first one-hand
+  Near-flap closing-axis alignment and jaw capture provide further progress. A first one-hand
   pinch earns +2, opposing-hand pinch +1, and final success +5. Lift progress
   requires a continuous opposing-flap pinch; initial acquisition and loss rebase
   the lift potential, so a bouncing ungrasped box earns no lift reward. Grasp
-  approach/alignment/capture/gap/lift weights are 2/0.5/0.5/0.3/0.4.
+  approach/alignment/capture/gap/lift weights are 2/0.5/0.5/0/0.4. Gripper
+  closing alone earns no positive reward; verified one-hand and opposing-flap
+  pinch events pay only after actual contact.
+  The v2 training action is 24-D: the torso receives only local forward/back
+  and height commands (two values). A batched S63 IK coordinates knee, leg and
+  waist pitch to preserve each reset pose's torso pitch. It limits forward
+  travel to 15 cm from reset, height to 0-40 cm above the URDF nominal height,
+  X/Z speed to 0.10 m/s and each joint to 0.015 rad per control tick. Base
+  travel and waist yaw remain independent actions. Contact can still cause a
+  transient physical pitch error; the restriction is on commanded targets.
   Premature closing costs at most 0.002 per control step. Grasp-only base and
   action-rate costs remain 0.0002 and 0.0001.
-  V2 SAC holds each random warmup action for eight control steps, samples
-  continuous action components in [-0.35, 0.35] and each binary gripper in
-  {-1, +1}. The entropy coefficient alpha has a 0.005 floor; `metrics.jsonl` records policy
+  Without demos, V2 SAC holds each random warmup action for eight control steps,
+  samples continuous components in [-0.35, 0.35] and each binary gripper in
+  {-1, +1}. With demos, actor-only behavior cloning runs before rollout and
+  warmup follows the actor with temporally correlated continuous noise. Both
+  grippers stay open until their assigned flap centers are within 0.12 m.
+  The same close gate applies to online SAC actions, actor/target Q actions,
+  and checkpoint playback. Blocked gripper outputs earn no entropy credit.
+  This reduces unstructured sampling but does not prove a collision-free path.
+  The recovery defaults use alpha 0.001 with a 0.00001 floor, Gaussian std
+  0.15 with a 0.3 cap, fixed actor normalization after pretraining, a 174-D
+  target-centric actor encoder and no critic entropy backup. An optional
+  `--guided-warmup-mode ik` collects real pose-based servo transitions and
+  `--teacher-pretrain-steps` transfers their actions before SAC takes over.
+  `metrics.jsonl` records policy
   log-probability and sampled action spread after updates. `manifest.json`
   records the weights, geometry scales, and exploration parameters.
 - SAC self-collision checking is enabled by default and requires the reviewed
   URDF/FCL dependency. Pass `--no-self-collision` for an explicitly unguarded
   experiment; the self-collision reward, termination and FCL evaluation then
   remain disabled while the critic tensor shape stays unchanged.
-- successful Quest demonstrations can seed a persistent second replay:
+- successful Quest demonstrations can provide early actor imitation:
   `bash scripts/rl/multi_box.sh grasp-v2-sac --no-self-collision
   --demo-dataset examples/demos/v2_grasp_quest_success.hdf5 --demo-batch-fraction 0.2`.
   The original 403/469-D observations are converted from recorded TCP/box
-  poses to the current 441/507-D contract before training. The two successful
-  episodes provide 910 transitions; 20% of each minibatch comes from that
-  separate replay while online warmup still counts only real rollout transitions.
+  poses to the current 440/506-D contract before training. Legacy 25-D joint
+  actions are projected onto the new 24-D upright X/Z action with the S63
+  torso Jacobian; independent waist-pitch motion in the source is discarded.
+  The old binary 0=open/1=close commands are converted to -1=open/+1=close
+  because the SAC actor uses the action sign for the gripper.
+  The two successful
+  episodes provide 910 transitions. Actor imitation starts with 20% of its
+  minibatch from the separate replay and a 0.2 loss weight, both declining
+  linearly to zero over the first 30% of planned SAC updates
+  (`--demo-decay-fraction`). Online warmup still counts only real rollout transitions.
   The run manifest records the dataset checksum and conversion version. The
-  old stored rewards are reused because exact reward reconstruction needs
-  unrecorded contact and flap-link state.
+  old stored rewards are ignored because exact reconstruction needs unrecorded
+  contact and flap-link state. The critic samples only current online replay.
+  Default actor pretraining uses 1000 updates and 256 demo samples per update;
+  `--demo-pretrain-steps`, `--demo-guided-warmup`, and
+  `--demo-warmup-noise-scale` control this behavior. Metrics record grasp
+  milestones, premature closing, and upright-torso tracking error.
 - a bounded learning pilot at
   `bash scripts/rl/multi_box.sh grasp-v2-sac-pilot --device cuda:0`. It caps
   the run at 64 environments, 20 iterations and 50k replay transitions, starts

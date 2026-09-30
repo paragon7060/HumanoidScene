@@ -222,6 +222,8 @@ class PoseShadowRewardEvaluator:
                 self.lift_armed = eligible.detach().clone()
             result = self.model.grasp(GraspRewardInput(
                 previous_approach=previous["approach"], approach=current["approach"],
+                previous_front_staging=previous.get("front_staging", torch.zeros_like(reference)),
+                front_staging=current.get("front_staging", torch.zeros_like(reference)),
                 previous_alignment=previous["alignment"], alignment=current["alignment"],
                 alignment_proximity=current.get(
                     "alignment_proximity", torch.ones_like(reference)),

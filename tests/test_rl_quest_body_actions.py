@@ -21,7 +21,7 @@ def control_class():
     delta = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "normalized_delta")
     cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "QuestRLControl")
     cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in {"action", "reset"}]
-    namespace = {"np": np, "torch": torch}
+    namespace = {"np": np, "torch": torch, "__package__": "kuavo_isaaclab_scene.rl.debug"}
     exec(compile(ast.Module(body=[delta, cls], type_ignores=[]), str(path), "exec"), namespace)
     return namespace["QuestRLControl"]
 
@@ -82,6 +82,29 @@ def test_pause_reset_preserves_commanded_torso_instead_of_adopting_sag():
         control.reset()
         action = control.action({"left": neutral, "right": neutral})
         torch.testing.assert_close(action, torch.zeros_like(action))
+
+
+def test_quest_upright_torso_uses_two_axis_actions_and_three_joint_reset():
+    from kuavo_isaaclab_scene.rl.multi_box.geometry.upright_torso import planar_position
+    control = control_class().__new__(control_class())
+    q = torch.tensor([[.2, -.4, .2]])
+    links = torch.tensor([[0., .4], [0., .3]])
+    xz = planar_position(q[:, :2], links)
+    control.env = NS(device="cpu", step_dt=1/30, action_manager=NS(total_action_dim=24))
+    control.sides, control.solvers = (), {}
+    control.term_slices = {"base": slice(0, 3), "upper_body": slice(3, 18), "height": slice(18, 20)}
+    control.base = NS(_scale=torch.tensor([.15, .15, .5]))
+    control.height = NS(processed_actions=xz, _target_xz=xz, _joint_targets=q,
+                        _links=links, cfg=NS(speed_m_s=.1))
+    control.upper = NS(processed_actions=torch.zeros(1, 15), _scale=torch.full((1, 15), .02))
+    control.waist_column, control.body_joint_ids = 0, [0, 1, 2, 3]
+    captured = []
+    control.body_mapper = NS(reset=lambda joints: captured.append(joints),
+                             advance=lambda *a, **kw: np.array([0, 0, 0, .2, -.4, .2, 0], dtype=np.float32))
+    control.reset()
+    np.testing.assert_allclose(captured[0], [.2, -.4, .2, 0])
+    action = control.action({"left": None, "right": None})
+    torch.testing.assert_close(action, torch.zeros(1, 24))
 
 
 def test_quest_trigger_drives_the_rl_gripper_as_zero_open_one_close():

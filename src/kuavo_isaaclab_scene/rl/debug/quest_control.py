@@ -119,6 +119,10 @@ class QuestRLControl:
                 .detach().cpu().numpy()
                 if self.body_joint_ids else None
             )
+            if self.body_joint_ids and hasattr(self.height, "_joint_targets"):
+                joints = torch.cat((self.height._joint_targets[0],
+                                    self.upper.processed_actions[0, self.waist_column:self.waist_column + 1])) \
+                    .detach().cpu().numpy()
             self.body_mapper.reset(joints)
 
     def pose(self, body=None):
@@ -172,9 +176,15 @@ class QuestRLControl:
             self.last_body_command = body[0].detach().cpu().tolist()
             action[:, self.term_slices["base"]] = (body[:, :3] / self.base._scale).clamp(-1, 1)
             if self.height is not None:
-                action[:, self.term_slices["height"]] = normalized_delta(
-                    body[:, 3:6], self.height.processed_actions, self.height._scale
-                )
+                if hasattr(self.height, "_target_xz"):
+                    from ..multi_box.geometry.upright_torso import planar_position
+                    target = planar_position(body[:, 3:5], self.height._links)
+                    action[:, self.term_slices["height"]] = normalized_delta(
+                        target, self.height.processed_actions,
+                        self.height.cfg.speed_m_s * self.env.step_dt)
+                else:
+                    action[:, self.term_slices["height"]] = normalized_delta(
+                        body[:, 3:6], self.height.processed_actions, self.height._scale)
             if self.waist_column is not None:
                 column = self.waist_column
                 scale = self.upper._scale

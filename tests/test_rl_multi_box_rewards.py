@@ -29,6 +29,7 @@ def grasp(n=2, *, drop=False, events=True):
     event = torch.full((n,), events, dtype=torch.bool)
     return GraspRewardInput(
         previous_approach=zero, approach=one,
+        previous_front_staging=zero, front_staging=one,
         previous_alignment=zero, alignment=one, alignment_proximity=one,
         previous_capture=zero, capture=one,
         previous_jaw_gap=zero, jaw_gap=one,
@@ -43,7 +44,9 @@ def test_default_weight_hierarchy_keeps_success_and_failures_dominant():
     weights = MultiBoxRewardWeights()
     weights.validate()
     assert weights.discount == pytest.approx(0.999)
+    assert weights.grasp.jaw_gap_progress == 0
     assert weights.grasp.success_event > sum((weights.grasp.approach_progress,
+        weights.grasp.front_staging_progress,
         weights.grasp.alignment_progress, weights.grasp.capture_progress,
         weights.grasp.jaw_gap_progress, weights.grasp.proof_lift_progress))
     assert weights.carry.success_event > 2.5 - 1e-6
@@ -66,6 +69,18 @@ def test_grasp_success_is_positive_and_drop_outweighs_it():
         successful.terms["box_drop"] - dropped.terms["box_drop"],
         torch.full((2,), 8.0),
     )
+
+
+def test_distance_cost_favors_approaching_and_cannot_outweigh_collision_by_waiting():
+    model = MultiBoxRewardModel()
+    far = replace(grasp(events=False), approach=torch.zeros(2), front_staging=torch.zeros(2))
+    near = grasp(events=False)
+    far_reward, near_reward = model.grasp(far), model.grasp(near)
+    assert far_reward.terms["front_distance_cost"].eq(-0.002).all()
+    assert near_reward.terms["front_distance_cost"].eq(0).all()
+    assert near_reward.terms["approach_distance_cost"].eq(0).all()
+    assert 900 * (model.weights.grasp.front_distance_cost
+                  + model.weights.grasp.approach_distance_cost) < model.weights.common.robot_rack_collision
 
 
 def test_one_hand_pinch_gives_progress_without_declaring_success():
@@ -128,6 +143,7 @@ def test_static_potential_cannot_produce_repeated_positive_reward():
     one = torch.ones(2)
     value = replace(value,
         previous_approach=one, approach=one,
+        previous_front_staging=one, front_staging=one,
         previous_alignment=one, alignment=one,
         previous_capture=one, capture=one,
         previous_jaw_gap=one, jaw_gap=one,

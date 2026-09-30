@@ -4,6 +4,23 @@
 class TerminalObservationMixin:
     """Place before ManagerBasedRLEnv in the MRO; PPO's environment is unchanged."""
 
+    def _grasp_geometry_snapshot(self):
+        grasp = getattr(self, "_multi_box_privileged_grasp_step", None)
+        if grasp is None:
+            return None
+        names = ("matched_flap_distance_m", "front_staging_distance_m")
+        if not all(hasattr(grasp, name) for name in names):
+            return None
+        result = {name: getattr(grasp, name).clone() for name in names}
+        if hasattr(grasp, "pinch") and hasattr(grasp.pinch, "hand_pinching"):
+            result["hand_pinching"] = grasp.pinch.hand_pinching.clone()
+        if hasattr(grasp, "success") and hasattr(grasp.success, "instantaneous"):
+            result["instantaneous_success"] = grasp.success.instantaneous.clone()
+            for name in ("opposing_flaps", "stable", "proof_lift", "hold_time_s"):
+                if hasattr(grasp.success, name):
+                    result[name] = getattr(grasp.success, name).clone()
+        return result
+
     def _reset_idx(self, env_ids):
         if getattr(self, "_capture_terminal", False) and len(env_ids):
             safety = getattr(self, "_multi_box_grasp_safety_step", None)
@@ -16,6 +33,8 @@ class TerminalObservationMixin:
                     for name, value in vars(safety).items()
                     if hasattr(value, "clone")
                 }
+            if self._terminal_grasp_geometry is None:
+                self._terminal_grasp_geometry = self._grasp_geometry_snapshot()
             observations = self.observation_manager.compute(update_history=False)
             self._terminal_ids = env_ids.clone()
             self._terminal_observations = {
@@ -35,6 +54,7 @@ class TerminalObservationMixin:
         self._terminal_observations = None
         self._terminal_task_metrics = None
         self._terminal_safety = None
+        self._terminal_grasp_geometry = None
         self._capture_terminal = True
         try:
             obs, reward, terminated, truncated, extras = super().step(action)
@@ -59,6 +79,10 @@ class TerminalObservationMixin:
                     for name, value in vars(safety).items()
                     if hasattr(value, "clone")
                 }
+        geometry = (self._terminal_grasp_geometry if self._terminal_grasp_geometry is not None
+                    else self._grasp_geometry_snapshot())
+        if geometry is not None:
+            result["transition_grasp_geometry"] = geometry
         if getattr(self, "_capture_task_metrics", False):
             command = self.command_manager.get_term("workcell")
             task_metrics = {name: value.clone() for name, value in command.metrics.items()}

@@ -14,6 +14,7 @@ import torch
 from ..spec import BOX_TYPES, MAX_BOXES
 from ..scene.spawn import physical_asset_names
 from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
+from ..geometry.pose import replace_invalid_poses
 from .schema import DeployableBoxState
 
 
@@ -48,7 +49,7 @@ def simulated_perception_frame(
     rack_pose_world: torch.Tensor,
     conveyor_pose_world: torch.Tensor,
 ) -> PerceptionFrame:
-    """Gather one active physical asset per logical box with confidence one.
+    """Gather active physical poses, marking invalid simulator poses untrusted.
 
     This function is intentionally named for the simulator.  It does not add
     random pose noise, hidden velocity, contact force, or success labels.
@@ -77,7 +78,8 @@ def simulated_perception_frame(
         raise ValueError("An active logical box has no valid rack region.")
 
     rows = torch.arange(n, device=active.device)[:, None]
-    gathered = physical_box_poses_world[rows, pool_id.clamp(0, NUM_PHYSICAL_BOX_ASSETS - 1)]
+    gathered, invalid_pose = replace_invalid_poses(
+        physical_box_poses_world[rows, pool_id.clamp(0, NUM_PHYSICAL_BOX_ASSETS - 1)])
     identity_pose = torch.zeros_like(gathered)
     identity_pose[..., 3] = 1.0
     pose = torch.where(active[..., None], gathered, identity_pose)
@@ -93,7 +95,7 @@ def simulated_perception_frame(
             rack_region_id=rack_region_id.clone(),
             size_m=sizes,
             pose_world=pose,
-            pose_confidence=active.to(pose.dtype),
+            pose_confidence=(active & ~invalid_pose).to(pose.dtype),
         ),
         rack_pose_world=rack_pose_world.clone(),
         conveyor_pose_world=conveyor_pose_world.clone(),

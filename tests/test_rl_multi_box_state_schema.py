@@ -258,7 +258,10 @@ def test_legacy_demo_conversion_reconstructs_current_observation_from_recorded_p
         replace(value, deployable=deployable), torch.zeros(2, 25)).actor)
     legacy = torch.cat((current[:, :350], current[:, 388:]), dim=-1)
     converted = convert_legacy_actor_observation(legacy)
-    torch.testing.assert_close(converted, current, atol=2e-6, rtol=1e-6)
+    expected_previous_action = torch.zeros(2, 24)
+    expected_previous_action[:, 20:22] = -1  # Binary 0=open becomes SAC negative open.
+    expected = torch.cat((current[:, :-25], expected_previous_action), dim=-1)
+    torch.testing.assert_close(converted, expected, atol=2e-6, rtol=1e-6)
 
 
 def test_common_world_translation_does_not_change_base_relative_pose_observations():

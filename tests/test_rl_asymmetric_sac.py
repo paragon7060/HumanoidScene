@@ -7,15 +7,18 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import (
+    ActorFeatures,
     AsymmetricReplayBuffer,
     AsymmetricSAC,
 )
 from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
 from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import (
+    _ApproachDiagnostics,
     _SafetyDiagnostics,
+    _grasp_distance_masks,
     _reset_settling_metrics,
     _reward_breakdown,
-    _sample_mixed_replay,
+    _demo_fraction,
     _sample_warmup_action,
     _settle_initial_resets,
     _termination_snapshot,
@@ -24,12 +27,20 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.train_grasp_v2_sac import (
     _compatible_checkpoint,
     apply_run_profile,
 )
+from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import (
+    GraspActionProjector, GuidedDemoWarmup, RELATION_START, ASSIGNMENT_START,
+    assigned_flap_center_distance,
+)
+from kuavo_isaaclab_scene.rl.multi_box.observations import flat_actor_observation_dim
+from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import entry_geometry
 
 
 def test_v2_safety_diagnostics_separates_unsafe_causes_and_force_bands():
     monitor = _SafetyDiagnostics("cpu")
     false = torch.zeros(3, dtype=torch.bool)
     monitor.record(SimpleNamespace(
+        invalid_box_pose=torch.tensor([True, False, False]),
+        invalid_flap_pose=torch.tensor([False, True, False]),
         robot_rack_collision=torch.tensor([False, True, False]),
         obstacle_collision=torch.tensor([False, True, False]),
         workspace_limit=false, box_drop=torch.tensor([False, False, True]),
@@ -40,6 +51,8 @@ def test_v2_safety_diagnostics_separates_unsafe_causes_and_force_bands():
     ), torch.tensor([False, True, True]))
 
     result = monitor.report()
+    assert result["reset_invalid_box_pose"] == 1
+    assert result["reset_invalid_flap_pose"] == 1
     assert result["unsafe_cause/robot_rack_collision"] == 1
     assert result["unsafe_cause/obstacle_collision"] == 1
     assert result["unsafe_cause/box_drop"] == 1
@@ -50,6 +63,33 @@ def test_v2_safety_diagnostics_separates_unsafe_causes_and_force_bands():
     assert result["contact_force/rack_gt_10p0_n"] == 1
     assert result["contact_force/obstacle_gt_5p0_n"] == 1
     assert result["contact_force/rack_max_n"] == 12.0
+
+
+def test_safe_approach_diagnostics_identify_where_rack_collisions_occur():
+    monitor = _ApproachDiagnostics("cpu")
+    distances = torch.tensor([[0.1, 0.3], [0.4, 0.8], [1.2, 1.4], [0.2, 0.2]])
+    safety = SimpleNamespace(
+        contact_eligible=torch.tensor([True, True, True, False]),
+        robot_rack_collision=torch.tensor([True, False, False, True]),
+        obstacle_collision=torch.tensor([False, True, False, False]),
+    )
+    monitor.record(distances, safety, torch.ones(4, dtype=torch.bool))
+    result = monitor.report()
+    assert result["front_stage/le_0p25m/samples"] == 1
+    assert result["front_stage/le_0p25m/rack_unsafe"] == 1
+    assert result["front_stage/le_0p25m/rack_rate"] == 1.0
+    assert result["front_stage/0p25_to_0p5m/obstacle_unsafe"] == 1
+    assert result["front_stage/1_to_2m/samples"] == 1
+    assert result["front_stage/both_under_0p25m"] == 0
+
+
+def test_finite_simulator_explosion_is_excluded_from_sac_replay():
+    finite, plausible = _grasp_distance_masks({
+        "matched_flap_distance_m": torch.tensor([[1.2, 1.3], [8.5e6, 1.0], [float("nan"), 1.0]]),
+        "front_staging_distance_m": torch.tensor([[0.8, 0.9], [8.3e6, 1.0], [1.0, 1.0]]),
+    }, 3)
+    assert finite.tolist() == [True, True, False]
+    assert plausible.tolist() == [True, False, False]
 
 
 def _batch(count=32):
@@ -77,18 +117,159 @@ def test_asymmetric_replay_keeps_actor_and_critic_views_separate():
     assert sample["next_critic_obs"].shape == (12, 7)
 
 
-def test_demo_replay_remains_in_each_minibatch_after_online_replay_wraps():
-    online = AsymmetricReplayBuffer(5, 4, 7, 2)
-    demo = AsymmetricReplayBuffer(2, 4, 7, 2)
-    online_batch = _batch(12)
-    online_batch["reward"].fill_(0)
-    online.add(**online_batch)
-    demo_batch = _batch(2)
-    demo_batch["reward"].fill_(5)
-    demo.add(**demo_batch)
-    sampled = _sample_mixed_replay(online, demo, 20, 0.2, "cpu")
-    assert len(sampled["reward"]) == 20
-    assert int((sampled["reward"] == 5).sum()) == 4
+def test_demo_imitation_decays_after_early_sac_updates():
+    assert _demo_fraction(0.2, 0, 30) == pytest.approx(0.2)
+    assert _demo_fraction(0.2, 15, 30) == pytest.approx(0.1)
+    assert _demo_fraction(0.2, 30, 30) == 0
+    assert _demo_fraction(0.2, 50, 30) == 0
+
+
+def test_target_actor_features_ignore_box_slot_number_and_unselected_boxes():
+    features = ActorFeatures(flat_actor_observation_dim(24), "grasp_target")
+    obs = torch.zeros(2, flat_actor_observation_dim(24))
+    obs[0, 86:108] = torch.arange(22)
+    obs[1, 86 + 3 * 22:86 + 4 * 22] = torch.arange(22)
+    obs[0, 388] = obs[1, 391] = 1
+    obs[0, 400] = obs[1, 403] = 1
+    obs[1, 86:108] = 1000
+    encoded = features(obs)
+    assert encoded.shape == (2, 174)
+    torch.testing.assert_close(encoded[0], encoded[1])
+
+
+def test_frozen_actor_statistics_survive_online_distribution_shift():
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16, freeze_actor_normalizer=True))
+    agent.pretrain_actor(torch.randn(16, 4), torch.zeros(16, 2), steps=1, batch_size=8)
+    mean, var = agent.actor_normalizer.mean.clone(), agent.actor_normalizer.var.clone()
+    agent.update_normalizers(torch.full((32, 4), 100.0), torch.randn(32, 7))
+    torch.testing.assert_close(agent.actor_normalizer.mean, mean)
+    torch.testing.assert_close(agent.actor_normalizer.var, var)
+    assert agent.critic_normalizer.count > 0
+
+
+def test_critic_without_entropy_backup_has_no_idle_survival_bonus():
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16, entropy_backup=False, reward_scale=10))
+    with torch.no_grad():
+        for network in (agent.target1, agent.target2):
+            for parameter in network.parameters():
+                parameter.zero_()
+    batch = _batch(16)
+    batch["reward"].fill_(-0.002)
+    result = agent.update(batch)
+    assert result["target_value_mean"] == pytest.approx(-0.02)
+
+
+def test_kinematic_entry_goals_remain_outside_front_plane_before_insertion():
+    obs = torch.zeros(1, 440)
+    rotation6 = torch.tensor([1., 0., 0., 0., 1., 0.])
+    tcp = obs[:, 50:68].reshape(1, 2, 9)
+    tcp[..., 3:] = rotation6
+    obs[:, 71:77] = rotation6
+    relations = obs[:, RELATION_START:ASSIGNMENT_START].reshape(1, 2, 2, 9)
+    relations[0, 0, 0, :3] = torch.tensor([-0.2, -0.3, 1.0])
+    relations[0, 1, 1, :3] = torch.tensor([0.2, -0.3, 1.0])
+    obs[:, ASSIGNMENT_START] = 1
+    _, centers, stage, outward = entry_geometry(obs, 0.08)
+    assert (centers[..., 1] < 0.08).all()
+    torch.testing.assert_close(stage[..., 1], torch.full((1, 2), 0.08))
+    torch.testing.assert_close(stage[..., [0, 2]], centers[..., [0, 2]])
+    torch.testing.assert_close(outward, torch.tensor([[0., 1., 0.]]))
+
+
+def test_saturated_variance_logits_cannot_exceed_configured_exploration_cap():
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16, initial_policy_std=.15, max_policy_std=.3))
+    with torch.no_grad():
+        agent.actor.network[-1].bias[2:].fill_(100)
+    obs = torch.zeros(4096, 4)
+    actions, _ = agent.actor(obs)
+    assert actions.std().item() < 0.35
+
+
+def test_demo_reward_is_ignored_by_actor_imitation_and_critic():
+    torch.manual_seed(11)
+    first = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16))
+    second = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16))
+    second.restore(first.checkpoint())
+    online = _batch(16)
+    demo = _batch(4)
+    changed_reward = {**demo, "reward": torch.full((4,), 1e6)}
+    torch.manual_seed(12)
+    report_first = first.update(online, demonstration=demo, demonstration_weight=0.2)
+    torch.manual_seed(12)
+    report_second = second.update(
+        online, demonstration=changed_reward, demonstration_weight=0.2)
+    assert report_first["q_loss"] == pytest.approx(report_second["q_loss"])
+    assert report_first["actor_loss"] == pytest.approx(report_second["actor_loss"])
+    assert report_first["demo_bc_loss"] > 0
+
+
+def test_demo_actor_pretraining_reduces_action_error_without_critic_update():
+    torch.manual_seed(23)
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16))
+    obs = torch.randn(32, 4)
+    action = torch.zeros(32, 2)
+    q_before = {name: value.clone() for name, value in agent.q1.state_dict().items()}
+    report = agent.pretrain_actor(obs, action, steps=40, batch_size=16)
+    assert report["final_mse"] < report["initial_mse"]
+    assert all(torch.equal(value, q_before[name])
+               for name, value in agent.q1.state_dict().items())
+
+
+def test_guided_demo_warmup_keeps_distant_grippers_open_and_resets_noise():
+    widths = {"base": 3, "left_gripper": 1, "right_gripper": 1}
+    env = SimpleNamespace(
+        num_envs=2, device="cpu",
+        action_manager=SimpleNamespace(
+            total_action_dim=5, active_terms=tuple(widths),
+            get_term=lambda name: SimpleNamespace(action_dim=widths[name]),
+        ),
+    )
+    obs = torch.zeros(2, flat_actor_observation_dim(5))
+    relations = obs[:, RELATION_START:ASSIGNMENT_START].reshape(2, 2, 2, 9)
+    relations[0, 0, 0, 0] = 0.05
+    relations[0, 1, 1, 0] = 0.20
+    relations[1, 0, 0, 0] = 0.30
+    relations[1, 1, 1, 0] = 0.06
+    obs[:, ASSIGNMENT_START] = 1
+    distances = assigned_flap_center_distance(obs)
+    torch.testing.assert_close(distances, torch.tensor([[0.05, 0.20], [0.30, 0.06]]))
+    guide = GuidedDemoWarmup(env, noise_scale=0)
+    agent = SimpleNamespace(act=lambda _obs, deterministic:
+                            torch.ones(2, 5))
+    action = guide.act(agent, obs)
+    torch.testing.assert_close(action[:, 3:], torch.tensor([[1., -1.], [-1., 1.]]))
+    guide.noise.fill_(0.25)
+    guide.reset(torch.tensor([True, False]))
+    assert guide.noise[0].eq(0).all()
+    assert guide.noise[1].eq(0.25).all()
+
+
+def test_projected_sac_closes_only_near_flaps_in_rollout_and_updates():
+    terms = [("base", 3), ("left_gripper", 1), ("right_gripper", 1)]
+    projection = GraspActionProjector(terms)
+    obs = torch.zeros(2, flat_actor_observation_dim(5))
+    relations = obs[:, RELATION_START:ASSIGNMENT_START].reshape(2, 2, 2, 9)
+    relations[0, 0, 0, 0] = 0.05
+    relations[0, 1, 1, 0] = 0.20
+    relations[1, 0, 0, 0] = 0.30
+    relations[1, 1, 1, 0] = 0.30
+    obs[:, ASSIGNMENT_START] = 1
+    raw = torch.ones(2, 5, requires_grad=True)
+    projected = projection(obs, raw)
+    torch.testing.assert_close(projected[:, 3:], torch.tensor([[1., -1.], [-1., -1.]]))
+    projected[:, 3:].sum().backward()
+    torch.testing.assert_close(raw.grad[:, 3:], torch.tensor([[1., 0.], [0., 0.]]))
+    torch.testing.assert_close(projection.entropy_mask(obs)[:, 3:],
+                               torch.tensor([[1., 0.], [0., 0.]]))
+
+    agent = AsymmetricSAC(obs.shape[1], obs.shape[1] + 2, 5,
+                          SACConfig(hidden=16), action_projector=projection)
+    assert agent.act(obs)[:, 4].eq(-1).all()
+    checkpoint = agent.checkpoint()
+    assert checkpoint["action_projection"] == GraspActionProjector.name
+    with pytest.raises(ValueError, match="projection differs"):
+        AsymmetricSAC(obs.shape[1], obs.shape[1] + 2, 5,
+                      SACConfig(hidden=16)).restore(checkpoint)
 
 
 def test_warmup_limits_continuous_actions_but_explores_binary_grippers():

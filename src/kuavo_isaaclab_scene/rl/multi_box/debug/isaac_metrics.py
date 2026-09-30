@@ -24,7 +24,7 @@ from ..geometry.rack import box_shelf_clearance_m
 from ..geometry.pad_distance import pad_to_boxes_clearance_m
 from ..metrics import (
     CarryRawMetrics,
-    GRASP_APPROACH_REWARD_SCALE_M,
+    GRASP_ASSIGNMENT_SCALE_M,
     GraspRawMetrics,
     PlaceRawMetrics,
     carry_potentials,
@@ -272,7 +272,7 @@ class IsaacMultiBoxMetricAdapter:
             tcp_local, centers[None], halves[None], axes[None])
         distance = (tcp_local - nearest).norm(dim=-1)
         _, assignment = opposing_flap_reach_assignment(
-            distance[None], GRASP_APPROACH_REWARD_SCALE_M)
+            distance[None], GRASP_ASSIGNMENT_SCALE_M)
         assignment = assignment[0]
         hands = torch.arange(2, device=device)
 

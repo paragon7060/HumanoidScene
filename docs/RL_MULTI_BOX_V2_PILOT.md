@@ -40,8 +40,10 @@ only when backup is needed.
 ## Terminal contract
 
 Grasp success terminates without bootstrap. Robot-to-rack structural or roller contact
-above 0.1 N is recorded as `robot_rack_collision`; other aggregate obstacle
-contact above 0.1 N is recorded separately. Either event, together with a
+above 10 N is recorded as `robot_rack_collision`; eligible robot contact with
+other obstacles above 5 N is recorded separately. These use maximum eligible
+body/pair force, not a sum over all links. Task boxes and floor are excluded
+from the obstacle guard. Either event, together with a
 workspace radius above 1.5 m, box drop, excessive lift, or excessive linear or
 angular box speed terminates as unsafe. If success and unsafe occur on the same
 step, unsafe wins and no success bonus is paid. Timeouts are truncated and may
@@ -58,6 +60,13 @@ positive `success_event`. Metrics include:
 - every `reward_term/*` mean and `reward_term_nonzero/*` rate
 - `reward_breakdown_max_abs_error`
 - non-finite transition and optimizer counts
+- per-hand flap/front distance, bilateral pinch, proof lift, stability and maximum hold time
+- `rollout_policy` and `teacher_pretrain_*` to separate IK collection from SAC performance
+
+For successful Quest demos, target-centric observations and IK-assisted initial
+collection, see [the recovery experiments and command](RL_V2_RECOVERY_20260930.md).
+The standard 20-iteration pilot does not run the full recovery warmup; use its
+explicit command when checking the transfer from IK to the SAC actor.
 
 The pilot passes the wiring and numerical check when `status.json` is complete,
 `nonfinite_transitions` stays zero, reward breakdown error stays at or below

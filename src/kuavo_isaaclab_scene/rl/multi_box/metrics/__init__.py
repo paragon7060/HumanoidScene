@@ -3,6 +3,7 @@
 from .potentials import (
     CarryRawMetrics,
     GRASP_APPROACH_REWARD_SCALE_M,
+    GRASP_ASSIGNMENT_SCALE_M,
     GraspRawMetrics,
     MetricScaleConfig,
     PlaceRawMetrics,
@@ -17,6 +18,7 @@ from .potentials import (
 __all__ = (
     "CarryRawMetrics",
     "GRASP_APPROACH_REWARD_SCALE_M",
+    "GRASP_ASSIGNMENT_SCALE_M",
     "GraspRawMetrics",
     "MetricScaleConfig",
     "PlaceRawMetrics",

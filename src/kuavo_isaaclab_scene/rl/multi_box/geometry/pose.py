@@ -36,6 +36,20 @@ def normalize_quaternion(quaternion: torch.Tensor) -> torch.Tensor:
     return quaternion / norm
 
 
+def replace_invalid_poses(pose: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """Use a finite placeholder for invalid simulator poses until their env resets.
+
+    The returned mask identifies rows that must not contribute to grasp success,
+    rewards, or replay.  This function does not make an invalid pose valid data.
+    """
+    if pose.shape[-1] != 7:
+        raise ValueError("Pose tensors must end in xyz+wxyz (7 values).")
+    valid = torch.isfinite(pose).all(-1) & (pose[..., 3:].norm(dim=-1) >= 1e-8)
+    identity = torch.zeros_like(pose)
+    identity[..., 3] = 1.0
+    return torch.where(valid[..., None], pose, identity), ~valid
+
+
 def relative_pose(reference_pose: torch.Tensor, target_pose: torch.Tensor) -> torch.Tensor:
     """Express target xyz+wxyz pose in the reference frame."""
     if reference_pose.shape[-1] != 7 or target_pose.shape[-1] != 7:

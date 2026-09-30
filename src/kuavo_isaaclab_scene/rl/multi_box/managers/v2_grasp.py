@@ -34,6 +34,8 @@ from ..state.isaac_privileged_grasp import (
 
 @dataclass(frozen=True)
 class V2GraspSafetyStep:
+    invalid_box_pose: torch.Tensor
+    invalid_flap_pose: torch.Tensor
     robot_rack_collision: torch.Tensor
     self_collision: torch.Tensor
     obstacle_collision: torch.Tensor
@@ -141,6 +143,8 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
         > float(env.cfg.multi_box.max_box_angular_speed)
     ))
     result = V2GraspSafetyStep(
+        invalid_box_pose=grasp.invalid_box_pose,
+        invalid_flap_pose=grasp.invalid_flap_pose,
         robot_rack_collision=robot_rack_collision,
         self_collision=self_collision,
         obstacle_collision=obstacle_collision,
@@ -186,7 +190,9 @@ def grasp_unsafe(env) -> torch.Tensor:
 
 def invalid_reset(env) -> torch.Tensor:
     """Request a partial respawn without labeling reset physics as task failure."""
-    return reset_settling_step(env).invalid
+    grasp = privileged_grasp_step(env)
+    return (reset_settling_step(env).invalid | grasp.invalid_box_pose
+            | grasp.invalid_flap_pose)
 
 
 def task_time_out(env) -> torch.Tensor:
@@ -211,7 +217,7 @@ class V2GraspReward(ManagerTermBase):
         self.model = MultiBoxRewardModel()
         self.previous = {
             name: torch.zeros(env.num_envs, device=env.device)
-            for name in ("approach", "alignment", "capture", "jaw_gap", "proof_lift")
+            for name in ("approach", "front_staging", "alignment", "capture", "jaw_gap", "proof_lift")
         }
         self.initialized = torch.zeros(
             env.num_envs, dtype=torch.bool, device=env.device)
@@ -243,7 +249,8 @@ class V2GraspReward(ManagerTermBase):
         previous = {
             name: torch.where(
                 self.initialized
-                & (~assignment_changed if name in ("alignment", "capture", "jaw_gap") else True),
+                & (~assignment_changed if name in (
+                    "front_staging", "alignment", "capture", "jaw_gap") else True),
                 self.previous[name],
                 (current[name] if name == "alignment"
                  else self.model.weights.discount * current[name]),
@@ -259,6 +266,8 @@ class V2GraspReward(ManagerTermBase):
         breakdown = self.model.grasp(GraspRewardInput(
             previous_approach=previous["approach"],
             approach=current["approach"],
+            previous_front_staging=previous["front_staging"],
+            front_staging=current["front_staging"],
             previous_alignment=previous["alignment"],
             alignment=current["alignment"],
             alignment_proximity=current["alignment_proximity"],
@@ -291,7 +300,8 @@ class V2GraspReward(ManagerTermBase):
         self.previous_assignment.copy_(grasp.assigned_flap_index)
         self.lift_armed.copy_(bilateral_eligible)
         self.initialized |= settling.ready
-        trainable = settling.ready & ~settling.just_ready
+        trainable = (settling.ready & ~settling.just_ready
+                     & ~grasp.invalid_box_pose & ~grasp.invalid_flap_pose)
         if not bool(trainable.all()):
             terms = {
                 name: torch.where(trainable, value, torch.zeros_like(value))

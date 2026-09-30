@@ -10,6 +10,9 @@ import torch
 from ..algorithms.asymmetric_sac import AsymmetricReplayBuffer, AsymmetricSAC
 from ..algorithms.sac import SACConfig
 from ..multi_box.rewards import MultiBoxRewardWeights
+from ..multi_box.experiments.guided_exploration import (
+    GraspActionProjector, GuidedDemoWarmup,
+)
 from .storage import log_metrics, save_checkpoint
 
 
@@ -18,12 +21,17 @@ _SAFETY_CAUSES = (
     "box_drop", "box_lift_limit", "box_speed_limit", "self_collision",
 )
 _CONTACT_FORCE_LIMITS_N = (0.1, 5.0, 10.0, 20.0)
+_MAX_REASONABLE_GRASP_DISTANCE_M = 5.0
+_FRONT_DISTANCE_BINS_M = (0.25, 0.5, 1.0, 2.0)
+_FRONT_DISTANCE_LABELS = ("le_0p25m", "0p25_to_0p5m", "0p5_to_1m", "1_to_2m", "over_2m")
 
 
 class _SafetyDiagnostics:
     """Count exact failure predicates and contact-force bands per iteration."""
 
     def __init__(self, device):
+        self.invalid_box_pose = torch.zeros((), dtype=torch.long, device=device)
+        self.invalid_flap_pose = torch.zeros((), dtype=torch.long, device=device)
         self.causes = torch.zeros(len(_SAFETY_CAUSES), dtype=torch.long, device=device)
         self.overlap = torch.zeros((), dtype=torch.long, device=device)
         self.unattributed = torch.zeros((), dtype=torch.long, device=device)
@@ -34,6 +42,8 @@ class _SafetyDiagnostics:
 
     def record(self, safety, unsafe):
         get = safety.__getitem__ if isinstance(safety, dict) else lambda name: getattr(safety, name)
+        self.invalid_box_pose += get("invalid_box_pose").sum()
+        self.invalid_flap_pose += get("invalid_flap_pose").sum()
         causes = torch.stack([get(name) & unsafe for name in _SAFETY_CAUSES])
         self.causes += causes.sum(-1)
         count = causes.sum(0)
@@ -52,6 +62,8 @@ class _SafetyDiagnostics:
             f"unsafe_cause/{name}": int(value)
             for name, value in zip(_SAFETY_CAUSES, self.causes.tolist(), strict=True)
         }
+        metrics["reset_invalid_box_pose"] = int(self.invalid_box_pose.item())
+        metrics["reset_invalid_flap_pose"] = int(self.invalid_flap_pose.item())
         metrics["unsafe_cause/overlap"] = int(self.overlap.item())
         metrics["unsafe_cause/unattributed"] = int(self.unattributed.item())
         metrics["contact_force/eligible_samples"] = int(self.eligible.item())
@@ -61,6 +73,58 @@ class _SafetyDiagnostics:
                 label = str(threshold).replace(".", "p")
                 metrics[f"contact_force/{family}_gt_{label}_n"] = int(count)
         return metrics
+
+
+class _ApproachDiagnostics:
+    """Relate eligible rack/obstacle failures to distance from a safe front lane."""
+
+    def __init__(self, device):
+        bins = len(_FRONT_DISTANCE_LABELS)
+        self.boundaries = torch.tensor(_FRONT_DISTANCE_BINS_M, device=device)
+        self.samples = torch.zeros(bins, dtype=torch.long, device=device)
+        self.rack = torch.zeros_like(self.samples)
+        self.obstacle = torch.zeros_like(self.samples)
+        self.both_staged = torch.zeros((), dtype=torch.long, device=device)
+
+    def record(self, front_distance, safety, valid):
+        if front_distance.ndim != 2 or front_distance.shape[-1] != 2 or valid.ndim != 1:
+            raise ValueError("Front distance must contain both hands for each valid transition")
+        get = safety.__getitem__ if isinstance(safety, dict) else lambda name: getattr(safety, name)
+        eligible = get("contact_eligible")[valid]
+        nearest = front_distance.amin(-1)
+        bucket = torch.bucketize(nearest.contiguous(), self.boundaries)
+        selected = torch.nn.functional.one_hot(bucket, len(self.samples)).bool() & eligible[:, None]
+        self.samples += selected.sum(0)
+        self.rack += (selected & get("robot_rack_collision")[valid][:, None]).sum(0)
+        self.obstacle += (selected & get("obstacle_collision")[valid][:, None]).sum(0)
+        self.both_staged += (eligible & (front_distance <= 0.25).all(-1)).sum()
+
+    def report(self):
+        result = {"front_stage/both_under_0p25m": int(self.both_staged.item())}
+        for name, samples, rack, obstacle in zip(
+                _FRONT_DISTANCE_LABELS, self.samples.tolist(), self.rack.tolist(),
+                self.obstacle.tolist(), strict=True):
+            prefix = f"front_stage/{name}"
+            result[f"{prefix}/samples"] = samples
+            result[f"{prefix}/rack_unsafe"] = rack
+            result[f"{prefix}/obstacle_unsafe"] = obstacle
+            result[f"{prefix}/rack_rate"] = rack / samples if samples else None
+        return result
+
+
+def _grasp_distance_masks(geometry, num_envs):
+    """Reject finite simulator explosions before they enter replay or averages."""
+    finite = plausible = torch.ones(
+        num_envs, dtype=torch.bool, device=geometry["matched_flap_distance_m"].device)
+    for name in ("matched_flap_distance_m", "front_staging_distance_m"):
+        values = geometry.get(name)
+        if values is None or values.shape != (num_envs, 2):
+            raise RuntimeError(f"V2 SAC requires [env,2] {name}")
+        finite = finite & torch.isfinite(values).all(-1)
+        plausible = plausible & (
+            (values >= 0) & (values <= _MAX_REASONABLE_GRASP_DISTANCE_M)
+        ).all(-1)
+    return finite, plausible
 
 
 def _critic_state(observations: dict[str, torch.Tensor]) -> torch.Tensor:
@@ -89,24 +153,11 @@ def _sample_warmup_action(env, continuous_scale: float) -> torch.Tensor:
     return action
 
 
-def _sample_mixed_replay(
-    replay: AsymmetricReplayBuffer,
-    demonstration: AsymmetricReplayBuffer | None,
-    batch_size: int,
-    demonstration_fraction: float,
-    device: str,
-) -> dict[str, torch.Tensor]:
-    """Keep the small successful demo set available after online replay wraps."""
-    if not 0 <= demonstration_fraction < 1:
-        raise ValueError("Demonstration fraction must be in [0, 1)")
-    demo_count = (
-        min(batch_size - 1, max(1, round(batch_size * demonstration_fraction)))
-        if demonstration is not None and demonstration_fraction > 0 else 0)
-    online = replay.sample(batch_size - demo_count, device)
-    if not demo_count:
-        return online
-    demo = demonstration.sample(demo_count, device)
-    return {key: torch.cat((value, demo[key]), dim=0) for key, value in online.items()}
+def _demo_fraction(initial: float, updates: int, decay_updates: int) -> float:
+    """Linearly retire imitation after the first part of actual SAC learning."""
+    if not 0 <= initial < 1 or updates < 0 or decay_updates < 1:
+        raise ValueError("Invalid demonstration decay schedule")
+    return initial * max(0.0, 1.0 - updates / decay_updates)
 
 
 def _reward_breakdown(env) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
@@ -215,11 +266,24 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             hidden=args.hidden,
             gamma=MultiBoxRewardWeights().discount,
             min_alpha=getattr(args, "min_alpha", 0.0),
+            initial_alpha=getattr(args, "initial_alpha", 0.001),
+            reward_scale=getattr(args, "reward_scale", 10.0),
+            entropy_backup=getattr(args, "entropy_backup", False),
+            actor_feature_mode=getattr(args, "actor_feature_mode", "grasp_target"),
+            freeze_actor_normalizer=(demonstration_batch is not None
+                                     and getattr(args, "freeze_actor_normalizer", True)),
+            initial_policy_std=getattr(args, "initial_policy_std", 0.15),
+            max_policy_std=getattr(args, "max_policy_std", 0.3),
         )
     )
+    projection = GraspActionProjector([
+        (name, env.action_manager.get_term(name).action_dim)
+        for name in env.action_manager.active_terms
+    ])
     agent = AsymmetricSAC(
         actor_obs.shape[-1], critic_obs.shape[-1],
-        env.action_manager.total_action_dim, config, env.device)
+        env.action_manager.total_action_dim, config, env.device,
+        action_projector=projection)
     start = 0
     if state:
         agent.restore(state)
@@ -241,6 +305,39 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             len(demonstration_batch["reward"]), agent.actor_obs_dim,
             agent.critic_obs_dim, agent.action_dim, "cpu")
         demonstration.add(**demonstration_batch)
+    pretraining = {"steps": 0, "initial_mse": 0.0, "final_mse": 0.0}
+    if demonstration is not None and state is None:
+        ready = env._multi_box_reset_settling.ready
+        agent.actor_normalizer.update(agent.actor_features(actor_obs[ready]))
+        pretraining = agent.pretrain_actor(
+            demonstration_batch["actor_obs"].to(env.device),
+            demonstration_batch["action"].to(env.device),
+            steps=getattr(args, "demo_pretrain_steps", 0),
+            batch_size=getattr(args, "demo_pretrain_batch_size", 256),
+        )
+    goal_capacity = getattr(args, "goal_replay_capacity", 100_000)
+    goal_replay = AsymmetricReplayBuffer(
+        goal_capacity, agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim, "cpu")
+    guided_warmup = (
+        GuidedDemoWarmup(
+            env, noise_scale=getattr(args, "demo_warmup_noise_scale", 0.12))
+        if demonstration is not None
+        and getattr(args, "demo_guided_warmup", True)
+        and (state is not None or pretraining["steps"] > 0)
+        else None
+    )
+    if guided_warmup is not None and getattr(args, "guided_warmup_mode", "bc") == "ik":
+        from ..multi_box.experiments.kinematic_exploration import KinematicGraspExplorer
+        guided_warmup = KinematicGraspExplorer(env, demonstration_batch)
+    teacher_replay = AsymmetricReplayBuffer(
+        min(args.replay_capacity, warmup_target + env.num_envs)
+        if getattr(args, "guided_warmup_mode", "bc") == "ik" else goal_capacity,
+        agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim, "cpu")
+    teacher_pretraining = {"steps": 0, "initial_mse": 0.0, "final_mse": 0.0}
+    teacher_fitted = False
+    demo_decay_updates = max(1, math.ceil(
+        args.max_iterations * args.rollout_steps * args.updates_per_step
+        * getattr(args, "demo_decay_fraction", 0.3)))
     print(
         f"[V2 SAC] actor={agent.actor_obs_dim} critic={agent.critic_obs_dim} "
         f"actions={agent.action_dim} replay={replay.bytes / 2**30:.3f} GiB "
@@ -248,7 +345,9 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         f"warmup_action_hold={getattr(args, 'warmup_action_hold_steps', 1)}; "
         f"warmup_continuous_scale={getattr(args, 'warmup_continuous_scale', 1.0)}; "
         f"demo_transitions={demonstration.size if demonstration else 0}; "
-        f"demo_batch_fraction={getattr(args, 'demo_batch_fraction', 0.0)}; "
+        f"demo_initial_fraction={getattr(args, 'demo_batch_fraction', 0.0)}; "
+        f"demo_decay_updates={demo_decay_updates}; demo_usage=actor_bc_only; "
+        f"demo_pretraining={pretraining}; guided_warmup={guided_warmup is not None}; "
         f"min_alpha={config.min_alpha}; "
         f"initial_settling_steps={initial_settling_steps}",
         flush=True,
@@ -262,6 +361,17 @@ def train(env, args, directory, state=None, demonstration_batch=None):
     warmup_action_hold = getattr(args, "warmup_action_hold_steps", 1)
     if warmup_action_hold < 1:
         raise ValueError("warmup_action_hold_steps must be positive")
+    gripper_columns = {}
+    action_offset = 0
+    for name in env.action_manager.active_terms:
+        if name in ("left_gripper", "right_gripper"):
+            gripper_columns[name] = action_offset
+        action_offset += env.action_manager.get_term(name).action_dim
+    gripper_indices = [gripper_columns[name] for name in (
+        "left_gripper", "right_gripper")]
+    torso_term = env.action_manager.get_term("height")
+    torso_diagnostics = all(hasattr(torso_term, name) for name in (
+        "_joint_ids", "_joint_targets", "_pitch_reference"))
     reward_names = env.reward_manager.active_terms
     for iteration in range(start + 1, start + args.max_iterations + 1):
         tick = time.monotonic()
@@ -270,11 +380,35 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         reward_sum = torch.zeros((), device=env.device)
         breakdown_sums: dict[str, torch.Tensor] = {}
         breakdown_nonzero: dict[str, int] = {}
+        progress_abs = {name: torch.zeros((), device=env.device) for name in (
+            "approach_progress", "front_staging_progress")}
+        progress_positive = {name: torch.zeros((), device=env.device) for name in progress_abs}
+        flap_distance_sum = torch.zeros(2, device=env.device)
+        front_distance_sum = torch.zeros(2, device=env.device)
+        flap_near_count = torch.zeros(2, device=env.device)
+        front_near_count = torch.zeros(2, device=env.device)
+        both_flap_near_count = torch.zeros((), device=env.device)
+        pinch_count = torch.zeros(2, device=env.device)
+        bilateral_pinch_count = torch.zeros((), device=env.device)
+        instantaneous_success_count = torch.zeros((), device=env.device)
+        success_gate_counts = {name: torch.zeros((), device=env.device)
+                               for name in ("opposing_flaps", "stable", "proof_lift")}
+        max_hold_time = torch.zeros((), device=env.device)
+        close_count = torch.zeros(2, device=env.device)
+        premature_close_count = torch.zeros(2, device=env.device)
+        torso_pitch_error_sum = torch.zeros((), device=env.device)
+        torso_tracking_error_sum = torch.zeros((), device=env.device)
+        torso_pitch_error_max = torch.zeros((), device=env.device)
+        torso_diagnostic_count = 0
         breakdown_max_abs_error = 0.0
         iteration_valid = iteration_warmup = 0
+        iteration_guided_warmup = 0
+        demo_samples = 0
         terminated_episodes = timeout_episodes = 0
         termination_counts: dict[str, int] = {}
         safety_diagnostics = _SafetyDiagnostics(env.device)
+        approach_diagnostics = _ApproachDiagnostics(env.device)
+        skipped_implausible = torch.zeros((), dtype=torch.long, device=env.device)
         for _ in range(args.rollout_steps):
             with torch.no_grad():
                 reset_settling = getattr(env, "_multi_box_reset_settling", None)
@@ -292,14 +426,22 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 safe_actor_obs = torch.where(
                     torch.isfinite(actor_obs), actor_obs, torch.zeros_like(actor_obs))
                 if warming_up:
-                    if warmup_action is None or warmup_vector_step % warmup_action_hold == 0:
-                        warmup_action = _sample_warmup_action(
-                            env, getattr(args, "warmup_continuous_scale", 1.0))
-                    action = warmup_action.clone()
+                    if guided_warmup is not None:
+                        action = (guided_warmup.act(safe_actor_obs)
+                                  if getattr(args, "guided_warmup_mode", "bc") == "ik"
+                                  else guided_warmup.act(agent, safe_actor_obs))
+                    else:
+                        if warmup_action is None or warmup_vector_step % warmup_action_hold == 0:
+                            warmup_action = _sample_warmup_action(
+                                env, getattr(args, "warmup_continuous_scale", 1.0))
+                        action = warmup_action.clone()
                     warmup_vector_step += 1
                 else:
                     action = agent.act(safe_actor_obs)
+                action = projection(safe_actor_obs, action)
                 next_observations, reward, terminated, truncated, info = env.step(action)
+                if guided_warmup is not None:
+                    guided_warmup.reset(terminated | truncated)
                 breakdown_terms, breakdown_total = _reward_breakdown(env)
                 termination_terms, expected_terminated, expected_truncated = \
                     _termination_snapshot(env)
@@ -320,6 +462,9 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 if safety is None:
                     raise RuntimeError("V2 SAC requires pre-reset grasp safety measurements")
                 safety_diagnostics.record(safety, termination_terms["unsafe"])
+                geometry = info.get("transition_grasp_geometry")
+                if geometry is None:
+                    raise RuntimeError("V2 SAC requires pre-reset hand/flap geometry")
                 terminal = info.get("transition_next_observations")
                 if terminal is None or "policy" not in terminal or "critic" not in terminal:
                     raise RuntimeError(
@@ -334,7 +479,20 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     & torch.isfinite(breakdown_total)
                 for value in breakdown_terms.values():
                     finite_transition &= torch.isfinite(value)
+                geometry_finite, geometry_plausible = _grasp_distance_masks(
+                    geometry, env.num_envs)
+                finite_transition &= geometry_finite
+                hand_pinching = geometry.get("hand_pinching")
+                instantaneous_success = geometry.get("instantaneous_success")
+                if hand_pinching is None or hand_pinching.shape != (env.num_envs, 2) \
+                        or hand_pinching.dtype != torch.bool \
+                        or instantaneous_success is None \
+                        or instantaneous_success.shape != (env.num_envs,) \
+                        or instantaneous_success.dtype != torch.bool:
+                    raise RuntimeError("V2 SAC requires pre-reset pinch milestone masks")
                 skipped_nonfinite += int((~finite_transition).sum().item())
+                skipped_implausible += (finite_transition & ~geometry_plausible).sum()
+                finite_transition &= geometry_plausible
                 # Reset settling is outside the task MDP.  Its zero-action,
                 # zero-reward frames and invalid partial respawns must never
                 # enter replay or observation normalizers.
@@ -343,6 +501,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 invalid = termination_terms.get("invalid_reset")
                 if invalid is not None:
                     invalid_resets += int(invalid.sum().item())
+                    finite_transition &= ~invalid
                 count = int(finite_transition.sum().item())
                 if count:
                     error = (
@@ -353,7 +512,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                         raise RuntimeError(
                             "Environment reward differs from v2 grasp reward "
                             f"breakdown (max error {error})")
-                    replay.add(
+                    transition_batch = dict(
                         actor_obs=actor_obs[finite_transition],
                         critic_obs=critic_obs[finite_transition],
                         action=action[finite_transition],
@@ -362,13 +521,58 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                         next_critic_obs=next_critic[finite_transition],
                         terminated=terminated[finite_transition],
                     )
+                    replay.add(**transition_batch)
+                    if warming_up and getattr(args, "guided_warmup_mode", "bc") == "ik":
+                        teacher_replay.add(**transition_batch)
+                    reached = geometry["matched_flap_distance_m"][finite_transition].amin(-1) <= 0.25
+                    reached |= hand_pinching[finite_transition].any(-1)
+                    if reached.any():
+                        goal_replay.add(**{key: value[reached] for key, value in transition_batch.items()})
                     reward_sum += reward[finite_transition].sum()
+                    flap_distance = geometry["matched_flap_distance_m"][finite_transition]
+                    front_distance = geometry["front_staging_distance_m"][finite_transition]
+                    flap_distance_sum += flap_distance.sum(0)
+                    front_distance_sum += front_distance.sum(0)
+                    approach_diagnostics.record(front_distance, safety, finite_transition)
+                    flap_near_count += (flap_distance < 0.10).sum(0)
+                    front_near_count += (front_distance < 0.10).sum(0)
+                    both_flap_near_count += (flap_distance < 0.10).all(-1).sum()
+                    pinching = hand_pinching[finite_transition]
+                    pinch_count += pinching.sum(0)
+                    bilateral_pinch_count += pinching.all(-1).sum()
+                    instantaneous_success_count += instantaneous_success[finite_transition].sum()
+                    for name, value in success_gate_counts.items():
+                        if name in geometry:
+                            value.add_(geometry[name][finite_transition].sum())
+                    if "hold_time_s" in geometry:
+                        max_hold_time = torch.maximum(
+                            max_hold_time, geometry["hold_time_s"][finite_transition].max())
+                    closing = action[finite_transition][:, gripper_indices] > 0
+                    close_count += closing.sum(0)
+                    premature_close_count += (closing & (flap_distance >= 0.12)).sum(0)
+                    if torso_diagnostics:
+                        torso_valid = finite_transition & ~(terminated | truncated)
+                        if bool(torso_valid.any()):
+                            actual = env.scene["robot"].data.joint_pos[
+                                :, torso_term._joint_ids][torso_valid]
+                            target = torso_term._joint_targets[torso_valid]
+                            pitch_error = (
+                                actual.sum(-1) - torso_term._pitch_reference[torso_valid]
+                            ).abs()
+                            torso_pitch_error_sum += pitch_error.sum()
+                            torso_tracking_error_sum += (actual - target).abs().mean(-1).sum()
+                            torso_pitch_error_max = torch.maximum(
+                                torso_pitch_error_max, pitch_error.max())
+                            torso_diagnostic_count += int(torso_valid.sum().item())
                     reward_terms += (
                         env.reward_manager._step_reward[finite_transition].sum(0)
                         * env.step_dt
                     )
                     for name, value in breakdown_terms.items():
                         selected = value[finite_transition]
+                        if name in progress_abs:
+                            progress_abs[name] += selected.abs().sum()
+                            progress_positive[name] += (selected > 0).sum()
                         if name not in breakdown_sums:
                             breakdown_sums[name] = selected.sum()
                             breakdown_nonzero[name] = int((selected != 0).sum().item())
@@ -378,6 +582,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 valid_transitions += count
                 iteration_valid += count
                 iteration_warmup += count if warming_up else 0
+                iteration_guided_warmup += count if warming_up and guided_warmup else 0
                 transitions += env.num_envs
                 terminated_episodes += int(terminated.sum().item())
                 timeout_episodes += int(truncated.sum().item())
@@ -385,16 +590,63 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 critic_obs = _critic_state(next_observations)
 
             if valid_transitions >= warmup_target and replay.size >= args.batch_size and count:
+                # Fit before the first Q update and the first unguided action.
+                # Warmup samples contain measured new-dynamics rewards.
+                if teacher_replay.size and not teacher_fitted:
+                    teacher_batch = teacher_replay.sample(
+                        min(teacher_replay.size, 100_000), env.device)
+                    if demonstration is not None:
+                        legacy = demonstration.sample(
+                            max(1, len(teacher_batch["action"]) // 4), env.device)
+                        teacher_batch = {
+                            key: torch.cat((value, legacy[key]))
+                            for key, value in teacher_batch.items()}
+                    teacher_pretraining = agent.pretrain_actor(
+                        teacher_batch["actor_obs"], teacher_batch["action"],
+                        steps=getattr(args, "teacher_pretrain_steps", 5000),
+                        batch_size=getattr(args, "demo_pretrain_batch_size", 256))
+                    teacher_fitted = True
+                    print(f"[V2 SAC] Online entry imitation: {teacher_pretraining}", flush=True)
                 update_credit += args.updates_per_step * count / env.num_envs
                 updates = int(update_credit)
                 update_credit -= updates
                 for _ in range(updates):
-                    metrics = agent.update(_sample_mixed_replay(
-                        replay, demonstration, args.batch_size,
-                        getattr(args, "demo_batch_fraction", 0.0), env.device))
+                    fraction = _demo_fraction(
+                        getattr(args, "demo_batch_fraction", 0.0),
+                        optimizer_updates, demo_decay_updates)
+                    demo_count = round(args.batch_size * fraction) if demonstration else 0
+                    demo_batch = demonstration.sample(demo_count, env.device) \
+                        if demo_count else None
+                    if demo_count and teacher_replay.size:
+                        teacher_count = demo_count // 2
+                        offline = demonstration.sample(demo_count - teacher_count, env.device)
+                        teacher = teacher_replay.sample(teacher_count, env.device)
+                        demo_batch = {key: torch.cat((value, teacher[key])) for key, value in offline.items()}
+                    goal_count = round(args.batch_size * getattr(args, "goal_batch_fraction", 0.25)) \
+                        if goal_replay.size else 0
+                    batch = replay.sample(args.batch_size - goal_count, env.device)
+                    if goal_count:
+                        goals = goal_replay.sample(goal_count, env.device)
+                        batch = {key: torch.cat((value, goals[key])) for key, value in batch.items()}
+                    metrics = agent.update(
+                        batch,
+                        demonstration=demo_batch, demonstration_weight=(
+                            fraction * getattr(args, "demo_bc_strength", 10.0) if demo_count else 0.0))
+                    demo_samples += demo_count
                     optimizer_updates += 1
 
         metrics.update(
+            goal_replay_size=goal_replay.size,
+            teacher_replay_size=teacher_replay.size,
+            teacher_pretrain_steps=teacher_pretraining["steps"],
+            teacher_pretrain_initial_mse=teacher_pretraining["initial_mse"],
+            teacher_pretrain_final_mse=teacher_pretraining["final_mse"],
+            rollout_policy=("ik_warmup" if iteration_guided_warmup
+                            and getattr(args, "guided_warmup_mode", "bc") == "ik"
+                            else "sac"),
+            actor_encoded_dim=agent.actor_features.output_dim,
+            actor_normalizer_count=float(agent.actor_normalizer.count),
+            actor_normalizer_frozen=agent.config.freeze_actor_normalizer,
             reward_per_valid_step=(
                 reward_sum.item() / iteration_valid if iteration_valid else None),
             transitions=transitions,
@@ -403,8 +655,15 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             warmup_target=warmup_target,
             warmup_complete=valid_transitions >= warmup_target,
             warmup_transitions_this_iteration=iteration_warmup,
+            guided_warmup_transitions_this_iteration=iteration_guided_warmup,
+            demo_pretrain_initial_mse=pretraining["initial_mse"],
+            demo_pretrain_final_mse=pretraining["final_mse"],
             replay_size=replay.size,
             demo_replay_size=demonstration.size if demonstration else 0,
+            demo_bc_samples_this_iteration=demo_samples,
+            demo_bc_fraction=_demo_fraction(
+                getattr(args, "demo_batch_fraction", 0.0), optimizer_updates,
+                demo_decay_updates) if demonstration else 0.0,
             replay_gib=replay.bytes / 2**30,
             nonfinite_transitions=skipped_nonfinite,
             settling_transitions_skipped=skipped_settling,
@@ -431,12 +690,55 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             if iteration_valid else None
             for name, count in breakdown_nonzero.items()
         })
+        for name in progress_abs:
+            metrics[f"reward_term_abs/{name}"] = (
+                progress_abs[name].item() / iteration_valid if iteration_valid else None)
+            metrics[f"reward_term_positive/{name}"] = (
+                progress_positive[name].item() / iteration_valid if iteration_valid else None)
+        for hand, index in (("left", 0), ("right", 1)):
+            for label, values in (("flap", flap_distance_sum), ("front", front_distance_sum)):
+                metrics[f"distance/{hand}_{label}_mean_m"] = (
+                    values[index].item() / iteration_valid if iteration_valid else None)
+            metrics[f"distance/{hand}_flap_under_0p1m"] = (
+                flap_near_count[index].item() / iteration_valid if iteration_valid else None)
+            metrics[f"distance/{hand}_front_under_0p1m"] = (
+                front_near_count[index].item() / iteration_valid if iteration_valid else None)
+        metrics["distance/both_flaps_under_0p1m"] = (
+            both_flap_near_count.item() / iteration_valid if iteration_valid else None)
+        metrics["grasp/bilateral_pinch_fraction"] = (
+            bilateral_pinch_count.item() / iteration_valid if iteration_valid else None)
+        metrics["grasp/instantaneous_success_fraction"] = (
+            instantaneous_success_count.item() / iteration_valid if iteration_valid else None)
+        for name, value in success_gate_counts.items():
+            metrics[f"grasp/{name}_fraction"] = (
+                value.item() / iteration_valid if iteration_valid else None)
+        metrics["grasp/max_hold_time_s"] = max_hold_time.item()
+        for hand, index in (("left", 0), ("right", 1)):
+            metrics[f"grasp/{hand}_pinch_fraction"] = (
+                pinch_count[index].item() / iteration_valid if iteration_valid else None)
+            metrics[f"grasp/{hand}_close_fraction"] = (
+                close_count[index].item() / iteration_valid if iteration_valid else None)
+            metrics[f"grasp/{hand}_premature_close_fraction"] = (
+                premature_close_count[index].item() / iteration_valid if iteration_valid else None)
+        if torso_diagnostics:
+            metrics["torso/pitch_error_mean_rad"] = (
+                torso_pitch_error_sum.item() / torso_diagnostic_count
+                if torso_diagnostic_count else None)
+            metrics["torso/pitch_error_max_rad"] = torso_pitch_error_max.item()
+            metrics["torso/joint_tracking_error_mean_rad"] = (
+                torso_tracking_error_sum.item() / torso_diagnostic_count
+                if torso_diagnostic_count else None)
         metrics.update({
             f"termination/{name}": count
             for name, count in termination_counts.items()
         })
         metrics.update(safety_diagnostics.report())
+        metrics.update(approach_diagnostics.report())
+        metrics["implausible_distance_transitions"] = int(skipped_implausible.item())
         metrics.update(_reset_settling_metrics(env))
+        if guided_warmup is not None and hasattr(guided_warmup, "phase"):
+            for phase in range(3):
+                metrics[f"guide/phase_{phase}_envs"] = int((guided_warmup.phase == phase).sum())
         if str(env.device).startswith("cuda"):
             metrics.update(
                 torch_peak_allocated_mib=torch.cuda.max_memory_allocated() / 2**20,

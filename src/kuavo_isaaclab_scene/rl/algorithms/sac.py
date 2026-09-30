@@ -17,6 +17,12 @@ class SACConfig:
     tau: float = .005
     initial_alpha: float = .1
     min_alpha: float = 0.0
+    reward_scale: float = 1.0
+    entropy_backup: bool = True
+    actor_feature_mode: str = "flat"
+    freeze_actor_normalizer: bool = False
+    initial_policy_std: float = 1.0
+    max_policy_std: float = math.exp(2)
 
 
 class ReplayBuffer:
@@ -54,19 +60,20 @@ class ReplayBuffer:
 
 
 class SquashedActor(nn.Module):
-    def __init__(self, obs_dim, action_dim, hidden):
+    def __init__(self, obs_dim, action_dim, hidden, max_std=math.exp(2)):
         super().__init__()
         self.network = mlp(obs_dim, 2 * action_dim, hidden)
+        self.log_std_max = math.log(max_std)
 
-    def forward(self, obs, deterministic=False):
+    def forward(self, obs, deterministic=False, return_per_dim=False):
         mean, log_std = self.network(obs).chunk(2, dim=-1)
-        log_std = log_std.clamp(-5, 2)
+        log_std = log_std.clamp(-5, self.log_std_max)
         std = log_std.exp()
         latent = mean if deterministic else mean + std * torch.randn_like(mean)
         # Stable log(1-tanh(x)^2), including highly saturated actions.
         correction = 2 * (math.log(2) - latent - F.softplus(-2 * latent))
-        logp = (gaussian_log_prob(latent, mean, std) - correction).sum(-1)
-        return latent.tanh(), logp
+        logp = gaussian_log_prob(latent, mean, std) - correction
+        return latent.tanh(), logp if return_per_dim else logp.sum(-1)
 
 
 def soft_target(reward, terminated, next_q, next_logp, alpha, gamma):

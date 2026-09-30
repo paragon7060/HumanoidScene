@@ -6,7 +6,7 @@ import torch
 
 from ..geometry import pose_to_position_rotation_6d, relative_pose
 from ..geometry.grasp import (
-    GRASP_APPROACH_REWARD_SCALE_M,
+    GRASP_ASSIGNMENT_SCALE_M,
     estimated_flap_center_poses,
     opposing_flap_reach_assignment,
 )
@@ -141,7 +141,7 @@ def build_actor_observation(
         robot.tcp_pose_world[:, :, None], center_poses,
     )) * goal_valid[:, None, None, None]
     _, assignment = opposing_flap_reach_assignment(
-        candidate_distances, GRASP_APPROACH_REWARD_SCALE_M)
+        candidate_distances, GRASP_ASSIGNMENT_SCALE_M)
     # Encode the first hand's flap; the second hand always takes the opposite.
     assignment_one_hot = torch.nn.functional.one_hot(assignment[:, 0], 2).to(
         relations.dtype) * goal_valid[:, None]

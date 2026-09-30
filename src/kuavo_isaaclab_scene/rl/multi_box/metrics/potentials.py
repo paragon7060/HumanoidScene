@@ -12,7 +12,52 @@ import math
 
 import torch
 
-from ..geometry.grasp import GRASP_APPROACH_REWARD_SCALE_M, opposing_flap_reach_assignment
+from ..geometry.grasp import (
+    GRASP_APPROACH_REWARD_SCALE_M, GRASP_ASSIGNMENT_SCALE_M,
+    opposing_flap_reach_assignment,
+)
+
+
+FRONT_STAGE_CLEARANCE_M = 0.08
+FRONT_STAGE_LANE_TOLERANCE_M = 0.10
+# Reset hand-to-stage distances are commonly around 1 m.  A 0.25 m falloff
+# made the safe approach potential almost flat there; preserve the front-plane
+# saturation below while providing a useful gradient before entering the rack.
+FRONT_STAGE_REWARD_SCALE_M = 0.80
+
+
+def front_staging_potential(
+    tcp_in_rack: torch.Tensor,
+    flap_centers_in_rack: torch.Tensor,
+    assignment: torch.Tensor,
+    front_y_m: float,
+    scale_m: float = FRONT_STAGE_REWARD_SCALE_M,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Reward both hands reaching assigned flap lanes from the rack front.
+
+    Rack-native +Y faces the robot. Depth is clamped at the safe staging
+    plane, so entering the rack gives no extra staging reward and does not
+    undo progress already earned at the front. The rack collision termination
+    remains authoritative for unsafe routes.
+    """
+    if (tcp_in_rack.ndim != 3 or tcp_in_rack.shape[1:] != (2, 3)
+            or flap_centers_in_rack.shape != tcp_in_rack.shape
+            or assignment.shape != tcp_in_rack.shape[:2]
+            or scale_m <= 0):
+        raise ValueError("Front staging needs [env,2,3] poses, [env,2] assignment and positive scale")
+    rows = torch.arange(len(tcp_in_rack), device=tcp_in_rack.device)[:, None]
+    matched = flap_centers_in_rack[rows, assignment]
+    # A generous X/Z corridor avoids charging the policy for fine wrist
+    # adjustments after it reaches a safe entry lane.
+    lateral = (tcp_in_rack[..., 0] - matched[..., 0]).abs().sub(
+        FRONT_STAGE_LANE_TOLERANCE_M).clamp_min(0)
+    height = (tcp_in_rack[..., 2] - matched[..., 2]).abs().sub(
+        FRONT_STAGE_LANE_TOLERANCE_M).clamp_min(0)
+    outside_depth = (tcp_in_rack[..., 1] - front_y_m).clamp_min(0)
+    distance = torch.sqrt(lateral.square() + height.square() + outside_depth.square())
+    score = torch.exp(-distance / scale_m)
+    reach = 0.25 * score.sum(-1) + 0.5 * score.amin(-1)
+    return reach, distance
 
 
 @dataclass(frozen=True)
@@ -129,7 +174,10 @@ def grasp_reward_potentials(
         raise ValueError("Grasp reward geometry needs [env, hand, flap] and [env, hand] tensors")
     if approach_scale_m <= 0 or capture_scale_m <= 0:
         raise ValueError("Grasp reward distance scales must be positive")
-    approach, _ = opposing_flap_reach_assignment(candidate_distance_m, approach_scale_m)
+    # The caller supplies distances for the observation-compatible, opposing
+    # flap assignment. Widen only its reward falloff, not the pairing rule.
+    reach = torch.exp(-matched_distance_m.clamp_min(0) / approach_scale_m)
+    approach = 0.25 * reach.sum(-1) + 0.5 * reach.amin(-1)
     alignment = jaw_alignment_cos.clamp(0, 1).square()
     near = (1.0 - matched_distance_m.clamp_min(0) / 0.10).clamp(0, 1)
     capture = torch.exp(-capture_error_m.clamp_min(0) / capture_scale_m)

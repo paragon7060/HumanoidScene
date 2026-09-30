@@ -13,17 +13,19 @@ import torch
 
 from ....robots.end_effector import get_end_effector_frames
 from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
+from ....workcell.workcell_layout import RACK_RAW_BOUNDS_M
 from ....workcell.workcell_layout import scale as workcell_scale
 from ...scenes.asset_geometry import box_geometry
 from ..debug.contact_sensors import CONTACT_SENSOR_NAMES
 from ..geometry import relative_pose
-from ..geometry.grasp import closest_flap_surface
-from ..geometry.pose import quat_apply
+from ..geometry.grasp import GRASP_ASSIGNMENT_SCALE_M, closest_flap_surface
+from ..geometry.pose import quat_apply, replace_invalid_poses
 from ..geometry.rack import box_shelf_clearance_m
 from ..metrics import (
     GRASP_APPROACH_REWARD_SCALE_M, GraspRawMetrics, MetricScaleConfig, grasp_reward_potentials,
     opposing_flap_reach_assignment,
 )
+from ..metrics.potentials import FRONT_STAGE_CLEARANCE_M, front_staging_potential
 from ..scene.spawn import BOX_TYPE_IDS, physical_asset_names
 from ..scene.reset_settling import reset_settling_step
 from ..success import (
@@ -47,6 +49,8 @@ FINGER_NAMES = ("l_f_finger", "l_b_finger", "r_f_finger", "r_b_finger")
 class IsaacPrivilegedGraspStep:
     target_logical_id: torch.Tensor
     target_pool_id: torch.Tensor
+    invalid_box_pose: torch.Tensor
+    invalid_flap_pose: torch.Tensor
     box_pose_world: torch.Tensor
     initial_box_pose_world: torch.Tensor
     box_velocity_world: torch.Tensor
@@ -57,6 +61,8 @@ class IsaacPrivilegedGraspStep:
     rack_clearance_m: torch.Tensor
     raw: GraspRawMetrics
     potentials: dict[str, torch.Tensor]
+    matched_flap_distance_m: torch.Tensor
+    front_staging_distance_m: torch.Tensor
     assigned_flap_index: torch.Tensor
     success: GraspSuccessResult
     one_hand_pinch_event: torch.Tensor
@@ -183,6 +189,7 @@ class IsaacPrivilegedGraspAdapter:
         centers: torch.Tensor,
         halves: torch.Tensor,
         axes: torch.Tensor,
+        invalid_flap_pose: torch.Tensor,
     ) -> FingerFlapContacts:
         filter_count = len(self.names) * 2
         force_rows = []
@@ -221,6 +228,7 @@ class IsaacPrivilegedGraspAdapter:
             torch.isfinite(point_local).all(-1)
             & (delta.abs() <= halves[:, None, :, None] + margin).all(-1)
             & (force_n > 0)
+            & ~invalid_flap_pose[:, None, None, None]
         )
         gather_axes = axes[:, None, :, None, None].expand(-1, 2, -1, 2, 1)
         signed_contact = delta.gather(-1, gather_axes).squeeze(-1)
@@ -240,11 +248,12 @@ class IsaacPrivilegedGraspAdapter:
         finger_delta = finger_local - centers[:, None, :, None]
         signed_finger = finger_delta.gather(-1, gather_axes).squeeze(-1)
         opposed |= signed_finger[..., 0] * signed_finger[..., 1] < 0
+        opposed &= ~invalid_flap_pose[:, None, None]
         return FingerFlapContacts(
             force_n=force_n,
             in_region=in_region,
             opposed=opposed,
-            available=torch.ones(self.num_envs, dtype=torch.bool, device=self.device),
+            available=~invalid_flap_pose,
         )
 
     def _rack_clearance(
@@ -281,7 +290,8 @@ class IsaacPrivilegedGraspAdapter:
         halves: torch.Tensor,
         axes: torch.Tensor,
         rack_clearance: torch.Tensor,
-    ) -> tuple[GraspRawMetrics, dict[str, torch.Tensor], torch.Tensor]:
+    ) -> tuple[GraspRawMetrics, dict[str, torch.Tensor], torch.Tensor,
+               torch.Tensor, torch.Tensor]:
         tcp_pose = self.tcp.center_pose_w
         pair_pose = flap_pose[:, None].expand(-1, 2, -1, -1)
         tcp_for_flaps = torch.cat((
@@ -293,7 +303,7 @@ class IsaacPrivilegedGraspAdapter:
             tcp_local, centers[:, None], halves[:, None], axes[:, None])
         distance = (tcp_local - nearest).norm(dim=-1)
         _, assignment = opposing_flap_reach_assignment(
-            distance, self.reward_scale.grasp_approach_m)
+            distance, GRASP_ASSIGNMENT_SCALE_M)
         env_rows = torch.arange(self.num_envs, device=self.device)[:, None]
         hand_rows = torch.arange(2, device=self.device)[None]
         matched_distance = distance[env_rows, hand_rows, assignment]
@@ -341,12 +351,21 @@ class IsaacPrivilegedGraspAdapter:
             approach_scale_m=self.reward_scale.grasp_approach_m,
             capture_scale_m=self.reward_scale.grasp_capture_m,
         )
-        return raw, potentials, assignment
+        rack_pose = self.env.scene["rack"].data.root_pose_w
+        tcp_in_rack = relative_pose(rack_pose, tcp_pose)[..., :3]
+        center_world = flap_pose[..., :3] + quat_apply(flap_pose[..., 3:], centers)
+        center_pose = torch.cat((center_world, flap_pose[..., 3:]), dim=-1)
+        centers_in_rack = relative_pose(rack_pose, center_pose)[..., :3]
+        front_y = (RACK_RAW_BOUNDS_M[1][1] * workcell_scale("rack")[1]
+                   + FRONT_STAGE_CLEARANCE_M)
+        potentials["front_staging"], front_distance = front_staging_potential(
+            tcp_in_rack, centers_in_rack, assignment, front_y)
+        return raw, potentials, assignment, matched_distance, front_distance
 
     def measure(self, dt: float) -> IsaacPrivilegedGraspStep:
         settling = reset_settling_step(self.env)
         logical, pool = self._targets()
-        box_pose = self._selected_box_pose(pool)
+        box_pose, invalid_box_pose = replace_invalid_poses(self._selected_box_pose(pool))
         box_velocity = self._selected_box_velocity(pool)
         changed = (logical != self.target_logical_id) | (pool != self.target_pool_id)
         if bool(changed.any()):
@@ -361,7 +380,7 @@ class IsaacPrivilegedGraspAdapter:
             self.target_pool_id[ids] = pool[ids]
             self.initialized[ids] = False
 
-        capture = settling.ready & ~self.initialized
+        capture = settling.ready & ~invalid_box_pose & ~self.initialized
         if bool(capture.any()):
             ids = capture.nonzero(as_tuple=False).flatten()
             self.initial_box_pose_world[ids] = box_pose[ids]
@@ -377,18 +396,21 @@ class IsaacPrivilegedGraspAdapter:
         rows = torch.arange(self.num_envs, device=self.device)
         type_id = self.env._multi_box_box_type_ids[rows, logical]
         region_id = self.env._multi_box_region_ids[rows, logical]
-        flap_pose = self._selected_flap_pose(pool)
+        flap_pose, invalid_flaps = replace_invalid_poses(self._selected_flap_pose(pool))
+        invalid_flap_pose = invalid_flaps.any(-1)
+        invalid_pose = invalid_box_pose | invalid_flap_pose
         centers = self.flap_centers[pool]
         halves = self.flap_halves[pool]
         axes = self.flap_normal_axes[pool]
-        contacts = self._contacts(pool, flap_pose, centers, halves, axes)
+        contacts = self._contacts(
+            pool, flap_pose, centers, halves, axes, invalid_pose)
         pinch = classify_pinches(contacts, min_jaw_force_n=MIN_JAW_FORCE_N)
         rack_clearance = self._rack_clearance(box_pose, type_id, region_id)
 
         valid_flaps = ((pinch.hand_flap_index >= 0) & (pinch.hand_flap_index < 2)).all(-1)
         opposing = valid_flaps & (
             pinch.hand_flap_index[:, 0] != pinch.hand_flap_index[:, 1])
-        ready = settling.ready & (
+        ready = settling.ready & ~invalid_pose & (
             pinch.hand_pinching.all(-1)
             & opposing
             & (rack_clearance >= self.success_tracker.config.proof_lift_m)
@@ -416,11 +438,13 @@ class IsaacPrivilegedGraspAdapter:
         self.bilateral_rewarded |= success.bilateral_pinch
         self.success_rewarded |= success.success
 
-        raw, potentials, assignment = self._raw_metrics(
+        raw, potentials, assignment, matched_distance, front_distance = self._raw_metrics(
             box_pose, flap_pose, centers, halves, axes, rack_clearance)
         return IsaacPrivilegedGraspStep(
             target_logical_id=logical,
             target_pool_id=pool,
+            invalid_box_pose=invalid_box_pose,
+            invalid_flap_pose=invalid_flap_pose,
             box_pose_world=box_pose,
             initial_box_pose_world=self.initial_box_pose_world.clone(),
             box_velocity_world=box_velocity,
@@ -433,6 +457,8 @@ class IsaacPrivilegedGraspAdapter:
             rack_clearance_m=rack_clearance,
             raw=raw,
             potentials=potentials,
+            matched_flap_distance_m=matched_distance,
+            front_staging_distance_m=front_distance,
             assigned_flap_index=assignment,
             success=success,
             one_hand_pinch_event=one_hand_event,

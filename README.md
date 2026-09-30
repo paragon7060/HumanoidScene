@@ -37,6 +37,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 오른팔 / 전체 관절 action space 선택 | [공통 RL action 옵션](docs/RL_ACTION_SPACES.md) |
 | 전신 4박스 단계별 / 전체 직접 학습 비교 | [4박스 전신 RL 실험](docs/RL_MULTI_BOX.md) |
 | Multi-box v2 grasp SAC 짧은 pilot 실행 | [Multi-box v2 SAC pilot](docs/RL_MULTI_BOX_V2_PILOT.md) |
+| V2 SAC 접근 실패 원인·데모/IK 탐색·수정 실험 | [2026-09-30 학습 재검토](docs/RL_V2_RECOVERY_20260930.md) |
 | Quest로 V2 grasp SAC 시연 데이터 수집 | [Quest RL 시연 수집](docs/RL_QUEST_REWARD_DEBUG.md) |
 | 기존 Google Drive 연결 재사용·결과 업로드·로컬 보관량 관리 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
 | RL 초기 자세 수정·VR 재캡처 | [모델별 초기 상태](docs/RL_INITIAL_STATES.md) |
@@ -270,7 +271,10 @@ CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
 시도를 중단하고 새 장면으로 reset한다. 기존 Quest HDF5 수집은 옵션 없는
 `collect`를 계속 사용한다. 데이터 형식, 기록 시점, mode 1/2 차이와 제한 사항은
 [Quest RL 시연 수집 안내](docs/RL_QUEST_REWARD_DEBUG.md)를 참고한다. 이 명령은
-시연 데이터만 저장하며 기존 SAC 학습기에 자동으로 주입하지는 않는다.
+시연 데이터만 저장한다. SAC 실행 시 `--demo-dataset`으로 명시적으로 연결하면
+성공 시연을 actor 모방에 사용한다. 현재 upright torso 설정은 action 24차원,
+actor/critic 관측 440/506차원이며, 기존 25차원 데모도 변환해 읽는다.
+[데모·IK 탐색 연결과 실행 예시](docs/RL_V2_RECOVERY_20260930.md)를 참고한다.
 
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에
 중복하지 않는다. 처음에는 [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md)을 따른다.

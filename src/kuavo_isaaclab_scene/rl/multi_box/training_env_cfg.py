@@ -16,10 +16,17 @@ from ...robots.robot_model import resolve_robot_model
 from .debug.contact_sensors import add_multi_box_contact_sensors
 from .managers.v2_observations import V2ObservationsCfg
 from .managers.v2_grasp import V2GraspRewardsCfg, V2GraspTerminationsCfg
+from .managers.upright_torso import UprightTorsoActionCfg
 from .scene.events import SceneEventsCfg
 from .scene.scene_cfg import build_scene
 from .spec import MultiBoxSpec
 from .teleop_env_cfg import _apply_prepared_robot_state
+
+
+@configclass
+class V2UprightActionsCfg(AllJointActionsCfg):
+    # Torso motion is X/Z only; knee, leg and waist pitch are coordinated.
+    height: UprightTorsoActionCfg = UprightTorsoActionCfg()
 
 
 @configclass
@@ -41,7 +48,7 @@ class MultiBoxGraspAssemblyEnvCfg(ManagerBasedRLEnvCfg):
     scene = None
     num_envs: int = 64
     env_spacing: float = 8.0
-    actions: AllJointActionsCfg = AllJointActionsCfg()
+    actions: V2UprightActionsCfg = V2UprightActionsCfg()
     observations: V2ObservationsCfg = V2ObservationsCfg()
     rewards: V2GraspRewardsCfg = V2GraspRewardsCfg()
     terminations: V2GraspTerminationsCfg = V2GraspTerminationsCfg()
@@ -86,8 +93,6 @@ class MultiBoxGraspAssemblyEnvCfg(ManagerBasedRLEnvCfg):
             "waist_yaw_joint": 0.01,
             "zarm_.*_joint": 0.02,
         }
-        if self.actions.height is not None:
-            self.actions.height.scale = 0.015
         self.actions.head.scale = 0.01
         if apply_base_drive(self.scene.robot, self.actions, "base"):
             self.sim.physx.enable_external_forces_every_iteration = True

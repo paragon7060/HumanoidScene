@@ -32,6 +32,8 @@ class CommonRewardInput:
 class GraspRewardInput:
     previous_approach: torch.Tensor
     approach: torch.Tensor
+    previous_front_staging: torch.Tensor
+    front_staging: torch.Tensor
     previous_alignment: torch.Tensor
     alignment: torch.Tensor
     alignment_proximity: torch.Tensor
@@ -147,6 +149,10 @@ class MultiBoxRewardModel:
         terms.update({
             "approach_progress": w.approach_progress * potential_progress(
                 value.previous_approach, value.approach, gamma),
+            "front_staging_progress": w.front_staging_progress * potential_progress(
+                value.previous_front_staging, value.front_staging, gamma),
+            "front_distance_cost": -w.front_distance_cost * (1 - value.front_staging.clamp(0, 1)),
+            "approach_distance_cost": -w.approach_distance_cost * (1 - value.approach.clamp(0, 1)),
             "alignment_progress": w.alignment_progress * value.alignment_proximity * (
                 value.alignment - value.previous_alignment),
             "capture_progress": w.capture_progress * potential_progress(

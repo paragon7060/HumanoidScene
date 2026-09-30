@@ -19,6 +19,33 @@ VR, teleop, data collection 진입점은 이 모듈을 import하지 않는다.
   세 박스 동시 운반을 금지하는 조건은 없지만, 손/물체 기하에 따라 가능한지는 미확인이다.
 - 최초 버전은 s200062 + s200062_integrated 전용이다.
 
+## S63 multi-box v2 grasp의 몸통 action
+
+위 25차원 설명은 기존 4박스 경로에 해당한다. S63 `grasp-v2` PPO와
+`grasp-v2-sac`는 24차원 action을 사용한다. 정책은 몸통의 로컬 앞뒤 위치와
+높이 변화만 명령하고, batched IK가 `knee_joint`, `leg_joint`,
+`waist_pitch_joint`를 함께 조정해 reset 때 몸통 pitch를 유지한다. 몸통
+앞뒤 범위는 reset 기준 ±15 cm, 높이는 URDF nominal 기준 0~40 cm이며
+명령 속도는 0.10 m/s다. base의 평면 이동과 `waist_yaw_joint`는 별도
+action으로 유지한다. 충돌로 실제 몸통이 잠시 기울 수 있으므로 영상과
+관절 추종 오차는 별도로 확인해야 한다.
+
+이전 25차원 v2 checkpoint는 action/관측 차원이 달라 재개할 수 없다.
+기존 Quest 성공 데모 2개는 로더가 몸통 관절 delta를 앞뒤·높이 action으로
+변환하고, 독립적인 waist pitch 변화는 버린다. 따라서 새 action으로
+학습한 checkpoint와 변환된 데모만 함께 사용한다.
+새 보상 프로필에서는 데모의 기존 reward를 SAC critic에 섞지 않는다.
+데모 관측·행동으로 actor만 초기에 모방 학습하며 비중은 20%에서 시작해
+초기 SAC 업데이트 30% 동안 0까지 선형 감소한다. 그리퍼 간격 자체에는
+양의 보상을 주지 않고 실제 flap 파지 이벤트에만 보상을 준다.
+기본적으로 rollout 전에 데모 actor를 1000회 예열하고, 초기 탐색은
+시간적으로 연속된 작은 잡음을 더한 데모 actor로 수행한다. 목표 flap 중심에서
+12 cm 밖인 손의 그리퍼는 열어 둔다. 이 탐색은 충돌 없는 경로를 보증하는
+플래너가 아니므로 랙·장애물 충돌과 단계별 도달률을 함께 확인해야 한다.
+같은 거리 제한을 SAC 온라인 행동, critic 목표 행동, checkpoint 재생에도
+적용하며, 닫기가 차단된 그리퍼 차원은 entropy 계산에서 제외한다.
+기존 0=열기/1=닫기 데모 입력은 actor의 부호식 동작에 맞게 -1/+1로 변환한다.
+
 ## 실행 준비
 
 저장소 루트에서 실행한다. 설치 환경은 [설치 문서](INSTALL.md)를 따른다.
@@ -193,6 +220,15 @@ PPO gamma와 일치시킨다. action/reward는 30Hz이고 사건 보상은 manag
 기존 잡기 threshold를 재사용하지만 별도 관리가 필요하면 `env_cfg.py`의
 asset/contact용 `TaskSpec` 생성 값을 바꾼다. task 동작은 새 `MultiBoxCommand`가
 담당한다. 기존 `WorkcellCommand`나 stationary pick 검증을 확장하지 않는다.
+
+## V2 grasp SAC 접근 실패 재검토
+
+[2026-09-30 학습 재검토](RL_V2_RECOVERY_20260930.md)에 실패 원인, 보상·SAC 설정,
+데모 연결, 현재 환경에서의 IK 초기 수집, 실험 결과를 기록한다. 양손 flap 파지 및
+proof-lift 성공 조건은 그대로 유지한다. 배우기 전의 IK 동작과 학습된 SAC 동작은
+`rollout_policy`로 구분한다. 보상 값은 `multi_box/rewards/weights.py`,
+학습 옵션은 `multi_box/experiments/train_grasp_v2_sac.py`, 데이터 혼합 및
+온라인 모방은 `rl/runners/train_asymmetric_sac.py`에서 관리한다.
 
 ## 검증 범위와 다음 확인
 

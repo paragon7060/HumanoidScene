@@ -58,3 +58,12 @@ def test_active_logical_box_requires_valid_pool_and_type():
     source["box_type_id"][0, 1] = -1
     with pytest.raises(ValueError, match="box type"):
         simulated_perception_frame(**source)
+
+
+def test_invalid_physical_box_pose_has_zero_confidence_and_finite_observation():
+    source = _source()
+    source["physical_box_poses_world"][1, 10, 3:] = 0.0
+    frame = simulated_perception_frame(**source)
+    assert frame.boxes.pose_confidence[0, 1].item() == 1.0
+    assert frame.boxes.pose_confidence[1, 7].item() == 0.0
+    assert frame.boxes.pose_world[1, 7].tolist() == [0., 0., 0., 1., 0., 0., 0.]

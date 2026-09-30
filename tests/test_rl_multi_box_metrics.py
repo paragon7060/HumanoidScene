@@ -22,6 +22,8 @@ from kuavo_isaaclab_scene.rl.multi_box.metrics import (
     opposing_flap_reach_assignment,
     place_potentials,
 )
+from kuavo_isaaclab_scene.rl.multi_box.geometry.grasp import GRASP_ASSIGNMENT_SCALE_M
+from kuavo_isaaclab_scene.rl.multi_box.metrics.potentials import front_staging_potential
 from kuavo_isaaclab_scene.rl.multi_box.rewards import RewardBreakdown
 
 
@@ -62,15 +64,48 @@ def test_opposing_flap_reach_rewards_weaker_hand_without_same_flap_shortcut():
         [[0.0, 10.0], [10.0, 0.0]],   # Both hands reach distinct flaps.
         [[10.0, 0.0], [0.0, 10.0]],   # Swapped assignment also succeeds.
     ])
-    reach, assignment = opposing_flap_reach_assignment(distances, 1.0 / 12.0)
+    reach, assignment = opposing_flap_reach_assignment(
+        distances, GRASP_ASSIGNMENT_SCALE_M)
     torch.testing.assert_close(reach, torch.tensor([0.25, 0.25, 1.0, 1.0]),
                                rtol=0, atol=1e-6)
     assert assignment.tolist() == [[0, 1], [0, 1], [0, 1], [1, 0]]
     matched = distances[torch.arange(4)[:, None], torch.arange(2)[None], assignment]
     potentials = grasp_reward_potentials(
         distances, matched, torch.ones(4, 2), torch.zeros(4, 2),
-        torch.full((4, 2), 0.02), torch.full((4, 2), 0.01), torch.zeros(4))
+        torch.full((4, 2), 0.02), torch.full((4, 2), 0.01), torch.zeros(4),
+        approach_scale_m=GRASP_ASSIGNMENT_SCALE_M)
     torch.testing.assert_close(potentials["approach"], reach)
+
+
+def test_front_staging_rewards_safe_lane_and_saturates_at_front_plane():
+    centers = torch.tensor([[[0., -0.2, 1.3], [1., -0.2, 1.3]]]).expand(4, -1, -1)
+    tcp = torch.tensor([
+        [[0., 0.6, 1.3], [1., 0.6, 1.3]],
+        [[0., 0.3, 1.3], [1., 0.3, 1.3]],
+        [[0., 0.1, 1.3], [1., 0.1, 1.3]],
+        [[0., -0.2, 1.3], [1., -0.2, 1.3]],
+    ])
+    assignment = torch.tensor([[0, 1]]).expand(4, -1)
+    score, distance = front_staging_potential(tcp, centers, assignment, 0.1)
+    assert score[0] < score[1] < score[2]
+    torch.testing.assert_close(score[2], score[3])
+    torch.testing.assert_close(distance[2], distance[3])
+    fine_adjustment = tcp[2:3].clone()
+    fine_adjustment[..., 0] += 0.05
+    fine_adjustment[..., 2] += 0.05
+    fine_score, _ = front_staging_potential(
+        fine_adjustment, centers[2:3], assignment[2:3], 0.1)
+    torch.testing.assert_close(fine_score, score[2:3])
+    wrong_lane = front_staging_potential(tcp[2:3], centers[2:3],
+                                          torch.tensor([[1, 0]]), 0.1)[0]
+    assert wrong_lane.item() < score[2].item()
+    # The observed reset distance is about 1 m: a safe-lane motion must still
+    # produce a useful gradient there, before rack entry or pinch is possible.
+    far_tcp = tcp[0:1].clone()
+    far_tcp[..., 1] = 1.2
+    far_score, _ = front_staging_potential(
+        far_tcp, centers[0:1], assignment[0:1], 0.1)
+    assert far_score.item() > 0.2
 
 
 def test_grasp_reward_gap_preparation_and_premature_close():
