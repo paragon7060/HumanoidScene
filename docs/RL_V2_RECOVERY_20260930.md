@@ -22,6 +22,14 @@ This is evidence of critic/policy instability and imitation being overwhelmed,
 not genuine grasp improvement. The critical-label retention fix worked, but
 did not address this separate SAC failure.
 
+The most direct check uses the 40 stored **success-terminal transitions**:
+their mean Bellman target is 49.961 (scaled immediate reward, no bootstrap),
+but checkpoint 133 predicts mean Q 928,228.8, minimum Q 92,186.4 on those
+executed actions. Discounted behavior returns over the 64-step success tails
+average 55.941 and range 45.779–80.674. Rollout-average reward and prioritized
+training-batch reward need not match; the terminal mismatch is direct evidence
+of miscalibration without that comparison.
+
 The follow-up separates three corrections:
 
 - Add LayerNorm to both critic hidden layers for the fresh v2 learner.
@@ -77,6 +85,17 @@ its full planned update horizon rather than the default first 30%, so it does
 not remove imitation during this short verification. Safety and reset/success
 conditions remain unchanged. Long-run scheduling will be recorded separately
 after measuring this live check.
+
+Launched 04:03 KST from source `4ed2345`:
+`sac_mbv2_stability_pilot_gpu3_20261001_0403/sac_20261001_040358_231ee5`.
+At iteration 21 it has imported the 2,560 real success-tail rows and the label
+seed, collected 85,566 new valid transitions, two new **IK warmup** held
+successes and 18 unsafe terminations, with zero numerical failures. Protected
+success replay contains 2,688 rows. SAC optimization has not started yet:
+uniform replay needs 100,000 valid transitions, followed by teacher fit and
+critic-only warmup. Current hand distances 0.543/0.512 m describe expert
+collection, not SAC progress. Own VRAM was about 11.1 GiB for this bounded
+run. Drive verification remains operational; other users' processes are intact.
 
 ### Previous launch (01:42 KST)
 
