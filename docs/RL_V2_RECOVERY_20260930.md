@@ -19,7 +19,9 @@ env 1 remained ready, next-step observations/feedforward were finite, and the
 failed transition was terminated and excluded. CPU coverage: 82 relevant
 SAC/demo/gravity/terminal checks passed.
 
-The next distinct fresh GPU 3 run will retain 1,024 environments, 900 IK warmup
+The new distinct fresh GPU 3 run started from source `2b627a8` in
+`artifacts/rl/drive_runs/sac_mbv2_dynamics_recovery_gpu3_20260930_2341/`,
+with child `sac_20260930_234237_dac410`. It retains 1,024 environments, 900 IK warmup
 vector steps, 3,000,000-transition CUDA replay (22.50 GiB), batch 4,096 and 16
 updates/vector step, teacher fit 20,000, 1,000 iterations, initial 20% expert/
 imitation fractions decaying over 153,600 actor updates, and save interval 50.
