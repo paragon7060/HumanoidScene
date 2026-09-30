@@ -170,6 +170,21 @@ A completed-warmup checkpoint and an environment-step exception recovery
 checkpoint now preserve policy, optimizers, teacher labels and successful tails.
 Uniform replay remains memory-only and refills on restart.
 
+## Reusable progress figures
+
+Generate controller-attributed distance, held-success and outcome plots directly
+from a run's completed `metrics.jsonl` rows. The command uses CPU only and emits
+an image plus a JSON summary; it tolerates an unfinished trailing live-log row.
+
+```bash
+python scripts/rl/plot_v2_run.py --run-dir /absolute/path/to/sac_run \
+  --output /absolute/path/to/progress.png
+```
+
+The success panel separates IK warmup, online IK and SAC from reset. Numerical
+failures are separate from ordinary unsafe and timeout outcomes. Early warmup
+plots do not establish that the learned SAC policy has improved.
+
 ## Baseline and scope
 
 The preceding GPU 3 run `sac_mbv2_safe_front_gpu3_20260929_230917` stopped
