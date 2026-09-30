@@ -1,58 +1,47 @@
 # Multi-box v2 SAC recovery experiments — 2026-09-30
 
-## Latest measured result and active run
+## Latest measured result and next run
 
-The 64-env episodic-guidance follow-up stopped cleanly at iteration 193, saved
-`checkpoint_00000193.pt` and returned exit code zero. Online IK episodes
-had produced **two new held successes**, while SAC from reset had produced
-**zero**. The protected replay contained three terminal success rows including
-the restored one. With imitation/expert decay exhausted, latest left/right
-flap distances were 0.777/0.656 m. Torso pitch remained close to its upright
-reference; this is still a control/learning-data failure rather than verified
-SAC grasp learning. The existing Drive connection returned HTTP 401 temporarily. After user
-reauthentication, the old run's final checkpoint/log upload is checksum-verified
-and the new run's five-minute backup is healthy.
-
-The fresh GPU 3 run started in
+The first fresh 1,024-env GPU 3 run
 `artifacts/rl/drive_runs/sac_mbv2_success_tail_gpu3_20260930_2238/`
-with child run `sac_20260930_224055_32301e`, source revision `777e922`.
-It uses 1,024 environments, 900 IK warmup vector steps, teacher pretraining and
-initial 20% imitation/expert episodes decaying across a new 1,000-iteration schedule.
-Initialization completed; IK warmup is collecting genuine transitions.
-Measured own GPU use is 55,513 MiB including simulation and replay. At
-iteration 8, about 262,000 valid transitions had been collected with zero
-nonfinite transitions; SAC had not started. The previous GPU writer and
-its finished-upload supervisor have both stopped. It will not inherit an exhausted decay
-counter. The 3,000,000-transition CUDA replay uses approximately 22.50 GiB for
-464-D actor / 530-D critic / 24-D action transitions, excluding simulation,
-models and allocator overhead. Actual GPU use must be measured after setup.
-Batch 4,096 and 16 updates per vector step retain 64 sampled critic rows per
-new transition. Save interval is 50 iterations; Drive retry remains every five
-minutes and checksum-verified retention remains two. No relaxed success or
-reset curriculum is introduced.
+ended at IK warmup iteration 18 with `ValueError: Non-finite robot gravity
+compensation or stiffness`. It had collected 589,117 valid transitions,
+46,555 priority teacher labels, zero held successes and 48 unsafe terminations.
+Its last mean flap distances were 0.415/0.404 m. **SAC optimization had not
+started.** This was not an OOM: own GPU use was about 55,513 MiB. Final logs
+were Drive checksum-verified. No checkpoint existed yet because regular saves
+were every 50 iterations; its in-memory replay/labels could not be recovered.
 
-Three data corrections precede that launch:
+The recovery now includes std-cap-compatible entropy targets and opt-in
+per-environment dynamics recovery, described below. A real two-env GPU 3
+fault-injection probe passed: env 0 alone was reset after injected NaN gravity;
+env 1 remained ready, next-step observations/feedforward were finite, and the
+failed transition was terminated and excluded. CPU coverage: 82 relevant
+SAC/demo/gravity/terminal checks passed.
 
-- Preserve the last 64 **executed**, valid transitions of every successful
-  episode (about 2.13 s), including the successful terminal row. Clear each
-  environment's history at termination, truncation or any excluded transition.
-  Protected replay now retains the Q-learning chain leading to the terminal
-  event, rather than only an isolated terminal state.
-- Within each teacher imitation batch, sample half from rows where both
-  neutral flap centers are within 0.25 m or the controller proposes closure,
-  and half uniformly. Overall initial imitation fraction remains 20% and
-  continues to decay. Priority membership expires on overwrite and is rebuilt
-  from restored labels; it adds no hypothetical Q rewards.
-- Anchor teacher servo acceleration limits to measured joint velocities when
-  generating hypothetical correction labels. Its previous internal velocity
-  tracked queries that SAC might never execute. The existing servo already
-  anchors joint position commands to measured position and is unchanged.
+The next distinct fresh GPU 3 run will retain 1,024 environments, 900 IK warmup
+vector steps, 3,000,000-transition CUDA replay (22.50 GiB), batch 4,096 and 16
+updates/vector step, teacher fit 20,000, 1,000 iterations, initial 20% expert/
+imitation fractions decaying over 153,600 actor updates, and save interval 50.
+One additional checkpoint is saved when warmup completes; an environment-step
+exception also attempts an atomic recovery checkpoint. These protect initial
+collection without increasing ordinary checkpoint frequency. Safety, reset,
+bilateral grasp/proof-lift success and the no-curriculum contract remain unchanged.
 
-Validation: 41 CPU SAC/demo checks passed, including chronological ring tails,
-partial resets, expired priority membership, checkpoint compatibility and
-separation of hypothetical labels from Q transitions. Policy performance after
-these changes is not yet established. The new initialization log confirms
-S63 gravity compensation enabled on eighteen body/arm joints.
+The earlier 64-env episodic-guidance run stopped cleanly at iteration 193.
+Online IK episodes produced **two new held successes**, while SAC from reset
+produced **zero**. Its final checkpoint/log upload is checksum-verified after
+the user reauthenticated the existing Drive connection. Expert successes
+establish physical feasibility, not learned SAC success.
+
+The data corrections carried into the new run:
+
+- Preserve the last 64 executed, valid transitions of successful episodes
+  (about 2.13 s), ending history at each reset or excluded transition.
+- Sample half each teacher imitation batch from bilateral flap distance <=
+  0.25 m or close labels, half uniformly; overall imitation still starts at 20%.
+- Bound teacher servo acceleration using measured joint velocity when SAC
+  queries an IK action it does not execute. Joint position remains measured-state based.
 
 ![SAC distances and controller-attributed successes](assets/rl_v2_recovery_20260930.png)
 
@@ -137,6 +126,47 @@ target, whereas the previous target would keep increasing it. The running
 777e922 process does **not** hot-reload this change; it will be checkpointed
 and relaunched before prolonged SAC optimization. Successful data and teacher
 fit are to be preserved through that transition.
+
+## Non-finite dynamics: isolation and data preservation
+
+The observed exception arose during `scene.write_data_to_sim()` before reward,
+termination and replay filtering could run. `gravity_drive_bias` checked the
+whole batch and raised when any robot row contained a non-finite feedforward
+or stiffness. Thus a single numerical problem could terminate every parallel
+environment. The old logs do not identify whether gravity, inverse-dynamics
+mass/Coriolis output or joint/root state first became invalid.
+
+Only v2 SAC opts in to recovery. On a non-finite feedforward row, the common
+writer calls the environment's ordinary partial-reset managers before the
+next physics write, restores that row's drive target to its repaired measured
+position and zeroes that failed write's feedforward/velocity/effort buffers.
+Other rows retain their original targets and torque. Bad stiffness/configuration
+and unsuccessful state repair still raise; the default writer remains strict.
+The numerical mask persists across the control step and forces invalid-reset
+termination. The SAC collector separately counts it as a numerical failure and
+excludes its entire transition from Q, teacher imitation and success history.
+Invalid/reset observations are not fitted into the normalizers. It is never reported as a grasp success.
+
+`numerical_failure_episodes` and `numerical_failure_cause/*` record gravity,
+feedforward, mass, Coriolis, joint-state and root-state causes where available.
+The failing env IDs and cause counts also appear in the console. Persistent
+recovery counts require investigation rather than being evidence of successful
+learning. The recovery probe injects a force row, not a claim that all forms
+of PhysX corruption are repairable.
+
+Reproduce the small GPU-isolated probe:
+
+```bash
+CUDA_VISIBLE_DEVICES=3 PYTHONPATH=src \
+  /path/to/isaac-python scripts/rl/probe_v2_numerical_recovery.py \
+  --device cuda:0 --output /tmp/v2_numerical_recovery.json
+```
+
+Measured result: `passed=true`, failed env `[0]`, unaffected env `[1]`, only
+row 0 reset, finite observations/feedforward, next-step failure flag cleared.
+A completed-warmup checkpoint and an environment-step exception recovery
+checkpoint now preserve policy, optimizers, teacher labels and successful tails.
+Uniform replay remains memory-only and refills on restart.
 
 ## Baseline and scope
 

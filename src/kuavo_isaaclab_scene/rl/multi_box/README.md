@@ -186,6 +186,13 @@ boundary currently covers:
   Successful episodes protect their last 64 actual transitions (about 2.13 s),
   stopping at resets or excluded transitions, so Q learning retains the approach
   to a successful terminal state rather than only its terminal row.
+  V2 SAC also opts in to isolated numerical-dynamics recovery: non-finite
+  feedforward triggers a partial respawn before the next physics write and
+  forces the affected transition out of Q/BC. Numerical failures and their
+  causes are logged separately; they are never grasp successes. The common
+  writer stays strict for other entrypoints. Warmup completion and unexpected
+  environment-step errors save an additional recovery checkpoint; ordinary
+  save frequency and verified Drive pruning are unchanged.
   `metrics.jsonl` records policy
   log-probability and sampled action spread after updates. `manifest.json`
   records the weights, geometry scales, and exploration parameters.

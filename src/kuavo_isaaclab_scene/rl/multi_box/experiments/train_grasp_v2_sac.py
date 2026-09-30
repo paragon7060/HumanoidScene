@@ -306,6 +306,7 @@ def main() -> None:
             cfg.log_dir = str(directory)
 
             env = TransitionEnv(cfg)
+            env.enable_numerical_dynamics_recovery()
             observation_dims = {
                 name: list(value)
                 for name, value in env.observation_manager.group_obs_dim.items()
@@ -398,6 +399,12 @@ def main() -> None:
                     "history_crosses_resets": False,
                 },
                 "entropy_contract": "std_cap_feasible_active_dims_v1",
+                "numerical_failure_contract": {
+                    "recovery": "partial_respawn_before_next_physics_write",
+                    "outcome": "failure_excluded_from_replay_and_imitation",
+                    "diagnostics": ["gravity_nonfinite", "feedforward_nonfinite", "joint_state_nonfinite",
+                                    "mass_nonfinite", "coriolis_nonfinite", "root_state_nonfinite"],
+                },
                 "demo_source_path": demonstration_meta["path"] if demonstration_meta else None,
                 "run_profile": (
                     "smoke" if args.smoke_test else "pilot" if args.pilot else "train"

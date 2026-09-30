@@ -4,6 +4,31 @@
 class TerminalObservationMixin:
     """Place before ManagerBasedRLEnv in the MRO; PPO's environment is unchanged."""
 
+    def enable_numerical_dynamics_recovery(self):
+        """Opt in to per-environment respawn; corrupted transitions stay excluded."""
+        import torch
+        self._numerical_failure = torch.zeros(
+            self.num_envs, dtype=torch.bool, device=self.device)
+        self._numerical_diagnostics = {}
+        self.scene["robot"].nonfinite_dynamics_recovery = self._recover_numerical_dynamics
+
+    def _recover_numerical_dynamics(self, mask, diagnostics):
+        self._numerical_failure |= mask
+        for name, value in diagnostics.items():
+            self._numerical_diagnostics.setdefault(name, value.clone().zero_())
+            self._numerical_diagnostics[name] |= value & mask
+        print("[NUMERICAL RECOVERY] env_ids=" + str(mask.nonzero().flatten()[:16].tolist())
+              + "; causes=" + str({name: int((value & mask).sum())
+                                    for name, value in diagnostics.items()}), flush=True)
+        # Repair failed environments before the physics write finishes, using
+        # ordinary reset managers. Repaired poses are not valid task transitions.
+        capture = getattr(self, "_capture_terminal", False)
+        self._capture_terminal = False
+        try:
+            self._reset_idx(mask.nonzero(as_tuple=False).squeeze(-1))
+        finally:
+            self._capture_terminal = capture
+
     def _grasp_geometry_snapshot(self):
         grasp = getattr(self, "_multi_box_privileged_grasp_step", None)
         if grasp is None:
@@ -50,6 +75,10 @@ class TerminalObservationMixin:
         return super()._reset_idx(env_ids)
 
     def step(self, action):
+        numerical = getattr(self, "_numerical_failure", None)
+        if numerical is not None:
+            numerical.zero_()
+            self._numerical_diagnostics.clear()
         self._terminal_ids = self._terminal_obs = None
         self._terminal_observations = None
         self._terminal_task_metrics = None
@@ -67,6 +96,10 @@ class TerminalObservationMixin:
             for name, value in self._terminal_observations.items():
                 next_observations[name][self._terminal_ids] = value
         result = dict(extras)
+        if numerical is not None:
+            result["transition_numerical_failure"] = numerical.clone()
+            result["transition_numerical_diagnostics"] = {
+                name: value.clone() for name, value in self._numerical_diagnostics.items()}
         result["transition_next_observations"] = next_observations
         result["transition_next_obs"] = next_observations["policy"]
         if self._terminal_safety is not None:

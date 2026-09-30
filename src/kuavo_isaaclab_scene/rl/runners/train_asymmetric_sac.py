@@ -395,6 +395,20 @@ def train(env, args, directory, state=None, demonstration_batch=None):
     transitions = valid_transitions = skipped_nonfinite = 0
     optimizer_updates = int((state or {}).get("optimizer_updates", 0))
     actor_updates = int((state or {}).get("actor_updates", 0))
+    def checkpoint_payload():
+        return agent.checkpoint() | {
+            "optimizer_updates": optimizer_updates,
+            "actor_updates": actor_updates,
+            "demo_decay_updates": demo_decay_updates,
+            "teacher_fitted": teacher_fitted,
+            "teacher_pretraining": teacher_pretraining,
+            "teacher_imitation": teacher_replay.snapshot(),
+            "success_replay": {key: value[:success_replay.size].clone()
+                               for key, value in success_replay.data.items()},
+        }
+    checkpoint_keep = None if getattr(args, "external_checkpoint_retention", False) \
+        else args.keep_checkpoints
+    warmup_checkpoint_saved = valid_transitions >= warmup_target
     skipped_settling = invalid_resets = 0
     update_credit = 0.0
     warmup_action = None
@@ -434,6 +448,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         sac_bilateral_count = torch.zeros((), device=env.device)
         online_ik_bilateral_count = torch.zeros((), device=env.device)
         sac_valid = online_ik_valid = 0
+        numerical_failures = 0
+        numerical_causes = {}
         pinch_count = torch.zeros(2, device=env.device)
         bilateral_pinch_count = torch.zeros((), device=env.device)
         instantaneous_success_count = torch.zeros((), device=env.device)
@@ -506,7 +522,26 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                             safe_actor_obs, guided_warmup.act(safe_actor_obs))
                         action = torch.where(online_ik_mask[:, None], teacher_action, action)
                 action = projection(safe_actor_obs, action)
-                next_observations, reward, terminated, truncated, info = env.step(action)
+                try:
+                    next_observations, reward, terminated, truncated, info = env.step(action)
+                except Exception as error:
+                    # Save the last valid policy/labels, not the broken physics
+                    # state. The uploader remains the only checkpoint pruner.
+                    try:
+                        save_checkpoint(directory, checkpoint_payload() | {
+                            "recovery_checkpoint": {
+                                "error_type": type(error).__name__,
+                                "partial_iteration": True,
+                                "last_completed_iteration": iteration - 1,
+                            }}, iteration, checkpoint_keep)
+                    except Exception as save_error:
+                        print(f"[V2 SAC] Recovery checkpoint failed: {save_error}", flush=True)
+                    raise
+                numerical = info.get("transition_numerical_failure")
+                if numerical is not None:
+                    numerical_failures += int(numerical.sum())
+                    for name, mask in info.get("transition_numerical_diagnostics", {}).items():
+                        numerical_causes[name] = numerical_causes.get(name, 0) + int(mask.sum())
                 if guided_warmup is not None:
                     guided_warmup.reset(terminated | truncated)
                 breakdown_terms, breakdown_total = _reward_breakdown(env)
@@ -571,6 +606,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 # zero-reward frames and invalid partial respawns must never
                 # enter replay or observation normalizers.
                 finite_transition &= ready_before
+                if numerical is not None:
+                    finite_transition &= ~numerical
                 skipped_settling += int((~ready_before).sum().item())
                 invalid = termination_terms.get("invalid_reset")
                 if invalid is not None:
@@ -749,6 +786,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             teacher_critical_rows=int(teacher_replay.priority[:teacher_replay.size].sum()),
             teacher_critical_batch_fraction=teacher_replay.priority_fraction,
             success_history_steps=success_history.horizon,
+            numerical_failure_episodes=numerical_failures,
             online_teacher_labels_this_iteration=online_teacher_labels,
             success_replay_size=success_replay.size,
             success_samples_this_iteration=success_samples,
@@ -877,23 +915,15 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 torch_peak_allocated_mib=torch.cuda.max_memory_allocated() / 2**20,
                 torch_peak_reserved_mib=torch.cuda.max_memory_reserved() / 2**20,
             )
+        metrics.update({"numerical_failure_cause/" + name: count
+                        for name, count in numerical_causes.items()})
         log_metrics(directory, iteration, metrics)
         stopping = stop_requested()
-        if iteration % args.save_interval == 0 or iteration == start + args.max_iterations or stopping:
-            keep = None if getattr(args, "external_checkpoint_retention", False) \
-                else args.keep_checkpoints
-            payload = agent.checkpoint() | {
-                "optimizer_updates": optimizer_updates,
-                "actor_updates": actor_updates,
-                "demo_decay_updates": demo_decay_updates,
-                "teacher_fitted": teacher_fitted,
-                "teacher_pretraining": teacher_pretraining,
-                "teacher_imitation": teacher_replay.snapshot(),
-                "success_replay": {
-                    key: value[:success_replay.size].clone()
-                    for key, value in success_replay.data.items()},
-            }
-            save_checkpoint(directory, payload, iteration, keep)
+        warmup_completed_now = valid_transitions >= warmup_target and not warmup_checkpoint_saved
+        if (iteration % args.save_interval == 0 or iteration == start + args.max_iterations
+                or stopping or warmup_completed_now):
+            save_checkpoint(directory, checkpoint_payload(), iteration, checkpoint_keep)
+            warmup_checkpoint_saved |= warmup_completed_now
         agent.last_iteration = iteration
         agent.stopped_early = stopping
         if stopping:

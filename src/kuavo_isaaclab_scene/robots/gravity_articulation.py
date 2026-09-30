@@ -83,6 +83,7 @@ class GravityCompensatedArticulation(Articulation):
         joint_count = self.data.joint_pos_target.shape[1]
         gravity = gravity[:, -joint_count:]
         ids = self._gravity_joint_ids
+        mass_full = coriolis_full = None
         self.gravity_compensation_torque.zero_()
         self.gravity_compensation_torque[:, ids] = gravity[:, ids]
         if self.command_feedforward_mode == "inverse_dynamics":
@@ -124,6 +125,34 @@ class GravityCompensatedArticulation(Articulation):
                                           self.command_feedforward_torque, 0.)
         else:
             total = gravity
+        invalid = ~torch.isfinite(total).all(-1)
+        recovery = getattr(self, "nonfinite_dynamics_recovery", None)
+        if invalid.any() and recovery is not None:
+            diagnostics = {
+                "gravity_nonfinite": ~torch.isfinite(gravity).all(-1),
+                "feedforward_nonfinite": invalid,
+                "joint_state_nonfinite": (
+                    ~torch.isfinite(self.data.joint_pos).all(-1)
+                    | ~torch.isfinite(self.data.joint_vel).all(-1)),
+            }
+            if mass_full is not None:
+                diagnostics["mass_nonfinite"] = ~torch.isfinite(mass_full).flatten(1).all(-1)
+                diagnostics["coriolis_nonfinite"] = ~torch.isfinite(coriolis_full).all(-1)
+            root_state = getattr(self.data, "root_state_w", None)
+            if root_state is not None:
+                diagnostics["root_state_nonfinite"] = ~torch.isfinite(root_state).all(-1)
+            recovery(invalid, diagnostics)
+            if not torch.isfinite(self.data.joint_pos[invalid]).all():
+                raise ValueError("Non-finite joint state after dynamics recovery")
+            # Recovery has respawned these environments. Never write the
+            # failed step's drive buffers back over their repaired state.
+            total = total.clone()
+            total[invalid] = 0
+            self.gravity_compensation_torque[invalid] = 0
+            self.inverse_dynamics_torque[invalid] = 0
+            self._joint_pos_target_sim[invalid] = self.data.joint_pos[invalid]
+            self._joint_vel_target_sim[invalid] = 0
+            self._joint_effort_target_sim[invalid] = 0
         self.total_feedforward_torque[:] = total
         bias = gravity_drive_bias(total, self.data.joint_stiffness,
                                  self.data.joint_pos_limits, self._gravity_joint_ids)

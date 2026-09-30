@@ -131,6 +131,35 @@ def test_terminal_mixin_preserves_pre_reset_obs_for_only_reset_envs():
         torch.tensor([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]))
 
 
+def test_numerical_recovery_respawns_selected_rows_without_terminal_capture():
+    from types import SimpleNamespace
+    class FakeBase:
+        def _reset_idx(self, ids):
+            self.reset_ids.extend(ids.tolist())
+        def step(self, action):
+            if self.inject:
+                self._recover_numerical_dynamics(torch.tensor([True, False]),
+                    {"gravity_nonfinite": torch.tensor([True, False])})
+                self.inject = False
+            return {'policy': torch.zeros(2, 4)}, torch.zeros(2), \
+                self._numerical_failure.clone(), torch.zeros(2, dtype=torch.bool), {}
+    class Env(TerminalObservationMixin, FakeBase):
+        pass
+    env = Env()
+    env.num_envs, env.device = 2, 'cpu'
+    env.scene = {'robot': SimpleNamespace()}
+    env.reset_ids, env.inject = [], True
+    env.enable_numerical_dynamics_recovery()
+    _, _, done, _, info = env.step(None)
+    assert env.reset_ids == [0]
+    assert done.tolist() == [True, False]
+    assert info['transition_numerical_failure'].tolist() == [True, False]
+    assert env._terminal_ids is None
+    assert not env._capture_terminal
+    _, _, done, _, info = env.step(None)
+    assert not done.any() and not info['transition_numerical_failure'].any()
+
+
 @pytest.mark.parametrize("steps", [1, 4, 20])
 def test_diffusion_stored_chain_likelihoods_match_recomputation(steps):
     policy = DiffusionPolicy(4, 2, DiffusionConfig(3, steps, 32, .1))

@@ -179,8 +179,10 @@ def grasp_unsafe(env) -> torch.Tensor:
 def invalid_reset(env) -> torch.Tensor:
     """Request a partial respawn without labeling reset physics as task failure."""
     grasp = privileged_grasp_step(env)
-    return (reset_settling_step(env).invalid | grasp.invalid_box_pose
-            | grasp.invalid_flap_pose)
+    invalid = (reset_settling_step(env).invalid | grasp.invalid_box_pose
+               | grasp.invalid_flap_pose)
+    numerical = getattr(env, "_numerical_failure", None)
+    return invalid if numerical is None else invalid | numerical
 
 
 def task_time_out(env) -> torch.Tensor:

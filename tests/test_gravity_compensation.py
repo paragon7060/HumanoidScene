@@ -172,6 +172,45 @@ def test_nonfinite_compensation_fails_explicitly(invalid):
                            torch.tensor([[[-1., 1.]]]), [0])
 
 
+def test_opt_in_recovery_repairs_only_bad_drive_rows_and_keeps_strict_default():
+    path = Path(__file__).parents[1] / "src/kuavo_isaaclab_scene/robots/gravity_articulation.py"
+    cls = next(n for n in ast.parse(path.read_text()).body if isinstance(n, ast.ClassDef))
+    class Base:
+        def _apply_actuator_model(self):
+            self._joint_pos_target_sim[:] = self.data.joint_pos_target
+            self.data.computed_torque.zero_()
+    ns = {"Articulation": Base, "torch": torch, "gravity_drive_bias": gravity_drive_bias}
+    exec(compile(ast.Module(body=[cls], type_ignores=[]), str(path), "exec"), ns)
+    robot = ns[cls.name]()
+    robot._gravity_joint_ids = [0, 1]
+    robot.data = NS(joint_pos_target=torch.ones(2, 2), joint_pos=torch.zeros(2, 2),
+        joint_vel=torch.zeros(2, 2), joint_stiffness=torch.full((2, 2), 100.),
+        joint_pos_limits=torch.tensor([[[-2., 2.]] * 2] * 2),
+        joint_effort_limits=torch.full((2, 2), 100.),
+        computed_torque=torch.zeros(2, 2), applied_torque=torch.zeros(2, 2))
+    robot.root_physx_view = NS(get_gravity_compensation_forces=lambda:
+        torch.tensor([[10., 20.], [float('nan'), 1.]]))
+    for name in ('_joint_pos_target_sim', '_joint_vel_target_sim', '_joint_effort_target_sim',
+                 'total_feedforward_torque', 'gravity_compensation_torque',
+                 'inverse_dynamics_torque', 'gravity_compensation_bias'):
+        setattr(robot, name, torch.zeros(2, 2))
+    robot.command_feedforward_mode = 'off'
+    with pytest.raises(ValueError, match='Non-finite'):
+        robot._apply_actuator_model()
+    calls = []
+    def recover(mask, diagnostics):
+        calls.append((mask.clone(), diagnostics))
+        robot.data.joint_pos[mask] = torch.tensor([-.1, .3])
+    robot.nonfinite_dynamics_recovery = recover
+    robot._apply_actuator_model()
+    assert calls[0][0].tolist() == [False, True]
+    assert calls[0][1]['gravity_nonfinite'].tolist() == [False, True]
+    torch.testing.assert_close(robot._joint_pos_target_sim[0], torch.tensor([1.1, 1.2]))
+    torch.testing.assert_close(robot._joint_pos_target_sim[1], torch.tensor([-.1, .3]))
+    assert torch.isfinite(robot.total_feedforward_torque).all()
+    assert robot.total_feedforward_torque[1].eq(0).all()
+
+
 def test_body_profile_extends_inverse_dynamics_to_the_torso_that_carries_the_arms():
     names = ["knee_joint", "leg_joint", "waist_pitch_joint", "waist_yaw_joint", "wheel_left_front_joint"] + [f"zarm_{s}{i}_joint" for s in "lr" for i in range(1, 8)]
     kp = wbc_acceleration_profile(names)[0].tolist()
