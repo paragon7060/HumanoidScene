@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 import torch
 
-from ..multi_box.debug.contact_force import per_body_forces
+from ..multi_box.debug.contact_force import per_body_filtered_forces
 
 
 RACK = "rack"
@@ -70,6 +70,7 @@ class ContactProbe:
             V2_COLLISION_BODY_NAMES,
             V2_OBSTACLE_SENSOR_NAME,
             V2_RACK_SENSOR_NAMES,
+            V2_OBSTACLE_FILTER_SENSOR_NAMES,
         )
         if float(report_force_n) <= 0.0:
             raise ValueError("Contact report threshold must be positive.")
@@ -77,6 +78,7 @@ class ContactProbe:
         self.report_force_n = float(report_force_n)
         self.obstacle_sensor = V2_OBSTACLE_SENSOR_NAME
         self.rack_sensors = V2_RACK_SENSOR_NAMES
+        self.obstacle_filters = V2_OBSTACLE_FILTER_SENSOR_NAMES
         self.bodies = tuple(V2_COLLISION_BODY_NAMES)
         names = list(env.scene[V2_OBSTACLE_SENSOR_NAME].body_names)
         if set(names) != set(self.bodies):
@@ -105,12 +107,14 @@ class ContactProbe:
 
     def measure(self):
         """Report this control step's contacts from the already-updated buffers."""
-        net_forces = self.env.scene[self.obstacle_sensor].data.net_forces_w
         matrices = tuple(
             self.env.scene[name].data.force_matrix_w for name in self.rack_sensors)
-        if net_forces is None or any(matrix is None for matrix in matrices):
+        obstacles = tuple(self.env.scene[name].data.force_matrix_w
+                          for name in self.obstacle_filters)
+        if any(matrix is None for matrix in (*matrices, *obstacles)):
             return ()
-        rack, obstacle = per_body_forces(net_forces, matrices, self.sensor_indices)
+        rack = per_body_filtered_forces(matrices)
+        obstacle = per_body_filtered_forces(obstacles)
         positions = self.env.scene["robot"].data.body_pos_w[0, self.robot_body_ids]
         return link_contacts(
             self.bodies, rack[0], obstacle[0], positions, self.report_force_n)
@@ -146,4 +150,3 @@ class ContactProbe:
             translations=translations,
             marker_indices=[MARKER_KINDS.index(contact.kind) for contact in contacts],
         )
-

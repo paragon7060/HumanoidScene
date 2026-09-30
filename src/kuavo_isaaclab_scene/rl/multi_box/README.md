@@ -75,7 +75,7 @@ boundary currently covers:
   they are zero without a confident active target and never use exact simulator
   flap-link or contact truth.  The critic has a separate privileged view.
 - a bootable staged-grasp manager assembly with 24 unified S63/Leju actions and
-  a fixed 441-value deployable actor observation.  Run the isolated GPU smoke
+  a fixed 464-value deployable actor observation.  Run the isolated GPU smoke
   check with `python -m kuavo_isaaclab_scene.rl.multi_box.experiments.inspect_grasp_assembly
   --steps 2 --num-envs 1 --headless --device cuda:0`.
 - a vectorized privileged grasp adapter that maps each environment's active
@@ -90,9 +90,11 @@ boundary currently covers:
   contact above 5 N, a dropped/unstable box, excessive box lift/speed, and a
   base position beyond the 1.5 m workspace are hard failures. Structural rack
   and roller contact have their own filtered `robot_rack_collision` input and penalty
-  above 10 N. Their force is removed from the aggregate signal before testing
-  other obstacles (including boxes, conveyor, and floor) at 5 N, so simultaneous
-  rack and non-rack contacts are evaluated independently.
+  above 10 N. Independent body-pair filters measure conveyor surface, rails and legs at
+  5 N, excluding task boxes and floor. Each guard uses the largest eligible
+  pair force, so contacts are neither summed across links nor cancelled by
+  opposite vectors. Other workcell obstacles must be registered in
+  `debug/contact_force.py:eligible_obstacle_targets`.
 - randomized resets use the measured front box-root reference and box-footprint
   spacing, including the roller deck's 1 cm support height.  Full-task scenes
   pack every region's selected boxes into a contiguous front-to-back queue

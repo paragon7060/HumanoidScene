@@ -67,7 +67,7 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
     source = json.loads(source_path.read_text())
     for key in (
         "task_family", "schema_version", "skill", "algorithm", "robot_model",
-        "gripper", "actions", "action_contract", "observations", "observation_contract", "critic_mapping",
+        "gripper", "actions", "action_contract", "observations", "observation_contract", "critic_mapping", "contact_contract",
         "reward_profile", "exploration", "demonstrations", "self_collision",
         "action_projection",
     ):
@@ -313,6 +313,7 @@ def main() -> None:
                 "action_projection": GraspActionProjector.name,
                 "observations": observation_dims,
                 "observation_contract": "neutral_flap_center_controller_state_actual_base_twist_v2",
+                "contact_contract": "max_filtered_rack_and_workcell_pairs_without_boxes_or_floor_v2",
                 "critic_mapping": {
                     "actor": ["policy"],
                     "critic": ["policy", "critic"],

@@ -29,7 +29,7 @@ _FRONT_DISTANCE_LABELS = ("le_0p25m", "0p25_to_0p5m", "0p5_to_1m", "1_to_2m", "o
 class _SafetyDiagnostics:
     """Count exact failure predicates and contact-force bands per iteration."""
 
-    def __init__(self, device):
+    def __init__(self, device, obstacle_names=(), obstacle_threshold=5.0):
         self.invalid_box_pose = torch.zeros((), dtype=torch.long, device=device)
         self.invalid_flap_pose = torch.zeros((), dtype=torch.long, device=device)
         self.causes = torch.zeros(len(_SAFETY_CAUSES), dtype=torch.long, device=device)
@@ -39,6 +39,10 @@ class _SafetyDiagnostics:
         self.force_limits = torch.tensor(_CONTACT_FORCE_LIMITS_N, device=device)
         self.force_bands = torch.zeros(2, len(_CONTACT_FORCE_LIMITS_N), dtype=torch.long, device=device)
         self.force_max = torch.zeros(2, device=device)
+        self.obstacle_names = obstacle_names
+        self.obstacle_threshold = obstacle_threshold
+        self.obstacle_counts = torch.zeros(len(obstacle_names), dtype=torch.long, device=device)
+        self.obstacle_max = torch.zeros(len(obstacle_names), device=device)
 
     def record(self, safety, unsafe):
         get = safety.__getitem__ if isinstance(safety, dict) else lambda name: getattr(safety, name)
@@ -51,6 +55,11 @@ class _SafetyDiagnostics:
         self.unattributed += ((count == 0) & unsafe).sum()
         eligible = get("contact_eligible")
         self.eligible += eligible.sum()
+        if self.obstacle_names:
+            force = get("obstacle_target_force_n")
+            self.obstacle_counts += ((force > self.obstacle_threshold) & eligible[:, None]).sum(0)
+            self.obstacle_max = torch.maximum(self.obstacle_max,
+                torch.where(eligible[:, None], force, 0.0).amax(0))
         for index, force in enumerate((get("rack_force_n"), get("obstacle_force_n"))):
             self.force_bands[index] += ((force[:, None] > self.force_limits) & eligible[:, None]).sum(0)
             finite_force = torch.nan_to_num(force, nan=0.0, posinf=1e6, neginf=0.0).clamp(0, 1e6)
@@ -67,6 +76,10 @@ class _SafetyDiagnostics:
         metrics["unsafe_cause/overlap"] = int(self.overlap.item())
         metrics["unsafe_cause/unattributed"] = int(self.unattributed.item())
         metrics["contact_force/eligible_samples"] = int(self.eligible.item())
+        for name, count, force in zip(self.obstacle_names, self.obstacle_counts.tolist(),
+                                      self.obstacle_max.tolist(), strict=True):
+            metrics[f"unsafe_obstacle/{name}"] = int(count)
+            metrics[f"contact_force/obstacle_{name}_max_n"] = float(force)
         for index, family in enumerate(("rack", "obstacle")):
             metrics[f"contact_force/{family}_max_n"] = float(self.force_max[index].item())
             for threshold, count in zip(_CONTACT_FORCE_LIMITS_N, self.force_bands[index].tolist(), strict=True):
@@ -421,7 +434,11 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         online_teacher_labels = 0
         terminated_episodes = timeout_episodes = 0
         termination_counts: dict[str, int] = {}
-        safety_diagnostics = _SafetyDiagnostics(env.device)
+        from ..multi_box.debug.contact_force import eligible_obstacle_targets
+        obstacle_names = [path.rsplit("/", 1)[-1]
+                          for path in eligible_obstacle_targets(env.cfg.scene)]
+        safety_diagnostics = _SafetyDiagnostics(
+            env.device, obstacle_names, float(env.cfg.task.obstacle_contact_force))
         approach_diagnostics = _ApproachDiagnostics(env.device)
         skipped_implausible = torch.zeros((), dtype=torch.long, device=env.device)
         for _ in range(args.rollout_steps):

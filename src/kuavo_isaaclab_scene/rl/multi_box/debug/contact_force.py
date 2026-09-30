@@ -5,6 +5,37 @@ from __future__ import annotations
 import torch
 
 
+def eligible_obstacle_targets(scene) -> list[str]:
+    """Physical workcell obstacles; task boxes and ground are deliberately absent."""
+    names = ["conveyor_surface", *sorted(
+        name for name in vars(scene) if name.startswith(("conveyor_rail_", "conveyor_leg_")))]
+    targets = [getattr(scene, name).prim_path for name in names]
+    if getattr(scene, "fence", None) is not None:
+        targets.append(scene.fence.prim_path)
+    if getattr(scene, "button_station", None) is not None:
+        targets.extend(scene.button_station.prim_path + "/" + part for part in ("Base", "Plunger"))
+    return targets
+
+
+def per_body_filtered_forces(force_matrices: tuple[torch.Tensor, ...]) -> torch.Tensor:
+    """Maximum individual filtered body-pair magnitude per robot body."""
+    if not force_matrices:
+        raise ValueError("At least one filtered contact matrix is required")
+    return torch.stack([force.norm(dim=-1).flatten(1).amax(-1)
+                        for force in force_matrices], dim=-1)
+
+
+def filtered_force_by_target(env, sensor_names: tuple[str, ...]) -> torch.Tensor:
+    """Largest robot-body pair contact for each explicitly filtered obstacle."""
+    columns = []
+    for name in sensor_names:
+        force = env.scene[name].data.force_matrix_w
+        if force is None or force.shape[:2] != (env.num_envs, 1):
+            raise RuntimeError(f"{name} filtered obstacle forces are unavailable")
+        columns.append(force[:, 0].norm(dim=-1))
+    return torch.stack(columns).amax(0)
+
+
 def maximum_filtered_force(env, sensor_names: tuple[str, ...]) -> torch.Tensor:
     """Return the maximum filtered normal force for each environment."""
     maxima = []

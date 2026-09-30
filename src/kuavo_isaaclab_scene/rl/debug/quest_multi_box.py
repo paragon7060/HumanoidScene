@@ -28,7 +28,7 @@ from ..multi_box.debug.grasp_probe import QuestGraspProbe
 from ..multi_box.debug.carry_probe import QuestCarryProbe
 from ..multi_box.debug.place_probe import QuestPlaceProbe
 from ..multi_box.debug.contact_sensors import (
-    V2_OBSTACLE_SENSOR_NAME,
+    V2_OBSTACLE_FILTER_SENSOR_NAMES,
     V2_RACK_SENSOR_NAMES,
 )
 from ..multi_box.debug.contact_force import maximum_filtered_force
@@ -72,19 +72,16 @@ def _common_reward_input(env, snapshot, previous: dict[str, bool]):
     ).square().mean(-1).clamp(0, 1)
     joint_limit = mdp.joint_pos_limits(env).clamp(0, 1)
 
-    obstacle_force = env.scene[V2_OBSTACLE_SENSOR_NAME].data.net_forces_w
-    if obstacle_force is None:
-        raise RuntimeError("VR reward calibration requires obstacle contact forces.")
+    obstacle_force = maximum_filtered_force(env, V2_OBSTACLE_FILTER_SENSOR_NAMES)
     threshold = float(env.cfg.task.obstacle_contact_force)
     rack_force = maximum_filtered_force(env, V2_RACK_SENSOR_NAMES)
     robot_rack = bool(
         env.episode_length_buf[0] > 3
-        and rack_force[0].item() > threshold
+        and rack_force[0].item() > float(env.cfg.multi_box.rack_contact_force)
     )
     obstacle = bool(
         env.episode_length_buf[0] > 3
-        and obstacle_force.norm(dim=-1).amax().item() > threshold
-        and not robot_rack
+        and obstacle_force[0].item() > threshold
     )
     root = env.scene["robot"].data.root_pos_w[0]
     radius = torch.linalg.vector_norm(

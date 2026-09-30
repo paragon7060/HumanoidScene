@@ -7,8 +7,29 @@ import torch
 from kuavo_isaaclab_scene.rl.multi_box.debug.contact_force import (
     maximum_filtered_force,
     maximum_non_rack_force,
+    eligible_obstacle_targets,
+    per_body_filtered_forces,
 )
 from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+
+
+def test_eligible_obstacles_exclude_task_boxes_and_floor_by_construction():
+    scene = SimpleNamespace(**{
+        name: SimpleNamespace(prim_path="/World/" + name)
+        for name in ("ground", "rack", "s2_small_0", "conveyor_surface",
+                     "conveyor_rail_left", "conveyor_rail_right", "conveyor_leg_0")})
+    paths = eligible_obstacle_targets(scene)
+    assert set(paths) == {"/World/" + name for name in (
+        "conveyor_surface", "conveyor_rail_left", "conveyor_rail_right", "conveyor_leg_0")}
+
+
+def test_individual_obstacle_pair_max_does_not_sum_or_cancel_contacts():
+    force = torch.zeros(1, 1, 2, 3)
+    force[0, 0, :, 0] = torch.tensor([6.0, -6.0])
+    # A net resultant would vanish; safety must see each actual 6 N contact.
+    per_body = per_body_filtered_forces((force,))
+    torch.testing.assert_close(per_body, torch.tensor([[6.0]]))
+    assert per_body.amax().item() > 5.0
 
 
 def test_rack_force_is_removed_without_hiding_simultaneous_obstacle_contact():

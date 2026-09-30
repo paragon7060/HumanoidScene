@@ -215,6 +215,34 @@ BC strength 1000. The stronger multiplier constrains early Q-driven changes;
 the sample fraction still starts at 20% and decreases. It is a pilot setting,
 not a measured successful profile.
 
+## Obstacle guard did not match the documented task contract
+
+A subsequent source audit found that the obstacle guard still used net robot
+contact minus rack vectors. Contrary to `RL_MULTI_BOX_V2_PILOT.md`, it therefore
+included task boxes and floor, and could also sum or cancel multiple contacts
+on one body. Fingers were omitted but gripper bases were not. This is a real
+common-environment discrepancy; it can penalize box handling, but the existing
+aggregate logs cannot prove which object caused each historical termination.
+
+The guard now uses explicit robot-body-to-workcell pair filters. In the
+current v2 scene the obstacle list is the conveyor surface, two rails and
+four legs. Task boxes and ground are absent by construction. Rack/rollers
+retain their separate 10 N filter; the conveyor guard remains 5 N, with the
+maximum individual pair magnitude rather than a net resultant. Seven extra
+filtered vectors per collision-relevant robot body require about 1.64 MiB
+of output tensors at 2,048 environments, apart from sensor/PhysX overhead.
+No additional box-pool pair filters are created. Quest contact markers and
+reward calibration use the same filtered forces and separate thresholds.
+Future workcell obstacles must be added through `eligible_obstacle_targets`.
+The actor never receives these privileged contact filters. SAC logs
+`unsafe_obstacle/<Surface|RailLeft|RailRight|Leg0..3>` and each object's
+maximum eligible force, using pre-reset snapshots.
+
+The already started teacher-label pilot is stopped before completion so the
+next test uses this corrected safety contract. Its partial run is not used as
+a success-rate comparison. New manifests include an explicit contact contract,
+and old-contract SAC checkpoints are rejected on resume.
+
 ## Reproduce the transfer pilot
 
 Discover the existing host-local remote with `bash scripts/rl/gdrive.sh listremotes`

@@ -12,11 +12,10 @@ from isaaclab.managers import TerminationTermCfg as Done
 from isaaclab.utils import configclass
 
 from ..debug.contact_sensors import (
-    V2_COLLISION_BODY_NAMES,
-    V2_OBSTACLE_SENSOR_NAME,
     V2_RACK_SENSOR_NAMES,
+    V2_OBSTACLE_FILTER_SENSOR_NAMES,
 )
-from ..debug.contact_force import maximum_filtered_force, maximum_non_rack_force
+from ..debug.contact_force import maximum_filtered_force, filtered_force_by_target
 from ..metrics import grasp_gated_lift_inputs
 from ..rewards import (
     CommonRewardInput,
@@ -47,6 +46,7 @@ class V2GraspSafetyStep:
     base_distance_m: torch.Tensor
     rack_force_n: torch.Tensor
     obstacle_force_n: torch.Tensor
+    obstacle_target_force_n: torch.Tensor
     self_collision_distance_m: torch.Tensor
 
     @property
@@ -80,21 +80,8 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
         return env._multi_box_grasp_safety_step
 
     grasp = privileged_grasp_step(env)
-    obstacle_sensor = env.scene[V2_OBSTACLE_SENSOR_NAME]
-    force = obstacle_sensor.data.net_forces_w
-    if force is None or force.shape[0] != env.num_envs:
-        raise RuntimeError("V2 obstacle contact forces are unavailable.")
-    if getattr(env, "_multi_box_obstacle_body_indices", None) is None:
-        names = obstacle_sensor.body_names
-        if len(names) != len(V2_COLLISION_BODY_NAMES) or set(names) != set(V2_COLLISION_BODY_NAMES):
-            raise RuntimeError("V2 obstacle and rack contact sensors cover different robot bodies.")
-        env._multi_box_obstacle_body_indices = tuple(
-            names.index(name) for name in V2_COLLISION_BODY_NAMES)
-    rack_matrices = tuple(env.scene[name].data.force_matrix_w for name in V2_RACK_SENSOR_NAMES)
-    if any(value is None for value in rack_matrices):
-        raise RuntimeError("V2 filtered rack contact forces are unavailable.")
-    obstacle_force = maximum_non_rack_force(
-        force, rack_matrices, env._multi_box_obstacle_body_indices)
+    obstacle_targets = filtered_force_by_target(env, V2_OBSTACLE_FILTER_SENSOR_NAMES)
+    obstacle_force = obstacle_targets.amax(-1)
     rack_force = maximum_filtered_force(env, V2_RACK_SENSOR_NAMES)
     settling = reset_settling_step(env)
     # Ignore import/reset snap impulses and the first three task control steps.
@@ -119,8 +106,8 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
             4.0 * float(env.cfg.multi_box.self_collision_clearance),
             device=env.device,
         )
-    # Rack force was removed from the aggregate signal, so a simultaneous
-    # contact with another obstacle remains detectable at its own threshold.
+    # Independent pair filters keep simultaneous rack and conveyor contacts
+    # detectable without treating box handling or floor contact as obstacles.
     obstacle_collision = (obstacle_force > obstacle_threshold) & grace_over
 
     base_offset = env.scene["robot"].data.root_pos_w - env.scene.env_origins
@@ -156,6 +143,7 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
         base_distance_m=base_distance,
         rack_force_n=rack_force,
         obstacle_force_n=obstacle_force,
+        obstacle_target_force_n=obstacle_targets,
         self_collision_distance_m=self_collision_distance,
     )
     env._multi_box_grasp_safety_step = result

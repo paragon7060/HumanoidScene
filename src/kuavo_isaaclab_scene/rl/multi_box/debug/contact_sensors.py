@@ -7,6 +7,7 @@ from isaaclab.sensors import ContactSensorCfg
 from ...scenes.asset_geometry import box_geometry
 from ..scene.spawn import physical_asset_names
 from ....workcell.rack_rollers import rack_contact_body_paths
+from .contact_force import eligible_obstacle_targets
 
 
 FINGER_BODY_NAMES = ("l_f_finger", "l_b_finger", "r_f_finger", "r_b_finger")
@@ -27,6 +28,10 @@ V2_COLLISION_BODY_NAMES = (
 )
 V2_RACK_SENSOR_NAMES = tuple(
     f"multi_box_robot_rack_contact_{index}"
+    for index in range(len(V2_COLLISION_BODY_NAMES))
+)
+V2_OBSTACLE_FILTER_SENSOR_NAMES = tuple(
+    f"multi_box_robot_obstacle_filtered_{index}"
     for index in range(len(V2_COLLISION_BODY_NAMES))
 )
 
@@ -83,8 +88,8 @@ def add_multi_box_contact_sensors(scene) -> None:
 
     # Aggregate collision-relevant body contacts. Fingers are deliberately
     # excluded because their box contacts are the grasp signal. This catches
-    # arm/torso contact with the rack, conveyor, boxes, and floor without the
-    # quadratic memory cost of filtering every obstacle per robot link.
+    # raw robot contacts for diagnostics. Safety uses explicit pair filters
+    # below, so box handling and floor contact cannot become obstacle failures.
     setattr(scene, V2_OBSTACLE_SENSOR_NAME, ContactSensorCfg(
         prim_path=("{ENV_REGEX_NS}/Kuavo/(" + "|".join(V2_COLLISION_BODY_NAMES) + ")"),
         update_period=0.0,
@@ -104,6 +109,18 @@ def add_multi_box_contact_sensors(scene) -> None:
             update_period=0.0,
             history_length=1,
             filter_prim_paths_expr=list(rack_targets),
+        ))
+
+    # Seven conveyor targets in the current v2 scene. This adds only 70
+    # vector entries per environment and does not filter the 18-box pool.
+    obstacle_targets = eligible_obstacle_targets(scene)
+    for sensor_name, body_name in zip(
+            V2_OBSTACLE_FILTER_SENSOR_NAMES, V2_COLLISION_BODY_NAMES, strict=True):
+        setattr(scene, sensor_name, ContactSensorCfg(
+            prim_path=f"{{ENV_REGEX_NS}}/Kuavo/{body_name}",
+            update_period=0.0,
+            history_length=1,
+            filter_prim_paths_expr=list(obstacle_targets),
         ))
 
 

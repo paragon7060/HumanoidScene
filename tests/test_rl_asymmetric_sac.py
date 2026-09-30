@@ -37,7 +37,7 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import 
 
 
 def test_v2_safety_diagnostics_separates_unsafe_causes_and_force_bands():
-    monitor = _SafetyDiagnostics("cpu")
+    monitor = _SafetyDiagnostics("cpu", ("Surface", "RailLeft"))
     false = torch.zeros(3, dtype=torch.bool)
     monitor.record(SimpleNamespace(
         invalid_box_pose=torch.tensor([True, False, False]),
@@ -49,6 +49,7 @@ def test_v2_safety_diagnostics_separates_unsafe_causes_and_force_bands():
         contact_eligible=torch.tensor([True, True, False]),
         rack_force_n=torch.tensor([0.2, 12.0, 100.0]),
         obstacle_force_n=torch.tensor([0.0, 6.0, 100.0]),
+        obstacle_target_force_n=torch.tensor([[0.0, 0.0], [6.0, 4.0], [100.0, 100.0]]),
     ), torch.tensor([False, True, True]))
 
     result = monitor.report()
@@ -64,6 +65,9 @@ def test_v2_safety_diagnostics_separates_unsafe_causes_and_force_bands():
     assert result["contact_force/rack_gt_10p0_n"] == 1
     assert result["contact_force/obstacle_gt_5p0_n"] == 1
     assert result["contact_force/rack_max_n"] == 12.0
+    assert result["unsafe_obstacle/Surface"] == 1
+    assert result["unsafe_obstacle/RailLeft"] == 0
+    assert result["contact_force/obstacle_RailLeft_max_n"] == 4.0
 
 
 def test_safe_approach_diagnostics_identify_where_rack_collisions_occur():
@@ -183,7 +187,7 @@ def test_saturated_variance_logits_cannot_exceed_configured_exploration_cap():
         agent.actor.network[-1].bias[2:].fill_(100)
     obs = torch.zeros(4096, 4)
     actions, _ = agent.actor(obs)
-    assert actions.std().item() < 0.35
+    assert actions.std(dim=0).amax().item() < 0.35
 
 
 def test_demo_reward_is_ignored_by_actor_imitation_and_critic():
