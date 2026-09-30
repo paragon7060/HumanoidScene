@@ -42,8 +42,10 @@ def main():
     parser.add_argument("--initial-policy-std", type=float, default=0.15)
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
-    parser.add_argument("--ik-grasp-goal", choices=("center", "demo"), default="center")
+    parser.add_argument("--ik-grasp-goal", choices=("center", "demo", "center-to-demo"), default="center")
     parser.add_argument("--ik-lift-distance-m", type=float, default=0.025)
+    parser.add_argument("--ik-base-clearance-m", type=float, default=0.65)
+    parser.add_argument("--ik-torso-forward-m", type=float, default=0.0)
     parser.add_argument("--teacher-pretrain-steps", type=int, default=5000)
     parser.add_argument("--online-teacher-labels", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--actor-lr", type=float, default=0.00003)
@@ -107,6 +109,8 @@ def main():
         parser.error("Replay capacity must hold a full vector step")
     if not 0.008 <= args.ik_lift_distance_m <= 0.15:
         parser.error("IK wrist lift distance must be in [0.008, 0.15] m")
+    if not 0.4 <= args.ik_base_clearance_m <= 0.8 or not 0 <= args.ik_torso_forward_m <= 0.15:
+        parser.error("Invalid IK base clearance or bounded upright torso assistance")
     if args.checkpoint and not args.checkpoint.is_file():
         parser.error("Missing checkpoint")
     source = args.source_root.resolve()
@@ -157,6 +161,7 @@ def main():
                      "initial_alpha", "initial_policy_std", "max_policy_std", "guided_warmup_mode",
                      "teacher_pretrain_steps",
                      "ik_grasp_goal", "ik_lift_distance_m",
+                     "ik_base_clearance_m", "ik_torso_forward_m",
                      "actor_lr", "critic_warmup_updates", "success_replay_capacity", "success_batch_fraction",
                      "reward_scale", "actor_feature_mode",
                      "goal_replay_capacity", "goal_batch_fraction",

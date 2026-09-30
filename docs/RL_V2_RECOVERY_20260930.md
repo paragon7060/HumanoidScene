@@ -285,6 +285,31 @@ would reduce that ratio to 2 with a 1,024 batch, which is not the same learning
 profile. Monitor real held success and unconstrained SAC performance before
 calling any of these settings solved.
 
+## Acquisition pose and body reach assistance
+
+The final-VR-pose-first guide produced no physical pinch in its early rollout,
+although several environments reached its close/lift command phase. A closing
+command is therefore not evidence of grasp. The pilot was stopped and its
+partial data is not considered a successful teacher dataset.
+
+`--ik-grasp-goal center-to-demo` now acquires at the neutral flap center and
+only then proposes the demonstration-offset pull plus wrist lift. This keeps
+the reference's final pose from replacing the initial acquisition pose.
+`--ik-base-clearance-m` and `--ik-torso-forward-m` expose the previously fixed
+0.65 m base clearance and zero forward-torso assistance. The next pilot uses
+0.55 m clearance and up to 0.10 m upright forward translation while a hand
+is still more than 5 cm from the goal. The standard torso solver retains its
+15 cm forward and pitch limits; after lift begins, body commands stop.
+All rack/obstacle contacts remain subject to the same 10 N / 5 N checks.
+These settings affect exploration labels, not task reset difficulty or actor
+observation geometry. Defaults preserve the earlier center/0.65 m/no-forward
+profile for comparisons.
+
+The active follow-up directory is
+`artifacts/rl/drive_runs/sac_mbv2_acquire_pull_pilot_gpu3_20260930_2014/`,
+32 environments and 120 iterations, with the previous 20,000-step imitation,
+slow diagnostic demo decay, online labels and 80 mm wrist lift settings.
+
 ## Reproduce the transfer pilot
 
 Discover the existing host-local remote with `bash scripts/rl/gdrive.sh listremotes`

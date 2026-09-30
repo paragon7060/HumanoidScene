@@ -67,7 +67,8 @@ def successful_demo_grasp_offsets(demonstrations, front_y):
 class KinematicGraspExplorer:
     """Use successful demo wrist orientations and a shared bounded IK servo."""
 
-    def __init__(self, env, demonstrations, *, grasp_goal="center", lift_distance_m=0.025):
+    def __init__(self, env, demonstrations, *, grasp_goal="center", lift_distance_m=0.025,
+                 base_clearance_m=0.65, torso_forward_m=0.0):
         from isaaclab.controllers import DifferentialIKControllerCfg
         from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
         from isaaclab.utils.math import quat_from_matrix
@@ -77,9 +78,12 @@ class KinematicGraspExplorer:
         from ..metrics.potentials import FRONT_STAGE_CLEARANCE_M
 
         self.env = env
-        if grasp_goal not in ("center", "demo") or not 0.008 <= lift_distance_m <= 0.15:
+        if grasp_goal not in ("center", "demo", "center-to-demo") or not 0.008 <= lift_distance_m <= 0.15 \
+                or not 0.4 <= base_clearance_m <= 0.8 or not 0 <= torso_forward_m <= 0.15:
             raise ValueError("Invalid IK grasp goal or wrist lift distance")
+        self.grasp_goal = grasp_goal
         self.lift_distance_m = lift_distance_m
+        self.base_clearance_m, self.torso_forward_m = base_clearance_m, torso_forward_m
         self.front_y = RACK_RAW_BOUNDS_M[1][1] * workcell_scale("rack")[1] + FRONT_STAGE_CLEARANCE_M
         self.phase = torch.zeros(env.num_envs, dtype=torch.long, device=env.device)
         self.close_ticks = torch.zeros_like(self.phase)
@@ -112,7 +116,7 @@ class KinematicGraspExplorer:
         self.relative_rotation = torch.stack([
             orientations[torch.where(close[:, hand])[0][-1], hand] for hand in range(2)])
         self.goal_offset = torch.zeros(2, 3, device=env.device)
-        if grasp_goal == "demo":
+        if grasp_goal in ("demo", "center-to-demo"):
             # Retarget the successful physical grasp location, not just the
             # wrist rotation, onto each new perceived neutral flap center.
             # Simulator contact annotations are used offline to choose a demo
@@ -128,7 +132,8 @@ class KinematicGraspExplorer:
         tokens, valid = target_token(observation)
         box_rotation = _rotation_matrix(tokens[:, 15:21])
         offset = (box_rotation[:, None] @ self.goal_offset[None, ..., None]).squeeze(-1)
-        centers = centers + offset
+        if self.grasp_goal == "demo":
+            centers = centers + offset
         # Preserve the same front plane after translating the in-flap goal.
         front_offset = ((stage - centers) * outward[:, None]).sum(-1).clamp_min(0)
         stage = centers + front_offset[..., None] * outward[:, None]
@@ -150,6 +155,8 @@ class KinematicGraspExplorer:
         self.close_ticks = torch.where(close.all(-1), self.close_ticks + 1, torch.zeros_like(self.close_ticks))
         begin_lift = (self.phase == 1) & (self.close_ticks >= 15)
         self.lift_goal[begin_lift] = centers[begin_lift]
+        if self.grasp_goal == "center-to-demo":
+            self.lift_goal[begin_lift] += offset[begin_lift]
         self.lift_goal[begin_lift, :, 2] += self.lift_distance_m
         self.phase = torch.where(begin_lift, 2, self.phase)
         target = torch.where((self.phase == 0)[:, None, None], stage, centers).clone()
@@ -166,7 +173,7 @@ class KinematicGraspExplorer:
                 close[:, hand, None] | (self.phase == 2)[:, None], 1.0, -1.0)
         # Place the base opposite the selected box while retaining clearance
         # from the rack front; IK then controls the arm approach independently.
-        center = stage.mean(1) + outward * 0.65
+        center = stage.mean(1) + outward * self.base_clearance_m
         base = self.env.action_manager.get_term("base")
         action[:, self.slices["base"]][:, :2] = (0.5 * center[:, :2] / base._scale[:2]).clamp(-0.5, 0.5)
         action[:, self.slices["base"]][:, 2] = torch.atan2(-outward[:, 1], -outward[:, 0]).clamp(-0.2, 0.2)
@@ -175,6 +182,12 @@ class KinematicGraspExplorer:
         action[:, self.slices["height"]][:, 1] = (2 * (target[..., 2] - tcp[..., 2]).mean(-1)).clamp(-0.3, 0.3)
         action[self.phase > 0, self.slices["base"]] = 0
         action[self.phase > 0, self.slices["height"]] = 0
+        if self.torso_forward_m:
+            torso = self.env.action_manager.get_term("height")
+            error = torso._origin_xz[:, 0] + self.torso_forward_m - torso.processed_actions[:, 0]
+            assist = (self.phase < 2) & (center_error.amax(-1) > 0.05)
+            action[:, self.slices["height"].start] = torch.where(
+                assist, (2 * error).clamp(-0.3, 0.3), 0.0)
         return torch.where(valid[:, None], action, torch.zeros_like(action))
 
     def reset(self, done):

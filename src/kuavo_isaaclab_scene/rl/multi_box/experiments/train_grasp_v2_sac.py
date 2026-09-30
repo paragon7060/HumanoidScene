@@ -102,8 +102,10 @@ def main() -> None:
     parser.add_argument("--initial-policy-std", type=float, default=0.15)
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
-    parser.add_argument("--ik-grasp-goal", choices=("center", "demo"), default="center")
+    parser.add_argument("--ik-grasp-goal", choices=("center", "demo", "center-to-demo"), default="center")
     parser.add_argument("--ik-lift-distance-m", type=float, default=0.025)
+    parser.add_argument("--ik-base-clearance-m", type=float, default=0.65)
+    parser.add_argument("--ik-torso-forward-m", type=float, default=0.0)
     parser.add_argument("--teacher-pretrain-steps", type=int, default=5000,
                         help="Fit the SAC actor to new IK-collected actions once warmup ends.")
     parser.add_argument("--online-teacher-labels", action=argparse.BooleanOptionalAction, default=False,
@@ -186,6 +188,8 @@ def main() -> None:
         parser.error("--teacher-pretrain-steps must be nonnegative")
     if not 0.008 <= args.ik_lift_distance_m <= 0.15:
         parser.error("IK wrist lift distance must be in [0.008, 0.15] m")
+    if not 0.4 <= args.ik_base_clearance_m <= 0.8 or not 0 <= args.ik_torso_forward_m <= 0.15:
+        parser.error("Invalid IK base clearance or bounded upright torso assistance")
     if not 0 < args.actor_lr <= 0.001 or args.critic_warmup_updates < 0 \
             or args.success_replay_capacity < 1 \
             or not 0 <= args.success_batch_fraction < 1 \
@@ -344,6 +348,8 @@ def main() -> None:
                     "teacher_pretrain_steps": args.teacher_pretrain_steps,
                     "ik_grasp_goal": args.ik_grasp_goal,
                     "ik_lift_distance_m": args.ik_lift_distance_m,
+                    "ik_base_clearance_m": args.ik_base_clearance_m,
+                    "ik_torso_forward_m": args.ik_torso_forward_m,
                     "online_teacher_labels": args.online_teacher_labels,
                     "actor_lr": args.actor_lr,
                     "critic_warmup_updates": args.critic_warmup_updates,
