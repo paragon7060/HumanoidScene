@@ -102,6 +102,8 @@ def main() -> None:
     parser.add_argument("--initial-policy-std", type=float, default=0.15)
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
+    parser.add_argument("--ik-grasp-goal", choices=("center", "demo"), default="center")
+    parser.add_argument("--ik-lift-distance-m", type=float, default=0.025)
     parser.add_argument("--teacher-pretrain-steps", type=int, default=5000,
                         help="Fit the SAC actor to new IK-collected actions once warmup ends.")
     parser.add_argument("--online-teacher-labels", action=argparse.BooleanOptionalAction, default=False,
@@ -182,6 +184,8 @@ def main() -> None:
         parser.error("Online teacher labels require enabled IK guidance")
     if args.teacher_pretrain_steps < 0:
         parser.error("--teacher-pretrain-steps must be nonnegative")
+    if not 0.008 <= args.ik_lift_distance_m <= 0.15:
+        parser.error("IK wrist lift distance must be in [0.008, 0.15] m")
     if not 0 < args.actor_lr <= 0.001 or args.critic_warmup_updates < 0 \
             or args.success_replay_capacity < 1 \
             or not 0 <= args.success_batch_fraction < 1 \
@@ -338,6 +342,8 @@ def main() -> None:
                     "max_policy_std": args.max_policy_std,
                     "guided_warmup_mode": args.guided_warmup_mode,
                     "teacher_pretrain_steps": args.teacher_pretrain_steps,
+                    "ik_grasp_goal": args.ik_grasp_goal,
+                    "ik_lift_distance_m": args.ik_lift_distance_m,
                     "online_teacher_labels": args.online_teacher_labels,
                     "actor_lr": args.actor_lr,
                     "critic_warmup_updates": args.critic_warmup_updates,

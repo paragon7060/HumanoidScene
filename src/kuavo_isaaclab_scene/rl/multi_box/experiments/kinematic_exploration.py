@@ -44,10 +44,30 @@ def entry_geometry(observation, front_y):
     return tcp, center, stage, outward
 
 
+def successful_demo_grasp_offsets(demonstrations, front_y):
+    """Offline grasp offsets selected only from physical demo pinch frames."""
+    demo = demonstrations["actor_obs"]
+    token, _ = target_token(demo)
+    rotation = _rotation_matrix(token[:, 15:21])
+    _, centers, _, _ = entry_geometry(demo, front_y)
+    offsets = (rotation.transpose(-1, -2)[:, None]
+               @ (demo[:, 50:68].reshape(-1, 2, 9)[..., :3] - centers)[..., None]).squeeze(-1)
+    privileged = demonstrations["critic_obs"][:, demo.shape[1]:]
+    close = demonstrations["action"][:, 20:22] > 0
+    pinching = privileged[:, 35:37] > 0.5
+    goals = []
+    for hand in range(2):
+        ids = torch.where(close[:, hand] & pinching[:, hand])[0]
+        if not len(ids):
+            raise ValueError("Demo grasp goals require physical pinch annotations for each hand")
+        goals.append(offsets[ids[-1], hand])
+    return torch.stack(goals)
+
+
 class KinematicGraspExplorer:
     """Use successful demo wrist orientations and a shared bounded IK servo."""
 
-    def __init__(self, env, demonstrations):
+    def __init__(self, env, demonstrations, *, grasp_goal="center", lift_distance_m=0.025):
         from isaaclab.controllers import DifferentialIKControllerCfg
         from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
         from isaaclab.utils.math import quat_from_matrix
@@ -57,6 +77,9 @@ class KinematicGraspExplorer:
         from ..metrics.potentials import FRONT_STAGE_CLEARANCE_M
 
         self.env = env
+        if grasp_goal not in ("center", "demo") or not 0.008 <= lift_distance_m <= 0.15:
+            raise ValueError("Invalid IK grasp goal or wrist lift distance")
+        self.lift_distance_m = lift_distance_m
         self.front_y = RACK_RAW_BOUNDS_M[1][1] * workcell_scale("rack")[1] + FRONT_STAGE_CLEARANCE_M
         self.phase = torch.zeros(env.num_envs, dtype=torch.long, device=env.device)
         self.close_ticks = torch.zeros_like(self.phase)
@@ -88,6 +111,15 @@ class KinematicGraspExplorer:
         # or mixing the two demos can yield an invalid wrist orientation.
         self.relative_rotation = torch.stack([
             orientations[torch.where(close[:, hand])[0][-1], hand] for hand in range(2)])
+        self.goal_offset = torch.zeros(2, 3, device=env.device)
+        if grasp_goal == "demo":
+            # Retarget the successful physical grasp location, not just the
+            # wrist rotation, onto each new perceived neutral flap center.
+            # Simulator contact annotations are used offline to choose a demo
+            # frame; the live guide still consumes only deployable geometry.
+            self.goal_offset = successful_demo_grasp_offsets(
+                {key: demonstrations[key].to(env.device)
+                 for key in ("actor_obs", "critic_obs", "action")}, self.front_y)
         self.quat_from_matrix = quat_from_matrix
 
     @torch.no_grad()
@@ -95,6 +127,11 @@ class KinematicGraspExplorer:
         tcp, centers, stage, outward = entry_geometry(observation, self.front_y)
         tokens, valid = target_token(observation)
         box_rotation = _rotation_matrix(tokens[:, 15:21])
+        offset = (box_rotation[:, None] @ self.goal_offset[None, ..., None]).squeeze(-1)
+        centers = centers + offset
+        # Preserve the same front plane after translating the in-flap goal.
+        front_offset = ((stage - centers) * outward[:, None]).sum(-1).clamp_min(0)
+        stage = centers + front_offset[..., None] * outward[:, None]
         target_rotation = box_rotation[:, None] @ self.relative_rotation[None]
         orientation = self.quat_from_matrix(target_rotation.reshape(-1, 3, 3)).reshape(-1, 2, 4)
         stage_error = (stage - tcp[..., :3]).norm(dim=-1)
@@ -113,7 +150,7 @@ class KinematicGraspExplorer:
         self.close_ticks = torch.where(close.all(-1), self.close_ticks + 1, torch.zeros_like(self.close_ticks))
         begin_lift = (self.phase == 1) & (self.close_ticks >= 15)
         self.lift_goal[begin_lift] = centers[begin_lift]
-        self.lift_goal[begin_lift, :, 2] += 0.025
+        self.lift_goal[begin_lift, :, 2] += self.lift_distance_m
         self.phase = torch.where(begin_lift, 2, self.phase)
         target = torch.where((self.phase == 0)[:, None, None], stage, centers).clone()
         target = torch.where((self.phase == 2)[:, None, None], self.lift_goal, target)

@@ -343,7 +343,10 @@ def train(env, args, directory, state=None, demonstration_batch=None):
     )
     if guided_warmup is not None and getattr(args, "guided_warmup_mode", "bc") == "ik":
         from ..multi_box.experiments.kinematic_exploration import KinematicGraspExplorer
-        guided_warmup = KinematicGraspExplorer(env, demonstration_batch)
+        guided_warmup = KinematicGraspExplorer(
+            env, demonstration_batch,
+            grasp_goal=getattr(args, "ik_grasp_goal", "center"),
+            lift_distance_m=getattr(args, "ik_lift_distance_m", 0.025))
     teacher_replay = ActorImitationBuffer(
         min(args.replay_capacity, max(goal_capacity, warmup_target + env.num_envs))
         if getattr(args, "guided_warmup_mode", "bc") == "ik" else goal_capacity,

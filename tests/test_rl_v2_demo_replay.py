@@ -9,6 +9,7 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.demo_replay import load_v2_grasp_demonstrations
+from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import successful_demo_grasp_offsets
 
 
 DATASET = Path(__file__).resolve().parents[1] / "examples/demos/v2_grasp_quest_success.hdf5"
@@ -41,6 +42,17 @@ def test_two_successful_quest_episodes_convert_to_current_replay_contract():
 def test_demo_rejects_self_collision_contract_mismatch():
     with pytest.raises(ValueError, match="self-collision"):
         load_v2_grasp_demonstrations(DATASET, self_collision_enabled=True)
+
+
+def test_retargeted_grasp_requires_physical_pinch_not_only_a_close_command():
+    batch, _ = load_v2_grasp_demonstrations(DATASET, self_collision_enabled=False)
+    offset = successful_demo_grasp_offsets(batch, 0.335)
+    assert offset.shape == (2, 3) and torch.isfinite(offset).all()
+    assert ((offset.norm(dim=-1) > 0.03) & (offset.norm(dim=-1) < 0.15)).all()
+    missing = {**batch, "critic_obs": batch["critic_obs"].clone()}
+    missing["critic_obs"][:, 464 + 35:464 + 37] = 0
+    with pytest.raises(ValueError, match="physical pinch"):
+        successful_demo_grasp_offsets(missing, 0.335)
 
 
 @pytest.mark.parametrize("source_actor_dim", [440, 464])

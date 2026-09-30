@@ -243,6 +243,48 @@ next test uses this corrected safety contract. Its partial run is not used as
 a success-rate comparison. New manifests include an explicit contact contract,
 and old-contract SAC checkpoints are rejected on resume.
 
+## Pilot result and VR grasp retargeting
+
+The corrected-contact/online-label pilot completed all 60 iterations and its
+final checkpoint/logs passed Drive verification. SAC distances reached
+0.302/0.295 m at iteration 51, versus about 0.93/0.95 m in the earlier pilot,
+but physical SAC pinch and held success remained zero. Imitation reached zero
+at iteration 52 and the behavior deteriorated; final distances were
+0.544/0.869 m. This is improved entry, not a successful grasp policy. The
+16- versus 64-environment runs also differ in several settings, so the result
+is not an isolated causal ablation.
+
+The IK guide supplied bilateral contact but no held-success episode in this
+pilot. Its grasp location was the neutral flap center and its wrist lift only
+25 mm; a flexible flap can move without lifting the box. The existing VR
+successes grasp about 7.4/8.1 cm along the flap and 1.8 cm above the neutral
+center, rather than exactly at its center. These are measured demonstration
+offsets, not a claim that all center grasps are physically impossible.
+
+`--ik-grasp-goal demo` retargets a physically annotated successful grasp offset
+onto the new perceived neutral flap center. Live inference still uses only
+pose/proprioception; contact annotations choose the reference offline. Missing
+physical pinch annotations cause an error instead of accepting closed-jaw
+commands as success. `--ik-lift-distance-m` controls the proposed wrist motion
+(8-150 mm) separately from the unchanged 8 mm box clearance / 0.25 s success
+predicate. The default center/25 mm guide is retained as an option. Observation
+relations remain neutral flap centers as requested.
+
+The follow-up GPU 3 run is
+`artifacts/rl/drive_runs/sac_mbv2_vr_goal_pilot_gpu3_20260930_1958/`, 32 environments,
+120 iterations, 900 IK vector steps, 20,000 teacher imitation updates,
+demo grasp offsets and an 80 mm wrist lift. It keeps actor rate 0.00003,
+critic warmup 500, std 0.01/cap 0.02 and BC strength 1000. For this diagnostic
+run imitation decays across the full planned run (`--demo-decay-fraction 1`)
+rather than vanishing before the policy's first complete approach episode.
+It still starts at 20% and decreases; no curriculum or terminal relaxation is
+introduced. A large run must scale minibatch/update count with the number of
+environments: the 16-environment pilot sampled 128 critic rows per new
+transition (4 updates * 512 / 16). Keeping four updates with 2,048 environments
+would reduce that ratio to 2 with a 1,024 batch, which is not the same learning
+profile. Monitor real held success and unconstrained SAC performance before
+calling any of these settings solved.
+
 ## Reproduce the transfer pilot
 
 Discover the existing host-local remote with `bash scripts/rl/gdrive.sh listremotes`

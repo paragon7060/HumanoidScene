@@ -42,6 +42,8 @@ def main():
     parser.add_argument("--initial-policy-std", type=float, default=0.15)
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
+    parser.add_argument("--ik-grasp-goal", choices=("center", "demo"), default="center")
+    parser.add_argument("--ik-lift-distance-m", type=float, default=0.025)
     parser.add_argument("--teacher-pretrain-steps", type=int, default=5000)
     parser.add_argument("--online-teacher-labels", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--actor-lr", type=float, default=0.00003)
@@ -103,6 +105,8 @@ def main():
         parser.error("Online teacher labels require v2 demos and enabled IK guidance")
     if args.replay_capacity < args.num_envs:
         parser.error("Replay capacity must hold a full vector step")
+    if not 0.008 <= args.ik_lift_distance_m <= 0.15:
+        parser.error("IK wrist lift distance must be in [0.008, 0.15] m")
     if args.checkpoint and not args.checkpoint.is_file():
         parser.error("Missing checkpoint")
     source = args.source_root.resolve()
@@ -152,6 +156,7 @@ def main():
         for name in ("warmup_action_hold_steps", "warmup_continuous_scale", "min_alpha",
                      "initial_alpha", "initial_policy_std", "max_policy_std", "guided_warmup_mode",
                      "teacher_pretrain_steps",
+                     "ik_grasp_goal", "ik_lift_distance_m",
                      "actor_lr", "critic_warmup_updates", "success_replay_capacity", "success_batch_fraction",
                      "reward_scale", "actor_feature_mode",
                      "goal_replay_capacity", "goal_batch_fraction",
