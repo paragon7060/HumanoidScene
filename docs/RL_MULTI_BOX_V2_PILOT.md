@@ -118,3 +118,10 @@ labels still train the actor alone. `sac_with_drive.py` forwards these options
 for v2 and retains the existing five-minute verified upload/retention workflow.
 Monitor `actor_q_scale`, `target_entropy_mean`, Q/target values, imitation error,
 and `successful_sac_from_reset_episodes` separately from IK successes.
+
+Full policy resume may adjust the episode-guidance fraction and critic-only
+warmup update threshold: these control collection/update timing without changing
+network parameters or the physical task. Architecture, actor features and other
+saved learning contracts still must match. The optimizer update counter is
+preserved, so a resumed critic that already exceeded the threshold does not
+repeat that warmup. The stored imitation decay horizon is preserved on resume.

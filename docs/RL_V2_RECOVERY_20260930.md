@@ -97,6 +97,23 @@ critic-only warmup. Current hand distances 0.543/0.512 m describe expert
 collection, not SAC progress. Own VRAM was about 11.1 GiB for this bounded
 run. Drive verification remains operational; other users' processes are intact.
 
+The live check stopped cleanly at iteration 36 for transfer to the 1,024-env
+run: 139,483 valid transitions, four IK warmup held successes, zero SAC actor
+updates and zero numerical failures. Teacher fit MSE was 0.10961 → 0.00078050
+over 20,000 updates. The new critic completed 1,235 real-replay updates with
+Q loss 5.078, mean Q -0.343 and target mean -0.314, alpha 0.00001.
+Protected genuine success replay contains 2,816 rows (44 success tails).
+Final checkpoints 25/36 and logs are Drive checksum-verified. These are live
+critic/collection checks, **not a learned SAC held grasp**.
+
+The long continuation preserves this fitted actor, new LayerNorm critic and
+optimizer state, but refills non-serialized uniform replay. The critic-only
+threshold is 1,000, already exceeded by the measured 1,235 updates. Resume
+allows this timing threshold to change without changing saved architecture or
+physical/task contracts. The existing 15,360-actor-update imitation horizon
+is preserved, so expert/imitation starts at 20% and decays during roughly the
+first 12% of the 1,000-iteration total; it is not restarted after resume.
+
 ### Previous launch (01:42 KST)
 
 Latest 2026-10-01 01:42 KST: source `bf63054` resumed on GPU 3 / 1,024

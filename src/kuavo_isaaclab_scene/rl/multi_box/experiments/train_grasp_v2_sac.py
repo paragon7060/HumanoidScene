@@ -75,12 +75,12 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict, *, data_only=False)
             continue
         saved, requested = source.get(key), manifest.get(key)
         if key == "exploration" and isinstance(saved, dict) and isinstance(requested, dict):
-            # Episode assignment changes the source of genuine off-policy
-            # transitions, not the model, action or physical environment contract.
+            # Episode assignment and the critic-only warmup threshold control
+            # collection/update timing, not learned parameters or physical contracts.
             saved = {name: value for name, value in saved.items()
-                     if name != "online_ik_episode_fraction"}
+                     if name not in {"online_ik_episode_fraction", "critic_warmup_updates"}}
             requested = {name: value for name, value in requested.items()
-                         if name != "online_ik_episode_fraction"}
+                         if name not in {"online_ik_episode_fraction", "critic_warmup_updates"}}
         if saved != requested:
             raise ValueError(f"Checkpoint {key} differs from this v2 SAC environment")
 
