@@ -9,17 +9,20 @@ had produced **two new held successes**, while SAC from reset had produced
 the restored one. With imitation/expert decay exhausted, latest left/right
 flap distances were 0.777/0.656 m. Torso pitch remained close to its upright
 reference; this is still a control/learning-data failure rather than verified
-SAC grasp learning. The existing Drive connection currently returns HTTP 401;
-failed backups do not prune unverified files.
+SAC grasp learning. The existing Drive connection returned HTTP 401 temporarily. After user
+reauthentication, the old run's final checkpoint/log upload is checksum-verified
+and the new run's five-minute backup is healthy.
 
 The fresh GPU 3 run started in
 `artifacts/rl/drive_runs/sac_mbv2_success_tail_gpu3_20260930_2238/`
 with child run `sac_20260930_224055_32301e`, source revision `777e922`.
 It uses 1,024 environments, 900 IK warmup vector steps, teacher pretraining and
 initial 20% imitation/expert episodes decaying across a new 1,000-iteration schedule.
-Initialization is in progress; the previous GPU writer is confirmed stopped.
-Its remaining CPU-only supervisor retries final upload after authentication
-recovers. This is not a second GPU training process. It will not inherit an exhausted decay
+Initialization completed; IK warmup is collecting genuine transitions.
+Measured own GPU use is 55,513 MiB including simulation and replay. At
+iteration 8, about 262,000 valid transitions had been collected with zero
+nonfinite transitions; SAC had not started. The previous GPU writer and
+its finished-upload supervisor have both stopped. It will not inherit an exhausted decay
 counter. The 3,000,000-transition CUDA replay uses approximately 22.50 GiB for
 464-D actor / 530-D critic / 24-D action transitions, excluding simulation,
 models and allocator overhead. Actual GPU use must be measured after setup.
@@ -47,7 +50,7 @@ Three data corrections precede that launch:
 
 Validation: 41 CPU SAC/demo checks passed, including chronological ring tails,
 partial resets, expired priority membership, checkpoint compatibility and
-separation of hypothetical labels from Q transitions. Runtime behavior after
+separation of hypothetical labels from Q transitions. Policy performance after
 these changes is not yet established. The new initialization log confirms
 S63 gravity compensation enabled on eighteen body/arm joints.
 
@@ -86,6 +89,26 @@ after iteration 67 with zero SAC successes and thirteen unsafe terminations;
 the latest policy checkpoint is iteration 60. Large-scale training is still
 conditional on SAC sustaining entry and grasp from reset. The follow-up uses
 continued expert episodes, described below, while retaining the learned policy.
+
+## Recorded policy failure and visual evidence
+
+[![Checkpoint 580 at t=2 s: distance 81.2 cm, pinch=0, unsafe=1](assets/rl_v2_policy_580_late_20260928.png)](assets/rl_v2_policy_580_20260928.mp4)
+
+[Play/download the original 2026-09-28 policy video](assets/rl_v2_policy_580_20260928.mp4).
+This is deterministic checkpoint 580, evaluated for 90 control steps / three
+seconds: zero successes and one unsafe termination. It renders CPU USD meshes
+at actual live PhysX poses, rather than RTX screenshots. The late pose shows
+failure to approach the flap; the image alone does not identify a gravity
+feedforward malfunction. Upright torso X/Z control, actual target-error
+telemetry and measured velocity diagnostics address the control uncertainty.
+The recovery run logs gravity compensation ON and torso pitch/tracking errors.
+
+The same video, scene image and controller-attributed metric plot are attached
+natively in the [Notion experiment record](https://app.notion.com/p/3eb63918d42a81f694a9e060aeffe7cc),
+with the problem, correction, method and measured limitation beside each.
+The video is an earlier failure case, **not footage of the new policy**.
+New success footage must be attributed to the controller that actually drove
+it; an IK collection success is not SAC-from-reset success.
 
 ## Baseline and scope
 
