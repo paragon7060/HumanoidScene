@@ -15,6 +15,7 @@ from ..multi_box.experiments.guided_exploration import (
 )
 from ..multi_box.experiments.episode_guidance import EpisodicIKGuidance
 from .storage import log_metrics, save_checkpoint
+from .common import stop_requested
 
 
 _SAFETY_CAUSES = (
@@ -731,6 +732,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     actor_updates += int(metrics["actor_updated"])
                     success_samples += success_count
                     optimizer_updates += 1
+            if stop_requested():
+                break
 
         metrics.update(
             goal_replay_size=goal_replay.size,
@@ -864,7 +867,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 torch_peak_reserved_mib=torch.cuda.max_memory_reserved() / 2**20,
             )
         log_metrics(directory, iteration, metrics)
-        if iteration % args.save_interval == 0 or iteration == start + args.max_iterations:
+        stopping = stop_requested()
+        if iteration % args.save_interval == 0 or iteration == start + args.max_iterations or stopping:
             keep = None if getattr(args, "external_checkpoint_retention", False) \
                 else args.keep_checkpoints
             payload = agent.checkpoint() | {
@@ -879,4 +883,9 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     for key, value in success_replay.data.items()},
             }
             save_checkpoint(directory, payload, iteration, keep)
+        agent.last_iteration = iteration
+        agent.stopped_early = stopping
+        if stopping:
+            print(f"[V2 SAC] Saved final checkpoint at iteration {iteration} on stop request.", flush=True)
+            break
     return agent

@@ -273,7 +273,7 @@ def main() -> None:
             class TransitionEnv(TerminalObservationMixin, ManagerBasedRLEnv):
                 pass
 
-            install_stop_handlers()
+            install_stop_handlers(defer=True)
             torch.manual_seed(args.seed)
             cfg = MultiBoxGraspAssemblyEnvCfg(
                 num_envs=args.num_envs, env_spacing=args.env_spacing)
@@ -431,9 +431,10 @@ def main() -> None:
                 f"privileged={observation_dims['critic']} run={directory.name}",
                 flush=True,
             )
-            train(env, args, directory, state, demonstration_batch)
+            agent = train(env, args, directory, state, demonstration_batch)
             (directory / "status.json").write_text(json.dumps({
-                "status": "complete",
+                "status": "stopped" if agent.stopped_early else "complete",
+                "iteration": agent.last_iteration,
                 "algorithm": "asymmetric_sac",
                 "smoke_test": bool(args.smoke_test),
                 "pilot": bool(args.pilot),

@@ -79,6 +79,36 @@ print('Kit returned zero despite failed training')
     assert result == 1
 
 
+@pytest.mark.parametrize("controlled", [False, True])
+def test_stopped_status_is_accepted_only_after_an_owned_stop_request(tmp_path, controlled):
+    script = """
+import pathlib, signal, sys, time
+p = pathlib.Path(sys.argv[1]) / 'sac_test'
+p.mkdir()
+def finish(number=None, frame=None):
+    (p / 'status.json').write_text('{"status": "stopped"}')
+    (p / 'final_checkpoint.pt').write_bytes(b'complete checkpoint')
+    raise SystemExit(0)
+signal.signal(signal.SIGTERM, finish)
+(p / 'ready').touch()
+if sys.argv[2] == '0':
+    finish()
+while True:
+    time.sleep(.01)
+"""
+    def backup(source, finished):
+        if finished:
+            assert (source / "final_checkpoint.pt").read_bytes() == b"complete checkpoint"
+        return []
+    result = supervisor.supervise(
+        [sys.executable, "-c", script, str(tmp_path), str(int(controlled))],
+        tmp_path, os.environ.copy(), backup, poll=.01, min_free_bytes=0,
+        run_prefix="sac_", require_run_status=True,
+        resource_check=(lambda pid: "test_owned_stop" if (tmp_path / "sac_test/ready").exists() else None)
+        if controlled else None)
+    assert result == (0 if controlled else 1)
+
+
 def test_low_disk_stops_owned_child_then_finalizes_logs(tmp_path, monkeypatch):
     from types import SimpleNamespace
     ready = tmp_path / "train_test" / "ready"

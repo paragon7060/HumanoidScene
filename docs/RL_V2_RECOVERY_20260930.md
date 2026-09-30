@@ -9,7 +9,7 @@ the success reward and terminal transition were both present. This was an
 20,172 current-environment imitation labels and one protected success row.
 The pilot was stopped after iteration 21; its final Drive upload was verified.
 
-GPU 3 now continues from that checkpoint in the distinct directory
+GPU 3 continued from that checkpoint in the distinct directory
 `artifacts/rl/drive_runs/sac_mbv2_acquire_pull_transfer_gpu3_20260930_2035/`.
 It retains 32 environments, the same acquisition/pull/body-assistance settings,
 20,000 teacher-fit updates and online correction labels. Uniform Q replay is
@@ -17,8 +17,11 @@ not serialized, so 256 IK vector steps refill it before fitting the actor and
 resuming SAC. The original 15,360-actor-update imitation decay horizon is
 preserved by checkpoint restore; the new invocation requests 150 additional
 iterations. Checkpoints are saved every 20 iterations, with five-minute Drive
-verification and retention of the newest two verified checkpoints. Large-scale
-training is still conditional on SAC sustaining entry and grasp from reset.
+verification and retention of the newest two verified checkpoints. It stopped
+after iteration 67 with zero SAC successes and thirteen unsafe terminations;
+the latest policy checkpoint is iteration 60. Large-scale training is still
+conditional on SAC sustaining entry and grasp from reset. The follow-up uses
+continued expert episodes, described below, while retaining the learned policy.
 
 ## Baseline and scope
 
@@ -369,6 +372,19 @@ supervisor, add:
 ```bash
 --guided-warmup-mode ik --online-teacher-labels --online-ik-episode-fraction 0.2
 ```
+
+## Graceful stop and final-checkpoint preservation
+
+Several requested pilot stops raised `KeyboardInterrupt` inside Isaac's foreign
+callbacks, which could swallow it and allow more Python iterations before the
+supervisor's 120-second owned-child timeout. Only the last periodic checkpoint
+survived in those cases. V2 SAC now installs deferred stop handlers, checks the
+request after a complete transition/update, saves the current partial iteration
+atomically and exits with explicit `stopped` status. The supervisor accepts that
+status only when it initiated the stop; an unexpected zero-exit `stopped` run
+remains an error. Existing immediate handlers for other runners are preserved.
+Checkpoint retention/Drive finalization rules are unchanged, and stopped runs
+are not labelled naturally completed training.
 
 ## Reproduce the transfer pilot
 

@@ -226,6 +226,22 @@ def test_guidance_successes_exclude_warmup_handoffs_from_sac_from_reset():
     assert guide.successes(success, warming_up=False) == (0, 1, 1, 1)
 
 
+def test_deferred_stop_survives_foreign_callbacks_without_throwing(monkeypatch):
+    import signal
+    from kuavo_isaaclab_scene.rl.runners import common
+
+    handlers = {}
+    monkeypatch.setattr(signal, "signal", lambda sig, handler: handlers.__setitem__(sig, handler))
+    monkeypatch.setattr(common, "_STOP_REQUESTED", False)
+    common.install_stop_handlers(defer=True)
+    handlers[signal.SIGTERM](signal.SIGTERM, None)
+    assert common.stop_requested()
+    common.install_stop_handlers()
+    assert not common.stop_requested()
+    with pytest.raises(KeyboardInterrupt):
+        handlers[signal.SIGINT](signal.SIGINT, None)
+
+
 def test_saturated_variance_logits_cannot_exceed_configured_exploration_cap():
     agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16, initial_policy_std=.15, max_policy_std=.3))
     with torch.no_grad():

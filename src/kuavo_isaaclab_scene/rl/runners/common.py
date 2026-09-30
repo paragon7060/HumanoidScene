@@ -20,13 +20,25 @@ from ...core.paths import default_artifacts_dir
 from ...robots.initial_states import add_initial_state_args, configure_initial_state
 
 
-def install_stop_handlers():
+_STOP_REQUESTED = False
+
+
+def stop_requested():
+    return _STOP_REQUESTED
+
+
+def install_stop_handlers(*, defer=False):
     """Kit's quit flag alone does not stop RSL-RL's Python learning loop."""
     import signal
+    global _STOP_REQUESTED
+    _STOP_REQUESTED = False
 
     def stop(signum, _frame):
+        global _STOP_REQUESTED
+        _STOP_REQUESTED = True
         print(f"[RL] Stopping on signal {signum}; closing the environment.", flush=True)
-        raise KeyboardInterrupt
+        if not defer:
+            raise KeyboardInterrupt
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
