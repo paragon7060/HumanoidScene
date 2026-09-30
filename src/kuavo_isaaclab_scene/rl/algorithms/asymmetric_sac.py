@@ -241,6 +241,8 @@ class AsymmetricSAC(nn.Module):
             raise ValueError("max_policy_std must be finite and at least initial_policy_std")
         if not 0 <= cfg.min_alpha <= cfg.initial_alpha:
             raise ValueError("min_alpha must be between zero and initial_alpha")
+        if math.isnan(cfg.max_alpha) or cfg.max_alpha < cfg.initial_alpha:
+            raise ValueError("max_alpha must be at least initial_alpha")
         self.actor_features = actor_features = ActorFeatures(actor_obs_dim, cfg.actor_feature_mode)
         self.actor_normalizer = ObservationNormalizer(actor_features.output_dim)
         self.critic_normalizer = ObservationNormalizer(critic_obs_dim)
@@ -256,8 +258,16 @@ class AsymmetricSAC(nn.Module):
                 output = self.actor.network[-1]
                 output.weight[action_dim:].zero_()
                 output.bias[action_dim:].fill_(math.log(cfg.initial_policy_std))
-        self.q1 = mlp(critic_obs_dim + action_dim, 1, cfg.hidden)
-        self.q2 = mlp(critic_obs_dim + action_dim, 1, cfg.hidden)
+        def critic():
+            if not cfg.critic_layer_norm:
+                return mlp(critic_obs_dim + action_dim, 1, cfg.hidden)
+            return nn.Sequential(
+                nn.Linear(critic_obs_dim + action_dim, cfg.hidden),
+                nn.LayerNorm(cfg.hidden), nn.SiLU(),
+                nn.Linear(cfg.hidden, cfg.hidden), nn.LayerNorm(cfg.hidden),
+                nn.SiLU(), nn.Linear(cfg.hidden, 1))
+        self.q1 = critic()
+        self.q2 = critic()
         from copy import deepcopy
         self.target1 = deepcopy(self.q1).requires_grad_(False)
         self.target2 = deepcopy(self.q2).requires_grad_(False)
@@ -293,6 +303,22 @@ class AsymmetricSAC(nn.Module):
         mask = self.action_projector.entropy_mask(raw_obs)
         return (self.action_projector(raw_obs, action),
                 (logp_by_dim * mask).sum(-1), mask.sum(-1))
+
+    @torch.no_grad()
+    def _entropy_target(self, raw_obs, normalized_obs):
+        mean = self.actor.network(normalized_obs).chunk(2, -1)[0]
+        per_dim = torch.full_like(mean, self.target_entropy_per_dim)
+        if self.config.max_policy_std <= 1:
+            # The cap alone bounds Gaussian entropy, not squashed entropy.
+            # For f(x)=log(1-tanh(x)^2), f'' >= -2, so
+            # E[f(mean + std*eps)] >= f(mean) - std**2. Account for
+            # saturated teacher actions instead of requesting an impossible
+            # entropy and increasing temperature indefinitely.
+            correction = 2 * (math.log(2) - mean - F.softplus(-2 * mean))
+            per_dim += correction - self.config.max_policy_std ** 2
+        if self.action_projector is not None:
+            per_dim *= self.action_projector.entropy_mask(raw_obs)
+        return per_dim.sum(-1)
 
     def pretrain_actor(
         self, actor_obs: torch.Tensor, action: torch.Tensor, *,
@@ -387,7 +413,10 @@ class AsymmetricSAC(nn.Module):
             policy_features = torch.cat((critic_obs, action), dim=-1)
             q = torch.minimum(
                 self.q1(policy_features), self.q2(policy_features)).squeeze(-1)
-            actor_loss = (alpha * logp - q).mean()
+            q_scale = q.detach().abs().mean().clamp_min(1).reciprocal() \
+                if cfg.actor_q_normalize else torch.ones((), device=q.device)
+            actor_loss = (alpha * logp - q_scale * q).mean()
+            target_entropy = self._entropy_target(batch["actor_obs"], actor_obs)
             bc_loss = torch.zeros((), device=actor_loss.device)
             if demonstration is not None and demonstration_weight:
                 demo_obs = self.actor_normalizer(self.actor_features(demonstration["actor_obs"]))
@@ -399,12 +428,13 @@ class AsymmetricSAC(nn.Module):
             self.q1.requires_grad_(True)
             self.q2.requires_grad_(True)
 
-        target_entropy = active_dims * self.target_entropy_per_dim
         alpha_loss = -(self.log_alpha * (logp.detach() + target_entropy)).mean()
         optimize(self.alpha_optimizer, alpha_loss, [self.log_alpha])
         with torch.no_grad():
             if cfg.min_alpha > 0:
                 self.log_alpha.clamp_(min=math.log(cfg.min_alpha))
+            if math.isfinite(cfg.max_alpha):
+                self.log_alpha.clamp_(max=math.log(cfg.max_alpha))
             log_std = self.actor.network(actor_obs).chunk(2, -1)[1].clamp(-5, self.actor.log_std_max)
         return {
             "q_loss": q_loss.item(),
@@ -416,10 +446,12 @@ class AsymmetricSAC(nn.Module):
             "policy_logp_mean": logp.detach().mean().item(),
             "policy_action_std_mean": action.detach().std(dim=0, unbiased=False).mean().item(),
             "q_value_mean": q.detach().mean().item(),
+            "actor_q_scale": q_scale.item(),
             "target_value_mean": target.detach().mean().item(),
             "entropy_bonus_mean": (-alpha * logp.detach()).mean().item(),
             "policy_gaussian_std_mean": log_std.exp().mean().item(),
             "target_entropy_per_dim": self.target_entropy_per_dim,
+            "target_entropy_mean": target_entropy.mean().item(),
             "active_entropy_dims_mean": active_dims.mean().item(),
             "policy_entropy_error_mean": (-logp.detach() - target_entropy).mean().item(),
         }
@@ -438,7 +470,7 @@ class AsymmetricSAC(nn.Module):
             "action_projection": (
                 self.action_projector.name if self.action_projector is not None else "none"),
             "entropy_contract": {
-                "name": "std_cap_feasible_active_dims_v1",
+                "name": "squash_aware_active_dims_v2",
                 "target_per_dim": self.target_entropy_per_dim,
             },
             "model": self.state_dict(),

@@ -46,6 +46,32 @@ def _teacher_labels_from_checkpoint(path, actor_dim, action_dim):
             or (action.abs() > 1.00001).any()):
         raise ValueError("Teacher label checkpoint requires finite normalized controller labels")
     return labels
+
+
+def _success_experience_from_checkpoint(path, actor_dim, critic_dim, action_dim):
+    """Reuse executed success tails, never another run's model or optimizer."""
+    source = load_checkpoint(path, device="cpu")
+    data = source.get("success_replay")
+    dimensions = (source.get("actor_obs_dim"), source.get("critic_obs_dim"),
+                  source.get("action_dim"))
+    shapes = {"actor_obs": actor_dim, "critic_obs": critic_dim, "action": action_dim,
+              "next_actor_obs": actor_dim, "next_critic_obs": critic_dim}
+    if (source.get("algorithm") != "asymmetric_sac"
+            or dimensions != (actor_dim, critic_dim, action_dim)
+            or not isinstance(data, dict)
+            or set(data) != set(shapes) | {"reward", "terminated"}):
+        raise ValueError("Success experience has an incompatible transition contract")
+    count = len(data["reward"])
+    if (not count or data["reward"].shape != (count,)
+            or data["terminated"].shape != (count,)
+            or data["terminated"].dtype != torch.bool
+            or any(data[key].shape != (count, width) for key, width in shapes.items())
+            or any(not torch.isfinite(value).all() for value in data.values())
+            or (data["action"].abs() > 1.00001).any()):
+        raise ValueError("Success experience requires finite, aligned executed transitions")
+    return data
+
+
 _FRONT_DISTANCE_BINS_M = (0.25, 0.5, 1.0, 2.0)
 _FRONT_DISTANCE_LABELS = ("le_0p25m", "0p25_to_0p5m", "0p5_to_1m", "1_to_2m", "over_2m")
 
@@ -303,6 +329,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             hidden=args.hidden,
             gamma=MultiBoxRewardWeights().discount,
             min_alpha=getattr(args, "min_alpha", 0.0),
+            max_alpha=getattr(args, "max_alpha", math.inf),
             initial_alpha=getattr(args, "initial_alpha", 0.001),
             reward_scale=getattr(args, "reward_scale", 10.0),
             entropy_backup=getattr(args, "entropy_backup", False),
@@ -312,6 +339,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             initial_policy_std=getattr(args, "initial_policy_std", 0.15),
             max_policy_std=getattr(args, "max_policy_std", 0.3),
             actor_lr=getattr(args, "actor_lr", 0.00003),
+            critic_layer_norm=getattr(args, "critic_layer_norm", False),
+            actor_q_normalize=getattr(args, "actor_q_normalize", False),
         )
     )
     projection = GraspActionProjector([
@@ -395,6 +424,15 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         agent.critic_obs_dim, agent.action_dim, "cpu")
     if state and state.get("success_replay"):
         success_replay.add(**state["success_replay"])
+    experience_source = getattr(args, "experience_checkpoint", None)
+    imported_success_rows = 0
+    if experience_source is not None:
+        experience = _success_experience_from_checkpoint(
+            experience_source, agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim)
+        success_replay.add(**experience)
+        imported_success_rows = len(experience["reward"])
+        print(f"[V2 SAC] Imported executed success-tail rows: {imported_success_rows}; "
+              "source model, Q and optimizers ignored", flush=True)
     success_history = SuccessfulTransitionHistory(
         env.num_envs, 64, agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim)
     teacher_pretraining = (state or {}).get("teacher_pretraining", {
@@ -417,6 +455,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         f"demo_decay_updates={demo_decay_updates}; demo_usage=actor_bc_only; "
         f"demo_pretraining={pretraining}; guided_warmup={guided_warmup is not None}; "
         f"min_alpha={config.min_alpha}; "
+        f"max_alpha={config.max_alpha}; critic_layer_norm={config.critic_layer_norm}; "
+        f"actor_q_normalize={config.actor_q_normalize}; "
         f"target_entropy_per_dim={agent.target_entropy_per_dim}; "
         f"initial_settling_steps={initial_settling_steps}",
         flush=True,
@@ -817,6 +857,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             teacher_persistent_critical_rows=teacher_replay.priority_size,
             teacher_persistent_critical_capacity=teacher_replay.priority_capacity,
             teacher_bootstrap_rows=teacher_bootstrap_rows,
+            imported_success_rows=imported_success_rows,
             teacher_critical_batch_fraction=teacher_replay.priority_fraction,
             success_history_steps=success_history.horizon,
             numerical_failure_episodes=numerical_failures,

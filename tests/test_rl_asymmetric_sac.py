@@ -387,9 +387,85 @@ def test_std_capped_entropy_target_is_reachable_and_alpha_can_decrease():
     assert agent.target_entropy_per_dim == pytest.approx(-2.99308447)
     assert report["policy_entropy_error_mean"] > 0
     assert agent.log_alpha.item() < before
-    assert agent.checkpoint()["entropy_contract"]["name"] == "std_cap_feasible_active_dims_v1"
+    assert agent.checkpoint()["entropy_contract"]["name"] == "squash_aware_active_dims_v2"
     # Broad default variance retains legacy -1/dim behavior.
     assert AsymmetricSAC(4, 7, 2, SACConfig(hidden=16)).target_entropy_per_dim == -1
+
+
+def test_saturated_teacher_means_keep_a_reachable_entropy_target():
+    torch.manual_seed(42)
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16,
+        initial_policy_std=.02, max_policy_std=.02))
+    with torch.no_grad():
+        output = agent.actor.network[-1]
+        output.weight.zero_()
+        output.bias[:2].fill_(5.)
+        output.bias[2:].fill_(torch.tensor(.02).log())
+    before = agent.log_alpha.item()
+    report = agent.update(_batch(4096))
+    assert report["target_entropy_mean"] < -20
+    assert report["policy_entropy_error_mean"] > 0
+    assert agent.log_alpha.item() < before
+
+
+def test_temperature_cannot_exceed_its_configured_cap():
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16,
+        initial_alpha=.001, max_alpha=.001, initial_policy_std=.01, max_policy_std=.02))
+    with torch.no_grad():
+        output = agent.actor.network[-1]
+        output.weight.zero_()
+        output.bias[2:].fill_(-5)
+    report = agent.update(_batch(4096))
+    assert report["policy_entropy_error_mean"] < 0
+    assert report["alpha"] <= .00100001
+
+
+def test_q_normalization_prevents_value_scale_from_overpowering_imitation():
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16,
+        initial_alpha=1e-9, actor_q_normalize=True, critic_layer_norm=True))
+    with torch.no_grad():
+        for net in (agent.q1, agent.q2):
+            net[-1].weight.zero_()
+            net[-1].bias.fill_(1e6)
+    report = agent.update(_batch(16))
+    assert report["q_value_mean"] > 999_000
+    assert report["actor_q_scale"] < 1.01e-6
+    assert report["actor_loss"] == pytest.approx(-1, abs=1e-5)
+    assert isinstance(agent.q1[1], torch.nn.LayerNorm)
+
+
+def test_success_seed_import_reuses_only_real_transitions(tmp_path):
+    from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import _success_experience_from_checkpoint
+    from kuavo_isaaclab_scene.rl.runners.storage import save_checkpoint
+    data = _batch(8)
+    data["terminated"][-1] = True
+    state = dict(algorithm="asymmetric_sac", actor_obs_dim=4, critic_obs_dim=7,
+                 action_dim=2, success_replay=data, model={"invalid": torch.tensor(float('nan'))})
+    path = save_checkpoint(tmp_path, state, 1)
+    result = _success_experience_from_checkpoint(path, 4, 7, 2)
+    assert set(result) == set(data)
+    torch.testing.assert_close(result["reward"], data["reward"])
+    with pytest.raises(ValueError, match="contract"):
+        _success_experience_from_checkpoint(path, 4, 8, 2)
+    data["next_critic_obs"][0, 0] = float('nan')
+    path = save_checkpoint(tmp_path, state, 2)
+    with pytest.raises(ValueError, match="finite"):
+        _success_experience_from_checkpoint(path, 4, 7, 2)
+
+
+def test_data_only_import_allows_optimizer_changes_but_not_reward_changes(tmp_path):
+    original = {"exploration": {"actor_lr": 3e-5}, "reward_profile": {"weights": 1},
+                "sac_stability": {"critic_layer_norm": False}}
+    (tmp_path / "manifest.json").write_text(json.dumps(original))
+    path = tmp_path / "checkpoint_00000001.pt"
+    updated = dict(original, exploration={"actor_lr": 1e-5},
+                   sac_stability={"critic_layer_norm": True})
+    _compatible_checkpoint(path, updated, data_only=True)
+    with pytest.raises(ValueError, match="exploration"):
+        _compatible_checkpoint(path, updated)
+    updated["reward_profile"] = {"weights": 2}
+    with pytest.raises(ValueError, match="reward_profile"):
+        _compatible_checkpoint(path, updated, data_only=True)
 
 
 def test_critic_warmup_preserves_pretrained_actor_and_entropy_coefficient():

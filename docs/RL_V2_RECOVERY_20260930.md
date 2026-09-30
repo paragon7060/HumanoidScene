@@ -2,6 +2,84 @@
 
 ## Latest measured result and next run
 
+**2026-10-01 03:37 KST: the critical-retention run was stopped deliberately at
+iteration 133 because SAC learning diverged, not because grasp was solved.**
+It collected 2,583,590 valid transitions during this resume and 24 additional
+online IK expert successes, with **zero SAC-from-reset/handoff successes** and
+zero numerical-recovery episodes. The existing 16 plus 24 new expert successes
+produce 2,560 protected 64-step success-tail transitions. It stopped cleanly
+with exit code 0; final checkpoints/logs are Drive checksum-verified.
+
+![Measured critic divergence and success attribution](assets/rl_v2_q_divergence_20261001.png)
+
+The mean rollout reward stayed negative, while mean actor Q grew to 539,442,
+Q loss to 3.672 billion and temperature alpha to 8.756. On the **same stored
+executed success transitions**, checkpoint 50 predicted mean Q 655.8,
+checkpoint 100 predicted 215,894.9, and checkpoint 133 predicted 1,744,840.4;
+the latter valued its own unexecuted actions still higher (1,813,365.3).
+Actor action MSE against these measured actions also grew from 0.414 to 0.828.
+This is evidence of critic/policy instability and imitation being overwhelmed,
+not genuine grasp improvement. The critical-label retention fix worked, but
+did not address this separate SAC failure.
+
+The follow-up separates three corrections:
+
+- Add LayerNorm to both critic hidden layers for the fresh v2 learner.
+- Normalize the actor's Q term by detached `max(mean(abs(Q)), 1)`, so growing
+  Q scale cannot silently erase the configured imitation penalty. This adapts
+  the Q-scale idea in the [TD3+BC authors' implementation](https://github.com/sfujim/TD3_BC/blob/main/TD3_BC.py)
+  to this SAC actor; it is not a conversion to TD3 or a claim of success.
+- Make the capped-policy entropy target depend on the tanh Jacobian at the
+  current detached mean, including saturated teacher actions. Gaussian std
+  feasibility alone was insufficient. For `std <= 1`, the per-dimension
+  target includes `log(1-tanh(mean)^2) - max_std^2`; the existing 0.5-nat
+  margin remains. Add an explicit `--max-alpha` (v2 default 0.001).
+
+`--experience-checkpoint` starts a **fresh model/Q/optimizer** and imports only
+the protected genuine executed success-tail transitions from a compatible
+checkpoint. It cannot be combined with `--checkpoint`. Physical action,
+observation, reward, contacts and safety contracts must match; learning settings
+can change for data-only imports. Actor-only teacher labels remain a separate
+`--teacher-label-checkpoint` input. Full policy resume still requires matching
+learning/architecture contracts. New diagnostics include `actor_q_scale`,
+`target_entropy_mean` and `imported_success_rows`.
+
+Regression checks: 69 SAC/collection/alternative CPU tests passed, covering saturated-mean
+entropy, temperature bounds, Q normalization and genuine experience import.
+A fixed-success-replay GPU 3 comparison completed 5,000 updates per case:
+
+| Metric at update 5,000 | Previous critic/raw-Q actor | LayerNorm/scaled-Q actor |
+| --- | ---: | ---: |
+| Q loss | 148,002.34 | 0.9986 |
+| Mean policy Q | 12,788.84 | 89.56 |
+| Teacher action MSE | 0.05223 | 0.001144 |
+| Alpha | 0.000004418 | 0.000002636 |
+
+![Fixed executed-success-replay comparison](assets/rl_v2_q_stability_probe_20261001.png)
+
+Both cases use a fresh critic, the same 2,560 real success-tail transitions,
+same actor initialization fit (1,000 updates, MSE 0.000683), revised squash-aware
+entropy target, and alpha bound. The previous case uses raw Q and BC loss weight
+200; the new combination uses normalized Q and BC weight 2 (20% times strength
+10). Thus this is a combined stabilization comparison, not an ablation proving
+LayerNorm alone. Alpha stays small in both, yet the previous critic still grows;
+temperature alone cannot explain Q divergence. Only success-tail states are
+covered and the probe omits live simulation and the gripper action projection.
+It checks numerical behavior, **not SAC grasp success**.
+
+Before another long run, a distinct bounded live GPU 3 execution will check
+128 environments, 120 iterations, batch 1,024, four updates/vector step, and
+300,000 CUDA replay transitions. It imports real success tails from stopped
+checkpoint 133 and critical teacher labels from the immutable label seed,
+without restoring their Q/model/optimizer. Teacher fit is 20,000; initial
+expert/imitation fractions remain 20%. For the bounded run only, decay spans
+its full planned update horizon rather than the default first 30%, so it does
+not remove imitation during this short verification. Safety and reset/success
+conditions remain unchanged. Long-run scheduling will be recorded separately
+after measuring this live check.
+
+### Previous launch (01:42 KST)
+
 Latest 2026-10-01 01:42 KST: source `bf63054` resumed on GPU 3 / 1,024
 environments in `artifacts/rl/drive_runs/sac_mbv2_critical_retention_gpu3_20261001_0141/`,
 child `sac_20261001_014208_f5427a`. It restores policy checkpoint 51 and imports

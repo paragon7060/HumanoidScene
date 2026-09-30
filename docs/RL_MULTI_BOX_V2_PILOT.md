@@ -86,3 +86,35 @@ The pilot passes the wiring and numerical check when `status.json` is complete,
 floating-point tolerance, optimizer updates occur, and terminal counts match
 the episode totals. Policy quality still requires examining whether success
 frequency rises and unsafe terminations fall in a longer controlled run.
+
+## SAC stability and data-only restart
+
+V2 now enables `--critic-layer-norm` and `--actor-q-normalize` by default.
+The actor Q term uses a detached reciprocal mean absolute Q scale, keeping
+its magnitude comparable to imitation. `--max-alpha` defaults to 0.001 and
+must be at least `--initial-alpha`; tight std caps also use a squash-aware,
+active-channel entropy target. These changes target critic/temperature
+divergence observed in the recovery experiment; they do not establish grasp
+success. `--no-critic-layer-norm` and `--no-actor-q-normalize` allow comparison.
+
+To retain executed success experience while discarding an unstable policy:
+
+```bash
+CUDA_VISIBLE_DEVICES=3 bash scripts/rl/multi_box.sh grasp-v2-sac \
+  --experience-checkpoint /absolute/path/to/old/checkpoint_00000133.pt \
+  --teacher-label-checkpoint /absolute/path/to/teacher/checkpoint_00000029.pt \
+  --demo-dataset examples/demos/v2_grasp_quest_success.hdf5 \
+  --guided-warmup-mode ik --demo-guided-warmup --online-teacher-labels \
+  --initial-alpha 0.00001 --max-alpha 0.001 --min-alpha 0.0000001 \
+  --initial-policy-std 0.01 --max-policy-std 0.02 \
+  --demo-batch-fraction 0.2 --demo-bc-strength 10 --no-self-collision
+```
+
+Do not combine experience import with full `--checkpoint` resume. Experience
+import checks the physical observation/action/reward/contact/safety contracts
+and transition dimensions/finiteness, but imports no source model or optimizer.
+Only previously executed protected success tails train Q; hypothetical teacher
+labels still train the actor alone. `sac_with_drive.py` forwards these options
+for v2 and retains the existing five-minute verified upload/retention workflow.
+Monitor `actor_q_scale`, `target_entropy_mean`, Q/target values, imitation error,
+and `successful_sac_from_reset_episodes` separately from IK successes.

@@ -29,6 +29,8 @@ def main():
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--teacher-label-checkpoint", type=Path,
                         help="V2 only: recover actor-only teacher labels independently of the policy checkpoint")
+    parser.add_argument("--experience-checkpoint", type=Path,
+                        help="V2 only: import executed success tails without source model/Q/optimizers")
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--num-envs", type=int, default=16384)
     parser.add_argument("--max-iterations", type=int, default=6)
@@ -41,6 +43,9 @@ def main():
     parser.add_argument("--warmup-continuous-scale", type=float, default=0.35)
     parser.add_argument("--min-alpha", type=float, default=0.00001)
     parser.add_argument("--initial-alpha", type=float, default=0.001)
+    parser.add_argument("--max-alpha", type=float, default=0.001)
+    parser.add_argument("--critic-layer-norm", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--actor-q-normalize", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--initial-policy-std", type=float, default=0.15)
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
@@ -124,6 +129,10 @@ def main():
     if args.teacher_label_checkpoint and (args.experiment != "multi-box-v2-grasp"
                                          or not args.teacher_label_checkpoint.is_file()):
         parser.error("Teacher label checkpoint requires a v2 grasp run and an existing file")
+    if args.experience_checkpoint and (args.experiment != "multi-box-v2-grasp"
+                                      or not args.experience_checkpoint.is_file()
+                                      or args.checkpoint):
+        parser.error("Experience checkpoint requires a fresh v2 run and an existing file")
     source = args.source_root.resolve()
     launcher_name = {
         "flap-pick": "flap_pick.sh",
@@ -158,6 +167,10 @@ def main():
     if args.experiment == "multi-box-v2-grasp":
         if not 0 <= args.min_alpha <= args.initial_alpha <= 0.1:
             parser.error("V2 SAC requires 0 <= min-alpha <= initial-alpha <= 0.1")
+        if not args.initial_alpha <= args.max_alpha <= 0.1:
+            parser.error("V2 SAC requires initial-alpha <= max-alpha <= 0.1")
+        if args.checkpoint and args.experience_checkpoint:
+            parser.error("Experience import starts fresh; cannot combine with --checkpoint")
         if not 0 < args.initial_policy_std <= 1 or not 0 < args.reward_scale < 1000 \
                 or args.goal_replay_capacity < 1 or not 0 <= args.goal_batch_fraction < 1 \
                 or not args.initial_policy_std <= args.max_policy_std <= 1 \
@@ -169,7 +182,7 @@ def main():
                 or args.success_batch_fraction + args.goal_batch_fraction >= 1:
             parser.error("Invalid V2 critic warmup or success replay")
         for name in ("warmup_action_hold_steps", "warmup_continuous_scale", "min_alpha",
-                     "initial_alpha", "initial_policy_std", "max_policy_std", "guided_warmup_mode",
+                     "initial_alpha", "max_alpha", "initial_policy_std", "max_policy_std", "guided_warmup_mode",
                      "teacher_pretrain_steps",
                      "ik_grasp_goal", "ik_lift_distance_m",
                      "ik_base_clearance_m", "ik_torso_forward_m",
@@ -181,6 +194,8 @@ def main():
                      "demo_pretrain_batch_size", "demo_warmup_noise_scale"):
             command.extend(("--" + name.replace("_", "-"), str(getattr(args, name))))
         command.append("--entropy-backup" if args.entropy_backup else "--no-entropy-backup")
+        command.append("--critic-layer-norm" if args.critic_layer_norm else "--no-critic-layer-norm")
+        command.append("--actor-q-normalize" if args.actor_q_normalize else "--no-actor-q-normalize")
         command.append("--freeze-actor-normalizer" if args.freeze_actor_normalizer
                        else "--no-freeze-actor-normalizer")
         command.append("--demo-guided-warmup" if args.demo_guided_warmup
@@ -194,6 +209,8 @@ def main():
         command.extend(("--checkpoint", str(args.checkpoint.resolve())))
     if args.teacher_label_checkpoint:
         command.extend(("--teacher-label-checkpoint", str(args.teacher_label_checkpoint.resolve())))
+    if args.experience_checkpoint:
+        command.extend(("--experience-checkpoint", str(args.experience_checkpoint.resolve())))
     (parent / "launch.json").write_text(json.dumps(dict(command=command, remote_root=args.remote_root,
         args=vars(args)), default=str, indent=2))
     budget = GpuBudget(parent, args.gpu, args.gpu_limit_mib, args.gpu_reserve_mib, args.max_seconds, "sac_")

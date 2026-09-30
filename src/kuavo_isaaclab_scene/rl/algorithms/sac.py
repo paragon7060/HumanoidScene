@@ -17,6 +17,7 @@ class SACConfig:
     tau: float = .005
     initial_alpha: float = .1
     min_alpha: float = 0.0
+    max_alpha: float = math.inf
     reward_scale: float = 1.0
     entropy_backup: bool = True
     actor_feature_mode: str = "flat"
@@ -24,6 +25,8 @@ class SACConfig:
     initial_policy_std: float = 1.0
     max_policy_std: float = math.exp(2)
     actor_lr: float | None = None
+    critic_layer_norm: bool = False
+    actor_q_normalize: bool = False
 
 
 class ReplayBuffer:

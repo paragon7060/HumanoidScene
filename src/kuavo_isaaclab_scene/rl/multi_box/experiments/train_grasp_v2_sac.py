@@ -60,7 +60,7 @@ def apply_run_profile(args) -> None:
             args.demo_pretrain_steps = min(args.demo_pretrain_steps, 100)
 
 
-def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
+def _compatible_checkpoint(checkpoint: Path, manifest: dict, *, data_only=False) -> None:
     source_path = checkpoint.parent / "manifest.json"
     if not source_path.is_file():
         raise ValueError(f"Checkpoint needs its manifest.json beside it: {source_path}")
@@ -69,8 +69,10 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
         "task_family", "schema_version", "skill", "algorithm", "robot_model",
         "gripper", "actions", "action_contract", "observations", "observation_contract", "critic_mapping", "contact_contract",
         "reward_profile", "exploration", "demonstrations", "self_collision",
-        "action_projection",
+        "action_projection", "discount", "terminal_contract", "sac_stability",
     ):
+        if data_only and key in {"exploration", "demonstrations", "sac_stability"}:
+            continue
         saved, requested = source.get(key), manifest.get(key)
         if key == "exploration" and isinstance(saved, dict) and isinstance(requested, dict):
             # Episode assignment changes the source of genuine off-policy
@@ -107,6 +109,9 @@ def main() -> None:
     parser.add_argument("--warmup-continuous-scale", type=float, default=0.35)
     parser.add_argument("--min-alpha", type=float, default=0.00001)
     parser.add_argument("--initial-alpha", type=float, default=0.001)
+    parser.add_argument("--max-alpha", type=float, default=0.001)
+    parser.add_argument("--critic-layer-norm", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--actor-q-normalize", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--initial-policy-std", type=float, default=0.15)
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
@@ -163,6 +168,8 @@ def main() -> None:
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--teacher-label-checkpoint", type=Path,
                         help="Import actor-only controller labels from a compatible older v2 checkpoint.")
+    parser.add_argument("--experience-checkpoint", type=Path,
+                        help="Reuse only genuine success-tail transitions; never source model/Q/optimizers.")
     parser.add_argument(
         "--smoke-test", action="store_true",
         help="Run four vector steps and one SAC update with at most four environments.")
@@ -187,6 +194,8 @@ def main() -> None:
         parser.error("Counts must be positive and warmup counts nonnegative")
     if not 0 <= args.min_alpha <= args.initial_alpha <= 0.1:
         parser.error("Require 0 <= min-alpha <= initial-alpha <= 0.1")
+    if not args.initial_alpha <= args.max_alpha <= 0.1:
+        parser.error("Require initial-alpha <= max-alpha <= 0.1")
     if not 0 < args.initial_policy_std <= 1 or not 0 < args.reward_scale < 1000:
         parser.error("Invalid policy standard deviation or reward scale")
     if not args.initial_policy_std <= args.max_policy_std <= 1:
@@ -236,6 +245,12 @@ def main() -> None:
         args.teacher_label_checkpoint = args.teacher_label_checkpoint.expanduser().resolve()
         if not args.teacher_label_checkpoint.is_file():
             parser.error(f"Missing teacher label checkpoint: {args.teacher_label_checkpoint}")
+    if args.experience_checkpoint:
+        args.experience_checkpoint = args.experience_checkpoint.expanduser().resolve()
+        if args.checkpoint:
+            parser.error("--experience-checkpoint starts fresh; cannot combine with --checkpoint")
+        if not args.experience_checkpoint.is_file():
+            parser.error(f"Missing experience checkpoint: {args.experience_checkpoint}")
     if args.demo_dataset:
         args.demo_dataset = args.demo_dataset.expanduser().resolve()
         if not args.demo_dataset.is_file():
@@ -404,7 +419,16 @@ def main() -> None:
                     "protected_success_history_steps": 64,
                     "history_crosses_resets": False,
                 },
-                "entropy_contract": "std_cap_feasible_active_dims_v1",
+                "entropy_contract": "squash_aware_active_dims_v2",
+                "sac_stability": {
+                    "max_alpha": args.max_alpha,
+                    "critic_layer_norm": args.critic_layer_norm,
+                    "actor_q_normalize": args.actor_q_normalize,
+                },
+                "experience_initialization": {
+                    "experience_source": str(args.experience_checkpoint) if args.experience_checkpoint else None,
+                    "experience_import": "executed_success_tails_only; model_Q_optimizers_ignored",
+                },
                 "numerical_failure_contract": {
                     "reset_fk_refresh": True,
                     "pre_grasp_robot_pose_guard": True,
@@ -452,13 +476,15 @@ def main() -> None:
                 "critic_uses_imported_teacher_labels": False,
             }
             if args.teacher_label_checkpoint:
-                _compatible_checkpoint(args.teacher_label_checkpoint, manifest)
+                _compatible_checkpoint(args.teacher_label_checkpoint, manifest, data_only=True)
+            if args.experience_checkpoint:
+                _compatible_checkpoint(args.experience_checkpoint, manifest, data_only=True)
             (directory / "manifest.json").write_text(
                 json.dumps(manifest, indent=2, allow_nan=False))
             dump_yaml(str(directory / "env.yaml"), cfg)
             dump_yaml(str(directory / "agent.yaml"), {
                 key: value for key, value in vars(args).items()
-                if key not in {"log_dir", "checkpoint", "demo_dataset", "teacher_label_checkpoint"}
+                if key not in {"log_dir", "checkpoint", "demo_dataset", "teacher_label_checkpoint", "experience_checkpoint"}
             })
 
             state = None
