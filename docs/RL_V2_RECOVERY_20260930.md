@@ -1,5 +1,25 @@
 # Multi-box v2 SAC recovery experiments — 2026-09-30
 
+## Latest measured result and active run
+
+The acquisition/pull pilot recorded one genuine held success at iteration 20:
+bilateral opposing-flap pinch and proof lift remained valid for 0.267 s, and
+the success reward and terminal transition were both present. This was an
+**IK collection success**, not a learned SAC success. Its checkpoint includes
+20,172 current-environment imitation labels and one protected success row.
+The pilot was stopped after iteration 21; its final Drive upload was verified.
+
+GPU 3 now continues from that checkpoint in the distinct directory
+`artifacts/rl/drive_runs/sac_mbv2_acquire_pull_transfer_gpu3_20260930_2035/`.
+It retains 32 environments, the same acquisition/pull/body-assistance settings,
+20,000 teacher-fit updates and online correction labels. Uniform Q replay is
+not serialized, so 256 IK vector steps refill it before fitting the actor and
+resuming SAC. The original 15,360-actor-update imitation decay horizon is
+preserved by checkpoint restore; the new invocation requests 150 additional
+iterations. Checkpoints are saved every 20 iterations, with five-minute Drive
+verification and retention of the newest two verified checkpoints. Large-scale
+training is still conditional on SAC sustaining entry and grasp from reset.
+
 ## Baseline and scope
 
 The preceding GPU 3 run `sac_mbv2_safe_front_gpu3_20260929_230917` stopped
@@ -305,10 +325,14 @@ These settings affect exploration labels, not task reset difficulty or actor
 observation geometry. Defaults preserve the earlier center/0.65 m/no-forward
 profile for comparisons.
 
-The active follow-up directory is
+The acquisition/pull pilot directory is
 `artifacts/rl/drive_runs/sac_mbv2_acquire_pull_pilot_gpu3_20260930_2014/`,
-32 environments and 120 iterations, with the previous 20,000-step imitation,
-slow diagnostic demo decay, online labels and 80 mm wrist lift settings.
+32 environments with 120 iterations originally planned. It recorded its first
+held IK success at iteration 20 and stopped after iteration 21 with eleven
+unsafe terminations. Its checkpoint was used for the transfer continuation
+described above, rather than discarding the first new successful transition.
+This also shows why an early zero-pinch window is not enough to declare the
+collector incapable; the continuation still needs a learned-policy check.
 
 ## Reproduce the transfer pilot
 
