@@ -104,6 +104,11 @@ class KinematicGraspExplorer:
         reached_stage = ((stage_error < 0.07) & (angle < 0.35)).all(-1)
         self.phase = torch.where((self.phase == 0) & reached_stage, 1, self.phase)
         center_error = (centers - tcp[..., :3]).norm(dim=-1)
+        # SAC may visit states outside the demonstration tube. Restage rather
+        # than teaching insertion while a hand has drifted far from the box.
+        recover = (self.phase > 0) & (center_error.amax(-1) > 0.3)
+        self.phase[recover] = 0
+        self.close_ticks[recover] = 0
         close = (self.phase[:, None] > 0) & (center_error < 0.035)
         self.close_ticks = torch.where(close.all(-1), self.close_ticks + 1, torch.zeros_like(self.close_ticks))
         begin_lift = (self.phase == 1) & (self.close_ticks >= 15)

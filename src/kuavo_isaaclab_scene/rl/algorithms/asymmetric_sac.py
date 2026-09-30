@@ -106,6 +106,41 @@ class AsymmetricReplayBuffer:
         return {key: value[ids].to(device) for key, value in self.data.items()}
 
 
+class ActorImitationBuffer:
+    """Controller labels only: never represent hypothetical actions as Q transitions."""
+
+    def __init__(self, capacity: int, obs_dim: int, action_dim: int):
+        if capacity < 1:
+            raise ValueError("Imitation capacity must be positive")
+        self.capacity, self.size, self.cursor = capacity, 0, 0
+        self.data = {
+            "actor_obs": torch.empty(capacity, obs_dim),
+            "action": torch.empty(capacity, action_dim),
+        }
+
+    @torch.no_grad()
+    def add(self, *, actor_obs, action):
+        count = min(len(action), self.capacity)
+        if not count:
+            return
+        ids = (torch.arange(count) + self.cursor) % self.capacity
+        self.data["actor_obs"][ids] = actor_obs[-count:].detach().cpu()
+        self.data["action"][ids] = action[-count:].detach().cpu()
+        self.cursor = (self.cursor + count) % self.capacity
+        self.size = min(self.size + count, self.capacity)
+
+    def sample(self, count, device):
+        if not self.size:
+            raise ValueError("Cannot sample empty controller labels")
+        ids = torch.randint(self.size, (count,))
+        return {key: value[ids].to(device) for key, value in self.data.items()}
+
+    def snapshot(self, max_rows=100_000):
+        if self.size <= max_rows:
+            return {key: value[:self.size].clone() for key, value in self.data.items()}
+        return self.sample(max_rows, "cpu")
+
+
 class AsymmetricSAC(nn.Module):
     """SAC whose actor never receives simulator-only critic features."""
 

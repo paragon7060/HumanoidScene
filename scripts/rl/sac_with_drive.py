@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
     parser.add_argument("--teacher-pretrain-steps", type=int, default=5000)
+    parser.add_argument("--online-teacher-labels", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--actor-lr", type=float, default=0.00003)
     parser.add_argument("--critic-warmup-updates", type=int, default=500)
     parser.add_argument("--success-replay-capacity", type=int, default=10000)
@@ -95,6 +96,11 @@ def main():
         parser.error("--demo-dataset is only supported for multi-box v2 grasp")
     if args.demo_dataset and not args.demo_dataset.is_file():
         parser.error("Missing demonstration dataset")
+    if args.online_teacher_labels and (args.experiment != "multi-box-v2-grasp"
+                                      or not args.demo_dataset
+                                      or args.guided_warmup_mode != "ik"
+                                      or not args.demo_guided_warmup):
+        parser.error("Online teacher labels require v2 demos and enabled IK guidance")
     if args.replay_capacity < args.num_envs:
         parser.error("Replay capacity must hold a full vector step")
     if args.checkpoint and not args.checkpoint.is_file():
@@ -157,6 +163,8 @@ def main():
                        else "--no-freeze-actor-normalizer")
         command.append("--demo-guided-warmup" if args.demo_guided_warmup
                        else "--no-demo-guided-warmup")
+        command.append("--online-teacher-labels" if args.online_teacher_labels
+                       else "--no-online-teacher-labels")
         if args.demo_dataset:
             command.extend(("--demo-dataset", str(args.demo_dataset.resolve())))
     command.extend(("--log-dir", str(parent)))

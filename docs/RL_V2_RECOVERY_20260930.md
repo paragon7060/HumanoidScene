@@ -183,6 +183,38 @@ to run from new resets. Checkpoints save every 20 iterations, upload on the
 existing five-minute Drive cycle, and retain only verified older files.
 Success during collection is reported separately from SAC success.
 
+## Labels on learner-visited states
+
+The controller-observation pilot was stopped after iteration 40. Its frozen
+actor initially reduced left-hand distance, but the right hand lagged and the
+policy again drifted: final mean distances were 0.927/0.948 m, with no SAC
+held success. Controller state alone is therefore insufficient. Offline
+teacher MSE was 0.00213, illustrating that a small average joint-action error
+can still accumulate into a different closed-loop path.
+
+`--online-teacher-labels` enables current-pose IK correction labels on states
+visited by SAC, without replacing the executed policy action. This is a
+DAgger-style data collection option: teacher labels enter a separate
+actor-only buffer containing observation/action, with no reward, next state,
+or Bellman terminal flag. Critic replay always uses the action actually
+executed and its measured reward. The teacher restages a hand pair when it
+has drifted over 30 cm from the box. Label collection ends with the existing
+20%-to-zero imitation schedule. It does not change the task reset distribution
+or safety predicates. The option requires IK guidance and a successful demo
+source for wrist orientations; the default remains disabled.
+
+Checkpoints retain at most 100,000 teacher labels (about 186 MiB at 464/24
+float32 dimensions) and restore them for resumed actor imitation. Actual
+success transitions remain in their independent critic buffer. Initial
+collection labels no longer store duplicate critic/reward fields, reducing
+CPU memory and preventing counterfactual Q data.
+
+The next test uses 16 environments, 60 iterations, 900 IK vector steps,
+5,000 teacher-fit updates, 500 critic-only updates, std 0.01/cap 0.02 and
+BC strength 1000. The stronger multiplier constrains early Q-driven changes;
+the sample fraction still starts at 20% and decreases. It is a pilot setting,
+not a measured successful profile.
+
 ## Reproduce the transfer pilot
 
 Discover the existing host-local remote with `bash scripts/rl/gdrive.sh listremotes`

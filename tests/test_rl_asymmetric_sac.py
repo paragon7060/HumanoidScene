@@ -8,6 +8,7 @@ import torch
 
 from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import (
     ActorFeatures,
+    ActorImitationBuffer,
     AsymmetricReplayBuffer,
     AsymmetricSAC,
 )
@@ -213,6 +214,26 @@ def test_demo_actor_pretraining_reduces_action_error_without_critic_update():
     assert report["final_mse"] < report["initial_mse"]
     assert all(torch.equal(value, q_before[name])
                for name, value in agent.q1.state_dict().items())
+
+
+def test_counterfactual_controller_labels_stay_out_of_critic_experience():
+    obs = torch.randn(8, 4)
+    executed = torch.ones(8, 2)
+    labels = -executed
+    imitation = ActorImitationBuffer(16, 4, 2)
+    imitation.add(actor_obs=obs, action=labels)
+    snapshot = imitation.snapshot()
+    assert set(snapshot) == {"actor_obs", "action"}
+    torch.testing.assert_close(snapshot["action"], labels)
+    restored = ActorImitationBuffer(16, 4, 2)
+    restored.add(**snapshot)
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16))
+    batch = restored.sample(8, "cpu")
+    before = {key: value.clone() for key, value in agent.q1.state_dict().items()}
+    report = agent.pretrain_actor(batch["actor_obs"], batch["action"], steps=50, batch_size=8)
+    assert report["final_mse"] < report["initial_mse"]
+    assert all(torch.equal(value, before[key]) for key, value in agent.q1.state_dict().items())
+    torch.testing.assert_close(executed, torch.ones(8, 2))
 
 
 def test_critic_warmup_preserves_pretrained_actor_and_entropy_coefficient():

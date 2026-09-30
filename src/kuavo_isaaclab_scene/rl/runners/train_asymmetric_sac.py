@@ -7,7 +7,7 @@ import time
 
 import torch
 
-from ..algorithms.asymmetric_sac import AsymmetricReplayBuffer, AsymmetricSAC
+from ..algorithms.asymmetric_sac import ActorImitationBuffer, AsymmetricReplayBuffer, AsymmetricSAC
 from ..algorithms.sac import SACConfig
 from ..multi_box.rewards import MultiBoxRewardWeights
 from ..multi_box.experiments.guided_exploration import (
@@ -324,16 +324,19 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             env, noise_scale=getattr(args, "demo_warmup_noise_scale", 0.12))
         if demonstration is not None
         and getattr(args, "demo_guided_warmup", True)
-        and (state is not None or pretraining["steps"] > 0)
+        and (state is not None or pretraining["steps"] > 0
+             or getattr(args, "guided_warmup_mode", "bc") == "ik")
         else None
     )
     if guided_warmup is not None and getattr(args, "guided_warmup_mode", "bc") == "ik":
         from ..multi_box.experiments.kinematic_exploration import KinematicGraspExplorer
         guided_warmup = KinematicGraspExplorer(env, demonstration_batch)
-    teacher_replay = AsymmetricReplayBuffer(
-        min(args.replay_capacity, warmup_target + env.num_envs)
+    teacher_replay = ActorImitationBuffer(
+        min(args.replay_capacity, max(goal_capacity, warmup_target + env.num_envs))
         if getattr(args, "guided_warmup_mode", "bc") == "ik" else goal_capacity,
-        agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim, "cpu")
+        agent.actor_obs_dim, agent.action_dim)
+    if state and state.get("teacher_imitation"):
+        teacher_replay.add(**state["teacher_imitation"])
     success_replay = AsymmetricReplayBuffer(
         getattr(args, "success_replay_capacity", 10_000), agent.actor_obs_dim,
         agent.critic_obs_dim, agent.action_dim, "cpu")
@@ -415,6 +418,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         warmup_successes = sac_successes = 0
         success_samples = 0
         demo_samples = 0
+        online_teacher_labels = 0
         terminated_episodes = timeout_episodes = 0
         termination_counts: dict[str, int] = {}
         safety_diagnostics = _SafetyDiagnostics(env.device)
@@ -434,6 +438,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     agent.update_normalizers(
                         actor_obs[normalizer_mask], critic_obs[normalizer_mask])
                 warming_up = valid_transitions < warmup_target
+                teacher_action = None
                 safe_actor_obs = torch.where(
                     torch.isfinite(actor_obs), actor_obs, torch.zeros_like(actor_obs))
                 if warming_up:
@@ -449,6 +454,13 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     warmup_vector_step += 1
                 else:
                     action = agent.act(safe_actor_obs)
+                    if (getattr(args, "online_teacher_labels", False)
+                            and guided_warmup is not None
+                            and getattr(args, "guided_warmup_mode", "bc") == "ik"
+                            and _demo_fraction(getattr(args, "demo_batch_fraction", 0.0),
+                                               actor_updates, demo_decay_updates) > 0):
+                        teacher_action = projection(
+                            safe_actor_obs, guided_warmup.act(safe_actor_obs))
                 action = projection(safe_actor_obs, action)
                 next_observations, reward, terminated, truncated, info = env.step(action)
                 if guided_warmup is not None:
@@ -541,7 +553,12 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                         success_replay.add(**{
                             key: value[success_rows] for key, value in transition_batch.items()})
                     if warming_up and getattr(args, "guided_warmup_mode", "bc") == "ik":
-                        teacher_replay.add(**transition_batch)
+                        teacher_replay.add(actor_obs=transition_batch["actor_obs"],
+                                           action=transition_batch["action"])
+                    elif teacher_action is not None:
+                        teacher_replay.add(actor_obs=transition_batch["actor_obs"],
+                                           action=teacher_action[finite_transition])
+                        online_teacher_labels += count
                     reached = geometry["matched_flap_distance_m"][finite_transition].amin(-1) <= 0.25
                     reached |= hand_pinching[finite_transition].any(-1)
                     if reached.any():
@@ -639,7 +656,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                         teacher_count = round(demo_count * 0.8)
                         offline = demonstration.sample(demo_count - teacher_count, env.device)
                         teacher = teacher_replay.sample(teacher_count, env.device)
-                        demo_batch = {key: torch.cat((value, teacher[key])) for key, value in offline.items()}
+                        demo_batch = {key: torch.cat((offline[key], value))
+                                      for key, value in teacher.items()}
                     goal_count = round(args.batch_size * getattr(args, "goal_batch_fraction", 0.25)) \
                         if goal_replay.size else 0
                     success_count = min(success_replay.size, round(
@@ -664,6 +682,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         metrics.update(
             goal_replay_size=goal_replay.size,
             teacher_replay_size=teacher_replay.size,
+            online_teacher_labels_this_iteration=online_teacher_labels,
             success_replay_size=success_replay.size,
             success_samples_this_iteration=success_samples,
             successful_warmup_episodes=warmup_successes,
@@ -785,6 +804,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 "demo_decay_updates": demo_decay_updates,
                 "teacher_fitted": teacher_fitted,
                 "teacher_pretraining": teacher_pretraining,
+                "teacher_imitation": teacher_replay.snapshot(),
                 "success_replay": {
                     key: value[:success_replay.size].clone()
                     for key, value in success_replay.data.items()},

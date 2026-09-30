@@ -104,6 +104,8 @@ def main() -> None:
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
     parser.add_argument("--teacher-pretrain-steps", type=int, default=5000,
                         help="Fit the SAC actor to new IK-collected actions once warmup ends.")
+    parser.add_argument("--online-teacher-labels", action=argparse.BooleanOptionalAction, default=False,
+                        help="Label SAC-visited states for actor imitation without overriding its actions.")
     parser.add_argument("--actor-lr", type=float, default=0.00003)
     parser.add_argument("--critic-warmup-updates", type=int, default=500,
                         help="Learn Q before allowing it to change the pretrained actor.")
@@ -175,6 +177,9 @@ def main() -> None:
         parser.error("Require initial-policy-std <= max-policy-std <= 1")
     if args.guided_warmup_mode == "ik" and not args.demo_dataset:
         parser.error("IK warmup needs successful demos for wrist orientations")
+    if args.online_teacher_labels and (args.guided_warmup_mode != "ik"
+                                      or not args.demo_guided_warmup):
+        parser.error("Online teacher labels require enabled IK guidance")
     if args.teacher_pretrain_steps < 0:
         parser.error("--teacher-pretrain-steps must be nonnegative")
     if not 0 < args.actor_lr <= 0.001 or args.critic_warmup_updates < 0 \
@@ -332,6 +337,7 @@ def main() -> None:
                     "max_policy_std": args.max_policy_std,
                     "guided_warmup_mode": args.guided_warmup_mode,
                     "teacher_pretrain_steps": args.teacher_pretrain_steps,
+                    "online_teacher_labels": args.online_teacher_labels,
                     "actor_lr": args.actor_lr,
                     "critic_warmup_updates": args.critic_warmup_updates,
                     "success_replay_capacity": args.success_replay_capacity,
