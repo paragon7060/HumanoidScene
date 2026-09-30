@@ -76,10 +76,50 @@ def main():
         obs, _, _, _, info = env.step(action)
         assert not info['transition_numerical_failure'].any()
         assert torch.isfinite(obs['policy']).all()
-        result = dict(passed=True, num_envs=2, settling_steps=settling_steps,
+        gravity_result = dict(passed=True, num_envs=2, settling_steps=settling_steps,
             failed_envs=[0], unaffected_envs=[1], first_failure_mask=first_mask,
             reset_ids=resets, finite_observations=True, finite_feedforward=True,
             next_step_failure_cleared=True, failed_transition_excluded_by_invalid_reset=True)
+        # Exercise the final-substep gap: no later actuator write gets a chance
+        # to see these corrupt read buffers before strict grasp quaternion math.
+        robot._root_physx_view = original_view
+        obs, _ = _settle_initial_resets(env, obs)
+        resets.clear()
+        original_update = robot.update
+        pending = True
+        substeps = 0
+        def inject_pose(dt):
+            nonlocal pending, substeps
+            original_update(dt)
+            substeps += 1
+            if pending and substeps == cfg.decimation:
+                pending = False
+                # Corrupt Python read caches, never write NaNs into PhysX.
+                robot.data.body_link_pose_w
+                robot.data.root_state_w
+                robot.data._body_link_pose_w.data = robot.data.body_link_pose_w.clone()
+                robot.data._body_link_pose_w.data[0, :, 3:] = 0
+                robot.data._root_state_w.data = robot.data.root_state_w.clone()
+                robot.data._root_state_w.data[0, 0] = float('nan')
+        robot.update = inject_pose
+        obs, reward, done, timeout, info = env.step(action)
+        assert info['transition_numerical_failure'].tolist() == [True, False]
+        assert info['transition_numerical_diagnostics']['robot_pose_invalid'].tolist() == [True, False]
+        assert done.tolist() == [True, False]
+        assert not env.termination_manager.get_term('success').any()
+        assert resets and set(resets) == {0}, resets
+        assert env._multi_box_reset_settling.ready[1]
+        assert torch.isfinite(obs['policy']).all() and torch.isfinite(reward).all()
+        assert torch.isfinite(robot.data.body_link_pose_w).all()
+        assert (robot.data.body_link_pose_w[..., 3:].norm(dim=-1) > .9).all()
+        obs, _, _, _, info = env.step(action)
+        assert not info['transition_numerical_failure'].any()
+        assert torch.isfinite(obs['policy']).all()
+        result = dict(passed=True, gravity_injection=gravity_result,
+            final_substep_pose_injection=dict(passed=True, reset_ids=resets,
+                zero_link_quaternions=True, nonfinite_root_state=True,
+                repaired_fk=True, unaffected_env_stays_ready=True,
+                failed_transition_excluded=True, next_step_failure_cleared=True))
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, indent=2))
         print('[NUMERICAL RECOVERY PROBE]', json.dumps(result), flush=True)

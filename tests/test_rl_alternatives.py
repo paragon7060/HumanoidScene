@@ -160,6 +160,46 @@ def test_numerical_recovery_respawns_selected_rows_without_terminal_capture():
     assert not done.any() and not info['transition_numerical_failure'].any()
 
 
+def test_robot_pose_guard_refreshes_fk_and_rejects_only_corrupt_environment():
+    from types import SimpleNamespace
+    poses = torch.zeros(2, 3, 7)
+    poses[..., 3] = 1
+    roots = torch.zeros(2, 13)
+    roots[:, 3] = 1
+    data = SimpleNamespace(body_link_pose_w=poses, root_state_w=roots,
+        joint_pos=torch.zeros(2, 4), joint_vel=torch.zeros(2, 4),
+        _body_link_pose_w=SimpleNamespace(timestamp=3),
+        _root_state_w=SimpleNamespace(timestamp=3))
+    calls = []
+    class FakeBase:
+        def _reset_idx(self, ids):
+            calls.append(('reset', ids.tolist()))
+            data.body_link_pose_w[ids] = 0
+            data.body_link_pose_w[ids, :, 3] = 1
+            data.root_state_w[ids] = 0
+            data.root_state_w[ids, 3] = 1
+    class Env(TerminalObservationMixin, FakeBase):
+        pass
+    env = Env()
+    env.num_envs, env.device = 2, 'cpu'
+    env.scene = {'robot': SimpleNamespace(data=data)}
+    env.sim = SimpleNamespace(physics_sim_view=SimpleNamespace(
+        update_articulations_kinematic=lambda: calls.append(('fk',))))
+    env.enable_numerical_dynamics_recovery()
+    data.body_link_pose_w[0, :, 3:] = 0
+    data.root_state_w[0, 0] = float('nan')
+    env._ensure_numerical_robot_state()
+    assert calls == [('reset', [0]), ('fk',)]
+    assert data._body_link_pose_w.timestamp == data._root_state_w.timestamp == -1
+    assert env._numerical_failure.tolist() == [True, False]
+    assert env._numerical_diagnostics['robot_pose_invalid'].tolist() == [True, False]
+    assert env._numerical_diagnostics['root_state_nonfinite'].tolist() == [True, False]
+    assert torch.isfinite(data.root_state_w).all()
+    assert (data.body_link_pose_w[..., 3:].norm(dim=-1) == 1).all()
+    env._ensure_numerical_robot_state()
+    assert len(calls) == 2
+
+
 @pytest.mark.parametrize("steps", [1, 4, 20])
 def test_diffusion_stored_chain_likelihoods_match_recomputation(steps):
     policy = DiffusionPolicy(4, 2, DiffusionConfig(3, steps, 32, .1))

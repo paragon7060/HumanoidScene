@@ -400,10 +400,13 @@ def main() -> None:
                 },
                 "entropy_contract": "std_cap_feasible_active_dims_v1",
                 "numerical_failure_contract": {
+                    "reset_fk_refresh": True,
+                    "pre_grasp_robot_pose_guard": True,
                     "recovery": "partial_respawn_before_next_physics_write",
                     "outcome": "failure_excluded_from_replay_and_imitation",
                     "diagnostics": ["gravity_nonfinite", "feedforward_nonfinite", "joint_state_nonfinite",
-                                    "mass_nonfinite", "coriolis_nonfinite", "root_state_nonfinite"],
+                                    "mass_nonfinite", "coriolis_nonfinite", "root_state_nonfinite",
+                                    "robot_pose_invalid"],
                 },
                 "demo_source_path": demonstration_meta["path"] if demonstration_meta else None,
                 "run_profile": (

@@ -29,6 +29,45 @@ class TerminalObservationMixin:
         finally:
             self._capture_terminal = capture
 
+    def _refresh_robot_kinematics(self):
+        """Publish reset FK before managers read TCPs at the same timestamp."""
+        if getattr(self, "_numerical_failure", None) is None:
+            return
+        view = getattr(getattr(self, "sim", None), "physics_sim_view", None)
+        if view is None:
+            return
+        view.update_articulations_kinematic()
+        # Reset managers may have populated a pose buffer before PhysX FK was
+        # refreshed. Advancing time is wrong here: discard only cached views.
+        for name, buffer in vars(self.scene["robot"].data).items():
+            if name.startswith(("_root_", "_body_")) and hasattr(buffer, "timestamp"):
+                buffer.timestamp = -1.0
+
+    def _ensure_numerical_robot_state(self):
+        """Guard task geometry after the final physics substep, before pose math."""
+        import torch
+        if getattr(self, "_numerical_failure", None) is None:
+            return
+        data = self.scene["robot"].data
+        poses = data.body_link_pose_w
+        root = data.root_state_w
+        diagnostics = {
+            "robot_pose_invalid": (~torch.isfinite(poses).flatten(1).all(-1)
+                | (poses[..., 3:].norm(dim=-1) < 1e-8).any(-1)),
+            "root_state_nonfinite": (~torch.isfinite(root).all(-1)
+                | (root[:, 3:7].norm(dim=-1) < 1e-8)),
+            "joint_state_nonfinite": (~torch.isfinite(data.joint_pos).all(-1)
+                | ~torch.isfinite(data.joint_vel).all(-1)),
+        }
+        mask = torch.stack(list(diagnostics.values())).any(0)
+        if mask.any():
+            self._recover_numerical_dynamics(mask, diagnostics)
+            repaired = data.body_link_pose_w[mask]
+            if (not torch.isfinite(repaired).all()
+                    or (repaired[..., 3:].norm(dim=-1) < 1e-8).any()
+                    or not torch.isfinite(data.root_state_w[mask]).all()):
+                raise ValueError("Invalid robot pose after numerical recovery")
+
     def _grasp_geometry_snapshot(self):
         grasp = getattr(self, "_multi_box_privileged_grasp_step", None)
         if grasp is None:
@@ -72,7 +111,9 @@ class TerminalObservationMixin:
                 command = self.command_manager.get_term("workcell")
                 self._terminal_task_metrics = {name: value[env_ids].clone()
                                                for name, value in command.metrics.items()}
-        return super()._reset_idx(env_ids)
+        result = super()._reset_idx(env_ids)
+        self._refresh_robot_kinematics()
+        return result
 
     def step(self, action):
         numerical = getattr(self, "_numerical_failure", None)

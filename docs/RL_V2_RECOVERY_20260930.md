@@ -30,12 +30,33 @@ exception also attempts an atomic recovery checkpoint. These protect initial
 collection without increasing ordinary checkpoint frequency. Safety, reset,
 bilateral grasp/proof-lift success and the no-curriculum contract remain unchanged.
 
-Measured 2026-10-01 00:14 KST: the new run passed iteration 18 and reached
-iteration 19, collecting 620,566 valid transitions and 60,579 priority labels.
-It recorded **three IK warmup held successes**, protecting 192 genuine
-pre-success transitions (64 per success). Numerical failures remained zero
-in this run so far. SAC had not started, so these are successful collection
-results rather than learned-policy successes.
+Measured 2026-10-01: this run finished iteration 20 with 652,258 valid
+transitions and **five IK warmup held successes**. It then failed during
+iteration 21: env 1007 had non-finite root state and Coriolis compensation,
+although gravity, mass matrices and joint state remained finite. Partial
+reset ran, but strict grasp geometry still encountered an invalid TCP
+quaternion. The atomic emergency checkpoint succeeded: checkpoint 21 contains
+100,000 teacher labels and **448 genuine success-tail transitions**, representing
+seven successes including two in the incomplete iteration. Optimizer/actor
+updates are both zero; these are expert collection successes, not SAC success.
+The checkpoint and final logs are Drive checksum-verified.
+
+The follow-up refreshes PhysX articulation kinematics after reset and
+invalidates cached robot root/link views without advancing simulation time.
+A pre-grasp guard also checks all robot link poses, root and joint state after
+the last physics substep, covering errors with no subsequent actuator write.
+An actual GPU 3 two-environment probe passed both NaN-gravity and final-substep
+zero-link-quaternion/non-finite-root-cache injections: only env 0 reset,
+env 1 remained ready, observations/feedforward were finite, and the failed
+transition was excluded. Corrupt read caches were injected; NaNs were never
+written to native physics. Relevant CPU checks: 41 passed. This verifies the
+recovery path, not the underlying source of rare native root-state divergence.
+
+Resume plan: checkpoint 21 on GPU 3 with 1,024 environments, 256 IK vector
+steps to refill non-serialized uniform Q replay, then the pending 20,000-update
+teacher fit and SAC optimization. Successful tails, labels and the original
+153,600 actor-update imitation decay horizon are restored. Safety, rewards,
+success criteria and reset distribution are unchanged.
 
 ![IK successes, distances and outcomes in the corrected run](assets/rl_v2_ik_success_progress_20261001.png)
 

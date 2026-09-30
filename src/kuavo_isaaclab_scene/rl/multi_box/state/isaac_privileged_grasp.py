@@ -363,6 +363,9 @@ class IsaacPrivilegedGraspAdapter:
         return raw, potentials, assignment, matched_distance, front_distance
 
     def measure(self, dt: float) -> IsaacPrivilegedGraspStep:
+        guard = getattr(self.env, "_ensure_numerical_robot_state", None)
+        if guard is not None:
+            guard()
         settling = reset_settling_step(self.env)
         logical, pool = self._targets()
         box_pose, invalid_box_pose = replace_invalid_poses(self._selected_box_pose(pool))
