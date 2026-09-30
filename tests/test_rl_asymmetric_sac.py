@@ -615,3 +615,15 @@ def test_same_dimension_checkpoint_cannot_resume_with_changed_flap_goal(tmp_path
     updated = dict(original, observation_contract="neutral_flap_center_tcp_frame_v1")
     with pytest.raises(ValueError, match="observation_contract"):
         _compatible_checkpoint(checkpoint, updated)
+
+
+def test_checkpoint_allows_new_expert_episode_fraction_but_not_changed_actor_features(tmp_path):
+    original = {"exploration": {"actor_feature_mode": "grasp_target", "initial_policy_std": .01}}
+    (tmp_path / "manifest.json").write_text(json.dumps(original))
+    checkpoint = tmp_path / "checkpoint_00000001.pt"
+    checkpoint.touch()
+    updated = {"exploration": original["exploration"] | {"online_ik_episode_fraction": .2}}
+    _compatible_checkpoint(checkpoint, updated)
+    updated["exploration"]["actor_feature_mode"] = "flat"
+    with pytest.raises(ValueError, match="exploration"):
+        _compatible_checkpoint(checkpoint, updated)

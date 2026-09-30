@@ -2,6 +2,19 @@
 
 ## Latest measured result and active run
 
+The active GPU 3 follow-up is
+`artifacts/rl/drive_runs/sac_mbv2_episodic_guidance_gpu3_20260930_2120/`,
+64 environments and 180 additional iterations from policy checkpoint 60.
+It uses `--online-ik-episode-fraction 0.2`, online correction labels, CPU
+replay capacity 300,000, batch 1,024 and four updates/vector step. This keeps
+64 sampled critic rows per new transition, matching the preceding 32-env
+batch-512 pilot. The stored actor-update decay horizon/counter are preserved,
+so the resumed expected IK fraction starts below 20%. Warmup is zero; real
+online transitions refill uniform Q replay before updates. Existing imitation
+and protected success data are restored. This is a measured recovery attempt,
+not evidence of learned-policy success. Safety and task/reset contracts remain
+unchanged.
+
 The acquisition/pull pilot recorded one genuine held success at iteration 20:
 bilateral opposing-flap pinch and proof lift remained valid for 0.267 s, and
 the success reward and terminal transition were both present. This was an
@@ -385,6 +398,13 @@ status only when it initiated the stop; an unexpected zero-exit `stopped` run
 remains an error. Existing immediate handlers for other runners are preserved.
 Checkpoint retention/Drive finalization rules are unchanged, and stopped runs
 are not labelled naturally completed training.
+Related checks pass: 38 SAC/demo tests and 12 supervisor lifecycle tests.
+
+The first episodic continuation initialized correctly but the checkpoint's
+strict exploration-dictionary comparison rejected the new collection fraction.
+Compatibility now permits changing only `online_ik_episode_fraction`; actor
+features, observations, actions, reward and contact contracts remain checked.
+The failed initialization's final logs were Drive-verified before retry.
 
 ## Reproduce the transfer pilot
 

@@ -71,7 +71,15 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
         "reward_profile", "exploration", "demonstrations", "self_collision",
         "action_projection",
     ):
-        if source.get(key) != manifest.get(key):
+        saved, requested = source.get(key), manifest.get(key)
+        if key == "exploration" and isinstance(saved, dict) and isinstance(requested, dict):
+            # Episode assignment changes the source of genuine off-policy
+            # transitions, not the model, action or physical environment contract.
+            saved = {name: value for name, value in saved.items()
+                     if name != "online_ik_episode_fraction"}
+            requested = {name: value for name, value in requested.items()
+                         if name != "online_ik_episode_fraction"}
+        if saved != requested:
             raise ValueError(f"Checkpoint {key} differs from this v2 SAC environment")
 
 
