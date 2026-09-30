@@ -52,11 +52,21 @@ transition was excluded. Corrupt read caches were injected; NaNs were never
 written to native physics. Relevant CPU checks: 41 passed. This verifies the
 recovery path, not the underlying source of rare native root-state divergence.
 
-Resume plan: checkpoint 21 on GPU 3 with 1,024 environments, 256 IK vector
+Resumed at 2026-10-01 00:39 KST from source `b4a5306` in
+`artifacts/rl/drive_runs/sac_mbv2_pose_recovery_gpu3_20261001_0039/`,
+child `sac_20261001_003940_9e46f4`. The previous failed training PID is gone
+and GPU 3 was empty before launch. CUDA visibility is restricted to physical
+GPU 3; 979 additional iterations target original iteration 1,000.
+
+This restores checkpoint 21 with 1,024 environments and 256 IK vector
 steps to refill non-serialized uniform Q replay, then the pending 20,000-update
 teacher fit and SAC optimization. Successful tails, labels and the original
 153,600 actor-update imitation decay horizon are restored. Safety, rewards,
 success criteria and reset distribution are unchanged.
+The supervisor uses the existing authenticated Drive connection, checks every
+300 seconds, saves every 50 iterations plus warmup/exception safeguards, and
+keeps the latest two checksum-verified checkpoints. Local free space was
+109 GiB at launch; verified Drive free capacity was 4.984 TiB.
 
 ![IK successes, distances and outcomes in the corrected run](assets/rl_v2_ik_success_progress_20261001.png)
 
