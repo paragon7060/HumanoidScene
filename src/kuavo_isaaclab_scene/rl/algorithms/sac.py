@@ -23,6 +23,7 @@ class SACConfig:
     freeze_actor_normalizer: bool = False
     initial_policy_std: float = 1.0
     max_policy_std: float = math.exp(2)
+    actor_lr: float | None = None
 
 
 class ReplayBuffer:
@@ -96,7 +97,8 @@ class SAC(nn.Module):
         self.target2.requires_grad_(False)
         self.log_alpha = nn.Parameter(torch.tensor(math.log(cfg.initial_alpha)))
         self.to(device)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=cfg.lr)
+        self.actor_optimizer = torch.optim.Adam(
+            self.actor.parameters(), lr=cfg.actor_lr if cfg.actor_lr is not None else cfg.lr)
         self.q_optimizer = torch.optim.Adam(list(self.q1.parameters()) + list(self.q2.parameters()), lr=cfg.lr)
         self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=cfg.lr)
 

@@ -215,6 +215,20 @@ def test_demo_actor_pretraining_reduces_action_error_without_critic_update():
                for name, value in agent.q1.state_dict().items())
 
 
+def test_critic_warmup_preserves_pretrained_actor_and_entropy_coefficient():
+    agent = AsymmetricSAC(4, 7, 2, SACConfig(hidden=16, actor_lr=0.00003))
+    agent.pretrain_actor(torch.randn(16, 4), torch.zeros(16, 2), steps=2, batch_size=8)
+    actor = {name: value.clone() for name, value in agent.actor.state_dict().items()}
+    q = {name: value.clone() for name, value in agent.q1.state_dict().items()}
+    alpha = agent.log_alpha.detach().clone()
+    report = agent.update(_batch(16), update_actor=False)
+    assert not report["actor_updated"]
+    assert all(torch.equal(value, actor[name]) for name, value in agent.actor.state_dict().items())
+    assert any(not torch.equal(value, q[name]) for name, value in agent.q1.state_dict().items())
+    torch.testing.assert_close(agent.log_alpha, alpha)
+    assert agent.actor_optimizer.param_groups[0]["lr"] == 0.00003
+
+
 def test_guided_demo_warmup_keeps_distant_grippers_open_and_resets_noise():
     widths = {"base": 3, "left_gripper": 1, "right_gripper": 1}
     env = SimpleNamespace(

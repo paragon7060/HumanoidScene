@@ -149,7 +149,10 @@ class AsymmetricSAC(nn.Module):
         self.target2 = deepcopy(self.q2).requires_grad_(False)
         self.log_alpha = nn.Parameter(torch.tensor(float(cfg.initial_alpha)).log())
         self.to(device)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=cfg.lr)
+        if cfg.actor_lr is not None and (not math.isfinite(cfg.actor_lr) or cfg.actor_lr <= 0):
+            raise ValueError("actor_lr must be positive and finite")
+        self.actor_optimizer = torch.optim.Adam(
+            self.actor.parameters(), lr=cfg.actor_lr if cfg.actor_lr is not None else cfg.lr)
         self.q_optimizer = torch.optim.Adam(
             list(self.q1.parameters()) + list(self.q2.parameters()), lr=cfg.lr)
         self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=cfg.lr)
@@ -195,18 +198,27 @@ class AsymmetricSAC(nn.Module):
         normalized = self.actor_normalizer(features)
         with torch.no_grad():
             initial = F.mse_loss(self.actor(normalized, deterministic=True)[0], action).item()
-        for _ in range(steps):
-            ids = torch.randint(len(action), (batch_size,), device=action.device)
-            predicted = self.actor(normalized[ids], deterministic=True)[0]
-            loss = F.mse_loss(predicted, action[ids])
-            optimize(self.actor_optimizer, loss, self.actor.parameters())
+        # Initialization can fit at the standard rate; online policy changes
+        # use the smaller configured actor rate after this pass.
+        rates = [group["lr"] for group in self.actor_optimizer.param_groups]
+        try:
+            for group in self.actor_optimizer.param_groups:
+                group["lr"] = self.config.lr
+            for _ in range(steps):
+                ids = torch.randint(len(action), (batch_size,), device=action.device)
+                predicted = self.actor(normalized[ids], deterministic=True)[0]
+                loss = F.mse_loss(predicted, action[ids])
+                optimize(self.actor_optimizer, loss, self.actor.parameters())
+        finally:
+            for group, rate in zip(self.actor_optimizer.param_groups, rates):
+                group["lr"] = rate
         with torch.no_grad():
             final = F.mse_loss(self.actor(normalized, deterministic=True)[0], action).item()
         return {"steps": steps, "initial_mse": initial, "final_mse": final}
 
     def update(self, batch: dict[str, torch.Tensor], *,
                demonstration: dict[str, torch.Tensor] | None = None,
-               demonstration_weight: float = 0.0) -> dict[str, float]:
+               demonstration_weight: float = 0.0, update_actor: bool = True) -> dict[str, float]:
         if demonstration_weight < 0 or (demonstration_weight and demonstration is None):
             raise ValueError("Demonstration weight requires a nonnegative value and a batch")
         cfg = self.config
@@ -235,6 +247,24 @@ class AsymmetricSAC(nn.Module):
             self.q_optimizer, q_loss,
             list(self.q1.parameters()) + list(self.q2.parameters()))
 
+        with torch.no_grad():
+            for source, target_network in ((self.q1, self.target1), (self.q2, self.target2)):
+                for parameter, target_parameter in zip(source.parameters(), target_network.parameters()):
+                    target_parameter.lerp_(parameter, cfg.tau)
+        if not update_actor:
+            with torch.no_grad():
+                log_std = self.actor.network(actor_obs).chunk(2, -1)[1].clamp(-5, self.actor.log_std_max)
+            return {
+                "q_loss": q_loss.item(), "actor_loss": 0.0, "actor_updated": False,
+                "demo_bc_loss": 0.0, "demo_bc_weight": 0.0,
+                "alpha": alpha.item(), "policy_logp_mean": next_logp.mean().item(),
+                "policy_action_std_mean": next_action.std(0, unbiased=False).mean().item(),
+                "q_value_mean": torch.minimum(q1, q2).mean().item(),
+                "target_value_mean": target.mean().item(),
+                "entropy_bonus_mean": (-alpha * next_logp).mean().item(),
+                "policy_gaussian_std_mean": log_std.exp().mean().item(),
+            }
+
         self.q1.requires_grad_(False)
         self.q2.requires_grad_(False)
         try:
@@ -260,17 +290,11 @@ class AsymmetricSAC(nn.Module):
         with torch.no_grad():
             if cfg.min_alpha > 0:
                 self.log_alpha.clamp_(min=math.log(cfg.min_alpha))
-            for source, target_network in (
-                (self.q1, self.target1), (self.q2, self.target2)
-            ):
-                for parameter, target_parameter in zip(
-                    source.parameters(), target_network.parameters()
-                ):
-                    target_parameter.lerp_(parameter, cfg.tau)
             log_std = self.actor.network(actor_obs).chunk(2, -1)[1].clamp(-5, self.actor.log_std_max)
         return {
             "q_loss": q_loss.item(),
             "actor_loss": actor_loss.item(),
+            "actor_updated": True,
             "demo_bc_loss": bc_loss.item(),
             "demo_bc_weight": demonstration_weight,
             "alpha": self.log_alpha.exp().item(),

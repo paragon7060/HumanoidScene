@@ -274,6 +274,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                                      and getattr(args, "freeze_actor_normalizer", True)),
             initial_policy_std=getattr(args, "initial_policy_std", 0.15),
             max_policy_std=getattr(args, "max_policy_std", 0.3),
+            actor_lr=getattr(args, "actor_lr", 0.00003),
         )
     )
     projection = GraspActionProjector([
@@ -333,6 +334,11 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         min(args.replay_capacity, warmup_target + env.num_envs)
         if getattr(args, "guided_warmup_mode", "bc") == "ik" else goal_capacity,
         agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim, "cpu")
+    success_replay = AsymmetricReplayBuffer(
+        getattr(args, "success_replay_capacity", 10_000), agent.actor_obs_dim,
+        agent.critic_obs_dim, agent.action_dim, "cpu")
+    if state and state.get("success_replay"):
+        success_replay.add(**state["success_replay"])
     teacher_pretraining = (state or {}).get("teacher_pretraining", {
         "steps": 0, "initial_mse": 0.0, "final_mse": 0.0})
     teacher_fitted = bool((state or {}).get("teacher_fitted", False))
@@ -356,6 +362,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
 
     transitions = valid_transitions = skipped_nonfinite = 0
     optimizer_updates = int((state or {}).get("optimizer_updates", 0))
+    actor_updates = int((state or {}).get("actor_updates", 0))
     skipped_settling = invalid_resets = 0
     update_credit = 0.0
     warmup_action = None
@@ -405,6 +412,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         breakdown_max_abs_error = 0.0
         iteration_valid = iteration_warmup = 0
         iteration_guided_warmup = 0
+        warmup_successes = sac_successes = 0
+        success_samples = 0
         demo_samples = 0
         terminated_episodes = timeout_episodes = 0
         termination_counts: dict[str, int] = {}
@@ -460,6 +469,9 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 for name, value in termination_terms.items():
                     termination_counts[name] = termination_counts.get(name, 0) \
                         + int(value.sum().item())
+                successful = int(termination_terms["success"].sum().item())
+                warmup_successes += successful if warming_up else 0
+                sac_successes += successful if not warming_up else 0
                 safety = info.get("transition_safety")
                 if safety is None:
                     raise RuntimeError("V2 SAC requires pre-reset grasp safety measurements")
@@ -524,6 +536,10 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                         terminated=terminated[finite_transition],
                     )
                     replay.add(**transition_batch)
+                    success_rows = termination_terms["success"][finite_transition]
+                    if success_rows.any():
+                        success_replay.add(**{
+                            key: value[success_rows] for key, value in transition_batch.items()})
                     if warming_up and getattr(args, "guided_warmup_mode", "bc") == "ik":
                         teacher_replay.add(**transition_batch)
                     reached = geometry["matched_flap_distance_m"][finite_transition].amin(-1) <= 0.25
@@ -615,37 +631,49 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 for _ in range(updates):
                     fraction = _demo_fraction(
                         getattr(args, "demo_batch_fraction", 0.0),
-                        optimizer_updates, demo_decay_updates)
+                        actor_updates, demo_decay_updates)
                     demo_count = round(args.batch_size * fraction) if demonstration else 0
                     demo_batch = demonstration.sample(demo_count, env.device) \
                         if demo_count else None
                     if demo_count and teacher_replay.size:
-                        teacher_count = demo_count // 2
+                        teacher_count = round(demo_count * 0.8)
                         offline = demonstration.sample(demo_count - teacher_count, env.device)
                         teacher = teacher_replay.sample(teacher_count, env.device)
                         demo_batch = {key: torch.cat((value, teacher[key])) for key, value in offline.items()}
                     goal_count = round(args.batch_size * getattr(args, "goal_batch_fraction", 0.25)) \
                         if goal_replay.size else 0
-                    batch = replay.sample(args.batch_size - goal_count, env.device)
+                    success_count = min(success_replay.size, round(
+                        args.batch_size * getattr(args, "success_batch_fraction", 0.05)))
+                    batch = replay.sample(args.batch_size - goal_count - success_count, env.device)
                     if goal_count:
                         goals = goal_replay.sample(goal_count, env.device)
                         batch = {key: torch.cat((value, goals[key])) for key, value in batch.items()}
+                    if success_count:
+                        successes = success_replay.sample(success_count, env.device)
+                        batch = {key: torch.cat((value, successes[key])) for key, value in batch.items()}
                     metrics = agent.update(
                         batch,
                         demonstration=demo_batch, demonstration_weight=(
-                            fraction * getattr(args, "demo_bc_strength", 10.0) if demo_count else 0.0))
-                    demo_samples += demo_count
+                            fraction * getattr(args, "demo_bc_strength", 10.0) if demo_count else 0.0),
+                        update_actor=optimizer_updates >= getattr(args, "critic_warmup_updates", 500))
+                    demo_samples += demo_count if metrics["actor_updated"] else 0
+                    actor_updates += int(metrics["actor_updated"])
+                    success_samples += success_count
                     optimizer_updates += 1
 
         metrics.update(
             goal_replay_size=goal_replay.size,
             teacher_replay_size=teacher_replay.size,
+            success_replay_size=success_replay.size,
+            success_samples_this_iteration=success_samples,
+            successful_warmup_episodes=warmup_successes,
+            successful_sac_episodes=sac_successes,
             teacher_pretrain_steps=teacher_pretraining["steps"],
             teacher_pretrain_initial_mse=teacher_pretraining["initial_mse"],
             teacher_pretrain_final_mse=teacher_pretraining["final_mse"],
-            rollout_policy=("ik_warmup" if iteration_guided_warmup
-                            and getattr(args, "guided_warmup_mode", "bc") == "ik"
-                            else "sac"),
+            rollout_policy=("mixed_warmup_sac" if 0 < iteration_warmup < iteration_valid
+                            else (getattr(args, "guided_warmup_mode", "bc") + "_warmup"
+                                  if iteration_warmup else "sac")),
             actor_encoded_dim=agent.actor_features.output_dim,
             actor_normalizer_count=float(agent.actor_normalizer.count),
             actor_normalizer_frozen=agent.config.freeze_actor_normalizer,
@@ -664,13 +692,14 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             demo_replay_size=demonstration.size if demonstration else 0,
             demo_bc_samples_this_iteration=demo_samples,
             demo_bc_fraction=_demo_fraction(
-                getattr(args, "demo_batch_fraction", 0.0), optimizer_updates,
+                getattr(args, "demo_batch_fraction", 0.0), actor_updates,
                 demo_decay_updates) if demonstration else 0.0,
             replay_gib=replay.bytes / 2**30,
             nonfinite_transitions=skipped_nonfinite,
             settling_transitions_skipped=skipped_settling,
             invalid_resets=invalid_resets,
             optimizer_updates=optimizer_updates,
+            actor_updates=actor_updates,
             terminated_episodes=terminated_episodes,
             timeout_episodes=timeout_episodes,
             initial_settling_steps=initial_settling_steps,
@@ -752,9 +781,13 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 else args.keep_checkpoints
             payload = agent.checkpoint() | {
                 "optimizer_updates": optimizer_updates,
+                "actor_updates": actor_updates,
                 "demo_decay_updates": demo_decay_updates,
                 "teacher_fitted": teacher_fitted,
                 "teacher_pretraining": teacher_pretraining,
+                "success_replay": {
+                    key: value[:success_replay.size].clone()
+                    for key, value in success_replay.data.items()},
             }
             save_checkpoint(directory, payload, iteration, keep)
     return agent

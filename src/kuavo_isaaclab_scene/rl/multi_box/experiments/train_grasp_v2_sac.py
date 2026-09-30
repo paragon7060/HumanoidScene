@@ -36,6 +36,8 @@ def apply_run_profile(args) -> None:
         args.learning_starts = 0
         args.warmup_vector_steps = 0
         args.updates_per_step = 1
+        if hasattr(args, "critic_warmup_updates"):
+            args.critic_warmup_updates = 0
         args.save_interval = 1
         if hasattr(args, "demo_pretrain_steps"):
             args.demo_pretrain_steps = min(args.demo_pretrain_steps, 4)
@@ -51,6 +53,8 @@ def apply_run_profile(args) -> None:
         args.learning_starts = min(args.learning_starts, 4_096)
         args.warmup_vector_steps = min(args.warmup_vector_steps, 64)
         args.updates_per_step = 1
+        if hasattr(args, "critic_warmup_updates"):
+            args.critic_warmup_updates = min(args.critic_warmup_updates, 64)
         args.save_interval = min(args.save_interval, 5)
         if hasattr(args, "demo_pretrain_steps"):
             args.demo_pretrain_steps = min(args.demo_pretrain_steps, 100)
@@ -100,6 +104,11 @@ def main() -> None:
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
     parser.add_argument("--teacher-pretrain-steps", type=int, default=5000,
                         help="Fit the SAC actor to new IK-collected actions once warmup ends.")
+    parser.add_argument("--actor-lr", type=float, default=0.00003)
+    parser.add_argument("--critic-warmup-updates", type=int, default=500,
+                        help="Learn Q before allowing it to change the pretrained actor.")
+    parser.add_argument("--success-replay-capacity", type=int, default=10000)
+    parser.add_argument("--success-batch-fraction", type=float, default=0.05)
     parser.add_argument("--reward-scale", type=float, default=10.0)
     parser.add_argument("--entropy-backup", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--actor-feature-mode", choices=("flat", "grasp_target"), default="grasp_target")
@@ -168,6 +177,11 @@ def main() -> None:
         parser.error("IK warmup needs successful demos for wrist orientations")
     if args.teacher_pretrain_steps < 0:
         parser.error("--teacher-pretrain-steps must be nonnegative")
+    if not 0 < args.actor_lr <= 0.001 or args.critic_warmup_updates < 0 \
+            or args.success_replay_capacity < 1 \
+            or not 0 <= args.success_batch_fraction < 1 \
+            or args.success_batch_fraction + args.goal_batch_fraction >= 1:
+        parser.error("Invalid critic warmup, actor learning rate or success replay")
     if args.goal_replay_capacity < 1 or not 0 <= args.goal_batch_fraction < 1:
         parser.error("Invalid goal replay configuration")
     if not 0 < args.warmup_continuous_scale <= 1:
@@ -318,6 +332,10 @@ def main() -> None:
                     "max_policy_std": args.max_policy_std,
                     "guided_warmup_mode": args.guided_warmup_mode,
                     "teacher_pretrain_steps": args.teacher_pretrain_steps,
+                    "actor_lr": args.actor_lr,
+                    "critic_warmup_updates": args.critic_warmup_updates,
+                    "success_replay_capacity": args.success_replay_capacity,
+                    "success_batch_fraction": args.success_batch_fraction,
                     "reward_scale": args.reward_scale,
                     "entropy_backup": args.entropy_backup,
                     "actor_feature_mode": args.actor_feature_mode,

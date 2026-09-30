@@ -43,6 +43,10 @@ def main():
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
     parser.add_argument("--teacher-pretrain-steps", type=int, default=5000)
+    parser.add_argument("--actor-lr", type=float, default=0.00003)
+    parser.add_argument("--critic-warmup-updates", type=int, default=500)
+    parser.add_argument("--success-replay-capacity", type=int, default=10000)
+    parser.add_argument("--success-batch-fraction", type=float, default=0.05)
     parser.add_argument("--reward-scale", type=float, default=10.0)
     parser.add_argument("--entropy-backup", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--actor-feature-mode", choices=("flat", "grasp_target"), default="grasp_target")
@@ -134,9 +138,15 @@ def main():
                 or not args.initial_policy_std <= args.max_policy_std <= 1 \
                 or args.teacher_pretrain_steps < 0 or not 0 <= args.demo_bc_strength <= 1000:
             parser.error("Invalid V2 SAC recovery configuration")
+        if not 0 < args.actor_lr <= 0.001 or args.critic_warmup_updates < 0 \
+                or args.success_replay_capacity < 1 \
+                or not 0 <= args.success_batch_fraction < 1 \
+                or args.success_batch_fraction + args.goal_batch_fraction >= 1:
+            parser.error("Invalid V2 critic warmup or success replay")
         for name in ("warmup_action_hold_steps", "warmup_continuous_scale", "min_alpha",
                      "initial_alpha", "initial_policy_std", "max_policy_std", "guided_warmup_mode",
                      "teacher_pretrain_steps",
+                     "actor_lr", "critic_warmup_updates", "success_replay_capacity", "success_batch_fraction",
                      "reward_scale", "actor_feature_mode",
                      "goal_replay_capacity", "goal_batch_fraction",
                      "demo_batch_fraction", "demo_bc_strength", "demo_decay_fraction", "demo_pretrain_steps",

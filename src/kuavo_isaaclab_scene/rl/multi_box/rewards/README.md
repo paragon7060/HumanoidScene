@@ -61,3 +61,10 @@ Optional IK warmup collects current-environment entry actions, fits the actor
 once to this broader data before unguided rollout, and then fixes its revised
 normalizer. These real transitions may train Q. Logs separate IK warmup from
 SAC rollout and report pinch, proof lift, stability and continuous hold time.
+A critic-only warmup (500 updates) protects the initial actor from an untrained
+Q gradient. Online actor learning uses 0.00003 rather than the critic's 0.0003.
+Held-success terminal transitions have a separate checkpointed CPU replay
+(10,000 rows, up to 5% of the critic batch); no legacy reward enters it.
+Imitation decay counts actor updates, preserving the initial 20% fraction
+through critic warmup. The evaluated conservative profile uses BC strength 100
+and Gaussian std 0.02/cap 0.05; these explicit overrides are in the run record.

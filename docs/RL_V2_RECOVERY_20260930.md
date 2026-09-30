@@ -117,6 +117,40 @@ Checkpoints also retain the optimizer-update counter, imitation decay horizon
 and completed teacher-fit flag. Resuming a trained actor does not reset its
 demo schedule or refit it to the initial guide. Online replay still starts empty.
 
+The fixed transfer pilot completed 30 iterations without the success-reward
+error: three held-grasp successes were recorded during warmup/the mixed
+handoff iteration. Pure SAC iterations 14-30 had no pinch/success, and final
+left/right distances were 0.825/0.942 m. Total unsafe terminations were 409.
+Teacher imitation MSE started near 0.0025 but rose to about 0.046 within the
+first 300 SAC updates. Transferring the mean alone therefore did not preserve
+entry behavior during online learning.
+
+The next profile adds 500 critic-only updates before actor/temperature changes,
+an online actor rate of 0.00003 (critic/imitation initialization 0.0003), a
+stronger initial BC multiplier of 100 and Gaussian std 0.02/cap 0.05. Initial
+alpha is 0.00001 with a 0.0000001 floor. The imitation sample fraction remains
+20% and its decay counts actual actor updates, so critic warmup does not consume
+the imitation schedule. Of this imitation batch, 80% comes from current IK
+collection and 20% from the legacy demos when teacher samples are available.
+
+A separate 10,000-row CPU buffer retains verified held-success terminal
+transitions even after large uniform/near-flap buffers overwrite them. It
+supplies at most 5% of a critic batch, capped by the number of available real
+success rows, and is included in checkpoints for restart. It contains no
+converted legacy reward. Logs distinguish `successful_warmup_episodes` and
+`successful_sac_episodes`, with an explicit mixed handoff label.
+
+This conservative pilot is
+`artifacts/rl/drive_runs/sac_mbv2_conservative_pilot_gpu3_20260930_1822/`,
+64 environments and 30 iterations. Add the following overrides to the command
+below, using its new unique directory and `--max-iterations 30`:
+
+```bash
+--actor-lr 0.00003 --critic-warmup-updates 500 --demo-bc-strength 100 \
+--initial-policy-std 0.02 --max-policy-std 0.05 \
+--initial-alpha 0.00001 --min-alpha 0.0000001
+```
+
 ## Reproduce the transfer pilot
 
 Discover the existing host-local remote with `bash scripts/rl/gdrive.sh listremotes`
