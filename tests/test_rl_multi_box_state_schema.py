@@ -175,11 +175,12 @@ def test_actor_observation_has_stable_flat_manager_layout_without_ordinal_target
         + observation.target_one_hot.shape[1]
         + observation.current_skill_one_hot.shape[1]
         + 1
+        + 24
         + observation.previous_action.shape[1]
     )
     assert flat.shape == (2, expected)
     assert expected == flat_actor_observation_dim(25)
-    assert expected == 441
+    assert expected == 465
 
 
 def test_hand_flap_goal_uses_fixed_centers_and_masks_missing_target():
@@ -256,7 +257,7 @@ def test_legacy_demo_conversion_reconstructs_current_observation_from_recorded_p
     )
     current = flatten_actor_observation(build_observations(
         replace(value, deployable=deployable), torch.zeros(2, 25)).actor)
-    legacy = torch.cat((current[:, :350], current[:, 388:]), dim=-1)
+    legacy = torch.cat((current[:, :350], current[:, 388:416], current[:, 440:]), dim=-1)
     converted = convert_legacy_actor_observation(legacy)
     expected_previous_action = torch.zeros(2, 24)
     expected_previous_action[:, 20:22] = -1  # Binary 0=open becomes SAC negative open.

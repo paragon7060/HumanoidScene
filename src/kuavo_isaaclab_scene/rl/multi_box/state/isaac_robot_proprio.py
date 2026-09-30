@@ -56,10 +56,23 @@ class IsaacRobotProprioAdapter:
         ], dim=-1)
         if gripper_command.shape != gripper_position.shape:
             raise ValueError("Expected one binary gripper command per hand.")
-        # PlanarDrive teleports the fixed root by its processed local velocity.
-        # PhysX root_vel_w can therefore remain zero despite actual base motion.
-        base_twist_world = kinematic_base_twist_world(
-            data.root_quat_w, self.env.action_manager.get_term("base").processed_actions)
+        # Floating roots report real dynamics; only a teleported kinematic root
+        # needs its commanded local velocity converted into a world twist.
+        base = self.env.action_manager.get_term("base")
+        base_command = base.processed_actions
+        base_twist_world = (data.root_vel_w if base.cfg.dynamic else
+                            kinematic_base_twist_world(data.root_quat_w, base_command))
+        # Logical PD targets are controller telemetry, available on the real
+        # robot too. Do not expose gravity-biased PhysX drive targets instead.
+        targets = data.joint_pos[:, self.joint_ids].clone()
+        columns = {joint: i for i, joint in enumerate(self.joint_ids)}
+        for name in ("upper_body", "height", "head"):
+            if name not in self.env.action_manager.active_terms:
+                continue
+            term = self.env.action_manager.get_term(name)
+            commanded = getattr(term, "_joint_targets", term.processed_actions)
+            indices = [columns[joint] for joint in term._joint_ids]
+            targets[:, indices] = commanded
         return robot_state_from_sensors(
             joint_pos=data.joint_pos[:, self.joint_ids],
             joint_vel=data.joint_vel[:, self.joint_ids],
@@ -68,4 +81,5 @@ class IsaacRobotProprioAdapter:
             tcp_pose_world=self.tcp.center_pose_w,
             gripper_position=gripper_position,
             gripper_command=gripper_command,
+            joint_targets=targets, base_command=base_command,
         )

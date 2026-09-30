@@ -20,6 +20,7 @@ class ActorObservation:
     current_skill_one_hot: torch.Tensor
     needs_target: torch.Tensor
     previous_action: torch.Tensor
+    controller_state: torch.Tensor | None = None
 
 
 @dataclass(frozen=True)

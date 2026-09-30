@@ -32,6 +32,7 @@ _OLD_BOX_MASK_START = _OLD_BOX_TOKENS_START + MAX_BOXES * 22
 _OLD_TARGET_START = _OLD_BOX_MASK_START + MAX_BOXES
 _LEGACY_TORSO_DELTA_RAD = 0.015
 _CONTROL_DT_S = 1.0 / 30.0
+PRE_CONTROLLER_ACTOR_DIM = 440
 _LEGACY_ACTION_TERMS = [
     ["base", 3], ["upper_body", 15], ["height", 3],
     ["left_gripper", 1], ["right_gripper", 1], ["head", 2],
@@ -123,9 +124,20 @@ def convert_legacy_actor_observation(actor_obs: torch.Tensor) -> torch.Tensor:
     ), dim=-1)
     previous_action = convert_legacy_action(result[:, -25:], result[:, :3])
     result = torch.cat((result[:, :-25], previous_action), dim=-1)
+    result = upgrade_controller_observation(result)
     if result.shape[1] != flat_actor_observation_dim(24):
         raise RuntimeError("Converted v2 actor observation has the wrong dimension")
     return result
+
+
+def upgrade_controller_observation(observation: torch.Tensor) -> torch.Tensor:
+    """Old files lack pending PD targets; mark telemetry unavailable explicitly."""
+    if observation.shape[1] == flat_actor_observation_dim(24):
+        return observation.clone()
+    if observation.shape[1] != PRE_CONTROLLER_ACTOR_DIM:
+        raise ValueError("Unsupported upright controller observation")
+    missing = observation.new_zeros(len(observation), 24)
+    return torch.cat((observation[:, :-24], missing, observation[:, -24:]), -1)
 
 
 def load_v2_grasp_demonstrations(
@@ -144,7 +156,9 @@ def load_v2_grasp_demonstrations(
             raise ValueError("Unsupported v2 grasp demonstration format")
         manifest = json.loads(source.attrs["manifest_json"])
         native = manifest.get("action_dim") == 24
-        source_actor_dim = flat_actor_observation_dim(24) if native else LEGACY_ACTOR_DIM
+        source_actor_dim = manifest.get("actor_obs_dim") if native else LEGACY_ACTOR_DIM
+        if native and source_actor_dim not in (PRE_CONTROLLER_ACTOR_DIM, flat_actor_observation_dim(24)):
+            raise ValueError("Unsupported native upright observation dimension")
         source_critic_dim = source_actor_dim + 66
         required = {
             "task_family": "multi_box_v2", "skill": "grasp",
@@ -160,7 +174,7 @@ def load_v2_grasp_demonstrations(
         expected_terms = [[name, 2 if native and name == "height" else width]
                           for name, width in _LEGACY_ACTION_TERMS]
         if manifest.get("action_terms") != expected_terms:
-            raise ValueError("Demonstration action term order differs from the 25-D converter")
+            raise ValueError("Demonstration action term order differs from the upright/legacy contract")
         if manifest.get("multi_box", {}).get("self_collision_enabled") != self_collision_enabled:
             raise ValueError("Demonstration self-collision setting differs from training")
         if abs(float(manifest.get("control_dt", 0)) - 1 / 30) > 1e-6:
@@ -185,8 +199,8 @@ def load_v2_grasp_demonstrations(
                     or not torch.equal(critic[:, :source_actor_dim], current) \
                     or not torch.equal(next_critic[:, :source_actor_dim], next_actor):
                 raise ValueError("Demonstration critic views do not match actor views")
-            actor_new = current.clone() if native else convert_legacy_actor_observation(current)
-            next_new = next_actor.clone() if native else convert_legacy_actor_observation(next_actor)
+            actor_new = upgrade_controller_observation(current) if native else convert_legacy_actor_observation(current)
+            next_new = upgrade_controller_observation(next_actor) if native else convert_legacy_actor_observation(next_actor)
             original_action = torch.from_numpy(transitions["action"][:])
             converted_action = original_action.clone() if native else convert_legacy_action(original_action, current[:, :3])
             if native:

@@ -307,7 +307,7 @@ def main() -> None:
                 "action_contract": "s63_upright_torso_xz_fixed_pitch_v1",
                 "action_projection": GraspActionProjector.name,
                 "observations": observation_dims,
-                "observation_contract": "neutral_flap_center_tcp_frame_v1",
+                "observation_contract": "neutral_flap_center_controller_state_actual_base_twist_v2",
                 "critic_mapping": {
                     "actor": ["policy"],
                     "critic": ["policy", "critic"],

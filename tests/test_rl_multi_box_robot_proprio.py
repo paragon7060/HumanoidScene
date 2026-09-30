@@ -56,3 +56,16 @@ def test_planar_drive_twist_is_rotated_into_world_frame():
     twist = kinematic_base_twist_world(yaw_ninety, torch.tensor([[0.2, 0.0, 0.3]]))
     torch.testing.assert_close(twist, torch.tensor([[0.0, 0.2, 0.0, 0.0, 0.0, 0.3]]),
                                atol=1e-6, rtol=0)
+
+
+def test_pending_controller_targets_are_visible_when_measured_positions_match():
+    state = robot_state_from_sensors(
+        joint_pos=torch.zeros(2, 20), joint_vel=torch.zeros(2, 20),
+        base_pose_world=_pose(2), base_twist_world=torch.zeros(2, 6),
+        tcp_pose_world=_pose(2, 2), gripper_position=torch.zeros(2, 2),
+        gripper_command=torch.zeros(2, 2),
+        joint_targets=torch.stack((torch.zeros(20), torch.full((20,), 0.1))),
+        base_command=torch.tensor([[0., 0., 0.], [.1, 0., 0.]]))
+    torch.testing.assert_close(state.controller_state[1, :20], torch.full((20,), 0.1))
+    assert state.controller_state[:, -1].tolist() == [1., 1.]
+    assert not torch.equal(state.controller_state[0], state.controller_state[1])

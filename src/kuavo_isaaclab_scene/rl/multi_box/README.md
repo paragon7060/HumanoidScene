@@ -107,7 +107,7 @@ boundary currently covers:
 - v2 potential shaping and the v2 SAC/PPO learners use the same 0.999 discount.
   At 30 Hz this retains credit across multi-second skills; the generic SAC
   implementation keeps its independent 0.99 default.
-- an asymmetric PPO contract with a 440-value deployable actor group and a
+- an asymmetric PPO contract with a 464-value deployable actor group and a
   separate 66-value simulator-only critic group. RSL-RL maps the critic to
   `policy + critic` while the actor receives only `policy`.
 - an isolated v2 training entrypoint at `bash scripts/rl/multi_box.sh grasp-v2`.
@@ -116,7 +116,7 @@ boundary currently covers:
   outside Git and may be uploaded to the configured private Drive destination.
 - an isolated asymmetric SAC entrypoint at
   `bash scripts/rl/multi_box.sh grasp-v2-sac`. The actor receives only the
-  440-value deployable observation; twin Q critics receive that observation
+  464-value deployable observation; twin Q critics receive that observation
   plus the 66 privileged values. Replay stores both current/next views so
   terminal transitions bootstrap from their pre-reset observations. The
   default 250k CPU replay is about 1.9 GiB; use `--smoke-test --num-envs 4`
@@ -127,7 +127,7 @@ boundary currently covers:
   `contact_force/*` counts above 0.1, 5, 10, and 20 N for rack and remaining
   obstacles after the reset grace period. The run manifest preserves the actual
   safety thresholds so excessive termination conditions can be reviewed. Older
-  403- or 441-value checkpoints cannot be resumed with the new 440-value policy. The
+  403-, 441- or 440-value checkpoints cannot be resumed with the new 464-value policy. The
   checked-in Quest demonstrations can be converted on load. The
   grasp reward keeps the two-hand opposing-flap success test. For each distinct-flap
   assignment, the reach score is `0.25*(sL+sR)+0.5*min(sL,sR)`, with each
@@ -158,8 +158,12 @@ boundary currently covers:
   and checkpoint playback. Blocked gripper outputs earn no entropy credit.
   This reduces unstructured sampling but does not prove a collision-free path.
   The recovery defaults use alpha 0.001 with a 0.00001 floor, Gaussian std
-  0.15 with a 0.3 cap, fixed actor normalization after pretraining, a 174-D
-  target-centric actor encoder and no critic entropy backup. An optional
+  0.15 with a 0.3 cap, fixed actor normalization after pretraining, a 198-D
+  target-centric actor encoder and no critic entropy backup. The observation
+  includes the 20 logical PD target errors, three local base commands and one
+  telemetry-availability flag. Dynamic bases report measured root velocity;
+  kinematic bases use their commanded twist. Older demonstrations use an
+  unavailable flag rather than invented control targets. An optional
   `--guided-warmup-mode ik` collects real pose-based servo transitions and
   `--teacher-pretrain-steps` transfers their actions before SAC takes over.
   `metrics.jsonl` records policy
@@ -173,7 +177,7 @@ boundary currently covers:
   `bash scripts/rl/multi_box.sh grasp-v2-sac --no-self-collision
   --demo-dataset examples/demos/v2_grasp_quest_success.hdf5 --demo-batch-fraction 0.2`.
   The original 403/469-D observations are converted from recorded TCP/box
-  poses to the current 440/506-D contract before training. Legacy 25-D joint
+  poses to the current 464/530-D contract before training. Legacy 25-D joint
   actions are projected onto the new 24-D upright X/Z action with the S63
   torso Jacobian; independent waist-pitch motion in the source is discarded.
   The old binary 0=open/1=close commands are converted to -1=open/+1=close

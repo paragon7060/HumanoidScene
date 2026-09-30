@@ -273,7 +273,8 @@ CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
 [Quest RL 시연 수집 안내](docs/RL_QUEST_REWARD_DEBUG.md)를 참고한다. 이 명령은
 시연 데이터만 저장한다. SAC 실행 시 `--demo-dataset`으로 명시적으로 연결하면
 성공 시연을 actor 모방에 사용한다. 현재 upright torso 설정은 action 24차원,
-actor/critic 관측 440/506차원이며, 기존 25차원 데모도 변환해 읽는다.
+actor/critic 관측 464/530차원이며, 기존 25차원 데모도 변환해 읽는다.
+누적 PD 목표–실제 관절 오차 20개, base 명령 3개와 제어 데이터 유효 여부를 포함한다.
 [데모·IK 탐색 연결과 실행 예시](docs/RL_V2_RECOVERY_20260930.md)를 참고한다.
 
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에

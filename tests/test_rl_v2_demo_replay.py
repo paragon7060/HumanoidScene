@@ -19,14 +19,15 @@ def test_two_successful_quest_episodes_convert_to_current_replay_contract():
         DATASET, self_collision_enabled=False)
     assert metadata["episodes"] == 2
     assert metadata["transitions"] == 910
-    assert batch["actor_obs"].shape == (910, 440)
-    assert batch["critic_obs"].shape == (910, 506)
-    assert batch["next_actor_obs"].shape == (910, 440)
-    assert batch["next_critic_obs"].shape == (910, 506)
+    assert batch["actor_obs"].shape == (910, 464)
+    assert batch["critic_obs"].shape == (910, 530)
+    assert batch["next_actor_obs"].shape == (910, 464)
+    assert batch["next_critic_obs"].shape == (910, 530)
     assert batch["action"].shape == (910, 24)
     assert int(batch["terminated"].sum()) == 2
-    torch.testing.assert_close(batch["critic_obs"][:, :440], batch["actor_obs"])
-    torch.testing.assert_close(batch["next_critic_obs"][:, :440], batch["next_actor_obs"])
+    torch.testing.assert_close(batch["critic_obs"][:, :464], batch["actor_obs"])
+    torch.testing.assert_close(batch["next_critic_obs"][:, :464], batch["next_actor_obs"])
+    assert (batch["actor_obs"][:, 416:440] == 0).all()
     assert metadata["action_terms"][2] == ["height", 2]
     assert metadata["action_conversion"] == "s63_upright_xz_jacobian_binary_gripper_v2"
     assert set(batch["action"][:, 20:22].unique().tolist()) == {-1.0, 1.0}
@@ -42,11 +43,12 @@ def test_demo_rejects_self_collision_contract_mismatch():
         load_v2_grasp_demonstrations(DATASET, self_collision_enabled=True)
 
 
-def test_native_upright_recordings_are_accepted_without_legacy_pose_conversion(tmp_path):
+@pytest.mark.parametrize("source_actor_dim", [440, 464])
+def test_native_upright_recordings_are_accepted_without_legacy_pose_conversion(tmp_path, source_actor_dim):
     batch, _ = load_v2_grasp_demonstrations(DATASET, self_collision_enabled=False)
     with h5py.File(DATASET) as legacy:
         manifest = json.loads(legacy.attrs["manifest_json"])
-    manifest.update(action_dim=24, actor_obs_dim=440, critic_obs_dim=506)
+    manifest.update(action_dim=24, actor_obs_dim=source_actor_dim, critic_obs_dim=source_actor_dim + 66)
     manifest["action_terms"][2] = ["height", 2]
     path = tmp_path / "native.hdf5"
     with h5py.File(path, "w") as output:
@@ -56,6 +58,8 @@ def test_native_upright_recordings_are_accepted_without_legacy_pose_conversion(t
         episode.attrs["success"] = True
         transitions = episode.create_group("transitions")
         for key, value in batch.items():
+            if source_actor_dim == 440 and key in ("actor_obs", "next_actor_obs", "critic_obs", "next_critic_obs"):
+                value = torch.cat((value[:, :416], value[:, 440:]), -1)
             transitions.create_dataset(key, data=value[:389].numpy())
         success = torch.zeros(389, dtype=torch.bool)
         success[-1] = True

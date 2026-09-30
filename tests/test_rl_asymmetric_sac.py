@@ -133,7 +133,7 @@ def test_target_actor_features_ignore_box_slot_number_and_unselected_boxes():
     obs[0, 400] = obs[1, 403] = 1
     obs[1, 86:108] = 1000
     encoded = features(obs)
-    assert encoded.shape == (2, 174)
+    assert encoded.shape == (2, 198)
     torch.testing.assert_close(encoded[0], encoded[1])
 
 

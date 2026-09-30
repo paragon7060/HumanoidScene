@@ -12,6 +12,7 @@ from ..geometry.grasp import (
 )
 from ..spec import BOX_TYPES, MAX_BOXES
 from ..state import DeployableTaskState, MultiBoxState
+from ..state.schema import CONTROLLER_STATE_DIM
 from .schema import ActorObservation, CriticObservation, ObservationBundle
 
 
@@ -36,6 +37,7 @@ def flat_actor_observation_dim(action_dim: int) -> int:
         + MAX_BOXES
         + 3
         + 1
+        + CONTROLLER_STATE_DIM
         + action_dim
     )
 
@@ -76,6 +78,10 @@ def flatten_actor_observation(observation: ActorObservation) -> torch.Tensor:
         observation.target_one_hot,
         observation.current_skill_one_hot,
         observation.needs_target.to(torch.float32).reshape(num_envs, 1),
+        (observation.controller_state if observation.controller_state is not None
+         else torch.zeros(num_envs, CONTROLLER_STATE_DIM,
+                          device=observation.robot_proprio.device,
+                          dtype=observation.robot_proprio.dtype)),
         observation.previous_action,
     )
     if any(value.ndim != 2 or value.shape[0] != num_envs for value in values):
@@ -157,6 +163,8 @@ def build_actor_observation(
         current_skill_one_hot=deployable.control.current_skill_one_hot.clone(),
         needs_target=deployable.control.needs_target.clone(),
         previous_action=previous_action.clone(),
+        controller_state=(robot.controller_state.clone()
+                          if robot.controller_state is not None else None),
     )
     return actor
 

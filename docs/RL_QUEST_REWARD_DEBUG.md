@@ -289,7 +289,9 @@ CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
 이 경로는 mode 2의 전체 장면 shadow reward 대신 **실제
 `MultiBoxGraspAssemblyEnvCfg` staged-grasp 환경**을 실행한다. 따라서 보상, 종료,
 관측, 정규화 전 24차원 action은 V2 SAC와 같은 코드에서 나온다. torso는 전후·상하
-X/Z 두 축이며 pitch를 독립적으로 명령하지 않는다. actor/critic 관측은 440/506차원이다.
+X/Z 두 축이며 pitch를 독립적으로 명령하지 않는다. actor/critic 관측은 464/530차원이다. 누적 PD 목표–실제 관절 오차 20개,
+base 명령 3개와 제어 데이터 유효 여부를 포함한다. 기존 440/506차원 기록은
+SAC 데모 loader가 누락된 제어 데이터에 0과 유효 여부 0을 삽입해 읽는다.
 일반 Quest 수집은 기존 설정을 유지한다. `A/T`로
 조작/일시정지, `B/R`로 현재 시도 종료·새 장면 reset, `X/C`로 recenter한다.
 성공·안전 위반·30초 timeout 때에는 마지막 terminal 관측을 저장하고 자동으로

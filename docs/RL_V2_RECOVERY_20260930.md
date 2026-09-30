@@ -30,7 +30,8 @@ No curriculum, easier reset distribution, or relaxed success predicate is used.
 3. The flat actor received all 12 box slots and a target one-hot index. A new
    target-centric encoder gathers the selected token and retains robot state,
    rack/conveyor poses, hand–flap relations, skill state and previous actions.
-   It has 174 features for the unchanged 440-D deployable contract, so swapping
+   It initially had 174 features for the 440-D deployable contract (now 198
+   features / 464-D after the controller-state correction below), so swapping
    logical box slots does not alter policy input. The critic keeps its full
    privileged observation.
 4. The actor's untrained variance branch produced large random joint increments
@@ -150,6 +151,37 @@ below, using its new unique directory and `--max-iterations 30`:
 --initial-policy-std 0.02 --max-policy-std 0.05 \
 --initial-alpha 0.00001 --min-alpha 0.0000001
 ```
+
+## Controller-state observation correction
+
+The conservative pilot completed without runtime errors but did not preserve
+entry. One success was recorded after the actor took over an already advanced
+IK episode; this does not establish success from reset. Even the actor-frozen
+critic warmup moved away from the flaps, so untrained Q gradients are not the
+only possible cause.
+
+Joint increments accumulate into pending PD targets, while observations had
+only measured position and velocity. Equal measured states can therefore have
+different future motion under the same action. The deployable contract now
+adds 20 ordered logical target-minus-measured-joint errors, three local base
+commands, and one availability flag immediately before the previous action.
+Actor/critic dimensions are 464/530; the target-centric actor has 198 inputs.
+The dynamic base now reports measured `root_vel_w` instead of command velocity;
+the kinematic base retains the command-derived twist. All policies using the
+shared v2 observation builder receive this correction. Old controller targets
+cannot be reconstructed reliably from demo actions alone; old 403/469 and
+440/506 records use zeros with availability flag zero. New Quest collection
+records the actual controller telemetry. Old checkpoints cannot be resumed.
+
+The next GPU 3 pilot is
+`artifacts/rl/drive_runs/sac_mbv2_controller_state_pilot_gpu3_20260930_1842/`,
+64 environments, 60 iterations, 900 IK warmup vector steps (57,600 valid
+transitions), 5,000 teacher-fit updates, std 0.01/cap 0.02, actor rate 0.00003,
+500 critic-only updates, BC strength 100 and alpha 0.00001/floor 0.0000001.
+The longer collection covers repeat episodes and gives unguided SAC more time
+to run from new resets. Checkpoints save every 20 iterations, upload on the
+existing five-minute Drive cycle, and retain only verified older files.
+Success during collection is reported separately from SAC success.
 
 ## Reproduce the transfer pilot
 

@@ -17,6 +17,7 @@ ACTUATED_BODY_JOINTS = (
     *(f"zarm_{side}{index}_joint" for side in "lr" for index in range(1, 8)),
     *HEAD_JOINTS,
 )
+CONTROLLER_STATE_DIM = len(ACTUATED_BODY_JOINTS) + 3 + 1
 
 
 def _shape(value: torch.Tensor, expected: tuple[int, ...], name: str, *, dtype=None) -> None:
@@ -66,6 +67,7 @@ class DeployableRobotState:
     tcp_pose_world: torch.Tensor
     gripper_position: torch.Tensor
     gripper_command: torch.Tensor
+    controller_state: torch.Tensor | None = None
 
     def validate(self, num_envs: int) -> None:
         if self.joint_pos.shape != (num_envs, len(ACTUATED_BODY_JOINTS)):
@@ -77,6 +79,8 @@ class DeployableRobotState:
         _floating(self.tcp_pose_world, (num_envs, 2, 7), "tcp_pose_world")
         _floating(self.gripper_position, (num_envs, 2), "gripper_position")
         _floating(self.gripper_command, (num_envs, 2), "gripper_command")
+        if self.controller_state is not None:
+            _floating(self.controller_state, (num_envs, CONTROLLER_STATE_DIM), "controller_state")
 
 
 @dataclass(frozen=True)

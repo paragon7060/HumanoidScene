@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 
 from ..geometry.pose import quat_apply
-from .schema import ACTUATED_BODY_JOINTS, DeployableRobotState
+from .schema import ACTUATED_BODY_JOINTS, CONTROLLER_STATE_DIM, DeployableRobotState
 
 
 def closure_fraction(
@@ -49,6 +49,8 @@ def robot_state_from_sensors(
     base_pose_world: torch.Tensor, base_twist_world: torch.Tensor,
     tcp_pose_world: torch.Tensor, gripper_position: torch.Tensor,
     gripper_command: torch.Tensor,
+    joint_targets: torch.Tensor | None = None,
+    base_command: torch.Tensor | None = None,
 ) -> DeployableRobotState:
     """Common robot-state interface for Isaac and eventual real telemetry.
 
@@ -57,6 +59,15 @@ def robot_state_from_sensors(
     """
     if joint_pos.ndim != 2 or joint_pos.shape[1] != len(ACTUATED_BODY_JOINTS):
         raise ValueError("Body joints must follow the fixed 20-joint policy order.")
+    controller_state = torch.zeros(
+        len(joint_pos), CONTROLLER_STATE_DIM, device=joint_pos.device, dtype=joint_pos.dtype)
+    if joint_targets is not None or base_command is not None:
+        if joint_targets is None or joint_targets.shape != joint_pos.shape \
+                or base_command is None or base_command.shape != (len(joint_pos), 3):
+            raise ValueError("Controller telemetry requires ordered joint targets and local base command")
+        controller_state[:, :20] = joint_targets - joint_pos
+        controller_state[:, 20:23] = base_command
+        controller_state[:, 23] = 1.0
     result = DeployableRobotState(
         joint_pos=joint_pos.clone(), joint_vel=joint_vel.clone(),
         base_pose_world=base_pose_world.clone(),
@@ -64,6 +75,7 @@ def robot_state_from_sensors(
         tcp_pose_world=tcp_pose_world.clone(),
         gripper_position=gripper_position.clone(),
         gripper_command=gripper_command.clone(),
+        controller_state=controller_state,
     )
     result.validate(len(joint_pos))
     devices = {value.device for value in vars(result).values()}
