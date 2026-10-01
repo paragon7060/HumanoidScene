@@ -416,7 +416,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         from ..multi_box.experiments.kinematic_exploration import KinematicGraspExplorer
         guided_warmup = KinematicGraspExplorer(
             env, demonstration_batch,
-            grasp_goal=getattr(args, "ik_grasp_goal", "center"),
+            grasp_goal=getattr(args, "ik_grasp_goal", "demo"),
             lift_distance_m=getattr(args, "ik_lift_distance_m", 0.025),
             base_clearance_m=getattr(args, "ik_base_clearance_m", 0.65),
             torso_forward_m=getattr(args, "ik_torso_forward_m", 0.0))
@@ -444,10 +444,16 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         success_replay.add(**state["success_replay"])
     experience_source = getattr(args, "experience_checkpoint", None)
     imported_success_rows = 0
+    executed_success_label_seed_rows = 0
     if experience_source is not None:
         experience = _success_experience_from_checkpoint(
             experience_source, agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim)
         success_replay.add(**experience)
+        # These actions actually produced physical successes under the current
+        # task contract. Prefer them to hypothetical labels from a retired
+        # teacher waypoint when refitting the fresh actor.
+        teacher_replay.add(actor_obs=experience["actor_obs"], action=experience["action"])
+        executed_success_label_seed_rows = len(experience["action"])
         imported_success_rows = len(experience["reward"])
         print(f"[V2 SAC] Imported executed success-tail rows: {imported_success_rows}; "
               "source model, Q and optimizers ignored", flush=True)
@@ -893,6 +899,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             teacher_persistent_critical_capacity=teacher_replay.priority_capacity,
             teacher_bootstrap_rows=teacher_bootstrap_rows,
             imported_success_rows=imported_success_rows,
+            executed_success_label_seed_rows=executed_success_label_seed_rows,
             teacher_critical_batch_fraction=teacher_replay.priority_fraction,
             success_history_steps=success_history.horizon,
             numerical_failure_episodes=numerical_failures,

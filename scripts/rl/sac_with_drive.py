@@ -59,7 +59,7 @@ def main():
     parser.add_argument("--initial-policy-std", type=float, default=0.15)
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
-    parser.add_argument("--ik-grasp-goal", choices=("center", "demo", "center-to-demo"), default="center")
+    parser.add_argument("--ik-grasp-goal", choices=("center", "demo", "center-to-demo"), default="demo")
     parser.add_argument("--ik-lift-distance-m", type=float, default=0.025)
     parser.add_argument("--ik-base-clearance-m", type=float, default=0.65)
     parser.add_argument("--ik-torso-forward-m", type=float, default=0.0)

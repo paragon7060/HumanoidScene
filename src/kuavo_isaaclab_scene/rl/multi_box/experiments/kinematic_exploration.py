@@ -64,6 +64,14 @@ def successful_demo_grasp_offsets(demonstrations, front_y):
     return torch.stack(goals)
 
 
+def retarget_grasp_goal(centers, stage, outward, box_rotation, goal_offset, grasp_goal):
+    """Keep neutral observation anchors, but aim closing at the physical VR pose."""
+    offset = (box_rotation[:, None] @ goal_offset[None, ..., None]).squeeze(-1)
+    goals = centers + offset if grasp_goal == "demo" else centers
+    front_offset = ((stage - goals) * outward[:, None]).sum(-1).clamp_min(0)
+    return goals, goals + front_offset[..., None] * outward[:, None], offset
+
+
 def observed_close_ticks(previous_ticks, proposed_close, observation):
     """Advance lift readiness only after the executed controller starts closing.
 
@@ -79,7 +87,7 @@ def observed_close_ticks(previous_ticks, proposed_close, observation):
 class KinematicGraspExplorer:
     """Use successful demo wrist orientations and a shared bounded IK servo."""
 
-    def __init__(self, env, demonstrations, *, grasp_goal="center", lift_distance_m=0.025,
+    def __init__(self, env, demonstrations, *, grasp_goal="demo", lift_distance_m=0.025,
                  base_clearance_m=0.65, torso_forward_m=0.0):
         from isaaclab.controllers import DifferentialIKControllerCfg
         from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
@@ -146,12 +154,8 @@ class KinematicGraspExplorer:
         tcp, centers, stage, outward = entry_geometry(observation, self.front_y)
         tokens, valid = target_token(observation)
         box_rotation = _rotation_matrix(tokens[:, 15:21])
-        offset = (box_rotation[:, None] @ self.goal_offset[None, ..., None]).squeeze(-1)
-        if self.grasp_goal == "demo":
-            centers = centers + offset
-        # Preserve the same front plane after translating the in-flap goal.
-        front_offset = ((stage - centers) * outward[:, None]).sum(-1).clamp_min(0)
-        stage = centers + front_offset[..., None] * outward[:, None]
+        centers, stage, offset = retarget_grasp_goal(
+            centers, stage, outward, box_rotation, self.goal_offset, self.grasp_goal)
         target_rotation = box_rotation[:, None] @ self.relative_rotation[None]
         orientation = self.quat_from_matrix(target_rotation.reshape(-1, 3, 3)).reshape(-1, 2, 4)
         stage_error = (stage - tcp[..., :3]).norm(dim=-1)

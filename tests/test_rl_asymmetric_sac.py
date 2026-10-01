@@ -35,7 +35,8 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import (
 )
 from kuavo_isaaclab_scene.rl.multi_box.observations import flat_actor_observation_dim
 from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import (
-    entry_geometry, observed_close_ticks,
+    entry_geometry, observed_close_ticks, successful_demo_grasp_offsets,
+    retarget_grasp_goal, target_token,
 )
 from kuavo_isaaclab_scene.rl.multi_box.experiments.episode_guidance import EpisodicIKGuidance
 from kuavo_isaaclab_scene.rl.multi_box.experiments.imitation_schedule import (
@@ -251,6 +252,27 @@ def test_kinematic_entry_goals_remain_outside_front_plane_before_insertion():
     torch.testing.assert_close(stage[..., 1], torch.full((1, 2), 0.08))
     torch.testing.assert_close(stage[..., [0, 2]], centers[..., [0, 2]])
     torch.testing.assert_close(outward, torch.tensor([[0., 1., 0.]]))
+
+
+def test_recorded_success_pose_is_closeable_with_retargeted_goal_not_neutral_center():
+    from pathlib import Path
+    from kuavo_isaaclab_scene.rl.multi_box.demo_replay import (
+        load_v2_grasp_demonstrations, _rotation_matrix,
+    )
+    path = Path(__file__).parents[1] / "examples/demos/v2_grasp_quest_success.hdf5"
+    demo, _ = load_v2_grasp_demonstrations(path, self_collision_enabled=False)
+    obs = demo["actor_obs"]
+    offset = successful_demo_grasp_offsets(demo, .08)
+    tcp, centers, stage, outward = entry_geometry(obs, .08)
+    token, _ = target_token(obs)
+    goal, _, _ = retarget_grasp_goal(centers, stage, outward,
+        _rotation_matrix(token[:, 15:21]), offset, "demo")
+    physical_pinch = demo["critic_obs"][:, obs.shape[1] + 35:obs.shape[1] + 37] > .5
+    for hand in range(2):
+        rows = torch.where((demo["action"][:, 20 + hand] > 0) & physical_pinch[:, hand])[0]
+        row = rows[-1]
+        assert (centers[row, hand] - tcp[row, hand, :3]).norm() > .035
+        assert (goal[row, hand] - tcp[row, hand, :3]).norm() < 1e-5
 
 
 def test_hypothetical_close_labels_cannot_start_lift_with_actual_open_jaws():

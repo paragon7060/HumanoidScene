@@ -2,6 +2,31 @@
 
 ## Latest follow-up: persistent corrections — 2026-10-01
 
+**Follow-up at 12:00 KST:** the 64-environment correction pilot was stopped
+at iteration50 for a second concrete problem. It had1,677 SAC actor updates,
+teacher BC loss0.01630, Q loss1.757, SAC hand distances0.467/0.391m and zero
+SAC/IK held successes. It exited0 and final checkpoints/logs are Drive verified.
+Approach improved in this bounded sample, but held grasp did not.
+
+The successful VR TCPs are7.71/8.30cm from their nominal flap midpoints;
+the teacher's old close test required<3.5cm from the midpoint. Thus a physically
+successful recorded grasp could receive an **open-jaw correction** during
+insertion. A CPU regression on the actual demos reproduces this mismatch and
+confirms the retargeted physical grasp goal matches the recorded TCPs. TCP
+calibration was already present when those demos were recorded, so this is
+not a missing EEF-offset correction.
+
+![Successful VR pose versus old teacher close threshold](assets/rl_v2_grasp_waypoint_mismatch_20261001.png)
+
+Use `--ik-grasp-goal demo`: retarget the physically successful pose offset for
+approach, closing and lift, rather than inserting at the neutral reference
+and retargeting only after closing. Neutral midpoint observations, safety
+gripper gate12cm, contact checks, rewards and success are unchanged. The old
+goal modes remain opt-in comparisons. Do not refit using old hypothetical
+near-center corrections: the next fresh model keeps only previously executed
+success experience, also seeding actor imitation with those real actions.
+**84 focused CPU checks pass; physical grasp benefit is still being tested.**
+
 The 04:31 stabilization run was stopped deliberately at **iteration 384**
 (11:16 KST), with **42,614 SAC actor updates and zero SAC-from-reset/handoff
 held grasp successes**. It collected 11,008,572 valid transitions, 25 additional

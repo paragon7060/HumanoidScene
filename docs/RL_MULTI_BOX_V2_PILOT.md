@@ -135,6 +135,7 @@ produced no held grasp successes. Enable independent actor-only corrections:
 
 ```bash
 --online-teacher-labels \
+--ik-grasp-goal demo \
 --teacher-batch-fraction 0.2 --teacher-min-batch-fraction 0.1 \
 --teacher-bc-strength 100 --teacher-decay-updates 128000 \
 --online-ik-episode-fraction 0.2 --online-ik-min-episode-fraction 0.1 \
@@ -168,3 +169,17 @@ Safety diagnostics also log `unsafe_rack_peak_body/<body>` and
 `contact_force/rack_body_<body>_max_n` from the same already-filtered matrices
 used by the rack guard. The peak counter attributes one body per eligible
 rack failure, before reset; it does not sum contact forces or add sensors.
+
+The deployable observation reference remains the nominal flap midpoint.
+It is not automatically a physically valid TCP closing waypoint. In the two
+success demos, TCP offsets from that reference are 7.71/8.30 cm, exceeding
+the teacher's 3.5 cm closure tolerance. `--ik-grasp-goal demo` is now the
+default for IK collection: it retargets the recorded successful TCP offset
+and uses that same goal for approach, closing and subsequent lift. The 12 cm
+neutral-reference gripper gate, true-contact pinch checks and 8 mm proof lift
+success criterion are unchanged. `center` and `center-to-demo` remain explicit
+comparison options. Retired teacher labels aimed at the neutral center should
+not be re-imported as corrections for this goal. Data-only experience import
+also seeds the actor label buffer with its genuine executed success actions;
+`executed_success_label_seed_rows` reports this count. These are measured
+actions, not hypothetical new-teacher actions or old VR rewards.
