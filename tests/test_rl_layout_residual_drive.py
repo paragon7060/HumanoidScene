@@ -40,3 +40,33 @@ def test_varied_training_keeps_failure_data_then_freezes_one_checkpoint_for_hold
     state=json.loads((parent/'status.json').read_text())
     assert state['train_unsafe']==1 and state['holdout_successes']==2
     assert state['final_upload_verified'] and uploads.count('status.json')==1
+
+
+def test_pose_goal_suite_uses_one_frozen_model_and_no_reference_residual(tmp_path,monkeypatch):
+    script=module();layouts=tmp_path/'layouts';layouts.mkdir();parent=tmp_path/'suite';calls=[]
+    for split,count in [('train',1),('holdout',2)]:
+        for i in range(count):
+            (layouts/f'{split}_{i:02d}.json').write_text(json.dumps(dict(seed=i,split=split,lateral_m=-.025)))
+    warm=tmp_path/'student.pt';warm.write_bytes(b'bc warm start')
+    def simulate(command,trial,environment,*args,**kwargs):
+        calls.append(command);run=Path(command[command.index('--output-dir')+1]);run.mkdir()
+        train='--pose-student-training' in command
+        assert environment['CUDA_VISIBLE_DEVICES']=='0' and kwargs['run_prefix']=='pose_sac_'
+        assert '--residual-controller' not in command and '--residual-checkpoint' not in command
+        (trial/'status.json').write_text(json.dumps(dict(run_dir=str(run),training_exit_code=0,final_upload_verified=True)))
+        (run/'metrics.json').write_text(json.dumps(dict(steps=411,
+            outcomes=dict(success=1,unsafe=0,invalid_reset=0,time_out=0),
+            pose_goal_sac=dict(training=train,actor_updates=696))))
+        if train:(run/'checkpoint_00000696.pt').write_bytes(b'executed goal SAC')
+        return 0
+    monkeypatch.setattr(script,'supervise',simulate)
+    monkeypatch.setattr(script,'Rclone',lambda *a:object())
+    monkeypatch.setattr(script,'archive_file',lambda *a:None)
+    monkeypatch.setattr(sys,'argv',['suite','--experiment-dir',str(parent),'--layout-dir',str(layouts),
+        '--policy-mode','pose-goal','--checkpoint',str(warm),'--gpu','0',
+        '--train-count','1','--eval-count','2','--python',sys.executable,
+        '--remote-root','test-remote:HumanoidScene-RL','--pose-student-native-seed','measured.hdf5'])
+    assert script.main()==0 and len(calls)==3
+    assert all('--no-pose-student-training' in c and '--pose-student-training' not in c for c in calls[1:])
+    assert calls[1][calls[1].index('--pose-student-checkpoint')+1]==calls[2][calls[2].index('--pose-student-checkpoint')+1]
+    assert json.loads((parent/'manifest.json').read_text())['physical_reference_dependency'] is False

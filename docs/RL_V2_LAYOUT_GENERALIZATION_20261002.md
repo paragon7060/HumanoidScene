@@ -57,16 +57,23 @@ terminations. The final actor has7,662 updates. All eight held-out layouts also
 succeeded with that one frozen checkpoint and no optimizer/normalizer updates,
 with zero unsafe/invalid/timeout terminations. This establishes measured success
 on this limited distribution, not all shelves/types or standalone SAC success.
-The first two matched zero-residual guide probes also succeeded; SAC's extra
-benefit has not yet been demonstrated. Three matched probes are running onGPU0.
+All three matched zero-residual guide probes also succeeded at410ticks and
+finished with verified Drive backups. SAC's extra benefit has not been demonstrated.
 
-The next GPU3 run adds fixed uniformly sampled depth displacement of+/-1cm,
-with12 new training and12 separate evaluation layouts. Their full footprints
-passed the same preflight checks. The first training episode succeeded at411
-ticks, actor8,358 updates. Requested depth+5.08mm became approximately0.0002mm
-relative to the reference after settling. This episode is therefore not evidence
-of depth generalization. Sampled and physically settled poses must be compared
-throughout this experiment. There is no aggregate heldout rate yet. See the
+The depth expansion attempted12 train/12 heldout layouts with+/-1cm depth.
+Four training layouts succeeded, reaching actor10,446. The fifth setup crossed
+its semantic footprint during settling and was correctly rejected before Q data
+collection. Requested depth+5.08mm in the first trial became approximately0.0002mm
+relative to the reference after settling; this is not depth-generalization evidence.
+The new GPU3 continuation uses12 train/12 heldout layouts sampled2–3.5cm inward,
+without additional yaw/depth and with0–3 surrounding boxes. Preflight now uses
+the same legacy initial scene pose that runtime actually restores. Validators and
+success/reward thresholds are unchanged; this is a fixed distribution, not curriculum.
+Its first two training layouts succeeded. Independently, a clock-conditioned BC
+goal student without a live reference path succeeded on one unseen layout at412
+ticks with no SAC updates. A separate absolute-goal SAC continuation is running;
+these action coordinates and replay cannot enter the ordinary delta-action runner.
+There is no aggregate heldout rate for either new suite yet. See the
 [concise demo/SAC progress report](RL_V2_DEMO_SAC_PROGRESS_20261002.md).
 
 ![Frozen learned residual on the inward layout](assets/rl_v2_layout_inward_frozen_success_20261002.png)

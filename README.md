@@ -40,7 +40,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | V2 SAC 접근 실패 원인·데모/IK 탐색·수정 실험 | [2026-09-30 학습 재검토](docs/RL_V2_RECOVERY_20260930.md) |
 | 실제 성공 전이·폐루프 모방 실패·보정 SAC 실험 | [2026-10-01 비교 결과와 실행법](docs/RL_V2_CLOSED_LOOP_RECOVERY_20261001.md) |
 | 다양한 박스 배치 파지 일반화 | [2026-10-02 배치 분포·실제 실패·목표 변환·학습/holdout 실행법](docs/RL_V2_LAYOUT_GENERALIZATION_20261002.md) |
-| 데모–SAC 연결·성공 영상·진행 요약 | [2026-10-02 데모 도움 범위와 실제 학습/평가 결과](docs/RL_V2_DEMO_SAC_PROGRESS_20261002.md) |
+| 데모–SAC 연결·성공 영상·진행 요약 | [2026-10-02 기준 경로 보정 / 경로 공급 없는 BC·목표 자세 SAC 연결과 사용법](docs/RL_V2_DEMO_SAC_PROGRESS_20261002.md) |
 | Quest로 V2 grasp SAC 시연 데이터 수집 | [Quest RL 시연 수집](docs/RL_QUEST_REWARD_DEBUG.md) |
 | 기존 Google Drive 연결 재사용·결과 업로드·로컬 보관량 관리 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
 | RL 초기 자세 수정·VR 재캡처 | [모델별 초기 상태](docs/RL_INITIAL_STATES.md) |

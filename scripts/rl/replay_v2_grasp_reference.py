@@ -27,6 +27,12 @@ def main():
     parser.add_argument('--no-video', action='store_true')
     parser.add_argument('--actor-checkpoint', type=Path,
                         help='Evaluate this deterministic actor instead of the VR/live-IK controller.')
+    parser.add_argument('--pose-student-checkpoint',type=Path,
+                        help='Evaluate the learned absolute-goal student with no live reference path; BC diagnostic, not SAC.')
+    parser.add_argument('--pose-student-training',action=argparse.BooleanOptionalAction,default=False,
+                        help='Continue the goal student with actual SAC. Evaluation remains the default.')
+    parser.add_argument('--pose-student-native-seed',type=Path,
+                        help='One actual current-environment success for the separate absolute-goal Q coordinates.')
     parser.add_argument('--executed-actions', type=Path,
                         help='Reproduce actual current GPU success commands as an open-loop diagnostic, not a learned policy.')
     parser.add_argument('--actor-reference-mix', type=float,
@@ -70,6 +76,13 @@ def main():
         parser.error('Joint-goal comparison requires a matching actor and excludes other mix/envelope variants')
     if args.actor_checkpoint and not args.actor_checkpoint.is_file():
         parser.error('Missing actor checkpoint')
+    if args.pose_student_checkpoint and (not args.pose_student_checkpoint.is_file() or
+            args.actor_checkpoint or args.executed_actions or args.residual_sac or args.layout_vr_teacher):
+        parser.error('Pose student needs its own checkpoint and excludes reference/actor mixtures')
+    if (args.pose_student_training or args.pose_student_native_seed) and not args.pose_student_checkpoint:
+        parser.error('Goal SAC options require --pose-student-checkpoint')
+    if args.pose_student_training and (not args.pose_student_native_seed or not args.pose_student_native_seed.is_file()):
+        parser.error('Goal SAC requires an existing measured current success seed')
     if args.executed_actions and (args.actor_checkpoint or not args.executed_actions.is_file()):
         parser.error('--executed-actions needs an existing native dataset and excludes --actor-checkpoint')
     if args.residual_sac and (not args.executed_actions or not 0 < args.residual_scale <= .2):
@@ -78,7 +91,7 @@ def main():
         parser.error('Residual checkpoint requires --residual-sac and an existing file')
     if args.residual_sac and not args.residual_training and not args.residual_checkpoint and not args.residual_zero:
         parser.error('Residual evaluation requires a learned residual checkpoint')
-    if args.layout_json and not args.layout_vr_teacher and (not args.residual_sac or args.residual_controller!='retargeted-goal'):
+    if args.layout_json and not args.layout_vr_teacher and not args.pose_student_checkpoint and (not args.residual_sac or args.residual_controller!='retargeted-goal'):
         parser.error('Varied layouts require the geometry-conditioned residual controller')
     if args.layout_vr_teacher and (not args.layout_json or args.residual_sac or args.executed_actions or args.actor_checkpoint):
         parser.error('Layout VR teacher requires a layout and excludes policy/recorded action replay')
@@ -91,7 +104,7 @@ def main():
     if args.vr_reference_grippers and args.vr_coordinated_close:
         parser.error('Choose reference timing or coordinated geometric closing')
     if (args.vr_orientation_mode!='full' or args.vr_contact_torso_forward_m or
-        args.vr_close_distance_m!=.035 or args.vr_coordinated_close or args.vr_reference_grippers) and (args.actor_checkpoint or args.executed_actions):
+        args.vr_close_distance_m!=.035 or args.vr_coordinated_close or args.vr_reference_grippers) and (args.actor_checkpoint or args.executed_actions or args.pose_student_checkpoint):
         parser.error('VR diagnostic options only apply to the live VR/IK guide')
     if args.actor_reference_mix is not None and (
             not 0 <= args.actor_reference_mix <= .2 or not args.actor_checkpoint or args.body_envelope):
@@ -189,10 +202,26 @@ def main():
             observation, rack, settling_steps = settle_reference_scene(env, demo)
         projection = GraspActionProjector(list(actions.items()))
         teacher = None
-        agent = state = limits = executed = joint_goal = residual = None
+        agent = state = limits = executed = joint_goal = residual = pose_student = pose_sac = None
         initial_actor_error = None
         controller_name = 'VR_reference_plus_contact_confirmed_IK_NOT_SAC'
-        if args.executed_actions:
+        if args.pose_student_checkpoint:
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
+            pose_state=torch.load(args.pose_student_checkpoint,map_location=env.device,weights_only=False)
+            if args.pose_student_training or pose_state.get('artifact_type')=='pose_goal_sac_no_live_reference':
+                if not args.pose_student_native_seed:raise ValueError('Goal SAC evaluation also requires the declared physical seed audit')
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
+                base=env.action_manager.get_term('base');upper=env.action_manager.get_term('upper_body')
+                head=env.action_manager.get_term('head');height=env.action_manager.get_term('height')
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
+                validate_goal_feedback_rates(base._scale,upper._scale,head._scale,height.cfg.speed_m_s,env.step_dt)
+                pose_sac=PoseGoalSACPilot(args.pose_student_checkpoint,args.pose_student_native_seed,contract,
+                                        args.output_dir,training=args.pose_student_training,device=env.device)
+                controller_name='learned_pose_goal_SAC_NO_live_reference'
+            else:
+                pose_student=PoseStudent(pose_state,env.device)
+                controller_name='learned_absolute_pose_student_BC_NOT_SAC_NO_live_reference'
+        elif args.executed_actions:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import read_executed_successes
             measured, _ = read_executed_successes(args.executed_actions, contract)
             executed = select_reference_episode(measured, args.episode_index)
@@ -256,7 +285,15 @@ def main():
                                      reference_grippers=args.vr_reference_grippers)
         output = args.output_dir.resolve()
         output.mkdir(parents=True, exist_ok=False)
-        if residual:
+        if pose_sac:
+            (output/'manifest.json').write_text(json.dumps(contract|{
+                'artifact_type':pose_sac.artifact_type,'layout':layout.record() if layout else None,
+                'policy':controller_name,'goal_contract':pose_sac.contract},indent=2)+'\n')
+            (output/'env.yaml').write_text(json.dumps({'physical_contract':contract},indent=2)+'\n')
+            (output/'agent.yaml').write_text(json.dumps({'goal_contract':pose_sac.contract,
+                'sac_config':asdict(pose_sac.agent.config)},indent=2)+'\n')
+            (output/'status.json').write_text(json.dumps({'status':'training' if pose_sac.training else 'evaluating'})+'\n')
+        elif residual:
             artifact_type='layout_reference_residual_sac' if layout else 'fixed_scene_reference_residual_sac'
             (output/'manifest.json').write_text(json.dumps(contract | {
                 'artifact_type': artifact_type, 'layout':layout.record() if layout else None,
@@ -267,7 +304,7 @@ def main():
             (output/'status.json').write_text(json.dumps({'status':'training' if args.residual_training else 'evaluating'})+'\n')
         elif args.actor_reference_mix is None:
             (output/'manifest.json').write_text(json.dumps(contract | {
-                'artifact_type':'physical_reference_replay_diagnostic',
+                'artifact_type':'pose_student_physical_evaluation_diagnostic' if pose_student else 'physical_reference_replay_diagnostic',
                 'policy':controller_name,'episode_index':args.episode_index,
                 'training':False,'vr_orientation_mode':args.vr_orientation_mode,
                 'vr_contact_torso_forward_m':args.vr_contact_torso_forward_m,
@@ -278,7 +315,9 @@ def main():
             action_dim=sum(actions.values()), actor_obs_dim=dims['policy'][0],
             critic_obs_dim=dims['policy'][0]+dims['critic'][0], action_terms=list(map(list, actions.items())),
             control_dt=env.step_dt, multi_box=asdict(cfg.multi_box), episode_seconds=30.,
-            collection_source=('layout_reference_residual_sac' if residual and layout else
+            collection_source=('pose_goal_sac_no_live_reference' if pose_sac else
+                               'learned_pose_student_BC_no_live_reference' if pose_student else
+                               'layout_reference_residual_sac' if residual and layout else
                                'fixed_scene_reference_residual_sac' if residual else
                                'mixed_VR_actor_DAgger' if args.actor_reference_mix is not None else
                                'executed_action_reproduction' if executed is not None else
@@ -294,7 +333,9 @@ def main():
             body_envelope_diagnostic=args.body_envelope, actor_reference_mix=args.actor_reference_mix,
             diagnostic_joint_offset_rad=args.joint_offset_rad,
             residual_contract=residual.contract if residual else None,
+            pose_student_checkpoint=str(args.pose_student_checkpoint.resolve()) if pose_student or pose_sac else None,
             layout=layout.record() if layout else None, zero_residual_probe=args.residual_zero)
+        meta['pose_goal_contract']=pose_sac.contract if pose_sac else None
         meta['vr_orientation_mode']=args.vr_orientation_mode
         meta['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
         meta['vr_close_distance_m']=args.vr_close_distance_m
@@ -303,13 +344,15 @@ def main():
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
-            caption=(f'Reference + {"zero" if args.residual_zero else "SAC"} residual | layout={layout.seed if layout else "fixed"} | train={args.residual_training}' if residual else
+            caption=(f'Learned pose goals | SAC | NO live reference | train={pose_sac.training}' if pose_sac else
+                     f'Learned pose student | BC, NOT SAC | NO live reference' if pose_student else
+                     f'Reference + {"zero" if args.residual_zero else "SAC"} residual | layout={layout.seed if layout else "fixed"} | train={args.residual_training}' if residual else
                      f'Joint-goal BC actor | NOT trained SAC | offset {args.joint_offset_rad}rad' if joint_goal else
                      f'VR teacher + {args.actor_reference_mix:.0%} actor | NOT pure SAC' if args.actor_reference_mix is not None else
                      f'Recorded actual commands | NOT SAC | actual {env.device} PhysX' if executed is not None else
                      f'Actor | SAC updates={state.get("actor_updates", "unknown")} | envelope={args.body_envelope} | {env.device}' if agent else
                      f'VR reference + live IK | NOT SAC | actual {env.device} PhysX'))
-        video_name = 'policy.mp4' if agent else 'reference.mp4'
+        video_name = 'policy.mp4' if agent or pose_student or pose_sac else 'reference.mp4'
         if renderer:
             writer = cv2.VideoWriter(str(output/video_name), cv2.VideoWriter_fourcc(*'mp4v'),
                                     30/args.capture_every, (960, 720))
@@ -361,7 +404,13 @@ def main():
                 if not bool(torch.isfinite(pre['policy']).all()):
                     raise ValueError('Nonfinite actor observation in physical replay')
                 actor_input = joint_goal.actor_input(pre['policy']) if joint_goal else pre['policy']
-                if residual:
+                if pose_sac:
+                    action,pose_previous=pose_sac.act(pre['policy'],torch.cat((pre['policy'],pre['critic']),-1),step)
+                    if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
+                        raise ValueError('Goal-space and physical gripper projection differ; Q import prohibited')
+                elif pose_student:
+                    action=projection(pre['policy'],pose_student.act(pre['policy'],step))
+                elif residual:
                     raw_critic = torch.cat((pre['policy'], pre['critic']), -1)
                     action, residual_previous = residual.act(pre['policy'], raw_critic, step)
                     if args.residual_zero:
@@ -387,6 +436,10 @@ def main():
                     raise ValueError('Numerical recovery during replay; attempt cannot enter Q')
                 if not torch.allclose(reward, env._multi_box_grasp_reward_breakdown.total, atol=1e-5, rtol=1e-5):
                     raise ValueError('Current executed reward differs from reward breakdown')
+                if pose_sac:
+                    pose_sac.observe(pose_previous,terminal['policy'],torch.cat((terminal['policy'],terminal['critic']),-1),
+                                     reward,terminated,step)
+                    if pose_sac.training and pose_sac.actor_updates and pose_sac.actor_updates%512==0:pose_sac.save()
                 if residual:
                     residual.observe(residual_previous, terminal['policy'],
                         torch.cat((terminal['policy'], terminal['critic']), -1),
@@ -412,6 +465,8 @@ def main():
                     print(f"[REFERENCE] step={step+1} pinch={row['pinching']} success={row['success']}", flush=True)
                     if residual:
                         print('[RESIDUAL SAC] '+json.dumps(residual.report()), flush=True)
+                    if pose_sac:
+                        print('[POSE GOAL SAC] '+json.dumps(pose_sac.report()),flush=True)
                 if bool((terminated | truncated)[0]):
                     recorder.finish_episode(success=row['success'],
                         reason='success' if row['success'] else 'failure')
@@ -429,6 +484,7 @@ def main():
                 'artifact_type': 'actor_labels_only', 'collection_source': meta['collection_source'],
                 'actor_reference_mix': args.actor_reference_mix,
                 'correction_labels_are_Q_transitions': False}, indent=2)+'\n')
+        if pose_sac and pose_sac.training:pose_sac.save(final=True)
         if residual and args.residual_training:
             residual.save(final=True)
             (output/'manifest.json').write_text(json.dumps(contract | {
@@ -459,11 +515,16 @@ def main():
         report['vr_close_distance_m']=args.vr_close_distance_m
         report['vr_coordinated_close']=args.vr_coordinated_close
         report['vr_reference_grippers']=args.vr_reference_grippers
+        if pose_student:
+            report['pose_student']=dict(actor_fit_steps=pose_student.state['actor_fit_steps'],
+                sac_actor_updates=0,sac_critic_updates=0,runtime_reference_path_required=False,
+                episode_clock_input=True,artifact_type=pose_student.artifact_type)
         if residual:
             report['residual_sac'] = residual.report()
+        if pose_sac:report['pose_goal_sac']=pose_sac.report()
         (output/'metrics.json').write_text(json.dumps(report, indent=2)+'\n')
         (output/'status.json').write_text(json.dumps({'status':'stopped' if stopped['value'] else 'complete',
-            'outcomes':counts,'actor_updates':residual.actor_updates if residual else None})+'\n')
+            'outcomes':counts,'actor_updates':pose_sac.actor_updates if pose_sac else residual.actor_updates if residual else None})+'\n')
         print(json.dumps({key: value for key, value in report.items() if key != 'history'}), flush=True)
     except BaseException as error:
         # Kit shutdown can replace Python's nonzero exit and suppress the

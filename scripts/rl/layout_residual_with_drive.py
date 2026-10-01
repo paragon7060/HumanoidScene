@@ -24,6 +24,8 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--experiment-dir',type=Path,required=True)
     parser.add_argument('--layout-dir',type=Path,required=True)
+    parser.add_argument('--policy-mode',choices=('reference-residual','pose-goal'),default='reference-residual',
+                        help='Pose-goal mode trains a learned BC-warmed SAC actor without a live demo path.')
     parser.add_argument('--train-count',type=int,default=8)
     parser.add_argument('--max-layout-depth-m',type=float,default=0.,
                         help='Explicit allowed depth displacement for this fixed layout distribution; default preserves lateral-only runs.')
@@ -43,11 +45,16 @@ def main():
     if not math.isfinite(args.max_layout_depth_m) or not 0<=args.max_layout_depth_m<=.02:
         parser.error('Maximum layout depth must be within0..2cm')
     reserved={'--output-dir','--device','--layout-json','--residual-checkpoint',
-              '--residual-controller','--residual-training','--no-residual-training','--residual-zero'}
+              '--residual-controller','--residual-training','--no-residual-training','--residual-zero',
+              '--pose-student-checkpoint','--pose-student-training','--no-pose-student-training'}
     if any(value.split('=')[0] in reserved for value in child_args):
         parser.error('This supervisor owns layout, checkpoint, device and training/evaluation mode')
-    if '--residual-sac' not in child_args:
+    pose_mode=args.policy_mode=='pose-goal'
+    if not pose_mode and '--residual-sac' not in child_args:
         parser.error('Supply --residual-sac and the current measured reference/physical manifest')
+    if pose_mode and (not args.checkpoint or '--pose-student-native-seed' not in child_args
+                      or '--residual-sac' in child_args or args.after_verified_experiment):
+        parser.error('Pose-goal SAC needs its own checkpoint and measured native seed, without residual options')
     layouts={split:sorted(args.layout_dir.resolve().glob(split+'_*.json'))[:count]
              for split,count in [('train',args.train_count),('holdout',args.eval_count)]}
     for split,count in [('train',args.train_count),('holdout',args.eval_count)]:
@@ -74,10 +81,12 @@ def main():
         for path in paths:
             copy=frozen/path.name;copy.write_text(path.read_text());copies.append(copy)
         layouts[split]=copies
-    (parent/'manifest.json').write_text(json.dumps(dict(artifact_type='layout_reference_residual_sac_suite',
+    recipe=args.layout_dir.resolve()/'recipe.json'
+    (parent/'manifest.json').write_text(json.dumps(dict(artifact_type=('layout_pose_goal_sac_suite' if pose_mode else 'layout_reference_residual_sac_suite'),
         gpu=args.gpu,train_layouts=[json.loads(p.read_text()) for p in layouts['train']],
         heldout_layouts=[json.loads(p.read_text()) for p in layouts['holdout']],
-        passes=args.passes,physical_reference_dependency=True,curriculum=False,
+        passes=args.passes,physical_reference_dependency=not pose_mode,curriculum=False,
+        layout_recipe=json.loads(recipe.read_text()) if recipe.exists() else None,
         sampled_distribution=('lower_small_inward2to4cm_yaw1deg_depth_rear_upper_distractors_v3'
                               if args.max_layout_depth_m else 'lower_small_inward2to4cm_yaw1deg_rear_upper_distractors_v2'),
         max_layout_depth_m=args.max_layout_depth_m,
@@ -109,11 +118,13 @@ def main():
     schedule += [('holdout',p,0) for p in layouts['holdout']]
     for index,(split,layout,pass_index) in enumerate(schedule):
         trial=parent/f'{index+1:03d}_{split}_p{pass_index+1}_{layout.stem}';trial.mkdir()
-        run=trial/('residual_'+datetime.now().strftime('%Y%m%d_%H%M%S')+'_'+uuid.uuid4().hex[:6])
-        extras=['--residual-controller','retargeted-goal','--layout-json',str(layout),
-                '--residual-training' if split=='train' else '--no-residual-training']
+        prefix='pose_sac_' if pose_mode else 'residual_'
+        run=trial/(prefix+datetime.now().strftime('%Y%m%d_%H%M%S')+'_'+uuid.uuid4().hex[:6])
+        extras=(['--layout-json',str(layout),'--pose-student-training' if split=='train' else '--no-pose-student-training']
+                if pose_mode else ['--residual-controller','retargeted-goal','--layout-json',str(layout),
+                                  '--residual-training' if split=='train' else '--no-residual-training'])
         if checkpoint:
-            extras.extend(('--residual-checkpoint',str(checkpoint)))
+            extras.extend(('--pose-student-checkpoint' if pose_mode else '--residual-checkpoint',str(checkpoint)))
         command=[str(args.python),'-u',str(ROOT/'scripts/rl/replay_v2_grasp_reference.py'),
                  *child_args,*extras,'--output-dir',str(run),'--device','cuda:0','--headless']
         (trial/'launch.json').write_text(json.dumps(dict(command=command,gpu=args.gpu),indent=2)+'\n')
@@ -122,17 +133,18 @@ def main():
                      latest_checkpoint=str(checkpoint) if checkpoint else None)
         code=supervise(command,trial,environment,
             lambda source,finished:archive_pilot(source,args.remote_root,finished),
-            interval=300,run_prefix='residual_',require_run_status=True)
+            interval=300,run_prefix=prefix,require_run_status=True)
         state=json.loads((trial/'status.json').read_text())
         if code!=0 or not state.get('final_upload_verified'):
             write_status(parent,phase='runtime_failed',failed_trial=str(trial),training_exit_code=code)
             return code or 2
         metrics=json.loads((run/'metrics.json').read_text())
-        if split=='holdout' and metrics['residual_sac']['training']:
+        learning=metrics['pose_goal_sac' if pose_mode else 'residual_sac']
+        if split=='holdout' and learning['training']:
             raise RuntimeError('Held-out evaluation unexpectedly enabled optimizer updates')
         row=dict(split=split,layout=json.loads(layout.read_text()),pass_index=pass_index,
                  run_dir=str(run),outcomes=metrics['outcomes'],steps=metrics['steps'],
-                 actor_updates=metrics['residual_sac']['actor_updates'],final_upload_verified=True)
+                 actor_updates=learning['actor_updates'],final_upload_verified=True)
         rows.append(row)
         if split=='train':
             checkpoints=sorted(run.glob('checkpoint_*.pt'))
