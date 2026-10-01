@@ -419,7 +419,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             grasp_goal=getattr(args, "ik_grasp_goal", "demo"),
             lift_distance_m=getattr(args, "ik_lift_distance_m", 0.025),
             base_clearance_m=getattr(args, "ik_base_clearance_m", 0.65),
-            torso_forward_m=getattr(args, "ik_torso_forward_m", 0.0))
+            torso_forward_m=getattr(args, "ik_torso_forward_m", 0.0),
+            orientation_mode=getattr(args, "ik_orientation_mode", "full"))
     teacher_replay = ActorImitationBuffer(
         min(args.replay_capacity, max(goal_capacity, warmup_target + env.num_envs))
         if getattr(args, "guided_warmup_mode", "bc") == "ik" else goal_capacity,

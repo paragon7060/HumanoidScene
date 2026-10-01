@@ -183,3 +183,12 @@ not be re-imported as corrections for this goal. Data-only experience import
 also seeds the actor label buffer with its genuine executed success actions;
 `executed_success_label_seed_rows` reports this count. These are measured
 actions, not hypothetical new-teacher actions or old VR rewards.
+
+For bounded IK comparisons, `--ik-orientation-mode full` preserves the full
+wrist pose. Opt-in `closing-axis` aligns the calibrated symmetric jaw direction
+and leaves rotation about that axis free in both the error and angular
+Jacobian. It does not alter actor observations, physical contact checks or
+success criteria; ordinary Quest/teleop IK retains full orientation. This
+option is forwarded by the Drive wrapper and saved in the run manifest.
+Compare actual stage entry and held grasps before using it for longer training:
+passing CPU math checks or reducing position error does not establish a grasp.

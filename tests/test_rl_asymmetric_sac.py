@@ -275,6 +275,20 @@ def test_recorded_success_pose_is_closeable_with_retargeted_goal_not_neutral_cen
         assert (goal[row, hand] - tcp[row, hand, :3]).norm() < 1e-5
 
 
+def test_symmetric_closing_axis_alignment_ignores_roll_and_antiparallel_sign():
+    from kuavo_isaaclab_scene.teleop.teleop_servo import closing_axis_error
+    current = torch.tensor([[1., 0., 0.], [1., 0., 0.], [1., 0., 0.]])
+    desired = torch.tensor([[1., 0., 0.], [-1., 0., 0.], [0., 1., 0.]])
+    error = closing_axis_error(current, desired)
+    torch.testing.assert_close(error[:2], torch.zeros(2, 3))
+    torch.testing.assert_close(error[2], torch.tensor([0., 0., torch.pi / 2]))
+    # Position can use angular velocity around the closing axis: it produces
+    # no change in jaw alignment, unlike either perpendicular direction.
+    projection = torch.eye(3) - torch.outer(current[0], current[0])
+    torch.testing.assert_close(projection @ current[0], torch.zeros(3))
+    torch.testing.assert_close(projection @ desired[2], desired[2])
+
+
 def test_hypothetical_close_labels_cannot_start_lift_with_actual_open_jaws():
     obs = torch.zeros(3, 464)
     obs[1, 48:50] = 1  # command pending; measured jaws remain open

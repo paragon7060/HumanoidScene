@@ -75,7 +75,8 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict, *, data_only=False)
             continue
         saved, requested = source.get(key), manifest.get(key)
         if key in {"exploration", "demonstrations"} and isinstance(saved, dict) and isinstance(requested, dict):
-            defaults = ({"online_ik_min_episode_fraction": 0.0, "online_ik_decay_updates": 0}
+            defaults = ({"online_ik_min_episode_fraction": 0.0, "online_ik_decay_updates": 0,
+                         "ik_orientation_mode": "full"}
                         if key == "exploration" else {
                             "teacher_batch_fraction": 0.0, "teacher_min_batch_fraction": 0.0,
                             "teacher_bc_strength": 10.0, "teacher_decay_updates": 128_000,
@@ -123,6 +124,8 @@ def main() -> None:
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
     parser.add_argument("--ik-grasp-goal", choices=("center", "demo", "center-to-demo"), default="demo")
+    parser.add_argument("--ik-orientation-mode", choices=("full", "closing-axis"), default="full",
+                        help="Full wrist pose or symmetric jaw-axis alignment, leaving roll free.")
     parser.add_argument("--ik-lift-distance-m", type=float, default=0.025)
     parser.add_argument("--ik-base-clearance-m", type=float, default=0.65)
     parser.add_argument("--ik-torso-forward-m", type=float, default=0.0)
@@ -395,6 +398,7 @@ def main() -> None:
                     "guided_warmup_mode": args.guided_warmup_mode,
                     "teacher_pretrain_steps": args.teacher_pretrain_steps,
                     "ik_grasp_goal": args.ik_grasp_goal,
+                    "ik_orientation_mode": args.ik_orientation_mode,
                     "ik_lift_distance_m": args.ik_lift_distance_m,
                     "ik_base_clearance_m": args.ik_base_clearance_m,
                     "ik_torso_forward_m": args.ik_torso_forward_m,

@@ -21,6 +21,18 @@ RESPONSIVE = ArmResponse("responsive", .015, 10., .05, 2.5, 20.)
 REAL = ArmResponse("real", .015, 10., .05, 2.5, 20., .200)
 
 
+def closing_axis_error(current, desired):
+    """Shortest rotation aligning a symmetric jaw axis; roll is unconstrained."""
+    current = torch.nn.functional.normalize(current, dim=-1)
+    desired = torch.nn.functional.normalize(desired, dim=-1)
+    dot = (current * desired).sum(-1, keepdim=True)
+    desired = torch.where(dot < 0, -desired, desired)
+    cross = torch.cross(current, desired, dim=-1)
+    sine = cross.norm(dim=-1, keepdim=True)
+    angle = torch.atan2(sine, dot.abs().clamp(0, 1))
+    return cross * (angle / sine.clamp_min(1e-6))
+
+
 class ActionDelay:
     """Fixed control-tick input delay with explicit reset for safety transitions."""
 

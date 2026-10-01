@@ -88,7 +88,7 @@ class KinematicGraspExplorer:
     """Use successful demo wrist orientations and a shared bounded IK servo."""
 
     def __init__(self, env, demonstrations, *, grasp_goal="demo", lift_distance_m=0.025,
-                 base_clearance_m=0.65, torso_forward_m=0.0):
+                 base_clearance_m=0.65, torso_forward_m=0.0, orientation_mode="full"):
         from isaaclab.controllers import DifferentialIKControllerCfg
         from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
         from isaaclab.utils.math import quat_from_matrix
@@ -99,6 +99,13 @@ class KinematicGraspExplorer:
         from ..state.schema import ACTUATED_BODY_JOINTS
 
         self.env = env
+        if orientation_mode not in ("full", "closing-axis"):
+            raise ValueError("Unsupported IK orientation mode")
+        self.orientation_mode = orientation_mode
+        axes = None
+        if orientation_mode == "closing-axis":
+            from ....robots.end_effector import closed_closing_axes
+            axes = closed_closing_axes()
         if grasp_goal not in ("center", "demo", "center-to-demo") or not 0.008 <= lift_distance_m <= 0.15 \
                 or not 0.4 <= base_clearance_m <= 0.8 or not 0 <= torso_forward_m <= 0.15:
             raise ValueError("Invalid IK grasp goal or wrist lift distance")
@@ -125,6 +132,9 @@ class KinematicGraspExplorer:
                 controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=False,
                                                       ik_method="dls")), env)
             solver.orientation_weight = 0.5
+            if axes is not None:
+                solver.orientation_axis = torch.tensor(
+                    axes["left" if letter == "l" else "right"], device=env.device)
             self.solvers.append(solver)
             self.columns.append([self.upper._joint_ids.index(i) for i in solver._joint_ids])
             self.velocity_columns.append([ACTUATED_BODY_JOINTS.index(name) for name in solver._joint_names])
@@ -162,6 +172,11 @@ class KinematicGraspExplorer:
         current_rotation = _rotation_matrix(tcp[..., 3:])
         relative = current_rotation.transpose(-1, -2) @ target_rotation
         angle = torch.acos(((relative.diagonal(dim1=-2, dim2=-1).sum(-1) - 1) / 2).clamp(-1, 1))
+        if self.orientation_mode == "closing-axis":
+            axes = torch.stack([solver.orientation_axis for solver in self.solvers])
+            current_axes = (current_rotation @ axes[None, ..., None]).squeeze(-1)
+            target_axes = (target_rotation @ axes[None, ..., None]).squeeze(-1)
+            angle = torch.acos((current_axes * target_axes).sum(-1).abs().clamp(0, 1))
         reached_stage = ((stage_error < 0.07) & (angle < 0.35)).all(-1)
         self.phase = torch.where((self.phase == 0) & reached_stage, 1, self.phase)
         center_error = (centers - tcp[..., :3]).norm(dim=-1)

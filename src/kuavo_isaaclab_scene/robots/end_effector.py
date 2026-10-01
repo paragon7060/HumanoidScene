@@ -46,7 +46,7 @@ def calibration_definition(model=None):
                 closed_offsets=closed)
 
 
-def closed_offsets(urdf_path, offsets, settings):
+def closed_offsets(urdf_path, offsets, settings, *, closing_axes=False):
     """URDF FK with the existing closed four-bar solution (no simulator required)."""
     from .claw_assets.linkage import initial_passive_positions
     from ..teleop.urdf_arm_ik import axis_rotation
@@ -81,8 +81,25 @@ def closed_offsets(urdf_path, offsets, settings):
             p, r = transform(name)
             tips.append(p + r @ np.asarray(offsets[name]))
         eef_p, eef_r = transform(f"zarm_{letter}7_end_effector")
-        result[side] = (eef_r.T @ ((tips[0] + tips[1]) * .5 - eef_p)).tolist()
+        if closing_axes:
+            axis = eef_r.T @ (tips[0] - tips[1])
+            if np.linalg.norm(axis) < 1e-6:
+                raise ValueError("Closed calibrated finger points cannot define a closing axis")
+            result[side] = (axis / np.linalg.norm(axis)).tolist()
+        else:
+            result[side] = (eef_r.T @ ((tips[0] + tips[1]) * .5 - eef_p)).tolist()
     return result
+
+
+def closed_closing_axes():
+    """Nominal FK closing directions in the original left/right EEF frames."""
+    from .robot_model import resolve_robot_model
+    from .gripper_config import resolve_gripper_settings
+    definition = calibration_definition()
+    if definition is None:
+        raise ValueError("Closing-axis IK requires calibrated finger reference points")
+    return closed_offsets(resolve_robot_model().urdf_path, definition["offsets"],
+                          resolve_gripper_settings(), closing_axes=True)
 
 
 def center_offset(side):

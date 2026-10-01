@@ -4,7 +4,7 @@ import torch
 import numpy as np
 from isaaclab.envs.mdp.actions.task_space_actions import DifferentialInverseKinematicsAction
 from isaaclab.utils.math import apply_delta_pose, compute_pose_error
-from .teleop_servo import ActionDelay, SMOOTH, joint_servo_step
+from .teleop_servo import ActionDelay, SMOOTH, joint_servo_step, closing_axis_error
 from .urdf_arm_ik import quat_matrix
 
 
@@ -36,6 +36,7 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         self._joint_velocity = torch.zeros_like(self._joint_command)
         self._gravity_bias = torch.zeros_like(self._joint_command)
         self.orientation_weight = 0.5
+        self.orientation_axis = None
         self.response = SMOOTH
         self._input_delay = ActionDelay()
         self._following = True
@@ -192,7 +193,19 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         position, orientation = self._compute_frame_pose()
         ep, er = compute_pose_error(position, orientation, self._filtered_position, self._filtered_orientation,
                                     rot_error_type="axis_angle")
+        if self.orientation_axis is not None:
+            from isaaclab.utils.math import quat_apply
+            axis = self.orientation_axis.expand(self.num_envs, -1)
+            current_axis = quat_apply(orientation, axis)
+            er = closing_axis_error(current_axis,
+                                    quat_apply(self._filtered_orientation, axis))
         jac = self._compute_frame_jacobian().clone()
+        if self.orientation_axis is not None:
+            # A zero roll error with a full angular Jacobian still constrains
+            # roll velocity. Remove that row direction so position can use it.
+            projection = (torch.eye(3, device=jac.device)[None]
+                          - current_axis[:, :, None] * current_axis[:, None, :])
+            jac[:, 3:] = projection @ jac[:, 3:]
         jac[:, 3:] *= self.orientation_weight
         # Cartesian feedback becomes a joint velocity, not an unscaled pose
         # jump. Damping stays continuous near singularities and joint stops.
@@ -212,6 +225,11 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
 
     def target_orientation_error(self):
         p, q = self._compute_frame_pose()
+        if self.orientation_axis is not None:
+            from isaaclab.utils.math import quat_apply
+            axis = self.orientation_axis.expand(self.num_envs, -1)
+            return closing_axis_error(quat_apply(q, axis),
+                                      quat_apply(self._target_orientation, axis)).norm(dim=-1)
         _, error = compute_pose_error(p, q, p, self._target_orientation, rot_error_type="axis_angle")
         return error.norm(dim=-1)
 

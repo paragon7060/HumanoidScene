@@ -60,6 +60,7 @@ def main():
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
     parser.add_argument("--ik-grasp-goal", choices=("center", "demo", "center-to-demo"), default="demo")
+    parser.add_argument("--ik-orientation-mode", choices=("full", "closing-axis"), default="full")
     parser.add_argument("--ik-lift-distance-m", type=float, default=0.025)
     parser.add_argument("--ik-base-clearance-m", type=float, default=0.65)
     parser.add_argument("--ik-torso-forward-m", type=float, default=0.0)
@@ -199,7 +200,7 @@ def main():
         for name in ("warmup_action_hold_steps", "warmup_continuous_scale", "min_alpha",
                      "initial_alpha", "max_alpha", "initial_policy_std", "max_policy_std", "guided_warmup_mode",
                      "teacher_pretrain_steps",
-                     "ik_grasp_goal", "ik_lift_distance_m",
+                     "ik_grasp_goal", "ik_orientation_mode", "ik_lift_distance_m",
                      "ik_base_clearance_m", "ik_torso_forward_m",
                      "online_ik_episode_fraction",
                      "actor_lr", "critic_warmup_updates", "success_replay_capacity", "success_batch_fraction",

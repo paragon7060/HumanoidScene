@@ -1,5 +1,55 @@
 # Multi-box v2 SAC recovery experiments — 2026-09-30
 
+## Latest diagnosis: upper-shelf IK entry — 2026-10-01
+
+**12:45 KST: held grasp remains unsolved.** A new GPU3/128-environment SAC
+pilot runs in `sac_mbv2_demo_waypoint_pilot_gpu3_20261001_120202/`
+`sac_20261001_120208_feae35`, source `a05407e`. It starts fresh model/Q,
+imports 4,416 actually executed success transitions and uses their executed
+actions as actor labels. Old hypothetical near-center corrections are excluded.
+At iteration36 it has2,434 actor updates, teacher MSE0.02471, Q loss0.80245,
+and zero SAC/IK held successes. These are finite learning updates, not evidence
+that the task has been learned. The Drive supervisor remains active.
+
+The failed seed42 IK comparison is now recorded as actual evidence:
+
+| Same reset,900 control steps | Final left/right flap distance | Final front distance | Outcome |
+| --- | --- | --- | --- |
+| Old center-to-demo/full wrist |0.554/0.634m |0.402/0.487m |phase0 throughout; pinch0; timeout1 |
+| Corrected demo goal/full wrist |0.545/0.654m |0.394/0.508m |phase0 throughout; pinch0; timeout1 |
+
+Neither produced a safety failure. Correcting the physical close goal is
+necessary but insufficient: the IK teacher itself can fail before insertion.
+
+[![Old IK teacher at30s: still approaching, grasp0](assets/rl_v2_ik_center_seed42_20261001.png)](assets/rl_v2_ik_center_seed42_20261001.mp4)
+
+[Actual IK teacher video](assets/rl_v2_ik_center_seed42_20261001.mp4),
+[pre-reset telemetry](assets/rl_v2_ik_center_seed42_20261001.json).
+This is a live PhysX **IK teacher**, not a learned SAC success. The CPU mesh
+preview uses actual body poses; the example is not a statistical success rate.
+The video and photo are also native attachments in Notion.
+
+The69 protected executed teacher successes all target boxes at robot-relative
+Z1.054–1.119m; **none exceed1.5m**. They include small and medium boxes but
+do not demonstrate upper-shelf competence. The failed seed42 target has TCP
+goals around1.85m. Measured arm first joints/wrists reach their physical travel
+limits during approach. Imitating this teacher continuously can therefore
+reinforce unsuccessful upper-shelf corrections even though the loss is small.
+
+Bounded comparisons keep physics, rewards, resets and success unchanged:
+full wrist versus symmetric closing-axis alignment; base alignment before
+arm entry; position priority while far from the target; and retargeting the
+successful VR's intermediate entry poses rather than requesting its final
+wrist pose from the first tick. Only measured outcomes will select the next
+training guide. These experiments must not be described as a solved task.
+
+`--ik-orientation-mode closing-axis` is an opt-in comparison. The necessary
+symmetric jaw direction is aligned while rotation about it is removed from
+both the error and angular Jacobian. Default `full` preserves existing teleop
+and baseline behavior. **100 focused CPU checks pass**, including the parallel,
+antiparallel and90-degree axis cases; this establishes math/compatibility,
+not physical success.
+
 ## Latest follow-up: persistent corrections — 2026-10-01
 
 **Follow-up at 12:00 KST:** the 64-environment correction pilot was stopped
