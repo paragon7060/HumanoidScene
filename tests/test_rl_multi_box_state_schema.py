@@ -25,6 +25,85 @@ from kuavo_isaaclab_scene.rl.multi_box.state import (
 )
 
 
+def _state_with_perceived_panels():
+    from kuavo_isaaclab_scene.rl.multi_box.geometry.grasp import estimated_flap_center_poses
+    value = state()
+    deployable = replace(value.deployable, control=replace(
+        value.deployable.control, target_box=torch.zeros(2, dtype=torch.long)))
+    boxes = deployable.boxes
+    centers, _ = estimated_flap_center_poses(
+        boxes.pose_world[:, 0], boxes.size_m[:, 0], boxes.box_type_id[:, 0],
+        deployable.robot.tcp_pose_world)
+    panels = torch.zeros(2, 12, 2, 7)
+    panels[..., 3] = 1
+    panels[:, 0] = centers[:, 0]
+    confidence = torch.zeros(2, 12, 2)
+    confidence[:, 0] = 1
+    return replace(value, deployable=replace(deployable, boxes=replace(
+        boxes, flap_pose_world=panels, flap_pose_confidence=confidence)))
+
+
+def test_upright_perceived_panels_preserve_nominal_actor_geometry():
+    value = _state_with_perceived_panels()
+    nominal = replace(value, deployable=replace(value.deployable, boxes=replace(
+        value.deployable.boxes, flap_pose_world=None, flap_pose_confidence=None)))
+    actual = build_observations(value, torch.zeros(2, 24))
+    old = build_observations(nominal, torch.zeros(2, 24))
+    torch.testing.assert_close(flatten_actor_observation(actual.actor),
+                               flatten_actor_observation(old.actor))
+
+
+def test_bent_panel_changes_actor_position_normal_and_teacher_frame():
+    import math
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import (
+        assigned_flap_rotations, retarget_grasp_goal,
+    )
+    value = _state_with_perceived_panels()
+    before = build_observations(value, torch.zeros(2, 24))
+    panels = value.deployable.boxes.flap_pose_world.clone()
+    panels[:, 0, 0, 0] += .04
+    panels[:, 0, 0, 3:] = torch.tensor([math.cos(math.pi/8), 0., math.sin(math.pi/8), 0.])
+    changed = replace(value, deployable=replace(value.deployable, boxes=replace(
+        value.deployable.boxes, flap_pose_world=panels)))
+    after = build_observations(changed, torch.zeros(2, 24))
+    delta = after.actor.hand_flap_relations[:, :, 0, :3] - before.actor.hand_flap_relations[:, :, 0, :3]
+    torch.testing.assert_close(delta[..., 0], torch.full((2, 2), .04))
+    assert not torch.equal(after.actor.hand_flap_relations[..., 3:], before.actor.hand_flap_relations[..., 3:])
+    panel_rotation = assigned_flap_rotations(flatten_actor_observation(after.actor))
+    torch.testing.assert_close(panel_rotation[:, 0, 0, 0], torch.full((2,), math.sqrt(.5)))
+    centers = torch.zeros(2, 2, 3)
+    offset = torch.tensor([[.1, 0, 0], [.1, 0, 0]])
+    goals, _, _ = retarget_grasp_goal(centers, centers, torch.tensor([[0., 1., 0.]]).expand(2, -1),
+                                     panel_rotation, offset, "demo")
+    assert (goals[:, 0, 2].abs() > .07).all()
+    assert (goals[:, 1, 2].abs() < 1e-6).all()
+
+
+def test_untrusted_panel_blocks_relations_assignment_and_gripper_closing():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import (
+        GraspActionProjector, assigned_flap_center_distance,
+    )
+    value = _state_with_perceived_panels()
+    confidence = value.deployable.boxes.flap_pose_confidence.clone()
+    confidence[:, 0, 0] = 0
+    invalid = replace(value, deployable=replace(value.deployable, boxes=replace(
+        value.deployable.boxes, flap_pose_confidence=confidence)))
+    observation = build_observations(invalid, torch.zeros(2, 24)).actor
+    assert not observation.hand_flap_relations.any()
+    assert not observation.opposing_flap_assignment.any()
+    flat = flatten_actor_observation(observation)
+    assert torch.isinf(assigned_flap_center_distance(flat)).all()
+    projector = GraspActionProjector([("upper", 20), ("left_gripper", 1), ("right_gripper", 1), ("head", 2)])
+    assert (projector(flat, torch.ones(2, 24))[:, 20:22] == -1).all()
+
+
+def test_flap_perception_requires_paired_pose_and_confidence_fields():
+    value = _state_with_perceived_panels()
+    bad = replace(value.deployable.boxes, flap_pose_confidence=None)
+    with pytest.raises(ValueError, match="together"):
+        bad.validate(2)
+
+
 def state(num_envs=2):
     def poses(*shape):
         value = torch.zeros(*shape, 7)

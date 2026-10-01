@@ -80,6 +80,8 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict, *, data_only=False)
                         if key == "exploration" else {
                             "teacher_batch_fraction": 0.0, "teacher_min_batch_fraction": 0.0,
                             "teacher_bc_strength": 10.0, "teacher_decay_updates": 128_000,
+                            "source_flap_pose_source": "nominal", "requested_flap_pose_source": "nominal",
+                            "nominal_flap_prior": False,
                             "teacher_usage": "independent_actor_labels_only; no_hypothetical_Q_transitions"})
             saved, requested = defaults | saved, defaults | requested
         if key == "exploration" and isinstance(saved, dict) and isinstance(requested, dict):
@@ -106,6 +108,10 @@ def main() -> None:
     parser.add_argument("--num-envs", type=int, default=64)
     parser.add_argument("--env-spacing", type=float, default=8.0)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--flap-pose-source", choices=("nominal", "articulated"), default="nominal",
+                        help="Use upright flap estimates or experimental perceived articulated panel poses.")
+    parser.add_argument("--allow-nominal-demo-prior", action="store_true",
+                        help="Explicitly allow old nominal demos as an approximate actor-only prior for articulated perception; never reconstructs unknown panel poses.")
     parser.add_argument("--max-iterations", type=int, default=2000)
     parser.add_argument("--rollout-steps", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=1024)
@@ -326,7 +332,8 @@ def main() -> None:
             cfg = MultiBoxGraspAssemblyEnvCfg(
                 num_envs=args.num_envs, env_spacing=args.env_spacing)
             cfg.multi_box = replace(
-                cfg.multi_box, self_collision_enabled=bool(args.self_collision))
+                cfg.multi_box, self_collision_enabled=bool(args.self_collision),
+                flap_pose_source=args.flap_pose_source)
             cfg.multi_box.validate()
             cfg.seed = args.seed
             cfg.sim.device = args.device or "cuda:0"
@@ -335,7 +342,12 @@ def main() -> None:
                 demonstration_batch, demonstration_meta = load_v2_grasp_demonstrations(
                     args.demo_dataset,
                     self_collision_enabled=bool(args.self_collision),
+                    flap_pose_source=args.flap_pose_source,
+                    allow_nominal_flap_prior=args.allow_nominal_demo_prior,
                 )
+                if demonstration_meta["nominal_flap_prior"]:
+                    print("[V2 SAC] Old demos are an approximate NOMINAL actor prior; "
+                          "actual flap poses are unknown. Recorded rewards remain excluded from Q.", flush=True)
             parent = (
                 args.log_dir.expanduser().resolve() if args.log_dir
                 else default_artifacts_dir() / "rl" / "multi_box_v2" / "grasp_sac")
@@ -375,7 +387,19 @@ def main() -> None:
                 "action_contract": "s63_upright_torso_xz_fixed_pitch_v1",
                 "action_projection": GraspActionProjector.name,
                 "observations": observation_dims,
-                "observation_contract": "neutral_flap_center_controller_state_actual_base_twist_v2",
+                "observation_contract": (
+                    "neutral_flap_center_controller_state_actual_base_twist_v2"
+                    if args.flap_pose_source == "nominal" else
+                    "perceived_articulated_flap_center_controller_state_actual_base_twist_v3"),
+                "flap_pose_source": args.flap_pose_source,
+                "flap_perception_contract": {
+                    "source": args.flap_pose_source,
+                    "simulator_pose_proxy": args.flap_pose_source == "articulated",
+                    "real_backend": "supply_panel_midpoint_xyz_wxyz_and_confidence",
+                    "contact_force_or_success_in_actor": False,
+                    "missing_panel_pose": "zero_relations_and_assignment; closing_blocked",
+                    "legacy_demo_actual_panel_pose": "unavailable; nominal_actor_BC_prior_only",
+                },
                 "contact_contract": "max_filtered_rack_and_workcell_pairs_without_boxes_or_floor_v2",
                 "critic_mapping": {
                     "actor": ["policy"],

@@ -8,6 +8,7 @@ from ..geometry import pose_to_position_rotation_6d, relative_pose
 from ..geometry.grasp import (
     GRASP_ASSIGNMENT_SCALE_M,
     estimated_flap_center_poses,
+    perceived_flap_center_poses,
     opposing_flap_reach_assignment,
 )
 from ..spec import BOX_TYPES, MAX_BOXES
@@ -137,12 +138,21 @@ def build_actor_observation(
     goal_valid = (target_valid & (target < MAX_BOXES)
                   & boxes.active[rows, target_ids]
                   & (boxes.pose_confidence[rows, target_ids] > 0))
-    center_poses, candidate_distances = estimated_flap_center_poses(
-        boxes.pose_world[rows, target_ids],
-        boxes.size_m[rows, target_ids],
-        boxes.box_type_id[rows, target_ids],
-        robot.tcp_pose_world,
-    )
+    if boxes.flap_pose_world is None:
+        center_poses, candidate_distances = estimated_flap_center_poses(
+            boxes.pose_world[rows, target_ids],
+            boxes.size_m[rows, target_ids],
+            boxes.box_type_id[rows, target_ids],
+            robot.tcp_pose_world,
+        )
+    else:
+        goal_valid &= (boxes.flap_pose_confidence[rows, target_ids] > 0).all(-1)
+        center_poses, candidate_distances = perceived_flap_center_poses(
+            boxes.flap_pose_world[rows, target_ids],
+            boxes.size_m[rows, target_ids],
+            boxes.box_type_id[rows, target_ids],
+            robot.tcp_pose_world,
+        )
     relations = pose_to_position_rotation_6d(relative_pose(
         robot.tcp_pose_world[:, :, None], center_poses,
     )) * goal_valid[:, None, None, None]

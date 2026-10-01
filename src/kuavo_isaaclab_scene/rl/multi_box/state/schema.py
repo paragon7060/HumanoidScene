@@ -43,6 +43,10 @@ class DeployableBoxState:
     size_m: torch.Tensor
     pose_world: torch.Tensor
     pose_confidence: torch.Tensor
+    # Optional perceived flap MIDPOINT poses, ordered right/left. These are
+    # pose estimates, never contact forces or simulator success labels.
+    flap_pose_world: torch.Tensor | None = None
+    flap_pose_confidence: torch.Tensor | None = None
 
     def validate(self, num_envs: int) -> None:
         prefix = (num_envs, MAX_BOXES)
@@ -54,6 +58,14 @@ class DeployableBoxState:
         # orientation as rotation-6D without losing the state reference frame.
         _floating(self.pose_world, (*prefix, 7), "pose_world")
         _floating(self.pose_confidence, prefix, "pose_confidence")
+        if (self.flap_pose_world is None) != (self.flap_pose_confidence is None):
+            raise ValueError("Flap poses and confidence must be supplied together.")
+        if self.flap_pose_world is not None:
+            _floating(self.flap_pose_world, (*prefix, 2, 7), "flap_pose_world")
+            _floating(self.flap_pose_confidence, (*prefix, 2), "flap_pose_confidence")
+            if self.flap_pose_world.device != self.pose_world.device \
+                    or self.flap_pose_confidence.device != self.pose_world.device:
+                raise ValueError("Flap perception must share the box-pose device.")
 
 
 @dataclass(frozen=True)

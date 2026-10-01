@@ -142,6 +142,7 @@ def upgrade_controller_observation(observation: torch.Tensor) -> torch.Tensor:
 
 def load_v2_grasp_demonstrations(
     path: str | Path, *, self_collision_enabled: bool,
+    flap_pose_source: str = "nominal", allow_nominal_flap_prior: bool = False,
 ) -> tuple[dict[str, torch.Tensor], dict]:
     """Load successful episodes and convert both current and terminal-next views."""
     path = Path(path).expanduser().resolve()
@@ -156,6 +157,15 @@ def load_v2_grasp_demonstrations(
             raise ValueError("Unsupported v2 grasp demonstration format")
         manifest = json.loads(source.attrs["manifest_json"])
         native = manifest.get("action_dim") == 24
+        source_flap = manifest.get("multi_box", {}).get("flap_pose_source", "nominal")
+        if flap_pose_source not in ("nominal", "articulated") \
+                or source_flap not in ("nominal", "articulated"):
+            raise ValueError("Unsupported demonstration flap pose source")
+        nominal_prior = source_flap == "nominal" and flap_pose_source == "articulated"
+        if source_flap != flap_pose_source and not (nominal_prior and allow_nominal_flap_prior):
+            raise ValueError("Demonstration flap pose source differs; old poses cannot reconstruct bent flaps")
+        if source_flap == "articulated" and not native:
+            raise ValueError("Legacy demonstrations cannot contain articulated flap observations")
         source_actor_dim = manifest.get("actor_obs_dim") if native else LEGACY_ACTOR_DIM
         if native and source_actor_dim not in (PRE_CONTROLLER_ACTOR_DIM, flat_actor_observation_dim(24)):
             raise ValueError("Unsupported native upright observation dimension")
@@ -245,6 +255,9 @@ def load_v2_grasp_demonstrations(
         "converted_actor_dim": result["actor_obs"].shape[-1],
         "converted_critic_dim": result["critic_obs"].shape[-1],
         "observation_conversion": "native_flap_center_v1" if native else "nominal_flap_center_v1",
+        "source_flap_pose_source": source_flap,
+        "requested_flap_pose_source": flap_pose_source,
+        "nominal_flap_prior": nominal_prior,
         "torso_action_saturated_fraction": torso_saturated / torso_values,
         "mean_discarded_waist_pitch_command_rad": (
             discarded_pitch_rad / len(result["action"])),

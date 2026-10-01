@@ -1,0 +1,62 @@
+{
+  "box_size_m": [
+    0.266,
+    0.185,
+    0.13
+  ],
+  "flap_length_m": 0.1,
+  "control_hz": 30.0,
+  "summaries": [
+    {
+      "source": "artifacts/rl/probes/vr_actual_flap_diagnostic_cpu_high_20261001_1418/metrics.json",
+      "policy": "VR_joint_pose_tracker_current_actions",
+      "steps": 538,
+      "outcomes": {
+        "success": 0,
+        "unsafe": 1,
+        "invalid_reset": 0,
+        "time_out": 0
+      },
+      "pinch_steps_left_right": [
+        0,
+        0
+      ],
+      "bilateral_pinch_steps": 0,
+      "max_displacement_m": [
+        0.03817084570714675,
+        0.0009734233856140494
+      ],
+      "max_normal_tilt_deg": [
+        44.87907492528858,
+        1.115487342762514
+      ],
+      "label": "Timed VR closure + actual-flap goal"
+    },
+    {
+      "source": "artifacts/rl/probes/vr_feedback_close_cpu_high_20261001_1440/metrics.json",
+      "policy": "VR_joint_pose_tracker_current_actions",
+      "steps": 900,
+      "outcomes": {
+        "success": 0,
+        "unsafe": 0,
+        "invalid_reset": 0,
+        "time_out": 1
+      },
+      "pinch_steps_left_right": [
+        0,
+        12
+      ],
+      "bilateral_pinch_steps": 0,
+      "max_displacement_m": [
+        0.03821576846698107,
+        0.0019385491230667449
+      ],
+      "max_normal_tilt_deg": [
+        44.93478186698074,
+        2.221550799523864
+      ],
+      "label": "Open VR approach + live closure"
+    }
+  ],
+  "measurement": "Actual flap and box poses sampled together before reset; nominal is upright asset geometry"
+}

@@ -206,3 +206,25 @@ IK 교사의 lift 전환은 이제 서로 다른 flap의 실제 양손 pinch3tic
 오래된 데모 보상을 사용하는 옵션이 아니다.128환경에서는 이 history만 약0.87GiB
 CPU RAM을 추가 사용한다. 체크포인트 용량도 실제 성공 전이 누적에 따라 늘어난다.
 [실제 영상·측정·한계](RL_V2_RECOVERY_20260930.md)를 먼저 확인한다.
+
+### 2026-10-01: 휘어진 flap 관측 비교
+
+PPO와 SAC의 v2 grasp entrypoint는 `--flap-pose-source nominal|articulated`를
+지원한다. 기본 `nominal`은 기존 관측·checkpoint 의미를 유지한다.
+`articulated`는 패널 midpoint pose를 공통 perception API로 공급하고 손–flap
+상대38개 및 nearest opposing assignment를 실제 기울어진 패널에 맞춘다.
+SAC의 IK 교사도 패널 frame으로 목표 offset과 손목 방향을 회전한다. 알려진
+패널 모양만 쓰며, 접촉 힘과 성공 여부를 actor에 추가하지 않는다.
+
+차원이 같아도 새로운 관측 contract이므로 nominal 모델 재개와 성공 Q 전이
+import는 거부한다. SAC/Drive wrapper는 `--flap-pose-source articulated`를
+그대로 전달한다. 오래된 두 nominal 데모는 actual flap pose가 없으므로
+기본 거부하고 `--allow-nominal-demo-prior`를 명시할 때만 근사 actor prior로
+허용한다. recorded reward는 계속 Q 학습에서 제외한다. 새 source에 맞는
+Quest 수집은 [RL 시연 수집 안내](RL_QUEST_REWARD_DEBUG.md)를 따른다.
+
+패널 pose가 유효하지 않으면 confidence0, relation/assignment0으로 표시하고
+그리퍼 close projection을 막는다. invalid pose를 정상 데이터로 바꾸지 않는다.
+실제 로봇에서는 패널 자세 추정 backend가 필요하다. CPU geometry/contract
+확인53개와 실제 Isaac 관측 읽기는 통과했지만, 상단 물리 비교는 랙22.20N
+충돌로 실패했다. 따라서 성공률 개선이나 기본 설정 채택을 주장하지 않는다.

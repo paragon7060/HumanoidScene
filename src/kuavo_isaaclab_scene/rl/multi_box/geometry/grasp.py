@@ -107,3 +107,27 @@ def estimated_flap_center_poses(
         box_quat, centers[:, None].expand(-1, 2, -1, -1))
     center_pose_world = torch.cat((center_world, box_quat), dim=-1)
     return center_pose_world, distance
+
+
+def perceived_flap_center_poses(
+    flap_center_pose_world: torch.Tensor,
+    box_size_m: torch.Tensor,
+    box_type_id: torch.Tensor,
+    tcp_pose_world: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Use perceived panel midpoints/normals, including hinge deflection.
+
+    Panel shape remains known stock geometry. Positions are expressed in each
+    panel's frame for surface assignment; policy relations still use its fixed
+    midpoint, avoiding a moving nearest-surface target.
+    """
+    n = len(flap_center_pose_world)
+    if flap_center_pose_world.shape != (n, 2, 7) \
+            or tcp_pose_world.shape != (n, 2, 7):
+        raise ValueError("Expected perceived flap centers and TCPs [env,2,7]")
+    _, halves, axes = nominal_flap_geometry(box_size_m, box_type_id)
+    centers = flap_center_pose_world[:, None].expand(-1, 2, -1, -1)
+    local = relative_pose(centers, tcp_pose_world[:, :, None])[..., :3]
+    nearest = closest_flap_surface(
+        local, torch.zeros_like(halves[:, None]), halves[:, None], axes[:, None])
+    return centers, (local - nearest).norm(dim=-1)

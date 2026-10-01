@@ -314,6 +314,36 @@ perception filter history와 reward hold timer까지 저장하는 simulator snap
 기존 reward-debug preset의 `--no-rl-obstacle-collision`은 이 수집 경로에
 적용되지 않는다. V2 학습의 장애물 충돌 판정을 그대로 사용한다.
 
+### 휘어진 flap 자세를 포함하는 실험 수집
+
+기본 `nominal`은 box pose/size로 수직 flap midpoint를 추정한다. 현재 물리
+비교에서는 손이 접근할 때 flap이 약45도 휘고 midpoint가3.8cm 이동해,
+고정 추정 위치와 실제 접촉 대상이 달라지는 사례가 있었다. 이 차이를 기록하는
+선택 옵션은 다음과 같다. 출력 파일은 새 이름을 사용한다.
+
+```bash
+CUDA_VISIBLE_DEVICES=3 ./quest_collector.sh collect \
+  --robot-model s63 --gripper leju-twofinger \
+  --rl-reward-debug 2 --device cuda:0 \
+  --no-rl-demo-self-collision \
+  --rl-demo-flap-pose-source articulated \
+  --rl-demo-dataset datasets/v2_grasp_articulated_001.hdf5
+```
+
+새 데이터는 `multi_box.flap_pose_source`에 관측 source를 기록하며 실제
+panel midpoint와 회전을 손 기준 상대 위치·방향38개에 반영한다. 차원은
+actor464/critic530/action24로 유지한다. 힘·pinch·성공 여부는 actor 입력이
+아니다. Isaac pose는 교체 가능한 perception API의 시뮬레이션 proxy이며,
+실제 로봇에서는 같은 midpoint pose/confidence를 추정해 공급해야 한다.
+
+학습에는 `--flap-pose-source articulated --demo-dataset <새 파일>`을 같이
+지정한다. 기존 두 nominal 성공 데모의 실제 flap 자세는 복원되지 않는다.
+기본적으로 geometry source가 다른 데이터는 거부하고,
+`--allow-nominal-demo-prior`를 별도로 지정하면 근사적인 actor 모방 prior로만
+허용한다. 이 허용 옵션은 checkpoint/실제 Q 전이의 source 불일치를 우회하지
+않는다. 옵션 없이 수행하는 기존 Quest 수집은 그대로 유지한다. 새 옵션의
+물리 파지 성공률은 아직 입증되지 않았다.
+
 ### 안전 종료(unsafe) 원인 확인
 
 안전 위반으로 끝나면 걸린 판정과 측정값, 그리고 접촉한 링크를 콘솔에 함께 출력한다.

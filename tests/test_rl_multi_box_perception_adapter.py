@@ -67,3 +67,29 @@ def test_invalid_physical_box_pose_has_zero_confidence_and_finite_observation():
     assert frame.boxes.pose_confidence[0, 1].item() == 1.0
     assert frame.boxes.pose_confidence[1, 7].item() == 0.0
     assert frame.boxes.pose_world[1, 7].tolist() == [0., 0., 0., 1., 0., 0., 0.]
+
+
+def test_articulated_panel_poses_follow_logical_pool_mapping_and_inactive_mask():
+    source = _source()
+    panels = _identity(2, NUM_PHYSICAL_BOX_ASSETS, 2)
+    panels[0, 5, 0, :3] = torch.tensor([1., 2., 3.2])
+    panels[0, 5, 1, :3] = torch.tensor([1., 2.3, 3.2])
+    panels[1, 10, :, 2] = 4.4
+    frame = simulated_perception_frame(**source, physical_flap_center_poses_world=panels)
+    torch.testing.assert_close(frame.boxes.flap_pose_world[0, 1], panels[0, 5])
+    torch.testing.assert_close(frame.boxes.flap_pose_world[1, 7], panels[1, 10])
+    assert frame.boxes.flap_pose_confidence[0, 1].tolist() == [1., 1.]
+    assert frame.boxes.flap_pose_confidence[0, 0].tolist() == [0., 0.]
+    assert frame.boxes.flap_pose_world[0, 0, :, 3].tolist() == [1., 1.]
+
+
+def test_bad_panel_pose_is_untrusted_without_hiding_valid_box_pose():
+    source = _source()
+    panels = _identity(2, NUM_PHYSICAL_BOX_ASSETS, 2)
+    panels[0, 5, 0, 3:] = 0
+    panels[1, 10, 1, 0] = float("nan")
+    frame = simulated_perception_frame(**source, physical_flap_center_poses_world=panels)
+    assert frame.boxes.flap_pose_confidence[0, 1].tolist() == [0., 1.]
+    assert frame.boxes.flap_pose_confidence[1, 7].tolist() == [1., 0.]
+    assert frame.boxes.pose_confidence[0, 1] == 1
+    assert torch.isfinite(frame.boxes.flap_pose_world).all()

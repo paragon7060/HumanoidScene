@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from datetime import datetime
 import importlib.metadata
 import json
@@ -21,6 +22,8 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
     ):
         if source.get(key) != manifest.get(key):
             raise ValueError(f"Checkpoint {key} differs from the v2 grasp environment.")
+    if source.get("flap_pose_source", "nominal") != manifest.get("flap_pose_source", "nominal"):
+        raise ValueError("Checkpoint flap pose source differs from the v2 grasp environment.")
 
 
 def main() -> None:
@@ -36,6 +39,7 @@ def main() -> None:
     parser.add_argument("--num-envs", type=int, default=64)
     parser.add_argument("--env-spacing", type=float, default=8.0)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--flap-pose-source", choices=("nominal", "articulated"), default="nominal")
     parser.add_argument("--max-iterations", type=int, default=2000)
     parser.add_argument("--steps-per-env", type=int, default=32)
     parser.add_argument("--save-interval", type=int, default=100)
@@ -100,6 +104,7 @@ def main() -> None:
         install_stop_handlers()
         cfg = MultiBoxGraspAssemblyEnvCfg(
             num_envs=args.num_envs, env_spacing=args.env_spacing)
+        cfg.multi_box = replace(cfg.multi_box, flap_pose_source=args.flap_pose_source)
         cfg.seed = args.seed
         cfg.sim.device = args.device or "cuda:0"
         agent = MultiBoxV2GraspPPOCfg(
@@ -139,6 +144,7 @@ def main() -> None:
             },
             "action_contract": "s63_upright_torso_xz_fixed_pitch_v1",
             "observations": observation_dims,
+            "flap_pose_source": args.flap_pose_source,
             "critic_mapping": agent.obs_groups,
             "num_envs": args.num_envs,
             "seed": args.seed,

@@ -48,6 +48,18 @@ def entry_geometry(observation, front_y):
     return tcp, center, stage, outward
 
 
+def assigned_flap_rotations(observation):
+    """Panel orientation in the base frame from the actor's perceived relations."""
+    tcp = observation[:, 50:68].reshape(-1, 2, 9)
+    relations = observation[:, RELATION_START:ASSIGNMENT_START].reshape(-1, 2, 2, 9)
+    left = observation[:, ASSIGNMENT_START:ASSIGNMENT_START + 2].argmax(-1)
+    assignment = torch.stack((left, 1 - left), -1)
+    rows = torch.arange(len(observation), device=observation.device)[:, None]
+    hands = torch.arange(2, device=observation.device)[None]
+    return _rotation_matrix(tcp[..., 3:]) @ _rotation_matrix(
+        relations[rows, hands, assignment, 3:])
+
+
 def successful_demo_grasp_offsets(demonstrations, front_y):
     """Offline grasp offsets selected only from physical demo pinch frames."""
     demo = demonstrations["actor_obs"]
@@ -70,7 +82,11 @@ def successful_demo_grasp_offsets(demonstrations, front_y):
 
 def retarget_grasp_goal(centers, stage, outward, box_rotation, goal_offset, grasp_goal):
     """Keep neutral observation anchors, but aim closing at the physical VR pose."""
-    offset = (box_rotation[:, None] @ goal_offset[None, ..., None]).squeeze(-1)
+    # Nominal callers supply [env,3,3]; articulated perception supplies the
+    # separate [env,hand,3,3] panel frames. Do not rotate a bent-flap offset
+    # using the unchanged box frame.
+    rotation = box_rotation[:, None] if box_rotation.ndim == 3 else box_rotation
+    offset = (rotation @ goal_offset[None, ..., None]).squeeze(-1)
     goals = centers + offset if grasp_goal == "demo" else centers
     front_offset = ((stage - goals) * outward[:, None]).sum(-1).clamp_min(0)
     return goals, goals + front_offset[..., None] * outward[:, None], offset
@@ -179,9 +195,13 @@ class KinematicGraspExplorer:
         tcp, centers, stage, outward = entry_geometry(observation, self.front_y)
         tokens, valid = target_token(observation)
         box_rotation = _rotation_matrix(tokens[:, 15:21])
+        panel_rotation = box_rotation[:, None]
+        if self.env.cfg.multi_box.flap_pose_source == "articulated":
+            panel_rotation = assigned_flap_rotations(observation)
+            valid &= observation[:, ASSIGNMENT_START:ASSIGNMENT_START + 2].sum(-1) > .5
         centers, stage, _ = retarget_grasp_goal(
-            centers, stage, outward, box_rotation, self.goal_offset, self.grasp_goal)
-        target_rotation = box_rotation[:, None] @ self.relative_rotation[None]
+            centers, stage, outward, panel_rotation, self.goal_offset, self.grasp_goal)
+        target_rotation = panel_rotation @ self.relative_rotation[None]
         orientation = self.quat_from_matrix(target_rotation.reshape(-1, 3, 3)).reshape(-1, 2, 4)
         stage_error = (stage - tcp[..., :3]).norm(dim=-1)
         current_rotation = _rotation_matrix(tcp[..., 3:])

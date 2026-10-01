@@ -278,6 +278,14 @@ actor/critic 관측 464/530차원이며, 기존 25차원 데모도 변환해 읽
 새 수집에는 첫 action 이전의 flap 관절·속도와 누적 제어 목표를
 `initial_state`로 저장한다. 오래된 pose-only 데모의 누락 상태를 역산하거나
 정확한 물리 재생을 보장하는 기능은 아니다.
+기본 flap 관측은 수직 패널의 중간점 추정이다. 패널이 휘는 것을 관측하는
+실험 옵션은 학습 `--flap-pose-source articulated`, Quest RL 수집
+`--rl-demo-flap-pose-source articulated`다. actor/critic 차원464/530은 같아도
+관측 의미가 달라 기존 nominal checkpoint나 실제 전이를 섞을 수 없다.
+기존 두 데모에는 실제 flap 자세가 없다. 새 관측에 그대로 연결하면 거부하며,
+`--allow-nominal-demo-prior`를 명시한 경우만 근사 actor 모방으로 허용한다.
+이는 오래된 flap 자세를 복원하거나 보상을 Q 학습에 쓰는 기능이 아니다.
+articulated 옵션은 아직 성공률 향상이 입증되지 않았고 기본값은 nominal이다.
 초기 성공 전이를 계속 수집하려면 IK warmup과 함께
 `--online-ik-episode-fraction 0.2`를 사용할 수 있다. 새 에피소드마다 초기 20%의
 환경이 IK를 실행하며 모방 일정에 따라 줄어든다. SAC·IK 성능과 reset부터 수행한

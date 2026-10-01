@@ -60,6 +60,8 @@ def main():
     parser.add_argument("--max-policy-std", type=float, default=0.3)
     parser.add_argument("--guided-warmup-mode", choices=("bc", "ik"), default="bc")
     parser.add_argument("--ik-grasp-goal", choices=("center", "demo", "center-to-demo"), default="demo")
+    parser.add_argument("--flap-pose-source", choices=("nominal", "articulated"), default="nominal")
+    parser.add_argument("--allow-nominal-demo-prior", action="store_true")
     parser.add_argument("--ik-orientation-mode", choices=("full", "closing-axis"), default="full")
     parser.add_argument("--ik-lift-distance-m", type=float, default=0.025)
     parser.add_argument("--ik-base-clearance-m", type=float, default=0.65)
@@ -178,6 +180,9 @@ def main():
         command.extend(("--action-space", args.action_space))
     if args.experiment == "multi-box-v2-grasp":
         command.append("--self-collision" if args.self_collision else "--no-self-collision")
+        command.extend(("--flap-pose-source", args.flap_pose_source))
+        if args.allow_nominal_demo_prior:
+            command.append("--allow-nominal-demo-prior")
     for name in ("num_envs", "max_iterations", "rollout_steps", "batch_size", "updates_per_step",
                  "learning_starts", "warmup_vector_steps", "replay_capacity", "replay_device",
                  "save_interval"):

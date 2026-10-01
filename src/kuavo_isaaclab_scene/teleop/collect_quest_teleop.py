@@ -49,6 +49,8 @@ parser.add_argument("--rl-demo-dataset", type=Path, default=None,
                     help="With --rl-reward-debug 2, record Quest transitions in the exact v2 staged-grasp SAC observation/action/reward contract. Existing files are never overwritten.")
 parser.add_argument("--rl-demo-self-collision", action=argparse.BooleanOptionalAction,
                     default=True, help="V2 staged-grasp demonstration: match the SAC self-collision setting (default enabled).")
+parser.add_argument("--rl-demo-flap-pose-source", choices=("nominal", "articulated"), default="nominal",
+                    help="V2 staged-grasp demonstration: record nominal or perceived articulated flap midpoint/normal observations.")
 parser.add_argument("--rl-demo-contact-markers", action=argparse.BooleanOptionalAction,
                     default=True, help="V2 staged-grasp demonstration: mark the robot links that touch the rack (red) or another obstacle (orange) in the Quest view.")
 parser.add_argument("--rl-demo-hold-terminal-frame", action=argparse.BooleanOptionalAction,
@@ -303,6 +305,8 @@ if args_cli.rl_shadow_log is not None:
         parser.error("RL shadow log exists; choose a new filename.")
 if args_cli.rl_shadow_box_count is not None and args_cli.rl_reward_debug != 2:
     parser.error("--rl-shadow-box-count requires --rl-reward-debug 2.")
+if args_cli.rl_demo_flap_pose_source != "nominal" and args_cli.rl_demo_dataset is None:
+    parser.error("--rl-demo-flap-pose-source articulated requires --rl-demo-dataset.")
 if args_cli.rl_demo_dataset is not None:
     if args_cli.rl_reward_debug != 2:
         parser.error("--rl-demo-dataset requires --rl-reward-debug 2 (the v2 SAC task).")

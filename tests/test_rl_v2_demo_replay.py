@@ -44,6 +44,27 @@ def test_demo_rejects_self_collision_contract_mismatch():
         load_v2_grasp_demonstrations(DATASET, self_collision_enabled=True)
 
 
+def test_nominal_demos_do_not_silently_become_articulated_observations():
+    with pytest.raises(ValueError, match="flap pose source"):
+        load_v2_grasp_demonstrations(
+            DATASET, self_collision_enabled=False, flap_pose_source="articulated")
+    _, metadata = load_v2_grasp_demonstrations(
+        DATASET, self_collision_enabled=False, flap_pose_source="articulated",
+        allow_nominal_flap_prior=True)
+    assert metadata["source_flap_pose_source"] == "nominal"
+    assert metadata["requested_flap_pose_source"] == "articulated"
+    assert metadata["nominal_flap_prior"] is True
+
+
+def test_executed_success_import_rejects_equal_dimensions_with_changed_geometry(tmp_path):
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.train_grasp_v2_sac import _compatible_checkpoint
+    manifest = {"observation_contract": "neutral_flap_center_controller_state_actual_base_twist_v2"}
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    requested = {"observation_contract": "perceived_articulated_flap_center_controller_state_actual_base_twist_v3"}
+    with pytest.raises(ValueError, match="observation_contract"):
+        _compatible_checkpoint(tmp_path / "checkpoint.pt", requested, data_only=True)
+
+
 def test_retargeted_grasp_requires_physical_pinch_not_only_a_close_command():
     batch, _ = load_v2_grasp_demonstrations(DATASET, self_collision_enabled=False)
     offset = successful_demo_grasp_offsets(batch, 0.335)
@@ -56,12 +77,14 @@ def test_retargeted_grasp_requires_physical_pinch_not_only_a_close_command():
 
 
 @pytest.mark.parametrize("source_actor_dim", [440, 464])
-def test_native_upright_recordings_are_accepted_without_legacy_pose_conversion(tmp_path, source_actor_dim):
+@pytest.mark.parametrize("source_flap", ["nominal", "articulated"])
+def test_native_upright_recordings_are_accepted_without_legacy_pose_conversion(tmp_path, source_actor_dim, source_flap):
     batch, _ = load_v2_grasp_demonstrations(DATASET, self_collision_enabled=False)
     with h5py.File(DATASET) as legacy:
         manifest = json.loads(legacy.attrs["manifest_json"])
     manifest.update(action_dim=24, actor_obs_dim=source_actor_dim, critic_obs_dim=source_actor_dim + 66)
     manifest["action_terms"][2] = ["height", 2]
+    manifest["multi_box"]["flap_pose_source"] = source_flap
     path = tmp_path / "native.hdf5"
     with h5py.File(path, "w") as output:
         output.attrs.update(format="kuavo_v2_grasp_sac_transitions", format_version=1,
@@ -76,7 +99,12 @@ def test_native_upright_recordings_are_accepted_without_legacy_pose_conversion(t
         success = torch.zeros(389, dtype=torch.bool)
         success[-1] = True
         transitions.create_dataset("success", data=success.numpy())
-    restored, metadata = load_v2_grasp_demonstrations(path, self_collision_enabled=False)
+    restored, metadata = load_v2_grasp_demonstrations(
+        path, self_collision_enabled=False, flap_pose_source=source_flap)
     torch.testing.assert_close(restored["actor_obs"], batch["actor_obs"][:389])
     torch.testing.assert_close(restored["action"], batch["action"][:389])
     assert metadata["action_conversion"] == "native_upright_binary_gripper_v3"
+    assert metadata["source_flap_pose_source"] == source_flap
+    if source_flap == "articulated":
+        with pytest.raises(ValueError, match="flap pose source"):
+            load_v2_grasp_demonstrations(path, self_collision_enabled=False)

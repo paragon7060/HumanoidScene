@@ -48,6 +48,7 @@ def simulated_perception_frame(
     physical_box_poses_world: torch.Tensor,
     rack_pose_world: torch.Tensor,
     conveyor_pose_world: torch.Tensor,
+    physical_flap_center_poses_world: torch.Tensor | None = None,
 ) -> PerceptionFrame:
     """Gather active physical poses, marking invalid simulator poses untrusted.
 
@@ -88,6 +89,20 @@ def simulated_perception_frame(
         dtype=pose.dtype, device=pose.device)
     sizes = sizes_by_type[box_type_id.clamp(0, len(BOX_TYPES) - 1)] \
         * active[..., None]
+    flap_pose = flap_confidence = None
+    if physical_flap_center_poses_world is not None:
+        expected = (n, NUM_PHYSICAL_BOX_ASSETS, 2, 7)
+        if physical_flap_center_poses_world.shape != expected \
+                or not physical_flap_center_poses_world.is_floating_point():
+            raise ValueError(f"physical_flap_center_poses_world must be floating point {expected}.")
+        if physical_flap_center_poses_world.device != active.device:
+            raise ValueError("Flap poses must share the simulator pose device.")
+        gathered_flaps, invalid_flaps = replace_invalid_poses(
+            physical_flap_center_poses_world[rows, pool_id.clamp(0, NUM_PHYSICAL_BOX_ASSETS - 1)])
+        identity_flaps = torch.zeros_like(gathered_flaps)
+        identity_flaps[..., 3] = 1.0
+        flap_pose = torch.where(active[..., None, None], gathered_flaps, identity_flaps)
+        flap_confidence = (active[..., None] & ~invalid_flaps).to(pose.dtype)
     frame = PerceptionFrame(
         boxes=DeployableBoxState(
             active=active.clone(),
@@ -96,6 +111,8 @@ def simulated_perception_frame(
             size_m=sizes,
             pose_world=pose,
             pose_confidence=(active & ~invalid_pose).to(pose.dtype),
+            flap_pose_world=flap_pose,
+            flap_pose_confidence=flap_confidence,
         ),
         rack_pose_world=rack_pose_world.clone(),
         conveyor_pose_world=conveyor_pose_world.clone(),

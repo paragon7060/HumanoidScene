@@ -76,6 +76,9 @@ class MultiBoxSpec:
     reset_bank: str | None = None
     snapshot_dir: str | None = None
     max_snapshots: int = 128
+    # Articulated pose estimates are an experimental perception contract;
+    # nominal preserves the recorded demonstrations and existing checkpoints.
+    flap_pose_source: str = "nominal"
 
     # Simulator guards are not success criteria or policy observations.
     max_box_lift_height: float = 0.50
@@ -160,6 +163,8 @@ class MultiBoxSpec:
 
         if self.strategy not in ("staged", "end-to-end"):
             raise ValueError("Unknown multi-box training strategy.")
+        if self.flap_pose_source not in ("nominal", "articulated"):
+            raise ValueError("Flap pose source must be nominal or articulated.")
         if self.skill not in (*SKILLS, "full"):
             raise ValueError(f"Unknown skill {self.skill!r}; choose {(*SKILLS, 'full')}.")
         if self.action_space not in ACTION_SPACES:

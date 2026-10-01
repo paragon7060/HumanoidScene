@@ -132,7 +132,8 @@ def run(args, app):
         model = resolve_robot_model()
         cfg = MultiBoxGraspAssemblyEnvCfg(num_envs=1)
         cfg.multi_box = replace(
-            cfg.multi_box, self_collision_enabled=bool(args.rl_demo_self_collision))
+            cfg.multi_box, self_collision_enabled=bool(args.rl_demo_self_collision),
+            flap_pose_source=getattr(args, "rl_demo_flap_pose_source", "nominal"))
         cfg.seed = args.seed
         cfg.sim.device = args.device
         cfg.xr = XrCfg(

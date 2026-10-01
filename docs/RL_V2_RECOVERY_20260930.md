@@ -2,11 +2,19 @@
 
 ## Latest diagnosis: upper-shelf IK entry — 2026-10-01
 
-**13:59 KST: held grasp remains unsolved.** The GPU3/128-environment
+**15:10 KST: held grasp remains unsolved.** A new GPU3/128-environment
+contact-confirmed comparison is training from source`4317154`, with80 iterations
+planned and900-step success history. At iteration61, actor updates5,518, SAC
+and IK held successes remain0; nonfinite transitions are0. Drive verified
+checkpoints13/20 by size and MD5. It is a bounded comparison, not a proven
+successful policy. Additional experimental articulated-flap changes described
+below are not injected into this already-running nominal process.
+
+The earlier GPU3/128-environment
 `a05407e` demo-waypoint pilot was stopped normally at iteration42, with3,102
 actor updates, teacher MSE0.02225 and Q loss0.6971. SAC and IK held successes
 remain0. Its final checkpoints and closed logs are checksum-verified in Drive.
-Large-scale SAC is currently stopped while single-environment physical
+Large-scale SAC remains stopped while bounded training and single-environment physical
 comparisons isolate the failed upper-shelf guide. Finite losses and short
 approach distances are not evidence of a learned grasp.
 
@@ -104,10 +112,70 @@ not promised. Existing pose-only demos cannot retroactively gain missing states.
 **107 focused CPU checks pass**, covering actual-contact lift gating, history
 reset/wrap semantics, finite snapshot storage, existing two-demo conversion,
 URDF IK and SAC/DPPO terminal behavior. Physical success is still unproved for
-these new changes. The next bounded GPU3 SAC comparison uses the earlier
+these new changes. The running bounded GPU3 SAC comparison uses the earlier
 center-to-demo approach that supplied the69 measured lower-shelf successes,
 with the corrected contact handoff and900-step history. It does not establish
 upper-shelf reliability or justify expanding to a full-memory long run yet.
+
+## Follow-up: hidden flap deflection and experimental perceived geometry
+
+![Actual panel deflection and contact, diagnostic references](assets/rl_v2_flap_deflection_20261001.png)
+
+[Measurement summary](assets/rl_v2_flap_deflection_20261001.json). The chart is
+computed from synchronized actual flap and box poses before reset. It is not
+a learned SAC rollout. Solid/dashed lines identify physical flap0/1, not hands.
+
+In both timed-VR-close and **open-jaw** approach comparisons, flap0 rotates
+44.9degrees and its midpoint moves3.8cm around13s. Flap1 moves under2mm.
+Therefore premature closing is not established as the sole cause: contact
+during approach bends the panel even with open jaws. The actor currently sees
+the upright estimate while physical reward/contact uses the deformed panel.
+The two runs differ after their VR approach, so the chart is not a controlled
+single-variable estimate of the effect of closing.
+
+| Physical reference/current-controller diagnostic | Horizon | Measured pinch ticks left/right | Outcome |
+| --- | --- | --- | --- |
+| Open approach, live full-wrist finish |30s |0/12 |timeout; opposing pinch0 |
+| Same, preserve a captured hand |60s |0/912 |timeout; opposing pinch0; unsafe0 |
+| Same, closing-axis alignment |60s |0/0 |timeout; opposing pinch0; unsafe0 |
+| Perceived articulated panels, preserve captured hand |18.1s |0/0 |rack22.20N; opposing pinch0 |
+
+The60s horizon belongs to diagnostics only. The running SAC keeps30s.
+Right-hand contact maintenance improved in one diagnostic, but left capture
+is still blocked. Freeing wrist roll reduced positional error without making
+a pinch. Articulated perception exposes a real missing state; its first full
+wrist physical comparison still fails at the rack. It is **not** a success-rate
+improvement or a reason to change the default.
+
+Implemented opt-in `--flap-pose-source articulated` supplies optional panel
+midpoint xyz+wxyz and confidence through the shared deployable perception
+schema. Isaac uses a truth-pose proxy, just as the existing box perception does;
+no contacts, force or success labels enter the actor. Real deployment requires
+an estimated panel-pose backend. Relative midpoint/direction38 features and
+opposing-panel surface assignment use the deformed geometry. The SAC IK guide
+rotates its goal offset and wrist frame with the perceived panel. PPO and SAC
+share the builder; their grasp entrypoints record/check the source.
+
+Default`nominal` keeps existing464/530/24 observation/action dimensions and
+behavior. `articulated` uses the same dimension but a distinct semantic
+contract, so nominal checkpoint resume or executed-success Q import is rejected.
+Bad panel poses receive confidence0 and zero relations/assignment; the common
+gripper projection blocks close rather than treating the placeholder as a goal.
+
+Quest native RL collection can use `--rl-demo-flap-pose-source articulated`.
+The old two demos lack actual panel pose, so cross-source loading is refused by
+default. Explicit`--allow-nominal-demo-prior` permits only an approximate actor
+prior and records that limitation; it never reconstructs the missing geometry
+or imports recorded rewards into Q. **53 focused CPU checks pass**, including
+neutral equivalence, bent geometry, invalid-panel closing suppression, logical
+pool mapping, demo source guards and equal-dimension checkpoint incompatibility.
+Actual Isaac articulated observations were read successfully; physical task
+success remains unproved.
+
+The chart can be reproduced without Isaac using
+`scripts/rl/analyze_v2_flap_replay.py` and the diagnostic metrics files. Geometry
+and control rate are explicit inputs. Contact measurements and inferred initial
+states remain separate from teacher phase and statistical policy performance.
 
 ## Latest follow-up: persistent corrections — 2026-10-01
 
