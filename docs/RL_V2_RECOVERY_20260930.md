@@ -52,6 +52,42 @@ teacher imitation is disabled. Validation: **73 SAC/collection/alternative
 and 10 contact-force/adapter CPU checks passed**. A bounded GPU3 run will
 measure the effect before another long continuation.
 
+### Recorded failed policy and bounded correction run
+
+[![SAC350 at 30 seconds: distance 88.0 cm, pinch 0, timeout](assets/rl_v2_sac350_20261001.png)](assets/rl_v2_sac350_20261001.mp4)
+
+[Actual SAC350 H.264 video, 30 seconds](assets/rl_v2_sac350_20261001.mp4)
+and [metadata](assets/rl_v2_sac350_20261001.json). Seed 42, one live PhysX
+environment, deterministic actor with 38,401 SAC actor updates, no IK action
+override. Completed 900 steps with success/unsafe/invalid-reset all zero and
+one timeout. Last pre-reset sampled distance is 88.0 cm; bilateral pinch is
+absent. The actor folds its arms instead of completing approach. This is a
+single example, not a statistical success estimate or a torque-system proof.
+Native video/photo are attached in the Notion record.
+
+![Guidance retirement, distances and separately attributed successes](assets/rl_v2_guidance_retirement_20261001.png)
+
+A fresh bounded run launched at **11:24 KST**, source `7c75134`, GPU3 only:
+`sac_mbv2_persistent_teacher_pilot_gpu3_20261001_112415/sac_20261001_112421_5ea495`.
+64 environments, 120 iterations, 16 rollout steps, batch1,024, four updates per
+step, 300,000 CUDA replay, learning starts8,192, critic warmup1,000 updates,
+teacher prefit20,000, checkpoints every20, verified Drive upload300 seconds,
+latest two local checkpoints. It imports4,416 actual executed success tails
+and100,000 actor-only teacher labels from checkpoint384 but restores none of
+its model/Q/optimizer. At11:35 KST / iteration23 it has collected23,552 valid transitions,
+completed20,000 teacher-fit updates (MSE0.18075→0.005177) and964 critic
+updates. The current SAC rollout hand distances are0.614/0.548m; online
+visited-state labels are collected. SAC actor updates are still0, so these
+values describe the fitted actor, not the effect of the new SAC/teacher loss.
+Recorded VR decay spans2,304 actor updates for this bounded run; independent
+teacher/expert horizons remain128,000 and survive continuation. Physics,
+reward, safety, self-collision-off and task success are unchanged.
+
+The reason to label states actually visited by the actor follows the
+covariate-shift argument in [Ross et al.'s original DAgger paper](https://arxiv.org/abs/1011.0686).
+This is teacher-label aggregation combined with SAC, not a claim that the
+paper's guarantees transfer to an imperfect IK teacher or this experiment.
+
 ## Earlier stabilization run (stopped)
 
 **Current execution (2026-10-01 04:31 KST):** source `a3048fc`, GPU 3 /
