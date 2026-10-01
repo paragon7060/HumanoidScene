@@ -1,6 +1,39 @@
-# V2 grasp: layout generalization with reference-assisted residual SAC
+# V2 grasp: layout generalization and demonstration-initialized goal SAC
 
-## Measured status
+## Current method and status (2026-10-02 08:45 KST)
+
+The current policy predicts24 absolute pose goals without reading a live demo
+path. It starts from BC on410 physically executed successful transitions, then
+uses real SAC updates. The first goal-policy suite achieved **3/3 training and
+3/3 independent frozen-checkpoint successes**, with actor2,068/critic2,568
+updates and no unsafe/invalid/timeout events. Every closed run is Drive-verified.
+The distribution is small boxes on the lower shelf,2–3.5cm inward displacement
+and0–3 surrounding boxes. This is not all-shelf/size/initial-pose generalization,
+and SAC's incremental benefit over BC is unmeasured.
+
+![Current demonstration-to-goal-SAC connection](assets/rl_v2_goal_sac_connection_20261002.png)
+
+A larger continuation then failed its first three training layouts: one hold
+stability timeout and two robot/rack collisions. The first failed layout succeeded
+at405ticks under the older frozen model. Both exploration and online learning
+were disabled in that comparison, so their separate causal contributions remain
+unresolved. The third collision occurred during deterministic initial commands,
+showing that the learned mean itself had also degraded.
+
+The replacement GPU3 run starts from the proven model with unchanged deterministic
+mean, Q coordinates, normalization and1,223 actual replay rows. Its normalized
+Gaussian std starts at0.001, can range0.0001–0.003, actor LR is1e-6, and the initial
+20% demo fraction plus BC prior fades across20,000 updates. The first two corrected
+layouts succeeded at408/411ticks without unsafe/invalid/timeout events (actor3,454). Twelve training
+layouts followed by twelve separate fixed-model evaluations are now running in
+`pose_goal_low_noise_gpu3_20261002_0830`. Rewards, bilateral held-grasp success,
+rack10N/obstacle5N and self-collision-off are unchanged; no curriculum was added.
+
+[Actual frozen goal-SAC video](assets/rl_v2_pose_goal_sac_frozen_success_20261002_h264.mp4).
+For data contracts, exploration migration, commands and result limits see the
+[demo/SAC progress report](RL_V2_DEMO_SAC_PROGRESS_20261002.md).
+
+## Earlier reference-assisted experiments
 
 The fixed lower-box controller completed three additional training episodes and
 three separate frozen-checkpoint evaluations, all with held bilateral grasp and
@@ -65,16 +98,15 @@ Four training layouts succeeded, reaching actor10,446. The fifth setup crossed
 its semantic footprint during settling and was correctly rejected before Q data
 collection. Requested depth+5.08mm in the first trial became approximately0.0002mm
 relative to the reference after settling; this is not depth-generalization evidence.
-The new GPU3 continuation uses12 train/12 heldout layouts sampled2–3.5cm inward,
-without additional yaw/depth and with0–3 surrounding boxes. Preflight now uses
-the same legacy initial scene pose that runtime actually restores. Validators and
-success/reward thresholds are unchanged; this is a fixed distribution, not curriculum.
-Its first two training layouts succeeded. Independently, a clock-conditioned BC
-goal student without a live reference path succeeded on one unseen layout at412
-ticks with no SAC updates. A separate absolute-goal SAC continuation is running;
-these action coordinates and replay cannot enter the ordinary delta-action runner.
-There is no aggregate heldout rate for either new suite yet. See the
-[concise demo/SAC progress report](RL_V2_DEMO_SAC_PROGRESS_20261002.md).
+The following stable reference-assisted continuation completed six training
+layouts: five successes and one timeout, without unsafe or invalid resets.
+The failed left hand remained about8mm from its flap while the right pinched.
+It was stopped between closed, verified episodes before any holdout trials,
+then its logs/data were archived and verified. It has been superseded by the
+goal-policy method described at the top; its planned12/12 is not a measured rate.
+The clock-conditioned BC-only student succeeded on one unseen layout at412ticks
+with no SAC updates before the goal-SAC suite. Its different action coordinates
+and replay are kept separate from the ordinary delta-action runner.
 
 ![Frozen learned residual on the inward layout](assets/rl_v2_layout_inward_frozen_success_20261002.png)
 

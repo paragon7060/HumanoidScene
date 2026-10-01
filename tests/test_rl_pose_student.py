@@ -85,3 +85,68 @@ def test_ordinary_delta_trainer_rejects_pose_goal_artifacts(tmp_path,artifact):
     (tmp_path/'manifest.json').write_text(json.dumps({'artifact_type':artifact}))
     with pytest.raises(ValueError,match='separate absolute action coordinates'):
         _compatible_checkpoint(tmp_path/'checkpoint.pt',{},data_only=True)
+
+
+def test_pose_goal_can_explore_below_the_legacy_gaussian_floor():
+    import math
+    from kuavo_isaaclab_scene.rl.algorithms.sac import SquashedActor
+    low=SquashedActor(3,2,16,max_std=.003,min_std=.0001)
+    legacy=SquashedActor(3,2,16)
+    with torch.no_grad():
+        for actor in [low,legacy]:
+            for p in actor.parameters():p.zero_()
+            actor.network[-1].bias[2:].fill_(-8.)
+        x=torch.zeros(8192,3)
+        small=low(x)[0].std(0)
+        original=legacy(x)[0].std(0)
+    assert torch.allclose(small,torch.full((2,),math.exp(-8)),rtol=.04)
+    assert torch.allclose(original,torch.full((2,),math.exp(-5)),rtol=.04)
+
+
+def test_exploration_fork_preserves_mean_Q_and_actual_experience(tmp_path):
+    import importlib.util
+    from pathlib import Path
+    from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import AsymmetricSAC
+    from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
+
+    path=Path(__file__).parents[1]/'scripts/rl/fork_pose_goal_sac.py'
+    spec=importlib.util.spec_from_file_location('goal_exploration_fork',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    source=tmp_path/'source';source.mkdir()
+    agent=AsymmetricSAC(441,533,24,SACConfig(hidden=16,initial_policy_std=.01,max_policy_std=.02))
+    state=agent.checkpoint()|dict(artifact_type='pose_goal_sac_no_live_reference',
+        actor_updates=2068,critic_updates=2568,format_version=1,
+        goal_contract=dict(action_coordinates='same_goals',demo_fade_updates=4000))
+    torch.save(state,source/'checkpoint.pt')
+    (source/'manifest.json').write_text('{}')
+    measured=dict(actor_obs=torch.randn(3,441),action=torch.randn(3,24),reward=torch.randn(3,1))
+    torch.save(dict(goal_contract=state['goal_contract'],executed_goal_transitions=measured),
+               source/'pose_goal_experience.pt')
+    destination,audit=module.fork_checkpoint(source/'checkpoint.pt',tmp_path/'fork')
+    forked=torch.load(destination,weights_only=True)
+    copy=AsymmetricSAC(441,533,24,SACConfig(**forked['config']))
+    copy.restore(forked)
+    x=torch.randn(10,441)
+    assert torch.equal(agent.act(x,deterministic=True),copy.act(x,deterministic=True))
+    for key,value in state['model'].items():
+        if key=='actor.network.4.weight':value=value[:24];other=forked['model'][key][:24]
+        elif key=='actor.network.4.bias':value=value[:24];other=forked['model'][key][:24]
+        else:other=forked['model'][key]
+        assert torch.equal(value,other),key
+    data=torch.load(destination.parent/'pose_goal_experience.pt',weights_only=True)
+    assert all(torch.equal(value,data['executed_goal_transitions'][key]) for key,value in measured.items())
+    assert data['collection_goal_contract']==state['goal_contract']
+    assert data['goal_contract']['demo_fade_updates']==20000
+    assert audit['deterministic_mean_unchanged'] and copy.config.max_policy_std==.003
+
+
+def test_goal_exploration_fork_rejects_another_action_contract(tmp_path):
+    import importlib.util
+    from pathlib import Path
+    spec=importlib.util.spec_from_file_location('goal_exploration_fork',
+        Path(__file__).parents[1]/'scripts/rl/fork_pose_goal_sac.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    checkpoint=tmp_path/'ordinary.pt';torch.save({'format_version':1},checkpoint)
+    with pytest.raises(ValueError,match='native goal-SAC'):
+        module.fork_checkpoint(checkpoint,tmp_path/'fork')
+    assert not (tmp_path/'fork').exists()

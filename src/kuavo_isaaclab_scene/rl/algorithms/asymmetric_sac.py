@@ -257,7 +257,7 @@ class AsymmetricSAC(nn.Module):
         self.actor_features = actor_features = ActorFeatures(actor_obs_dim, cfg.actor_feature_mode)
         self.actor_normalizer = ObservationNormalizer(actor_features.output_dim)
         self.critic_normalizer = ObservationNormalizer(critic_obs_dim)
-        self.actor = SquashedActor(actor_features.output_dim, action_dim, cfg.hidden, cfg.max_policy_std)
+        self.actor = SquashedActor(actor_features.output_dim, action_dim, cfg.hidden, cfg.max_policy_std,cfg.min_policy_std)
         # H(tanh(N)) <= H(N). A fixed -1/dim target is unattainable
         # under tight std caps (e.g. 0.02 => at most -2.493 nats/dim).
         # Leave 0.5 nats/dim below that bound, preserving the usual target
@@ -408,7 +408,7 @@ class AsymmetricSAC(nn.Module):
                     target_parameter.lerp_(parameter, cfg.tau)
         if not update_actor:
             with torch.no_grad():
-                log_std = self.actor.network(actor_obs).chunk(2, -1)[1].clamp(-5, self.actor.log_std_max)
+                log_std = self.actor.network(actor_obs).chunk(2, -1)[1].clamp(self.actor.log_std_min, self.actor.log_std_max)
             return {
                 "q_loss": q_loss.item(), "actor_loss": 0.0, "actor_updated": False,
                 "demo_bc_loss": 0.0, "demo_bc_weight": 0.0,
@@ -457,7 +457,7 @@ class AsymmetricSAC(nn.Module):
                 self.log_alpha.clamp_(min=math.log(cfg.min_alpha))
             if math.isfinite(cfg.max_alpha):
                 self.log_alpha.clamp_(max=math.log(cfg.max_alpha))
-            log_std = self.actor.network(actor_obs).chunk(2, -1)[1].clamp(-5, self.actor.log_std_max)
+            log_std = self.actor.network(actor_obs).chunk(2, -1)[1].clamp(self.actor.log_std_min, self.actor.log_std_max)
         return {
             "q_loss": q_loss.item(),
             "actor_loss": actor_loss.item(),

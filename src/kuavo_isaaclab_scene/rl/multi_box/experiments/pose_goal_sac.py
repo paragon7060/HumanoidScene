@@ -77,6 +77,9 @@ class PoseGoalSACPilot:
         self.actor_dim=prior['actor_obs_dim']+2
         self.anchor=None
         self.actor_updates=self.critic_updates=self.online_rows=0
+        self.fade_updates=int(saved.get('goal_contract',{}).get('demo_fade_updates',4000))
+        self.prior_weight=float(saved.get('goal_contract',{}).get('frozen_network_prior_initial_weight',10.))
+        if self.fade_updates<1 or self.prior_weight<0:raise ValueError('Invalid goal warm-start schedule')
         self.latest={};self.online_history=[]
         config=replace(self.prior.agent.config,actor_lr=2e-6,
                        initial_policy_std=.01,max_policy_std=.02)
@@ -142,8 +145,8 @@ class PoseGoalSACPilot:
             time_harmonics=self.harmonics,goal_center=self.center.tolist(),goal_scale=self.scale.tolist(),
             source_sha256=self.audit['source_dataset_sha256'],runtime_reference_path_required=False,
             initial_box_anchor_in_observation=True,projection=GoalGripperProjector.name,
-            actor_lr=2e-6,demo_fraction_initial=.2,demo_fade_updates=4000,
-            frozen_network_prior_initial_weight=10.,prior_fade_updates=4000)
+            actor_lr=self.agent.config.actor_lr,demo_fraction_initial=.2,demo_fade_updates=self.fade_updates,
+            frozen_network_prior_initial_weight=self.prior_weight,prior_fade_updates=self.fade_updates)
 
     def observations(self,raw,critic,index,anchor):
         features=self.coordinates.observations(raw,index,self.harmonics)
@@ -178,7 +181,7 @@ class PoseGoalSACPilot:
         if self.online_rows<64:return
         with torch.enable_grad():
             for _ in range(2):
-                fade=max(0.,1-self.actor_updates/4000)
+                fade=max(0.,1-self.actor_updates/self.fade_updates)
                 demo_count=round(256*.2*fade)
                 actual=self.replay.sample(256-demo_count,self.device)
                 if demo_count:
@@ -189,13 +192,14 @@ class PoseGoalSACPilot:
                 with torch.no_grad():
                     prior_action=self.prior.agent.act(actual['actor_obs'][:,:-2],deterministic=True)
                 self.latest=self.agent.update(actual,
-                    teacher=dict(actor_obs=actual['actor_obs'],action=prior_action),teacher_weight=10.*fade)
+                    teacher=dict(actor_obs=actual['actor_obs'],action=prior_action),teacher_weight=self.prior_weight*fade)
                 self.actor_updates+=1;self.critic_updates+=1
 
     def report(self):
         return dict(training=self.training,actor_updates=self.actor_updates,critic_updates=self.critic_updates,
             online_rows=self.online_rows,seed_rows=len(self.seed['reward']),
-            runtime_reference_path_required=False,demo_fraction=.2*max(0.,1-self.actor_updates/4000),
+            runtime_reference_path_required=False,demo_fraction=.2*max(0.,1-self.actor_updates/self.fade_updates),
+            min_policy_std=self.agent.config.min_policy_std,max_policy_std=self.agent.config.max_policy_std,
             replay_size=self.replay.size,latest=self.latest,goal_contract=self.contract)
 
     def save(self,final=False):

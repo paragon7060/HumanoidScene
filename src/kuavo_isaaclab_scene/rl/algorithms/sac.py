@@ -24,6 +24,7 @@ class SACConfig:
     freeze_actor_normalizer: bool = False
     initial_policy_std: float = 1.0
     max_policy_std: float = math.exp(2)
+    min_policy_std: float = math.exp(-5)
     actor_lr: float | None = None
     critic_layer_norm: bool = False
     actor_q_normalize: bool = False
@@ -64,14 +65,17 @@ class ReplayBuffer:
 
 
 class SquashedActor(nn.Module):
-    def __init__(self, obs_dim, action_dim, hidden, max_std=math.exp(2)):
+    def __init__(self, obs_dim, action_dim, hidden, max_std=math.exp(2),min_std=math.exp(-5)):
         super().__init__()
         self.network = mlp(obs_dim, 2 * action_dim, hidden)
         self.log_std_max = math.log(max_std)
+        if not math.isfinite(min_std) or not 0<min_std<=max_std:
+            raise ValueError('Policy std lower bound must be positive and no greater than its cap')
+        self.log_std_min=math.log(min_std)
 
     def forward(self, obs, deterministic=False, return_per_dim=False):
         mean, log_std = self.network(obs).chunk(2, dim=-1)
-        log_std = log_std.clamp(-5, self.log_std_max)
+        log_std = log_std.clamp(self.log_std_min, self.log_std_max)
         std = log_std.exp()
         latent = mean if deterministic else mean + std * torch.randn_like(mean)
         # Stable log(1-tanh(x)^2), including highly saturated actions.
@@ -92,7 +96,7 @@ class SAC(nn.Module):
         self.obs_dim, self.action_dim = obs_dim, action_dim
         cfg = self.config
         self.normalizer = ObservationNormalizer(obs_dim)
-        self.actor = SquashedActor(obs_dim, action_dim, cfg.hidden)
+        self.actor = SquashedActor(obs_dim, action_dim, cfg.hidden,cfg.max_policy_std,cfg.min_policy_std)
         self.q1 = mlp(obs_dim + action_dim, 1, cfg.hidden)
         self.q2 = mlp(obs_dim + action_dim, 1, cfg.hidden)
         self.target1, self.target2 = deepcopy(self.q1), deepcopy(self.q2)

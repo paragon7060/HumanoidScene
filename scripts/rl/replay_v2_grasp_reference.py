@@ -369,6 +369,10 @@ def main():
             force = filtered_force_by_body(env, V2_RACK_SENSOR_NAMES)[0]
             safety = env._multi_box_grasp_safety_step
             row = dict(step=len(history)+1, pinching=grasp.pinch.hand_pinching[0].tolist(),
+                grasp_conditions=dict(opposing_flaps=bool(grasp.success.opposing_flaps[0]),
+                    stable_hands=grasp.stable_hands[0].tolist(),proof_lift=bool(grasp.success.proof_lift[0]),
+                    hold_time_s=float(grasp.success.hold_time_s[0]),rack_clearance_m=float(grasp.rack_clearance_m[0]),
+                    hand_flap_index=grasp.pinch.hand_flap_index[0].tolist()),
                 flap_distances=grasp.matched_flap_distance_m[0].tolist(),
                 box_pose=grasp.box_pose_world[0].tolist(), phase=int(teacher.phase[0]) if teacher else None,
                 ik_position_errors=[float(s.target_position_error()[0]) for s in teacher.solvers] if teacher else None,
@@ -386,9 +390,13 @@ def main():
                 counts[key] += int(row[key])
             if renderer and (row['step'] % args.capture_every == 1 or any(row[key] for key in counts)):
                 frame = renderer.frame(env, row['step'], float(grasp.raw.matched_flap_distance_m[0]),
-                                       bool(grasp.pinch.hand_pinching.all()))
+                                       row['success'])
+                cv2.rectangle(frame,(10,113),(950,168),(35,35,35),-1)
                 cv2.putText(frame, f"pinch L/R={row['pinching']} | success={int(row['success'])}",
                             (20, 140), cv2.FONT_HERSHEY_SIMPLEX, .55, (255, 255, 255), 1)
+                detail=row['grasp_conditions']
+                cv2.putText(frame,f"stable={detail['stable_hands']} | opposing={detail['opposing_flaps']} | proof={detail['proof_lift']} | hold={detail['hold_time_s']:.2f}s",
+                            (20,160),cv2.FONT_HERSHEY_SIMPLEX,.45,(255,255,255),1)
                 pixels['frame'] = frame
             return result
 
