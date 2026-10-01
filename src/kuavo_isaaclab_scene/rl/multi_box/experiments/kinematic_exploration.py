@@ -1,7 +1,8 @@
-"""Batched, pose/proprio-only rack entry exploration using the shared IK servo.
+"""Batched rack entry exploration using the shared IK servo.
 
 This guide proposes actions for collection; contact checks and task success
-are still measured by the unmodified environment. The deployed SAC actor
+are still measured by the unmodified environment. The training teacher uses
+existing privileged contact evidence to confirm its lift handoff. The SAC actor
 does not require this guide or any simulator contact truth.
 """
 
@@ -12,6 +13,9 @@ import torch
 from .guided_exploration import RELATION_START, ASSIGNMENT_START
 from ..demo_replay import _rotation_matrix
 from ..spec import MAX_BOXES
+
+
+IK_LIFT_CONFIRMATION = "physical_opposing_pinch_3ticks"
 
 
 def target_token(observation):
@@ -84,6 +88,14 @@ def observed_close_ticks(previous_ticks, proposed_close, observation):
     return torch.where(closing, previous_ticks + 1, torch.zeros_like(previous_ticks))
 
 
+def confirmed_pinch_ticks(previous_ticks, hand_pinching, flap_index):
+    """Empty closed jaws and two hands on one flap cannot start teacher lift."""
+    valid = (flap_index >= 0) & (flap_index < 2)
+    opposing = flap_index[:, 0] != flap_index[:, 1]
+    confirmed = (hand_pinching & valid).all(-1) & opposing
+    return torch.where(confirmed, previous_ticks + 1, torch.zeros_like(previous_ticks))
+
+
 class KinematicGraspExplorer:
     """Use successful demo wrist orientations and a shared bounded IK servo."""
 
@@ -115,7 +127,10 @@ class KinematicGraspExplorer:
         self.front_y = RACK_RAW_BOUNDS_M[1][1] * workcell_scale("rack")[1] + FRONT_STAGE_CLEARANCE_M
         self.phase = torch.zeros(env.num_envs, dtype=torch.long, device=env.device)
         self.close_ticks = torch.zeros_like(self.phase)
+        self.lost_contact_ticks = torch.zeros_like(self.phase)
         self.lift_goal = torch.zeros(env.num_envs, 2, 3, device=env.device)
+        self.lift_rotation = torch.eye(3, device=env.device).expand(
+            env.num_envs, 2, 3, 3).clone()
         self.slices = {}
         offset = 0
         for name in env.action_manager.active_terms:
@@ -164,7 +179,7 @@ class KinematicGraspExplorer:
         tcp, centers, stage, outward = entry_geometry(observation, self.front_y)
         tokens, valid = target_token(observation)
         box_rotation = _rotation_matrix(tokens[:, 15:21])
-        centers, stage, offset = retarget_grasp_goal(
+        centers, stage, _ = retarget_grasp_goal(
             centers, stage, outward, box_rotation, self.goal_offset, self.grasp_goal)
         target_rotation = box_rotation[:, None] @ self.relative_rotation[None]
         orientation = self.quat_from_matrix(target_rotation.reshape(-1, 3, 3)).reshape(-1, 2, 4)
@@ -186,15 +201,36 @@ class KinematicGraspExplorer:
         self.phase[recover] = 0
         self.close_ticks[recover] = 0
         close = (self.phase[:, None] > 0) & (center_error < 0.035)
-        self.close_ticks = observed_close_ticks(self.close_ticks, close, observation)
-        begin_lift = (self.phase == 1) & (self.close_ticks >= 15)
-        self.lift_goal[begin_lift] = centers[begin_lift]
-        if self.grasp_goal == "center-to-demo":
-            self.lift_goal[begin_lift] += offset[begin_lift]
+        # A closed fraction only reports jaw travel. Actual probes showed
+        # completely empty closed jaws passing that test and receiving a
+        # positive lift label. Reuse the environment's existing contact cache;
+        # no new sensor, reward, success predicate or actor feature is added.
+        grasp = self.env._multi_box_privileged_grasp_step
+        pinching = grasp.pinch.hand_pinching & ~(
+            grasp.invalid_box_pose | grasp.invalid_flap_pose)[:, None]
+        close |= pinching  # Preserve an actual grasp despite estimated-goal error.
+        self.close_ticks = confirmed_pinch_ticks(
+            self.close_ticks, pinching, grasp.pinch.hand_flap_index)
+        self.phase = torch.where((self.phase == 0) & pinching.any(-1), 1, self.phase)
+        losing = (self.phase == 2) & (self.close_ticks == 0)
+        self.lost_contact_ticks = torch.where(
+            losing, self.lost_contact_ticks + 1, torch.zeros_like(self.lost_contact_ticks))
+        self.phase[self.lost_contact_ticks >= 15] = 1
+        begin_lift = (self.phase == 1) & (self.close_ticks >= 3)
+        # Lift from the measured successful capture, not a nominal point that
+        # can pull the hands sideways out of a bent flap.
+        self.lift_goal[begin_lift] = tcp[begin_lift, :, :3]
+        self.lift_rotation[begin_lift] = current_rotation[begin_lift]
         self.lift_goal[begin_lift, :, 2] += self.lift_distance_m
         self.phase = torch.where(begin_lift, 2, self.phase)
         target = torch.where((self.phase == 0)[:, None, None], stage, centers).clone()
+        hold_pinch = pinching & (self.phase < 2)[:, None]
+        target = torch.where(hold_pinch[..., None], tcp[..., :3], target)
         target = torch.where((self.phase == 2)[:, None, None], self.lift_goal, target)
+        target_rotation = torch.where(hold_pinch[..., None, None], current_rotation, target_rotation)
+        target_rotation = torch.where((self.phase == 2)[:, None, None, None],
+                                      self.lift_rotation, target_rotation)
+        orientation = self.quat_from_matrix(target_rotation.reshape(-1, 3, 3)).reshape(-1, 2, 4)
         action = torch.zeros_like(self.env.action_manager.action)
         for hand, solver in enumerate(self.solvers):
             columns = self.columns[hand]
@@ -222,13 +258,14 @@ class KinematicGraspExplorer:
         if self.torso_forward_m:
             torso = self.env.action_manager.get_term("height")
             error = torso._origin_xz[:, 0] + self.torso_forward_m - torso.processed_actions[:, 0]
-            assist = (self.phase < 2) & (center_error.amax(-1) > 0.05)
+            assist = (self.phase < 2) & ~pinching.any(-1) & (center_error.amax(-1) > 0.05)
             action[:, self.slices["height"].start] = torch.where(
                 assist, (2 * error).clamp(-0.3, 0.3), 0.0)
         return torch.where(valid[:, None], action, torch.zeros_like(action))
 
     def reset(self, done):
         self.phase[done] = self.close_ticks[done] = 0
+        self.lost_contact_ticks[done] = 0
         ids = torch.where(done)[0]
         if len(ids):
             for solver in self.solvers:

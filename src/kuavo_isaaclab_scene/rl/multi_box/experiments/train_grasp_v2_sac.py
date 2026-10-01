@@ -141,6 +141,8 @@ def main() -> None:
     parser.add_argument("--critic-warmup-updates", type=int, default=500,
                         help="Learn Q before allowing it to change the pretrained actor.")
     parser.add_argument("--success-replay-capacity", type=int, default=10000)
+    parser.add_argument("--success-history-steps", type=int, default=64,
+                        help="Keep real pre-success steps per environment; 900 covers a full30s attempt in CPU memory.")
     parser.add_argument("--success-batch-fraction", type=float, default=0.05)
     parser.add_argument("--reward-scale", type=float, default=10.0)
     parser.add_argument("--entropy-backup", action=argparse.BooleanOptionalAction, default=False)
@@ -232,6 +234,7 @@ def main() -> None:
         parser.error("Invalid IK base clearance or bounded upright torso assistance")
     if not 0 < args.actor_lr <= 0.001 or args.critic_warmup_updates < 0 \
             or args.success_replay_capacity < 1 \
+            or not 1 <= args.success_history_steps <= 900 \
             or not 0 <= args.success_batch_fraction < 1 \
             or args.success_batch_fraction + args.goal_batch_fraction >= 1:
         parser.error("Invalid critic warmup, actor learning rate or success replay")
@@ -359,6 +362,7 @@ def main() -> None:
                         or demonstration_batch["critic_obs"].shape[1] != sum(
                             dimension[0] for dimension in observation_dims.values()):
                     raise ValueError("Converted demonstration action/observation contract differs from environment")
+            from .kinematic_exploration import IK_LIFT_CONFIRMATION
             manifest = {
                 "version": 2,
                 "task_family": "multi_box_v2",
@@ -440,7 +444,9 @@ def main() -> None:
                     "teacher_critical_fraction": 0.5,
                     "teacher_critical_rows": "both_flaps_within_0p25m_or_close_label",
                     "teacher_servo_velocity": "measured_joint_velocity",
-                    "protected_success_history_steps": 64,
+                    "protected_success_history_steps": args.success_history_steps,
+                    "ik_lift_confirmation": IK_LIFT_CONFIRMATION,
+                    "success_actor_labels": "entire_retained_executed_success_path",
                     "history_crosses_resets": False,
                 },
                 "entropy_contract": "squash_aware_active_dims_v2",

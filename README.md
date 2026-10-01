@@ -275,6 +275,9 @@ CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
 성공 시연을 actor 모방에 사용한다. 현재 upright torso 설정은 action 24차원,
 actor/critic 관측 464/530차원이며, 기존 25차원 데모도 변환해 읽는다.
 누적 PD 목표–실제 관절 오차 20개, base 명령 3개와 제어 데이터 유효 여부를 포함한다.
+새 수집에는 첫 action 이전의 flap 관절·속도와 누적 제어 목표를
+`initial_state`로 저장한다. 오래된 pose-only 데모의 누락 상태를 역산하거나
+정확한 물리 재생을 보장하는 기능은 아니다.
 초기 성공 전이를 계속 수집하려면 IK warmup과 함께
 `--online-ik-episode-fraction 0.2`를 사용할 수 있다. 새 에피소드마다 초기 20%의
 환경이 IK를 실행하며 모방 일정에 따라 줄어든다. SAC·IK 성능과 reset부터 수행한

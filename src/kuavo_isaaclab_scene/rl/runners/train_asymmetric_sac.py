@@ -459,7 +459,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         print(f"[V2 SAC] Imported executed success-tail rows: {imported_success_rows}; "
               "source model, Q and optimizers ignored", flush=True)
     success_history = SuccessfulTransitionHistory(
-        env.num_envs, 64, agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim)
+        env.num_envs, getattr(args, "success_history_steps", 64),
+        agent.actor_obs_dim, agent.critic_obs_dim, agent.action_dim)
     teacher_pretraining = (state or {}).get("teacher_pretraining", {
         "steps": 0, "initial_mse": 0.0, "final_mse": 0.0})
     teacher_fitted = bool((state or {}).get("teacher_fitted", False))
@@ -492,6 +493,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
     optimizer_updates = int((state or {}).get("optimizer_updates", 0))
     actor_updates = int((state or {}).get("actor_updates", 0))
     def checkpoint_payload():
+        from ..multi_box.experiments.kinematic_exploration import IK_LIFT_CONFIRMATION
         return agent.checkpoint() | {
             "optimizer_updates": optimizer_updates,
             "actor_updates": actor_updates,
@@ -499,6 +501,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             "teacher_decay_updates": getattr(args, "teacher_decay_updates", 128_000),
             "teacher_fitted": teacher_fitted,
             "teacher_pretraining": teacher_pretraining,
+            "ik_lift_confirmation": IK_LIFT_CONFIRMATION,
+            "success_history_steps": success_history.horizon,
             "teacher_imitation": teacher_replay.snapshot(),
             "success_replay": {key: value[:success_replay.size].clone()
                                for key, value in success_replay.data.items()},
@@ -568,6 +572,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         demo_samples = 0
         teacher_samples = 0
         online_teacher_labels = 0
+        executed_success_labels = 0
         terminated_episodes = timeout_episodes = 0
         termination_counts: dict[str, int] = {}
         from ..multi_box.debug.contact_force import eligible_obstacle_targets
@@ -738,7 +743,13 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     success_history.add(valid_env_ids, **transition_batch)
                     success_rows = termination_terms["success"][finite_transition]
                     if success_rows.any():
-                        success_replay.add(**success_history.tails(valid_env_ids[success_rows]))
+                        successful_path = success_history.tails(valid_env_ids[success_rows])
+                        success_replay.add(**successful_path)
+                        # Distill the actual successful approach, not only the
+                        # last two seconds or an unexecuted IK proposal.
+                        teacher_replay.add(actor_obs=successful_path["actor_obs"],
+                                           action=successful_path["action"])
+                        executed_success_labels += len(successful_path["action"])
                     if warming_up and getattr(args, "guided_warmup_mode", "bc") == "ik":
                         teacher_replay.add(actor_obs=transition_batch["actor_obs"],
                                            action=transition_batch["action"])
@@ -903,6 +914,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             executed_success_label_seed_rows=executed_success_label_seed_rows,
             teacher_critical_batch_fraction=teacher_replay.priority_fraction,
             success_history_steps=success_history.horizon,
+            executed_success_label_rows_this_iteration=executed_success_labels,
             numerical_failure_episodes=numerical_failures,
             online_teacher_labels_this_iteration=online_teacher_labels,
             success_replay_size=success_replay.size,

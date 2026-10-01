@@ -300,6 +300,17 @@ zero-action frame은 데이터에 넣지 않는다. `--max-episodes`로 종료�
 지정할 수 있다.
 reset 검증 실패(`invalid_reset`)가 발생하면 학습기와 같이 해당 전이는 제외하고
 시도를 중단한다.
+
+각 새 시도의 `episodes/<episode>/initial_state`에는 첫 기록 action **이전**의
+물리 시작 상태를 추가로 저장한다. 로봇·박스의 root pose/velocity, 모든 flap
+관절 위치·속도, articulation의 누적 PD 목표, action term의 누적 상태와
+logical/physical box 대응을 포함한다. 기록은 시도당 한 번이며 일반 Quest
+수집 경로와 기존 transition 필드·format version1은 유지한다. 오래된 성공
+subset에는 이 그룹이 없을 수 있고, 평평한 box/TCP 관측만으로 flap 관절
+상태나 누적 PD 목표를 복원할 수는 없다. PhysX 접촉 solver 내부 상태,
+perception filter history와 reward hold timer까지 저장하는 simulator snapshot은
+아니므로 비트 단위로 같은 재생을 보장하지 않는다. 초기 상태를 저장했다는
+사실과 **현재 물리·제어로 다시 성공한 전이**는 구분해야 한다.
 기존 reward-debug preset의 `--no-rl-obstacle-collision`은 이 수집 경로에
 적용되지 않는다. V2 학습의 장애물 충돌 판정을 그대로 사용한다.
 

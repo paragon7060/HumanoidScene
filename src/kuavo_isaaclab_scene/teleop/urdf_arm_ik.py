@@ -210,7 +210,7 @@ class UrdfArm:
         return q
 
     def step(self, q, target, target_rotation, rest, previous_velocity, dt, response,
-             orientation_weight=.5, lower=None, upper=None):
+             orientation_weight=.5, lower=None, upper=None, *, orientation_axis=None):
         q = np.asarray(q)
         low = self.lower if lower is None else np.maximum(lower, self.lower)
         high = self.upper if upper is None else np.minimum(upper, self.upper)
@@ -231,8 +231,21 @@ class UrdfArm:
         weight = orientation_weight * min(1., .06 / max(np.linalg.norm(ep), .06))
         j = jac.copy()
         j[:3] *= 3.
+        er = rotation_error(target_rotation, r)
+        if orientation_axis is not None:
+            axis = np.asarray(orientation_axis, dtype=float)
+            if axis.shape != (3,) or not np.isfinite(axis).all() or np.linalg.norm(axis) < 1e-6:
+                raise ValueError("Closing axis must be a finite nonzero tool-local vector")
+            axis = axis / np.linalg.norm(axis)
+            current, desired = r @ axis, target_rotation @ axis
+            dot = float(current @ desired)
+            desired *= -1. if dot < 0 else 1.
+            cross = np.cross(current, desired)
+            sine = np.linalg.norm(cross)
+            er = cross * (np.arctan2(sine, abs(dot)) / max(sine, 1e-6))
+            j[3:] = (np.eye(3) - np.outer(current, current)) @ j[3:]
         j[3:] *= weight
-        error = np.r_[3. * ep, rotation_error(target_rotation, r) * weight]
+        error = np.r_[3. * ep, er * weight]
         singular = np.linalg.svd(j, compute_uv=False)[-1]
         damping = max(response.damping, .04 + .12 * max(0., 1. - singular / .08))
         h = j.T @ j + (damping ** 2 + .008) * np.eye(7)

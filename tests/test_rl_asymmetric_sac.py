@@ -302,6 +302,19 @@ def test_hypothetical_close_labels_cannot_start_lift_with_actual_open_jaws():
     assert observed_close_ticks(ticks, close, obs)[2] == 0
 
 
+def test_teacher_lift_requires_actual_opposing_flap_pinches():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import confirmed_pinch_ticks
+    ticks = torch.zeros(4, dtype=torch.long)
+    # Empty close, one-hand pinch, same-flap contact, valid opposing capture.
+    pinches = torch.tensor([[False, False], [True, False], [True, True], [True, True]])
+    flaps = torch.tensor([[-1, -1], [0, -1], [0, 0], [1, 0]])
+    for _ in range(15):
+        ticks = confirmed_pinch_ticks(ticks, pinches, flaps)
+    torch.testing.assert_close(ticks, torch.tensor([0, 0, 0, 15]))
+    pinches[3, 1] = False
+    assert confirmed_pinch_ticks(ticks, pinches, flaps)[3] == 0
+
+
 def test_guidance_stays_with_the_episode_and_retires_only_on_reset():
     torch.manual_seed(1)
     guide = EpisodicIKGuidance(100, "cpu", .2, 100)

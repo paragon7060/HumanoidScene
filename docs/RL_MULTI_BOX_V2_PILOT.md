@@ -192,3 +192,17 @@ success criteria; ordinary Quest/teleop IK retains full orientation. This
 option is forwarded by the Drive wrapper and saved in the run manifest.
 Compare actual stage entry and held grasps before using it for longer training:
 passing CPU math checks or reducing position error does not establish a grasp.
+
+### 2026-10-01: 실제 접촉 이후 lift / 전체 성공 접근 보호
+
+IK 교사의 lift 전환은 이제 서로 다른 flap의 실제 양손 pinch3tick을 요구한다.
+단순한 손가락 닫힘은 확인으로 사용하지 않는다. 접촉은 기존 privileged 교사가
+확인하며 actor 관측·환경 성공 및 충돌 조건은 유지한다. 파지한 실제 손 위치와
+방향에서 lift를 시작하고, 접촉을15tick 잃으면 lift를 취소한다.
+
+`--success-history-steps900`을 SAC와 Drive wrapper에 전달하면 성공한 시도의
+최대30초 접근 경로를 CPU에 보관하고 Q replay와 실제 실행 action 모방에
+연결한다. 기본64는 이전 메모리 사용을 유지한다. 새 값은 성공 기준을 완화하거나
+오래된 데모 보상을 사용하는 옵션이 아니다.128환경에서는 이 history만 약0.87GiB
+CPU RAM을 추가 사용한다. 체크포인트 용량도 실제 성공 전이 누적에 따라 늘어난다.
+[실제 영상·측정·한계](RL_V2_RECOVERY_20260930.md)를 먼저 확인한다.

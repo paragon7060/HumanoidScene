@@ -44,3 +44,38 @@ def test_rl_transition_file_preserves_pre_and_post_step_observations(tmp_path):
 
     with pytest.raises(FileExistsError):
         RlTransitionRecorder(path, {})
+
+
+def test_initial_seed_preserves_flap_joints_and_pending_drive_targets(tmp_path):
+    path = tmp_path / "seed.hdf5"
+    q = np.array([.3, -.2], dtype=np.float32)
+    state = {
+        "scene": {"articulation": {"box": {
+            "joint_position": q, "joint_velocity": np.array([.01, -.01]),
+        }}},
+        "drive_targets": {"robot": {"joint_position": q + .05}},
+        "logical_boxes": {"active": np.array([True, False])},
+    }
+    recorder = RlTransitionRecorder(path, {})
+    recorder.start_episode(initial_state=state)
+    q[:] = 99  # The physical seed must survive reused simulator buffers.
+    recorder.append(_sample(0, terminal=True))
+    recorder.finish_episode(success=True, reason="success")
+    recorder.close()
+    with h5py.File(path) as file:
+        seed = file["episodes/episode_000000/initial_state"]
+        assert seed.attrs["capture_timing"] == "before_first_recorded_action"
+        assert not seed.attrs["includes_physx_internal_state"]
+        np.testing.assert_allclose(seed["scene/articulation/box/joint_position"][:], [.3, -.2])
+        np.testing.assert_allclose(seed["drive_targets/robot/joint_position"][:], [.35, -.15])
+        assert file.attrs["format_version"] == 1
+
+
+@pytest.mark.parametrize("state", [{"q": [np.nan]}, {"q": "missing"}, {"../q": [0]}])
+def test_invalid_seed_does_not_create_episode(tmp_path, state):
+    recorder = RlTransitionRecorder(tmp_path / "invalid.hdf5", {})
+    with pytest.raises(ValueError):
+        recorder.start_episode(initial_state=state)
+    assert not recorder.recording
+    assert len(recorder.episodes) == 0
+    recorder.close()

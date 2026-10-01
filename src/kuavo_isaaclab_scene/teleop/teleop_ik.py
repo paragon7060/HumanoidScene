@@ -112,7 +112,9 @@ class PersistentTeleopIKAction(DifferentialInverseKinematicsAction):
         velocity, _, self.ik_status = self._urdf_arm.step(
             self._numpy(joints[0])[order], target, target_r, self._urdf_rest,
             self._numpy(self._joint_velocity[0])[order], self._dt, self.response,
-            self.orientation_weight, bounds[:, 0], bounds[:, 1])
+            self.orientation_weight, bounds[:, 0], bounds[:, 1],
+            orientation_axis=(None if self.orientation_axis is None
+                              else self._numpy(self.orientation_axis)))
         self._joint_velocity[0, order] = torch.as_tensor(velocity, device=self.device, dtype=joints.dtype)
         # Resolved-rate IK uses the measured configuration for both its
         # Cartesian error and its next joint target. Integrating that error

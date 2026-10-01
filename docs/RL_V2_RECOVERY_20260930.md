@@ -2,14 +2,13 @@
 
 ## Latest diagnosis: upper-shelf IK entry — 2026-10-01
 
-**12:45 KST: held grasp remains unsolved.** A new GPU3/128-environment SAC
-pilot runs in `sac_mbv2_demo_waypoint_pilot_gpu3_20261001_120202/`
-`sac_20261001_120208_feae35`, source `a05407e`. It starts fresh model/Q,
-imports 4,416 actually executed success transitions and uses their executed
-actions as actor labels. Old hypothetical near-center corrections are excluded.
-At iteration36 it has2,434 actor updates, teacher MSE0.02471, Q loss0.80245,
-and zero SAC/IK held successes. These are finite learning updates, not evidence
-that the task has been learned. The Drive supervisor remains active.
+**13:59 KST: held grasp remains unsolved.** The GPU3/128-environment
+`a05407e` demo-waypoint pilot was stopped normally at iteration42, with3,102
+actor updates, teacher MSE0.02225 and Q loss0.6971. SAC and IK held successes
+remain0. Its final checkpoints and closed logs are checksum-verified in Drive.
+Large-scale SAC is currently stopped while single-environment physical
+comparisons isolate the failed upper-shelf guide. Finite losses and short
+approach distances are not evidence of a learned grasp.
 
 The failed seed42 IK comparison is now recorded as actual evidence:
 
@@ -49,6 +48,66 @@ both the error and angular Jacobian. Default `full` preserves existing teleop
 and baseline behavior. **100 focused CPU checks pass**, including the parallel,
 antiparallel and90-degree axis cases; this establishes math/compatibility,
 not physical success.
+
+## Follow-up: contact confirmation and full successful paths — 2026-10-01
+
+The upper-shelf VR/current-controller comparisons still have **held success0**.
+The recorded reference path gets substantially closer than the original IK,
+but that is not a successful replay under the current physics.
+
+[![Actual VR reference/current IK replay, grasp0](assets/rl_v2_vr_current_replay_20261001.png)](assets/rl_v2_vr_current_replay_20261001.mp4)
+
+[Actual30-second video](assets/rl_v2_vr_current_replay_20261001.mp4),
+[sampled physical telemetry](assets/rl_v2_vr_current_replay_20261001.json).
+This comparison restores **inferred** recorded robot/rack/box poses, follows
+recorded joint states through current24-D actions, then finishes with live IK.
+It is a CPU-physics diagnostic, not a SAC rollout. The old source lacks initial
+flap joints and pending PD commands, so this is not an exact original replay.
+
+At30s the nominal-center distances are10.07/10.19cm: the common12cm close
+projector allows closing. Live IK errors are3.90/4.18cm, above its separate
+3.5cm close threshold. Actual flap distances are4.21/1.36cm. Jaw force/pinch
+is0 and the run times out without a rack collision. Reach projection is0m at
+this point, ruling out gross reach clipping as the explanation for this case.
+Re-seeding the posture prior alone still fails. A6cm close proposal or responsive
+IK closes empty jaws and enters the old lift phase without physical pinching.
+Closing-axis tracking after the VR path also fails. An actual-flap privileged
+diagnostic contacts the rack at39.69N; it is not a deployable-policy result.
+
+Two implemented fixes follow these observations:
+
+1. **Teacher lift requires actual opposing flap pinch for3 ticks.** Existing
+   contact evidence is reused only by the training teacher; actor inputs,
+   environment reward,5N/jaw grasp criterion and10N rack failure stay unchanged.
+   Empty fully closed jaws cannot start lift. A physically pinching hand is held
+   in its measured pose instead of being opened to chase an imperfect nominal
+   goal. Lift starts at the measured capture pose/orientation. Losing opposing
+   contact for15 ticks cancels the lift phase. Teacher phase is not a success metric.
+2. **Keep the real successful approach.** `--success-history-steps900` keeps up
+   to a complete30-second attempt per environment on CPU instead of the old
+   hard-coded64-step/2.13s tail. Only a genuinely successful episode promotes
+   this history into protected Q replay and executed-action actor labels. No
+   recorded old rewards or unexecuted IK labels become Q transitions. Default64
+   preserves smaller-memory callers;128 envs with900 steps require about0.87GiB
+   of CPU history storage, excluding replay/checkpoint buffers. Reset and numerical
+   failure clear the per-environment history.
+
+For future Quest RL demonstrations, `initial_state` captures root/joint
+positions and velocities for every articulation, including flap joints, pending
+PD targets, action-term memory and logical/physical box mapping **before the
+first recorded action**. The native transition fields and HDF5 format version1
+remain compatible; regular Quest recording is unchanged. The live simulator
+capture validated22 articulations. PhysX internal contact state, perception
+history and reward hold timers are not serialized, so bit-identical replay is
+not promised. Existing pose-only demos cannot retroactively gain missing states.
+
+**107 focused CPU checks pass**, covering actual-contact lift gating, history
+reset/wrap semantics, finite snapshot storage, existing two-demo conversion,
+URDF IK and SAC/DPPO terminal behavior. Physical success is still unproved for
+these new changes. The next bounded GPU3 SAC comparison uses the earlier
+center-to-demo approach that supplied the69 measured lower-shelf successes,
+with the corrected contact handoff and900-step history. It does not establish
+upper-shelf reliability or justify expanding to a full-memory long run yet.
 
 ## Latest follow-up: persistent corrections — 2026-10-01
 

@@ -15,6 +15,7 @@ from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.utils.math import combine_frame_transforms, convert_camera_frame_orientation_convention
 
 from ...recording.rl_transition_recorder import RlTransitionRecorder
+from ...recording.rl_initial_state import capture_rl_initial_state
 from ...robots.robot_model import resolve_robot_model
 from ...teleop.quest_openxr import RawQuestOpenXRDevice, start_quest_xr_session
 from ...teleop.urdf_arm_ik import ArmJointLimitError
@@ -176,6 +177,7 @@ def run(args, app):
             "rack_rollers": bool(args.rack_rollers),
             "controller_mapping": args.controller_mapping,
             "reward_source": "MultiBoxGraspAssemblyEnvCfg",
+            "physical_initial_state_schema": "v2_physical_seed_v1",
             "multi_box": asdict(cfg.multi_box),
             "task": asdict(cfg.task),
         }
@@ -303,6 +305,8 @@ def run(args, app):
                     # ObservationManager may reuse its buffers during step.
                     # Freeze obs_t before physics and automatic reset can run.
                     pre_obs = {name: value.clone() for name, value in obs.items()}
+                    initial_state = (capture_rl_initial_state(env, pre_obs)
+                                     if not recorder.recording else None)
                     applied_action = action.clone()
                     with torch.no_grad():
                         next_obs, reward, terminated, truncated, info = env.step(action)
@@ -315,7 +319,7 @@ def run(args, app):
                         continue
                     sample = _transition(pre_obs, applied_action, reward, terminated, truncated, info, env)
                     if not recorder.recording:
-                        recorder.start_episode()
+                        recorder.start_episode(initial_state=initial_state)
                     recorder.append(sample)
                     obs = next_obs
                     contacts = getattr(env, "_terminal_contacts", None)

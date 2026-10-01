@@ -37,12 +37,21 @@ class RlTransitionRecorder:
     def recording(self) -> bool:
         return self.episode is not None
 
-    def start_episode(self) -> str:
+    def start_episode(self, *, initial_state: dict | None = None) -> str:
         if self.recording:
             raise RuntimeError("RL episode is already recording")
+        # Validate before creating the episode: a rejected seed must not leave
+        # an empty/corrupt attempt in an otherwise usable demonstration file.
+        snapshot = None if initial_state is None else _numeric_snapshot(initial_state)
         name = f"episode_{self.finished:06d}"
         self.episode = self.episodes.create_group(name)
         self.episode.create_group("transitions")
+        if snapshot is not None:
+            group = self.episode.create_group("initial_state")
+            group.attrs["schema"] = "v2_physical_seed_v1"
+            group.attrs["capture_timing"] = "before_first_recorded_action"
+            group.attrs["includes_physx_internal_state"] = False
+            _write_snapshot(group, snapshot)
         self.count = 0
         self.file.flush()
         return name
@@ -104,3 +113,29 @@ class RlTransitionRecorder:
         if self.file:
             self.finish_episode(success=False, reason="process_closed")
             self.file.close()
+
+
+def _numeric_snapshot(mapping: dict) -> dict:
+    """Freeze finite numeric arrays, retaining the scene's nested topology."""
+    if not isinstance(mapping, dict):
+        raise TypeError("Initial state must be a nested dictionary")
+    result = {}
+    for name, value in mapping.items():
+        if not isinstance(name, str) or not name or "/" in name or name in (".", ".."):
+            raise ValueError("Invalid initial-state field name")
+        if isinstance(value, dict):
+            result[name] = _numeric_snapshot(value)
+        else:
+            array = np.asarray(value)
+            if array.dtype.kind not in "biuf" or not np.isfinite(array).all():
+                raise ValueError(f"Initial state {name} must be finite numeric data")
+            result[name] = array.copy()
+    return result
+
+
+def _write_snapshot(group, mapping: dict) -> None:
+    for name, value in mapping.items():
+        if isinstance(value, dict):
+            _write_snapshot(group.create_group(name), value)
+        else:
+            group.create_dataset(name, data=value)
