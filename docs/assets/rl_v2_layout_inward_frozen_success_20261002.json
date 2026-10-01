@@ -1,0 +1,51 @@
+{
+  "policy": "perceived_box_retargeted_reference_plus_SAC_residual",
+  "steps": 410,
+  "outcomes": {
+    "success": 1,
+    "unsafe": 0,
+    "invalid_reset": 0,
+    "time_out": 0
+  },
+  "layout": {
+    "seed": 2,
+    "split": "probe",
+    "lateral_m": -0.025,
+    "yaw_rad": 0.0,
+    "distractors": []
+  },
+  "retarget": {
+    "target_shift_rack_m": [
+      -0.02499985694885254,
+      1.125037670135498e-06,
+      0.0
+    ],
+    "target_yaw_rad": 7.480783779099934e-07
+  },
+  "residual_sac": {
+    "residual_contract": {
+      "name": "perceived_box_retargeted_goal_residual_sac_v9",
+      "reference_sha256": "06368fa7ecf3b100290f396807e8cc1725941433585302b6e7665977f563cfb6",
+      "residual_scale": 0.05,
+      "physical_action_dim": 24,
+      "residual_action_dim": 22,
+      "reference_controls_grippers": true,
+      "critic_action_coordinates": "issued_residual",
+      "fixed_scene_only": false,
+      "actor_observation_dim": 492,
+      "critic_observation_dim": 584,
+      "layout_distribution": "lower_small_inward2to6cm_yaw1deg_rear_upper_distractors_v1",
+      "arm_goal_residual_limit_rad": 0.03,
+      "base_position_feedback_gain_per_s": 2.0
+    },
+    "actor_updates": 694,
+    "critic_updates": 1194,
+    "online_rows": 0,
+    "training": false,
+    "optimizer_metrics": {},
+    "normalizer_counts": {
+      "actor": 410.0,
+      "critic": 410.0
+    }
+  }
+}

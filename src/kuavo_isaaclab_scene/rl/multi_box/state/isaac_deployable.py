@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import torch
 
-from ..runtime import HighLevelBoxSelector, MultiBoxDeployableRuntime
+from ..runtime import FirstSelectableBoxSelector, HighLevelBoxSelector, MultiBoxDeployableRuntime
+from .grasp_target import ExplicitGraspTargetSelector
 from .isaac_perception import IsaacScenePerceptionAdapter
 from .isaac_robot_proprio import IsaacRobotProprioAdapter
 
@@ -18,7 +19,9 @@ class IsaacDeployableStateAdapter:
         self.runtime = MultiBoxDeployableRuntime(
             num_envs=env.num_envs, device=env.device,
             perception_source=self.perception, robot_source=self.robot,
-            selector=selector)
+            selector=ExplicitGraspTargetSelector(
+                lambda:getattr(env,'_multi_box_grasp_target_override',None),
+                selector or FirstSelectableBoxSelector()))
 
     def reset(self, env_ids=None) -> None:
         self.runtime.reset(env_ids)

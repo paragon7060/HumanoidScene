@@ -73,6 +73,7 @@ class ReferenceResidual:
 class ReferenceGoalResidual(ReferenceResidual):
     """Anchor all continuous integrators to measured reference controller state."""
     name = 'fixed_measured_reference_goal_residual_sac_v2'
+    base_feedback_gain = 30.0
 
     def __init__(self, measured, scale=.05):
         super().__init__(measured['action'],scale)
@@ -89,6 +90,9 @@ class ReferenceGoalResidual(ReferenceResidual):
         context[:,-1]=index/len(self.commands)  # keep elapsed index after the reference ends
         return context
 
+    def position_reference(self, target, residual):
+        return target
+
     def physical_commands(self,residual,index,raw_actor):
         from ..demo_replay import _rotation_matrix
         from ..geometry.upright_torso import planar_position
@@ -96,7 +100,7 @@ class ReferenceGoalResidual(ReferenceResidual):
         if raw_actor.shape != (len(residual),464) or not (raw_actor[:,439]>.5).all():
             raise ValueError('Goal residual requires valid current controller telemetry')
         reference=self.reference_actor[min(index,len(self.commands))].expand(len(residual),-1)
-        target=reference[:,:20]+reference[:,416:436]
+        target=self.position_reference(reference[:,:20]+reference[:,416:436],residual)
         current=raw_actor[:,:20]+raw_actor[:,416:436]
         j=self.joints
         # Correction subtracts the current integrator offset every control step.
@@ -111,8 +115,44 @@ class ReferenceGoalResidual(ReferenceResidual):
                     -(delta_rotation@reference[:,68:71,None]).squeeze(-1)
         heading=torch.atan2(delta_rotation[:,1,0],1+delta_rotation[:,0,0])
         pose_error=torch.cat((translation[:,:2],heading[:,None]),-1)
-        command[:,:3] += pose_error/command.new_tensor([.15/30,.15/30,.5/30])
+        command[:,:3] += pose_error/command.new_tensor([
+            .15/self.base_feedback_gain,.15/self.base_feedback_gain,.5/self.base_feedback_gain])
         return command.clamp(-1,1)
+
+
+class RetargetedGoalResidual(ReferenceGoalResidual):
+    """A geometry-conditioned path whose goals are explicit policy context."""
+    name = 'perceived_box_retargeted_goal_residual_sac_v9'
+    # PlanarDrive limits acceleration. A one-tick positional correction with
+    # gain30 saturates and reverses before the velocity can follow it.
+    base_feedback_gain = 2.0
+
+    def position_reference(self, target, residual):
+        target=target.clone()
+        j=self.joints
+        columns=[self.columns.index(c) for c in j.action_columns]
+        maximum=target.new_tensor([.003]+[.03]*14+[.003]*2)
+        # The superclass already contributes scale*residual as a delta.
+        # Subtract that component here so the total is exactly this goal bound.
+        target[:,j.joint_columns] += residual[:,columns]*(maximum-self.scale*target.new_tensor(j.scales))
+        return target
+
+    def retarget(self, source_actor, current_actor):
+        from .layout_generalization import retarget_reference_rack
+        self.reference_actor,self.retarget_report=retarget_reference_rack(
+            self.reference_actor,source_actor,current_actor)
+
+    def context(self, index, count):
+        base = super().context(index, count)
+        reference = self.reference_actor[min(index, len(self.commands))]
+        goals = torch.cat((reference[:20]+reference[416:436], reference[68:77]))
+        return torch.cat((base, goals.expand(count, -1)), -1)
+
+    def observations(self, raw_actor, raw_critic, index):
+        ao,co=super().observations(raw_actor,raw_critic,index)
+        # Selected-target encoding alone cannot distinguish surrounding layouts.
+        # Retain all twelve deployable tokens; zero masks retain empty slots.
+        return torch.cat((ao[:,:174],raw_actor[:,86:350],ao[:,174:]),-1),co
 
 
 class ResidualSACPilot:
@@ -121,10 +161,11 @@ class ResidualSACPilot:
     def __init__(self, measured, dataset, directory, *, scale=.05, device='cpu',
                  checkpoint=None, training=True, updates_per_step=2,controller_mode='delta'):
         measured={key:value.to(device) for key,value in measured.items()}
-        if controller_mode not in {'delta','goal'}:
+        if controller_mode not in {'delta','goal','retargeted-goal'}:
             raise ValueError('Unknown residual controller')
         self.controller_mode=controller_mode
-        self.controller = (ReferenceGoalResidual(measured,scale) if controller_mode=='goal'
+        self.controller = (RetargetedGoalResidual(measured,scale) if controller_mode=='retargeted-goal' else
+                           ReferenceGoalResidual(measured,scale) if controller_mode=='goal'
                            else ReferenceResidual(measured['action'],scale))
         self.device, self.training = device, training
         self.directory = Path(directory)
@@ -137,13 +178,14 @@ class ResidualSACPilot:
                         max_policy_std=.05, initial_alpha=1e-5, min_alpha=1e-7,
                         max_alpha=1e-3, entropy_backup=False, critic_layer_norm=True,
                         actor_q_normalize=True, freeze_actor_normalizer=True)
-        self.agent = AsymmetricSAC(199, 555, 22, cfg, device=device)
-        self.replay = AsymmetricReplayBuffer(10000, 199, 555, 22, device=device)
+        self.actor_dim, self.critic_dim = (492,584) if controller_mode=='retargeted-goal' else (199,555)
+        self.agent = AsymmetricSAC(self.actor_dim, self.critic_dim, 22, cfg, device=device)
+        self.replay = AsymmetricReplayBuffer(10000, self.actor_dim, self.critic_dim, 22, device=device)
         seed = []
         for index in range(len(measured['action'])):
             zero=measured['action'].new_zeros((1,22))
             physical=(self.controller.physical_commands(zero,index,measured['actor_obs'][index:index+1])
-                      if controller_mode=='goal' else self.controller.physical_commands(zero,index))
+                      if controller_mode!='delta' else self.controller.physical_commands(zero,index))
             if not torch.equal(physical,measured['action'][index:index+1]):
                 raise ValueError('Zero residual does not reproduce actual seed commands exactly')
             ao, co = self.controller.observations(measured['actor_obs'][index:index+1].to(device),
@@ -157,6 +199,12 @@ class ResidualSACPilot:
         self.replay.add(**self.seed)
         self.agent.actor_normalizer.update(self.seed['actor_obs'])
         self.agent.critic_normalizer.update(self.seed['critic_obs'])
+        if controller_mode=='retargeted-goal':
+            # Empty seed slots have zero empirical variance. A 0.5-unit
+            # normalization floor keeps newly observed object positions and
+            # masks distinguishable instead of clipping them all to +/-10.
+            self.agent.actor_normalizer.var[174:438].clamp_(min=.25)
+            self.agent.critic_normalizer.var[86:350].clamp_(min=.25)
         if checkpoint:
             saved = load_checkpoint(checkpoint, device=device)
             if saved.get('residual_contract') != self.contract:
@@ -189,18 +237,23 @@ class ResidualSACPilot:
 
     @property
     def contract(self):
-        return dict(name=self.controller.name, reference_sha256=self.reference_sha256,
+        contract = dict(name=self.controller.name, reference_sha256=self.reference_sha256,
                     residual_scale=self.controller.scale, physical_action_dim=24,
                     residual_action_dim=22, reference_controls_grippers=True,
-                    critic_action_coordinates='issued_residual', fixed_scene_only=True,
-                    actor_observation_dim=199, critic_observation_dim=555)
+                    critic_action_coordinates='issued_residual', fixed_scene_only=self.controller_mode!='retargeted-goal',
+                    actor_observation_dim=self.actor_dim, critic_observation_dim=self.critic_dim)
+        if self.controller_mode=='retargeted-goal':
+            contract['layout_distribution']='lower_small_inward2to6cm_yaw1deg_rear_upper_distractors_v1'
+            contract['arm_goal_residual_limit_rad']=.03
+            contract['base_position_feedback_gain_per_s']=2.
+        return contract
 
     @torch.no_grad()
     def act(self, raw_actor, raw_critic, index):
         ao, co = self.controller.observations(raw_actor, raw_critic, index)
         residual = self.agent.act(ao, deterministic=not self.training)
         command=(self.controller.physical_commands(residual,index,raw_actor)
-                 if self.controller_mode=='goal' else self.controller.physical_commands(residual,index))
+                 if self.controller_mode!='delta' else self.controller.physical_commands(residual,index))
         return command, (ao, co, residual)
 
     @torch.enable_grad()
@@ -238,7 +291,8 @@ class ResidualSACPilot:
         return save_checkpoint(self.directory, self.agent.checkpoint() | {
             'residual_contract': self.contract, 'actor_updates': self.actor_updates,
             'critic_updates': self.critic_updates, 'online_rows': self.online_rows,
-            'artifact_type': 'fixed_scene_reference_residual_sac',
+            'artifact_type': ('layout_reference_residual_sac' if self.controller_mode=='retargeted-goal'
+                              else 'fixed_scene_reference_residual_sac'),
             'physical_config': 'unchanged_v2_grasp',
         }, iteration=self.actor_updates, keep=None)
 

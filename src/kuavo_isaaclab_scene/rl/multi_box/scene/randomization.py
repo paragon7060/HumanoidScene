@@ -142,6 +142,9 @@ def reset_randomized_scene(env, env_ids):
         if getattr(env.cfg.scene, name, None) is not None))
     refresh_teleported_articulations(env, [env.scene[name] for name in names], ids)
     _remember(env, ids, batch)
+    # A normal reset must not inherit an experimental scene's selected target.
+    if hasattr(env,'_multi_box_grasp_target_override'):
+        env._multi_box_grasp_target_override[ids]=-1
     if getattr(env.cfg, "validate_randomized_resets", False):
         settling = getattr(env, "_multi_box_reset_settling", None)
         if settling is None:

@@ -80,7 +80,9 @@ class IsaacResetSettling:
 
     def _selected(self):
         active = self.env._multi_box_active
-        logical = active.to(torch.long).argmax(-1)
+        from ..state.grasp_target import select_grasp_target
+        override=getattr(self.env,'_multi_box_grasp_target_override',None)
+        logical = select_grasp_target(active,override) if override is not None else active.to(torch.long).argmax(-1)
         rows = torch.arange(self.env.num_envs, device=self.device)
         pool = self.env._multi_box_pool_ids[rows, logical]
         poses = torch.stack(

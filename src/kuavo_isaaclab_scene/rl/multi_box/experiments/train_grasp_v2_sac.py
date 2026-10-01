@@ -65,7 +65,7 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict, *, data_only=False)
     if not source_path.is_file():
         raise ValueError(f"Checkpoint needs its manifest.json beside it: {source_path}")
     source = json.loads(source_path.read_text())
-    if source.get('artifact_type') == 'fixed_scene_reference_residual_sac':
+    if source.get('artifact_type') in {'fixed_scene_reference_residual_sac','layout_reference_residual_sac'}:
         raise ValueError('Reference-residual Q/policy uses a different contextual action space; use the residual pilot entrypoint')
     if source.get('artifact_type') == 'inference_only_actor_imitation':
         raise ValueError('Actor comparison artifacts are inference-only, not training/experience checkpoints')

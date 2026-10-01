@@ -1,0 +1,186 @@
+# V2 grasp: layout generalization with reference-assisted residual SAC
+
+## Measured status
+
+The fixed lower-box controller completed three additional training episodes and
+three separate frozen-checkpoint evaluations, all with held bilateral grasp and
+zero unsafe/invalid/timeout terminations. Final actor update count: 3,470. These
+were repeated instances of one scene; they do **not** establish generalization.
+All six closed runs were uploaded and size/MD5-verified using the existing Drive
+connection.
+
+Generalization work started on October 2. Two physical probes already show why
+moving a complete successful path sideways is insufficient:
+
+| Physical controller; target moved 2.5cm | Ticks | Held grasp | Termination |
+| --- | ---: | ---: | --- |
+| Rigid base-path retarget; positional gain30/s | 350 | 0 | left arm link4/rack42.71N |
+| Same retarget; positional gain2/s | 390 | 0 | left arm link4/rack18.20N |
+| Base unchanged; retargeted Cartesian arm goals | 391 | 0 | left arm link4/rack19.00N |
+| Live VR/contact IK on the moved box | 398 | 0 | left arm link4/rack17.59N |
+
+These are zero-residual probes, **not learned-policy success tests**. Reducing
+base feedback removes the large alternating commands caused by the existing
+acceleration limiter, but translating the elbow path can still intersect the
+rack. Rewards and force thresholds were not relaxed.
+
+![Rigid reference-path failure](assets/rl_v2_layout_rigid_failure_20261002.png)
+
+![Damped base-path failure](assets/rl_v2_layout_damped_failure_20261002.png)
+
+Videos: [rigid path](assets/rl_v2_layout_rigid_failure_20261002.mp4),
+[damped path](assets/rl_v2_layout_damped_failure_20261002.mp4).
+
+The Cartesian-arm retarget had maximum calculated error0.198mm but still failed
+physically. Local elbow-clearance and larger base-backoff candidates also failed
+the kinematic tube check and were not sent to the robot simulation. Position IK
+alone is insufficient near this upright, and those candidates were discarded.
+
+The active fixed training distribution therefore moves the target toward the
+interior of its shelf, away from that upright. On a2.5cm inward displacement,
+two SAC training episodes and their separate frozen-checkpoint evaluations all
+reached held bilateral grasp at410/411ticks, with zero unsafe/invalid/timeout
+terminations. Actor updates694 then1,390; Drive final verification complete.
+This is one moved scene, **not the held-out layout success rate**.
+The first varied training layout, approximately4cm inward with a rear box,
+also succeeded, reaching actor update2,086. The next5cm layout failed during
+setup: the rotated26.6cm box crossed its assigned half-shelf footprint boundary
+and the reset validator correctly replaced it. No transitions from that setup
+failure were imported. The frozen-checkpoint holdout has not yet been evaluated.
+
+Sampling now uses the footprint-valid2–4cm interval. A pre-physics check rejects
+out-of-region corners for every active box, including yaw. The reset/collision
+checks are unchanged. The new8-training/8-held-out suite carries checkpoint2,086
+and its actual replay onGPU3 in `layout_suite_gpu3_20261002_0440`.
+
+![Frozen learned residual on the inward layout](assets/rl_v2_layout_inward_frozen_success_20261002.png)
+
+[Actual frozen-policy success video](assets/rl_v2_layout_inward_frozen_success_20261002.mp4)
+
+## First layout distribution
+
+- Target: small box in the same shelf-2-left region as the measured success.
+- Lateral target displacement: uniformly2–4cm toward the shelf interior;
+  yaw within±1degree. Positive displacement toward the upright remains unsolved
+  by this controller and is excluded explicitly from this initial distribution.
+- Surrounding boxes: zero to three small rear/upper boxes, drawn from distinct
+  logical cells5,6,9. Total active count is one to four.
+- The robot starts at its original pose. It is not teleported beside the moved
+  target. Physics must settle each generated scene without an invalid respawn.
+- The original2–6cm envelope included poses whose full box footprint crossed
+  the assigned half-shelf boundary. At5cm, a measured edge was-0.4240m against
+  the region boundary-0.4200m. Sampling2–4cm plus a2mm preflight margin fixes
+  invalid scene generation without weakening the runtime validator. The v9
+  checkpoint retains its broader contract envelope for compatible continuation;
+  the suite manifest records the actual narrower sampling distribution. This
+  is a geometry correction, not a curriculum schedule.
+- Sampled yaw and actual settled target yaw are recorded separately. Rollers
+  can bring the box back toward yaw0; success there cannot establish arbitrary
+  yaw generalization.
+- An explicit target command keeps logical box4 selected while other active
+  boxes remain in the scene. The deployable selector, privileged grasp adapter
+  and reset validator share this command. Normal per-environment resets clear
+  it, preserving the usual single-box default. The first multi-box pilot exposed
+  the old adapter's one-active-box restriction; it failed setup before collecting
+  Q data. That restriction was corrected rather than dropping surrounding boxes.
+- Initial settling checks all active boxes, including distractors, before any
+  trainable transition is collected.
+- Train and holdout use separate deterministic RNG namespaces and separate
+  files. The supervisor freezes those files in the unique experiment folder.
+- The fixed distribution has no curriculum. Higher shelves as *targets*, other
+  box sizes, arbitrary initial base poses, and the complete twelve-box random
+  scene remain outside the tested scope.
+
+`GraspLayout` and `sample_layout` live in
+`src/kuavo_isaaclab_scene/rl/multi_box/experiments/layout_generalization.py`.
+Reset observation construction describes poses only and never creates Q data.
+
+## Controller and learning contract
+
+`RetargetedGoalResidual` is an explicit reference-assisted controller, not a
+standalone24-action SAC policy. It consumes the measured physical success path
+and retargets it using the perceived selected target relative to the rack.
+The active v9 controller retargets the complete measured path toward the shelf
+interior. It transforms the desired rack-relative base pose about the perceived
+target while keeping the original joint-goal path. The current base must
+physically execute that offset through its acceleration-limited velocity drive.
+This controller is not a general collision-free motion planner.
+
+The actor sees492 features:174 selected-target/controller features without its
+previous action,264 deployable tokens for *all* boxes, and54 reference-context
+features. Context contains24 commands, elapsed reference progress,20 desired
+joint goals, and9 desired rack-relative base pose features. The critic sees584
+features: current530 physical critic inputs plus the same54 reference context.
+Actor retargeting does not consult simulator contact truth. Grippers still
+follow the measured reference; held opposing pinch is measured independently by
+the unchanged environment.
+
+SAC issues22 residual actions. Arm residuals adjust position goals by at most
+0.03rad; waist/head bounds are0.003rad. Existing physical delta/rate limits still
+apply. Pending target subtraction prevents accumulation. Base feedback gain is
+2/s for this experimental controller; fixed-scene controller behavior remains
+unchanged. Empty surrounding-box slots have a0.5-unit normalization scale floor
+so newly visible positions are not all clipped to the same value.
+
+The current reward profile, bilateral held-flap success, upright X/Z torso,
+gravity compensation, rack10N/obstacle5N, and self-collision off remain unchanged.
+The original measured410 transitions are valid zero-residual seed data in the
+baseline scene. New layouts enter replay **only after their actual physical
+commands execute**, with current reward and terminal pre-reset observations.
+Retargeted goals and failed probes are not imported as fabricated success data.
+The actor-only zero-residual initialization prior fades over512 actor updates;
+the geometric reference remains part of the controller afterward.
+
+Checkpoints use a separate residual contract, including layout distribution,
+action transform and492/584 dimensions. Fixed-scene or ordinary SAC checkpoints
+cannot silently resume this different MDP. All executed residual experiences
+are saved for continuation; proposed IK labels do not become Q transitions.
+
+## GPU3 train and independent frozen evaluation
+
+Generate separate layout files in a unique directory with `sample_layout(seed,
+'train')` and `sample_layout(seed,'holdout')`. Save each returned `record()` as
+`train_00.json` etc. The following supervisor trains on eight layouts, carrying
+the same optimizer and actual replay forward, then evaluates one frozen final
+checkpoint on eight held-out layouts:
+
+```bash
+python3 scripts/rl/layout_residual_with_drive.py \
+  --experiment-dir /absolute/path/to/unique-layout-experiment \
+  --layout-dir /absolute/path/to/separate-layout-files \
+  --gpu 3 --train-count 8 --eval-count 8 --passes 1 \
+  --demo-dataset /absolute/path/to/v2_grasp_quest_success.hdf5 \
+  --training-manifest /absolute/path/to/current-physical-manifest.json \
+  --executed-actions /absolute/path/to/measured-current-success.hdf5 \
+  --residual-sac --residual-scale 0.05 --steps 900 --capture-every 30
+```
+
+The CPU supervisor sets `CUDA_VISIBLE_DEVICES=3` and Isaac's internal `cuda:0`.
+It checks each run's true completion status, preserves physical failures as
+training data, and stops on runtime or backup failures. Holdout commands always
+include `--no-residual-training`; no actor/critic/optimizer updates happen there.
+`results.json` records every attempt and its split, seed, terminal outcomes and
+actor-update count. Success rate must include failures, not just completed
+success videos. Further tuning after inspecting holdout requires a new held-out
+split for a new unbiased evaluation.
+
+The implementation is sequential one-environment training while validating the
+new physical controller. It does not claim to occupy50–80GiB VRAM or to have
+solved the full vectorized task.
+
+## Storage and evidence
+
+Read [RL_GOOGLE_DRIVE.md](RL_GOOGLE_DRIVE.md). The existing authenticated remote
+is discovered privately; no account alias or credential is stored here.
+Checkpoints are saved every512 actor updates and at each training episode end.
+The shared uploader runs every300seconds, uploads/checksum-verifies files and
+retains the newest two local checkpoints per format plus protected verified
+copies. It includes actual residual data, physical videos and photos only after
+writers stop, and uploads/validates final logs before the next trial.
+Other users' files/processes are untouched. These artifacts are mirrored in the
+linked Notion experiment report with native media attachments.
+
+The targeted CPU checks pass104 tests: selected-target consistency, partial
+reset behavior, geometric retargeting, footprint rejection, physical-versus-
+residual action separation, checkpoint compatibility and frozen holdout
+supervision. Actual Isaac outcomes, rather than these tests, determine success.

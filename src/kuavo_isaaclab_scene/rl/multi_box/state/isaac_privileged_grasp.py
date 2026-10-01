@@ -71,7 +71,7 @@ class IsaacPrivilegedGraspStep:
 
 
 class IsaacPrivilegedGraspAdapter:
-    """Read exact batched grasp truth for one active box per environment."""
+    """Read exact batched grasp truth for one selected box per environment."""
 
     def __init__(self, env):
         self.env = env
@@ -150,9 +150,8 @@ class IsaacPrivilegedGraspAdapter:
         active = self.env._multi_box_active
         if active.shape != (self.num_envs, self.env.cfg.multi_box.max_boxes):
             raise ValueError("Unexpected multi-box active-mask shape.")
-        if not bool((active.sum(-1) == 1).all()):
-            raise ValueError("The staged grasp adapter requires one active box per environment.")
-        logical = active.to(torch.long).argmax(-1)
+        from .grasp_target import select_grasp_target
+        logical = select_grasp_target(active,getattr(self.env,'_multi_box_grasp_target_override',None))
         pool = self.env._multi_box_pool_ids.gather(1, logical[:, None]).squeeze(1)
         if bool(((pool < 0) | (pool >= len(self.names))).any()):
             raise ValueError("Active logical boxes must map to valid physical pool IDs.")

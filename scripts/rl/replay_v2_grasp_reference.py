@@ -40,8 +40,11 @@ def main():
     parser.add_argument('--residual-checkpoint', type=Path)
     parser.add_argument('--residual-training', action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument('--residual-scale', type=float, default=.05)
-    parser.add_argument('--residual-controller',choices=('delta','goal'),default='delta',
+    parser.add_argument('--residual-controller',choices=('delta','goal','retargeted-goal'),default='delta',
                         help='Goal mode anchors accumulated base/torso/joint goals to measured reference controller state.')
+    parser.add_argument('--layout-json',type=Path,help='Explicit lower-box layout from a separate train/holdout split.')
+    parser.add_argument('--layout-vr-teacher',action='store_true',help='Physical layout diagnostic using the original VR/live-contact IK guide, no SAC.')
+    parser.add_argument('--residual-zero',action='store_true',help='Geometry-guide physical probe, no learned actions or optimizer updates.')
     parser.add_argument('--steps', type=int, default=900)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
@@ -64,8 +67,14 @@ def main():
         parser.error('Residual pilot needs measured commands and a scale in (0,.2]')
     if args.residual_checkpoint and (not args.residual_sac or not args.residual_checkpoint.is_file()):
         parser.error('Residual checkpoint requires --residual-sac and an existing file')
-    if args.residual_sac and not args.residual_training and not args.residual_checkpoint:
+    if args.residual_sac and not args.residual_training and not args.residual_checkpoint and not args.residual_zero:
         parser.error('Residual evaluation requires a learned residual checkpoint')
+    if args.layout_json and not args.layout_vr_teacher and (not args.residual_sac or args.residual_controller!='retargeted-goal'):
+        parser.error('Varied layouts require the geometry-conditioned residual controller')
+    if args.layout_vr_teacher and (not args.layout_json or args.residual_sac or args.executed_actions or args.actor_checkpoint):
+        parser.error('Layout VR teacher requires a layout and excludes policy/recorded action replay')
+    if args.residual_zero and (not args.residual_sac or args.residual_training):
+        parser.error('Zero-residual probes require --no-residual-training')
     if args.actor_reference_mix is not None and (
             not 0 <= args.actor_reference_mix <= .2 or not args.actor_checkpoint or args.body_envelope):
         parser.error('DAgger mix requires an actor checkpoint, fraction in0..0.2 and no body envelope')
@@ -148,7 +157,18 @@ def main():
         demo = select_reference_episode(batch, args.episode_index)
         observation, _ = env.reset(seed=42)
         observation, _ = _settle_initial_resets(env, observation)
-        observation, rack, settling_steps = settle_reference_scene(env, demo)
+        layout = None
+        if args.layout_json:
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import GraspLayout, layout_reset_observation
+            from kuavo_isaaclab_scene.workcell.rack_rollers import resolve_rack_roller_settings
+            layout=GraspLayout(**json.loads(args.layout_json.read_text())).validate()
+            scene_demo={key:value.clone() for key,value in demo.items()}
+            rollers=resolve_rack_roller_settings()
+            scene_demo['actor_obs'][0]=layout_reset_observation(demo['actor_obs'][0],layout,cfg.multi_box,
+                roller_clearance_m=rollers.box_clearance_m if rollers.enabled else 0.)
+            observation,rack,settling_steps=settle_reference_scene(env,scene_demo,settle_all=True)
+        else:
+            observation, rack, settling_steps = settle_reference_scene(env, demo)
         projection = GraspActionProjector(list(actions.items()))
         teacher = None
         agent = state = limits = executed = joint_goal = residual = None
@@ -159,11 +179,11 @@ def main():
             measured, _ = read_executed_successes(args.executed_actions, contract)
             executed = select_reference_episode(measured, args.episode_index)
             initial_actor_error = float((observation['policy'][0].cpu()-executed['actor_obs'][0]).abs().max())
-            if initial_actor_error > 1e-5:
+            if initial_actor_error > 1e-5 and not args.layout_json:
                 raise ValueError(f'Recorded-command replay starts with a different actor observation: {initial_actor_error}')
             controller_name = 'recorded_current_GPU_actions_open_loop_NOT_SAC'
             if args.residual_sac:
-                if args.residual_controller == 'goal':
+                if args.residual_controller != 'delta':
                     base=env.action_manager.get_term('base')
                     upper=env.action_manager.get_term('upper_body')
                     head=env.action_manager.get_term('head')
@@ -175,7 +195,13 @@ def main():
                 residual = ResidualSACPilot(executed, args.executed_actions, args.output_dir,
                     scale=args.residual_scale, device=env.device, checkpoint=args.residual_checkpoint,
                     training=args.residual_training,controller_mode=args.residual_controller)
+                if args.residual_controller=='retargeted-goal':
+                    residual.controller.retarget(executed['actor_obs'][0].to(env.device),observation['policy'][0])
                 controller_name = 'fixed_scene_measured_reference_plus_SAC_residual_NOT_standalone_SAC'
+                if layout:
+                    controller_name='perceived_box_retargeted_reference_plus_SAC_residual'
+                if args.residual_zero:
+                    controller_name='perceived_box_retargeted_reference_ZERO_residual_NOT_learned_policy'
         elif args.actor_checkpoint:
             from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import AsymmetricSAC
             from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
@@ -210,8 +236,9 @@ def main():
         output = args.output_dir.resolve()
         output.mkdir(parents=True, exist_ok=False)
         if residual:
+            artifact_type='layout_reference_residual_sac' if layout else 'fixed_scene_reference_residual_sac'
             (output/'manifest.json').write_text(json.dumps(contract | {
-                'artifact_type': 'fixed_scene_reference_residual_sac',
+                'artifact_type': artifact_type, 'layout':layout.record() if layout else None,
                 'residual_contract': residual.contract}, indent=2)+'\n')
             (output/'env.yaml').write_text(json.dumps({'physical_contract':contract},indent=2)+'\n')
             (output/'agent.yaml').write_text(json.dumps({'residual_contract':residual.contract,
@@ -222,7 +249,8 @@ def main():
             action_dim=sum(actions.values()), actor_obs_dim=dims['policy'][0],
             critic_obs_dim=dims['policy'][0]+dims['critic'][0], action_terms=list(map(list, actions.items())),
             control_dt=env.step_dt, multi_box=asdict(cfg.multi_box), episode_seconds=30.,
-            collection_source=('fixed_scene_reference_residual_sac' if residual else
+            collection_source=('layout_reference_residual_sac' if residual and layout else
+                               'fixed_scene_reference_residual_sac' if residual else
                                'mixed_VR_actor_DAgger' if args.actor_reference_mix is not None else
                                'executed_action_reproduction' if executed is not None else
                                'SAC_actor_reference_scene_evaluation' if agent else
@@ -236,11 +264,12 @@ def main():
             executed_action_source=str(args.executed_actions.resolve()) if executed is not None else None,
             body_envelope_diagnostic=args.body_envelope, actor_reference_mix=args.actor_reference_mix,
             diagnostic_joint_offset_rad=args.joint_offset_rad,
-            residual_contract=residual.contract if residual else None)
+            residual_contract=residual.contract if residual else None,
+            layout=layout.record() if layout else None, zero_residual_probe=args.residual_zero)
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
-            caption=(f'Reference + SAC {args.residual_controller} residual | fixed scene | train={args.residual_training}' if residual else
+            caption=(f'Reference + {"zero" if args.residual_zero else "SAC"} residual | layout={layout.seed if layout else "fixed"} | train={args.residual_training}' if residual else
                      f'Joint-goal BC actor | NOT trained SAC | offset {args.joint_offset_rad}rad' if joint_goal else
                      f'VR teacher + {args.actor_reference_mix:.0%} actor | NOT pure SAC' if args.actor_reference_mix is not None else
                      f'Recorded actual commands | NOT SAC | actual {env.device} PhysX' if executed is not None else
@@ -300,6 +329,8 @@ def main():
                 if residual:
                     raw_critic = torch.cat((pre['policy'], pre['critic']), -1)
                     action, residual_previous = residual.act(pre['policy'], raw_critic, step)
+                    if args.residual_zero:
+                        action=residual.controller.physical_commands(pre['policy'].new_zeros(1,22),step,pre['policy'])
                 else:
                     action = (executed['action'][step:step+1].to(env.device) if executed is not None else
                           agent.act(actor_input, deterministic=True) if agent else
@@ -366,7 +397,7 @@ def main():
         if residual and args.residual_training:
             residual.save(final=True)
             (output/'manifest.json').write_text(json.dumps(contract | {
-                'artifact_type': 'fixed_scene_reference_residual_sac',
+                'artifact_type': artifact_type, 'layout':layout.record() if layout else None,
                 'residual_contract': residual.contract}, indent=2)+'\n')
         report = dict(policy=controller_name,
                       steps=len(history), outcomes=counts, frames=frames, history=history,
@@ -378,7 +409,9 @@ def main():
                       diagnostic_joint_offset_rad=args.joint_offset_rad,
                       initial_actor_error=initial_actor_error,
                       checkpoint_actor_updates=state.get('actor_updates') if state else None,
-                      checkpoint_actor_refit=state.get('diagnostic_actor_refit') if state else None)
+                      checkpoint_actor_refit=state.get('diagnostic_actor_refit') if state else None,
+                      layout=layout.record() if layout else None, zero_residual_probe=args.residual_zero,
+                      retarget=residual.controller.retarget_report if residual and args.residual_controller=='retargeted-goal' else None)
         if residual:
             report['residual_sac'] = residual.report()
         (output/'metrics.json').write_text(json.dumps(report, indent=2)+'\n')

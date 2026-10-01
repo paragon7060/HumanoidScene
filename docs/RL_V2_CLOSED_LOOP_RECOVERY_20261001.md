@@ -1,5 +1,10 @@
 # V2 grasp: measured success, closed-loop imitation failures, residual SAC pilot
 
+October2 follow-up: the three additional training/frozen-evaluation pairs all
+finished successfully at actor update3,470, with Drive verification complete.
+They still repeat the fixed scene. Varied-layout work and independent held-out
+evaluation are recorded in [the generalization report](RL_V2_LAYOUT_GENERALIZATION_20261002.md).
+
 Status at 2026-10-01 20:17 KST: **standalone learned SAC held grasp remains zero**.
 The goal-reference residual controller now has actual held success during two
 training episodes and a separate frozen-checkpoint replay of the first episode.

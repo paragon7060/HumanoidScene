@@ -45,6 +45,8 @@ def restore_inferred_scene(env, observation):
         asset=env.scene[names[pool]];state=asset.data.default_root_state.clone()
         state[:,:3]=root_p+quat_apply(root_q,token[None,12:15]);state[:,3:7]=quat_mul(root_q,quat_from_matrix(_rotation_matrix(token[None,15:21])));state[:,7:]=0
         asset.write_root_state_to_sim(state,env_ids=ids)
+    env._multi_box_counts[:]=env._multi_box_active.sum(-1)
+    env._multi_box_grasp_target_override=torch.tensor([int(observation[400:412].argmax())],device=env.device)
     from kuavo_isaaclab_scene.rl.multi_box.scene.reset_kinematics import refresh_teleported_articulations
     refresh_teleported_articulations(env,[env.scene[name] for name in names],ids)
     env.scene.write_data_to_sim();env.sim.forward();env.scene.update(env.step_dt)
@@ -154,19 +156,43 @@ class VRJointTracker:
     def reset(self,done): pass
 
 
-def settle_reference_scene(env, demo):
+def settle_reference_scene(env, demo, *, settle_all=False):
     """Reject a respawn instead of replaying onto a different target."""
     from ...runners.train_asymmetric_sac import _settle_initial_resets
     observation, rack = restore_inferred_scene(env, demo['actor_obs'][0])
     invalid_before = env._multi_box_reset_settling.invalid_count.clone()
     observation, steps = _settle_initial_resets(env, observation)
     expected = demo['actor_obs'][0,86:350].reshape(12,22)[:,0] > .5
+    if settle_all and expected.sum()>1:
+        from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import physical_asset_names
+        pools=env._multi_box_pool_ids[0,env._multi_box_active[0]].tolist()
+        names=physical_asset_names();stable_ticks=0
+        for tick in range(90):
+            velocities=torch.stack([env.scene[names[p]].data.root_vel_w[0] for p in pools])
+            stable=bool(torch.isfinite(velocities).all() and
+                (velocities[:,:3].norm(dim=-1)<.01).all() and
+                (velocities[:,3:].norm(dim=-1)<.05).all())
+            stable_ticks=stable_ticks+1 if stable else 0
+            if stable_ticks>=8:
+                break
+            observation,_,terminated,truncated,_=env.step(torch.zeros_like(env.action_manager.action))
+            if bool((terminated|truncated).any()):
+                raise ValueError('A varied scene terminated while surrounding boxes were settling')
+        else:
+            raise ValueError('Surrounding boxes did not settle; this layout is not trainable')
+        env.episode_length_buf[:]=0
+        env._multi_box_privileged_grasp.reset(torch.tensor([0],device=env.device))
+        env._multi_box_privileged_grasp_counter=-1;env._multi_box_grasp_safety_counter=-1
+        observation=env.observation_manager.compute()
+        steps+=tick
     actual = env._multi_box_active[0]
     rack_error = float((observation['policy'][0,68:77]
                        - demo['actor_obs'][0,68:77].to(env.device)).norm())
     print('[VR SCENE GUARD]', {'expected_target': torch.where(expected)[0].tolist(),
         'actual_target': torch.where(actual)[0].tolist(), 'rack_error': rack_error,
-        'invalid_resets': (env._multi_box_reset_settling.invalid_count-invalid_before).tolist()}, flush=True)
+        'invalid_resets': (env._multi_box_reset_settling.invalid_count-invalid_before).tolist(),
+        'footprint_invalid_total': env._multi_box_reset_settling.footprint_invalid_count.tolist(),
+        'on_assigned_shelf': env._multi_box_reset_settling.on_assigned_shelf.tolist()}, flush=True)
     if (not torch.equal(actual.cpu(), expected.cpu()) or rack_error > .025
             or (env._multi_box_reset_settling.invalid_count != invalid_before).any()):
         raise ValueError('VR scene was replaced during settling; replay/Q import prohibited')
