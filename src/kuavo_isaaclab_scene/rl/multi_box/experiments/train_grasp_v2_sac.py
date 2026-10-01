@@ -74,6 +74,13 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict, *, data_only=False)
         if data_only and key in {"exploration", "demonstrations", "sac_stability"}:
             continue
         saved, requested = source.get(key), manifest.get(key)
+        if key in {"exploration", "demonstrations"} and isinstance(saved, dict) and isinstance(requested, dict):
+            defaults = ({"online_ik_min_episode_fraction": 0.0, "online_ik_decay_updates": 0}
+                        if key == "exploration" else {
+                            "teacher_batch_fraction": 0.0, "teacher_min_batch_fraction": 0.0,
+                            "teacher_bc_strength": 10.0, "teacher_decay_updates": 128_000,
+                            "teacher_usage": "independent_actor_labels_only; no_hypothetical_Q_transitions"})
+            saved, requested = defaults | saved, defaults | requested
         if key == "exploration" and isinstance(saved, dict) and isinstance(requested, dict):
             # Episode assignment and the critic-only warmup threshold control
             # collection/update timing, not learned parameters or physical contracts.
@@ -125,6 +132,8 @@ def main() -> None:
                         help="Label SAC-visited states for actor imitation without overriding its actions.")
     parser.add_argument("--online-ik-episode-fraction", type=float, default=0.0,
                         help="Expert episode fraction at SAC start; decays at episode boundaries.")
+    from .imitation_schedule import add_teacher_schedule_arguments, validate_teacher_schedule
+    add_teacher_schedule_arguments(parser)
     parser.add_argument("--actor-lr", type=float, default=0.00003)
     parser.add_argument("--critic-warmup-updates", type=int, default=500,
                         help="Learn Q before allowing it to change the pretrained actor.")
@@ -185,6 +194,10 @@ def main() -> None:
         headless=True, robot_model="s63", gripper="leju-twofinger",
         rack_rollers=True)
     args = parser.parse_args()
+    try:
+        validate_teacher_schedule(args)
+    except ValueError as error:
+        parser.error(str(error))
     positive = (
         args.num_envs, args.max_iterations, args.rollout_steps, args.batch_size,
         args.replay_capacity, args.updates_per_step, args.hidden,
@@ -387,6 +400,8 @@ def main() -> None:
                     "ik_torso_forward_m": args.ik_torso_forward_m,
                     "online_teacher_labels": args.online_teacher_labels,
                     "online_ik_episode_fraction": args.online_ik_episode_fraction,
+                    "online_ik_min_episode_fraction": args.online_ik_min_episode_fraction,
+                    "online_ik_decay_updates": args.online_ik_decay_updates,
                     "actor_lr": args.actor_lr,
                     "critic_warmup_updates": args.critic_warmup_updates,
                     "success_replay_capacity": args.success_replay_capacity,
@@ -409,6 +424,11 @@ def main() -> None:
                        "pretrain_steps": args.demo_pretrain_steps,
                        "pretrain_batch_size": args.demo_pretrain_batch_size,
                        "bc_strength": args.demo_bc_strength,
+                       "teacher_batch_fraction": args.teacher_batch_fraction,
+                       "teacher_min_batch_fraction": args.teacher_min_batch_fraction,
+                       "teacher_bc_strength": args.teacher_bc_strength,
+                       "teacher_decay_updates": args.teacher_decay_updates,
+                       "teacher_usage": "independent_actor_labels_only; no_hypothetical_Q_transitions",
                        "usage": "actor_behavior_cloning_only; recorded_rewards_ignored"}
                     if demonstration_meta else None
                 ),

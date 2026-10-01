@@ -16,6 +16,7 @@ from ..multi_box.experiments.guided_exploration import (
     GraspActionProjector, GuidedDemoWarmup, critical_teacher_rows,
 )
 from ..multi_box.experiments.episode_guidance import EpisodicIKGuidance
+from ..multi_box.experiments.imitation_schedule import teacher_fraction
 from .storage import load_checkpoint, log_metrics, save_checkpoint
 from .common import stop_requested
 
@@ -79,7 +80,7 @@ _FRONT_DISTANCE_LABELS = ("le_0p25m", "0p25_to_0p5m", "0p5_to_1m", "1_to_2m", "o
 class _SafetyDiagnostics:
     """Count exact failure predicates and contact-force bands per iteration."""
 
-    def __init__(self, device, obstacle_names=(), obstacle_threshold=5.0):
+    def __init__(self, device, obstacle_names=(), obstacle_threshold=5.0, rack_body_names=()):
         self.invalid_box_pose = torch.zeros((), dtype=torch.long, device=device)
         self.invalid_flap_pose = torch.zeros((), dtype=torch.long, device=device)
         self.causes = torch.zeros(len(_SAFETY_CAUSES), dtype=torch.long, device=device)
@@ -93,6 +94,9 @@ class _SafetyDiagnostics:
         self.obstacle_threshold = obstacle_threshold
         self.obstacle_counts = torch.zeros(len(obstacle_names), dtype=torch.long, device=device)
         self.obstacle_max = torch.zeros(len(obstacle_names), device=device)
+        self.rack_body_names = rack_body_names
+        self.rack_peak_counts = torch.zeros(len(rack_body_names), dtype=torch.long, device=device)
+        self.rack_body_max = torch.zeros(len(rack_body_names), device=device)
 
     def record(self, safety, unsafe):
         get = safety.__getitem__ if isinstance(safety, dict) else lambda name: getattr(safety, name)
@@ -105,6 +109,16 @@ class _SafetyDiagnostics:
         self.unattributed += ((count == 0) & unsafe).sum()
         eligible = get("contact_eligible")
         self.eligible += eligible.sum()
+        if self.rack_body_names:
+            body_force = torch.nan_to_num(get("rack_body_force_n"), nan=0.0,
+                                         posinf=1e6, neginf=0.0).clamp(0, 1e6)
+            if body_force.shape != (len(unsafe), len(self.rack_body_names)):
+                raise ValueError("Rack body-force diagnostics differ from sensor order")
+            peak = torch.nn.functional.one_hot(body_force.argmax(-1), len(self.rack_body_names))
+            rack_failure = unsafe & get("robot_rack_collision") & eligible
+            self.rack_peak_counts += (peak * rack_failure[:, None]).sum(0)
+            self.rack_body_max = torch.maximum(self.rack_body_max,
+                torch.where(eligible[:, None], body_force, 0.0).amax(0))
         if self.obstacle_names:
             force = get("obstacle_target_force_n")
             self.obstacle_counts += ((force > self.obstacle_threshold) & eligible[:, None]).sum(0)
@@ -126,6 +140,10 @@ class _SafetyDiagnostics:
         metrics["unsafe_cause/overlap"] = int(self.overlap.item())
         metrics["unsafe_cause/unattributed"] = int(self.unattributed.item())
         metrics["contact_force/eligible_samples"] = int(self.eligible.item())
+        for name, count, force in zip(self.rack_body_names, self.rack_peak_counts.tolist(),
+                                     self.rack_body_max.tolist(), strict=True):
+            metrics[f"unsafe_rack_peak_body/{name}"] = int(count)
+            metrics[f"contact_force/rack_body_{name}_max_n"] = float(force)
         for name, count, force in zip(self.obstacle_names, self.obstacle_counts.tolist(),
                                       self.obstacle_max.tolist(), strict=True):
             metrics[f"unsafe_obstacle/{name}"] = int(count)
@@ -443,7 +461,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         * getattr(args, "demo_decay_fraction", 0.3))))
     episode_guidance = EpisodicIKGuidance(
         env.num_envs, env.device, getattr(args, "online_ik_episode_fraction", 0.0),
-        demo_decay_updates)
+        getattr(args, "online_ik_decay_updates", 0) or demo_decay_updates,
+        getattr(args, "online_ik_min_episode_fraction", 0.0))
     print(
         f"[V2 SAC] actor={agent.actor_obs_dim} critic={agent.critic_obs_dim} "
         f"actions={agent.action_dim} replay={replay.bytes / 2**30:.3f} GiB "
@@ -470,6 +489,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             "optimizer_updates": optimizer_updates,
             "actor_updates": actor_updates,
             "demo_decay_updates": demo_decay_updates,
+            "teacher_decay_updates": getattr(args, "teacher_decay_updates", 128_000),
             "teacher_fitted": teacher_fitted,
             "teacher_pretraining": teacher_pretraining,
             "teacher_imitation": teacher_replay.snapshot(),
@@ -539,14 +559,17 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         iteration_online_ik = 0
         success_samples = 0
         demo_samples = 0
+        teacher_samples = 0
         online_teacher_labels = 0
         terminated_episodes = timeout_episodes = 0
         termination_counts: dict[str, int] = {}
         from ..multi_box.debug.contact_force import eligible_obstacle_targets
+        from ..multi_box.debug.contact_sensors import V2_COLLISION_BODY_NAMES
         obstacle_names = [path.rsplit("/", 1)[-1]
                           for path in eligible_obstacle_targets(env.cfg.scene)]
         safety_diagnostics = _SafetyDiagnostics(
-            env.device, obstacle_names, float(env.cfg.task.obstacle_contact_force))
+            env.device, obstacle_names, float(env.cfg.task.obstacle_contact_force),
+            V2_COLLISION_BODY_NAMES)
         approach_diagnostics = _ApproachDiagnostics(env.device)
         skipped_implausible = torch.zeros((), dtype=torch.long, device=env.device)
         for _ in range(args.rollout_steps):
@@ -568,8 +591,9 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 teacher_action = None
                 label_visited_states = (
                     getattr(args, "online_teacher_labels", False)
-                    and _demo_fraction(getattr(args, "demo_batch_fraction", 0.0),
-                                       actor_updates, demo_decay_updates) > 0)
+                    and (teacher_fraction(args, actor_updates) > 0
+                         or _demo_fraction(getattr(args, "demo_batch_fraction", 0.0),
+                                           actor_updates, demo_decay_updates) > 0))
                 safe_actor_obs = torch.where(
                     torch.isfinite(actor_obs), actor_obs, torch.zeros_like(actor_obs))
                 if warming_up:
@@ -821,12 +845,19 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     demo_count = round(args.batch_size * fraction) if demonstration else 0
                     demo_batch = demonstration.sample(demo_count, env.device) \
                         if demo_count else None
-                    if demo_count and teacher_replay.size:
+                    independent_teacher_fraction = teacher_fraction(args, actor_updates)
+                    teacher_count = round(args.batch_size * independent_teacher_fraction) \
+                        if teacher_replay.size else 0
+                    teacher_batch = teacher_replay.sample(teacher_count, env.device) \
+                        if teacher_count else None
+                    if (not getattr(args, "teacher_batch_fraction", 0.0)
+                            and demo_count and teacher_replay.size):
                         teacher_count = round(demo_count * 0.8)
                         offline = demonstration.sample(demo_count - teacher_count, env.device)
                         teacher = teacher_replay.sample(teacher_count, env.device)
                         demo_batch = {key: torch.cat((offline[key], value))
                                       for key, value in teacher.items()}
+                        teacher_count = 0  # Legacy teacher rows are counted in demo_samples.
                     goal_count = round(args.batch_size * getattr(args, "goal_batch_fraction", 0.25)) \
                         if goal_replay.size else 0
                     success_count = min(success_replay.size, round(
@@ -842,8 +873,12 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                         batch,
                         demonstration=demo_batch, demonstration_weight=(
                             fraction * getattr(args, "demo_bc_strength", 10.0) if demo_count else 0.0),
+                        teacher=teacher_batch, teacher_weight=(
+                            independent_teacher_fraction * getattr(args, "teacher_bc_strength", 10.0)
+                            if teacher_batch is not None else 0.0),
                         update_actor=optimizer_updates >= getattr(args, "critic_warmup_updates", 500))
                     demo_samples += demo_count if metrics["actor_updated"] else 0
+                    teacher_samples += teacher_count if metrics["actor_updated"] else 0
                     actor_updates += int(metrics["actor_updated"])
                     success_samples += success_count
                     optimizer_updates += 1
@@ -897,6 +932,9 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             replay_size=replay.size,
             demo_replay_size=demonstration.size if demonstration else 0,
             demo_bc_samples_this_iteration=demo_samples,
+            teacher_bc_samples_this_iteration=teacher_samples,
+            teacher_bc_fraction=teacher_fraction(args, actor_updates),
+            teacher_decay_updates=getattr(args, "teacher_decay_updates", 128_000),
             demo_bc_fraction=_demo_fraction(
                 getattr(args, "demo_batch_fraction", 0.0), actor_updates,
                 demo_decay_updates) if demonstration else 0.0,

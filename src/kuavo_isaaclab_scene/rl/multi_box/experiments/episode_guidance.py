@@ -2,20 +2,23 @@
 
 import torch
 
+from .imitation_schedule import imitation_fraction
+
 
 class EpisodicIKGuidance:
     """Sample assistance at episode boundaries; never switch an active episode."""
 
-    def __init__(self, num_envs, device, initial_fraction, decay_updates):
-        if not 0 <= initial_fraction < 1 or decay_updates < 1:
-            raise ValueError("Invalid episodic IK guidance schedule")
+    def __init__(self, num_envs, device, initial_fraction, decay_updates, minimum_fraction=0.0):
+        imitation_fraction(initial_fraction, minimum_fraction, 0, decay_updates)
         self.initial_fraction, self.decay_updates = initial_fraction, decay_updates
+        self.minimum_fraction = minimum_fraction
         self.mask = torch.zeros(num_envs, dtype=torch.bool, device=device)
         self.used_teacher = torch.zeros_like(self.mask)
         self.initialized = False
 
     def fraction(self, actor_updates):
-        return self.initial_fraction * max(0.0, 1.0 - actor_updates / self.decay_updates)
+        return imitation_fraction(self.initial_fraction, self.minimum_fraction,
+                                  actor_updates, self.decay_updates)
 
     def select(self, *, warming_up, ready, actor_updates):
         if warming_up:

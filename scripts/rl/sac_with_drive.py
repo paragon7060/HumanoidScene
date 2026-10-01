@@ -4,6 +4,7 @@
 import argparse
 from datetime import datetime
 import json
+import importlib.util
 import os
 from pathlib import Path
 from uuid import uuid4
@@ -11,6 +12,15 @@ from uuid import uuid4
 from drive_backup import ROOT
 from gpu_budget import GpuBudget
 from train_with_drive import archive, supervise, add_action_space_argument
+# Load the standard-library-only CLI definitions without importing gym/Isaac
+# into the CPU Drive supervisor's Python environment.
+_teacher_spec = importlib.util.spec_from_file_location(
+    "sac_teacher_schedule", ROOT / "src/kuavo_isaaclab_scene/rl/multi_box/experiments/imitation_schedule.py")
+_teacher_options = importlib.util.module_from_spec(_teacher_spec)
+_teacher_spec.loader.exec_module(_teacher_options)
+TEACHER_SCHEDULE_ARGUMENTS = _teacher_options.TEACHER_SCHEDULE_ARGUMENTS
+add_teacher_schedule_arguments = _teacher_options.add_teacher_schedule_arguments
+validate_teacher_schedule = _teacher_options.validate_teacher_schedule
 
 
 def main():
@@ -57,6 +67,7 @@ def main():
     parser.add_argument("--online-teacher-labels", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--online-ik-episode-fraction", type=float, default=0.0,
                         help="Initial expert episode fraction, retired with the imitation schedule")
+    add_teacher_schedule_arguments(parser)
     parser.add_argument("--actor-lr", type=float, default=0.00003)
     parser.add_argument("--critic-warmup-updates", type=int, default=500)
     parser.add_argument("--success-replay-capacity", type=int, default=10000)
@@ -89,6 +100,10 @@ def main():
     parser.add_argument("--gpu-reserve-mib", type=int, default=8192)
     parser.add_argument("--max-seconds", type=int, default=3600)
     args = parser.parse_args()
+    try:
+        validate_teacher_schedule(args)
+    except ValueError as error:
+        parser.error(str(error))
     if (min(args.num_envs, args.max_iterations, args.rollout_steps, args.batch_size, args.updates_per_step,
             args.replay_capacity, args.save_interval, args.gpu_limit_mib, args.max_seconds,
             args.warmup_action_hold_steps) < 1
@@ -191,7 +206,7 @@ def main():
                      "reward_scale", "actor_feature_mode",
                      "goal_replay_capacity", "goal_batch_fraction",
                      "demo_batch_fraction", "demo_bc_strength", "demo_decay_fraction", "demo_pretrain_steps",
-                     "demo_pretrain_batch_size", "demo_warmup_noise_scale"):
+                     "demo_pretrain_batch_size", "demo_warmup_noise_scale", *TEACHER_SCHEDULE_ARGUMENTS):
             command.extend(("--" + name.replace("_", "-"), str(getattr(args, name))))
         command.append("--entropy-backup" if args.entropy_backup else "--no-entropy-backup")
         command.append("--critic-layer-norm" if args.critic_layer_norm else "--no-critic-layer-norm")

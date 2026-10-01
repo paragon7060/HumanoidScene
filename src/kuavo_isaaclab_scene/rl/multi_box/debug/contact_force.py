@@ -38,6 +38,11 @@ def filtered_force_by_target(env, sensor_names: tuple[str, ...]) -> torch.Tensor
 
 def maximum_filtered_force(env, sensor_names: tuple[str, ...]) -> torch.Tensor:
     """Return the maximum filtered normal force for each environment."""
+    return filtered_force_by_body(env, sensor_names).amax(-1)
+
+
+def filtered_force_by_body(env, sensor_names: tuple[str, ...]) -> torch.Tensor:
+    """One pair-force maximum per robot body; reuse for safety and diagnosis."""
     maxima = []
     for sensor_name in sensor_names:
         force = env.scene[sensor_name].data.force_matrix_w
@@ -46,7 +51,7 @@ def maximum_filtered_force(env, sensor_names: tuple[str, ...]) -> torch.Tensor:
         maxima.append(force.norm(dim=-1).flatten(1).amax(dim=-1))
     if not maxima:
         raise ValueError("At least one filtered contact sensor is required.")
-    return torch.stack(maxima, dim=-1).amax(dim=-1)
+    return torch.stack(maxima, dim=-1)
 
 
 def per_body_forces(

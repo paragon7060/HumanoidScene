@@ -15,7 +15,7 @@ from ..debug.contact_sensors import (
     V2_RACK_SENSOR_NAMES,
     V2_OBSTACLE_FILTER_SENSOR_NAMES,
 )
-from ..debug.contact_force import maximum_filtered_force, filtered_force_by_target
+from ..debug.contact_force import filtered_force_by_body, filtered_force_by_target
 from ..metrics import grasp_gated_lift_inputs
 from ..rewards import (
     CommonRewardInput,
@@ -45,6 +45,7 @@ class V2GraspSafetyStep:
     contact_eligible: torch.Tensor
     base_distance_m: torch.Tensor
     rack_force_n: torch.Tensor
+    rack_body_force_n: torch.Tensor
     obstacle_force_n: torch.Tensor
     obstacle_target_force_n: torch.Tensor
     self_collision_distance_m: torch.Tensor
@@ -82,7 +83,8 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
     grasp = privileged_grasp_step(env)
     obstacle_targets = filtered_force_by_target(env, V2_OBSTACLE_FILTER_SENSOR_NAMES)
     obstacle_force = obstacle_targets.amax(-1)
-    rack_force = maximum_filtered_force(env, V2_RACK_SENSOR_NAMES)
+    rack_body_force = filtered_force_by_body(env, V2_RACK_SENSOR_NAMES)
+    rack_force = rack_body_force.amax(-1)
     settling = reset_settling_step(env)
     # Ignore import/reset snap impulses and the first three task control steps.
     # Subsequent contacts are checked against their respective force limits.
@@ -142,6 +144,7 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
         contact_eligible=grace_over,
         base_distance_m=base_distance,
         rack_force_n=rack_force,
+        rack_body_force_n=rack_body_force,
         obstacle_force_n=obstacle_force,
         obstacle_target_force_n=obstacle_targets,
         self_collision_distance_m=self_collision_distance,

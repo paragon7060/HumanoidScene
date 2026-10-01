@@ -1,6 +1,58 @@
 # Multi-box v2 SAC recovery experiments — 2026-09-30
 
-## Latest measured result and next run
+## Latest follow-up: persistent corrections — 2026-10-01
+
+The 04:31 stabilization run was stopped deliberately at **iteration 384**
+(11:16 KST), with **42,614 SAC actor updates and zero SAC-from-reset/handoff
+held grasp successes**. It collected 11,008,572 valid transitions, 25 additional
+IK expert successes, 4,141 unsafe episodes including 3,428 robot-rack failures,
+and zero numerical failures. It exited cleanly with code 0; final checkpoints
+350/384 and logs are Drive checksum-verified. Numerical stabilization did not
+solve the task.
+
+| Window (iterations) | SAC left/right distance (m) | Unsafe per iteration | Timeout per iteration |
+| --- | --- | ---: | ---: |
+| 37–80 | 0.790 / 0.733 | 35.23 | 17.20 |
+| 81–150 | 0.605 / 0.674 | 8.50 | 30.31 |
+| 250–300 | 0.742 / 0.818 | 7.25 | 30.10 |
+| 330–381 | 0.662 / 0.649 | 5.50 | 33.69 |
+
+The short pilot's stored 15,360-actor-update imitation horizon was also used
+for live teacher queries and expert episode assignment. All three retired
+around the first 12% of the planned long continuation, before the actor had
+learned a held grasp. The actor then received no further visited-state
+corrections or new expert successes. At checkpoint 350 its MSE against 8,192
+retained teacher labels was **0.6311** (arm 0.7360, base 0.5627, height 0.6627).
+This directly measures action drift; the simultaneous schedule changes mean
+we cannot attribute all performance changes to one component.
+
+Q remains imperfect but is no longer millions away from terminal targets:
+69 actual success-terminal rows at checkpoint 350 have mean Q **63.0604**,
+true immediate target **49.9610**, mean absolute error **19.6266**, max Q
+205.5408. These rows require no bootstrap, making this a direct calibration
+check. A finite Q loss alone still does not establish policy quality.
+
+The next experiment separates recorded VR behavior cloning from live teacher
+correction. VR starts at 20% and decays to zero. Current teacher labels have
+an independent 128,000-actor-update horizon, initial fraction 20%, floor 10%,
+and BC strength 100 (loss weight 20 initially, floor 10). Expert episodes
+start at 20% with their own 128,000-update horizon and 10% floor. The actor
+learns from teacher suggestions at its own visited states; they do not override
+SAC actions or become fabricated Q transitions. Real executed expert success
+tails remain a separate protected critic buffer. IK and independent SAC
+successes remain separately attributed. This is a revised training method,
+not a change to physical safety, success criteria, rewards, or reset difficulty.
+
+Additional diagnostics attribute each eligible robot-rack failure to the
+robot body with the largest filtered pair force. They reuse existing contact
+matrices and capture the pre-reset state; no new sensors or force summation
+are introduced. CLI definitions are shared between the v2 runner and the
+CPU-only Drive wrapper. Legacy schedules remain the default when independent
+teacher imitation is disabled. Validation: **73 SAC/collection/alternative
+and 10 contact-force/adapter CPU checks passed**. A bounded GPU3 run will
+measure the effect before another long continuation.
+
+## Earlier stabilization run (stopped)
 
 **Current execution (2026-10-01 04:31 KST):** source `a3048fc`, GPU 3 /
 1,024 environments, run

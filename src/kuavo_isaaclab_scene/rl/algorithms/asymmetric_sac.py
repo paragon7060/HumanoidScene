@@ -358,9 +358,13 @@ class AsymmetricSAC(nn.Module):
 
     def update(self, batch: dict[str, torch.Tensor], *,
                demonstration: dict[str, torch.Tensor] | None = None,
-               demonstration_weight: float = 0.0, update_actor: bool = True) -> dict[str, float]:
+               demonstration_weight: float = 0.0, update_actor: bool = True,
+               teacher: dict[str, torch.Tensor] | None = None,
+               teacher_weight: float = 0.0) -> dict[str, float]:
         if demonstration_weight < 0 or (demonstration_weight and demonstration is None):
             raise ValueError("Demonstration weight requires a nonnegative value and a batch")
+        if teacher_weight < 0 or (teacher_weight and teacher is None):
+            raise ValueError("Teacher weight requires a nonnegative value and actor labels")
         cfg = self.config
         actor_obs = self.actor_normalizer(self.actor_features(batch["actor_obs"]))
         critic_obs = self.critic_normalizer(batch["critic_obs"])
@@ -397,6 +401,7 @@ class AsymmetricSAC(nn.Module):
             return {
                 "q_loss": q_loss.item(), "actor_loss": 0.0, "actor_updated": False,
                 "demo_bc_loss": 0.0, "demo_bc_weight": 0.0,
+                "teacher_bc_loss": 0.0, "teacher_bc_weight": 0.0,
                 "alpha": alpha.item(), "policy_logp_mean": next_logp.mean().item(),
                 "policy_action_std_mean": next_action.std(0, unbiased=False).mean().item(),
                 "q_value_mean": torch.minimum(q1, q2).mean().item(),
@@ -418,11 +423,17 @@ class AsymmetricSAC(nn.Module):
             actor_loss = (alpha * logp - q_scale * q).mean()
             target_entropy = self._entropy_target(batch["actor_obs"], actor_obs)
             bc_loss = torch.zeros((), device=actor_loss.device)
+            teacher_loss = torch.zeros_like(bc_loss)
             if demonstration is not None and demonstration_weight:
                 demo_obs = self.actor_normalizer(self.actor_features(demonstration["actor_obs"]))
                 demo_action = self.actor(demo_obs, deterministic=True)[0]
                 bc_loss = F.mse_loss(demo_action, demonstration["action"])
                 actor_loss = actor_loss + demonstration_weight * bc_loss
+            if teacher is not None and teacher_weight:
+                teacher_obs = self.actor_normalizer(self.actor_features(teacher["actor_obs"]))
+                teacher_action = self.actor(teacher_obs, deterministic=True)[0]
+                teacher_loss = F.mse_loss(teacher_action, teacher["action"])
+                actor_loss = actor_loss + teacher_weight * teacher_loss
             optimize(self.actor_optimizer, actor_loss, self.actor.parameters())
         finally:
             self.q1.requires_grad_(True)
@@ -442,6 +453,8 @@ class AsymmetricSAC(nn.Module):
             "actor_updated": True,
             "demo_bc_loss": bc_loss.item(),
             "demo_bc_weight": demonstration_weight,
+            "teacher_bc_loss": teacher_loss.item(),
+            "teacher_bc_weight": teacher_weight,
             "alpha": self.log_alpha.exp().item(),
             "policy_logp_mean": logp.detach().mean().item(),
             "policy_action_std_mean": action.detach().std(dim=0, unbiased=False).mean().item(),

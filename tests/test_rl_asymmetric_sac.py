@@ -38,6 +38,74 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import 
     entry_geometry, observed_close_ticks,
 )
 from kuavo_isaaclab_scene.rl.multi_box.experiments.episode_guidance import EpisodicIKGuidance
+from kuavo_isaaclab_scene.rl.multi_box.experiments.imitation_schedule import (
+    imitation_fraction, teacher_fraction, validate_teacher_schedule,
+)
+
+
+def test_live_teacher_continues_after_short_pilot_vr_schedule_ends():
+    args = SimpleNamespace(teacher_batch_fraction=.2, teacher_min_batch_fraction=.1,
+                           teacher_decay_updates=128_000)
+    assert _demo_fraction(.2, 40_000, 15_360) == 0
+    assert teacher_fraction(args, 40_000) == pytest.approx(.1375)
+    assert teacher_fraction(args, 128_000) == .1
+    assert imitation_fraction(.2, 0, 128_000, 128_000) == 0
+    guide = EpisodicIKGuidance(4, "cpu", .2, 128_000, minimum_fraction=.1)
+    assert guide.fraction(128_000) == .1
+    with pytest.raises(ValueError):
+        imitation_fraction(.2, .3, 0, 100)
+
+
+def test_independent_teacher_requires_queries_and_valid_schedule():
+    args = SimpleNamespace(teacher_batch_fraction=.2, teacher_min_batch_fraction=.1,
+        teacher_decay_updates=128_000, teacher_bc_strength=100,
+        online_teacher_labels=False, demo_dataset="demo.hdf5",
+        online_ik_episode_fraction=.2, online_ik_min_episode_fraction=.1,
+        online_ik_decay_updates=128_000)
+    with pytest.raises(ValueError, match="online teacher labels"):
+        validate_teacher_schedule(args)
+    args.online_teacher_labels = True
+    validate_teacher_schedule(args)
+
+
+def test_teacher_actor_labels_train_without_vr_and_do_not_change_critic_batch():
+    torch.manual_seed(9)
+    cfg = SACConfig(hidden=16, initial_alpha=1e-7, actor_lr=.001)
+    teacher_agent = AsymmetricSAC(4, 7, 2, cfg, "cpu")
+    control = AsymmetricSAC(4, 7, 2, cfg, "cpu")
+    control.load_state_dict(teacher_agent.state_dict())
+    batch = _batch(8)
+    labels = {"actor_obs": batch["actor_obs"], "action": torch.ones(8, 2) * .7}
+    # The teacher has no reward, critic view or next state to inject into Q.
+    torch.manual_seed(17)
+    result = teacher_agent.update(batch, teacher=labels, teacher_weight=20)
+    torch.manual_seed(17)
+    control_result = control.update(batch)
+    assert result["demo_bc_weight"] == 0
+    assert result["teacher_bc_loss"] > 0 and result["teacher_bc_weight"] == 20
+    assert result["q_loss"] == control_result["q_loss"]
+    for a, b in zip(teacher_agent.q1.parameters(), control.q1.parameters(), strict=True):
+        assert torch.equal(a, b)
+    assert any(not torch.equal(a, b) for a, b in zip(
+        teacher_agent.actor.parameters(), control.actor.parameters(), strict=True))
+
+
+def test_rack_peak_body_reports_one_cause_per_failure_before_reset():
+    monitor = _SafetyDiagnostics("cpu", rack_body_names=("arm", "gripper"))
+    false = torch.zeros(3, dtype=torch.bool)
+    safety = SimpleNamespace(invalid_box_pose=false, invalid_flap_pose=false,
+        robot_rack_collision=torch.tensor([True, True, True]),
+        obstacle_collision=false, workspace_limit=false, box_drop=false,
+        box_lift_limit=false, box_speed_limit=false, self_collision=false,
+        contact_eligible=torch.tensor([True, True, False]),
+        rack_force_n=torch.tensor([20., 30., 100.]), obstacle_force_n=torch.zeros(3),
+        rack_body_force_n=torch.tensor([[20., 15.], [11., 30.], [100., 1.]]))
+    monitor.record(safety, torch.ones(3, dtype=torch.bool))
+    result = monitor.report()
+    assert result["unsafe_rack_peak_body/arm"] == 1
+    assert result["unsafe_rack_peak_body/gripper"] == 1
+    assert result["contact_force/rack_body_arm_max_n"] == 20
+    assert result["contact_force/rack_body_gripper_max_n"] == 30
 
 
 def test_v2_safety_diagnostics_separates_unsafe_causes_and_force_bands():
