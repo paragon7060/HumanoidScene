@@ -25,6 +25,8 @@ def main():
     parser.add_argument('--experiment-dir',type=Path,required=True)
     parser.add_argument('--layout-dir',type=Path,required=True)
     parser.add_argument('--train-count',type=int,default=8)
+    parser.add_argument('--max-layout-depth-m',type=float,default=0.,
+                        help='Explicit allowed depth displacement for this fixed layout distribution; default preserves lateral-only runs.')
     parser.add_argument('--eval-count',type=int,default=8)
     parser.add_argument('--passes',type=int,default=1)
     parser.add_argument('--checkpoint',type=Path)
@@ -38,6 +40,8 @@ def main():
         parser.error('Choose an explicit checkpoint or an earlier verified experiment')
     if min(args.train_count,args.eval_count,args.passes)<1 or args.gpu<0 or not args.python.is_file():
         parser.error('Positive split sizes/passes and a valid Isaac Python are required')
+    if not math.isfinite(args.max_layout_depth_m) or not 0<=args.max_layout_depth_m<=.02:
+        parser.error('Maximum layout depth must be within0..2cm')
     reserved={'--output-dir','--device','--layout-json','--residual-checkpoint',
               '--residual-controller','--residual-training','--no-residual-training','--residual-zero'}
     if any(value.split('=')[0] in reserved for value in child_args):
@@ -53,6 +57,8 @@ def main():
             layout=json.loads(path.read_text())
             if not -.040001<=layout['lateral_m']<=-.019999 or abs(layout.get('yaw_rad',0))>math.radians(1)+1e-7:
                 parser.error('The footprint-valid sampling distribution is inward2..4cm and yaw+/-1degree')
+            if not math.isfinite(layout.get('depth_m',0.)) or abs(layout.get('depth_m',0.))>args.max_layout_depth_m+1e-7:
+                parser.error('Layout depth exceeds the explicitly allowed fixed distribution')
     if not args.remote_root:
         remotes=subprocess.run(['bash',str(ROOT/'scripts/rl/gdrive.sh'),'listremotes'],
                                check=True,capture_output=True,text=True).stdout.splitlines()
@@ -72,7 +78,9 @@ def main():
         gpu=args.gpu,train_layouts=[json.loads(p.read_text()) for p in layouts['train']],
         heldout_layouts=[json.loads(p.read_text()) for p in layouts['holdout']],
         passes=args.passes,physical_reference_dependency=True,curriculum=False,
-        sampled_distribution='lower_small_inward2to4cm_yaw1deg_rear_upper_distractors_v2',
+        sampled_distribution=('lower_small_inward2to4cm_yaw1deg_depth_rear_upper_distractors_v3'
+                              if args.max_layout_depth_m else 'lower_small_inward2to4cm_yaw1deg_rear_upper_distractors_v2'),
+        max_layout_depth_m=args.max_layout_depth_m,
         sampling_reason='2..6cm crossed the assigned half-shelf boundary; physical reset bounds unchanged'),indent=2)+'\n')
     environment=os.environ.copy()
     environment.update(CUDA_VISIBLE_DEVICES=str(args.gpu),OMNI_KIT_ACCEPT_EULA='YES',

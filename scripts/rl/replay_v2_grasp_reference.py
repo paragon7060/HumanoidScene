@@ -49,6 +49,11 @@ def main():
                         help='VR/live-IK diagnostic only: constrain the complete wrist or just its jaw closing axis.')
     parser.add_argument('--vr-contact-torso-forward-m',type=float,default=0.,
                         help='VR/live-IK diagnostic only: bounded upright torso X assist during contact.')
+    parser.add_argument('--vr-close-distance-m',type=float,default=.035)
+    parser.add_argument('--vr-coordinated-close',action='store_true',
+                        help='VR/live-IK diagnostic only: wait for both hands before closing either jaw.')
+    parser.add_argument('--vr-reference-grippers',action='store_true',
+                        help='VR/live-IK diagnostic only: preserve the demonstrator\'s actual jaw timing.')
     parser.add_argument('--steps', type=int, default=900)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
@@ -81,8 +86,13 @@ def main():
         parser.error('Zero-residual probes require --no-residual-training')
     if not 0<=args.vr_contact_torso_forward_m<=.08:
         parser.error('VR contact torso assist must be within0..8cm')
-    if (args.vr_orientation_mode!='full' or args.vr_contact_torso_forward_m) and (args.actor_checkpoint or args.executed_actions):
-        parser.error('VR orientation/torso options only apply to the live VR/IK diagnostic')
+    if not .003<=args.vr_close_distance_m<=.035:
+        parser.error('VR closing gate must be within3..35mm')
+    if args.vr_reference_grippers and args.vr_coordinated_close:
+        parser.error('Choose reference timing or coordinated geometric closing')
+    if (args.vr_orientation_mode!='full' or args.vr_contact_torso_forward_m or
+        args.vr_close_distance_m!=.035 or args.vr_coordinated_close or args.vr_reference_grippers) and (args.actor_checkpoint or args.executed_actions):
+        parser.error('VR diagnostic options only apply to the live VR/IK guide')
     if args.actor_reference_mix is not None and (
             not 0 <= args.actor_reference_mix <= .2 or not args.actor_checkpoint or args.body_envelope):
         parser.error('DAgger mix requires an actor checkpoint, fraction in0..0.2 and no body envelope')
@@ -241,7 +251,9 @@ def main():
                 controller_name = 'mixed_VR_teacher_actor_DAgger_NOT_pure_SAC'
         else:
             teacher = VRJointTracker(env, demo, rack,orientation_mode=args.vr_orientation_mode,
-                                     contact_torso_forward_m=args.vr_contact_torso_forward_m)
+                                     contact_torso_forward_m=args.vr_contact_torso_forward_m,
+                                     close_distance_m=args.vr_close_distance_m,coordinated_close=args.vr_coordinated_close,
+                                     reference_grippers=args.vr_reference_grippers)
         output = args.output_dir.resolve()
         output.mkdir(parents=True, exist_ok=False)
         if residual:
@@ -258,7 +270,9 @@ def main():
                 'artifact_type':'physical_reference_replay_diagnostic',
                 'policy':controller_name,'episode_index':args.episode_index,
                 'training':False,'vr_orientation_mode':args.vr_orientation_mode,
-                'vr_contact_torso_forward_m':args.vr_contact_torso_forward_m},indent=2)+'\n')
+                'vr_contact_torso_forward_m':args.vr_contact_torso_forward_m,
+                'vr_close_distance_m':args.vr_close_distance_m,'vr_coordinated_close':args.vr_coordinated_close,
+                'vr_reference_grippers':args.vr_reference_grippers},indent=2)+'\n')
         meta = dict(task_family='multi_box_v2', skill='grasp', robot_model='s63',
             gripper='leju-twofinger', rack_rollers=True, controller_mapping='scaled',
             action_dim=sum(actions.values()), actor_obs_dim=dims['policy'][0],
@@ -283,6 +297,9 @@ def main():
             layout=layout.record() if layout else None, zero_residual_probe=args.residual_zero)
         meta['vr_orientation_mode']=args.vr_orientation_mode
         meta['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
+        meta['vr_close_distance_m']=args.vr_close_distance_m
+        meta['vr_coordinated_close']=args.vr_coordinated_close
+        meta['vr_reference_grippers']=args.vr_reference_grippers
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
@@ -417,11 +434,18 @@ def main():
             (output/'manifest.json').write_text(json.dumps(contract | {
                 'artifact_type': artifact_type, 'layout':layout.record() if layout else None,
                 'residual_contract': residual.contract}, indent=2)+'\n')
+        video_encoding = None
+        if writer is not None:
+            writer.release()
+            writer = None
+            from browser_video import encode_browser_video
+            video_encoding = encode_browser_video(output/video_name)
         report = dict(policy=controller_name,
                       steps=len(history), outcomes=counts, frames=frames, history=history,
                       initial_settling_steps=settling_steps, sim_device=str(env.device),
                       interrupted=stopped['value'], completed_attempt=bool(sum(counts.values())),
                       video=str(output/video_name) if renderer else None,
+                      video_encoding=video_encoding,
                       body_envelope_diagnostic=args.body_envelope,
                       actor_reference_mix=args.actor_reference_mix, correction_label_rows=len(label_actions),
                       diagnostic_joint_offset_rad=args.joint_offset_rad,
@@ -432,6 +456,9 @@ def main():
                       retarget=residual.controller.retarget_report if residual and args.residual_controller=='retargeted-goal' else None)
         report['vr_orientation_mode']=args.vr_orientation_mode
         report['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
+        report['vr_close_distance_m']=args.vr_close_distance_m
+        report['vr_coordinated_close']=args.vr_coordinated_close
+        report['vr_reference_grippers']=args.vr_reference_grippers
         if residual:
             report['residual_sac'] = residual.report()
         (output/'metrics.json').write_text(json.dumps(report, indent=2)+'\n')

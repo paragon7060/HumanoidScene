@@ -29,7 +29,7 @@ rack. Rewards and force thresholds were not relaxed.
 ![Damped base-path failure](assets/rl_v2_layout_damped_failure_20261002.png)
 
 Videos: [rigid path](assets/rl_v2_layout_rigid_failure_20261002.mp4),
-[damped path](assets/rl_v2_layout_damped_failure_20261002.mp4).
+[damped path](assets/rl_v2_layout_damped_failure_20261002_h264.mp4).
 
 The Cartesian-arm retarget had maximum calculated error0.198mm but still failed
 physically. Local elbow-clearance and larger base-backoff candidates also failed
@@ -46,20 +46,32 @@ The first varied training layout, approximately4cm inward with a rear box,
 also succeeded, reaching actor update2,086. The next5cm layout failed during
 setup: the rotated26.6cm box crossed its assigned half-shelf footprint boundary
 and the reset validator correctly replaced it. No transitions from that setup
-failure were imported. The frozen-checkpoint holdout has not yet been evaluated.
+failure were imported. That aborted suite did not produce a frozen holdout rate.
 
 Sampling now uses the footprint-valid2–4cm interval. A pre-physics check rejects
 out-of-region corners for every active box, including yaw. The reset/collision
 checks are unchanged. The new8-training/8-held-out suite carries checkpoint2,086
 and its actual replay onGPU3 in `layout_suite_gpu3_20261002_0440`.
 All eight training layouts have now succeeded without unsafe/invalid/timeout
-terminations. The final actor has7,662 updates; eight held-out layouts are being
-evaluated with that one frozen checkpoint and no further optimizer updates.
-The held-out success rate is still pending.
+terminations. The final actor has7,662 updates. All eight held-out layouts also
+succeeded with that one frozen checkpoint and no optimizer/normalizer updates,
+with zero unsafe/invalid/timeout terminations. This establishes measured success
+on this limited distribution, not all shelves/types or standalone SAC success.
+The first two matched zero-residual guide probes also succeeded; SAC's extra
+benefit has not yet been demonstrated. Three matched probes are running onGPU0.
+
+The next GPU3 run adds fixed uniformly sampled depth displacement of+/-1cm,
+with12 new training and12 separate evaluation layouts. Their full footprints
+passed the same preflight checks. The first training episode succeeded at411
+ticks, actor8,358 updates. Requested depth+5.08mm became approximately0.0002mm
+relative to the reference after settling. This episode is therefore not evidence
+of depth generalization. Sampled and physically settled poses must be compared
+throughout this experiment. There is no aggregate heldout rate yet. See the
+[concise demo/SAC progress report](RL_V2_DEMO_SAC_PROGRESS_20261002.md).
 
 ![Frozen learned residual on the inward layout](assets/rl_v2_layout_inward_frozen_success_20261002.png)
 
-[Actual frozen-policy success video](assets/rl_v2_layout_inward_frozen_success_20261002.mp4)
+[Actual frozen-policy success video](assets/rl_v2_layout_inward_frozen_success_20261002_h264.mp4)
 
 ## First layout distribution
 
@@ -191,7 +203,7 @@ This replay is a VR/live-IK guide diagnostic, not a SAC evaluation.
 
 ![Upper-shelf contact failure at step841](assets/rl_v2_upper_vr_full_rotation_failure_20261002_contact.png)
 
-[Actual upper-shelf diagnostic video](assets/rl_v2_upper_vr_full_rotation_failure_20261002.mp4)
+[Actual upper-shelf diagnostic video](assets/rl_v2_upper_vr_full_rotation_failure_20261002_h264.mp4)
 
 Offline reconstruction puts the demo grasp goals exactly at the recorded TCPs;
 an offset-frame mismatch was rejected as the cause. Final torso angles differed
@@ -212,8 +224,12 @@ The4cm torso assist with full wrist orientation also timed out. The recorded
 IK target projection was zero. Re-solving those *actual measured* terminal
 poses offline retained28.9/23.7mm full-orientation error, whereas closing-axis
 constraints reached0.48/2.41mm with joint bounds respected. The combination of
-torso assist and closing-axis constraints is therefore under physical test.
-Offline feasibility is not recorded as physical grasp success.
+torso assist and closing-axis constraints also timed out physically. Waiting
+until both hands were within10mm before closing, and separately restoring the
+demo's original gripper timing, likewise failed at900ticks without unsafe or
+invalid-reset events. These are separate diagnostics; original gripper timing
+has not yet been combined with the torso/closing-axis variants. Offline
+feasibility is not recorded as physical grasp success.
 
 ## Storage and evidence
 
@@ -227,7 +243,11 @@ writers stop, and uploads/validates final logs before the next trial.
 Other users' files/processes are untouched. These artifacts are mirrored in the
 linked Notion experiment report with native media attachments.
 
-The targeted CPU checks pass104 tests: selected-target consistency, partial
+The targeted CPU checks pass107 tests: selected-target consistency, partial
 reset behavior, geometric retargeting, footprint rejection, physical-versus-
 residual action separation, checkpoint compatibility and frozen holdout
-supervision. Actual Isaac outcomes, rather than these tests, determine success.
+supervision, depth-displacement footprint validity, and H.264 frame/timing
+preservation with full decoding. Actual Isaac outcomes, rather than these
+tests, determine success. New replay videos are finalized as H.264 avc1,
+yuv420p, faststart MP4 before the run is marked complete. Existing immutable
+Drive originals are retained; browser-compatible copies repair old Notion media.

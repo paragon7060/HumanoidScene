@@ -1,0 +1,58 @@
+{
+  "source_run": "artifacts/rl/drive_runs/layout_suite_gpu3_20261002_0440/010_holdout_p1_holdout_01/residual_20261002_054008_b9f749",
+  "steps": 411,
+  "outcomes": {
+    "success": 1,
+    "unsafe": 0,
+    "invalid_reset": 0,
+    "time_out": 0
+  },
+  "layout": {
+    "seed": 1,
+    "split": "holdout",
+    "lateral_m": -0.028613299131393433,
+    "yaw_rad": 0.010489600710570812,
+    "distractors": [
+      5,
+      6,
+      9
+    ]
+  },
+  "retarget": {
+    "target_shift_rack_m": [
+      -0.028647005558013916,
+      1.1846423149108887e-06,
+      0.0
+    ],
+    "target_yaw_rad": 7.778754138597173e-07
+  },
+  "residual_sac": {
+    "residual_contract": {
+      "name": "perceived_box_retargeted_goal_residual_sac_v9",
+      "reference_sha256": "06368fa7ecf3b100290f396807e8cc1725941433585302b6e7665977f563cfb6",
+      "residual_scale": 0.05,
+      "physical_action_dim": 24,
+      "residual_action_dim": 22,
+      "reference_controls_grippers": true,
+      "critic_action_coordinates": "issued_residual",
+      "fixed_scene_only": false,
+      "actor_observation_dim": 492,
+      "critic_observation_dim": 584,
+      "layout_distribution": "lower_small_inward2to6cm_yaw1deg_rear_upper_distractors_v1",
+      "arm_goal_residual_limit_rad": 0.03,
+      "base_position_feedback_gain_per_s": 2.0
+    },
+    "actor_updates": 7662,
+    "critic_updates": 8162,
+    "online_rows": 0,
+    "training": false,
+    "optimizer_metrics": {},
+    "normalizer_counts": {
+      "actor": 410.0,
+      "critic": 410.0
+    }
+  },
+  "physical_reference_dependency": true,
+  "source_video_frame": 14,
+  "video_conversion": "H.264 only; original frames/timing retained"
+}

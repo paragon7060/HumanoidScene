@@ -19,6 +19,7 @@ class GraspLayout:
     lateral_m: float
     yaw_rad: float = 0.0
     distractors: tuple[int, ...] = ()
+    depth_m: float = 0.0
 
     def validate(self):
         if self.split not in {'train', 'holdout', 'probe'}:
@@ -27,6 +28,8 @@ class GraspLayout:
             raise ValueError('Lower-shelf layout lateral range is +/-8cm')
         if not math.isfinite(self.yaw_rad) or abs(self.yaw_rad) > math.radians(3):
             raise ValueError('Layout yaw range is +/-3degrees')
+        if not math.isfinite(self.depth_m) or abs(self.depth_m) > .02:
+            raise ValueError('Layout depth range is +/-2cm')
         if len(set(self.distractors)) != len(self.distractors) or any(i not in (5, 6, 9) for i in self.distractors):
             raise ValueError('Distractors must use separate rear/upper cells 5,6,9')
         return self
@@ -35,10 +38,12 @@ class GraspLayout:
         return asdict(self)
 
 
-def sample_layout(seed, split):
+def sample_layout(seed, split, *, depth_limit_m=0.0):
     """Separate namespaces ensure training never consumes held-out seeds."""
     if split not in {'train', 'holdout'} or seed < 0:
         raise ValueError('Expected a nonnegative train/holdout seed')
+    if not math.isfinite(depth_limit_m) or not 0<=depth_limit_m<=.02:
+        raise ValueError('Depth sampling limit must be within0..2cm')
     generator = torch.Generator().manual_seed(seed + (0 if split == 'train' else 10_000_000))
     # A 26.6cm-wide box must stay wholly inside its assigned half-shelf.
     # The measured seed has about 4.7cm inward clearance before yaw. Sampling
@@ -47,7 +52,9 @@ def sample_layout(seed, split):
     yaw = float((torch.rand((), generator=generator)*2-1)*math.radians(1))
     count = int(torch.randint(0, 4, (), generator=generator))
     candidates = torch.tensor([5, 6, 9])[torch.randperm(3, generator=generator)]
-    return GraspLayout(seed, split, lateral, yaw, tuple(sorted(candidates[:count].tolist())))
+    # Draw after the existing fields to preserve all prior zero-depth layouts.
+    depth = float((torch.rand((),generator=generator)*2-1)*depth_limit_m) if depth_limit_m else 0.
+    return GraspLayout(seed, split, lateral, yaw, tuple(sorted(candidates[:count].tolist())),depth)
 
 
 def yaw_matrix(angle, like):
@@ -102,7 +109,7 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
     if active.tolist() != [4] or tokens[4, 3:5].argmax() != 0:
         raise ValueError('This distribution requires the measured shelf-2-left small-box seed')
     rack_rotation = _rotation_matrix(actor[71:77])
-    delta = actor.new_tensor([layout.lateral_m, 0, 0])
+    delta = actor.new_tensor([layout.lateral_m, layout.depth_m, 0])
     tokens[4, 12:15] += rack_rotation @ delta
     original = _rotation_matrix(tokens[4, 15:21])
     tokens[4, 15:21] = matrix6(rack_rotation @ yaw_matrix(layout.yaw_rad, actor) @ rack_rotation.T @ original)

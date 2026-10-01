@@ -67,12 +67,17 @@ def restore_inferred_scene(env, observation):
 
 
 class VRJointTracker:
-    def __init__(self,env,demo,rack,*,orientation_mode='full',contact_torso_forward_m=0.):
+    def __init__(self,env,demo,rack,*,orientation_mode='full',contact_torso_forward_m=0.,
+                 close_distance_m=.035,coordinated_close=False,reference_grippers=False):
         from kuavo_isaaclab_scene.rl.multi_box.state.schema import ACTUATED_BODY_JOINTS
         self.env=env;self.demo=demo;self.rack=rack;self.index=0
         if not 0<=contact_torso_forward_m<=.08:
             raise ValueError('Contact torso assist must be within0..8cm')
         self.contact_torso_forward_m=contact_torso_forward_m
+        if not .003<=close_distance_m<=.035:
+            raise ValueError('VR closing gate must be within3..35mm')
+        self.close_distance_m,self.coordinated_close=close_distance_m,coordinated_close
+        self.reference_grippers=reference_grippers
         self.phase=torch.zeros(1,dtype=torch.long,device=env.device);self.close_ticks=self.phase.clone();self.solvers=[]
         self.slices={};i=0
         for name in env.action_manager.active_terms:
@@ -105,6 +110,8 @@ class VRJointTracker:
         desired_xz=planar_position(desired[:,:2],torso._links)
         action[:,self.slices['height']]=((desired_xz-torso.processed_actions)/(torso.cfg.speed_m_s*self.env.step_dt)).clamp(-1,1)
         action[:,20:22]=-1.  # Keep jaws open until the live geometric handoff.
+        if self.reference_grippers:
+            action[:,20:22]=self.demo['action'][idx:idx+1,20:22].to(self.env.device)
         ref_rack=desired[:,68:77];ref_q=quat_mul(self.rack[:,3:],quat_inv(quat_from_matrix(_rotation_matrix(ref_rack[:,3:]))))
         ref_p=self.rack[:,:3]-quat_apply(ref_q,ref_rack[:,:3])
         root=self.env.scene['robot'].data.root_pose_w
@@ -128,7 +135,9 @@ class VRJointTracker:
             goals,stage,offset=retarget_grasp_goal(centers,stage,outward,rotation,guide.goal_offset,'demo')
             target_rotation=rotation[:,None]@guide.relative_rotation[None]
             quaternion=guide.quat_from_matrix(target_rotation.reshape(-1,3,3)).reshape(-1,2,4)
-            close=(goals-tcp[...,:3]).norm(dim=-1)<.035
+            close=(goals-tcp[...,:3]).norm(dim=-1)<self.close_distance_m
+            if self.reference_grippers:
+                close=self.demo['action'][idx:idx+1,20:22].to(self.env.device)>0
             pinching=self.env._multi_box_privileged_grasp_step.pinch.hand_pinching
             from kuavo_isaaclab_scene.rl.multi_box.demo_replay import _rotation_matrix
             tcp_rotation=_rotation_matrix(tcp[...,3:])
@@ -140,6 +149,8 @@ class VRJointTracker:
             target_rotation=torch.where(pinching[...,None,None],self.contact_rotation,target_rotation)
             quaternion=guide.quat_from_matrix(target_rotation.reshape(-1,3,3)).reshape(-1,2,4)
             close |= pinching
+            if self.coordinated_close and not bool(pinching.any()):
+                close=close.all(-1,keepdim=True).expand_as(close)
             self.confirm_ticks=self.confirm_ticks+1 if bool(pinching.all()) else 0
             self.close_ticks=observed_close_ticks(self.close_ticks,close,observation)
             if self.lift_goal is None and self.confirm_ticks>=3:

@@ -52,9 +52,9 @@ had spectral radii above one at several source states. This identifies a
 possible feedback shortcut, **not a proof of whole-robot instability or the
 sole failure cause**. The no-history actor also failed physically.
 
-[![Assisted VR/actor controller: actual bilateral held success, not standalone SAC](assets/rl_v2_assisted_actor_success_20261001.png)](assets/rl_v2_assisted_actor_success_20261001.mp4)
+[![Assisted VR/actor controller: actual bilateral held success, not standalone SAC](assets/rl_v2_assisted_actor_success_20261001.png)](assets/rl_v2_assisted_actor_success_20261001_h264.mp4)
 
-[Assisted success video](assets/rl_v2_assisted_actor_success_20261001.mp4) ·
+[Assisted success video](assets/rl_v2_assisted_actor_success_20261001_h264.mp4) ·
 [Measured outcome](assets/rl_v2_assisted_actor_success_20261001.json).
 
 [![Joint-goal BC actor: actual rack collision without pinch](assets/rl_v2_joint_goal_failure_20261001.png)](assets/rl_v2_joint_goal_failure_20261001.mp4)
@@ -166,9 +166,9 @@ Continuation `reference_goal_sac_continue_gpu3_20261001_1955` reached1,388 actor
 updates and another training-time held success. These three runs ended normally
 and their checkpoints/closed logs/videos/HDF5 were Drive checksum-verified.
 
-[![Frozen goal-residual actor: measured bilateral held success](assets/rl_v2_goal_residual_frozen_success_20261001.png)](assets/rl_v2_goal_residual_frozen_success_20261001.mp4)
+[![Frozen goal-residual actor: measured bilateral held success](assets/rl_v2_goal_residual_frozen_success_20261001.png)](assets/rl_v2_goal_residual_frozen_success_20261001_h264.mp4)
 
-[Frozen-policy success video](assets/rl_v2_goal_residual_frozen_success_20261001.mp4) ·
+[Frozen-policy success video](assets/rl_v2_goal_residual_frozen_success_20261001_h264.mp4) ·
 [Audited actor/outcome metadata](assets/rl_v2_goal_residual_frozen_success_20261001.json).
 
 ![Measured hand distances, reference-goal drift and rack contact](assets/rl_v2_reference_residual_integrators_20261001.png)

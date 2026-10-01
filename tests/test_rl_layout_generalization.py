@@ -52,6 +52,25 @@ def test_half_shelf_crossing_is_rejected_before_physics():
         layout_reset_observation(rack_seed(),GraspLayout(1,'probe',-.05,-.0077),MultiBoxSpec())
 
 
+def test_depth_distribution_moves_target_in_rack_frame_and_fits_footprints():
+    from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+    seed=rack_seed()
+    before=seed[86+4*22+12:86+4*22+15]
+    for split in ('train','holdout'):
+        for index in range(32):
+            layout=sample_layout(index,split,depth_limit_m=.01)
+            assert abs(layout.depth_m)<=.01
+            actor=layout_reset_observation(seed,layout,MultiBoxSpec())
+            delta=actor[86+4*22+12:86+4*22+15]-before
+            assert torch.allclose(delta,torch.tensor([layout.lateral_m,layout.depth_m,0.]),atol=1e-6)
+            validate_layout_footprints(actor)
+    reference=torch.stack([seed,seed]);current=seed.clone()
+    current[86+4*22+13]+=.01
+    retargeted,report=retarget_reference_rack(reference,seed,current)
+    assert torch.allclose(retargeted[:,69],reference[:,69]-.01,atol=1e-6)
+    assert abs(report['target_shift_rack_m'][1]-.01)<1e-6
+
+
 def test_reference_retarget_is_translation_equivariant_and_goal_visible():
     original=source();current=original.clone()
     current[86+4*22+12]+=.04

@@ -73,9 +73,9 @@ not physical success.
 
 ## GPU scene restoration and measured full-path seed — 2026-10-01
 
-[![Actual GPU VR reference at13.67s: both pinch1, success1, unsafe0](assets/rl_v2_vr_gpu_success_20261001.png)](assets/rl_v2_vr_gpu_success_20261001.mp4)
+[![Actual GPU VR reference at13.67s: both pinch1, success1, unsafe0](assets/rl_v2_vr_gpu_success_20261001.png)](assets/rl_v2_vr_gpu_success_20261001_h264.mp4)
 
-[Actual GPU-physics video](assets/rl_v2_vr_gpu_success_20261001.mp4),
+[Actual GPU-physics video](assets/rl_v2_vr_gpu_success_20261001_h264.mp4),
 [sampled pre-reset telemetry](assets/rl_v2_vr_gpu_success_20261001.json).
 The renderer uses CPU mesh rasterization of **GPU PhysX body poses**. The CPU
 renderer label does not mean CPU physics. Reference approach plus live bounded
