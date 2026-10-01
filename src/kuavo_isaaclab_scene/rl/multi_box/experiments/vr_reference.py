@@ -196,6 +196,20 @@ def settle_reference_scene(env, demo, *, settle_all=False):
     if (not torch.equal(actual.cpu(), expected.cpu()) or rack_error > .025
             or (env._multi_box_reset_settling.invalid_count != invalid_before).any()):
         raise ValueError('VR scene was replaced during settling; replay/Q import prohibited')
+    if settle_all:
+        from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import physical_asset_names
+        names=physical_asset_names();settling=env._multi_box_reset_settling;checks=[]
+        for logical in torch.where(actual)[0].tolist():
+            pool=int(env._multi_box_pool_ids[0,logical])
+            pose=env.scene[names[pool]].data.root_pose_w
+            types=env._multi_box_box_type_ids[:,logical]
+            regions=env._multi_box_region_ids[:,logical]
+            footprint=bool(settling._footprint_in_region(pose,types,regions).all())
+            on_shelf=bool(settling._on_assigned_shelf(pose,types,regions).all())
+            checks.append(dict(logical=logical,footprint_in_region=footprint,on_assigned_shelf=on_shelf))
+        print('[VR ALL BOX GUARD]',checks,flush=True)
+        if any(not check['footprint_in_region'] or not check['on_assigned_shelf'] for check in checks):
+            raise ValueError('A surrounding box settled outside its assigned shelf/region')
     return observation, rack, steps
 
 

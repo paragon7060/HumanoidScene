@@ -84,7 +84,9 @@ and its actual replay onGPU3 in `layout_suite_gpu3_20261002_0440`.
   the old adapter's one-active-box restriction; it failed setup before collecting
   Q data. That restriction was corrected rather than dropping surrounding boxes.
 - Initial settling checks all active boxes, including distractors, before any
-  trainable transition is collected.
+  trainable transition is collected. Their final footprints and physical shelf
+  clearance must also pass the existing validator: a box falling to the ground
+  and becoming stationary is not a valid surrounding layout.
 - Train and holdout use separate deterministic RNG namespaces and separate
   files. The supervisor freezes those files in the unique experiment folder.
 - The fixed distribution has no curriculum. Higher shelves as *targets*, other
