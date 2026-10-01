@@ -52,6 +52,10 @@ Sampling now uses the footprint-valid2–4cm interval. A pre-physics check rejec
 out-of-region corners for every active box, including yaw. The reset/collision
 checks are unchanged. The new8-training/8-held-out suite carries checkpoint2,086
 and its actual replay onGPU3 in `layout_suite_gpu3_20261002_0440`.
+All eight training layouts have now succeeded without unsafe/invalid/timeout
+terminations. The final actor has7,662 updates; eight held-out layouts are being
+evaluated with that one frozen checkpoint and no further optimizer updates.
+The held-out success rate is still pending.
 
 ![Frozen learned residual on the inward layout](assets/rl_v2_layout_inward_frozen_success_20261002.png)
 
@@ -185,7 +189,7 @@ GPU0 physical replay using the current upright torso and full wrist orientation
 timed out at900ticks with zero success, unsafe and invalid-reset terminations.
 This replay is a VR/live-IK guide diagnostic, not a SAC evaluation.
 
-![Upper-shelf full-orientation replay failure](assets/rl_v2_upper_vr_full_rotation_failure_20261002.png)
+![Upper-shelf contact failure at step841](assets/rl_v2_upper_vr_full_rotation_failure_20261002_contact.png)
 
 [Actual upper-shelf diagnostic video](assets/rl_v2_upper_vr_full_rotation_failure_20261002.mp4)
 
@@ -203,6 +207,13 @@ torso travel/rate limits. Both defaults remain `full` and zero assist;
 the proven lower native reference and GPU3 SAC controller are unchanged.
 Upper-shelf success transitions are not fabricated or imported from this
 failed replay. Its closed physical HDF, photo/video and logs are Drive-verified.
+
+The4cm torso assist with full wrist orientation also timed out. The recorded
+IK target projection was zero. Re-solving those *actual measured* terminal
+poses offline retained28.9/23.7mm full-orientation error, whereas closing-axis
+constraints reached0.48/2.41mm with joint bounds respected. The combination of
+torso assist and closing-axis constraints is therefore under physical test.
+Offline feasibility is not recorded as physical grasp success.
 
 ## Storage and evidence
 

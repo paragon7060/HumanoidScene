@@ -324,7 +324,7 @@ def main():
             history.append(row)
             for key in counts:
                 counts[key] += int(row[key])
-            if renderer and (row['step'] % args.capture_every == 1 or row['success'] or row['unsafe']):
+            if renderer and (row['step'] % args.capture_every == 1 or any(row[key] for key in counts)):
                 frame = renderer.frame(env, row['step'], float(grasp.raw.matched_flap_distance_m[0]),
                                        bool(grasp.pinch.hand_pinching.all()))
                 cv2.putText(frame, f"pinch L/R={row['pinching']} | success={int(row['success'])}",
@@ -387,7 +387,7 @@ def main():
                 if 'frame' in pixels:
                     frame = pixels.pop('frame')
                     writer.write(frame)
-                    if frames == 0 or row['success'] or row['unsafe']:
+                    if frames == 0 or any(row[key] for key in counts):
                         cv2.imwrite(str(output/'preview.png'), frame)
                     frames += 1
                 if step % 30 == 0:
