@@ -166,6 +166,32 @@ inferred restoration rejects multi-environment scenes. The validated second
 reference preserves target9 with rack-reference error0.000043 and invalid reset0;
 its physical attempt is still being measured.
 
+## Mid-run physical checks — 2026-10-01
+
+At16:53 the new run reached24/80 iterations,979 actor and1,479 total optimizer
+updates,97,249 valid transitions, SAC held success0, and nonfinite0. During the
+first actor updates the SAC-only mean left/right distances changed0.622/0.645m
+(iteration18) to0.498/0.578m (iteration24). This short-window approach change
+is not proof of a learned grasp and involves different episode stages.
+
+Checkpoint13 contains the behavior-cloned actor with104 critic updates and
+**no SAC actor-gradient updates**. Against its410 recorded observations, action
+MSE is0.000438, both-close labels30/30 correct, and no false both-close labels.
+In a separate live GPU reproduction of the same initial scene, at410 ticks
+both hands still failed to pinch (left/right surface distances0.129/0.288m).
+This shows why low logged BC loss cannot substitute for closed-loop physics
+evaluation. The remainder of that30-second actor attempt is being measured.
+
+The upper-reference probe preserved target9 but was stopped after more than421
+ticks to reduce GPU-context contention. It did not reach a complete outcome.
+Its first stop entered Kit's native SIGTERM handler during a physics callback
+and aborted with a carb.tasking nonrecursive-mutex assertion. The native
+recorder had no final success metadata, so it is excluded from the experience
+archive. The replay command now registers its Python stop handler **after**
+AppLauncher, matching the established working training/evaluation lifecycle.
+It records whether a probe was interrupted and whether an attempt completed.
+The SAC process stayed alive, and no other user's process was stopped.
+
 ## Follow-up: contact confirmation and full successful paths — 2026-10-01
 
 The upper-shelf VR/current-controller comparisons still have **held success0**.

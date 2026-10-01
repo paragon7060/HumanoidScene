@@ -42,8 +42,11 @@ def main():
     export_rack_roller_cli(args)
     export_base_drive_cli(args)
     stopped = {'value': False}
-    signal.signal(signal.SIGTERM, lambda *_: stopped.update(value=True))
     app = AppLauncher(args).app
+    # Kit installs native handlers during startup. Register ours afterwards,
+    # so SIGTERM requests a loop exit and HDF/video close rather than entering
+    # Kit shutdown asynchronously inside a physics callback.
+    signal.signal(signal.SIGTERM, lambda *_: stopped.update(value=True))
     env = recorder = writer = None
     try:
         import cv2
@@ -193,7 +196,8 @@ def main():
                     break
         report = dict(policy='VR_reference_plus_contact_confirmed_IK_NOT_SAC',
                       steps=len(history), outcomes=counts, frames=frames, history=history,
-                      initial_settling_steps=settling_steps, sim_device=str(env.device))
+                      initial_settling_steps=settling_steps, sim_device=str(env.device),
+                      interrupted=stopped['value'], completed_attempt=bool(sum(counts.values())))
         (output/'metrics.json').write_text(json.dumps(report, indent=2)+'\n')
         print(json.dumps({key: value for key, value in report.items() if key != 'history'}), flush=True)
     except BaseException as error:
