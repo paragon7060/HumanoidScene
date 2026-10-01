@@ -1,0 +1,55 @@
+{
+  "policy": "fixed_scene_measured_reference_plus_SAC_residual_NOT_standalone_SAC",
+  "steps": 410,
+  "outcomes": {
+    "success": 1,
+    "unsafe": 0,
+    "invalid_reset": 0,
+    "time_out": 0
+  },
+  "residual_sac": {
+    "residual_contract": {
+      "name": "fixed_measured_reference_goal_residual_sac_v2",
+      "reference_sha256": "06368fa7ecf3b100290f396807e8cc1725941433585302b6e7665977f563cfb6",
+      "residual_scale": 0.05,
+      "physical_action_dim": 24,
+      "residual_action_dim": 22,
+      "reference_controls_grippers": true,
+      "critic_action_coordinates": "issued_residual",
+      "fixed_scene_only": true,
+      "actor_observation_dim": 199,
+      "critic_observation_dim": 555
+    },
+    "actor_updates": 694,
+    "critic_updates": 1194,
+    "online_rows": 0,
+    "training": false,
+    "optimizer_metrics": {},
+    "normalizer_counts": {
+      "actor": 410.0,
+      "critic": 410.0
+    }
+  },
+  "last_tick": {
+    "pinching": [
+      true,
+      true
+    ],
+    "flap_distances": [
+      0.0006752845365554094,
+      0.0
+    ],
+    "rack_peak_force": 0.0,
+    "unsafe_causes": {
+      "invalid_box_pose": false,
+      "invalid_flap_pose": false,
+      "robot_rack_collision": false,
+      "self_collision": false,
+      "obstacle_collision": false,
+      "workspace_limit": false,
+      "box_drop": false,
+      "box_lift_limit": false,
+      "box_speed_limit": false
+    }
+  }
+}

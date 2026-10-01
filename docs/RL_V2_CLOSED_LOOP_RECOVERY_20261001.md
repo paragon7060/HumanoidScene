@@ -1,6 +1,11 @@
 # V2 grasp: measured success, closed-loop imitation failures, residual SAC pilot
 
-Status at 2026-10-01 19:39 KST: **standalone learned SAC held grasp remains zero**.
+Status at 2026-10-01 20:17 KST: **standalone learned SAC held grasp remains zero**.
+The goal-reference residual controller now has actual held success during two
+training episodes and a separate frozen-checkpoint replay of the first episode.
+These are the same lower-box scene, not three independent random-reset tests.
+The first actor reached694 updates; continuation reached1,388. All completed
+goal-pilot writers stopped before final Drive checksum verification.
 The completed 128-environment run finished 80 iterations, 318,947 valid
 transitions and 7,907 actor updates with no numerical failures. Its final
 checkpoints and closed logs were Drive checksum-verified. More optimization
@@ -27,6 +32,9 @@ The CPU mesh videos render measured GPU body poses; physics remains on GPU.
 | Joint-PD-goal-coordinate BC actor | 281 | 0 | robot/rack collision |
 | Online delta-residual SAC, 694 actor updates during rollout | 410 | 1 | success; reference-assisted |
 | Frozen delta-residual SAC checkpoint694 | 379 | 0 | left arm/rack 13.97 N |
+| Online goal-residual SAC,694 actor updates | 410 | 1 | success; rack0 N |
+| Frozen goal-residual SAC checkpoint694 | 410 | 1 | success; rack0 N, both hands pinching |
+| Goal-residual continuation,1,388 actor updates | 410 | 1 | success; rack0 N |
 
 The reference succeeds, and its executed commands reproduce success exactly.
 Tiny supervised action error does not establish a stable closed-loop policy.
@@ -143,9 +151,31 @@ generic0.25/0.25/0.7 defaults. Its failure logs were finalized and Drive-verifie
 The1935 retry then exposed Isaac's scalar representation for a uniform head
 scale; validation now supports scalar and per-joint tensor forms, with a
 regression test. Its failure logs were also finalized and Drive-verified.
-The corrected supervised GPU3 comparison is
-`reference_goal_sac_gpu3_20261001_1939`; physics and initial critic training
-started, but its launch alone is not a success claim.
+The corrected supervised GPU3 comparison
+`reference_goal_sac_gpu3_20261001_1939` achieved held success after410 steps and
+694 online actor updates. Its frozen actor replay
+`reference_goal_eval_gpu3_20261001_1946` also succeeded at410 steps without any
+updates, rack contact or safety termination. Final per-hand flap surface
+distances were0.000675 m and0 m, with both measured pinch flags true.
+Continuation `reference_goal_sac_continue_gpu3_20261001_1955` reached1,388 actor
+updates and another training-time held success. These three runs ended normally
+and their checkpoints/closed logs/videos/HDF5 were Drive checksum-verified.
+
+[![Frozen goal-residual actor: measured bilateral held success](assets/rl_v2_goal_residual_frozen_success_20261001.png)](assets/rl_v2_goal_residual_frozen_success_20261001.mp4)
+
+[Frozen-policy success video](assets/rl_v2_goal_residual_frozen_success_20261001.mp4) ·
+[Audited actor/outcome metadata](assets/rl_v2_goal_residual_frozen_success_20261001.json).
+
+![Measured hand distances, reference-goal drift and rack contact](assets/rl_v2_reference_residual_integrators_20261001.png)
+
+The maximum difference in17 controlled joint PD targets from the same measured
+reference grew to0.369784 rad in frozen delta-residual replay (left-arm maximum;
+right arm0.364660 rad). It was0.000999 rad in frozen goal-residual replay and
+0.000817 rad during goal-residual training. This comparison supports accumulated
+controller-goal drift as a failure mechanism; it does not establish that every
+earlier SAC failure has this single cause. The successful reference already
+succeeds, so these runs do not prove SAC improves reference performance.
+[Comparison values](assets/rl_v2_reference_residual_integrators_20261001.json).
 
 ```bash
 CUDA_VISIBLE_DEVICES=3 PYTHONPATH="$PWD/src:$PWD/scripts/rl" python \
@@ -184,6 +214,18 @@ python3 scripts/rl/reference_residual_with_drive.py \
   --steps 900 --capture-every 30
 ```
 
+To continue a bounded series, add `--episodes 3` and an existing compatible
+`--residual-checkpoint`. Each episode gets its own training and frozen-policy
+evaluation run. The next episode starts only after both complete a held grasp
+without unsafe/invalid/timeout outcomes and their final uploads are verified.
+A zero process exit with a failed grasp stops the series as
+`performance_gate_failed`; errors stop it as`failed`. Parent `status.json`
+records the active trial and number of verified episode pairs. Checkpoints and
+actual residual experience continue between training episodes; evaluator
+transitions are not used as hypothetical actor labels.
+The active GPU3 series is`reference_goal_series_gpu3_20261001_2017`, starting
+fromcheckpoint1,388. It keeps the same scene and reference, with no curriculum.
+
 Set `RL_DRIVE_REMOTE_ROOT` privately, or the wrapper discovers an unambiguous
 existing remote with `gdrive.sh listremotes`; it never starts authentication.
 Do not run an additional uploader against the same run. The manager records
@@ -199,6 +241,15 @@ No other users' processes, files, credentials or Drive sharing are changed.
 Focused tests cover command identity/bounds, real updates inside `no_grad`,
 actor-feature gradients, independent episode boundaries, measured versus
 hypothetical labels, checkpoint segregation and diagnostic PD decoding.
+Series lifecycle tests additionally ensure a checksum-verified failed frozen
+actor cannot proceed to the next training episode.
+
+Related primary methods: [Residual Reinforcement Learning for Robot Control](https://arxiv.org/abs/1812.03201)
+studies combining a conventional controller with an RL correction;
+[SAC Algorithms and Applications](https://arxiv.org/abs/1812.05905) describes
+the off-policy stochastic actor/twin-Q/temperature approach. This pilot uses
+the repository's asymmetric SAC implementation and its low-entropy configuration,
+not a reproduction of either paper's complete experimental setup.
 
 [Continuing recovery evidence](RL_V2_RECOVERY_20260930.md) ·
 [Notion with native videos and images](https://app.notion.com/p/3eb63918d42a81f694a9e060aeffe7cc)
