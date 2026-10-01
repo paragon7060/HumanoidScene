@@ -134,7 +134,7 @@ the replay aborts. Recording a successful reference does not establish that SAC
 has learned it. The finished410-row archive and native HDF5 remain local/Drive
 artifacts rather than large files committed to Git.
 
-## Full-path SAC comparison currently running — 2026-10-01
+## Full-path SAC comparison completed — 2026-10-01
 
 Started16:22 KST on physical GPU3 with `CUDA_VISIBLE_DEVICES=3`, source`6b929d2`,
 128 environments /80 iterations. Parent experiment is
@@ -158,6 +158,13 @@ remain active. Initial GPU usage was11.1GiB; this is a bounded learning
 comparison before scaling. The other users' GPU0/1/2 jobs are untouched.
 Actual status/progress must be read from current `status.json`/`metrics.jsonl`.
 
+This comparison finished normally at17:26 KST and its final checkpoints and
+closed logs were checksum-verified in Drive at17:27. Final80/80 metrics:
+318,947 valid transitions,7,907 actor updates,8,407 optimizer updates,
+nonfinite0, **SAC success0 and online IK success0**. Final SAC-only surface
+distances0.634/0.650m. Neither the410-row success prior nor the current20%
+imitation schedule establishes a learned grasp in this comparison.
+
 The reusable reference command now settles the ordinary initial reset before
 restoring the inferred scene, prints its identity guard, and writes `failure.json`
 plus a traceback before Kit shutdown if replay fails. Kit may otherwise replace
@@ -177,10 +184,48 @@ is not proof of a learned grasp and involves different episode stages.
 Checkpoint13 contains the behavior-cloned actor with104 critic updates and
 **no SAC actor-gradient updates**. Against its410 recorded observations, action
 MSE is0.000438, both-close labels30/30 correct, and no false both-close labels.
-In a separate live GPU reproduction of the same initial scene, at410 ticks
-both hands still failed to pinch (left/right surface distances0.129/0.288m).
-This shows why low logged BC loss cannot substitute for closed-loop physics
-evaluation. The remainder of that30-second actor attempt is being measured.
+The separate live GPU reproduction completed at420 ticks (14s) with success0
+and unsafe1: `l_twofinger_base` hit the rack at61.75N. Final left/right surface
+distances were0.00787/0.32572m, with neither hand pinching. Its initial464-D
+actor observation was **exactly identical** to the successful measured VR
+replay. These facts isolate closed-loop drift rather than a different starting
+observation. Low logged BC loss cannot substitute for physics evaluation.
+
+![Actual reference and BC distances/body commands from the same initial observation](assets/rl_v2_bc_closed_loop_drift_20261001.png)
+
+The candidate diagnostic envelope retains every body action in the successful
+410-step reference: base XY±0.2, base yaw±0.4, waist yaw±0.35 and torso XZ±0.2.
+Arms and grippers retain their full range. This is a proposed comparison, not
+yet a validated fix or a change to the running SAC. Two CPU actor-only refits
+also separate tighter fit to the actual labels from local pending-PD-target
+error correction. The latter modifies actor labels using the incremental
+controller equation; no hypothetical reward, next state or Q transition is
+created. These fits still require actual closed-loop replay.
+
+Measured follow-up: the original actor with the proposed body envelope fails
+at208 ticks (6.93s) with **box drop**, not rack-force termination; its final
+rack peak is0N and the terminal critic explicitly marks box drop. The tighter
+15,000-step refit (on-data MSE0.000089) fails at203 ticks with an11,479.7N
+right-gripper-base/rack collision. Neither is promoted into training. This
+also rules out using smaller offline action MSE alone to choose a controller.
+
+The reusable replay command can now compare these controllers while keeping
+the ordinary task reward/safety/scene identity checks. Select
+`--actor-checkpoint /absolute/path/checkpoint.pt` for a deterministic actor;
+optionally add `--body-envelope` for the diagnostic limit. Without that option,
+the actor is unchanged. `--executed-actions /absolute/path/native-success.hdf5`
+reproduces actual recorded commands from a matching initial observation as an
+open-loop baseline and excludes `--actor-checkpoint`. The default remains the
+VR-reference/live-IK diagnostic. Actor/open-loop records have distinct source
+tags and cannot silently enter the strict VR-experience archive. Reports include
+pre-reset per-cause unsafe flags, box velocity, rack peak body/force and actual
+action, and explicitly mark incomplete/interrupted attempts.
+
+The recorded-command baseline reproduced the held grasp in actual GPU3
+physics at410 ticks, initial actor-observation error0.0, unsafe/invalid/timeout0.
+The command sequence/current environment are therefore demonstrably compatible
+for this starting state. This is an open-loop replay success, **not SAC
+learning**, and it does not establish robustness to other resets.
 
 The upper-reference probe preserved target9 but was stopped after more than421
 ticks to reduce GPU-context contention. It did not reach a complete outcome.

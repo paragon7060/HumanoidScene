@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure a VR reference in current v2 physics; this is not a SAC evaluation."""
+"""Compare a VR controller or deterministic SAC actor from an inferred VR seed."""
 
 import argparse
 from dataclasses import asdict, replace
@@ -25,14 +25,27 @@ def main():
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--capture-every', type=int, default=30)
     parser.add_argument('--no-video', action='store_true')
+    parser.add_argument('--actor-checkpoint', type=Path,
+                        help='Evaluate this deterministic actor instead of the VR/live-IK controller.')
+    parser.add_argument('--executed-actions', type=Path,
+                        help='Reproduce actual current GPU success commands as an open-loop diagnostic, not a learned policy.')
+    parser.add_argument('--body-envelope', action='store_true',
+                        help='Diagnostic only: bound actor body commands; does not change SAC training.')
+    parser.add_argument('--steps', type=int, default=900)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser)
     add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True, robot_model='s63', gripper='leju-twofinger', rack_rollers=True)
     args = parser.parse_args()
-    if args.capture_every < 1 or args.episode_index < 0:
-        parser.error('Capture interval must be positive and episode index nonnegative')
+    if args.capture_every < 1 or args.episode_index < 0 or not 1 <= args.steps <= 900:
+        parser.error('Capture interval must be positive, episode index nonnegative, and steps in1..900')
+    if args.body_envelope and not args.actor_checkpoint:
+        parser.error('--body-envelope requires --actor-checkpoint')
+    if args.actor_checkpoint and not args.actor_checkpoint.is_file():
+        parser.error('Missing actor checkpoint')
+    if args.executed_actions and (args.actor_checkpoint or not args.executed_actions.is_file()):
+        parser.error('--executed-actions needs an existing native dataset and excludes --actor-checkpoint')
     if args.robot_model != 's63' or args.gripper != 'leju-twofinger' or not args.rack_rollers:
         parser.error('This reference replay requires S63/Leju and rack rollers')
     if args.output_dir.exists():
@@ -113,8 +126,41 @@ def main():
         observation, _ = env.reset(seed=42)
         observation, _ = _settle_initial_resets(env, observation)
         observation, rack, settling_steps = settle_reference_scene(env, demo)
-        teacher = VRJointTracker(env, demo, rack)
         projection = GraspActionProjector(list(actions.items()))
+        teacher = None
+        agent = state = limits = executed = None
+        initial_actor_error = None
+        controller_name = 'VR_reference_plus_contact_confirmed_IK_NOT_SAC'
+        if args.executed_actions:
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import read_executed_successes
+            measured, _ = read_executed_successes(args.executed_actions, contract)
+            executed = select_reference_episode(measured, args.episode_index)
+            initial_actor_error = float((observation['policy'][0].cpu()-executed['actor_obs'][0]).abs().max())
+            if initial_actor_error > 1e-5:
+                raise ValueError(f'Recorded-command replay starts with a different actor observation: {initial_actor_error}')
+            controller_name = 'recorded_current_GPU_actions_open_loop_NOT_SAC'
+        elif args.actor_checkpoint:
+            from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import AsymmetricSAC
+            from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
+            from kuavo_isaaclab_scene.rl.runners.storage import load_checkpoint
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import PHYSICAL_KEYS
+            source = json.loads((args.actor_checkpoint.parent/'manifest.json').read_text())
+            for key in (*PHYSICAL_KEYS, 'flap_pose_source'):
+                if source.get(key) != contract.get(key):
+                    raise ValueError(f'Actor checkpoint physical contract differs: {key}')
+            state = load_checkpoint(args.actor_checkpoint, device=env.device)
+            agent = AsymmetricSAC(dims['policy'][0], dims['policy'][0]+dims['critic'][0],
+                sum(actions.values()), SACConfig(**state['config']), env.device,
+                action_projector=projection)
+            agent.restore(state, training=False)
+            agent.eval()
+            controller_name = 'deterministic_SAC_actor_on_inferred_VR_scene'
+            if args.body_envelope:
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.action_envelope import diagnostic_body_limits
+                limits = diagnostic_body_limits(actions.items(), device=env.device)
+                controller_name += '_diagnostic_body_envelope'
+        else:
+            teacher = VRJointTracker(env, demo, rack)
         output = args.output_dir.resolve()
         output.mkdir(parents=True, exist_ok=False)
         meta = dict(task_family='multi_box_v2', skill='grasp', robot_model='s63',
@@ -122,18 +168,26 @@ def main():
             action_dim=sum(actions.values()), actor_obs_dim=dims['policy'][0],
             critic_obs_dim=dims['policy'][0]+dims['critic'][0], action_terms=list(map(list, actions.items())),
             control_dt=env.step_dt, multi_box=asdict(cfg.multi_box), episode_seconds=30.,
-            collection_source='current_v2_environment_executed_vr_reference',
+            collection_source=('executed_action_reproduction' if executed is not None else
+                               'SAC_actor_reference_scene_evaluation' if agent else
+                               'current_v2_environment_executed_vr_reference'),
             sim_device=str(env.device), current_reward_verified_against_breakdown=True,
             training_contract=contract, initial_poses='inferred_from_original_demo_then_physics_settled',
             old_demo_rewards_used=False, old_policy_executed=False,
             source_dataset=str(args.demo_dataset.resolve()), source_episode_index=args.episode_index,
-            reset_kinematics='coherent_gpu_articulation_fk_v2')
+            reset_kinematics='coherent_gpu_articulation_fk_v2',
+            actor_checkpoint=str(args.actor_checkpoint.resolve()) if agent else None,
+            executed_action_source=str(args.executed_actions.resolve()) if executed is not None else None,
+            body_envelope_diagnostic=args.body_envelope)
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
-            caption=f'VR reference + live IK | NOT SAC | actual {env.device} PhysX')
+            caption=(f'Recorded actual commands | NOT SAC | actual {env.device} PhysX' if executed is not None else
+                     f'Actor | SAC updates={state.get("actor_updates", "unknown")} | envelope={args.body_envelope} | {env.device}' if agent else
+                     f'VR reference + live IK | NOT SAC | actual {env.device} PhysX'))
+        video_name = 'policy.mp4' if agent else 'reference.mp4'
         if renderer:
-            writer = cv2.VideoWriter(str(output/'reference.mp4'), cv2.VideoWriter_fourcc(*'mp4v'),
+            writer = cv2.VideoWriter(str(output/video_name), cv2.VideoWriter_fourcc(*'mp4v'),
                                     30/args.capture_every, (960, 720))
             if not writer.isOpened():
                 raise ValueError('Could not open reference video writer')
@@ -143,10 +197,21 @@ def main():
         def before_reset():
             result = compute()
             grasp = env._multi_box_privileged_grasp_step
+            from kuavo_isaaclab_scene.rl.multi_box.debug.contact_sensors import V2_RACK_SENSOR_NAMES, V2_COLLISION_BODY_NAMES
+            from kuavo_isaaclab_scene.rl.multi_box.debug.contact_force import filtered_force_by_body
+            force = filtered_force_by_body(env, V2_RACK_SENSOR_NAMES)[0]
+            safety = env._multi_box_grasp_safety_step
             row = dict(step=len(history)+1, pinching=grasp.pinch.hand_pinching[0].tolist(),
                 flap_distances=grasp.matched_flap_distance_m[0].tolist(),
-                box_pose=grasp.box_pose_world[0].tolist(), phase=int(teacher.phase[0]),
-                ik_position_errors=[float(s.target_position_error()[0]) for s in teacher.solvers],
+                box_pose=grasp.box_pose_world[0].tolist(), phase=int(teacher.phase[0]) if teacher else None,
+                ik_position_errors=[float(s.target_position_error()[0]) for s in teacher.solvers] if teacher else None,
+                action=action[0].tolist(), rack_peak_force=float(force.max()),
+                rack_peak_body=V2_COLLISION_BODY_NAMES[int(force.argmax())],
+                box_velocity=grasp.box_velocity_world[0].tolist(),
+                unsafe_causes={key: bool(getattr(safety, key)[0]) for key in (
+                    'invalid_box_pose', 'invalid_flap_pose', 'robot_rack_collision',
+                    'self_collision', 'obstacle_collision', 'workspace_limit',
+                    'box_drop', 'box_lift_limit', 'box_speed_limit')},
                 **{key: bool(env.termination_manager.get_term(key)[0]) for key in counts})
             history.append(row)
             for key in counts:
@@ -162,11 +227,17 @@ def main():
         env.termination_manager.compute = before_reset
         frames = 0
         with torch.no_grad():
-            for step in range(900):
+            for step in range(min(args.steps, len(executed['action'])) if executed is not None else args.steps):
                 if stopped['value']:
                     break
                 pre = {key: value.clone() for key, value in observation.items()}
-                action = projection(pre['policy'], teacher.act(pre['policy']))
+                if not bool(torch.isfinite(pre['policy']).all()):
+                    raise ValueError('Nonfinite actor observation in physical replay')
+                action = (executed['action'][step:step+1].to(env.device) if executed is not None else
+                          agent.act(pre['policy'], deterministic=True) if agent else
+                          projection(pre['policy'], teacher.act(pre['policy'])))
+                if limits is not None:
+                    action = action.clamp(-limits, limits)
                 observation, reward, terminated, truncated, info = env.step(action)
                 terminal = info['transition_next_observations']
                 if bool(info['transition_numerical_failure'].any()):
@@ -184,7 +255,7 @@ def main():
                 if 'frame' in pixels:
                     frame = pixels.pop('frame')
                     writer.write(frame)
-                    if frames == 0 or row['success']:
+                    if frames == 0 or row['success'] or row['unsafe']:
                         cv2.imwrite(str(output/'preview.png'), frame)
                     frames += 1
                 if step % 30 == 0:
@@ -194,10 +265,15 @@ def main():
                     recorder.finish_episode(success=row['success'],
                         reason='success' if row['success'] else 'failure')
                     break
-        report = dict(policy='VR_reference_plus_contact_confirmed_IK_NOT_SAC',
+        report = dict(policy=controller_name,
                       steps=len(history), outcomes=counts, frames=frames, history=history,
                       initial_settling_steps=settling_steps, sim_device=str(env.device),
-                      interrupted=stopped['value'], completed_attempt=bool(sum(counts.values())))
+                      interrupted=stopped['value'], completed_attempt=bool(sum(counts.values())),
+                      video=str(output/video_name) if renderer else None,
+                      body_envelope_diagnostic=args.body_envelope,
+                      initial_actor_error=initial_actor_error,
+                      checkpoint_actor_updates=state.get('actor_updates') if state else None,
+                      checkpoint_actor_refit=state.get('diagnostic_actor_refit') if state else None)
         (output/'metrics.json').write_text(json.dumps(report, indent=2)+'\n')
         print(json.dumps({key: value for key, value in report.items() if key != 'history'}), flush=True)
     except BaseException as error:
