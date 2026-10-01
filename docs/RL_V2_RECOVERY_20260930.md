@@ -134,6 +134,38 @@ the replay aborts. Recording a successful reference does not establish that SAC
 has learned it. The finished410-row archive and native HDF5 remain local/Drive
 artifacts rather than large files committed to Git.
 
+## Full-path SAC comparison currently running — 2026-10-01
+
+Started16:22 KST on physical GPU3 with `CUDA_VISIBLE_DEVICES=3`, source`6b929d2`,
+128 environments /80 iterations. Parent experiment is
+`artifacts/rl/drive_runs/sac_mbv2_fullpath_gpu3_20261001_162204`; child is
+`sac_20261001_162217_9536fa`. The fresh actor/Q/optimizers import only the
+measured410-row GPU success archive. Native410-row observations/actions also
+serve as the early20% BC prior; old recorded rewards are excluded. Half of the
+existing online teacher BC batch is reserved for the protected actual success
+path.900-step CPU episode history protects later full successes.
+
+At16:28 it had6/80 iterations and24,576 valid transitions, all128 environments
+ready and nonfinite0; actor updates had not started because50,000 transitions
+are collected first. Demo prefit MSE decreased0.21716→0.001571, which establishes
+fit on those labels, not autonomous grasp. Both old and new startup had few
+invalid shelf resets (5 vs6) and38 vs39 settling steps: the diagnostic FK bug
+**does not by itself explain the old SAC plateau**. Randomization is retained.
+
+Checkpoint20-iteration spacing, existing Drive upload every300 seconds,
+checksum-verified retention of the newest two and final closed-log verification
+remain active. Initial GPU usage was11.1GiB; this is a bounded learning
+comparison before scaling. The other users' GPU0/1/2 jobs are untouched.
+Actual status/progress must be read from current `status.json`/`metrics.jsonl`.
+
+The reusable reference command now settles the ordinary initial reset before
+restoring the inferred scene, prints its identity guard, and writes `failure.json`
+plus a traceback before Kit shutdown if replay fails. Kit may otherwise replace
+the Python exception exit code with0. The output directory must be new, and
+inferred restoration rejects multi-environment scenes. The validated second
+reference preserves target9 with rack-reference error0.000043 and invalid reset0;
+its physical attempt is still being measured.
+
 ## Follow-up: contact confirmation and full successful paths — 2026-10-01
 
 The upper-shelf VR/current-controller comparisons still have **held success0**.

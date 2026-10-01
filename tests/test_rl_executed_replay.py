@@ -103,6 +103,13 @@ def test_reference_selection_never_crosses_episode_end():
         select_reference_episode(batch, 2)
 
 
+def test_inferred_reference_cannot_overwrite_a_vector_training_scene():
+    from types import SimpleNamespace
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import restore_inferred_scene
+    with pytest.raises(ValueError, match='single-environment'):
+        restore_inferred_scene(SimpleNamespace(num_envs=128), None)
+
+
 @pytest.mark.parametrize("mutation,match", [
     ("gap", "observation gap"), ("terminal_reset", "terminal observation"),
     ("unsafe", "measured success"), ("missing_controller", "controller-state"),

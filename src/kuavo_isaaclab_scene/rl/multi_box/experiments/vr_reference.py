@@ -7,6 +7,8 @@ import torch
 
 
 def restore_inferred_scene(env, observation):
+    if env.num_envs != 1:
+        raise ValueError('Inferred VR restoration is a single-environment diagnostic')
     from isaaclab.utils.math import quat_from_matrix, quat_inv, quat_mul, quat_apply
     from kuavo_isaaclab_scene.rl.multi_box.demo_replay import _rotation_matrix
     from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import physical_asset_names,physical_pool_id,logical_cells
@@ -162,6 +164,9 @@ def settle_reference_scene(env, demo):
     actual = env._multi_box_active[0]
     rack_error = float((observation['policy'][0,68:77]
                        - demo['actor_obs'][0,68:77].to(env.device)).norm())
+    print('[VR SCENE GUARD]', {'expected_target': torch.where(expected)[0].tolist(),
+        'actual_target': torch.where(actual)[0].tolist(), 'rack_error': rack_error,
+        'invalid_resets': (env._multi_box_reset_settling.invalid_count-invalid_before).tolist()}, flush=True)
     if (not torch.equal(actual.cpu(), expected.cpu()) or rack_error > .025
             or (env._multi_box_reset_settling.invalid_count != invalid_before).any()):
         raise ValueError('VR scene was replaced during settling; replay/Q import prohibited')

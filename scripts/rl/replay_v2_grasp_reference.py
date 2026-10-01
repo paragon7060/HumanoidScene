@@ -35,6 +35,8 @@ def main():
         parser.error('Capture interval must be positive and episode index nonnegative')
     if args.robot_model != 's63' or args.gripper != 'leju-twofinger' or not args.rack_rollers:
         parser.error('This reference replay requires S63/Leju and rack rollers')
+    if args.output_dir.exists():
+        parser.error('Use a new, unique output directory')
     export_robot_model_cli(args)
     export_gripper_cli(args)
     export_rack_roller_cli(args)
@@ -65,6 +67,7 @@ def main():
             FRONT_STAGE_CLEARANCE_M, FRONT_STAGE_LANE_TOLERANCE_M, FRONT_STAGE_REWARD_SCALE_M,
         )
         from kuavo_isaaclab_scene.rl.multi_box.training_env_cfg import MultiBoxGraspAssemblyEnvCfg
+        from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import _settle_initial_resets
 
         contract = json.loads(args.training_manifest.read_text())
         if (contract.get('task_family') != 'multi_box_v2' or contract.get('skill') != 'grasp'
@@ -105,6 +108,7 @@ def main():
             self_collision_enabled=cfg.multi_box.self_collision_enabled)
         demo = select_reference_episode(batch, args.episode_index)
         observation, _ = env.reset(seed=42)
+        observation, _ = _settle_initial_resets(env, observation)
         observation, rack, settling_steps = settle_reference_scene(env, demo)
         teacher = VRJointTracker(env, demo, rack)
         projection = GraspActionProjector(list(actions.items()))
@@ -192,6 +196,15 @@ def main():
                       initial_settling_steps=settling_steps, sim_device=str(env.device))
         (output/'metrics.json').write_text(json.dumps(report, indent=2)+'\n')
         print(json.dumps({key: value for key, value in report.items() if key != 'history'}), flush=True)
+    except BaseException as error:
+        # Kit shutdown can replace Python's nonzero exit and suppress the
+        # uncaught traceback. Preserve the failure before closing the app.
+        import traceback
+        traceback.print_exc()
+        args.output_dir.mkdir(parents=True, exist_ok=True)
+        (args.output_dir/'failure.json').write_text(json.dumps(
+            {'phase': 'failed', 'error': type(error).__name__, 'reason': str(error)})+'\n')
+        raise
     finally:
         if writer is not None:
             writer.release()
