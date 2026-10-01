@@ -77,6 +77,7 @@ def main():
     parser.add_argument("--success-history-steps", type=int, default=64,
                         help="V2 real pre-success history per env on CPU;900 covers a full attempt.")
     parser.add_argument("--success-batch-fraction", type=float, default=0.05)
+    parser.add_argument("--success-imitation-fraction", type=float, default=0.0)
     parser.add_argument("--reward-scale", type=float, default=10.0)
     parser.add_argument("--entropy-backup", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--actor-feature-mode", choices=("flat", "grasp_target"), default="grasp_target")
@@ -203,6 +204,7 @@ def main():
                 or args.success_replay_capacity < 1 \
                 or not 1 <= args.success_history_steps <= 900 \
                 or not 0 <= args.success_batch_fraction < 1 \
+                or not 0 <= args.success_imitation_fraction <= 1 \
                 or args.success_batch_fraction + args.goal_batch_fraction >= 1:
             parser.error("Invalid V2 critic warmup or success replay")
         for name in ("warmup_action_hold_steps", "warmup_continuous_scale", "min_alpha",
@@ -211,7 +213,7 @@ def main():
                      "ik_grasp_goal", "ik_orientation_mode", "ik_lift_distance_m",
                      "ik_base_clearance_m", "ik_torso_forward_m",
                      "online_ik_episode_fraction",
-                     "actor_lr", "critic_warmup_updates", "success_replay_capacity", "success_history_steps", "success_batch_fraction",
+                     "actor_lr", "critic_warmup_updates", "success_replay_capacity", "success_history_steps", "success_batch_fraction", "success_imitation_fraction",
                      "reward_scale", "actor_feature_mode",
                      "goal_replay_capacity", "goal_batch_fraction",
                      "demo_batch_fraction", "demo_bc_strength", "demo_decay_fraction", "demo_pretrain_steps",

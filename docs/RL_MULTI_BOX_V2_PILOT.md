@@ -228,3 +228,16 @@ Quest 수집은 [RL 시연 수집 안내](RL_QUEST_REWARD_DEBUG.md)를 따른다
 실제 로봇에서는 패널 자세 추정 backend가 필요하다. CPU geometry/contract
 확인53개와 실제 Isaac 관측 읽기는 통과했지만, 상단 물리 비교는 랙22.20N
 충돌로 실패했다. 따라서 성공률 개선이나 기본 설정 채택을 주장하지 않는다.
+
+## 현재 GPU 물리에서 성공 경로 재생·SAC 연결
+
+`replay_v2_grasp_reference.py`는 inferred VR 장면을 복원하고 현재24-D
+제어로 접근·실제 pinch 확인·lift를 실행한다. settling 중 목표 재배치나
+수치 오류가 생기면 데이터를 학습에 넣지 않는다. 종료된 실제 GPU 성공
+경로는 `experiments.executed_replay`로 data-only archive를 만들고
+`--experience-checkpoint`로 가져온다. 기존 VR reward/actor/Q/optimizer는
+가져오지 않는다. `--success-imitation-fraction 0.5`는 기존 teacher 배치의
+절반을 실제 성공 경로로 채운다(기본0). offline demo20% 감소와 별도다.
+
+[재현 명령·410tick 실제 성공 영상·GPU reset FK 수정·한계](RL_V2_RECOVERY_20260930.md)를
+확인한다. 재생 성공을 학습된 SAC 성공률로 해석하지 않는다.

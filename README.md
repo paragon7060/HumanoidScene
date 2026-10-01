@@ -292,6 +292,13 @@ articulated 옵션은 아직 성공률 향상이 입증되지 않았고 기본�
 SAC 성공은 별도 지표로 기록된다. 기본값 0은 SAC만 실행한다.
 [데모·IK 탐색 연결과 실행 예시](docs/RL_V2_RECOVERY_20260930.md)를 참고한다.
 
+현재 물리에서 VR 경로를 측정하려면 `scripts/rl/replay_v2_grasp_reference.py`를
+사용한다. GPU reset의 본체/flap FK를 함께 갱신하고, settling 중 목표가
+바뀌면 재생을 중단한다. 성공한 실제 transition만 data-only archive로
+만드는 방법과 `--success-imitation-fraction` 설정은
+[GPU 재생·성공 경험 연결](docs/RL_V2_RECOVERY_20260930.md#gpu-scene-restoration-and-measured-full-path-seed--2026-10-01)에 있다.
+VR/IK 재생 성공은 SAC 정책 성공과 구분한다.
+
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에
 중복하지 않는다. 처음에는 [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md)을 따른다.
 

@@ -17,6 +17,7 @@ from ..multi_box.experiments.guided_exploration import (
 )
 from ..multi_box.experiments.episode_guidance import EpisodicIKGuidance
 from ..multi_box.experiments.imitation_schedule import teacher_fraction
+from ..multi_box.experiments.success_imitation import sample_teacher_with_success
 from .storage import load_checkpoint, log_metrics, save_checkpoint
 from .common import stop_requested
 
@@ -503,6 +504,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             "teacher_pretraining": teacher_pretraining,
             "ik_lift_confirmation": IK_LIFT_CONFIRMATION,
             "success_history_steps": success_history.horizon,
+            "success_imitation_fraction": getattr(args, "success_imitation_fraction", 0.0),
             "teacher_imitation": teacher_replay.snapshot(),
             "success_replay": {key: value[:success_replay.size].clone()
                                for key, value in success_replay.data.items()},
@@ -571,6 +573,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
         success_samples = 0
         demo_samples = 0
         teacher_samples = 0
+        executed_success_imitation_samples = 0
         online_teacher_labels = 0
         executed_success_labels = 0
         terminated_episodes = timeout_episodes = 0
@@ -839,8 +842,10 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                 # Fit before the first Q update and the first unguided action.
                 # Warmup samples contain measured new-dynamics rewards.
                 if teacher_replay.size and not teacher_fitted:
-                    teacher_batch = teacher_replay.sample(
-                        min(teacher_replay.size, 100_000), env.device)
+                    teacher_batch, prefit_success_rows = sample_teacher_with_success(
+                        teacher_replay, success_replay,
+                        min(teacher_replay.size, 100_000), env.device,
+                        getattr(args, "success_imitation_fraction", 0.0))
                     if demonstration is not None:
                         legacy = demonstration.sample(
                             max(1, len(teacher_batch["action"]) // 4), env.device)
@@ -851,6 +856,7 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                         teacher_batch["actor_obs"], teacher_batch["action"],
                         steps=getattr(args, "teacher_pretrain_steps", 5000),
                         batch_size=getattr(args, "demo_pretrain_batch_size", 256))
+                    teacher_pretraining["executed_success_rows_in_fit"] = prefit_success_rows
                     teacher_fitted = True
                     print(f"[V2 SAC] Online entry imitation: {teacher_pretraining}", flush=True)
                 update_credit += args.updates_per_step * count / env.num_envs
@@ -866,8 +872,12 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                     independent_teacher_fraction = teacher_fraction(args, actor_updates)
                     teacher_count = round(args.batch_size * independent_teacher_fraction) \
                         if teacher_replay.size else 0
-                    teacher_batch = teacher_replay.sample(teacher_count, env.device) \
-                        if teacher_count else None
+                    teacher_batch = None
+                    actual_teacher_count = 0
+                    if teacher_count:
+                        teacher_batch, actual_teacher_count = sample_teacher_with_success(
+                            teacher_replay, success_replay, teacher_count, env.device,
+                            getattr(args, "success_imitation_fraction", 0.0))
                     if (not getattr(args, "teacher_batch_fraction", 0.0)
                             and demo_count and teacher_replay.size):
                         teacher_count = round(demo_count * 0.8)
@@ -897,6 +907,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
                         update_actor=optimizer_updates >= getattr(args, "critic_warmup_updates", 500))
                     demo_samples += demo_count if metrics["actor_updated"] else 0
                     teacher_samples += teacher_count if metrics["actor_updated"] else 0
+                    executed_success_imitation_samples += actual_teacher_count \
+                        if metrics["actor_updated"] else 0
                     actor_updates += int(metrics["actor_updated"])
                     success_samples += success_count
                     optimizer_updates += 1
@@ -912,6 +924,8 @@ def train(env, args, directory, state=None, demonstration_batch=None):
             teacher_bootstrap_rows=teacher_bootstrap_rows,
             imported_success_rows=imported_success_rows,
             executed_success_label_seed_rows=executed_success_label_seed_rows,
+            success_imitation_fraction=getattr(args, "success_imitation_fraction", 0.0),
+            executed_success_imitation_samples_this_iteration=executed_success_imitation_samples,
             teacher_critical_batch_fraction=teacher_replay.priority_fraction,
             success_history_steps=success_history.horizon,
             executed_success_label_rows_this_iteration=executed_success_labels,

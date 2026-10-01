@@ -133,6 +133,14 @@ def reset_randomized_scene(env, env_ids):
     rack_pose = _move_rack(env, ids, batch)
     _move_conveyor(env, ids, batch)
     _move_active_boxes(env, ids, batch, rack_pose)
+    # Teleported roots and flap links must describe one configuration before
+    # collision solving or reset validation. Unchanged zero DOFs otherwise
+    # leave child links parked in the installed GPU runtime.
+    from .reset_kinematics import refresh_teleported_articulations
+    names = (*physical_asset_names(), *(
+        name for name in RACK_ROLLER_ASSET_NAMES
+        if getattr(env.cfg.scene, name, None) is not None))
+    refresh_teleported_articulations(env, [env.scene[name] for name in names], ids)
     _remember(env, ids, batch)
     if getattr(env.cfg, "validate_randomized_resets", False):
         settling = getattr(env, "_multi_box_reset_settling", None)

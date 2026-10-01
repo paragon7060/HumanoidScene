@@ -63,10 +63,9 @@ def assigned_flap_rotations(observation):
 def successful_demo_grasp_offsets(demonstrations, front_y):
     """Offline grasp offsets selected only from physical demo pinch frames."""
     demo = demonstrations["actor_obs"]
-    token, _ = target_token(demo)
-    rotation = _rotation_matrix(token[:, 15:21])
+    rotation = assigned_flap_rotations(demo)
     _, centers, _, _ = entry_geometry(demo, front_y)
-    offsets = (rotation.transpose(-1, -2)[:, None]
+    offsets = (rotation.transpose(-1, -2)
                @ (demo[:, 50:68].reshape(-1, 2, 9)[..., :3] - centers)[..., None]).squeeze(-1)
     privileged = demonstrations["critic_obs"][:, demo.shape[1]:]
     close = demonstrations["action"][:, 20:22] > 0
@@ -174,6 +173,10 @@ class KinematicGraspExplorer:
         box_rotation = _rotation_matrix(tokens[:, 15:21])
         tcp_rotation = _rotation_matrix(demo[:, 50:68].reshape(-1, 2, 9)[..., 3:])
         orientations = box_rotation.transpose(-1, -2)[:, None] @ tcp_rotation
+        if env.cfg.multi_box.flap_pose_source == "articulated":
+            # Native articulated demonstrations must calibrate in each panel
+            # frame. An explicitly allowed nominal prior remains approximate.
+            orientations = assigned_flap_rotations(demo).transpose(-1, -2) @ tcp_rotation
         close = demonstrations["action"].to(env.device)[:, 20:22] > 0
         # Select a real successful-close frame per hand; averaging rotations
         # or mixing the two demos can yield an invalid wrist orientation.

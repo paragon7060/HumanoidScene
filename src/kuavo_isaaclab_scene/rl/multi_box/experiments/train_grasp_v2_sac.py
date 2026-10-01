@@ -65,6 +65,8 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict, *, data_only=False)
     if not source_path.is_file():
         raise ValueError(f"Checkpoint needs its manifest.json beside it: {source_path}")
     source = json.loads(source_path.read_text())
+    if source.get("artifact_type") == "executed_experience_only" and not data_only:
+        raise ValueError("This archive contains executed data only; use --experience-checkpoint, not --checkpoint")
     for key in (
         "task_family", "schema_version", "skill", "algorithm", "robot_model",
         "gripper", "actions", "action_contract", "observations", "observation_contract", "critic_mapping", "contact_contract",
@@ -150,6 +152,8 @@ def main() -> None:
     parser.add_argument("--success-history-steps", type=int, default=64,
                         help="Keep real pre-success steps per environment; 900 covers a full30s attempt in CPU memory.")
     parser.add_argument("--success-batch-fraction", type=float, default=0.05)
+    parser.add_argument("--success-imitation-fraction", type=float, default=0.0,
+                        help="Fraction inside the teacher actor-label batch sampled from actual successful full paths; independent of Q/demo fractions.")
     parser.add_argument("--reward-scale", type=float, default=10.0)
     parser.add_argument("--entropy-backup", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--actor-feature-mode", choices=("flat", "grasp_target"), default="grasp_target")
@@ -242,6 +246,7 @@ def main() -> None:
             or args.success_replay_capacity < 1 \
             or not 1 <= args.success_history_steps <= 900 \
             or not 0 <= args.success_batch_fraction < 1 \
+            or not 0 <= args.success_imitation_fraction <= 1 \
             or args.success_batch_fraction + args.goal_batch_fraction >= 1:
         parser.error("Invalid critic warmup, actor learning rate or success replay")
     if args.goal_replay_capacity < 1 or not 0 <= args.goal_batch_fraction < 1:
@@ -471,6 +476,7 @@ def main() -> None:
                     "protected_success_history_steps": args.success_history_steps,
                     "ik_lift_confirmation": IK_LIFT_CONFIRMATION,
                     "success_actor_labels": "entire_retained_executed_success_path",
+                    "success_imitation_fraction": args.success_imitation_fraction,
                     "history_crosses_resets": False,
                 },
                 "entropy_contract": "squash_aware_active_dims_v2",
@@ -481,10 +487,11 @@ def main() -> None:
                 },
                 "experience_initialization": {
                     "experience_source": str(args.experience_checkpoint) if args.experience_checkpoint else None,
-                    "experience_import": "executed_success_tails_only; model_Q_optimizers_ignored",
+                    "experience_import": "retained_executed_success_paths_only; model_Q_optimizers_ignored",
                 },
                 "numerical_failure_contract": {
                     "reset_fk_refresh": True,
+                    "teleported_box_and_roller_fk_refresh": True,
                     "pre_grasp_robot_pose_guard": True,
                     "recovery": "partial_respawn_before_next_physics_write",
                     "outcome": "failure_excluded_from_replay_and_imitation",

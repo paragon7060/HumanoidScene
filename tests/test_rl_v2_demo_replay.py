@@ -76,6 +76,27 @@ def test_retargeted_grasp_requires_physical_pinch_not_only_a_close_command():
         successful_demo_grasp_offsets(missing, 0.335)
 
 
+def test_native_bent_panel_goals_are_calibrated_in_panel_frame():
+    import math
+    from kuavo_isaaclab_scene.rl.multi_box.demo_replay import _rotation_matrix
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import target_token
+    batch, _ = load_v2_grasp_demonstrations(DATASET, self_collision_enabled=False)
+    original = successful_demo_grasp_offsets(batch, .335)
+    changed = batch["actor_obs"].clone()
+    box, _ = target_token(changed)
+    box_rotation = _rotation_matrix(box[:, 15:21])
+    tcp_rotation = _rotation_matrix(changed[:, 50:68].reshape(-1, 2, 9)[..., 3:])
+    c = math.sqrt(.5)
+    tilt = torch.tensor([[c, 0., c], [0., 1., 0.], [-c, 0., c]])
+    panel_rotation = box_rotation @ tilt
+    local = tcp_rotation.transpose(-1, -2) @ panel_rotation[:, None]
+    relative6d = torch.cat((local[..., :, 0], local[..., :, 1]), -1)
+    relations = changed[:, 350:386].reshape(-1, 2, 2, 9)
+    relations[..., 3:] = relative6d[:, :, None]
+    offsets = successful_demo_grasp_offsets({**batch, "actor_obs": changed}, .335)
+    torch.testing.assert_close(offsets, (tilt.T @ original[..., None]).squeeze(-1), atol=1e-5, rtol=1e-5)
+
+
 @pytest.mark.parametrize("source_actor_dim", [440, 464])
 @pytest.mark.parametrize("source_flap", ["nominal", "articulated"])
 def test_native_upright_recordings_are_accepted_without_legacy_pose_conversion(tmp_path, source_actor_dim, source_flap):

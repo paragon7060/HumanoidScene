@@ -2,13 +2,17 @@
 
 ## Latest diagnosis: upper-shelf IK entry — 2026-10-01
 
-**15:10 KST: held grasp remains unsolved.** A new GPU3/128-environment
-contact-confirmed comparison is training from source`4317154`, with80 iterations
-planned and900-step success history. At iteration61, actor updates5,518, SAC
-and IK held successes remain0; nonfinite transitions are0. Drive verified
-checkpoints13/20 by size and MD5. It is a bounded comparison, not a proven
-successful policy. Additional experimental articulated-flap changes described
-below are not injected into this already-running nominal process.
+**16:15 KST: SAC held grasp remains0; current GPU VR replay succeeds.**
+The source`4317154` GPU3/128-environment comparison completed80/80 iterations
+normally:7,911 actor updates,319,077 valid transitions, SAC/IK held successes0,
+nonfinite transitions0. Final checkpoints and closed logs are checksum-verified
+in Drive (`final_upload_verified: true`). That job is finished.
+
+A separate **current24-D GPU3 VR-reference/live-IK replay** now ends in measured
+bilateral held success after410 control ticks (13.67s), with no unsafe, invalid
+reset or timeout. It is **not a learned SAC success or a success-rate estimate**.
+The actual current-reward/full-controller-state transitions pass the data-only
+archive checks described below. Upper-shelf bilateral grasp is still unsolved.
 
 The earlier GPU3/128-environment
 `a05407e` demo-waypoint pilot was stopped normally at iteration42, with3,102
@@ -56,6 +60,79 @@ both the error and angular Jacobian. Default `full` preserves existing teleop
 and baseline behavior. **100 focused CPU checks pass**, including the parallel,
 antiparallel and90-degree axis cases; this establishes math/compatibility,
 not physical success.
+
+## GPU scene restoration and measured full-path seed — 2026-10-01
+
+[![Actual GPU VR reference at13.67s: both pinch1, success1, unsafe0](assets/rl_v2_vr_gpu_success_20261001.png)](assets/rl_v2_vr_gpu_success_20261001.mp4)
+
+[Actual GPU-physics video](assets/rl_v2_vr_gpu_success_20261001.mp4),
+[sampled pre-reset telemetry](assets/rl_v2_vr_gpu_success_20261001.json).
+The renderer uses CPU mesh rasterization of **GPU PhysX body poses**. The CPU
+renderer label does not mean CPU physics. Reference approach plus live bounded
+IK produced the action; no SAC actor executed this example.
+
+A failed GPU comparison had silently changed the restored lower target logical4
+into upper target6 during ordinary settling. It must not be interpreted as a
+CPU/GPU grasp-performance comparison or imported into Q replay. The recorded
+root was at(0.548,0.091,1.049)m, but flap child links still described the parked
+box. The first physics step moved the root to(0.944,0.099,0.805)m—46.6cm in one
+substep—and triggered invalid-shelf respawn. Merely writing the same zero DOFs,
+calling FK again, or warming physics did not repair this case.
+
+`scene/reset_kinematics.py` now forces the GPU articulation FK dirty using a
+transient0.001-rad DOF change, restores the original DOFs, and performs a second
+FK pass **without advancing physics time**. It does not change final joint
+positions, velocities, PD targets, reward or settling acceptance. Two global
+FK passes serve all boxes/roller decks in a partial reset; other environments
+are not written. CPU resets keep their previous path. The same operation is
+used by inferred VR restoration. The repaired GPU replay preserves logical4,
+rack-reference error0.000048, invalid-reset delta0, and the first root movement
+is approximately2 micrometers. Normal randomized resets share this writer
+pattern and now get coherent FK; the change alone is not evidence of SAC learning.
+
+A CPU replay also succeeded at410 ticks. The previous upper CPU comparisons
+remain failures: preserving the right-hand capture held pinch for912 ticks but
+the left never captured. Articulated perception alone collided with the rack.
+Neither is a learned policy, and upper-shelf coverage remains an explicit gap.
+
+The finished GPU replay HDF5 contains410 **executed** transitions, including its
+actual pre-action physical seed, pending targets, old actions, complete approach
+and pre-reset terminal observation. `experiments/executed_replay.py` accepts only
+native current GPU data with matching physical/reward contracts, continuous
+actor/critic observations, actual bilateral terminal success, and no unsafe,
+reset seam or numerical failure. It excludes old recorded VR rewards and CPU
+comparisons. The output is an `experience_only` archive with no actor, Q network
+or optimizer; load it with `--experience-checkpoint`, never `--checkpoint`.
+
+`--success-imitation-fraction 0.5` reserves half of the **existing teacher imitation
+batch** for protected, actually executed success paths. It adds neither a new Q
+label nor an additional imitation-loss budget. Default0 preserves existing
+callers. This prevents a single complete successful approach from being diluted
+by tens of thousands of unsuccessful online corrections. It is separate from
+the offline demo fraction, which starts at20% and decays. New metrics report the
+actual successful imitation samples per iteration.
+
+Reproduce and archive a current replay (paths are examples; use a fresh output):
+
+```bash
+CUDA_VISIBLE_DEVICES=3 OMNI_KIT_ACCEPT_EULA=YES PYTHONPATH=src:scripts/rl \
+  python scripts/rl/replay_v2_grasp_reference.py \
+  --demo-dataset examples/demos/v2_grasp_quest_success.hdf5 --episode-index 0 \
+  --training-manifest /absolute/path/to/current-run/manifest.json \
+  --output-dir /absolute/path/to/unique-reference-run --device cuda:0 --headless
+PYTHONPATH=src python -m kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay \
+  --dataset /absolute/path/to/finished-reference-run/executed_transitions.hdf5 \
+  --training-manifest /absolute/path/to/current-run/manifest.json \
+  --output-dir /absolute/path/to/unique-data-only-archive
+```
+
+Use `--episode-index 1` for the second reference, and `--no-video` for a faster
+physical measurement. Legacy initial scenes are **inferred**, because the old
+subset lacks initial flap/drive state; the recorder captures the actual current
+seed after settling. If the target/rack changes or settling respawns the scene,
+the replay aborts. Recording a successful reference does not establish that SAC
+has learned it. The finished410-row archive and native HDF5 remain local/Drive
+artifacts rather than large files committed to Git.
 
 ## Follow-up: contact confirmation and full successful paths — 2026-10-01
 
