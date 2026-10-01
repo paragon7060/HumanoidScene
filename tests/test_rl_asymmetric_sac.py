@@ -44,6 +44,41 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.imitation_schedule import (
 )
 
 
+def test_no_history_actor_keeps_controller_state_and_ignores_previous_action():
+    torch.manual_seed(12)
+    original = ActorFeatures(464, "grasp_target")
+    encoder = ActorFeatures(464, "grasp_target_no_history")
+    observations = torch.randn(8, 464)
+    expected = original(observations)[:, :-24]
+    assert encoder.output_dim == 174
+    assert torch.equal(encoder(observations), expected)
+    changed = observations.clone()
+    changed[:, 440:] = torch.randn(8, 24) * 100
+    assert torch.equal(encoder(changed), expected)
+    changed[:, 416:440] += 1
+    assert not torch.equal(encoder(changed), expected)
+    with pytest.raises(ValueError, match='controller-state'):
+        ActorFeatures(403, "grasp_target_no_history")
+
+
+def test_no_history_actor_has_no_gradient_to_its_previous_actions():
+    agent = AsymmetricSAC(464, 530, 24, SACConfig(
+        hidden=16, actor_feature_mode="grasp_target_no_history"))
+    observations = torch.randn(4, 464, requires_grad=True)
+    actions = agent.actor(agent.actor_normalizer(agent.actor_features(observations)), deterministic=True)[0]
+    actions.sum().backward()
+    assert torch.count_nonzero(observations.grad[:, 440:]) == 0
+    assert torch.count_nonzero(observations.grad[:, 416:439]) > 0
+    state = agent.checkpoint()
+    restored = AsymmetricSAC(464, 530, 24, SACConfig(**state['config']))
+    restored.restore(state, training=False)
+    assert torch.equal(agent.act(observations.detach(), True), restored.act(observations.detach(), True))
+    state['inference_only'] = True
+    with pytest.raises(ValueError, match='inference-only'):
+        restored.restore(state, training=True)
+    restored.restore(state, training=False)
+
+
 def test_live_teacher_continues_after_short_pilot_vr_schedule_ends():
     args = SimpleNamespace(teacher_batch_fraction=.2, teacher_min_batch_fraction=.1,
                            teacher_decay_updates=128_000)

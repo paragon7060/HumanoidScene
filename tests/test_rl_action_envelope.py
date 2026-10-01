@@ -3,10 +3,23 @@
 import pytest
 import torch
 
-from kuavo_isaaclab_scene.rl.multi_box.experiments.action_envelope import diagnostic_body_limits
+from kuavo_isaaclab_scene.rl.multi_box.experiments.action_envelope import diagnostic_body_limits, mix_teacher_actor
 
 TERMS = [('base', 3), ('upper_body', 15), ('height', 2),
          ('left_gripper', 1), ('right_gripper', 1), ('head', 2)]
+
+
+def test_correction_probe_preserves_teacher_jaws_and_limits_actor_influence():
+    teacher = torch.full((3, 24), .2)
+    teacher[:, 20:22] = torch.tensor([-1., 1.])
+    actor = -torch.ones_like(teacher)
+    executed = mix_teacher_actor(teacher, actor, .05, gripper_columns=(20, 21))
+    assert torch.allclose(executed[:, :20], torch.full((3, 20), .14))
+    assert torch.equal(executed[:, 20:22], teacher[:, 20:22])
+    assert torch.equal(mix_teacher_actor(teacher, actor, 0, gripper_columns=(20, 21)), teacher)
+    assert torch.equal(teacher[:, :20], torch.full((3, 20), .2))
+    with pytest.raises(ValueError, match='mix'):
+        mix_teacher_actor(teacher, actor, .3, gripper_columns=(20, 21))
 
 
 def test_body_command_limits_retain_full_arms_and_jaws():

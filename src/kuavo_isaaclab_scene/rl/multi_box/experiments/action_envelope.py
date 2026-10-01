@@ -8,6 +8,20 @@ only a diagnostic: it must not silently alter the training distribution.
 import torch
 
 
+def mix_teacher_actor(teacher, actor, fraction, *, gripper_columns):
+    """Bounded correction-data probe; actual jaws stay with the VR teacher.
+
+    The returned action is executed and measured separately from the teacher
+    label. This controller's success is not a pure learned-SAC success.
+    """
+    if not 0 <= fraction <= .2 or teacher.shape != actor.shape \
+            or teacher.ndim != 2 or len(gripper_columns) != 2:
+        raise ValueError('Invalid normalized actor/teacher mix')
+    result = teacher.lerp(actor, fraction).clamp(-1, 1)
+    result[:, list(gripper_columns)] = teacher[:, list(gripper_columns)]
+    return result
+
+
 def diagnostic_body_limits(action_terms, *, device="cpu", dtype=torch.float32):
     expected = {"base": 3, "upper_body": 15, "height": 2,
                 "left_gripper": 1, "right_gripper": 1, "head": 2}

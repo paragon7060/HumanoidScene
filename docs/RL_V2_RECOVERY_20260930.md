@@ -1,5 +1,12 @@
 # Multi-box v2 SAC recovery experiments — 2026-09-30
 
+**2026-10-01 19:39 KST update:** standalone SAC still has no held-grasp success.
+The completed 80-iteration measured-path run and new physical BC/DAgger/PD-goal
+comparisons are recorded in [closed-loop recovery](RL_V2_CLOSED_LOOP_RECOVERY_20261001.md).
+A separate GPU3 fixed-reference residual SAC pilot is being evaluated; its
+reference dependency and contextual action space are explicit. Historical
+entries below retain their original measurement times.
+
 ## Latest diagnosis: upper-shelf IK entry — 2026-10-01
 
 **16:15 KST: SAC held grasp remains0; current GPU VR replay succeeds.**

@@ -40,11 +40,16 @@ def read_executed_successes(dataset: Path, contract: dict):
                 or source.attrs.get("format_version") != 1:
             raise ValueError("Executed replay requires the native transition format")
         meta = json.loads(source.attrs["manifest_json"])
-        if meta.get("collection_source") != "current_v2_environment_executed_vr_reference" \
+        collection_source = meta.get('collection_source')
+        if collection_source not in {"current_v2_environment_executed_vr_reference", "mixed_VR_actor_DAgger"} \
                 or meta.get("current_reward_verified_against_breakdown") is not True \
                 or not str(meta.get("sim_device", "")).startswith("cuda:") \
                 or meta.get("old_demo_rewards_used") is not False:
             raise ValueError("Only measured current GPU replay is eligible; old VR rewards are excluded")
+        if collection_source == 'mixed_VR_actor_DAgger':
+            fraction = meta.get('actor_reference_mix')
+            if not isinstance(fraction, (int, float)) or not 0 <= fraction <= .2:
+                raise ValueError('Mixed replay requires a declared bounded actor fraction')
         recorded = meta.get("training_contract", {})
         for key in PHYSICAL_KEYS:
             if key not in contract or recorded.get(key) != contract[key]:
@@ -116,20 +121,41 @@ def read_executed_successes(dataset: Path, contract: dict):
     return {name: torch.cat(rows) for name, rows in parts.items()}, {
         "source_dataset_sha256": hashlib.sha256(dataset.read_bytes()).hexdigest(),
         "successful_episodes": accepted, "executed_rows": sum(len(p) for p in parts["reward"]),
-        "source": "measured_current_gpu_vr_reference; not_a_learned_policy",
+        "source": f"measured_current_gpu_{collection_source}; not_a_pure_learned_policy",
         "recorded_old_demo_rewards_imported": False,
+        "hypothetical_correction_labels_imported": False,
         "initial_poses": meta.get("initial_poses"),
     }
 
 
+def merge_executed_successes(datasets, contract):
+    """Validate each complete attempt independently before joining Q rows.
+
+    Only native `action`/reward/next-state fields enter Q. The separately
+    exported `teacher_imitation` proposal archive is never read here.
+    """
+    sources = [read_executed_successes(path, contract) for path in datasets]
+    if not sources:
+        raise ValueError('At least one executed dataset is required')
+    if len(sources) == 1:
+        return sources[0]
+    replay = {key: torch.cat([rows[key] for rows, _ in sources]) for key in sources[0][0]}
+    audit = dict(sources=[entry for _, entry in sources],
+                 successful_episodes=sum(entry['successful_episodes'] for _, entry in sources),
+                 executed_rows=len(replay['reward']), recorded_old_demo_rewards_imported=False,
+                 hypothetical_correction_labels_imported=False)
+    return replay, audit
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", type=Path, required=True)
+    parser.add_argument("--dataset", type=Path, action='append', required=True,
+                        help='Repeat for multiple independently measured current successes.')
     parser.add_argument("--training-manifest", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     contract = json.loads(args.training_manifest.read_text())
-    replay, audit = read_executed_successes(args.dataset, contract)
+    replay, audit = merge_executed_successes(args.dataset, contract)
     args.output_dir.mkdir(parents=True, exist_ok=False)
     manifest = contract | {"artifact_type": "executed_experience_only", "executed_replay_audit": audit}
     (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

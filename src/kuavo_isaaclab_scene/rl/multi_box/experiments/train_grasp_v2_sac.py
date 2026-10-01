@@ -65,6 +65,12 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict, *, data_only=False)
     if not source_path.is_file():
         raise ValueError(f"Checkpoint needs its manifest.json beside it: {source_path}")
     source = json.loads(source_path.read_text())
+    if source.get('artifact_type') == 'fixed_scene_reference_residual_sac':
+        raise ValueError('Reference-residual Q/policy uses a different contextual action space; use the residual pilot entrypoint')
+    if source.get('artifact_type') == 'inference_only_actor_imitation':
+        raise ValueError('Actor comparison artifacts are inference-only, not training/experience checkpoints')
+    if source.get('artifact_type') == 'actor_labels_only' and not data_only:
+        raise ValueError('Correction labels have no policy/Q; use --teacher-label-checkpoint')
     if source.get("artifact_type") == "executed_experience_only" and not data_only:
         raise ValueError("This archive contains executed data only; use --experience-checkpoint, not --checkpoint")
     for key in (
@@ -156,7 +162,7 @@ def main() -> None:
                         help="Fraction inside the teacher actor-label batch sampled from actual successful full paths; independent of Q/demo fractions.")
     parser.add_argument("--reward-scale", type=float, default=10.0)
     parser.add_argument("--entropy-backup", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--actor-feature-mode", choices=("flat", "grasp_target"), default="grasp_target")
+    parser.add_argument("--actor-feature-mode", choices=("flat", "grasp_target", "grasp_target_no_history"), default="grasp_target")
     parser.add_argument("--freeze-actor-normalizer", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--goal-replay-capacity", type=int, default=100_000)
     parser.add_argument("--goal-batch-fraction", type=float, default=0.25)

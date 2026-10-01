@@ -21,7 +21,7 @@ class ActorFeatures(nn.Module):
         self.mode = mode
         if mode == "flat":
             self.output_dim = input_dim
-        elif mode == "grasp_target":
+        elif mode in {"grasp_target", "grasp_target_no_history"}:
             from ..multi_box.observations.builder import BOX_TOKEN_DIM, ROBOT_PROPRIO_DIM
             from ..multi_box.spec import MAX_BOXES
             self.token_start = ROBOT_PROPRIO_DIM + 18
@@ -31,9 +31,20 @@ class ActorFeatures(nn.Module):
             self.mask_start = self.relation_start + 38
             self.target_start = self.mask_start + MAX_BOXES
             self.tail_start = self.target_start + MAX_BOXES
+            self.tail_end = input_dim
+            if mode == "grasp_target_no_history":
+                from ..multi_box.observations.builder import flat_actor_observation_dim
+                previous_action_dim = input_dim - (flat_actor_observation_dim(1) - 1)
+                if previous_action_dim < 1:
+                    raise ValueError("grasp_target_no_history requires the current controller-state observation")
+                # Pending PD goals and measured motion remain visible. The
+                # critic keeps the entire raw view, including previous action
+                # for action-rate rewards. Only the actor's feedback shortcut
+                # through its own last prediction is removed.
+                self.tail_end -= previous_action_dim
             if input_dim < self.tail_start + 5:
                 raise ValueError("grasp_target needs the deployable v2 observation contract")
-            self.output_dim = self.token_start + BOX_TOKEN_DIM + 38 + input_dim - self.tail_start
+            self.output_dim = self.token_start + BOX_TOKEN_DIM + 38 + self.tail_end - self.tail_start
         else:
             raise ValueError(f"Unknown actor feature mode: {mode}")
 
@@ -50,7 +61,7 @@ class ActorFeatures(nn.Module):
         token = tokens[rows, selected] * valid[:, None]
         return torch.cat((observation[:, :self.token_start], token,
                           observation[:, self.relation_start:self.mask_start],
-                          observation[:, self.tail_start:]), -1)
+                          observation[:, self.tail_start:self.tail_end]), -1)
 
 
 class AsymmetricReplayBuffer:
@@ -491,6 +502,8 @@ class AsymmetricSAC(nn.Module):
         }
 
     def restore(self, state: dict, training: bool = True) -> None:
+        if training and state.get('inference_only', False):
+            raise ValueError('This actor comparison checkpoint is inference-only; start a fresh training run')
         expected = (self.actor_obs_dim, self.critic_obs_dim, self.action_dim)
         actual = (
             state.get("actor_obs_dim"), state.get("critic_obs_dim"),

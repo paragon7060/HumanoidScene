@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import (
-    PHYSICAL_KEYS, read_executed_successes,
+    PHYSICAL_KEYS, read_executed_successes, merge_executed_successes,
 )
 
 
@@ -73,6 +73,27 @@ def test_old_vr_rewards_and_cpu_comparisons_are_not_imported_into_gpu_q(tmp_path
         meta["sim_device"] = "cpu"
         output.attrs["manifest_json"] = json.dumps(meta)
     with pytest.raises(ValueError, match="current GPU"):
+        read_executed_successes(path, contract)
+
+
+def test_mixed_success_keeps_actual_action_and_never_reads_correction_proposals(tmp_path):
+    path, contract = _record(tmp_path)
+    with h5py.File(path, 'r+') as output:
+        meta = json.loads(output.attrs['manifest_json'])
+        meta.update(collection_source='mixed_VR_actor_DAgger', actor_reference_mix=.05)
+        output.attrs['manifest_json'] = json.dumps(meta)
+        output['episodes/attempt/transitions'].create_dataset('correction_action', data=np.ones((3, 24)))
+    replay, audit = read_executed_successes(path, contract)
+    assert not bool(replay['action'].any())
+    assert replay['reward'].tolist() == [0., .25, 1.]
+    assert audit['hypothetical_correction_labels_imported'] is False
+    combined, audit = merge_executed_successes([path, path], contract)
+    assert audit['successful_episodes'] == 2 and audit['executed_rows'] == 6
+    assert combined['terminated'].tolist() == [False, False, True, False, False, True]
+    with h5py.File(path, 'r+') as output:
+        meta['actor_reference_mix'] = .9
+        output.attrs['manifest_json'] = json.dumps(meta)
+    with pytest.raises(ValueError, match='bounded actor fraction'):
         read_executed_successes(path, contract)
 
 

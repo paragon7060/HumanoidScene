@@ -80,7 +80,7 @@ def main():
     parser.add_argument("--success-imitation-fraction", type=float, default=0.0)
     parser.add_argument("--reward-scale", type=float, default=10.0)
     parser.add_argument("--entropy-backup", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--actor-feature-mode", choices=("flat", "grasp_target"), default="grasp_target")
+    parser.add_argument("--actor-feature-mode", choices=("flat", "grasp_target", "grasp_target_no_history"), default="grasp_target")
     parser.add_argument("--freeze-actor-normalizer", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--goal-replay-capacity", type=int, default=100_000)
     parser.add_argument("--goal-batch-fraction", type=float, default=0.25)
