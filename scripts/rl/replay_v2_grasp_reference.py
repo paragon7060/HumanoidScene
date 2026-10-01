@@ -244,6 +244,11 @@ def main():
             (output/'agent.yaml').write_text(json.dumps({'residual_contract':residual.contract,
                 'sac_config':asdict(residual.agent.config)},indent=2)+'\n')
             (output/'status.json').write_text(json.dumps({'status':'training' if args.residual_training else 'evaluating'})+'\n')
+        elif args.actor_reference_mix is None:
+            (output/'manifest.json').write_text(json.dumps(contract | {
+                'artifact_type':'physical_reference_replay_diagnostic',
+                'policy':controller_name,'episode_index':args.episode_index,
+                'training':False},indent=2)+'\n')
         meta = dict(task_family='multi_box_v2', skill='grasp', robot_model='s63',
             gripper='leju-twofinger', rack_rollers=True, controller_mapping='scaled',
             action_dim=sum(actions.values()), actor_obs_dim=dims['policy'][0],
@@ -415,9 +420,8 @@ def main():
         if residual:
             report['residual_sac'] = residual.report()
         (output/'metrics.json').write_text(json.dumps(report, indent=2)+'\n')
-        if residual:
-            (output/'status.json').write_text(json.dumps({'status':'stopped' if stopped['value'] else 'complete',
-                'outcomes':counts,'actor_updates':residual.actor_updates})+'\n')
+        (output/'status.json').write_text(json.dumps({'status':'stopped' if stopped['value'] else 'complete',
+            'outcomes':counts,'actor_updates':residual.actor_updates if residual else None})+'\n')
         print(json.dumps({key: value for key, value in report.items() if key != 'history'}), flush=True)
     except BaseException as error:
         # Kit shutdown can replace Python's nonzero exit and suppress the
@@ -427,8 +431,7 @@ def main():
         args.output_dir.mkdir(parents=True, exist_ok=True)
         (args.output_dir/'failure.json').write_text(json.dumps(
             {'phase': 'failed', 'error': type(error).__name__, 'reason': str(error)})+'\n')
-        if args.residual_sac:
-            (args.output_dir/'status.json').write_text(json.dumps({'status':'failed'})+'\n')
+        (args.output_dir/'status.json').write_text(json.dumps({'status':'failed'})+'\n')
         raise
     finally:
         if writer is not None:
