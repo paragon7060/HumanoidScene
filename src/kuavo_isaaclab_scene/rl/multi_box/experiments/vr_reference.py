@@ -67,9 +67,12 @@ def restore_inferred_scene(env, observation):
 
 
 class VRJointTracker:
-    def __init__(self,env,demo,rack):
+    def __init__(self,env,demo,rack,*,orientation_mode='full',contact_torso_forward_m=0.):
         from kuavo_isaaclab_scene.rl.multi_box.state.schema import ACTUATED_BODY_JOINTS
         self.env=env;self.demo=demo;self.rack=rack;self.index=0
+        if not 0<=contact_torso_forward_m<=.08:
+            raise ValueError('Contact torso assist must be within0..8cm')
+        self.contact_torso_forward_m=contact_torso_forward_m
         self.phase=torch.zeros(1,dtype=torch.long,device=env.device);self.close_ticks=self.phase.clone();self.solvers=[]
         self.slices={};i=0
         for name in env.action_manager.active_terms:
@@ -79,7 +82,8 @@ class VRJointTracker:
         from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import KinematicGraspExplorer
         from kuavo_isaaclab_scene.teleop.urdf_arm_ik import UrdfArm
         from kuavo_isaaclab_scene.robots.robot_model import resolve_robot_model
-        self.final_guide=KinematicGraspExplorer(env,demo,grasp_goal='demo',lift_distance_m=.08,base_clearance_m=.55,torso_forward_m=0)
+        self.final_guide=KinematicGraspExplorer(env,demo,grasp_goal='demo',lift_distance_m=.08,base_clearance_m=.55,torso_forward_m=0,
+                                              orientation_mode=orientation_mode)
         for side,solver in zip(('left','right'),self.final_guide.solvers):
             solver.configure_urdf(UrdfArm(resolve_robot_model().urdf_path,side))
             from kuavo_isaaclab_scene.teleop.teleop_servo import RESPONSIVE
@@ -142,6 +146,12 @@ class VRJointTracker:
                 self.lift_goal=tcp[...,:3].clone();self.lift_goal[...,2]+=.08
             goals=goals if self.lift_goal is None else self.lift_goal
             action.zero_()
+            if self.contact_torso_forward_m:
+                # Bring the arm parents closer while retaining upright pitch.
+                # The hand goals stay at the box; existing physical torso
+                # travel/rate and measured collision limits remain active.
+                target_xz=desired_xz.clone();target_xz[:,0]+=self.contact_torso_forward_m
+                action[:,self.slices['height']]=(2*(target_xz-torso.processed_actions)/torso.cfg.speed_m_s).clamp(-.3,.3)
             for hand,solver in enumerate(self.solvers):
                 columns=guide.columns[hand]
                 solver._joint_command[:]=self.upper.processed_actions[:,columns]

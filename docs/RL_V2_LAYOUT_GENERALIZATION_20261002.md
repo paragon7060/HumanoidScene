@@ -74,6 +74,7 @@ and its actual replay onGPU3 in `layout_suite_gpu3_20261002_0440`.
   checkpoint retains its broader contract envelope for compatible continuation;
   the suite manifest records the actual narrower sampling distribution. This
   is a geometry correction, not a curriculum schedule.
+
 - Sampled yaw and actual settled target yaw are recorded separately. Rollers
   can bring the box back toward yaw0; success there cannot establish arbitrary
   yaw generalization.
@@ -92,6 +93,12 @@ and its actual replay onGPU3 in `layout_suite_gpu3_20261002_0440`.
 - The fixed distribution has no curriculum. Higher shelves as *targets*, other
   box sizes, arbitrary initial base poses, and the complete twelve-box random
   scene remain outside the tested scope.
+
+![Box footprint and semantic boundary](assets/rl_v2_layout_footprint_region_20261002.png)
+
+The dashed boundary is semantic, not a physical rack post. The illustration
+uses measured rack X=-0.24026m and the actual small-box dimensions; it explains
+the assigned-region reset failure rather than claiming a physical post impact.
 
 `GraspLayout` and `sample_layout` live in
 `src/kuavo_isaaclab_scene/rl/multi_box/experiments/layout_generalization.py`.
@@ -169,6 +176,33 @@ split for a new unbiased evaluation.
 The implementation is sequential one-environment training while validating the
 new physical controller. It does not claim to occupy50–80GiB VRAM or to have
 solved the full vectorized task.
+
+## Upper-shelf reference diagnostic
+
+The second supplied VR success episode targets a small box on shelf3 at about
+1.66m root height, compared with1.05m in the current lower-shelf suite. A separate
+GPU0 physical replay using the current upright torso and full wrist orientation
+timed out at900ticks with zero success, unsafe and invalid-reset terminations.
+This replay is a VR/live-IK guide diagnostic, not a SAC evaluation.
+
+![Upper-shelf full-orientation replay failure](assets/rl_v2_upper_vr_full_rotation_failure_20261002.png)
+
+[Actual upper-shelf diagnostic video](assets/rl_v2_upper_vr_full_rotation_failure_20261002.mp4)
+
+Offline reconstruction puts the demo grasp goals exactly at the recorded TCPs;
+an offset-frame mismatch was rejected as the cause. Final torso angles differed
+from the reference by about3mrad and base translation by5.6mm. The live contact
+IK retained roughly2.5–3cm error near joint limits. A separate
+`--vr-orientation-mode closing-axis` diagnostic relaxes unnecessary wrist twist
+while retaining position and jaw-axis alignment, but also timed out at900ticks
+without pinch: wrist twist alone does not explain the failure. A further
+`--vr-contact-torso-forward-m 0.04` diagnostic uses the existing upright torso
+X controller for bounded extra contact reach and logs IK target projection and
+joint-limit margins. It keeps full wrist orientation and existing physical
+torso travel/rate limits. Both defaults remain `full` and zero assist;
+the proven lower native reference and GPU3 SAC controller are unchanged.
+Upper-shelf success transitions are not fabricated or imported from this
+failed replay. Its closed physical HDF, photo/video and logs are Drive-verified.
 
 ## Storage and evidence
 

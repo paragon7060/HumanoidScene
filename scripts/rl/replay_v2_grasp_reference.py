@@ -45,6 +45,10 @@ def main():
     parser.add_argument('--layout-json',type=Path,help='Explicit lower-box layout from a separate train/holdout split.')
     parser.add_argument('--layout-vr-teacher',action='store_true',help='Physical layout diagnostic using the original VR/live-contact IK guide, no SAC.')
     parser.add_argument('--residual-zero',action='store_true',help='Geometry-guide physical probe, no learned actions or optimizer updates.')
+    parser.add_argument('--vr-orientation-mode',choices=('full','closing-axis'),default='full',
+                        help='VR/live-IK diagnostic only: constrain the complete wrist or just its jaw closing axis.')
+    parser.add_argument('--vr-contact-torso-forward-m',type=float,default=0.,
+                        help='VR/live-IK diagnostic only: bounded upright torso X assist during contact.')
     parser.add_argument('--steps', type=int, default=900)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
@@ -75,6 +79,10 @@ def main():
         parser.error('Layout VR teacher requires a layout and excludes policy/recorded action replay')
     if args.residual_zero and (not args.residual_sac or args.residual_training):
         parser.error('Zero-residual probes require --no-residual-training')
+    if not 0<=args.vr_contact_torso_forward_m<=.08:
+        parser.error('VR contact torso assist must be within0..8cm')
+    if (args.vr_orientation_mode!='full' or args.vr_contact_torso_forward_m) and (args.actor_checkpoint or args.executed_actions):
+        parser.error('VR orientation/torso options only apply to the live VR/IK diagnostic')
     if args.actor_reference_mix is not None and (
             not 0 <= args.actor_reference_mix <= .2 or not args.actor_checkpoint or args.body_envelope):
         parser.error('DAgger mix requires an actor checkpoint, fraction in0..0.2 and no body envelope')
@@ -232,7 +240,8 @@ def main():
                 teacher = VRJointTracker(env, demo, rack)
                 controller_name = 'mixed_VR_teacher_actor_DAgger_NOT_pure_SAC'
         else:
-            teacher = VRJointTracker(env, demo, rack)
+            teacher = VRJointTracker(env, demo, rack,orientation_mode=args.vr_orientation_mode,
+                                     contact_torso_forward_m=args.vr_contact_torso_forward_m)
         output = args.output_dir.resolve()
         output.mkdir(parents=True, exist_ok=False)
         if residual:
@@ -248,7 +257,8 @@ def main():
             (output/'manifest.json').write_text(json.dumps(contract | {
                 'artifact_type':'physical_reference_replay_diagnostic',
                 'policy':controller_name,'episode_index':args.episode_index,
-                'training':False},indent=2)+'\n')
+                'training':False,'vr_orientation_mode':args.vr_orientation_mode,
+                'vr_contact_torso_forward_m':args.vr_contact_torso_forward_m},indent=2)+'\n')
         meta = dict(task_family='multi_box_v2', skill='grasp', robot_model='s63',
             gripper='leju-twofinger', rack_rollers=True, controller_mapping='scaled',
             action_dim=sum(actions.values()), actor_obs_dim=dims['policy'][0],
@@ -271,6 +281,8 @@ def main():
             diagnostic_joint_offset_rad=args.joint_offset_rad,
             residual_contract=residual.contract if residual else None,
             layout=layout.record() if layout else None, zero_residual_probe=args.residual_zero)
+        meta['vr_orientation_mode']=args.vr_orientation_mode
+        meta['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
@@ -300,6 +312,7 @@ def main():
                 flap_distances=grasp.matched_flap_distance_m[0].tolist(),
                 box_pose=grasp.box_pose_world[0].tolist(), phase=int(teacher.phase[0]) if teacher else None,
                 ik_position_errors=[float(s.target_position_error()[0]) for s in teacher.solvers] if teacher else None,
+                ik_status=[s.ik_status for s in teacher.solvers] if teacher and int(teacher.phase[0])>0 else None,
                 action=action[0].tolist(), rack_peak_force=float(force.max()),
                 rack_peak_body=V2_COLLISION_BODY_NAMES[int(force.argmax())],
                 box_velocity=grasp.box_velocity_world[0].tolist(),
@@ -417,6 +430,8 @@ def main():
                       checkpoint_actor_refit=state.get('diagnostic_actor_refit') if state else None,
                       layout=layout.record() if layout else None, zero_residual_probe=args.residual_zero,
                       retarget=residual.controller.retarget_report if residual and args.residual_controller=='retargeted-goal' else None)
+        report['vr_orientation_mode']=args.vr_orientation_mode
+        report['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
         if residual:
             report['residual_sac'] = residual.report()
         (output/'metrics.json').write_text(json.dumps(report, indent=2)+'\n')
