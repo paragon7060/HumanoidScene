@@ -1,6 +1,6 @@
 # V2 grasp: layout generalization and demonstration-initialized goal SAC
 
-## Current method and status (2026-10-02 08:45 KST)
+## Current method and status (2026-10-02 08:52 KST)
 
 The current policy predicts24 absolute pose goals without reading a live demo
 path. It starts from BC on410 physically executed successful transitions, then
@@ -23,8 +23,9 @@ showing that the learned mean itself had also degraded.
 The replacement GPU3 run starts from the proven model with unchanged deterministic
 mean, Q coordinates, normalization and1,223 actual replay rows. Its normalized
 Gaussian std starts at0.001, can range0.0001–0.003, actor LR is1e-6, and the initial
-20% demo fraction plus BC prior fades across20,000 updates. The first two corrected
-layouts succeeded at408/411ticks without unsafe/invalid/timeout events (actor3,454). Twelve training
+20% demo fraction plus BC prior fades across20,000 updates. The first three corrected
+layouts succeeded at408/411/404ticks without unsafe/invalid/timeout events
+(actor4,136), on the same three layouts that failed before the change. Twelve training
 layouts followed by twelve separate fixed-model evaluations are now running in
 `pose_goal_low_noise_gpu3_20261002_0830`. Rewards, bilateral held-grasp success,
 rack10N/obstacle5N and self-collision-off are unchanged; no curriculum was added.
