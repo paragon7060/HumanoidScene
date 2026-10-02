@@ -44,6 +44,14 @@ checkpoint·영상·로그의 최종 Drive 크기/MD5 검증을 마쳤다. 이 �
 [배치·초기 world pose·보상·학습 횟수 기록](assets/rl_v2_random_base_box_sac_first_success_20261002.json).
 이는 **학습 중 첫 성공**이며 최종 고정 평가가 아니다. 영상은 실제 PhysX 자세의 CPU mesh 표시다.
 
+![실제로 다른 시작점에서 실행된 SAC base 경로](assets/rl_v2_random_base_actual_paths_20261002.png)
+
+첫4개 훈련이411/409/411/411tick에 성공했다. 이4회와 BC 비교4회 모두 종료·Drive
+검증 완료(23:00 KST 확인). 원본 물리 seed와 실제 초기 pose를 대조하면 요청한
+rack-frame XY와 최대0.011mm 차이였고 yaw 오차는0.00002° 이하였다. Rack world
+pose는 유지됐다. 그림의 선은 계획 경로가 아니라 매 step 측정한 base 경로다.
+[초기 위치 감사 및 실제 종료 기록](assets/rl_v2_random_base_actual_paths_20261002.json).
+
 ### 보상 검토: 실험용 SAC 할인율 불일치
 
 접근2·front-stage1의 진행 보상은 potential discount0.999를 사용하지만,
@@ -70,6 +78,9 @@ SAC·replay·Drive·배치·영상의 기존 회귀까지 포함한 검사 **125
 옛 reference 자세로 끌어당기는 IK rest 항 대신 실제 현재 관절을 rest로 쓰고,
 closing-axis·torso 앞쪽4cm·원본 gripper timing을 함께 확인한다. 기존 제어 기본값은
 유지하며 이 IK/VR 진단을 SAC 성능으로 기록하지 않는다.
+실제 source replay7,192개를 사용하는 할인율 수정판의 CPU preflight도 완료했다.
+Critic만2,000 updates 추가한 뒤 actor 모든 tensor가 같고 파라미터가 유한함을
+확인했다. 이 preflight는 물리 성공률 평가가 아니다.
 
 ## 현재 데모 연결: BC 초기화 → 실제 SAC → 고정 평가
 
