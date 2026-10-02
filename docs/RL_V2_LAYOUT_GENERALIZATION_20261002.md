@@ -44,11 +44,23 @@ checkpoint; `--wait-for-verified-experiment` serializes use of the selected GPU
 after a prior own suite's closed, verified backup. It does not control unrelated
 processes. This remains one-env experimental training, not an80GB vectorized run.
 The current targeted geometry, frozen supervision, replay and discount
-migration checks pass36 tests; the SAC/replay/Drive/video regression selection
-passes125 tests. A separate upper-shelf VR/IK diagnostic combines measured
+migration and variable-horizon checks pass37 tests; the SAC/replay/Drive/video regression selection
+passes126 tests. A separate upper-shelf VR/IK diagnostic combines measured
 current joint rest, closing-axis alignment,4cm torso assist and original
 gripper timing. It tests the static-rest bias hypothesis without changing the
 default controller and is not recorded as SAC performance.
+That diagnostic subsequently timed out at900ticks with no unsafe/invalid
+termination and a verified final backup. The left target still required
+2.4–3.9cm reach projection. A bounded6cm base approach after handoff is now a
+separate diagnostic; it freezes the base target on first pinch and retains the
+physical rate/acceleration limits and contact termination. The new flag
+`--vr-contact-base-forward-m` defaults to0 and is excluded from SAC replay mode.
+
+New pose fits can explicitly set `--clock-horizon` to a longer successful
+episode's control-step count. BC and SAC retain that horizon in their shared
+context contract; legacy checkpoints keep410-step input semantics. Fresh
+BC-to-SAC starts now use the tested low-noise defaults and20,000-update demo
+fade. Saved goal-SAC configurations remain unchanged on resume.
 
 ## Earlier method and status (2026-10-02 08:52 KST)
 

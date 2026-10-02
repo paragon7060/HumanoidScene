@@ -43,6 +43,16 @@ def test_time_encoding_adds_only_clock_features():
     assert torch.allclose(features[:,455:471],torch.tensor([(-1.)**i for i in range(1,17)]).expand(2,-1))
 
 
+def test_longer_demo_clock_distinguishes_late_states_and_preserves_legacy_inputs():
+    coordinates=PoseGoalCoordinates();raw=raw_state()
+    assert torch.equal(coordinates.observations(raw,450),coordinates.observations(raw,450,clock_horizon=410))
+    assert not torch.equal(coordinates.observations(raw,450,clock_horizon=700),
+                           coordinates.observations(raw,550,clock_horizon=700))
+    assert coordinates.observations(raw,900,clock_horizon=700)[:,-1].eq(1).all()
+    with pytest.raises(ValueError,match='clock horizon'):
+        coordinates.observations(raw,0,clock_horizon=0)
+
+
 def test_goal_projection_matches_physical_close_gate_and_entropy_mask():
     from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import GoalGripperProjector
     from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import GraspActionProjector
@@ -181,6 +191,7 @@ def test_goal_discount_matches_potential_and_explicit_migration_keeps_actor(tmp_
         dict(successful_episodes=1,source_dataset_sha256='physical-test-fixture')))
     pilot=goal.PoseGoalSACPilot(tmp_path/'bc.pt',None,contract,tmp_path/'initial',training=False)
     assert pilot.agent.config.gamma==.999 and not pilot.report()['discount_mismatch']
+    assert pilot.fade_updates==20000 and pilot.agent.config.max_policy_std==.003
     old=tmp_path/'old';old.mkdir()
     pilot.agent.config.gamma=.99
     legacy=pilot.agent.checkpoint()|dict(artifact_type=pilot.artifact_type,

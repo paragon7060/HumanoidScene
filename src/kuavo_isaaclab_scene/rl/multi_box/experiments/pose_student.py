@@ -23,8 +23,10 @@ class PoseGoalCoordinates:
         self.joints=JointOffsetController()
         self.links=torch.tensor(torso_links_from_urdf(resolve_robot_model('s63','leju-twofinger').urdf_path))
 
-    def observations(self,raw,index,time_harmonics=0):
-        clock=raw.new_full((len(raw),1),min(index,410)/410)
+    def observations(self,raw,index,time_harmonics=0,clock_horizon=410):
+        if not isinstance(clock_horizon,int) or not 1<=clock_horizon<=900:
+            raise ValueError('Pose clock horizon must be within1..900 control steps')
+        clock=raw.new_full((len(raw),1),min(index,clock_horizon)/clock_horizon)
         inputs=torch.cat((self.features(raw),raw[:,86:350],clock),-1)
         if time_harmonics:
             frequency=torch.arange(1,time_harmonics+1,device=raw.device,dtype=raw.dtype)[None]
@@ -92,7 +94,8 @@ class PoseStudent:
 
     @torch.no_grad()
     def act(self,raw,index):
-        goal=self.agent.act(self.coordinates.observations(raw,index,self.state.get('time_harmonics',0)),deterministic=True)
+        goal=self.agent.act(self.coordinates.observations(raw,index,self.state.get('time_harmonics',0),
+            self.state.get('clock_horizon',410)),deterministic=True)
         goal=self.center+self.scale*goal
         if self.state.get('initial_box_relative_goals',False):
             if self.anchor is None:self.anchor=self.coordinates.box_anchor(raw)

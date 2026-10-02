@@ -83,21 +83,23 @@ class PoseGoalSACPilot:
         self.prior=PoseStudent(prior,device)
         self.prior.agent.requires_grad_(False)
         self.harmonics=prior.get('time_harmonics',0)
+        self.clock_horizon=prior.get('clock_horizon',410)
         if not prior.get('initial_box_relative_goals'):
             raise ValueError('Goal SAC requires the tested initial-box-relative student')
         self.center,self.scale=self.prior.center,self.prior.scale
         self.actor_dim=prior['actor_obs_dim']+2
         self.anchor=None
         self.actor_updates=self.critic_updates=self.online_rows=0
-        self.fade_updates=int(saved.get('goal_contract',{}).get('demo_fade_updates',4000))
+        legacy=saved.get('artifact_type')==self.artifact_type
+        self.fade_updates=int(saved.get('goal_contract',{}).get('demo_fade_updates',4000 if legacy else 20000))
         self.prior_weight=float(saved.get('goal_contract',{}).get('frozen_network_prior_initial_weight',10.))
         if self.fade_updates<1 or self.prior_weight<0:raise ValueError('Invalid goal warm-start schedule')
         self.latest={};self.online_history=[]
         self.reward_discount=reward_discount(physical_contract)
         self.discount_alignment=saved.get('discount_alignment')
         self.discount_warmup_updates=0
-        config=replace(self.prior.agent.config,actor_lr=2e-6,
-                       initial_policy_std=.01,max_policy_std=.02,gamma=self.reward_discount)
+        config=replace(self.prior.agent.config,actor_lr=1e-6,min_policy_std=.0001,
+                       initial_policy_std=.001,max_policy_std=.003,gamma=self.reward_discount)
         if saved.get('artifact_type')==self.artifact_type:
             config=SACConfig(**saved['config'])
         self.agent=AsymmetricSAC(self.actor_dim,533,24,config,device,
@@ -158,6 +160,9 @@ class PoseGoalSACPilot:
                     self.critic_updates+=1;self.discount_warmup_updates+=1
         elif saved.get('artifact_type')==PoseStudent.artifact_type:
             widen_bc_actor(self.prior,self.agent)
+            with torch.no_grad():
+                self.agent.actor.network[-1].weight[24:].zero_()
+                self.agent.actor.network[-1].bias[24:].fill_(math.log(config.initial_policy_std))
             self.agent.critic_normalizer.update(self.seed['critic_obs'])
             self.agent.critic_normalizer.var.clamp_(min=.01)
             if training:
@@ -168,17 +173,20 @@ class PoseGoalSACPilot:
 
     @property
     def contract(self):
-        return dict(name='initial_box_relative_absolute_pose_goal_sac_v1',
+        contract=dict(name='initial_box_relative_absolute_pose_goal_sac_v1',
             action_coordinates=self.coordinates.name,actor_dim=self.actor_dim,critic_dim=533,
             time_harmonics=self.harmonics,goal_center=self.center.tolist(),goal_scale=self.scale.tolist(),
             source_sha256=self.audit['source_dataset_sha256'],runtime_reference_path_required=False,
             initial_box_anchor_in_observation=True,projection=GoalGripperProjector.name,
             actor_lr=self.agent.config.actor_lr,demo_fraction_initial=.2,demo_fade_updates=self.fade_updates,
             frozen_network_prior_initial_weight=self.prior_weight,prior_fade_updates=self.fade_updates)
+        # Legacy410-step checkpoints retain their exact context contract.
+        if 'clock_horizon' in self.prior.state:contract['clock_horizon']=self.clock_horizon
+        return contract
 
     def observations(self,raw,critic,index,anchor):
-        features=self.coordinates.observations(raw,index,self.harmonics)
-        clock=raw.new_full((len(raw),1),min(index,410)/410)
+        features=self.coordinates.observations(raw,index,self.harmonics,self.clock_horizon)
+        clock=raw.new_full((len(raw),1),min(index,self.clock_horizon)/self.clock_horizon)
         return torch.cat((features,anchor.expand(len(raw),-1)),-1),torch.cat((critic,clock,anchor.expand(len(raw),-1)),-1)
 
     def physical(self,raw,z,anchor):

@@ -72,15 +72,30 @@ GPU0 `base_box_gamma_aligned_gpu0_20261002_2245`는 BC 비교 종료·최종 백
 base penalty−0.0061이다. Base 이동 벌점이 접근 이득을 압도하는 상태는 아니었다.
 
 초기 base 관측 변환, 고정 BC 비교, 할인율 migration의 actor/replay 보존·한 번만
-critic warmup 수행을 포함한 이번 관련 검사 **36 passed**.
-SAC·replay·Drive·배치·영상의 기존 회귀까지 포함한 검사 **125 passed**.
-위 선반은 `upper_vr_current_rest_gpu0_20261002_2250`에서 별도 진단 중이다.
+critic warmup 수행과 긴 demo clock을 포함한 이번 관련 검사 **37 passed**.
+SAC·replay·Drive·배치·영상의 기존 회귀까지 포함한 검사 **126 passed**.
+위 선반은 `upper_vr_current_rest_gpu0_20261002_2250`에서 별도 진단을 수행했다.
 옛 reference 자세로 끌어당기는 IK rest 항 대신 실제 현재 관절을 rest로 쓰고,
 closing-axis·torso 앞쪽4cm·원본 gripper timing을 함께 확인한다. 기존 제어 기본값은
 유지하며 이 IK/VR 진단을 SAC 성능으로 기록하지 않는다.
 실제 source replay7,192개를 사용하는 할인율 수정판의 CPU preflight도 완료했다.
 Critic만2,000 updates 추가한 뒤 actor 모든 tensor가 같고 파라미터가 유한함을
 확인했다. 이 preflight는 물리 성공률 평가가 아니다.
+
+위 선반 current-rest 진단은 이후900tick 시간 초과(unsafe/invalid0)로 종료했고
+Drive 검증을 마쳤다. 왼손 IK의 도달 범위 projection이 약2.4–3.9cm 남았으므로
+rest 항 수정만으로 해결되지 않았다. `upper_vr_base_reach_gpu0_20261002_2310`에서
+접촉 handoff 후 실제 base 시작점 기준6cm 전진을 추가한 별도 진단을 시작했다.
+첫 pinch가 검출되면 그 위치에서 base 목표를 고정한다. 기존 속도·가속도 제한과
+랙10N/장애물5N 종료는 유지한다. `--vr-contact-base-forward-m` 기본값은0이고,
+VR/IK 진단에만 사용할 수 있다. 성공 결과를 기다리는 상태이며 SAC 성공으로 기록하지 않는다.
+
+또한 목표 정책의 clock이410step 이후 모두 같은 값이 되는 가정을 제거했다.
+`fit_v2_pose_student.py --clock-horizon <actual-success-control-steps>`로 긴
+위 선반 동작도 구별할 수 있다. 새 BC와 SAC가 같은 clock horizon을 checkpoint
+계약으로 공유한다. 기존 모델은410 기본값과 원래 입력·계약을 그대로 유지한다.
+새 BC→SAC의 기본 탐색도 검증된 std0.001/범위0.0001–0.003, actor LR1e-6,
+demo fade20,000으로 맞췄다. 기존 SAC checkpoint의 저장된 설정은 바꾸지 않는다.
 
 ## 현재 데모 연결: BC 초기화 → 실제 SAC → 고정 평가
 

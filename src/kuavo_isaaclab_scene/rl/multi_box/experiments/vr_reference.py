@@ -69,7 +69,7 @@ def restore_inferred_scene(env, observation):
 class VRJointTracker:
     def __init__(self,env,demo,rack,*,orientation_mode='full',contact_torso_forward_m=0.,
                  close_distance_m=.035,coordinated_close=False,reference_grippers=False,
-                 contact_rest_mode='reference'):
+                 contact_rest_mode='reference',contact_base_forward_m=0.):
         from kuavo_isaaclab_scene.rl.multi_box.state.schema import ACTUATED_BODY_JOINTS
         self.env=env;self.demo=demo;self.rack=rack;self.index=0
         if not 0<=contact_torso_forward_m<=.08:
@@ -82,6 +82,10 @@ class VRJointTracker:
         if contact_rest_mode not in {'reference','current'}:
             raise ValueError('Contact rest mode must be reference or current')
         self.contact_rest_mode=contact_rest_mode
+        if not 0<=contact_base_forward_m<=.08:
+            raise ValueError('VR contact base assist must be within0..8cm')
+        self.contact_base_forward_m=contact_base_forward_m
+        self.contact_base_goal=None;self.contact_base_frozen=False
         self.phase=torch.zeros(1,dtype=torch.long,device=env.device);self.close_ticks=self.phase.clone();self.solvers=[]
         self.slices={};i=0
         for name in env.action_manager.active_terms:
@@ -161,6 +165,17 @@ class VRJointTracker:
                 self.lift_goal=tcp[...,:3].clone();self.lift_goal[...,2]+=.08
             goals=goals if self.lift_goal is None else self.lift_goal
             action.zero_()
+            if self.contact_base_forward_m:
+                if self.contact_base_goal is None:
+                    offset=ref_p.new_tensor([[self.contact_base_forward_m,0.,0.]])
+                    self.contact_base_goal=root[:,:3].clone()+quat_apply(ref_q,offset)
+                if bool(pinching.any()) and not self.contact_base_frozen:
+                    self.contact_base_goal=root[:,:3].clone()
+                    self.contact_base_frozen=True
+                error=quat_apply(quat_inv(root[:,3:]),self.contact_base_goal-root[:,:3])
+                # Same measured velocity controller and collision termination;
+                # cap the diagnostic approach and stop advancing after contact.
+                action[:,:2]=(2*error[:,:2]/base._scale[:2]).clamp(-.3,.3)
             if self.contact_torso_forward_m:
                 # Bring the arm parents closer while retaining upright pitch.
                 # The hand goals stay at the box; existing physical torso

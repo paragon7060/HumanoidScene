@@ -23,11 +23,14 @@ def main():
                    help='Freeze observation input weights at zero during fit, avoiding a learned feedback loop through current motion.')
     p.add_argument('--time-harmonics',type=int,default=0,
                    help='Optional sine/cosine time encoding; no recorded trajectory values are runtime inputs.')
+    p.add_argument('--clock-horizon',type=int,default=410,
+                   help='Explicit control-step horizon; longer upper-shelf demonstrations must not saturate at410.')
     p.add_argument('--output-dir',type=Path,required=True)
     p.add_argument('--steps',type=int,default=10000)
     args=p.parse_args()
     if bool(args.training_suite)==bool(args.native_dataset):p.error('Select training suite or one actual native dataset')
     if not 0<=args.time_harmonics<=64:p.error('Time harmonics must be within0..64')
+    if not 1<=args.clock_horizon<=900:p.error('Clock horizon must be within1..900')
     args.output_dir.mkdir(parents=True,exist_ok=False)
     torch.set_num_threads(1);torch.manual_seed(41)
     coordinates=PoseGoalCoordinates();inputs=[];labels=[];sources=[];roundtrip=0.
@@ -56,7 +59,7 @@ def main():
                 if error>1e-4:raise ValueError(f'Physical action inverse differs:{error}')
                 if args.initial_box_relative:
                     goal[:,19:21]-=coordinates.box_anchor(raw[:1])
-                inputs.extend(coordinates.observations(raw[i:i+1],i,args.time_harmonics) for i in range(len(raw)))
+                inputs.extend(coordinates.observations(raw[i:i+1],i,args.time_harmonics,args.clock_horizon) for i in range(len(raw)))
                 labels.append(goal)
         sources.append(dict(path=str(dataset.resolve()),sha256=hashlib.sha256(dataset.read_bytes()).hexdigest()))
     if not labels:raise ValueError('No physical training success labels')
@@ -94,6 +97,7 @@ def main():
         episode_clock_input=True,physical_reference_used_for_labels=True,source_train_episodes=len(sources),
         initial_box_relative_goals=args.initial_box_relative,clock_only_initial_fit=args.clock_only_fit,
         time_harmonics=args.time_harmonics,
+        clock_horizon=args.clock_horizon,
         physical_config='unchanged_v2_grasp',sources=sources)
     torch.save(state,args.output_dir/'student.pt')
     report=dict(artifact_type=PoseStudent.artifact_type,rows=len(x),sources=sources,
@@ -101,7 +105,8 @@ def main():
         inverse_physical_command_max_error=roundtrip,
         mean_absolute_goal_error=errors.mean(0).tolist(),max_absolute_goal_error=errors.max(0).values.tolist(),
         runtime_reference_path_required=False,physical_success_verified=False)
-    report.update(initial_box_relative_goals=args.initial_box_relative,clock_only_initial_fit=args.clock_only_fit,time_harmonics=args.time_harmonics)
+    report.update(initial_box_relative_goals=args.initial_box_relative,clock_only_initial_fit=args.clock_only_fit,
+                  time_harmonics=args.time_harmonics,clock_horizon=args.clock_horizon)
     (args.output_dir/'manifest.json').write_text(json.dumps(report,indent=2)+'\n')
     (args.output_dir/'status.json').write_text(json.dumps(dict(status='complete',physical_success_verified=False))+'\n')
     print(json.dumps(report|{'sources':len(sources)}),flush=True)

@@ -62,6 +62,8 @@ def main():
                         help='VR/live-IK diagnostic only: preserve the demonstrator\'s actual jaw timing.')
     parser.add_argument('--vr-contact-rest-mode',choices=('reference','current'),default='reference',
                         help='VR/live-IK diagnostic only: use the measured current posture as contact IK rest.')
+    parser.add_argument('--vr-contact-base-forward-m',type=float,default=0.,
+                        help='VR/live-IK diagnostic only: bounded base approach after handoff; stop advancing on first pinch.')
     parser.add_argument('--steps', type=int, default=900)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
@@ -101,13 +103,15 @@ def main():
         parser.error('Zero-residual probes require --no-residual-training')
     if not 0<=args.vr_contact_torso_forward_m<=.08:
         parser.error('VR contact torso assist must be within0..8cm')
+    if not 0<=args.vr_contact_base_forward_m<=.08:
+        parser.error('VR contact base assist must be within0..8cm')
     if not .003<=args.vr_close_distance_m<=.035:
         parser.error('VR closing gate must be within3..35mm')
     if args.vr_reference_grippers and args.vr_coordinated_close:
         parser.error('Choose reference timing or coordinated geometric closing')
     if (args.vr_orientation_mode!='full' or args.vr_contact_torso_forward_m or
         args.vr_close_distance_m!=.035 or args.vr_coordinated_close or args.vr_reference_grippers or
-        args.vr_contact_rest_mode!='reference') and (args.actor_checkpoint or args.executed_actions or args.pose_student_checkpoint):
+        args.vr_contact_rest_mode!='reference' or args.vr_contact_base_forward_m) and (args.actor_checkpoint or args.executed_actions or args.pose_student_checkpoint):
         parser.error('VR diagnostic options only apply to the live VR/IK guide')
     if args.actor_reference_mix is not None and (
             not 0 <= args.actor_reference_mix <= .2 or not args.actor_checkpoint or args.body_envelope):
@@ -288,7 +292,8 @@ def main():
             teacher = VRJointTracker(env, demo, rack,orientation_mode=args.vr_orientation_mode,
                                      contact_torso_forward_m=args.vr_contact_torso_forward_m,
                                      close_distance_m=args.vr_close_distance_m,coordinated_close=args.vr_coordinated_close,
-                                     reference_grippers=args.vr_reference_grippers,contact_rest_mode=args.vr_contact_rest_mode)
+                                     reference_grippers=args.vr_reference_grippers,contact_rest_mode=args.vr_contact_rest_mode,
+                                     contact_base_forward_m=args.vr_contact_base_forward_m)
         output = args.output_dir.resolve()
         output.mkdir(parents=True, exist_ok=False)
         if pose_sac:
@@ -316,7 +321,8 @@ def main():
                 'vr_contact_torso_forward_m':args.vr_contact_torso_forward_m,
                 'vr_close_distance_m':args.vr_close_distance_m,'vr_coordinated_close':args.vr_coordinated_close,
                 'vr_reference_grippers':args.vr_reference_grippers,
-                'vr_contact_rest_mode':args.vr_contact_rest_mode},indent=2)+'\n')
+                'vr_contact_rest_mode':args.vr_contact_rest_mode,
+                'vr_contact_base_forward_m':args.vr_contact_base_forward_m},indent=2)+'\n')
         meta = dict(task_family='multi_box_v2', skill='grasp', robot_model='s63',
             gripper='leju-twofinger', rack_rollers=True, controller_mapping='scaled',
             action_dim=sum(actions.values()), actor_obs_dim=dims['policy'][0],
@@ -349,6 +355,7 @@ def main():
         meta['vr_coordinated_close']=args.vr_coordinated_close
         meta['vr_reference_grippers']=args.vr_reference_grippers
         meta['vr_contact_rest_mode']=args.vr_contact_rest_mode
+        meta['vr_contact_base_forward_m']=args.vr_contact_base_forward_m
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
@@ -543,6 +550,7 @@ def main():
         report['vr_coordinated_close']=args.vr_coordinated_close
         report['vr_reference_grippers']=args.vr_reference_grippers
         report['vr_contact_rest_mode']=args.vr_contact_rest_mode
+        report['vr_contact_base_forward_m']=args.vr_contact_base_forward_m
         if pose_student:
             report['pose_student']=dict(actor_fit_steps=pose_student.state['actor_fit_steps'],
                 sac_actor_updates=0,sac_critic_updates=0,runtime_reference_path_required=False,
