@@ -60,6 +60,8 @@ def main():
                         help='VR/live-IK diagnostic only: wait for both hands before closing either jaw.')
     parser.add_argument('--vr-reference-grippers',action='store_true',
                         help='VR/live-IK diagnostic only: preserve the demonstrator\'s actual jaw timing.')
+    parser.add_argument('--vr-contact-rest-mode',choices=('reference','current'),default='reference',
+                        help='VR/live-IK diagnostic only: use the measured current posture as contact IK rest.')
     parser.add_argument('--steps', type=int, default=900)
     add_robot_model_cli_args(parser)
     add_gripper_cli_args(parser)
@@ -104,7 +106,8 @@ def main():
     if args.vr_reference_grippers and args.vr_coordinated_close:
         parser.error('Choose reference timing or coordinated geometric closing')
     if (args.vr_orientation_mode!='full' or args.vr_contact_torso_forward_m or
-        args.vr_close_distance_m!=.035 or args.vr_coordinated_close or args.vr_reference_grippers) and (args.actor_checkpoint or args.executed_actions or args.pose_student_checkpoint):
+        args.vr_close_distance_m!=.035 or args.vr_coordinated_close or args.vr_reference_grippers or
+        args.vr_contact_rest_mode!='reference') and (args.actor_checkpoint or args.executed_actions or args.pose_student_checkpoint):
         parser.error('VR diagnostic options only apply to the live VR/IK guide')
     if args.actor_reference_mix is not None and (
             not 0 <= args.actor_reference_mix <= .2 or not args.actor_checkpoint or args.body_envelope):
@@ -201,6 +204,9 @@ def main():
         else:
             observation, rack, settling_steps = settle_reference_scene(env, demo)
         projection = GraspActionProjector(list(actions.items()))
+        initial_base_pose=env.scene['robot'].data.root_pose_w[0].tolist()
+        initial_rack_pose=env.scene['rack'].data.root_pose_w[0].tolist()
+        initial_actor=observation['policy'][0].detach().cpu().clone()
         teacher = None
         agent = state = limits = executed = joint_goal = residual = pose_student = pose_sac = None
         initial_actor_error = None
@@ -282,7 +288,7 @@ def main():
             teacher = VRJointTracker(env, demo, rack,orientation_mode=args.vr_orientation_mode,
                                      contact_torso_forward_m=args.vr_contact_torso_forward_m,
                                      close_distance_m=args.vr_close_distance_m,coordinated_close=args.vr_coordinated_close,
-                                     reference_grippers=args.vr_reference_grippers)
+                                     reference_grippers=args.vr_reference_grippers,contact_rest_mode=args.vr_contact_rest_mode)
         output = args.output_dir.resolve()
         output.mkdir(parents=True, exist_ok=False)
         if pose_sac:
@@ -309,7 +315,8 @@ def main():
                 'training':False,'vr_orientation_mode':args.vr_orientation_mode,
                 'vr_contact_torso_forward_m':args.vr_contact_torso_forward_m,
                 'vr_close_distance_m':args.vr_close_distance_m,'vr_coordinated_close':args.vr_coordinated_close,
-                'vr_reference_grippers':args.vr_reference_grippers},indent=2)+'\n')
+                'vr_reference_grippers':args.vr_reference_grippers,
+                'vr_contact_rest_mode':args.vr_contact_rest_mode},indent=2)+'\n')
         meta = dict(task_family='multi_box_v2', skill='grasp', robot_model='s63',
             gripper='leju-twofinger', rack_rollers=True, controller_mapping='scaled',
             action_dim=sum(actions.values()), actor_obs_dim=dims['policy'][0],
@@ -341,6 +348,7 @@ def main():
         meta['vr_close_distance_m']=args.vr_close_distance_m
         meta['vr_coordinated_close']=args.vr_coordinated_close
         meta['vr_reference_grippers']=args.vr_reference_grippers
+        meta['vr_contact_rest_mode']=args.vr_contact_rest_mode
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
@@ -380,6 +388,7 @@ def main():
                 action=action[0].tolist(), rack_peak_force=float(force.max()),
                 rack_peak_body=V2_COLLISION_BODY_NAMES[int(force.argmax())],
                 box_velocity=grasp.box_velocity_world[0].tolist(),
+                base_pose_world=env.scene['robot'].data.root_pose_w[0].tolist(),
                 unsafe_causes={key: bool(getattr(safety, key)[0]) for key in (
                     'invalid_box_pose', 'invalid_flap_pose', 'robot_rack_collision',
                     'self_collision', 'obstacle_collision', 'workspace_limit',
@@ -455,6 +464,9 @@ def main():
                     if args.residual_training and residual.actor_updates and residual.actor_updates % 512 == 0:
                         residual.save()
                 row = history[-1]
+                row['reward']=float(reward[0])
+                row['reward_terms']={key:float(value[0]) for key,value in
+                                     env._multi_box_grasp_reward_breakdown.terms.items()}
                 recorder.append(dict(actor_obs=pre['policy'][0].cpu().numpy(),
                     critic_obs=torch.cat((pre['policy'], pre['critic']), -1)[0].cpu().numpy(),
                     action=action[0].cpu().numpy(), reward=float(reward[0]),
@@ -518,11 +530,19 @@ def main():
                       checkpoint_actor_refit=state.get('diagnostic_actor_refit') if state else None,
                       layout=layout.record() if layout else None, zero_residual_probe=args.residual_zero,
                       retarget=residual.controller.retarget_report if residual and args.residual_controller=='retargeted-goal' else None)
+        report['initial_base_pose_world']=initial_base_pose
+        report['initial_rack_pose_world']=initial_rack_pose
+        report['initial_base_rack_observation']=initial_actor[68:77].tolist()
+        report['initial_active_box_tokens']=initial_actor[86:350].reshape(12,22)[
+            initial_actor[86:350].reshape(12,22)[:,0]>.5].tolist()
+        report['reward_term_sums']={key:sum(row['reward_terms'][key] for row in history)
+                                    for key in history[0]['reward_terms']} if history else {}
         report['vr_orientation_mode']=args.vr_orientation_mode
         report['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
         report['vr_close_distance_m']=args.vr_close_distance_m
         report['vr_coordinated_close']=args.vr_coordinated_close
         report['vr_reference_grippers']=args.vr_reference_grippers
+        report['vr_contact_rest_mode']=args.vr_contact_rest_mode
         if pose_student:
             report['pose_student']=dict(actor_fit_steps=pose_student.state['actor_fit_steps'],
                 sac_actor_updates=0,sac_critic_updates=0,runtime_reference_path_required=False,

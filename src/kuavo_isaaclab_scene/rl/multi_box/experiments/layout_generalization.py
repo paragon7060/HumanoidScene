@@ -20,6 +20,9 @@ class GraspLayout:
     yaw_rad: float = 0.0
     distractors: tuple[int, ...] = ()
     depth_m: float = 0.0
+    base_lateral_m: float = 0.0
+    base_outward_m: float = 0.0
+    base_yaw_rad: float = 0.0
 
     def validate(self):
         if self.split not in {'train', 'holdout', 'probe'}:
@@ -30,6 +33,10 @@ class GraspLayout:
             raise ValueError('Layout yaw range is +/-3degrees')
         if not math.isfinite(self.depth_m) or abs(self.depth_m) > .02:
             raise ValueError('Layout depth range is +/-2cm')
+        if any(not math.isfinite(v) or abs(v)>.25 for v in (self.base_lateral_m,self.base_outward_m)):
+            raise ValueError('Initial base translation must be within +/-25cm in rack coordinates')
+        if not math.isfinite(self.base_yaw_rad) or abs(self.base_yaw_rad)>math.radians(15):
+            raise ValueError('Initial base yaw must be within +/-15degrees')
         if len(set(self.distractors)) != len(self.distractors) or any(i not in (5, 6, 9) for i in self.distractors):
             raise ValueError('Distractors must use separate rear/upper cells 5,6,9')
         return self
@@ -60,6 +67,31 @@ def sample_layout(seed, split, *, depth_limit_m=0.0):
 def yaw_matrix(angle, like):
     c, s = math.cos(angle), math.sin(angle)
     return like.new_tensor([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+
+
+def base_reset_observation(source, lateral_m=0., outward_m=0., yaw_rad=0.):
+    """Move only the robot start; preserve world rack/box poses exactly.
+
+    Translation uses rack X and outward +Y. Object perception must be
+    re-expressed in the new robot frame, not translated with the robot.
+    The inferred-scene restore reconstructs the new root from this rack pose.
+    """
+    GraspLayout(0,'probe',0.,base_lateral_m=lateral_m,
+                base_outward_m=outward_m,base_yaw_rad=yaw_rad).validate()
+    actor=source.clone()
+    if not (lateral_m or outward_m or yaw_rad):return actor
+    rack_rotation=_rotation_matrix(source[71:77])
+    displacement=rack_rotation@source.new_tensor([lateral_m,outward_m,0.])
+    rotate=yaw_matrix(-yaw_rad,source)
+    for start in (68,77):  # Rack and conveyor poses, each xyz + rotation6D.
+        actor[start:start+3]=rotate@(source[start:start+3]-displacement)
+        actor[start+3:start+9]=matrix6(rotate@_rotation_matrix(source[start+3:start+9]))
+    original=source[86:350].reshape(12,22)
+    tokens=actor[86:350].reshape(12,22)
+    for logical in torch.where(original[:,0]>.5)[0].tolist():
+        tokens[logical,12:15]=rotate@(original[logical,12:15]-displacement)
+        tokens[logical,15:21]=matrix6(rotate@_rotation_matrix(original[logical,15:21]))
+    return actor
 
 
 def matrix6(rotation):
@@ -99,20 +131,24 @@ def validate_layout_footprints(actor, *, margin_m=.002):
 
 
 def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
-    """Retain the robot's initial state; move the box relative to the rack."""
+    """Describe the box layout and optional initial robot root XY/yaw offset."""
     from ..scene.spawn import logical_cells
     from ....workcell.workcell_layout import scale
+    from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
     layout.validate()
     actor = source.clone()
     tokens = actor[86:350].reshape(12, 22)
     active = torch.where(tokens[:, 0] > .5)[0]
-    if active.tolist() != [4] or tokens[4, 3:5].argmax() != 0:
-        raise ValueError('This distribution requires the measured shelf-2-left small-box seed')
+    if len(active)!=1:
+        raise ValueError('A layout seed must have exactly one measured target')
+    target=int(active[0])
+    if target in layout.distractors:
+        raise ValueError('A distractor cannot replace the selected target')
     rack_rotation = _rotation_matrix(actor[71:77])
     delta = actor.new_tensor([layout.lateral_m, layout.depth_m, 0])
-    tokens[4, 12:15] += rack_rotation @ delta
-    original = _rotation_matrix(tokens[4, 15:21])
-    tokens[4, 15:21] = matrix6(rack_rotation @ yaw_matrix(layout.yaw_rad, actor) @ rack_rotation.T @ original)
+    tokens[target, 12:15] += rack_rotation @ delta
+    original = _rotation_matrix(tokens[target, 15:21])
+    tokens[target, 15:21] = matrix6(rack_rotation @ yaw_matrix(layout.yaw_rad, actor) @ rack_rotation.T @ original)
     cells = logical_cells(spec)
     for logical in layout.distractors:
         cell = cells[logical]
@@ -121,13 +157,13 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
         from ..geometry.pose import quaternion_to_rotation_6d
         token = tokens[logical]
         token.zero_(); token[0] = 1; token[1] = 1; token[3] = 1
-        token[5:8] = tokens[4, 5:8]
+        token[5:8] = actor.new_tensor(BOX_DIMENSIONS_M['small'])
         token[8+cell.region_id] = 1
         token[12:15] = actor[68:71] + rack_rotation @ actor.new_tensor(position)
         token[15:21] = matrix6(rack_rotation @ _rotation_matrix(quaternion_to_rotation_6d(actor.new_tensor(quaternion))))
         token[21] = 1
     validate_layout_footprints(actor)
-    return actor
+    return base_reset_observation(actor,layout.base_lateral_m,layout.base_outward_m,layout.base_yaw_rad)
 
 
 def retarget_reference_rack(reference, source_actor, current_actor):

@@ -1,6 +1,56 @@
 # V2 grasp: layout generalization and demonstration-initialized goal SAC
 
-## Current method and status (2026-10-02 08:52 KST)
+## Random boxes and initial base: new experiment (2026-10-02 22:45 KST)
+
+The stabilized lower-small goal-SAC suite finished with **10/12 training
+successes (two timeouts), then12/12 frozen heldout successes**. The final
+actor/critic counts are12,494/12,994, with no evaluation updates, unsafe or
+invalid-reset outcomes. All24 closed runs have verified final Drive backups.
+The robot's initial pose was identical: box offsets that settle along the rack
+alone do not prove generalization to different robot starts.
+
+The new fixed sampling distribution retains box randomization (inward2–4cm,
+sampled yaw±1°,0–3 surrounding boxes) and adds rack-frame initial base lateral
+±20cm, outward3–25cm and yaw±15°. Boxes remain free dynamic bodies. Only the
+robot root pose changes for the base offsets; rack/box world poses stay fixed
+under that coordinate transformation. Actual initial world poses and per-term
+reward sums are now recorded. Initial joint posture, bilateral opposing-flap
+held success, rack10N/obstacle5N and self-collision off remain unchanged; no curriculum.
+
+GPU3 `base_box_sac_gpu3_20261002_2230` trains24 layouts for two passes, then
+evaluates one frozen final policy on12 heldout layouts. Its first training
+episode succeeded at411ticks. GPU0 `base_box_bc_gpu0_20261002_2230` evaluates
+the unchanged BC on the exact same12 heldout layouts; its first succeeded
+at412ticks. These initial results are not final success rates or proof that
+SAC improves BC. The target is still a lower small box; upper shelf and other
+sizes remain unresolved. Actual videos and evidence are linked in the
+[Korean progress report](RL_V2_DEMO_SAC_PROGRESS_20261002.md).
+
+A reward review found the experimental goal-SAC learner used gamma0.99 while
+the physical potential shaping used0.999. New BC-to-SAC starts explicitly use
+the physical discount. Existing legacy runs retain their saved configuration
+and report the mismatch. A separate, audited fork aligns gamma to0.999, keeps
+the actor, exploration, normalizers and measured rewards/replay unchanged,
+resets the critic optimizer and performs2,000 critic-only warmup updates once.
+GPU0 `base_box_gamma_aligned_gpu0_20261002_2245` waits for the frozen BC suite
+and its final verified backup before starting a matched48-train/12-eval suite.
+This suspected learning impediment is not yet proven causally. Reward weights
+and physical success conditions were not relaxed.
+
+Use `--layout-distribution initial-base-and-box` with explicit layout JSON
+`base_lateral_m`, `base_outward_m`, `base_yaw_rad`; the default inward-box mode
+rejects accidental base changes. `--evaluation-only` freezes a BC/goal-SAC
+checkpoint; `--wait-for-verified-experiment` serializes use of the selected GPU
+after a prior own suite's closed, verified backup. It does not control unrelated
+processes. This remains one-env experimental training, not an80GB vectorized run.
+The current targeted geometry, frozen supervision, replay and discount
+migration checks pass36 tests; the SAC/replay/Drive/video regression selection
+passes125 tests. A separate upper-shelf VR/IK diagnostic combines measured
+current joint rest, closing-axis alignment,4cm torso assist and original
+gripper timing. It tests the static-rest bias hypothesis without changing the
+default controller and is not recorded as SAC performance.
+
+## Earlier method and status (2026-10-02 08:52 KST)
 
 The current policy predicts24 absolute pose goals without reading a live demo
 path. It starts from BC on410 physically executed successful transitions, then
@@ -26,8 +76,9 @@ Gaussian std starts at0.001, can range0.0001–0.003, actor LR is1e-6, and the i
 20% demo fraction plus BC prior fades across20,000 updates. The first three corrected
 layouts succeeded at408/411/404ticks without unsafe/invalid/timeout events
 (actor4,136), on the same three layouts that failed before the change. Twelve training
-layouts followed by twelve separate fixed-model evaluations are now running in
-`pose_goal_low_noise_gpu3_20261002_0830`. Rewards, bilateral held-grasp success,
+layouts followed by twelve separate fixed-model evaluations finished in
+`pose_goal_low_noise_gpu3_20261002_0830` with10/12 training and12/12 frozen successes.
+Rewards, bilateral held-grasp success,
 rack10N/obstacle5N and self-collision-off are unchanged; no curriculum was added.
 
 [Actual frozen goal-SAC video](assets/rl_v2_pose_goal_sac_frozen_success_20261002_h264.mp4).

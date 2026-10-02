@@ -70,3 +70,35 @@ def test_pose_goal_suite_uses_one_frozen_model_and_no_reference_residual(tmp_pat
     assert all('--no-pose-student-training' in c and '--pose-student-training' not in c for c in calls[1:])
     assert calls[1][calls[1].index('--pose-student-checkpoint')+1]==calls[2][calls[2].index('--pose-student-checkpoint')+1]
     assert json.loads((parent/'manifest.json').read_text())['physical_reference_dependency'] is False
+
+
+def test_bc_comparison_preserves_box_and_base_randomization_without_updates(tmp_path,monkeypatch):
+    script=module();layouts=tmp_path/'layouts';layouts.mkdir();parent=tmp_path/'suite';calls=[]
+    for i in range(2):
+        (layouts/f'holdout_{i:02d}.json').write_text(json.dumps(dict(seed=i,split='holdout',
+            lateral_m=-.025-.005*i,yaw_rad=.01,base_lateral_m=.12,base_outward_m=.18,base_yaw_rad=.2)))
+    frozen=tmp_path/'student.pt';frozen.write_bytes(b'frozen BC')
+    previous=tmp_path/'previous';previous.mkdir()
+    (previous/'status.json').write_text(json.dumps(dict(phase='finished',final_upload_verified=True)))
+    def simulate(command,trial,environment,*args,**kwargs):
+        calls.append(command);run=Path(command[command.index('--output-dir')+1]);run.mkdir()
+        assert '--no-pose-student-training' in command and '--pose-student-training' not in command
+        assert command[command.index('--pose-student-checkpoint')+1]==str(frozen)
+        assert '--pose-student-native-seed' not in command
+        (trial/'status.json').write_text(json.dumps(dict(run_dir=str(run),training_exit_code=0,final_upload_verified=True)))
+        (run/'metrics.json').write_text(json.dumps(dict(steps=412,
+            outcomes=dict(success=1,unsafe=0,invalid_reset=0,time_out=0),
+            pose_student=dict(sac_actor_updates=0,sac_critic_updates=0))))
+        return 0
+    monkeypatch.setattr(script,'supervise',simulate)
+    monkeypatch.setattr(script,'Rclone',lambda *a:object())
+    monkeypatch.setattr(script,'archive_file',lambda *a:None)
+    monkeypatch.setattr(sys,'argv',['suite','--experiment-dir',str(parent),'--layout-dir',str(layouts),
+        '--policy-mode','pose-goal','--checkpoint',str(frozen),'--evaluation-only',
+        '--layout-distribution','initial-base-and-box','--eval-count','2','--python',sys.executable,
+        '--wait-for-verified-experiment',str(previous),'--remote-root','test-remote:HumanoidScene-RL'])
+    assert script.main()==0 and len(calls)==2
+    manifest=json.loads((parent/'manifest.json').read_text())
+    assert not manifest['train_layouts'] and manifest['initial_base_distribution']
+    assert abs(manifest['heldout_layouts'][1]['lateral_m']+.03)<1e-7
+    assert json.loads((parent/'status.json').read_text())['holdout_successes']==2

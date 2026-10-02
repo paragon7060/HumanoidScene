@@ -68,7 +68,8 @@ def restore_inferred_scene(env, observation):
 
 class VRJointTracker:
     def __init__(self,env,demo,rack,*,orientation_mode='full',contact_torso_forward_m=0.,
-                 close_distance_m=.035,coordinated_close=False,reference_grippers=False):
+                 close_distance_m=.035,coordinated_close=False,reference_grippers=False,
+                 contact_rest_mode='reference'):
         from kuavo_isaaclab_scene.rl.multi_box.state.schema import ACTUATED_BODY_JOINTS
         self.env=env;self.demo=demo;self.rack=rack;self.index=0
         if not 0<=contact_torso_forward_m<=.08:
@@ -78,6 +79,9 @@ class VRJointTracker:
             raise ValueError('VR closing gate must be within3..35mm')
         self.close_distance_m,self.coordinated_close=close_distance_m,coordinated_close
         self.reference_grippers=reference_grippers
+        if contact_rest_mode not in {'reference','current'}:
+            raise ValueError('Contact rest mode must be reference or current')
+        self.contact_rest_mode=contact_rest_mode
         self.phase=torch.zeros(1,dtype=torch.long,device=env.device);self.close_ticks=self.phase.clone();self.solvers=[]
         self.slices={};i=0
         for name in env.action_manager.active_terms:
@@ -167,6 +171,11 @@ class VRJointTracker:
                 columns=guide.columns[hand]
                 solver._joint_command[:]=self.upper.processed_actions[:,columns]
                 solver._joint_velocity[:]=observation[:,20:40][:,guide.velocity_columns[hand]]
+                if self.contact_rest_mode=='current':
+                    # Diagnostic: remove the static posture attraction while
+                    # retaining URDF limits, damping and bounded rate/acceleration.
+                    solver._urdf_rest=solver._numpy(
+                        self.env.scene['robot'].data.joint_pos[0,solver._joint_ids])[solver._urdf_order].copy()
                 solver.process_actions(torch.cat((goals[:,hand],quaternion[:,hand]),-1))
                 delta=(solver._joint_command-self.upper.processed_actions[:,columns])/self.upper._scale[:,columns]
                 action[:,[self.slices['upper_body'].start+c for c in columns]]=delta.clamp(-1,1)

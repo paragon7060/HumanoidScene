@@ -6,6 +6,7 @@ from kuavo_isaaclab_scene.rl.multi_box.demo_replay import _rotation_matrix
 from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import (
     GraspLayout, matrix6, retarget_reference_rack, sample_layout, yaw_matrix,
     layout_reset_observation, validate_layout_footprints,
+    base_reset_observation,
 )
 from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import RetargetedGoalResidual
 
@@ -127,3 +128,28 @@ def test_layout_residual_cannot_enter_the_ordinary_physical_action_q_trainer(tmp
     (tmp_path/'manifest.json').write_text(json.dumps(dict(artifact_type='layout_reference_residual_sac')))
     with pytest.raises(ValueError,match='different contextual action space'):
         _compatible_checkpoint(tmp_path/'checkpoint.pt',{},data_only=True)
+
+
+def test_base_initialization_preserves_all_box_poses_in_rack_frame():
+    from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+    original=layout_reset_observation(rack_seed(),sample_layout(0,'train'),MultiBoxSpec())
+    moved=base_reset_observation(original,.12,.18,.15)
+    r0=_rotation_matrix(original[71:77]);r1=_rotation_matrix(moved[71:77])
+    a=original[86:350].reshape(12,22);b=moved[86:350].reshape(12,22)
+    for i in torch.where(a[:,0]>.5)[0]:
+        assert torch.allclose(r0.T@(a[i,12:15]-original[68:71]),
+                              r1.T@(b[i,12:15]-moved[68:71]),atol=1e-6)
+        assert torch.allclose(r0.T@_rotation_matrix(a[i,15:21]),
+                              r1.T@_rotation_matrix(b[i,15:21]),atol=1e-6)
+    # Actual starting base in rack coordinates changed by the requested offset.
+    delta=-(r1.T@moved[68:71])+(r0.T@original[68:71])
+    assert torch.allclose(delta,torch.tensor([.12,.18,0.]),atol=1e-6)
+    assert torch.equal(original[:20],moved[:20])
+    validate_layout_footprints(moved)
+
+
+def test_invalid_base_randomization_cannot_be_silently_clipped():
+    with pytest.raises(ValueError,match='translation'):
+        base_reset_observation(rack_seed(),.30,0.,0.)
+    with pytest.raises(ValueError,match='yaw'):
+        base_reset_observation(rack_seed(),0.,0.,.5)

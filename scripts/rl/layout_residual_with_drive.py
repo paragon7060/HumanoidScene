@@ -27,6 +27,12 @@ def main():
     parser.add_argument('--policy-mode',choices=('reference-residual','pose-goal'),default='reference-residual',
                         help='Pose-goal mode trains a learned BC-warmed SAC actor without a live demo path.')
     parser.add_argument('--train-count',type=int,default=8)
+    parser.add_argument('--evaluation-only',action='store_true',
+                        help='Evaluate a frozen BC/goal-SAC policy on heldout layouts without training.')
+    parser.add_argument('--layout-distribution',choices=('inward-box','initial-base','initial-base-and-box'),default='inward-box',
+                        help='Initial-base keeps boxes fixed and varies robot XY/yaw at episode start.')
+    parser.add_argument('--max-initial-base-offset-m',type=float,default=.25)
+    parser.add_argument('--max-initial-base-yaw-deg',type=float,default=15.)
     parser.add_argument('--max-layout-depth-m',type=float,default=0.,
                         help='Explicit allowed depth displacement for this fixed layout distribution; default preserves lateral-only runs.')
     parser.add_argument('--eval-count',type=int,default=8)
@@ -34,16 +40,26 @@ def main():
     parser.add_argument('--checkpoint',type=Path)
     parser.add_argument('--after-verified-experiment',type=Path,
                         help='Wait for this own pilot series to finish verified; inherit its final checkpoint.')
+    parser.add_argument('--wait-for-verified-experiment',type=Path,
+                        help='Wait for a prior own suite to close and verify its backup before using this GPU; keep the explicit checkpoint.')
     parser.add_argument('--gpu',type=int,default=3)
     parser.add_argument('--python',type=Path,default=Path.home()/'miniconda3/envs/env_isaaclab_232/bin/python')
     parser.add_argument('--remote-root',default=os.environ.get('RL_DRIVE_REMOTE_ROOT'))
     args,child_args=parser.parse_known_args()
+    if args.evaluation_only:
+        args.train_count=0
     if args.checkpoint and args.after_verified_experiment:
         parser.error('Choose an explicit checkpoint or an earlier verified experiment')
-    if min(args.train_count,args.eval_count,args.passes)<1 or args.gpu<0 or not args.python.is_file():
+    if args.wait_for_verified_experiment and args.after_verified_experiment:
+        parser.error('Choose one dependency mode')
+    if (args.train_count<0 or (not args.evaluation_only and args.train_count<1)
+            or min(args.eval_count,args.passes)<1 or args.gpu<0 or not args.python.is_file()):
         parser.error('Positive split sizes/passes and a valid Isaac Python are required')
     if not math.isfinite(args.max_layout_depth_m) or not 0<=args.max_layout_depth_m<=.02:
         parser.error('Maximum layout depth must be within0..2cm')
+    if (not math.isfinite(args.max_initial_base_offset_m) or not 0<=args.max_initial_base_offset_m<=.25
+            or not math.isfinite(args.max_initial_base_yaw_deg) or not 0<=args.max_initial_base_yaw_deg<=15):
+        parser.error('Initial base bounds must be within25cm and15degrees')
     reserved={'--output-dir','--device','--layout-json','--residual-checkpoint',
               '--residual-controller','--residual-training','--no-residual-training','--residual-zero',
               '--pose-student-checkpoint','--pose-student-training','--no-pose-student-training'}
@@ -52,7 +68,9 @@ def main():
     pose_mode=args.policy_mode=='pose-goal'
     if not pose_mode and '--residual-sac' not in child_args:
         parser.error('Supply --residual-sac and the current measured reference/physical manifest')
-    if pose_mode and (not args.checkpoint or '--pose-student-native-seed' not in child_args
+    if args.evaluation_only and (not pose_mode or not args.checkpoint):
+        parser.error('Frozen evaluation needs pose-goal mode and an explicit BC/goal-SAC checkpoint')
+    if pose_mode and (not args.checkpoint or (not args.evaluation_only and '--pose-student-native-seed' not in child_args)
                       or '--residual-sac' in child_args or args.after_verified_experiment):
         parser.error('Pose-goal SAC needs its own checkpoint and measured native seed, without residual options')
     layouts={split:sorted(args.layout_dir.resolve().glob(split+'_*.json'))[:count]
@@ -62,8 +80,19 @@ def main():
             parser.error('Each requested layout must have its correct explicit split')
         for path in layouts[split]:
             layout=json.loads(path.read_text())
-            if not -.040001<=layout['lateral_m']<=-.019999 or abs(layout.get('yaw_rad',0))>math.radians(1)+1e-7:
+            if args.layout_distribution=='initial-base':
+                if any(abs(layout.get(key,0))>1e-7 for key in ('lateral_m','yaw_rad','depth_m')):
+                    parser.error('Initial-base experiments keep target boxes fixed')
+            elif not -.040001<=layout['lateral_m']<=-.019999 or abs(layout.get('yaw_rad',0))>math.radians(1)+1e-7:
                 parser.error('The footprint-valid sampling distribution is inward2..4cm and yaw+/-1degree')
+            if (any(not math.isfinite(layout.get(key,0)) or abs(layout.get(key,0))>args.max_initial_base_offset_m+1e-7
+                    for key in ('base_lateral_m','base_outward_m'))
+                    or not math.isfinite(layout.get('base_yaw_rad',0))
+                    or abs(layout.get('base_yaw_rad',0))>math.radians(args.max_initial_base_yaw_deg)+1e-7):
+                parser.error('Initial base pose exceeds the declared fixed distribution')
+            if args.layout_distribution=='inward-box' and any(layout.get(key,0) for key in
+                    ('base_lateral_m','base_outward_m','base_yaw_rad')):
+                parser.error('Use initial-base distribution explicitly to move the robot start')
             if not math.isfinite(layout.get('depth_m',0.)) or abs(layout.get('depth_m',0.))>args.max_layout_depth_m+1e-7:
                 parser.error('Layout depth exceeds the explicitly allowed fixed distribution')
     if not args.remote_root:
@@ -86,8 +115,15 @@ def main():
         gpu=args.gpu,train_layouts=[json.loads(p.read_text()) for p in layouts['train']],
         heldout_layouts=[json.loads(p.read_text()) for p in layouts['holdout']],
         passes=args.passes,physical_reference_dependency=not pose_mode,curriculum=False,
+        evaluation_only=args.evaluation_only,frozen_checkpoint=str(args.checkpoint.resolve()) if args.evaluation_only else None,
+        wait_for_verified_experiment=str(args.wait_for_verified_experiment.resolve()) if args.wait_for_verified_experiment else None,
+        initial_base_distribution=args.layout_distribution!='inward-box',
+        max_initial_base_offset_m=args.max_initial_base_offset_m,
+        max_initial_base_yaw_deg=args.max_initial_base_yaw_deg,
         layout_recipe=json.loads(recipe.read_text()) if recipe.exists() else None,
-        sampled_distribution=('lower_small_inward2to4cm_yaw1deg_depth_rear_upper_distractors_v3'
+        sampled_distribution=('random_boxes_initial_base_XY_yaw_v1' if args.layout_distribution=='initial-base-and-box' else
+                              'fixed_boxes_initial_base_XY_yaw_v1' if args.layout_distribution=='initial-base' else
+                              'lower_small_inward2to4cm_yaw1deg_depth_rear_upper_distractors_v3'
                               if args.max_layout_depth_m else 'lower_small_inward2to4cm_yaw1deg_rear_upper_distractors_v2'),
         max_layout_depth_m=args.max_layout_depth_m,
         sampling_reason='2..6cm crossed the assigned half-shelf boundary; physical reset bounds unchanged'),indent=2)+'\n')
@@ -96,6 +132,17 @@ def main():
         OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',
         PYTHONPATH=str(ROOT/'src')+':'+str(ROOT/'scripts/rl'))
     checkpoint=args.checkpoint.resolve() if args.checkpoint else None
+    if args.wait_for_verified_experiment:
+        previous=args.wait_for_verified_experiment.resolve()
+        write_status(parent,phase='waiting_for_verified_dependency',previous_experiment=str(previous))
+        while True:
+            state=json.loads((previous/'status.json').read_text())
+            if state.get('phase')=='finished' and state.get('final_upload_verified'):
+                break
+            if state.get('phase') in {'failed','performance_gate_failed','runtime_failed','previous_pilot_failed'}:
+                write_status(parent,phase='dependency_failed',previous_experiment=str(previous))
+                return 2
+            time.sleep(30)
     if args.after_verified_experiment:
         previous=args.after_verified_experiment.resolve()
         write_status(parent,phase='waiting_for_verified_pilot',previous_experiment=str(previous))
@@ -139,7 +186,12 @@ def main():
             write_status(parent,phase='runtime_failed',failed_trial=str(trial),training_exit_code=code)
             return code or 2
         metrics=json.loads((run/'metrics.json').read_text())
-        learning=metrics['pose_goal_sac' if pose_mode else 'residual_sac']
+        if pose_mode and args.evaluation_only and 'pose_student' in metrics:
+            if metrics['pose_student']['sac_actor_updates']!=0 or metrics['pose_student']['sac_critic_updates']!=0:
+                raise RuntimeError('BC comparison unexpectedly performed RL updates')
+            learning=dict(training=False,actor_updates=0)
+        else:
+            learning=metrics['pose_goal_sac' if pose_mode else 'residual_sac']
         if split=='holdout' and learning['training']:
             raise RuntimeError('Held-out evaluation unexpectedly enabled optimizer updates')
         row=dict(split=split,layout=json.loads(layout.read_text()),pass_index=pass_index,

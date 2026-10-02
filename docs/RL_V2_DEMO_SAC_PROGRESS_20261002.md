@@ -1,20 +1,75 @@
 # V2 grasp: 데모 연결과 학습 진행 요약
 
-2026-10-02 08:52 KST: 실행 중 데모 경로를 공급하지 않는 **목표 자세 SAC**가
-훈련3/3·고정 모델 새 배치 평가3/3에서 양손 flap 파지 유지에 성공했다.
-최종 actor2,068/critic2,568 updates이며 평가 optimizer·normalizer update는0이다.
-해당 여섯 실행의 checkpoint·영상·로그는 기존 Drive에서 크기/MD5 검증을 마쳤다.
+2026-10-02 22:45 KST: **박스 randomization과 초기 base XY/yaw를 함께 바꾸는
+SAC 학습**을 GPU3에서 시작했다. 첫 훈련은411tick(13.7초)에 양손 flap 파지
+유지 성공, unsafe/invalid/timeout0이었다. GPU0의 같은 heldout 분포 BC 비교도
+첫 실행412tick에 성공했다. 각각 한 번의 결과로 일반화나 SAC의 우월함을 주장하지 않는다.
+
+앞선 탐색 안정화 실행은 종료됐다. 훈련 **10/12 성공·시간 초과2**, 이후 같은
+최종 actor12,494/critic12,994를 고정한 별도 평가 **12/12 성공**(408–411tick)이었다.
+평가 optimizer·normalizer update0, 전체 안전 위반·invalid0이며24개 실행 모두
+checkpoint·영상·로그의 최종 Drive 크기/MD5 검증을 마쳤다. 이 결과는 **동일한
+로봇 시작 자세**에서 얻었으므로 초기 base 위치 일반화의 증거가 아니었다.
 
 추가 배치로 학습을 확대한 첫 실행은 **0/3 성공: 시간 초과1, 랙 충돌2**였다.
 그 첫 실패 배치를 기존 고정 모델로 재실행하자405tick에 성공했다. 학습과 탐색을
 동시에 끈 비교이므로 각각의 원인을 완전히 분리하지는 못했지만, 배치 자체의
 성공 가능성과 온라인 정책 악화를 확인했다. 탐색 폭·actor 학습률을 줄이고
-데모 보조를 천천히 줄인 GPU3 재학습의 첫 세 배치는 **408/411/404tick 성공(3/3)**, 안전 위반0이다.
-새 훈련12개와 별도 고정 평가12개를 이어서 실행한다. 전체 결과는 진행 중이다.
+데모 보조를 천천히 줄인 GPU3 재학습은 첫 세 배치408/411/404tick 성공 후
+위의 훈련10/12·고정 평가12/12로 종료됐다.
 
 기존의 데모 기준 제어+SAC 보정은 평가8/8 성공했지만, 보정0도3/3 성공했다.
 현재 모델은 신경망이 목표를 직접 출력한다. BC 대비 SAC의 추가 성능 향상이나
 모든 선반·박스 크기·임의 초기 자세 일반화를 입증한 결과는 아직 아니다.
+
+## 박스와 시작 base를 함께 randomize하는 새 실행
+
+- 박스: 아래 선반 small target 안쪽2–4cm, sampled yaw±1°, 주변 박스0–3개.
+  박스를 물리에 고정하지 않는다. Spawn 값과 정착 후 실제 pose를 각각 기록한다.
+  랙을 따라 정착하며 일부 yaw/depth 변화가 사라질 수 있으므로 이를 일반화로 과장하지 않는다.
+- 로봇 시작점: rack-frame 좌우±20cm, 랙 밖으로3–25cm, yaw±15°.
+  기존 팔/torso 초기 관절은 유지하지만 **실제 robot root pose를 이동·회전**한다.
+  Box/rack world pose가 그 base 이동을 따라 움직이지 않도록 관측을 재표현한다.
+- 학습24배치를2번 반복한48회, 최종 고정 모델 평가12회. Train/heldout RNG를
+  분리한다. Curriculum·안전 기준·양손 opposing flap 성공 조건은 유지한다.
+- GPU3 `base_box_sac_gpu3_20261002_2230`: 실제 replay·optimizer를 이어받은 SAC.
+  GPU0 `base_box_bc_gpu0_20261002_2230`: 같은12 heldout의 BC 고정 비교.
+  `initial_base_pose_world`와 `reward_term_sums`로 실제 배치와 보상 기여를 감사한다.
+- 두 실행 모두 종료 후 Drive 업로드·검증을 하고 다음 배치로 넘어간다.
+  현재는 sequential one-env 실험이며80GB VRAM을 채우는 vectorized 실행은 아니다.
+
+[![랜덤 base·박스 조건의 첫 SAC 성공](assets/rl_v2_random_base_box_sac_first_success_20261002.png)](assets/rl_v2_random_base_box_sac_first_success_20261002_h264.mp4)
+
+[H.264 실제 영상](assets/rl_v2_random_base_box_sac_first_success_20261002_h264.mp4) ·
+[배치·초기 world pose·보상·학습 횟수 기록](assets/rl_v2_random_base_box_sac_first_success_20261002.json).
+이는 **학습 중 첫 성공**이며 최종 고정 평가가 아니다. 영상은 실제 PhysX 자세의 CPU mesh 표시다.
+
+### 보상 검토: 실험용 SAC 할인율 불일치
+
+접근2·front-stage1의 진행 보상은 potential discount0.999를 사용하지만,
+목표 자세 BC 초기화의 SACConfig 기본값0.99가 Q 학습으로 이어지고 있었다.
+약410step 뒤의 성공 보상 할인 계수는0.99에서0.016,0.999에서0.664다.
+이는 오래 걸리는 진입 동작 학습을 방해할 수 있는 **원인 후보**이며 단독 인과 검증 결과는 아니다.
+
+새 BC→SAC 초기화는 물리 reward contract의 discount를 명시적으로 사용한다.
+기존 checkpoint는 조용히 변경하지 않는다. `fork_pose_goal_sac.py`의
+`--align-discount-with <same-physical-manifest> --preserve-exploration`으로 별도
+실행을 만든다. Actor·탐색·normalizer·실제 replay/reward를 보존하고 critic optimizer만
+초기화한 뒤 actor 고정 critic warmup2,000회를 수행한다. 재개할 때 반복 warmup하지 않는다.
+
+GPU0 `base_box_gamma_aligned_gpu0_20261002_2245`는 BC 비교 종료·최종 백업 검증을
+기다린 뒤 같은48훈련·12고정 평가를 수행하도록 등록했다. 현재 GPU3 실행은0.99
+비교 기준으로 유지한다. 보상 크기나 성공·충돌 조건을 완화하지 않았다.
+첫 SAC 성공의 접근 보상 합계1.540, front0.267, one-hand2, bilateral1, success5,
+base penalty−0.0061이다. Base 이동 벌점이 접근 이득을 압도하는 상태는 아니었다.
+
+초기 base 관측 변환, 고정 BC 비교, 할인율 migration의 actor/replay 보존·한 번만
+critic warmup 수행을 포함한 이번 관련 검사 **36 passed**.
+SAC·replay·Drive·배치·영상의 기존 회귀까지 포함한 검사 **125 passed**.
+위 선반은 `upper_vr_current_rest_gpu0_20261002_2250`에서 별도 진단 중이다.
+옛 reference 자세로 끌어당기는 IK rest 항 대신 실제 현재 관절을 rest로 쓰고,
+closing-axis·torso 앞쪽4cm·원본 gripper timing을 함께 확인한다. 기존 제어 기본값은
+유지하며 이 IK/VR 진단을 SAC 성능으로 기록하지 않는다.
 
 ## 현재 데모 연결: BC 초기화 → 실제 SAC → 고정 평가
 
@@ -66,7 +121,8 @@ zero-residual 초기화 prior는512 updates 동안 사라지지만 기준 제어
 | BC에서 목표 자세 SAC 연결 | 훈련3/3·고정 평가3/3 성공, actor2,068/critic2,568 | 경로 공급 없는 목표 정책; BC 대비 개선 미확인 |
 | 목표 SAC 확대 학습 첫 시도 | 0/3 성공, 시간 초과1·랙 충돌2 | 양손 접촉 유지 실패 후 평균 정책도 악화 |
 | 첫 실패 배치의 기존 고정 모델 비교 | 1/1 성공,405tick | 배치 자체는 가능; 탐색·온라인 갱신 영향 |
-| 탐색·학습 속도 수정 후 GPU3 재학습 | 첫 세 배치3/3 성공,408/411/404tick | 훈련12·고정 평가12 진행 중 |
+| 탐색·학습 속도 수정 후 GPU3 재학습 | 훈련10/12·고정 평가12/12 | 동일한 로봇 시작 자세, 최종 actor12,494; 종료·Drive 검증 완료 |
+| 초기 base+박스 randomization SAC | 첫 훈련1회 성공,411tick | 48훈련·12고정 평가 진행 중; 일반화 판정 전 |
 
 성공 범위는 작은 박스·아래 선반 같은 구역·안쪽2–4cm 위치 변화·주변 활성
 박스0–3개다. 시작 yaw는±1°지만 롤러에서0에 가까워지므로 큰 yaw 일반화로
@@ -98,7 +154,8 @@ zero-residual 초기화 prior는512 updates 동안 사라지지만 기준 제어
   안정 분포의 데모 보조 학습은5/6 성공·1회 시간 초과 후 종료·백업 검증했다.
   경로 공급 없는 목표 SAC의 확대 학습은0/3 실패 후 종료·검증했다. 성공 모델
   actor2,068에서 실제 replay1,223개를 그대로 이어 받은 완화 탐색 설정으로
-  `pose_goal_low_noise_gpu3_20261002_0830`에서 재학습 중이다.
+  `pose_goal_low_noise_gpu3_20261002_0830`에서 훈련10/12·고정 평가12/12로 종료했다.
+  현재는 상단의 초기 base+박스 randomization 실행으로 이어간다.
   고정 분포는 **안쪽2–3.5cm, 추가 yaw/depth0, 주변 박스0–3개**다.
   원본 데모 초기 자세로24개 배치의2mm footprint margin을 검사했다.
 - 위 선반: full-wrist/closing-axis IK, torso 앞쪽4cm, 양손 동시 닫기,

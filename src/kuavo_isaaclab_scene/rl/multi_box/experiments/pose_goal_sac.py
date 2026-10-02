@@ -5,6 +5,7 @@ measured transitions whose inverse goals reproduce the executed command may
 seed Q. Initial box anchor and episode clock are explicit Markov context.
 """
 from dataclasses import replace
+import math
 from pathlib import Path
 
 import torch
@@ -14,6 +15,17 @@ from ...algorithms.sac import SACConfig
 from ...runners.storage import save_checkpoint
 from .executed_replay import read_executed_successes
 from .pose_student import PoseGoalCoordinates, PoseStudent
+
+
+def reward_discount(contract):
+    """Use the same discount for Bellman backups and potential shaping."""
+    discount = float(contract['discount'])
+    if not math.isfinite(discount) or not 0 < discount < 1:
+        raise ValueError('Invalid physical reward discount')
+    shaped = contract.get('reward_profile', {}).get('weights', {}).get('discount', discount)
+    if float(shaped) != discount:
+        raise ValueError('Reward potential and physical discounts differ')
+    return discount
 
 
 class GoalGripperProjector:
@@ -81,8 +93,11 @@ class PoseGoalSACPilot:
         self.prior_weight=float(saved.get('goal_contract',{}).get('frozen_network_prior_initial_weight',10.))
         if self.fade_updates<1 or self.prior_weight<0:raise ValueError('Invalid goal warm-start schedule')
         self.latest={};self.online_history=[]
+        self.reward_discount=reward_discount(physical_contract)
+        self.discount_alignment=saved.get('discount_alignment')
+        self.discount_warmup_updates=0
         config=replace(self.prior.agent.config,actor_lr=2e-6,
-                       initial_policy_std=.01,max_policy_std=.02)
+                       initial_policy_std=.01,max_policy_std=.02,gamma=self.reward_discount)
         if saved.get('artifact_type')==self.artifact_type:
             config=SACConfig(**saved['config'])
         self.agent=AsymmetricSAC(self.actor_dim,533,24,config,device,
@@ -128,6 +143,19 @@ class PoseGoalSACPilot:
                 if (rows['action'].abs()>1.00001).any():raise ValueError('Unbounded executed goal action')
                 self.replay.add(**rows)
                 self.online_history.append({key:value.cpu() for key,value in rows.items()})
+            warmup=saved.get('pending_discount_critic_warmup',0)
+            if warmup and training:
+                if (not isinstance(warmup,int) or not 1<=warmup<=10000
+                        or config.gamma!=self.reward_discount or not self.replay.size):
+                    raise ValueError('Discount migration requires matching gamma and actual replay')
+                # Revalue measured transitions at the new horizon. The actor,
+                # its optimizer and both observation normalizers stay fixed.
+                for _ in range(warmup):
+                    actual=self.replay.sample(205,self.device)
+                    seed=self.sample_seed(51)
+                    batch={key:torch.cat((value,seed[key])) for key,value in actual.items()}
+                    self.latest=self.agent.update(batch,update_actor=False)
+                    self.critic_updates+=1;self.discount_warmup_updates+=1
         elif saved.get('artifact_type')==PoseStudent.artifact_type:
             widen_bc_actor(self.prior,self.agent)
             self.agent.critic_normalizer.update(self.seed['critic_obs'])
@@ -200,12 +228,17 @@ class PoseGoalSACPilot:
             online_rows=self.online_rows,seed_rows=len(self.seed['reward']),
             runtime_reference_path_required=False,demo_fraction=.2*max(0.,1-self.actor_updates/self.fade_updates),
             min_policy_std=self.agent.config.min_policy_std,max_policy_std=self.agent.config.max_policy_std,
+            learner_discount=self.agent.config.gamma,reward_discount=self.reward_discount,
+            discount_mismatch=self.agent.config.gamma!=self.reward_discount,
+            discount_warmup_updates=self.discount_warmup_updates,discount_alignment=self.discount_alignment,
             replay_size=self.replay.size,latest=self.latest,goal_contract=self.contract)
 
     def save(self,final=False):
         state=self.agent.checkpoint()|dict(artifact_type=self.artifact_type,goal_contract=self.contract,
             bc_prior=self.prior.state,actor_updates=self.actor_updates,critic_updates=self.critic_updates,
             action_coordinates=self.coordinates.name,reference_runtime_dependency=False)
+        if self.discount_alignment:
+            state['discount_alignment']=self.discount_alignment
         save_checkpoint(self.directory,state,self.actor_updates,keep=None)
         if final and self.online_history:
             rows={key:torch.cat([batch[key] for batch in self.online_history])[-20000:] for key in self.replay.data}

@@ -150,3 +150,65 @@ def test_goal_exploration_fork_rejects_another_action_contract(tmp_path):
     with pytest.raises(ValueError,match='native goal-SAC'):
         module.fork_checkpoint(checkpoint,tmp_path/'fork')
     assert not (tmp_path/'fork').exists()
+
+
+def test_goal_discount_matches_potential_and_explicit_migration_keeps_actor(tmp_path,monkeypatch):
+    import importlib.util
+    from pathlib import Path
+    from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import AsymmetricSAC
+    from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
+    from kuavo_isaaclab_scene.rl.multi_box.experiments import pose_goal_sac as goal
+
+    torch.set_num_threads(1)
+    contract=dict(discount=.999,reward_profile=dict(weights=dict(discount=.999)))
+    raw=raw_state()[:1].clone()
+    raw[:,86+4*22]=1;raw[:,86+4*22+12:86+4*22+15]=torch.tensor([.8,.2,1.])
+    raw[:,388+4]=1;raw[:,400+4]=1
+    physical=torch.zeros(1,24);physical[:,20:22]=-1
+    coordinates=PoseGoalCoordinates()
+    center=coordinates.encode_physical(raw,physical)[0]
+    center[19:21]-=coordinates.box_anchor(raw)[0];center[22:24]=0
+    prior=AsymmetricSAC(439,531,24,SACConfig(hidden=16))
+    state=prior.checkpoint()|dict(artifact_type=PoseStudent.artifact_type,
+        action_coordinates=coordinates.name,goal_center=center,goal_scale=torch.ones(24),
+        initial_box_relative_goals=True)
+    torch.save(state,tmp_path/'bc.pt')
+    measured=dict(actor_obs=raw,critic_obs=torch.cat((raw,torch.zeros(1,66)),1),
+        action=physical,next_actor_obs=raw,next_critic_obs=torch.cat((raw,torch.zeros(1,66)),1),
+        reward=torch.tensor([5.]),terminated=torch.tensor([True]))
+    monkeypatch.setattr(goal,'read_executed_successes',lambda *args:(measured,
+        dict(successful_episodes=1,source_dataset_sha256='physical-test-fixture')))
+    pilot=goal.PoseGoalSACPilot(tmp_path/'bc.pt',None,contract,tmp_path/'initial',training=False)
+    assert pilot.agent.config.gamma==.999 and not pilot.report()['discount_mismatch']
+    old=tmp_path/'old';old.mkdir()
+    pilot.agent.config.gamma=.99
+    legacy=pilot.agent.checkpoint()|dict(artifact_type=pilot.artifact_type,
+        format_version=1,goal_contract=pilot.contract,bc_prior=state,actor_updates=11,critic_updates=17)
+    torch.save(legacy,old/'checkpoint.pt');(old/'manifest.json').write_text(json.dumps(contract))
+    actual={key:value.repeat(4,*([1]*(value.ndim-1))) for key,value in pilot.seed.items()}
+    torch.save(dict(goal_contract=pilot.contract,executed_goal_transitions=actual),old/'pose_goal_experience.pt')
+    spec=importlib.util.spec_from_file_location('discount_fork',Path(__file__).parents[1]/'scripts/rl/fork_pose_goal_sac.py')
+    fork=importlib.util.module_from_spec(spec);spec.loader.exec_module(fork)
+    manifest=tmp_path/'physical.json';manifest.write_text(json.dumps(contract))
+    path,audit=fork.fork_checkpoint(old/'checkpoint.pt',tmp_path/'aligned',
+        align_discount_with=manifest,preserve_exploration=True,critic_warmup_updates=5)
+    migrated=goal.PoseGoalSACPilot(path,None,contract,tmp_path/'trained',training=True)
+    assert migrated.agent.config.gamma==.999 and migrated.discount_warmup_updates==5
+    assert migrated.actor_updates==11 and migrated.critic_updates==22
+    for key,value in pilot.agent.actor.state_dict().items():
+        assert torch.equal(value,migrated.agent.actor.state_dict()[key]),key
+    assert torch.equal(migrated.replay.data['reward'][:4],actual['reward'])
+    assert audit['discount_alignment']['recorded_rewards_unchanged']
+    migrated.directory.mkdir();migrated.save(final=True)
+    saved=torch.load(next(migrated.directory.glob('checkpoint_*.pt')),weights_only=True)
+    assert 'pending_discount_critic_warmup' not in saved
+    reloaded=goal.PoseGoalSACPilot(next(migrated.directory.glob('checkpoint_*.pt')),
+        None,contract,tmp_path/'next',training=True)
+    assert reloaded.discount_warmup_updates==0 and reloaded.critic_updates==22
+
+
+def test_goal_discount_rejects_a_different_potential_horizon():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import reward_discount
+    with pytest.raises(ValueError,match='discounts differ'):
+        reward_discount(dict(discount=.999,reward_profile=dict(weights=dict(discount=.99))))
