@@ -41,7 +41,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 실제 성공 전이·폐루프 모방 실패·보정 SAC 실험 | [2026-10-01 비교 결과와 실행법](docs/RL_V2_CLOSED_LOOP_RECOVERY_20261001.md) |
 | 다양한 박스 배치 파지 일반화 | [2026-10-02 배치 분포·실제 실패·목표 변환·학습/holdout 실행법](docs/RL_V2_LAYOUT_GENERALIZATION_20261002.md) |
 | 데모–SAC 연결·성공 영상·진행 요약 | [2026-10-02 기준 경로 보정 / 경로 공급 없는 BC·목표 자세 SAC 연결과 사용법](docs/RL_V2_DEMO_SAC_PROGRESS_20261002.md) |
-| SAC 장기 학습 붕괴·복구 실험 | [2026-10-03 완료 결과: BC10/12·SAC0/12, neural prior 제약과 개발 평가 actor 복구](docs/RL_V2_SAC_RECOVERY_20261003.md) |
+| SAC 학습 붕괴·복구·BC 제약 해제 비교 | [2026-10-03 실측 결과, neural prior 제약과 개발 평가 actor 복구](docs/RL_V2_SAC_RECOVERY_20261003.md) |
 | Quest로 V2 grasp SAC 시연 데이터 수집 | [Quest RL 시연 수집](docs/RL_QUEST_REWARD_DEBUG.md) |
 | 기존 Google Drive 연결 재사용·결과 업로드·로컬 보관량 관리 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
 | RL 초기 자세 수정·VR 재캡처 | [모델별 초기 상태](docs/RL_INITIAL_STATES.md) |
@@ -359,6 +359,26 @@ SAC를 연결한다. `--contact-diagnostics`는 replay의 이미 계산된 손�
 선반마다 개발 성공 수를 따로 기록하고 어느 선반이든 성능이 낮아지면 검증된
 actor로 복구해 다른 선반의 개선이 회귀를 가리지 않게 한다. Final layout은
 optimizer update 없이 평가한다.
+
+이미 측정한 goal-SAC 체크포인트에서 지속적인 BC 제약을 해제하려면 다음처럼
+고유 폴더로 분기한다. `--preserve-exploration`은 모델·Q·정규화·optimizer·
+Gaussian 탐색과 기존 실제 demo replay 감소 일정을 유지한다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' python scripts/rl/fork_pose_goal_sac.py \
+  --checkpoint /absolute/path/to/source/checkpoint_00003568.pt \
+  --output-dir /absolute/path/to/unique-bc-release-run \
+  --preserve-exploration \
+  --prior-initial-weight 0 --prior-weight-floor 0 --max-prior-deviation 0
+```
+
+Initial/floor를 모두0으로 지정해야 actor imitation이 즉시 꺼진다. Radius0은
+BC 목표 주변의 행동 제한을 해제하며 실제 flap12cm 접근 후 gripper 닫힘 gate는
+유지한다. `--max-prior-deviation 0.05`로 유지하면 모방 손실만 제거하는 비교가
+된다. 기존 실제 전이의 action/reward는 바꾸지 않고 수집 정책의 provenance를
+남긴다. BC 초기화와 실제 demo replay가 유지되므로 **데모 없는 처음부터의
+SAC 실험은 아니다.** 제약 해제로 실행 목표가 달라질 수 있으며 fork 완료를
+물리 파지 성공으로 해석하지 않는다. 실행은 기존 Drive 관리자를 사용한다.
 
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에
 중복하지 않는다. 처음에는 [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md)을 따른다.

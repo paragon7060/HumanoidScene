@@ -786,3 +786,66 @@ frozen 물리 비교 중이다. F64 cosine 모델의 CPU fit도 끝났으며, �
 기존 GPU3/GPU0/GPU2 SAC는 계속 실행한다. Mixed 개발의 upper 한 배치는
 개선됐지만 이후 lower 개발 배치 한 곳에서 다시 충돌이 관측돼 전체4개
 개발 검사와 선반별 actor 복구를 계속 확인해야 한다.
+
+### BC 없이 가능한지 분리하는 실험 (10/03 23:50)
+
+현재 성공 설정은 BC 초기화뿐 아니라 actor imitation weight10과 neural goal
+prior±0.05 제약을 계속 사용한다. 따라서 이 결과를 BC 없이 SAC가 성공했다는
+증거로 사용할 수 없다. 반대로 최신 설정에서 BC가 반드시 필요하다는 비교
+결과도 아직 없다. Mixed 개발 평가는 actor3,568의 lower2/2·upper1/2에서
+actor7,924의 lower0/2·upper1/2로 회귀해 actor를 복구했다. SAC 업데이트의
+안정성과 새로운 배치에 대한 feedback 보정이 여전히 문제다.
+
+원본 human VR 시연은2개다. 현재 mixed learner의 seed도 동일한0.46m
+물리 계약에서 측정한 lower410·upper594의1,004행이며, 프레임 수가 독립된
+초기 상태 수는 아니다. 추가 시연은 모든 초기 상태를 덮는 용도가 아니라
+좌우/먼 접근·상단 reach·밀린 박스를 회복하는 서로 다른 대응을 제공하는
+용도로 검토한다. 데모를 actor imitation 없이 replay 데이터로 활용하는
+[RLPD의 연구 결과](https://proceedings.mlr.press/v202/ball23a.html)는 가능한
+방향의 근거지만 우리 설정이 RLPD를 재현하거나 성공을 보장한다는 뜻은 아니다.
+
+이미 실제 upper 개발 배치에서593tick 성공을 보인 **동일한 mixed actor3,568**을
+아래 세 분기로 복제했다. Model/Q/normalizer/optimizer/Gaussian 탐색 설정과
+실제 online 전이2,036행이 모두 보존되고 체크포인트 재개가 가능한지 확인했다.
+Native success seed1,004행·20%→0 demo replay 일정·reward·관측·0.46m torso
+travel·rack10N/obstacle5N·서로 다른 flap의 양손 opposing pinch/hold 판정은 같다.
+
+| 분기 | Actor imitation initial/floor | Neural goal radius | 시작 시 기존 projected 평균 action 대비 최대 차이 |
+|---|---:|---:|---:|
+| Control |10 /10|0.05|0|
+| Imitation off |0 /0|0.05|0|
+| Imitation + bound off |0 /0|0|0.01049 (normalized goal)|
+
+`fork_pose_goal_sac.py --prior-initial-weight`를 추가했다. Floor만0으로 내려도
+기존 initial10에서 fade되는 imitation은 남으므로 initial/floor를 모두0으로
+설정한다. Weight0이면 learner가 teacher 네트워크를 호출하지 않고 일반 SAC
+loss로 업데이트한다. Radius0은 BC 주변 제한만 해제하며 actual flap12cm
+접근 gate는 유지한다. BC 초기화·demo replay가 남아 있으므로 처음부터 데모
+없이 학습하는 실험과 구분한다. Radius 제거는 이미 실행 평균도 조금 바꾸며
+raw network 평균만 동일하다는 점을 기록했다. 관련100개 검사 통과.
+[분기별 실제 보존 검사와 설정](assets/rl_v2_bc_constraint_ablation_20261003.json).
+
+GPU0 기존 upper suite는 종료·로그 Drive 검증까지 완료했다. 학습1/8·개발0/10,
+독립 final3100..3103은 **2/4 성공**(실패는 rack 충돌1·시간초과1)이다. 서로 다른
+base/box 초기 상태에서의 일부 SAC 성공이지만 이 분포는 upper small box·base
+X±8cm/out3..10cm/yaw±5° 범위이며 지속적인 BC 제약도 사용했다. Lower GPU3은
+학습32/32·반복 개발36/36·unsafe0이고 독립 final600..611은 아직 실행 전이다.
+F64 constant/cosine fit의 upper train1000은 모두851tick safe timeout,
+lower original은410tick 성공으로 각각1/2 gate 실패·종료/Drive 검증 완료다.
+Label 오차 감소만으로 실제 파지가 해결되지 않았다.
+
+소유한 GPU0 upper suite의 실제 terminal·전체 writer 종료·Drive 검증을 확인한
+뒤 새 비교 서비스 `humanoid-rl-mixed-shelf-bc-release-ablation-gpu0-20261003.service`를
+등록했다. 먼저 분기 모델/실제 replay를 Drive 검증한 뒤 imitation+bound off,
+imitation off, control 순으로 수행한다. 각 분기는 동일한 train1202/1302/1203/1303
+4개, 반복 개발2200/2300 2개, 새로운 final4200/4300 2개를 사용한다. 개발 actor
+복구는 각 분기 내부에서만 수행하고 final은 optimizer/선택에 사용하지 않는다.
+GPU3 lower와 GPU2 mixed 및 다른 사용자 작업은 유지한다. 이 시점 제약 해제
+정책의 물리 결과는 아직 측정 전이며 서비스 등록을 성공 판정으로 삼지 않는다.
+
+분기 모델/실제 replay의 Drive 검증은 완료했다. 실제 비교 부모 폴더는
+`artifacts/rl/drive_runs/mixed_shelf_BC_release_ablation_gpu0_20261003_234858`이며
+23:48:59부터 imitation+bound off의 frozen lower 개발 배치2200을 실행하고 있다.
+먼저 optimizer를 끈 상태에서 출발 정책의 물리 성능을 측정한 뒤 같은 random
+base/box 분포의 train4개에서 SAC를 재개한다. 이 평가 단계의 진행을 이미
+새 optimizer 학습이 시작됐다는 뜻으로 사용하지 않는다.

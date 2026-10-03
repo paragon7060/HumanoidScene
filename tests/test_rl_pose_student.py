@@ -258,6 +258,101 @@ def test_goal_exploration_fork_rejects_another_action_contract(tmp_path):
     assert not (tmp_path/'fork').exists()
 
 
+@pytest.mark.parametrize('radius', [.05, 0.])
+def test_ongoing_BC_release_resumes_without_teacher_or_relabeling_data(tmp_path, monkeypatch, radius):
+    import importlib.util
+    from pathlib import Path
+    from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import AsymmetricSAC
+    from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
+    from kuavo_isaaclab_scene.rl.multi_box.experiments import pose_goal_sac as goal
+
+    torch.set_num_threads(1)
+    physical_contract=dict(discount=.999,reward_profile=dict(weights=dict(discount=.999)),
+                           action_contract='s63_upright_torso_xz_fixed_pitch_v1')
+    raw=raw_state()[:1].clone()
+    raw[:,86+4*22]=1;raw[:,86+4*22+12:86+4*22+15]=torch.tensor([.8,.2,1.])
+    raw[:,388+4]=1;raw[:,400+4]=1
+    physical=torch.zeros(1,24);physical[:,20:22]=-1
+    coordinates=PoseGoalCoordinates()
+    center=coordinates.encode_physical(raw,physical)[0]
+    center[19:21]-=coordinates.box_anchor(raw)[0];center[22:24]=0
+    prior=AsymmetricSAC(439,531,24,SACConfig(hidden=16))
+    bc=prior.checkpoint()|dict(artifact_type=PoseStudent.artifact_type,
+        action_coordinates=coordinates.name,goal_center=center,goal_scale=torch.ones(24),
+        initial_box_relative_goals=True)
+    torch.save(bc,tmp_path/'bc.pt')
+    critic=torch.cat((raw,torch.zeros(1,66)),1)
+    measured=dict(actor_obs=raw,critic_obs=critic,action=physical,
+        next_actor_obs=raw,next_critic_obs=critic,reward=torch.tensor([5.]),terminated=torch.tensor([True]))
+    monkeypatch.setattr(goal,'read_executed_successes',lambda *args:(measured,
+        dict(successful_episodes=1,source_dataset_sha256='physical-test-fixture')))
+    original=goal.PoseGoalSACPilot(tmp_path/'bc.pt',None,physical_contract,tmp_path/'original',training=False)
+    source=tmp_path/'source';source.mkdir()
+    state=original.agent.checkpoint()|dict(artifact_type=original.artifact_type,
+        format_version=1,goal_contract=original.contract,bc_prior=bc,actor_updates=3568,critic_updates=4068)
+    torch.save(state,source/'checkpoint.pt')
+    (source/'manifest.json').write_text(json.dumps(physical_contract))
+    actual={key:value.repeat(4,*([1]*(value.ndim-1))) for key,value in original.seed.items()}
+    torch.save(dict(goal_contract=original.contract,executed_goal_transitions=actual),source/'pose_goal_experience.pt')
+    spec=importlib.util.spec_from_file_location('prior_release_fork',Path(__file__).parents[1]/'scripts/rl/fork_pose_goal_sac.py')
+    fork=importlib.util.module_from_spec(spec);spec.loader.exec_module(fork)
+    checkpoint,audit=fork.fork_checkpoint(source/'checkpoint.pt',tmp_path/'fork',
+        preserve_exploration=True,prior_initial_weight=0.,prior_weight_floor=0.,max_prior_deviation=radius)
+    saved=torch.load(checkpoint,weights_only=True)
+    assert saved['config']==state['config'] and saved['optimizers']==state['optimizers']
+    assert saved['entropy_contract']==state['entropy_contract']
+    for key,value in state['model'].items():assert torch.equal(value,saved['model'][key]),key
+    copied=torch.load(checkpoint.parent/'pose_goal_experience.pt',weights_only=True)
+    for key,value in actual.items():assert torch.equal(value,copied['executed_goal_transitions'][key]),key
+    assert copied['collection_goal_contract']==original.contract
+    assert audit['ongoing_imitation_disabled'] and audit['BC_initialization_retained']
+    assert audit['neural_prior_action_bound_disabled']==(radius==0.)
+    assert audit['demo_replay_schedule_unchanged'] and audit['projected_mean_may_change']==(radius==0.)
+    resumed=goal.PoseGoalSACPilot(checkpoint,None,physical_contract,tmp_path/'resumed',training=True)
+    assert resumed.actor_updates==3568 and resumed.critic_updates==4068
+    assert resumed.prior_weight_at(0)==resumed.prior_weight_at(40000)==0.
+    assert resumed.agent.action_projector.max_prior_deviation==radius
+    assert resumed.replay.size==4 and resumed.report()['demo_fraction']>0.
+    assert resumed.contract==saved['goal_contract']
+    # An update with imitation disabled must not invoke the teacher. This also
+    # verifies that live measured experience still enters the normal Q batch.
+    def forbidden_teacher(*args,**kwargs):raise AssertionError('Disabled BC teacher invoked')
+    monkeypatch.setattr(resumed.prior.agent,'act',forbidden_teacher)
+    updates=[]
+    def update(batch,*,teacher,teacher_weight):
+        assert teacher is None and teacher_weight==0.
+        assert len(batch['action'])==256
+        updates.append(batch)
+        return {'teacher_bc_weight':teacher_weight}
+    monkeypatch.setattr(resumed.agent,'update',update)
+    resumed.online_rows=63;resumed.anchor=coordinates.box_anchor(raw)
+    resumed.observe((resumed.seed['actor_obs'],resumed.seed['critic_obs'],resumed.seed['action']),
+        raw,critic,torch.tensor([.25]),torch.tensor([False]),0)
+    assert len(updates)==2 and resumed.actor_updates==3570 and resumed.replay.size==5
+    assert resumed.replay.data['reward'][4].item()==.25
+    resumed.directory.mkdir();resumed.save(final=True)
+    reloaded=goal.PoseGoalSACPilot(next(resumed.directory.glob('checkpoint_*.pt')),
+        None,physical_contract,tmp_path/'reloaded',training=True)
+    assert reloaded.prior_weight_at(0)==0. and reloaded.prior_radius==radius
+    assert reloaded.actor_updates==3570 and reloaded.replay.size==5
+
+
+@pytest.mark.parametrize(('initial','floor'), [(float('nan'),0.),(float('inf'),0.),(-1.,0.),(0.,None),(0.,1.)])
+def test_prior_release_rejects_invalid_or_inconsistent_weights_before_writing(tmp_path, initial, floor):
+    import importlib.util
+    from pathlib import Path
+    spec=importlib.util.spec_from_file_location('prior_release_invalid',Path(__file__).parents[1]/'scripts/rl/fork_pose_goal_sac.py')
+    fork=importlib.util.module_from_spec(spec);spec.loader.exec_module(fork)
+    source=tmp_path/'source';source.mkdir()
+    torch.save(dict(artifact_type='pose_goal_sac_no_live_reference',format_version=1,config={},
+        goal_contract=dict(frozen_network_prior_initial_weight=10.,frozen_network_prior_weight_floor=10.)),source/'checkpoint.pt')
+    (source/'manifest.json').write_text('{}')
+    with pytest.raises(ValueError,match='Prior'):
+        fork.fork_checkpoint(source/'checkpoint.pt',tmp_path/'fork',prior_initial_weight=initial,prior_weight_floor=floor)
+    assert not (tmp_path/'fork').exists()
+
+
 def test_goal_discount_matches_potential_and_explicit_migration_keeps_actor(tmp_path,monkeypatch):
     import importlib.util
     from pathlib import Path

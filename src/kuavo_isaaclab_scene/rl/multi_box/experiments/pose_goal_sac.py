@@ -268,11 +268,13 @@ class PoseGoalSACPilot:
                     actual={key:torch.cat((value,seed[key])) for key,value in actual.items()}
                 # A frozen neural-network prior on current state is actor-only;
                 # it provides no recorded path, reward or hypothetical Q row.
-                with torch.no_grad():
-                    prior_action=self.prior.agent.act(actual['actor_obs'][:,:-2],deterministic=True)
-                self.latest=self.agent.update(actual,
-                    teacher=dict(actor_obs=actual['actor_obs'],action=prior_action),
-                    teacher_weight=self.prior_weight_at(self.actor_updates))
+                weight=self.prior_weight_at(self.actor_updates)
+                teacher=None
+                if weight:
+                    with torch.no_grad():
+                        prior_action=self.prior.agent.act(actual['actor_obs'][:,:-2],deterministic=True)
+                    teacher=dict(actor_obs=actual['actor_obs'],action=prior_action)
+                self.latest=self.agent.update(actual,teacher=teacher,teacher_weight=weight)
                 self.actor_updates+=1;self.critic_updates+=1
 
     def report(self):
