@@ -927,3 +927,70 @@ reward·양손 성공·rack10N/obstacle5N·self-collision off·curriculum 없음
 GPU0 비교·GPU3 lower·GPU2 mixed 및 다른 사용자 작업은 그대로 실행한다.
 GPU3 lower는 train42/42·unsafe0, 독립 final은 아직 남았다. Upper의 안정적인
 일반화와 BC 제약 없는 SAC 개선은 아직 해결되지 않아 계속 확인·수정한다.
+
+### 기존 SAC 우선, 필요하면 구역별 base 정렬·고정 파지로 전환 (10/04)
+
+사용자 지시에 따라 현재의 전체 action SAC 비교를 먼저 끝낸다. 지연 actor 분기의
+초기 frozen 개발은2/2 성공했고 실제 train1202는409tick 성공, upper train1302는
+852tick 안전한 시간초과였다. 현재 train1/2·unsafe0다. 상단은 한 손 opposing pinch가
+있었지만 양손 성공 조건을 만족하지 못했다. 초기 개발 성공과 실제 훈련 성공, 훈련
+후 개발 평가, 새 독립 final5400/5500을 구분하고 마지막 두 단계까지 확인한다.
+해당 상단 train 배치의 업데이트 전 frozen 비교 없이 이 실패를 정책 회귀로 단정하지
+않는다. 일회 성공이나 손실 감소만으로 기존 방식이 해결됐다고 판단하지 않는다.
+이어지는 middle-left train1203도408tick 성공해 **train2/3·unsafe0**가 됐다.
+하단 두 훈련 배치는 성공했고 상단 한 배치는 시간초과다. 출발 평가만 성공한 것이
+아니라 실제 SAC 업데이트를 수행하면서 하단 성공을 유지한 결과지만, 상단과 훈련
+후 고정 평가가 남아 있어 최종 방향을 확정하지 않는다. 아래 후보 그림은 이 두 번째
+하단 성공 전 측정한 TRAIN 후보의 snapshot이다.
+
+전환 판단에는 훈련 후 평균 정책의 성공 유지, 새 배치에서의 반복 파지 성공,
+충돌·한 손 정체·actor 복구의 반복 여부를 사용한다. 개선이 유지되면 기존 방식을
+확장하고, 업데이트 안정화 뒤에도 의미 있는 개선 없이 실패가 반복되면
+**base 정렬 → 정지/위치 유지 → 나머지 action SAC 파지**로 분리한다.
+유한한 실험의 실패를 task 자체의 수학적인 불가능 증명으로 표현하지 않는다.
+
+현재 성공 seed의 target token region을 읽어 확인한 것은 **중간 왼쪽(target4)과
+위 왼쪽(target9)**뿐이다. `MultiBoxSpec`의 구역은 shelf2 right/left, shelf3
+right/left 네 개다. 현재 measured-target layout sampler는 같은 target의 작은
+변형만 만들므로 왼쪽 성공을 오른쪽 성공으로 확대하지 않는다. 오른쪽도 실제 다른
+target/region으로 생성하고 collision·양손 파지·성공을 따로 평가해야 한다.
+
+[실제 TRAIN 경로의 base 작업 위치 후보](assets/rl_v2_base_workspace_candidates_20261004.json)를
+추출했다. Source HDF5 SHA256, region/type, 실제 초기 base/box, 첫 양손 pinch 후
+base/box/torso, 최종 성공을 기록한다. 개발·최종 평가 데이터를 후보 학습에 사용하지
+않았고 가상 reward/action/전이를 만들지 않았다.
+
+![중간·위, 왼쪽·오른쪽 base 후보의 측정 범위. 실선은 실제 성공 TRAIN 경로이고 빈 오른쪽 패널은 미측정이며 실패가 아니다.](assets/rl_v2_base_workspace_candidates_20261004.png)
+
+| 측정된 성공 경로 | 첫 양손 pinch 시 base rack XY (m) | Rack 기준 yaw | 해석 |
+|---|---|---|---|
+| 중간 왼쪽 native VR |(-0.2418,0.5833)|약−87.87°|실제 성공 중 측정한 작업 위치 후보 |
+| 중간 왼쪽 지연 actor SAC train1202 |(-0.2608,0.5809)|약−88.20°|초기 base 변화 후 실제 도달한 작업 위치 후보 |
+| 위 왼쪽 native VR |(-0.2853,0.6269)|약−87.80°|실제 성공 중 측정한 작업 위치 후보 |
+| 중간/위 오른쪽 |미측정|미측정|오른쪽 도달 범위·랙 간섭 확인 필요 |
+
+이 좌표는 measured rack observation frame에 대한 값이며 로봇이 이미 팔을 뻗은
+성공 순간의 위치다. **중립 팔 자세로 시작해 파지할 수 있는 위치로 검증된 것은
+아니다.** 박스 초기 위치와 접촉 후 위치도 따로 기록한다. 좌우 작업 위치를 단순
+반사해서 성공으로 처리하거나 성공한 팔 자세/접촉 상태를 초기 상태로 사용하지 않는다.
+
+전환이 필요한 경우에는 다음 절차를 수행한다.
+
+1. 중간·위 × 왼쪽·오른쪽 구역과 박스 크기에 맞는 rack-relative base XY/yaw 후보를
+   정하거나 탐색한다. 양손 도달성, 관절 여유, 랙·주변 장애물 간섭을 함께 평가한다.
+2. 초기 base XY/yaw randomization을 유지하고 실제 제어로 후보까지 이동한다. 도착
+   오차와 속도가 충분히 작아진 뒤 pose를 유지하며 파지 policy에 제어를 넘긴다.
+   Base action을 단순히0으로 만드는 것만으로 즉시 정지한다고 가정하지 않는다.
+   현재 `PlanarDrive`는 기존 속도를 acceleration limit으로 감속한다.
+3. 양팔·torso XZ·그리퍼 등 나머지 action을 SAC로 탐색하고 live 손–flap/box/rack
+   상대 관측을 유지한다. 박스는 고정하지 않고 기존 randomization·중력·접촉을 유지한다.
+4. Phase와 유지 중인 base 목표를 명시한 새 control/observation 계약을 만든다.
+   기존 whole-body Q를 조용히 재사용하지 않고 맞는 실제 전이를 수집해 학습한다.
+5. 각 구역에서 새로운 박스·초기 base 배치로 **이동부터 양손 파지까지 전체 과정**을
+   평가한다. 이동 중 collision도 실패에 포함하고 기존10N/5N·양손 성공 기준은 유지한다.
+
+현재는 후보 조사와 전환 조건 기록만 수행했으며, 실행 중인 기존 학습의 base 제어를
+바꾸거나 프로세스를 종료하지 않았다. 구역별 base 배치와 이후 팔 활성화를 분리한
+[reachability-prior 연구](https://arxiv.org/abs/2203.04051)는 이 설계의 참고 자료이며
+해당 연구가 우리 양손 flap task의 성공을 보장하는 것은 아니다. 성공 확인까지 현재
+학습·평가를 이어가고 필요할 때 위 구조로 전환한다.
