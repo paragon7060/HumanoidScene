@@ -122,3 +122,22 @@ Demo replay fade는 critic 진행량에 연결해 actor 지연 때문에 사용 
 새 independent final16회, 총116회를 순서대로 수행한다.
 개발 배치와 final 배치는 서로 분리했다. 종료 시간을 성공 보장으로 표현하지 않는다.
 코드 검사35개와 요청한36개 배치의 초기 footprint 검사만 통과한 상태에서 등록했다.
+
+### 첫 실제 오른쪽 파지 확인 (06:43)
+
+Frozen baseline의 중간 왼쪽 seed17000과 오른쪽 seed17100은 각각409tick 성공,
+안전 위반0·invalid reset0이었다. 이 두 배치에는 optimizer update가 없으며
+학습 seed로 쓰지 않는다. 위 좌우는 아직 평가 중이고 네 구역 전체 성공률은 미확정이다.
+
+오른쪽의 실제 마지막 판정은 서로 다른 flap[0,1], 양손 pinch/stable=True,
+proof lift=True, rack clearance0.0312m, hold0.267s였다.
+[배치·실제 초기 상태·성공 판정·모델·물리 계약](assets/rl_v2_middle_right_frozen_success_20261004.json)을
+기록했고, 실행 종료·영상·로그의 Drive 검증을 마쳤다.
+
+![오른쪽 양손 파지 성공의 실제 PhysX 자세를 CPU mesh로 시각화한 마지막 프레임. RTX 화면 캡처가 아니다.](assets/rl_v2_middle_right_frozen_success_20261004.png)
+
+[중간 오른쪽 성공 영상(H264 MP4)](assets/rl_v2_middle_right_frozen_success_20261004.mp4).
+H264/avc1·yuv420p·faststart와 전체 decode 검증을 통과한 원본을 복사했다.
+Notion 요약 하위페이지에도 외부 링크가 아닌 native video/image로 업로드했다.
+이 결과는 기존 mixed 정책의 첫 오른쪽 배치 성공이며 새로운 오른쪽 SAC 업데이트가
+성능을 높였다는 증거나 네 구역 일반화의 완료로 표현하지 않는다.
