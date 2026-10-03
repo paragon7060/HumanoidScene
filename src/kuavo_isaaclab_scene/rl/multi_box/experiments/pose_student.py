@@ -26,15 +26,26 @@ class PoseGoalCoordinates:
         self.joints=JointOffsetController()
         self.links=torch.tensor(torso_links_from_urdf(resolve_robot_model('s63','leju-twofinger').urdf_path))
 
-    def observations(self,raw,index,time_harmonics=0,clock_horizon=410):
+    def observations(self,raw,index,time_harmonics=0,clock_horizon=410,*,
+                     condition_on_shelf=False,clock_limit=None):
         if not isinstance(clock_horizon,int) or not 1<=clock_horizon<=900:
             raise ValueError('Pose clock horizon must be within1..900 control steps')
-        clock=raw.new_full((len(raw),1),min(index,clock_horizon)/clock_horizon)
+        if clock_limit is not None and (not isinstance(clock_limit,int) or not 0<=clock_limit<=clock_horizon):
+            raise ValueError('Actor clock limit must be within0..clock horizon')
+        limit=clock_horizon if clock_limit is None else clock_limit
+        clock=raw.new_full((len(raw),1),min(index,limit)/clock_horizon)
         inputs=torch.cat((self.features(raw),raw[:,86:350],clock),-1)
         if time_harmonics:
             frequency=torch.arange(1,time_harmonics+1,device=raw.device,dtype=raw.dtype)[None]
             phase=2*torch.pi*clock*frequency
             inputs=torch.cat((inputs,phase.sin(),phase.cos()),-1)
+        if condition_on_shelf:
+            from .kinematic_exploration import target_token
+            token,valid=target_token(raw)
+            if not bool(valid.all()):raise ValueError('Shelf conditioning requires a perceived selected box')
+            # Region order: lowerR/L, upperR/L. Side does not select a different
+            # intrinsic hand program; the measured box anchor translates base XY.
+            inputs=torch.cat((inputs,token[:,10:12].sum(-1,keepdim=True)),-1)
         return inputs
 
     def current(self,raw):
@@ -124,7 +135,9 @@ class PoseStudent:
     @torch.no_grad()
     def act(self,raw,index):
         goal=self.agent.act(self.coordinates.observations(raw,index,self.state.get('time_harmonics',0),
-            self.state.get('clock_horizon',410)),deterministic=True)
+            self.state.get('clock_horizon',410),
+            condition_on_shelf=self.state.get('shelf_conditioned_clock_fit',False),
+            clock_limit=self.state.get('actor_clock_limit')),deterministic=True)
         goal=self.center+self.scale*goal
         if self.state.get('initial_box_relative_goals',False):
             if self.anchor is None:self.anchor=self.coordinates.box_anchor(raw)

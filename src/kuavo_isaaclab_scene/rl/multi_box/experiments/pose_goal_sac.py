@@ -211,6 +211,10 @@ class PoseGoalSACPilot:
             frozen_network_prior_initial_weight=self.prior_weight,prior_fade_updates=self.fade_updates)
         # Legacy410-step checkpoints retain their exact context contract.
         if 'clock_horizon' in self.prior.state:contract['clock_horizon']=self.clock_horizon
+        if self.prior.state.get('shelf_conditioned_clock_fit'):
+            contract['shelf_conditioning']='perceived_selected_box_shelf; no_dynamic_pose_feedback_in_prior'
+        if 'actor_clock_limit' in self.prior.state:
+            contract['actor_clock_limit']=self.prior.state['actor_clock_limit']
         # Exact legacy resume remains possible. New constraints are explicit
         # policy-only migrations; the physical decoder/reward are unchanged.
         if self.prior_floor:contract['frozen_network_prior_weight_floor']=self.prior_floor
@@ -222,7 +226,9 @@ class PoseGoalSACPilot:
         return max(self.prior_floor,self.prior_weight*max(0.,1-updates/self.fade_updates))
 
     def observations(self,raw,critic,index,anchor):
-        features=self.coordinates.observations(raw,index,self.harmonics,self.clock_horizon)
+        features=self.coordinates.observations(raw,index,self.harmonics,self.clock_horizon,
+            condition_on_shelf=self.prior.state.get('shelf_conditioned_clock_fit',False),
+            clock_limit=self.prior.state.get('actor_clock_limit'))
         clock=raw.new_full((len(raw),1),min(index,self.clock_horizon)/self.clock_horizon)
         return torch.cat((features,anchor.expand(len(raw),-1)),-1),torch.cat((critic,clock,anchor.expand(len(raw),-1)),-1)
 

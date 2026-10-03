@@ -1,0 +1,115 @@
+{
+  "source": "Actual completed physics runs, no synthetic transitions",
+  "records": [
+    {
+      "label": "VR contact guide: success",
+      "run": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758",
+      "metrics_sha256": "27f7307a47b3d9f978772c4bbdd4ee197a86263577c95b3016e6feb99c1f96ad",
+      "steps": 594,
+      "outcomes": {
+        "success": 1,
+        "unsafe": 0,
+        "invalid_reset": 0,
+        "time_out": 0
+      },
+      "last_grasp_conditions": {
+        "opposing_flaps": true,
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.0323871374130249,
+        "hand_flap_index": [
+          0,
+          1
+        ]
+      },
+      "initial_actor_updates": null
+    },
+    {
+      "label": "Full-state BC: timeout",
+      "run": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/upper_up6_bc_frozen_gpu0_20261003_191616/bc_eval_20261003_191616",
+      "metrics_sha256": "b01603041b0071ab7b3bab134b93562c3b1600c69e73caaab1aa831a84e4edac",
+      "steps": 900,
+      "outcomes": {
+        "success": 0,
+        "unsafe": 0,
+        "invalid_reset": 0,
+        "time_out": 1
+      },
+      "last_grasp_conditions": {
+        "opposing_flaps": false,
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 9.5367431640625e-07,
+        "hand_flap_index": [
+          -1,
+          -1
+        ]
+      },
+      "initial_actor_updates": null
+    },
+    {
+      "label": "Clock neural BC: success",
+      "run": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/upper_up6_clock_bc_frozen_gpu0_20261003_194629/bc_eval_20261003_194629",
+      "metrics_sha256": "f76c40145c1374766ff2ef24ec112dce0dc10c79ea24c6bea0ebe506b24b79b5",
+      "steps": 590,
+      "outcomes": {
+        "success": 1,
+        "unsafe": 0,
+        "invalid_reset": 0,
+        "time_out": 0
+      },
+      "last_grasp_conditions": {
+        "opposing_flaps": true,
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.015825271606445312,
+        "hand_flap_index": [
+          0,
+          1
+        ]
+      },
+      "initial_actor_updates": null
+    },
+    {
+      "label": "Clock prior, new base/box: timeout",
+      "run": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/upper_guarded_base_box_sac_gpu0_20261003_200823/001_validation_p0_validation_holdout_00/pose_sac_20261003_200823_39a844",
+      "metrics_sha256": "0e3a2fbadb8634f1042852d19e61949fa00192567a2c704d43c4c2230c8ebca1",
+      "steps": 852,
+      "outcomes": {
+        "success": 0,
+        "unsafe": 0,
+        "invalid_reset": 0,
+        "time_out": 1
+      },
+      "last_grasp_conditions": {
+        "opposing_flaps": false,
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.010059952735900879,
+        "hand_flap_index": [
+          -1,
+          -1
+        ]
+      },
+      "initial_actor_updates": 0
+    }
+  ],
+  "new_layout_is_development_not_independent_final": true,
+  "clock_BC_success_is_not_SAC_success": true
+}

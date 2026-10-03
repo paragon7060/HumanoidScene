@@ -22,6 +22,10 @@ def main():
     p.add_argument('--initial-box-relative',action='store_true')
     p.add_argument('--clock-only-fit',action='store_true',
                    help='Freeze observation input weights at zero during fit, avoiding a learned feedback loop through current motion.')
+    p.add_argument('--shelf-conditioned-clock-fit',action='store_true',
+                   help='Progress prior conditioned on perceived shelf and clock; requires actual same-MDP lower AND upper successes.')
+    p.add_argument('--hold-final-clock',action='store_true',
+                   help='Hold the network time input at the last observed label, preventing untrained extrapolation; critic time stays real.')
     p.add_argument('--time-harmonics',type=int,default=0,
                    help='Optional sine/cosine time encoding; no recorded trajectory values are runtime inputs.')
     p.add_argument('--clock-horizon',type=int,default=410,
@@ -32,6 +36,8 @@ def main():
     if bool(args.training_suite)==bool(args.native_dataset):p.error('Select training suite or actual native datasets')
     if not 0<=args.time_harmonics<=64:p.error('Time harmonics must be within0..64')
     if not 1<=args.clock_horizon<=900:p.error('Clock horizon must be within1..900')
+    if args.clock_only_fit and args.shelf_conditioned_clock_fit:
+        p.error('Choose clock-only or shelf-conditioned temporal fit')
     args.output_dir.mkdir(parents=True,exist_ok=False)
     torch.set_num_threads(1);torch.manual_seed(41)
     coordinates=PoseGoalCoordinates(exact_projected_base=True);inputs=[];labels=[];sources=[];roundtrip=0.
@@ -39,7 +45,7 @@ def main():
     datasets=([Path(row['run_dir'])/'executed_transitions.hdf5' for row in rows
                if row['split']=='train' and row['outcomes']==dict(success=1,unsafe=0,invalid_reset=0,time_out=0)]
               if args.training_suite else args.native_dataset)
-    physical_contract=None
+    physical_contract=None;observed_shelves=set();longest_episode=0
     for dataset in datasets:
         with h5py.File(dataset) as f:
             meta=json.loads(f.attrs['manifest_json'])
@@ -54,6 +60,7 @@ def main():
                 if not episode.attrs.get('success',False):raise ValueError('Non-success source episode')
                 data=episode['transitions']
                 raw=torch.from_numpy(data['actor_obs'][:]);physical=torch.from_numpy(data['action'][:])
+                longest_episode=max(longest_episode,len(raw))
                 if raw.shape!=(len(raw),464) or physical.shape!=(len(raw),24) or not torch.isfinite(raw).all():
                     raise ValueError('Bad physical label source')
                 if not bool(data['terminated'][-1]) or not bool(data['success'][-1]) or data['unsafe'][:].any():
@@ -64,11 +71,19 @@ def main():
                 if error>1e-4:raise ValueError(f'Physical action inverse differs:{error}')
                 if args.initial_box_relative:
                     goal[:,19:21]-=coordinates.box_anchor(raw[:1])
-                inputs.extend(coordinates.observations(raw[i:i+1],i,args.time_harmonics,args.clock_horizon) for i in range(len(raw)))
+                if args.shelf_conditioned_clock_fit:
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import target_token
+                    token,valid=target_token(raw)
+                    if not bool(valid.all()):raise ValueError('Missing selected target for shelf-conditioned labels')
+                    observed_shelves.update(token[:,10:12].sum(-1).round().int().tolist())
+                inputs.extend(coordinates.observations(raw[i:i+1],i,args.time_harmonics,args.clock_horizon,
+                    condition_on_shelf=args.shelf_conditioned_clock_fit) for i in range(len(raw)))
                 labels.append(goal)
         sources.append(dict(path=str(dataset.resolve()),sha256=hashlib.sha256(dataset.read_bytes()).hexdigest(),
                             successful_episodes=audit['successful_episodes']))
     if not labels:raise ValueError('No physical training success labels')
+    if args.shelf_conditioned_clock_fit and observed_shelves!={0,1}:
+        raise ValueError('Shelf-conditioned fit requires measured lower and upper successes')
     x=torch.cat(inputs);goal=torch.cat(labels)
     low,high=goal.min(0).values,goal.max(0).values
     margin=goal.new_tensor([.04]*17+[.01,.01]+[.02,.02,.03]+[0.,0.])
@@ -79,7 +94,8 @@ def main():
         freeze_actor_normalizer=True,entropy_backup=False,initial_alpha=1e-5,min_alpha=1e-7,max_alpha=1e-3,
         critic_layer_norm=True,actor_q_normalize=True)
     agent=AsymmetricSAC(x.shape[1],531,24,config,'cpu')
-    if args.clock_only_fit:
+    temporal_fit=args.clock_only_fit or args.shelf_conditioned_clock_fit
+    if temporal_fit:
         with torch.no_grad():agent.actor.network[0].weight[:,:438].zero_()
     agent.actor_normalizer.update(x)
     # All-box tokens include empty slots and are needed at unseen layouts.
@@ -91,7 +107,7 @@ def main():
         predicted,_=agent.actor(agent.actor_normalizer(x[ids]),deterministic=True)
         loss=((predicted-y[ids]).square()*weights).mean()
         optimizer.zero_grad();loss.backward()
-        if args.clock_only_fit:agent.actor.network[0].weight.grad[:,:438]=0.
+        if temporal_fit:agent.actor.network[0].weight.grad[:,:438]=0.
         torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),1.);optimizer.step()
         if (step+1)%1000==0:print(json.dumps(dict(fit_step=step+1,loss=float(loss))),flush=True)
     with torch.no_grad():
@@ -107,6 +123,8 @@ def main():
         clock_horizon=args.clock_horizon,
         physical_config=physical_contract['action_contract'],sources=sources)
     state['physical_contract']={key:physical_contract[key] for key in (*PHYSICAL_KEYS,'flap_pose_source')}
+    if args.shelf_conditioned_clock_fit:state['shelf_conditioned_clock_fit']=True
+    if args.hold_final_clock:state['actor_clock_limit']=min(longest_episode-1,args.clock_horizon)
     torch.save(state,args.output_dir/'student.pt')
     report=dict(artifact_type=PoseStudent.artifact_type,rows=len(x),sources=sources,
         actor_fit_steps=args.steps,sac_actor_updates=0,sac_critic_updates=0,
@@ -116,6 +134,8 @@ def main():
     report.update(initial_box_relative_goals=args.initial_box_relative,clock_only_initial_fit=args.clock_only_fit,
                   time_harmonics=args.time_harmonics,clock_horizon=args.clock_horizon)
     report['physical_contract']=state['physical_contract']
+    report.update(shelf_conditioned_clock_fit=args.shelf_conditioned_clock_fit,
+                  observed_shelves=sorted(observed_shelves),actor_clock_limit=state.get('actor_clock_limit'))
     (args.output_dir/'manifest.json').write_text(json.dumps(report,indent=2)+'\n')
     (args.output_dir/'status.json').write_text(json.dumps(dict(status='complete',physical_success_verified=False))+'\n')
     print(json.dumps(report|{'sources':len(sources)}),flush=True)

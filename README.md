@@ -315,6 +315,18 @@ base 기울기의 XY 투영을 정확히 역산하는 별도 goal 좌표를 기�
 수집용 진단이며 SAC 정책 성공이 아니다. 상세 원인·실제 성공 영상·Drive 보관은
 [위 선반 진단과 SAC 복구 기록](docs/RL_V2_SAC_RECOVERY_20261003.md)을 참고한다.
 
+두 선반의 실제 성공으로 temporal goal prior를 fit하려면 같은 물리/보상 계약의
+lower와 upper native dataset을 각각 `fit_v2_pose_student.py --native-dataset`으로
+지정하고 `--initial-box-relative --shelf-conditioned-clock-fit --time-harmonics 16
+--clock-horizon 900 --hold-final-clock`을 사용한다. Perceived selected-box의 선반
+비트와 진행 시간이 BC의 작업을 구분하며 실제 servo feedback은 유지한다.
+두 선반 성공 모두를 요구하고 validation/holdout label과 서로 다른 torso
+범위의 데이터는 거부한다. Fit 성공은 BC 물리 성공이나 SAC 성공이 아니므로
+양쪽 물리 평가를 통과한 뒤 `--pose-student-training --pose-student-native-seed`로
+SAC를 연결한다. `--contact-diagnostics`는 replay의 이미 계산된 손가락별 접촉
+힘·영역·opposed·qualified 판정을 reset 전에 로그로 남긴다. 진단 기본값은 off며
+보상·성공조건·actor 관측을 바꾸지 않는다.
+
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에
 중복하지 않는다. 처음에는 [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md)을 따른다.
 

@@ -87,6 +87,23 @@ def test_longer_demo_clock_distinguishes_late_states_and_preserves_legacy_inputs
         coordinates.observations(raw,0,clock_horizon=0)
 
 
+def test_shelf_conditioning_uses_perceived_target_and_clock_hold_preserves_servo_state():
+    coordinates=PoseGoalCoordinates();raw=raw_state()
+    raw[:,86+4*22]=1;raw[:,388+4]=1;raw[:,400+4]=1
+    raw[0,86+4*22+9]=1;raw[1,86+4*22+11]=1
+    before=coordinates.observations(raw,600,16,900,condition_on_shelf=True,clock_limit=593)
+    after=coordinates.observations(raw,850,16,900,condition_on_shelf=True,clock_limit=593)
+    assert before.shape==(2,472) and torch.equal(before,after)
+    torch.testing.assert_close(before[:,-1],torch.tensor([0.,1.]))
+    changed=raw.clone();changed[:,:20]+=.03
+    updated=coordinates.observations(changed,600,16,900,condition_on_shelf=True,clock_limit=593)
+    assert torch.equal(updated[:,-34:],before[:,-34:])
+    assert not torch.equal(updated[:,:438],before[:,:438])
+    for bad in [-1,901,1.5]:
+        with pytest.raises(ValueError,match='clock limit'):
+            coordinates.observations(raw,0,clock_horizon=900,clock_limit=bad)
+
+
 def test_goal_projection_matches_physical_close_gate_and_entropy_mask():
     from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import GoalGripperProjector
     from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import GraspActionProjector

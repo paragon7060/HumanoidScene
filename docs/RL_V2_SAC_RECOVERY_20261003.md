@@ -398,3 +398,88 @@ GPU child가 없는 대기 서비스 두 개만 새 gate로 다시 읽게 했다
 실제 settled target shift−25.12mm/yaw0.001545rad를 사용했다. 샘플 yaw0.007rad와
 settled yaw를 구분해 기록한다. 종료/검증 뒤 clock prior의 실제 frozen 평가가
 자동으로 이어진다. Retargeted demo는 가상의 Q 전이가 아닌 VR 진단 guide다.
+
+
+## 위 선반 신경망 실제 성공과 두 선반 연결 (10/03 20:31)
+
+GPU3 기존 하단 SAC는 **온라인18/18 성공·unsafe0**, 최근 개발4/4,
+actor25,114, 전체38/112 완료 후 계속 진행 중이다. 이전 붕괴 경계20k를
+넘었지만 독립 최종 seed600–611 평가는 아직 수행 전이다. 개발 평가 반복을
+독립 일반화 성공 횟수로 세지 않는다.
+
+위 선반 `upper_up6_clock_bc_frozen_gpu0_20261003_194629`의 clock neural BC는
+**590tick 성공·unsafe0**이다. Opposing flap0/1·양손stable·proof lift·
+hold0.26667s·실제rack clearance15.83mm를 확인했다. Runtime 데모 배열/IK
+guide 없이 학습한 goal network와 현재 상태를 읽는 실제 servo로 움직인다.
+BC fit20k이며 SAC actor/critic update는0이다. 원래 성공 배치에서의 물리
+확인이고 위 선반 SAC 성능이나 독립 일반화 완료라는 뜻은 아니다.
+모델·실제 전이·종료 로그·영상의 Drive 크기/MD5 검증을 마쳤다.
+
+[실제 위 선반 BC 성공 영상](assets/rl_v2_upper_clock_bc_success_20261003.mp4)
+(CPU mesh render,60 control ticks/frame 시간 압축,H264/avc1/yuv420p/faststart,
+전체 decode 검증).
+
+![실제 성공·실패 접근과 clearance](assets/rl_v2_upper_learned_success_20261003.png)
+[측정 출처와 metrics SHA256](assets/rl_v2_upper_learned_success_20261003.json).
+
+GPU0에서 별도 `upper_guarded_base_box_sac_gpu0_20261003_200823`을 시작했다.
+새 위 선반 physical0.46m 데이터594행으로 **새 Q의 critic-only500**, actor0을
+초기화했으며 lower0.40m Q/replay를 섞지 않았다. Fixed neural prior floor10,
+radius±0.05, actorLR1e-6, std0.001(0.0001..0.003), discount0.999를 사용한다.
+Target9 SMALL, boxinward2–4cm·yaw±1°·depth±6mm, 실제초기base rackX±8cm·
+outward3–10cm·yaw±5°이며 box는 dynamic 상태다. Upper의 첫 시험 분포이고
+lower의±20cm/±15° 전체 분포를 upper에서도 통과했다고 표현하지 않는다.
+Train1100–1103×2pass, 개발2100/2101을 매2train 재검사, 최종3100–3103:
+총22회다. 실행 중 VR 배열을 참조하지 않으며 초기 frozen 개발 결과는
+**0/2(1timeout,1unsafe)**였다. 실제 SAC 훈련은 이 baseline 뒤 시작했다.
+
+개발2100은852tick timeout·unsafe0·pinch0.496tick 손 거리54.1/18.7mm,
+551tick32.0/7.0mm로 접근은 진행했지만 양손 안정 파지로 이어지지 않았다.
+Rack clearance가8mm를 넘은 구간도 있지만 opposing/stable/hold 조건이 없으면
+성공 처리하지 않는다. 기존 VR whole-path retarget train1000도851tick
+timeout·unsafe0·pinch0로 끝났다. Gross reach projection은0에 가까웠지만
+actual IK error11.0/7.4mm가 남았다. Reach clipping을 없애는 것만으로
+일반화 파지 문제가 해결됐다는 근거는 없다.
+
+두 선반을 한 정책으로 연결하려고 lower도 **같은0.46m 물리 프로필**로
+VR/live-IK 성공 데이터를 새로 수집했다. 최초GPU2실행은
+`OMNI_KIT_ACCEPT_EULA` 누락으로 bootstrap 입력EOF·exit1(물리 step0)였다.
+실패 console을 Drive 검증한 뒤 envvar를 고친 새 고유 실행
+`lower_new_travel_seed_eula_gpu2_20261003_202146`은 **410tick 성공·unsafe0**,
+hold0.26667s·clearance45.51mm이고 종료 데이터/로그 Drive 검증을 마쳤다.
+기존0.40m 성공 데이터의 action contract를 덮어쓴 것이 아니다.
+GPU1/2의 다른 사용자 프로세스는 그대로 유지하고 단일환경 약3GiB만 썼다.
+
+새 opt-in `fit_v2_pose_student.py --shelf-conditioned-clock-fit --hold-final-clock`
+은 perceived selected-box region의 upper 비트와 clock/harmonics로 두 선반의
+진행 prior를 구분한다. 단일경로 full-observation feedback의 자세 유지 문제를
+피하고 실제 servo와 SAC는 live state를 계속 사용한다. 같은 physical/reward
+계약의 actual lower+upper 성공 모두를 요구하고 validation/holdout data를
+거부한다. Actor raw-state438열은 BC fit 중0으로 고정, critic은 full state와
+실제 elapsed clock을 유지한다. Actor clock만 마지막 실제 label에서 멈춰
+미학습 시간 영역의 extrapolation을 방지한다. 기본/기존 checkpoint 동작은
+그대로이고 새 checkpoint에 input 계약을 명시한다.
+
+`shelf_conditioned_clock_goal_bc_cpu_20261003_202731`은 actual1004행(410+594),
+20k BC fit, inverse command 최대8.34e-6, actor472D·shelf0/1,
+clock_limit593이다. CPU fit·모델·로그의 Drive 검증 후
+`shelf_clock_bc_both_shelves_gpu2_20261003_203014`이 자동으로 실제 물리 평가를
+시작했다. 이 시점의 두 선반 통합 BC 성공은 아직 확인 전이다. 성공 시에만
+SAC로 연결하며, fit loss를 물리 성공으로 판단하지 않는다.
+
+후속 CPU fit과 GPU2 물리 평가를 **실제 systemd 대기 서비스**로 등록했다.
+공용 gate가 선행 실행 종료·exit0·writer 종료·Drive 검증을 확인한 뒤
+시작한 것을 실제 서비스/PID로 확인했다. 활성 native goal이 후속 원인 분석과
+수리를 이어간다. 정확한2시간 채팅 예약 도구는 제공되지 않아 그 기능을
+설정했다고 주장하지 않는다. 각 checkpoint300s 업로드·checksum검증·최근2개
+보호·writer 종료 후 로그 검증 정책은 유지한다.
+
+`replay_v2_grasp_reference.py --contact-diagnostics`는 이미 계산한 privileged
+접촉의 hand/flap/jaw별 힘·in_region·opposed·qualified·ambiguous·assigned flap과
+기존 jaw최소5N을 reset 전에 기록한다. 새 센서/actor입력/보상/성공조건을
+추가하지 않는다. 다음 실패를 접촉힘 부족·영역 이탈·반대 jaw 없음 등으로
+구분하는 opt-in 진단이다. 새 replay manifest의 `num_envs`도 실제1로 기록한다.
+
+Pose/input·실제전이·Drive layout·순차gate 검사 **51 passed** 및 관련 Python
+compile 통과. 위 성공 영상과 비교 그림은 Notion에도 native파일로 업로드했고
+video MIME는 실제 `video/mp4`로 명시한 업로드 완료 파일을 연결했다.

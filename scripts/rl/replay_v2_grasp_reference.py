@@ -25,6 +25,8 @@ def main():
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--capture-every', type=int, default=30)
     parser.add_argument('--no-video', action='store_true')
+    parser.add_argument('--contact-diagnostics', action='store_true',
+                        help='Record existing privileged per-jaw pinch checks before reset; no actor/reward changes.')
     parser.add_argument('--actor-checkpoint', type=Path,
                         help='Evaluate this deterministic actor instead of the VR/live-IK controller.')
     parser.add_argument('--pose-student-checkpoint',type=Path,
@@ -200,6 +202,9 @@ def main():
             raise ValueError('Reference reward geometry, safety thresholds or torso control changed; supply current manifest')
         contract=configure_vr_torso_up_diagnostic(cfg,contract,
             args.torso_extra_height_m or args.vr_contact_torso_up_m)
+        # The source manifest can describe a vectorized run. This replay is
+        # actually one environment; preserve old archives and report new runs.
+        contract=contract|{'num_envs':1}
 
         class ReplayEnv(TerminalObservationMixin, ManagerBasedRLEnv):
             pass
@@ -445,6 +450,21 @@ def main():
                     'self_collision', 'obstacle_collision', 'workspace_limit',
                     'box_drop', 'box_lift_limit', 'box_speed_limit')},
                 **{key: bool(env.termination_manager.get_term(key)[0]) for key in counts})
+            if args.contact_diagnostics:
+                from kuavo_isaaclab_scene.rl.multi_box.state.isaac_privileged_grasp import MIN_JAW_FORCE_N
+                # These are the already measured success inputs, not new
+                # sensors or deployable policy observations. Keep each jaw:
+                # one strong contact cannot hide a missing opposing contact.
+                row['contact_diagnostics']=dict(
+                    axis_order='hand_L_R,flap_right_left,jaw_front_back',
+                    force_n=grasp.contacts.force_n[0].tolist(),
+                    in_region=grasp.contacts.in_region[0].tolist(),
+                    opposed=grasp.contacts.opposed[0].tolist(),
+                    available=bool(grasp.contacts.available[0]),
+                    qualified_flaps=grasp.pinch.qualified_flaps[0].tolist(),
+                    ambiguous_hands=grasp.pinch.ambiguous_hands[0].tolist(),
+                    assigned_flap_index=grasp.assigned_flap_index[0].tolist(),
+                    min_jaw_force_n=MIN_JAW_FORCE_N)
             history.append(row)
             for key in counts:
                 counts[key] += int(row[key])
@@ -595,6 +615,7 @@ def main():
         report['vr_layout_retarget']=args.vr_layout_retarget
         report['vr_retarget']=vr_retarget if args.vr_layout_retarget else None
         report['physical_action_contract']=contract['action_contract']
+        report['contact_diagnostics']=args.contact_diagnostics
         report['vr_close_distance_m']=args.vr_close_distance_m
         report['vr_coordinated_close']=args.vr_coordinated_close
         report['vr_reference_grippers']=args.vr_reference_grippers
