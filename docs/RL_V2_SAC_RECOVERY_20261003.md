@@ -849,3 +849,9 @@ GPU3 lower와 GPU2 mixed 및 다른 사용자 작업은 유지한다. 이 시점
 먼저 optimizer를 끈 상태에서 출발 정책의 물리 성능을 측정한 뒤 같은 random
 base/box 분포의 train4개에서 SAC를 재개한다. 이 평가 단계의 진행을 이미
 새 optimizer 학습이 시작됐다는 뜻으로 사용하지 않는다.
+
+23:55에 제약 해제 분기의 첫 frozen 개발2200이 **409tick 양손 파지 성공**으로
+끝났다. Metrics의 teacher weight0·prior radius0·training=false를 확인했고
+unsafe/reset/time-out0, child writer 종료·Drive 검증 완료다. BC로 초기화한
+actor3,568의 동작은 이 배치에서 제약 없이도 유지됐다. 아직 제약 없는 SAC
+optimizer를 이어서 수행한 결과나 독립 final의 일반화 성공은 아니다.

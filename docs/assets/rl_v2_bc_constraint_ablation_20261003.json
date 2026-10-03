@@ -302,7 +302,7 @@
       }
     }
   },
-  "physical_performance_after_constraint_release_not_yet_measured": true,
+  "physical_performance_after_constraint_release_not_yet_measured": false,
   "matched_suite_unit": "humanoid-rl-mixed-shelf-bc-release-ablation-gpu0-20261003.service",
   "expected_train_seeds": [
     1202,
@@ -398,5 +398,38 @@
     "no_curriculum": true,
     "reference_episodes_only_for_reset_scene": true
   },
-  "preparation_drive_verified": true
+  "preparation_drive_verified": true,
+  "first_frozen_physical_results": [
+    {
+      "split": "validation",
+      "layout": {
+        "seed": 2200,
+        "split": "holdout",
+        "lateral_m": -0.03987119346857071,
+        "yaw_rad": 0.0168208796530962,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.03101184405386448,
+        "base_outward_m": 0.16633062064647675,
+        "base_yaw_rad": -0.09853814542293549
+      },
+      "pass_index": -1,
+      "run_dir": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/mixed_shelf_BC_release_ablation_gpu0_20261003_234858/ablation_imitation_and_bound_off_20261003_234858/001_validation_p0_validation_holdout_00/pose_sac_20261003_234859_84633a",
+      "outcomes": {
+        "success": 1,
+        "unsafe": 0,
+        "invalid_reset": 0,
+        "time_out": 0
+      },
+      "steps": 409,
+      "actor_updates": 3568,
+      "final_upload_verified": true,
+      "reference_episode_index": 0
+    }
+  ],
+  "SAC_training_after_constraint_release_not_yet_measured": true
 }
