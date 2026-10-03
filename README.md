@@ -321,6 +321,11 @@ Recorded 접근 중 박스가 밀리는 경우 VR 진단의 opt-in
 `--vr-reference-grippers`와 함께 쓰면 jaw 타이밍은 원래 demo를 유지한다.
 이 옵션은 VR/IK 수집 전용으로 neural actor/executed-action 재생에는 허용하지
 않으며, 보상·접촉힘·성공 조건을 바꾸지 않는다.
+여러 박스가 포함된 native 성공도 reset seed로 쓸 수 있다. Target은 명시된
+one-hot으로 선택하고 주변 박스는 `layout.distractors`에 맞춰 다시 구성한다.
+Layout의 위치/yaw/base 변화는 **선택한 source의 초기 장면 기준**이며 source가
+이미 변형된 배치이면 기존 Quest seed 기준 수치와 같지 않다. 새로운 reset의
+descriptor만 만들고 기록된 실제 training transition은 수정하지 않는다.
 
 두 선반의 실제 성공으로 temporal goal prior를 fit하려면 같은 물리/보상 계약의
 lower와 upper native dataset을 각각 `fit_v2_pose_student.py --native-dataset`으로

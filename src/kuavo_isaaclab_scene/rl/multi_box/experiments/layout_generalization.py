@@ -132,19 +132,34 @@ def validate_layout_footprints(actor, *, margin_m=.002):
 
 
 def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
-    """Describe the box layout and optional initial robot root XY/yaw offset."""
+    """Describe a reset relative to its source, with the requested background.
+
+    A native success may already include several boxes. Its selected target
+    is the explicit one-hot, not the count of active objects. This function
+    describes only a new reset; measured source transitions remain untouched.
+    """
     from ..scene.spawn import logical_cells
     from ....workcell.workcell_layout import scale
     from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
     layout.validate()
+    if source.shape!=(464,) or not bool(torch.isfinite(source).all()):
+        raise ValueError('A layout seed needs one finite464-D measured observation')
     actor = source.clone()
     tokens = actor[86:350].reshape(12, 22)
-    active = torch.where(tokens[:, 0] > .5)[0]
-    if len(active)!=1:
-        raise ValueError('A layout seed must have exactly one measured target')
-    target=int(active[0])
+    selected=source[400:412]
+    ids=torch.where(selected>.5)[0]
+    if len(ids)!=1:
+        raise ValueError('A layout seed must have exactly one selected measured target')
+    target=int(ids[0])
+    expected=selected.new_zeros(12);expected[target]=1
+    if not torch.equal(selected,expected):
+        raise ValueError('A layout seed requires an explicit one-hot selected target')
+    if not bool(tokens[target,0]>.5 and actor[388+target]>.5):
+        raise ValueError('The selected layout target must be an active measured box')
     if target in layout.distractors:
         raise ValueError('A distractor cannot replace the selected target')
+    background=torch.arange(12,device=actor.device)!=target
+    tokens[background]=0
     rack_rotation = _rotation_matrix(actor[71:77])
     delta = actor.new_tensor([layout.lateral_m, layout.depth_m, 0])
     tokens[target, 12:15] += rack_rotation @ delta
@@ -163,6 +178,7 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
         token[12:15] = actor[68:71] + rack_rotation @ actor.new_tensor(position)
         token[15:21] = matrix6(rack_rotation @ _rotation_matrix(quaternion_to_rotation_6d(actor.new_tensor(quaternion))))
         token[21] = 1
+    actor[388:400]=tokens[:,0]
     validate_layout_footprints(actor)
     return base_reset_observation(actor,layout.base_lateral_m,layout.base_outward_m,layout.base_yaw_rad)
 

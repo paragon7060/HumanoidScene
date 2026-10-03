@@ -599,3 +599,62 @@ torsoforward4cm/up6cm·full reach·원래 jaw 타이밍을 유지하고 base adv
 이는 **VR/IK 성공 경험 수집 진단**이며 SAC 성능으로 보고하지 않는다.
 접촉/보상/성공/충돌 조건은 그대로이고 neural replay에는 옵션을 거부한다.
 이 시점에서 후속 진단의 결과는 아직 확인 전이다. 관련66개 검사 통과.
+
+## 조기 IK 실패·native 다중 박스 reset 수리와 후속 prior (10/03 21:50)
+
+조기 handoff364tick 진단은 **475tick unsafe·pinch0**로 종료했다.
+박스는 거의 움직이지 않았지만 left l4–rack27.64N, actual IK오차
+182.6/36.4mm였다. 접근 중의 팔 자세에서 곧바로 final grasp goal로
+전환하는 것만으로는 안전한 경로가 만들어지지 않았다. 완료 HDF/영상/로그는
+Drive checksum 검증을 마쳤다. 성공한 데이터로 분류하지 않는다.
+
+![조기 handoff의 실제 실패 장면: 양손 flap pinch 없이 왼팔 rack 충돌](assets/rl_v2_upper_early_handoff_failure_20261003.png)
+
+다음 VR/live-IK 수집은 legacy Quest joint path 대신 **실제 SAC train1103의
+595행**을 reference/calibration으로 사용한다. 첫 실행
+`upper_native_sac_reference_train1000_gpu1_20261003_213722`은 physical reset
+전에 exit1이었다. 원인은 source에 target와 distractors5/6, 총3개 박스가
+있는데 `layout_reset_observation`이 active-box 개수1을 요구한 것이었다.
+실패 console도 Drive 검증한 후 common helper를 수정했다. Target one-hot의
+유일성/active mask를 검사하고 명시된 target를 보존하며 새로운 layout의
+distractors만 구성한다. 누락/복수/weighted/inactive target를 거부한다.
+기존 실제 source 행이나 reward/action/next-state는 그대로다. 관련72개 검사 통과.
+
+수리된 새 실행 `upper_native_sac_reference_train1500_gpu1_20261003_214514`은
+native source 초기 장면에 상대적인 train1500을 쓴다. Source 자체가 변형된
+train1103이므로 **original Quest train1000과 같은 초기 상태라고 비교하지 않는다**.
+BoxΔrackX−3mm/yaw+0.01rad/depth+4mm, distractor5, baseΔrackX−3cm/
+outward−3cm/yaw+0.02rad이며 양쪽 actual initial world pose를 기록한다.
+추가 base/torso assist는0, software travel0.46m만 유지하고 source의 실제
+jaw timing과 pinch handoff를 사용한다. 이 결과도 VR/IK 수집이며 SAC 성공이 아니다.
+
+실제 lowerVR410 + upperSAC train1103 595 = **1005행**으로 새
+`sac_success_shelf_clock_goal_bc_cpu_20261003_213727`을20k fit했고
+student/model/manifest/종료 로그 Drive 검증을 마쳤다. 같은0.46m MDP,
+clock-cap594, shelf-bit0/1이며 validation/final data는 쓰지 않았다.
+학습 손실만으로 물리 성공을 주장하지 않는다. Native 진단 오류를 감지한 최초
+후속 대기 서비스도 실제로 멈췄으며, 수리된 train1500 종료·백업과 CPU fit
+종료·백업 후 **같은 frozen 모델**의 upper Quest기준 train1000 및 lower original
+물리 평가가 이어지도록 새 실제 대기 서비스를 등록했다. 이 비교의 결과는
+아직 확인 전이다. 기존3개 SAC 실행과 다른 사용자 프로세스는 계속 유지한다.
+
+이 시점 GPU3는train24/24·개발26/26·unsafe0,actor29,314이며 독립final은
+남아 있다. GPU0 upper는train1/4·개발0/6, GPU2 mixed는trainlower2/2·upper0/1,
+baseline lower2/2·upper0/2로 상단 일반화가 여전히 미해결이다.
+
+21:53에 native-reference train1500도 **626tick unsafe·pinch0**,
+right l4–rack29.36N·IK335.3/136.7mm로 종료했고 파일 checksum 검증을 마쳤다.
+Runtime error를 수리한 것과 물리 파지 실패가 해결된 것은 별개다. 같은 새
+neural prior의 upper Quest기준 train1000 frozen 평가가21:53:39에 **실제 시작**했다.
+이 모델은 commanded controller goals를 native action의 정확한 역변환으로
+학습한다. VR joint tracker는 recorded measured next joint pose를 따라가므로
+같은 actual data를 사용해도 같은 제어 경로는 아니다. 두 결과를 구분한다.
+
+이어질 CPU critic 초기화와 GPU1 mixed SAC도 실제 **조건부 대기 서비스**로
+등록했다. 위/아래 frozen physical success2/2·closed writer·Drive 검증이 모두
+필요하며 통과 전에는 새 SAC를 시작하지 않는다. 통과 시 fresh critic500·actor0,
+actual1005행으로 시작하고 이전0.40m Q/replay를 섞지 않는다. 새 train1700–1703/
+1800–1803×2pass, 개발2200/2201·2300/2301, 새 독립final5200–5203/5300–5303
+총44회다. Dev는 비교/복구용으로 재사용하되 final은 새로운 seed로 분리했다.
+동적 box·lowerbase±20cm/yaw±15°·upperbase±8cm/yaw±5°·boxdepth±6mm 및
+선반별 개발 회귀 복구를 유지한다. 이 시점의 새 SAC는 **대기 중**이다.

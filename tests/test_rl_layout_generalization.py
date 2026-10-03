@@ -47,6 +47,34 @@ def test_sampler_fits_target_and_surrounding_box_footprints():
             validate_layout_footprints(actor)
 
 
+def test_native_multi_box_seed_uses_selected_target_and_replaces_only_background():
+    from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+    spec=MultiBoxSpec()
+    measured=layout_reset_observation(rack_seed(),GraspLayout(1,'train',-.02,distractors=(5,6)),spec)
+    saved=measured.clone()
+    moved=layout_reset_observation(measured,GraspLayout(2,'train',0.,distractors=(9,)),spec)
+    before=measured[86:350].reshape(12,22);after=moved[86:350].reshape(12,22)
+    assert torch.equal(measured,saved)  # Actual training rows are never rewritten.
+    assert torch.equal(after[4],before[4])
+    assert torch.where(after[:,0]>.5)[0].tolist()==[4,9]
+    assert torch.equal(moved[388:400],after[:,0])
+    assert torch.equal(moved[400:412],measured[400:412])
+    validate_layout_footprints(moved)
+
+
+@pytest.mark.parametrize('bad', ['missing','ambiguous','weighted','inactive','unmasked'])
+def test_layout_reset_rejects_invalid_selected_target_even_with_other_boxes(bad):
+    from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+    measured=rack_seed()
+    if bad=='missing':measured[400:412]=0
+    elif bad=='ambiguous':measured[405]=1
+    elif bad=='weighted':measured[404]=.9;measured[405]=.1
+    elif bad=='inactive':measured[86+4*22]=0
+    else:measured[388+4]=0
+    with pytest.raises(ValueError,match='selected'):
+        layout_reset_observation(measured,GraspLayout(1,'train',0.),MultiBoxSpec())
+
+
 def test_explicit_upper_layout_preserves_target_and_moves_actual_start_frame():
     from pathlib import Path
     from kuavo_isaaclab_scene.rl.multi_box.demo_replay import load_v2_grasp_demonstrations
