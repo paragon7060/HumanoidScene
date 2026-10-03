@@ -855,3 +855,75 @@ base/box 분포의 train4개에서 SAC를 재개한다. 이 평가 단계의 진
 unsafe/reset/time-out0, child writer 종료·Drive 검증 완료다. BC로 초기화한
 actor3,568의 동작은 이 배치에서 제약 없이도 유지됐다. 아직 제약 없는 SAC
 optimizer를 이어서 수행한 결과나 독립 final의 일반화 성공은 아니다.
+
+### BC 제약 제거 후 성공 동작 회귀: 실제 업데이트 전·후 비교 (10/04 01:45)
+
+Imitation+bound off 분기는 출발 frozen 개발2200/2300에서 **2/2 성공**했지만
+SAC train1202/1302/1203/1303은 **0/4·unsafe4**였고 이후 개발은 **0/2**
+(랙 충돌1·시간초과1)였다. 개발 회귀로 초기 actor를 복구한 뒤 새 final4200/4300은
+lower 성공·upper 충돌로 **1/2**다. 이 final은 복구한 초기 actor의 성능이며
+제약 해제 후 SAC 업데이트로 일반화가 개선됐다는 결과가 아니다.
+모방 손실만 제거하고 radius0.05를 유지한 비교와 기존 control은 계속 수행한다.
+
+실패한 첫 train1202에서 actor는3,568→4,204, 즉636회 업데이트됐다. 탐색 노이즈와
+reset 차이를 분리하기 위해 **동일 train1202 초기 상태**에서 업데이트 전·후 actor를
+optimizer/탐색 없이 실제 PhysX로 다시 재생했다. Actual initial base pose, rack pose,
+base–rack observation, active box tokens가 정확히 동일한 것을 확인했다.
+
+| Frozen 정책 | 실제 결과 | 파지·충돌 |
+|---|---|---|
+| 업데이트 전 actor3,568 | **409tick 성공** | 서로 다른 flap0/1의 양손 opposing pinch·stable·proof lift·hold0.267s, clearance37.15mm, robot–rack0N |
+|636회 업데이트 후 actor4,204 | **441tick unsafe 실패** | 양손 pinch0, 왼팔 `zarm_l4_link`–rack62.34N |
+
+따라서 이 배치에서는 탐색 노이즈만이 아니라 **SAC가 학습한 평균 동작 자체가
+회귀했다**. BC 제약 없이 출발 동작을 실행하는 것은 가능했지만 현재 업데이트가
+안정적으로 개선하지 못했다. 이 재생은 이미 훈련에 사용한 실패 배치의 원인 검사이며
+독립 final이 아니다. BC 초기화와20%→0 실제 demo replay가 남아 있으므로 BC·데모
+없이 처음부터 학습하는 실험과도 구분한다. 두 재생의 writer 종료와 로그·데이터·영상의
+Drive 크기/MD5 검증을 마쳤다.
+
+[업데이트 전 실제 성공 영상](assets/rl_v2_bc_free_frozen_before_20261004.mp4) ·
+[업데이트 후 실제 충돌 영상](assets/rl_v2_bc_free_frozen_after_20261004.mp4).
+실제 PhysX poses를 CPU mesh로 재생한 H264/avc1·yuv420p·faststart 영상이고 전체
+decode를 검증했다. Notion에는 외부 다운로드 링크 대신 native video로 업로드했다.
+
+![BC 제약 제거 후 업데이트 회귀: frozen 물리 재생의 rack force와 오른손 flap 거리, 같은 실제 기록 관측에 대한 전후 모델 목표 차이. 마지막 패널은 실행 궤적이 아닌 모델 예측 비교다.](assets/rl_v2_bc_free_update_regression_20261004.png)
+
+[실제 기록과 checkpoint SHA256을 포함한 진단 데이터](assets/rl_v2_bc_free_update_diagnostic_20261004.json):
+첫 훈련 실패의 실제381행에 동일 관측을 넣었을 때 전후 팔 목표의 최대 차이는1.12rad
+(약64.2°)다. 새 critic은 새 평균 action을94.2%의 상태에서 이전 평균보다 높게 평가했다.
+이는 actor가 물리적으로 실패하는 쪽으로 변했는데 Q는 그 변경을 선호한 관찰이다.
+새 행동을 별도로 실행하지 않은 상태의 출력은 counterfactual prediction으로 표시했다.
+기록된 changing-behavior 궤적의 할인 return은 현재 고정 정책의 참 Q가 아니므로
+차이를 참 Q 오차로 해석하지 않는다. 새 reward나 가상 전이를 학습 데이터로 만들지 않았다.
+
+### Actor를 느리게 업데이트하는 수정과 재실행 (10/04 01:45)
+
+동일 제약 해제 출발 모델에서 actor LR1e−6→**1e−7**, critic1회당 actor1회→
+**critic16회당 actor1회**로 분기했다. 출발 mean의 실제 replay2,036행 대비 차이0,
+model/Q/normalizer 보존·actual replay 동일·Gaussian std/bounds 유지·재개를 확인했다.
+Actor optimizer의 moments도 유지하며 명시한 LR만 바꾼다.
+
+`fork_pose_goal_sac.py --actor-update-interval`은 기본 간격1의 기존 checkpoint
+계약을 유지한다. 새 지연 분기는 demo/prior fade 진행량을 critic update에 연결한다.
+출발 critic4,068·actor3,568의 offset500을 저장해 같은 시작 demo fraction16.432%에서
+감소하고, actor를 늦게 갱신한다고 demo replay 사용 기간이16배 늘어나지 않는다.
+`report()`에 `actor_update_interval`·`replay_schedule_updates`를 추가했다. 동일 actor
+번호에서 반복되는 주기 저장은 건너뛰며 마지막 저장은 최신 critic과 경험을 포함한다.
+학습 경로/보존/재개/fade/종료 저장 등 **106개 검사 통과**.
+
+CPU 준비 모델과 실제 replay의 Drive 검증을 마쳤다. 첫 관리자는 `Path+str` 경로
+조합 오류로 **Isaac 시작 전 종료·학습 update0**이었고 실패 폴더를 보존했다.
+경로 조합을 수정한 새 서비스
+`humanoid-rl-bc-free-critic-first-sac-gpu1-20261004-retry.service`는01:37부터 실제
+실행 중이다. 새 고유 부모는
+`artifacts/rl/drive_runs/bc_free_critic_first_base_box_sac_gpu1_20261004_013735`다.
+출발 lower 개발2200은409tick 성공·종료 Drive 검증 완료, upper 출발 평가는 진행 중이다.
+현재 이 분기의 새 SAC 업데이트 후 성능은 아직 없다.
+
+같은 train1202/1302/1203/1303·개발2200/2300을 사용하고 final은 새5400/5500으로
+분리한다. BC imitation/radius0, 기존 dynamic box·실제 initial base XY/yaw randomization,
+reward·양손 성공·rack10N/obstacle5N·self-collision off·curriculum 없음은 유지한다.
+GPU0 비교·GPU3 lower·GPU2 mixed 및 다른 사용자 작업은 그대로 실행한다.
+GPU3 lower는 train42/42·unsafe0, 독립 final은 아직 남았다. Upper의 안정적인
+일반화와 BC 제약 없는 SAC 개선은 아직 해결되지 않아 계속 확인·수정한다.

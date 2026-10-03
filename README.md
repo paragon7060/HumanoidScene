@@ -380,6 +380,27 @@ BC 목표 주변의 행동 제한을 해제하며 실제 flap12cm 접근 후 gri
 SAC 실험은 아니다.** 제약 해제로 실행 목표가 달라질 수 있으며 fork 완료를
 물리 파지 성공으로 해석하지 않는다. 실행은 기존 Drive 관리자를 사용한다.
 
+SAC 업데이트 뒤 성공 동작이 회귀하면 출발 모델과 탐색을 유지한 채 actor의
+학습률·업데이트 빈도를 별도로 조정할 수 있다. 다음은 BC 모방 보상과 행동
+제약을 해제하고 actor LR을 `1e-7`, critic16회당 actor1회로 설정하는 분기다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' python scripts/rl/fork_pose_goal_sac.py \
+  --checkpoint /absolute/path/to/source/checkpoint_00003568.pt \
+  --output-dir /absolute/path/to/unique-delayed-actor-run \
+  --preserve-exploration \
+  --prior-initial-weight 0 --prior-weight-floor 0 --max-prior-deviation 0 \
+  --actor-lr 1e-7 --actor-update-interval 16
+```
+
+명시한 LR만 actor optimizer에 적용하고 기존 moments·Q·정규화·Gaussian
+탐색·실제 replay는 유지한다. 기본 업데이트 간격은1이며 기존 checkpoint의
+동작을 유지한다. 간격을 늘린 분기에서는 demo replay 감소 진행량을 critic
+업데이트에 연결해 demo 사용 기간이 늘어나지 않게 한다. 지표의 actor/critic
+업데이트 횟수와 `replay_schedule_updates`를 함께 확인한다. 이 설정은
+[업데이트 전 성공→후 충돌 진단](docs/RL_V2_SAC_RECOVERY_20261003.md)의
+수정 후보이며 안정적인 일반화가 확인된 기본 설정은 아니다.
+
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에
 중복하지 않는다. 처음에는 [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md)을 따른다.
 

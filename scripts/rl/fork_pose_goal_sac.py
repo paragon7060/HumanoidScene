@@ -13,11 +13,14 @@ from kuavo_isaaclab_scene.rl.runners.storage import save_checkpoint
 
 
 def fork_checkpoint(checkpoint, output_dir, *, initial_std=.001, min_std=.0001,
-                    max_std=.003, actor_lr=1e-6, demo_fade_updates=20000,
+                    max_std=.003, actor_lr=None, demo_fade_updates=20000,
                     align_discount_with=None, critic_warmup_updates=2000,
                     preserve_exploration=False, prior_weight_floor=None,
-                    max_prior_deviation=None, prior_initial_weight=None):
+                    max_prior_deviation=None, prior_initial_weight=None,
+                    actor_update_interval=None):
     checkpoint, output_dir = Path(checkpoint), Path(output_dir)
+    requested_actor_lr = actor_lr
+    actor_lr = 1e-6 if actor_lr is None else actor_lr
     if (not all(math.isfinite(v) for v in (min_std, initial_std, max_std, actor_lr))
             or not 0 < min_std <= initial_std <= max_std <= 1
             or actor_lr <= 0 or demo_fade_updates < 1):
@@ -29,6 +32,17 @@ def fork_checkpoint(checkpoint, output_dir, *, initial_std=.001, min_std=.0001,
         raise ValueError('Only a native goal-SAC checkpoint may be forked')
     source_manifest = json.loads((checkpoint.parent / 'manifest.json').read_text())
     old_config, old_contract = dict(state['config']), dict(state['goal_contract'])
+    if actor_update_interval is not None:
+        if type(actor_update_interval) is not int or not 1<=actor_update_interval<=256:
+            raise ValueError('Actor update interval must be an integer within1..256')
+        old_interval=old_contract.get('actor_update_interval',1)
+        if actor_update_interval != old_interval:
+            if actor_update_interval==1:
+                state['goal_contract'].pop('actor_update_interval',None)
+            else:
+                state['goal_contract']['actor_update_interval']=actor_update_interval
+                state['goal_contract'].setdefault('demo_fade_critic_offset',
+                    state['critic_updates']-state['actor_updates'])
     initial_weight = old_contract.get('frozen_network_prior_initial_weight', 10.)
     if prior_initial_weight is not None:
         if not math.isfinite(prior_initial_weight) or prior_initial_weight < 0:
@@ -75,7 +89,8 @@ def fork_checkpoint(checkpoint, output_dir, *, initial_std=.001, min_std=.0001,
         state['optimizers'][1]['state']={}
     if preserve_exploration:
         initial_std=old_config['initial_policy_std'];min_std=old_config['min_policy_std']
-        max_std=old_config['max_policy_std'];actor_lr=old_config['actor_lr']
+        max_std=old_config['max_policy_std']
+        actor_lr=old_config['actor_lr'] if requested_actor_lr is None else requested_actor_lr
         demo_fade_updates=old_contract['demo_fade_updates']
     state['config'].update(min_policy_std=min_std, initial_policy_std=initial_std,
                            max_policy_std=max_std, actor_lr=actor_lr)
@@ -89,8 +104,8 @@ def fork_checkpoint(checkpoint, output_dir, *, initial_std=.001, min_std=.0001,
         state['model']['actor.network.4.weight'][width:].zero_()
         state['model']['actor.network.4.bias'][width:].fill_(math.log(initial_std))
         state['optimizers'][0]['state'] = {}
-        for group in state['optimizers'][0]['param_groups']:
-            group['lr'] = actor_lr
+    for group in state['optimizers'][0]['param_groups']:
+        group['lr'] = actor_lr
     if not preserve_exploration:
         state['entropy_contract']['target_per_dim'] = min(
             -1., math.log(max_std) + .5 * math.log(2 * math.pi * math.e) - .5)
@@ -104,6 +119,9 @@ def fork_checkpoint(checkpoint, output_dir, *, initial_std=.001, min_std=.0001,
                  critic_and_normalizers_unchanged=True,
                  actor_optimizer_moments_reset=not preserve_exploration,
                  exploration_preserved=preserve_exploration,discount_alignment=alignment,
+                 actor_learning_rate_changed=actor_lr!=old_config['actor_lr'],
+                 actor_update_interval=state['goal_contract'].get('actor_update_interval',1),
+                 demo_fade_uses_critic_progress='demo_fade_critic_offset' in state['goal_contract'],
                  prior_initial_weight=initial_weight,
                  prior_weight_floor=state['goal_contract'].get('frozen_network_prior_weight_floor',0.),
                  max_prior_deviation=state['goal_contract'].get('frozen_network_prior_radius',0.),
@@ -150,7 +168,10 @@ def main():
     parser.add_argument('--initial-std', type=float, default=.001)
     parser.add_argument('--min-std', type=float, default=.0001)
     parser.add_argument('--max-std', type=float, default=.003)
-    parser.add_argument('--actor-lr', type=float, default=1e-6)
+    parser.add_argument('--actor-lr', type=float,
+                        help='Explicit LR override; without it preserve the source LR with --preserve-exploration, otherwise use 1e-6.')
+    parser.add_argument('--actor-update-interval',type=int,
+                        help='Update the actor every N critic steps; keep demo replay fade tied to critic progress when delayed.')
     parser.add_argument('--demo-fade-updates', type=int, default=20000)
     parser.add_argument('--align-discount-with',type=Path,
                         help='Same physical manifest; explicitly fork legacy learner gamma and warm up only its critic.')
@@ -172,6 +193,7 @@ def main():
                                   critic_warmup_updates=args.critic_warmup_updates,
                                   preserve_exploration=args.preserve_exploration,
                                   prior_initial_weight=args.prior_initial_weight,
+                                  actor_update_interval=args.actor_update_interval,
                                   prior_weight_floor=args.prior_weight_floor,
                                   max_prior_deviation=args.max_prior_deviation)
     except ValueError as error:

@@ -106,6 +106,12 @@ class PoseGoalSACPilot:
         self.anchor=None
         self.actor_updates=self.critic_updates=self.online_rows=0
         legacy=saved.get('artifact_type')==self.artifact_type
+        self.actor_update_interval=saved.get('goal_contract',{}).get('actor_update_interval',1)
+        self.demo_fade_uses_critic_progress='demo_fade_critic_offset' in saved.get('goal_contract',{})
+        self.demo_fade_critic_offset=saved.get('goal_contract',{}).get('demo_fade_critic_offset',0)
+        if (type(self.actor_update_interval) is not int or not 1<=self.actor_update_interval<=256
+                or type(self.demo_fade_critic_offset) is not int or self.demo_fade_critic_offset<0):
+            raise ValueError('Invalid goal actor update interval or demo fade offset')
         self.fade_updates=int(saved.get('goal_contract',{}).get('demo_fade_updates',4000 if legacy else 20000))
         self.prior_weight=float(saved.get('goal_contract',{}).get('frozen_network_prior_initial_weight',10.))
         self.prior_floor=float(saved.get('goal_contract',{}).get('frozen_network_prior_weight_floor',0. if legacy else 10.))
@@ -219,11 +225,21 @@ class PoseGoalSACPilot:
         # policy-only migrations; the physical decoder/reward are unchanged.
         if self.prior_floor:contract['frozen_network_prior_weight_floor']=self.prior_floor
         if self.prior_radius:contract['frozen_network_prior_radius']=self.prior_radius
+        if self.actor_update_interval!=1:
+            contract['actor_update_interval']=self.actor_update_interval
+        if self.demo_fade_uses_critic_progress:
+            contract['demo_fade_critic_offset']=self.demo_fade_critic_offset
         if self.seed_episodes>1:contract['seed_episode_context']='separate_clock_and_initial_box_anchor'
         return contract
 
     def prior_weight_at(self, updates):
         return max(self.prior_floor,self.prior_weight*max(0.,1-updates/self.fade_updates))
+
+    @property
+    def replay_schedule_updates(self):
+        # Slower actor updates must not stretch the20% demo sampling phase.
+        return (self.actor_updates if not self.demo_fade_uses_critic_progress else
+                max(0,self.critic_updates-self.demo_fade_critic_offset))
 
     def observations(self,raw,critic,index,anchor):
         features=self.coordinates.observations(raw,index,self.harmonics,self.clock_horizon,
@@ -260,7 +276,7 @@ class PoseGoalSACPilot:
         if self.online_rows<64:return
         with torch.enable_grad():
             for _ in range(2):
-                fade=max(0.,1-self.actor_updates/self.fade_updates)
+                fade=max(0.,1-self.replay_schedule_updates/self.fade_updates)
                 demo_count=round(256*.2*fade)
                 actual=self.replay.sample(256-demo_count,self.device)
                 if demo_count:
@@ -268,21 +284,23 @@ class PoseGoalSACPilot:
                     actual={key:torch.cat((value,seed[key])) for key,value in actual.items()}
                 # A frozen neural-network prior on current state is actor-only;
                 # it provides no recorded path, reward or hypothetical Q row.
-                weight=self.prior_weight_at(self.actor_updates)
+                update_actor=self.critic_updates%self.actor_update_interval==0
+                weight=self.prior_weight_at(self.replay_schedule_updates) if update_actor else 0.
                 teacher=None
                 if weight:
                     with torch.no_grad():
                         prior_action=self.prior.agent.act(actual['actor_obs'][:,:-2],deterministic=True)
                     teacher=dict(actor_obs=actual['actor_obs'],action=prior_action)
-                self.latest=self.agent.update(actual,teacher=teacher,teacher_weight=weight)
-                self.actor_updates+=1;self.critic_updates+=1
+                self.latest=self.agent.update(actual,teacher=teacher,teacher_weight=weight,update_actor=update_actor)
+                self.actor_updates+=int(update_actor);self.critic_updates+=1
 
     def report(self):
         return dict(training=self.training,actor_updates=self.actor_updates,critic_updates=self.critic_updates,
             online_rows=self.online_rows,seed_rows=len(self.seed['reward']),
             seed_episodes=self.seed_episodes,
-            runtime_reference_path_required=False,demo_fraction=.2*max(0.,1-self.actor_updates/self.fade_updates),
-            frozen_network_prior_weight=self.prior_weight_at(self.actor_updates),
+            runtime_reference_path_required=False,demo_fraction=.2*max(0.,1-self.replay_schedule_updates/self.fade_updates),
+            replay_schedule_updates=self.replay_schedule_updates,actor_update_interval=self.actor_update_interval,
+            frozen_network_prior_weight=self.prior_weight_at(self.replay_schedule_updates),
             frozen_network_prior_radius=self.prior_radius,
             min_policy_std=self.agent.config.min_policy_std,max_policy_std=self.agent.config.max_policy_std,
             learner_discount=self.agent.config.gamma,reward_discount=self.reward_discount,
@@ -291,12 +309,15 @@ class PoseGoalSACPilot:
             replay_size=self.replay.size,latest=self.latest,goal_contract=self.contract)
 
     def save(self,final=False):
+        if not final and getattr(self,'_last_saved_actor_updates',None)==self.actor_updates:
+            return
         state=self.agent.checkpoint()|dict(artifact_type=self.artifact_type,goal_contract=self.contract,
             bc_prior=self.prior.state,actor_updates=self.actor_updates,critic_updates=self.critic_updates,
             action_coordinates=self.coordinates.name,reference_runtime_dependency=False)
         if self.discount_alignment:
             state['discount_alignment']=self.discount_alignment
         save_checkpoint(self.directory,state,self.actor_updates,keep=None)
+        self._last_saved_actor_updates=self.actor_updates
         if final and self.online_history:
             rows={key:torch.cat([batch[key] for batch in self.online_history])[-20000:] for key in self.replay.data}
             torch.save(dict(goal_contract=self.contract,executed_goal_transitions=rows),

@@ -259,7 +259,8 @@ def test_goal_exploration_fork_rejects_another_action_contract(tmp_path):
 
 
 @pytest.mark.parametrize('radius', [.05, 0.])
-def test_ongoing_BC_release_resumes_without_teacher_or_relabeling_data(tmp_path, monkeypatch, radius):
+@pytest.mark.parametrize('interval', [1,16])
+def test_ongoing_BC_release_resumes_without_teacher_or_relabeling_data(tmp_path, monkeypatch, radius, interval):
     import importlib.util
     from pathlib import Path
     from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import AsymmetricSAC
@@ -298,7 +299,8 @@ def test_ongoing_BC_release_resumes_without_teacher_or_relabeling_data(tmp_path,
     spec=importlib.util.spec_from_file_location('prior_release_fork',Path(__file__).parents[1]/'scripts/rl/fork_pose_goal_sac.py')
     fork=importlib.util.module_from_spec(spec);spec.loader.exec_module(fork)
     checkpoint,audit=fork.fork_checkpoint(source/'checkpoint.pt',tmp_path/'fork',
-        preserve_exploration=True,prior_initial_weight=0.,prior_weight_floor=0.,max_prior_deviation=radius)
+        preserve_exploration=True,prior_initial_weight=0.,prior_weight_floor=0.,max_prior_deviation=radius,
+        actor_update_interval=interval)
     saved=torch.load(checkpoint,weights_only=True)
     assert saved['config']==state['config'] and saved['optimizers']==state['optimizers']
     assert saved['entropy_contract']==state['entropy_contract']
@@ -320,22 +322,62 @@ def test_ongoing_BC_release_resumes_without_teacher_or_relabeling_data(tmp_path,
     def forbidden_teacher(*args,**kwargs):raise AssertionError('Disabled BC teacher invoked')
     monkeypatch.setattr(resumed.prior.agent,'act',forbidden_teacher)
     updates=[]
-    def update(batch,*,teacher,teacher_weight):
+    def update(batch,*,teacher,teacher_weight,update_actor):
         assert teacher is None and teacher_weight==0.
         assert len(batch['action'])==256
-        updates.append(batch)
-        return {'teacher_bc_weight':teacher_weight}
+        updates.append(update_actor)
+        return {'teacher_bc_weight':teacher_weight,'actor_updated':update_actor}
     monkeypatch.setattr(resumed.agent,'update',update)
     resumed.online_rows=63;resumed.anchor=coordinates.box_anchor(raw)
-    resumed.observe((resumed.seed['actor_obs'],resumed.seed['critic_obs'],resumed.seed['action']),
-        raw,critic,torch.tensor([.25]),torch.tensor([False]),0)
-    assert len(updates)==2 and resumed.actor_updates==3570 and resumed.replay.size==5
+    for index in range(8):
+        resumed.observe((resumed.seed['actor_obs'],resumed.seed['critic_obs'],resumed.seed['action']),
+            raw,critic,torch.tensor([.25]),torch.tensor([False]),index)
+    expected=[step%interval==0 for step in range(4068,4084)]
+    assert updates==expected and resumed.actor_updates==3568+sum(expected) and resumed.replay.size==12
+    assert resumed.critic_updates==4084 and resumed.replay_schedule_updates==3584
+    assert resumed.report()['demo_fraction']==pytest.approx(.2*(1-3584/20000))
     assert resumed.replay.data['reward'][4].item()==.25
-    resumed.directory.mkdir();resumed.save(final=True)
+    resumed.directory.mkdir();resumed.save()
+    periodic=next(resumed.directory.glob('checkpoint_*.pt'))
+    assert torch.load(periodic,weights_only=True)['critic_updates']==4084
+    resumed.critic_updates+=1
+    resumed.save()  # A delayed actor must not rewrite one periodic file repeatedly.
+    assert torch.load(periodic,weights_only=True)['critic_updates']==4084
+    resumed.save(final=True)  # Final save still contains every completed critic update.
     reloaded=goal.PoseGoalSACPilot(next(resumed.directory.glob('checkpoint_*.pt')),
         None,physical_contract,tmp_path/'reloaded',training=True)
     assert reloaded.prior_weight_at(0)==0. and reloaded.prior_radius==radius
-    assert reloaded.actor_updates==3570 and reloaded.replay.size==5
+    assert reloaded.actor_updates==3568+sum(expected) and reloaded.replay.size==12
+    assert reloaded.critic_updates==4085 and reloaded.actor_update_interval==interval
+    assert reloaded.replay_schedule_updates==(3584 if interval==1 else 3585)
+    # Lowering the actor LR must keep the Gaussian, Q, input statistics and
+    # accumulated Adam moments. Only the requested learning rate changes.
+    slower,change=fork.fork_checkpoint(checkpoint,tmp_path/'slower',preserve_exploration=True,actor_lr=1e-7)
+    slow=torch.load(slower,weights_only=True)
+    assert slow['config']==saved['config']|{'actor_lr':1e-7}
+    for key,value in saved['model'].items():assert torch.equal(value,slow['model'][key]),key
+    assert slow['optimizers'][0]['state']==saved['optimizers'][0]['state']
+    assert all(group['lr']==1e-7 for group in slow['optimizers'][0]['param_groups'])
+    assert change['exploration_preserved'] and change['actor_learning_rate_changed']
+    if interval!=1:
+        every_step,_=fork.fork_checkpoint(slower,tmp_path/'every_step',preserve_exploration=True,actor_update_interval=1)
+        faster=goal.PoseGoalSACPilot(every_step,None,physical_contract,tmp_path/'faster',training=True)
+        assert faster.actor_update_interval==1 and faster.replay_schedule_updates==3568
+        assert faster.demo_fade_uses_critic_progress
+
+
+@pytest.mark.parametrize('interval',[0,257,1.5,True])
+def test_goal_actor_delay_rejects_invalid_intervals_before_writing(tmp_path,interval):
+    import importlib.util
+    from pathlib import Path
+    spec=importlib.util.spec_from_file_location('actor_delay_invalid',Path(__file__).parents[1]/'scripts/rl/fork_pose_goal_sac.py')
+    fork=importlib.util.module_from_spec(spec);spec.loader.exec_module(fork)
+    source=tmp_path/'source';source.mkdir()
+    torch.save(dict(artifact_type='pose_goal_sac_no_live_reference',format_version=1,config={},goal_contract={}),source/'checkpoint.pt')
+    (source/'manifest.json').write_text('{}')
+    with pytest.raises(ValueError,match='Actor update interval'):
+        fork.fork_checkpoint(source/'checkpoint.pt',tmp_path/'fork',actor_update_interval=interval)
+    assert not (tmp_path/'fork').exists()
 
 
 @pytest.mark.parametrize(('initial','floor'), [(float('nan'),0.),(float('inf'),0.),(-1.,0.),(0.,None),(0.,1.)])
