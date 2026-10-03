@@ -309,3 +309,43 @@ reset footprint만 검사했다. 개발 seed2000은 분리해 fit/Q seed에서 �
 훈련 성공 여부와 frozen 학습 정책의 성공 여부를 분리해 기록한다.
 
 관련 변경·SAC·Drive·layout 검사174 passed.
+
+
+## 경계 이후 개발 평가와 실제 upper 연결 상태 (10/03 19:16)
+
+GPU3 SAC actor20,914를 고정한 개발 재평가도 **4/4 성공·unsafe0**이었다.
+온라인 훈련12/12·unsafe0, 전체28/112 완료 후 다음 훈련을 계속한다. Actor
+복구 횟수0이며 아직 독립 마지막 평가나 장기 안정성 완료로 판단하지 않는다.
+
+수정 후 upper projected-base v2 CPU fit은 실제 exit0·student.pt 생성·종료
+로그 및 모델 Drive 크기/MD5 검증을 확인했다. 이 모델로 goal-Q seed594행을
+검사해 normalized 최대1.0·inverse 최대8.34e-6·SAC update0을 확인했고,
+`upper_actual_seed_audit_20261003_191141` 기록도 Drive 검증했다. 이 데이터
+검사는 정책 성능 검사가 아니다.
+
+첫 위 선반 train seed1000 VR 진단은 **851tick timeout, pinch0, unsafe0**.
+실제 초기 base는 원 seed에서 약7.2cm·yaw0.03rad 바뀌었다. Target9와
+낮은 distractor5는 모두 올바른 셀에서 settling했고 box는 dynamic 상태였다.
+최종 왼손/오른손 flap 표면 거리9.60/58.19mm, gross reach projection21.75/
+11.71mm였다. 이 실패는 성공1/1을 일반화 성공으로 부르지 못하는 근거다.
+다른 박스가 settling하는 동안 target의 ready timer가 흐르므로 기록된 행동은
+900tick보다 짧았다. 성공 조건이나 timeout을 완화하지 않았다.
+
+별도 `--vr-layout-retarget`은 실제 초기 선택 박스의 위치/yaw로 VR 접근 경로
+전체의 rack-relative base 목표를 이동한다. Live 접촉 이후만 retarget했던
+경로와 비교하는 물리 진단 전용이다. 같은 seed1000에서 신경망 frozen 평가
+종료·Drive 검증 후 이 진단을 자동 실행하도록 실제 서비스로 대기시켰다.
+Q 입력에는 retargeted demo 가상 관측/명령을 쓰지 않고 새 실제 물리 전이만
+기록한다. 기본 sampler는 하단 분포를 유지하며 explicit upper layout은
+선반/box type을 바꾸지 않고 target9·footprint·initial base 변환을 검사한다.
+
+Frozen upper full-observation BC는 아직 실행 중이다.121tick에서 원 실제
+경로의 양손 거리0.63/0.70m와 달리1.23/1.27m로 접근 진행이 늦다. 단일 경로의
+관절 상태와 다음 목표가 강하게 상관돼 BC가 현재 자세를 유지하는 피드백을
+학습했을 가능성을 진단한다. 완료 결과 전에 실패로 확정하지 않는다.
+동일594행으로 **단일 upper 전용 clock-only·time harmonics16** neural prior를
+CPU에서 별도 fit하기 시작했다. Runtime 데모 배열은 사용하지 않고 실제
+servo feedback으로 목표를 추종한다. 서로 다른 위/아래 작업을 unconditioned
+clock-only로 합치지 않는다. 새 정책은 물리에서 통과한 뒤 SAC에 연결한다.
+
+새 explicit-upper layout과 기존 데이터/goal 회귀 검사50 passed.

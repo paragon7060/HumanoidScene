@@ -1,8 +1,9 @@
 """Reproducible layout splits and geometry retargeting of a measured path.
 
-Only the lower-shelf small-box tube is covered by this first distribution.
-Changing shelf/type is deliberately not claimed by its contract. Generated
-observations describe reset poses, never synthetic Q transitions.
+The default sampler covers the lower-shelf small-box tube. Explicit layouts
+can move an already measured upper target without changing its shelf or type;
+all active footprints must still fit. Generated observations describe reset
+poses, never synthetic Q transitions or learned generalization evidence.
 """
 from dataclasses import asdict, dataclass
 import math
@@ -28,7 +29,7 @@ class GraspLayout:
         if self.split not in {'train', 'holdout', 'probe'}:
             raise ValueError('Unknown layout split')
         if not math.isfinite(self.lateral_m) or abs(self.lateral_m) > .08:
-            raise ValueError('Lower-shelf layout lateral range is +/-8cm')
+            raise ValueError('Measured-target layout lateral range is +/-8cm')
         if not math.isfinite(self.yaw_rad) or abs(self.yaw_rad) > math.radians(3):
             raise ValueError('Layout yaw range is +/-3degrees')
         if not math.isfinite(self.depth_m) or abs(self.depth_m) > .02:

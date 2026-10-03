@@ -50,6 +50,8 @@ def main():
                         help='Goal mode anchors accumulated base/torso/joint goals to measured reference controller state.')
     parser.add_argument('--layout-json',type=Path,help='Explicit measured-target layout from a separate train/holdout split.')
     parser.add_argument('--layout-vr-teacher',action='store_true',help='Physical layout diagnostic using the original VR/live-contact IK guide, no SAC.')
+    parser.add_argument('--vr-layout-retarget',action='store_true',
+                        help='Layout VR diagnostic only: move its whole initial approach with the actually perceived selected box.')
     parser.add_argument('--residual-zero',action='store_true',help='Geometry-guide physical probe, no learned actions or optimizer updates.')
     parser.add_argument('--vr-orientation-mode',choices=('full','closing-axis'),default='full',
                         help='VR/live-IK diagnostic only: constrain the complete wrist or just its jaw closing axis.')
@@ -106,6 +108,8 @@ def main():
         parser.error('Varied layouts require the geometry-conditioned residual controller')
     if args.layout_vr_teacher and (not args.layout_json or args.residual_sac or args.executed_actions or args.actor_checkpoint):
         parser.error('Layout VR teacher requires a layout and excludes policy/recorded action replay')
+    if args.vr_layout_retarget and not args.layout_vr_teacher:
+        parser.error('VR path retargeting requires --layout-vr-teacher')
     if args.residual_zero and (not args.residual_sac or args.residual_training):
         parser.error('Zero-residual probes require --no-residual-training')
     if not 0<=args.vr_contact_torso_forward_m<=.08:
@@ -308,6 +312,15 @@ def main():
                 teacher = VRJointTracker(env, demo, rack)
                 controller_name = 'mixed_VR_teacher_actor_DAgger_NOT_pure_SAC'
         else:
+            vr_retarget=None
+            if args.vr_layout_retarget:
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import retarget_reference_rack
+                original_actor=demo['actor_obs'][0]
+                actual_actor=observation['policy'][0].detach().cpu()
+                retargeted={key:value.clone() for key,value in demo.items()}
+                retargeted['actor_obs'],vr_retarget=retarget_reference_rack(demo['actor_obs'],original_actor,actual_actor)
+                retargeted['next_actor_obs'],_=retarget_reference_rack(demo['next_actor_obs'],original_actor,actual_actor)
+                demo=retargeted
             teacher = VRJointTracker(env, demo, rack,orientation_mode=args.vr_orientation_mode,
                                      contact_torso_forward_m=args.vr_contact_torso_forward_m,
                                      close_distance_m=args.vr_close_distance_m,coordinated_close=args.vr_coordinated_close,
@@ -345,7 +358,11 @@ def main():
                 'vr_contact_rest_mode':args.vr_contact_rest_mode,
                 'vr_contact_base_forward_m':args.vr_contact_base_forward_m,
                 'vr_arm_reach_fraction':args.vr_arm_reach_fraction,
-                'vr_contact_torso_up_m':args.vr_contact_torso_up_m},indent=2)+'\n')
+                'vr_contact_torso_up_m':args.vr_contact_torso_up_m,
+                'torso_extra_height_m':args.torso_extra_height_m,
+                'layout':layout.record() if layout else None,
+                'vr_layout_retarget':args.vr_layout_retarget,
+                'vr_retarget':vr_retarget if args.vr_layout_retarget else None},indent=2)+'\n')
         meta = dict(task_family='multi_box_v2', skill='grasp', robot_model='s63',
             gripper='leju-twofinger', rack_rollers=True, controller_mapping='scaled',
             action_dim=sum(actions.values()), actor_obs_dim=dims['policy'][0],
@@ -382,6 +399,7 @@ def main():
         meta['vr_arm_reach_fraction']=args.vr_arm_reach_fraction
         meta['vr_contact_torso_up_m']=args.vr_contact_torso_up_m
         meta['torso_extra_height_m']=args.torso_extra_height_m
+        meta['vr_layout_retarget']=args.vr_layout_retarget
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
@@ -574,6 +592,8 @@ def main():
         report['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
         report['vr_contact_torso_up_m']=args.vr_contact_torso_up_m
         report['torso_extra_height_m']=args.torso_extra_height_m
+        report['vr_layout_retarget']=args.vr_layout_retarget
+        report['vr_retarget']=vr_retarget if args.vr_layout_retarget else None
         report['physical_action_contract']=contract['action_contract']
         report['vr_close_distance_m']=args.vr_close_distance_m
         report['vr_coordinated_close']=args.vr_coordinated_close

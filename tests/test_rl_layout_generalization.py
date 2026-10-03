@@ -47,6 +47,27 @@ def test_sampler_fits_target_and_surrounding_box_footprints():
             validate_layout_footprints(actor)
 
 
+def test_explicit_upper_layout_preserves_target_and_moves_actual_start_frame():
+    from pathlib import Path
+    from kuavo_isaaclab_scene.rl.multi_box.demo_replay import load_v2_grasp_demonstrations
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import select_reference_episode
+    from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+    dataset=Path(__file__).resolve().parents[1]/'examples/demos/v2_grasp_quest_success.hdf5'
+    batch,_=load_v2_grasp_demonstrations(dataset,self_collision_enabled=False)
+    original=select_reference_episode(batch,1)['actor_obs'][0]
+    layout=GraspLayout(1000,'train',-.025,.007,(5,),base_lateral_m=-.04,
+                       base_outward_m=.06,base_yaw_rad=-.03)
+    moved=layout_reset_observation(original,layout,MultiBoxSpec())
+    tokens=moved[86:350].reshape(12,22)
+    assert torch.where(tokens[:,0]>.5)[0].tolist()==[5,9]
+    assert int(moved[400:412].argmax())==9
+    assert torch.equal(tokens[9,3:12],original[86:350].reshape(12,22)[9,3:12])
+    assert not torch.equal(moved[68:77],original[68:77])
+    validate_layout_footprints(moved)
+    with pytest.raises(ValueError,match='distractor cannot replace'):
+        layout_reset_observation(original,GraspLayout(1000,'train',-.025,distractors=(9,)),MultiBoxSpec())
+
+
 def test_half_shelf_crossing_is_rejected_before_physics():
     from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
     with pytest.raises(ValueError,match='footprint exceeds'):

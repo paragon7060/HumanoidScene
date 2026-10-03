@@ -309,7 +309,10 @@ VR/IK 재생 성공은 SAC 정책 성공과 구분한다.
 가진 새 실제 전이·BC prior·SAC로만 연결한다. `--vr-contact-torso-up-m`은
 VR/IK의 상승 목표 assist이며 학습 정책 명령이 아니다. 새 BC fit은 실제
 base 기울기의 XY 투영을 정확히 역산하는 별도 goal 좌표를 기록한다.
-기존 checkpoint는 기존 좌표를 유지한다. 상세 원인·실제 성공 영상·Drive 보관은
+기존 checkpoint는 기존 좌표를 유지한다. 명시적인 upper 배치의 VR 진단에서는
+`--layout-vr-teacher --layout-json /absolute/path/to/layout.json --vr-layout-retarget`으로
+실제로 인식한 초기 박스 위치/yaw에 접근 경로를 맞출 수 있다. 이는 실제 전이
+수집용 진단이며 SAC 정책 성공이 아니다. 상세 원인·실제 성공 영상·Drive 보관은
 [위 선반 진단과 SAC 복구 기록](docs/RL_V2_SAC_RECOVERY_20261003.md)을 참고한다.
 
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에
