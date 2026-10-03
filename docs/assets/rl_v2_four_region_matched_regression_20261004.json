@@ -1,0 +1,135 @@
+{
+  "seed": 27000,
+  "same_initial_scene_and_controller": true,
+  "initial_actor_observation_max_difference": 0.0,
+  "initial_critic_observation_max_difference": 0.0,
+  "frozen_evaluation_no_optimizer": true,
+  "heldout_data_used_for_training": false,
+  "runs": {
+    "before": {
+      "run": "artifacts/rl/drive_runs/four_region_before_update_matched_frozen_gpu0_20261004_074424/001_holdout_p1_holdout_000/pose_sac_20261004_075254_587d92",
+      "actor_updates": 16910,
+      "steps": 409,
+      "outcomes": {
+        "success": 1,
+        "unsafe": 0,
+        "invalid_reset": 0,
+        "time_out": 0
+      },
+      "last_grasp_conditions": {
+        "opposing_flaps": true,
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.037598609924316406,
+        "hand_flap_index": [
+          0,
+          1
+        ]
+      },
+      "last_unsafe_causes": {
+        "invalid_box_pose": false,
+        "invalid_flap_pose": false,
+        "robot_rack_collision": false,
+        "self_collision": false,
+        "obstacle_collision": false,
+        "workspace_limit": false,
+        "box_drop": false,
+        "box_lift_limit": false,
+        "box_speed_limit": false
+      },
+      "rack_peak_force_n": 0.0,
+      "last_peak_body": "base_link",
+      "video": "rl_v2_four_region_matched_before_20261004.mp4",
+      "video_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "drive_verified": true
+    },
+    "after": {
+      "run": "artifacts/rl/drive_runs/four_region_actual_sac_diagnostic_gpu0_20261004_070118/003_holdout_p1_holdout_000/pose_sac_20261004_071911_eb2b99",
+      "actor_updates": 17498,
+      "steps": 603,
+      "outcomes": {
+        "success": 0,
+        "unsafe": 1,
+        "invalid_reset": 0,
+        "time_out": 0
+      },
+      "last_grasp_conditions": {
+        "opposing_flaps": false,
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.14848065376281738,
+        "hand_flap_index": [
+          -1,
+          -1
+        ]
+      },
+      "last_unsafe_causes": {
+        "invalid_box_pose": false,
+        "invalid_flap_pose": false,
+        "robot_rack_collision": true,
+        "self_collision": false,
+        "obstacle_collision": false,
+        "workspace_limit": false,
+        "box_drop": false,
+        "box_lift_limit": false,
+        "box_speed_limit": false
+      },
+      "rack_peak_force_n": 22.604551315307617,
+      "last_peak_body": "zarm_l4_link",
+      "video": "rl_v2_four_region_matched_after_20261004.mp4",
+      "video_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "drive_verified": true
+    }
+  },
+  "same_recorded_state_model_predictions": {
+    "diagnostic_only": true,
+    "no_synthetic_Q_rows": true,
+    "shared_measured_states": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/four_region_before_update_matched_frozen_gpu0_20261004_074424/001_holdout_p1_holdout_000/pose_sac_20261004_075254_587d92",
+    "same_initial_state_verified": true,
+    "before_actual_outcome": "success409",
+    "after_actual_outcome": "robot_rack_collision603",
+    "rows": 409,
+    "predicted_Q_is_not_actual_policy_return": true,
+    "same_state_goal_prediction_change": {
+      "max_joint_rad": 0.034405626356601715,
+      "max_torso_xz_m": 0.0008566367905586958,
+      "max_base_xy_m": 0.0016034289728850126,
+      "max_base_yaw_rad": 0.001243298058398068
+    },
+    "critic_predictions": {
+      "before": {
+        "mean_predicted_Q_before_action": 2.9035656452178955,
+        "mean_predicted_Q_after_action": 2.9070851802825928,
+        "fraction_preferring_after_action": 0.95110023021698,
+        "mean_predicted_advantage_after_action": 0.0035196354147046804
+      },
+      "after": {
+        "mean_predicted_Q_before_action": 3.0735065937042236,
+        "mean_predicted_Q_after_action": 3.0777313709259033,
+        "fraction_preferring_after_action": 0.9388753175735474,
+        "mean_predicted_advantage_after_action": 0.004224710166454315
+      }
+    }
+  },
+  "predicted_Q_is_not_actual_return": true
+}

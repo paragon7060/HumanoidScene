@@ -39,6 +39,8 @@ def main():
                         help='Continue the goal student with actual SAC. Evaluation remains the default.')
     parser.add_argument('--pose-student-native-seed',type=Path,action='append',
                         help='Repeat for measured current-environment successes; episode clocks/anchors stay separate.')
+    parser.add_argument('--staged-base-waypoints',type=Path,
+                        help='Frozen diagnostic only: neutral-arm base approach, then hold a TRAIN-derived waypoint. Excludes old goal Q import.')
     parser.add_argument('--executed-actions', type=Path,
                         help='Reproduce actual current GPU success commands as an open-loop diagnostic, not a learned policy.')
     parser.add_argument('--actor-reference-mix', type=float,
@@ -105,6 +107,9 @@ def main():
         parser.error('Pose student needs its own checkpoint and excludes reference/actor mixtures')
     if (args.pose_student_training or args.pose_student_native_seed) and not args.pose_student_checkpoint:
         parser.error('Goal SAC options require --pose-student-checkpoint')
+    if args.staged_base_waypoints and (not args.staged_base_waypoints.is_file()
+            or not args.pose_student_checkpoint or args.pose_student_training):
+        parser.error('Staged base probe requires existing templates and a frozen pose policy; new matching SAC is a separate task')
     if args.pose_student_training and (not args.pose_student_native_seed or
             not all(path.is_file() for path in args.pose_student_native_seed)):
         parser.error('Goal SAC requires an existing measured current success seed')
@@ -259,6 +264,7 @@ def main():
         teacher = None
         agent = state = limits = executed = joint_goal = residual = pose_student = pose_sac = None
         initial_actor_error = None
+        staged_base = None
         controller_name = 'VR_reference_plus_contact_confirmed_IK_NOT_SAC'
         if args.pose_student_checkpoint:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
@@ -277,6 +283,14 @@ def main():
                 pose_student=PoseStudent(pose_state,env.device)
                 pose_student.validate_physical_contract(contract)
                 controller_name='learned_absolute_pose_student_BC_NOT_SAC_NO_live_reference'
+            if args.staged_base_waypoints:
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_base_hold import StagedBaseHoldDiagnostic
+                waypoints=json.loads(args.staged_base_waypoints.read_text())
+                if waypoints.get('physical_action_contract')!=contract['action_contract']:
+                    raise ValueError('Staged workplace physical travel contract differs')
+                staged_base=StagedBaseHoldDiagnostic((pose_sac or pose_student).coordinates,
+                    waypoints,observation['policy'])
+                controller_name='frozen_neural_grasp_with_analytic_base_staging_NOT_new_staged_SAC'
         elif args.executed_actions:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import read_executed_successes
             measured, _ = read_executed_successes(args.executed_actions, contract)
@@ -417,6 +431,13 @@ def main():
             pose_student_checkpoint=str(args.pose_student_checkpoint.resolve()) if pose_student or pose_sac else None,
             layout=layout.record() if layout else None, zero_residual_probe=args.residual_zero)
         meta['pose_goal_contract']=pose_sac.contract if pose_sac else None
+        if staged_base:
+            meta['collection_source']=staged_base.collection_source
+            meta['staged_base_contract']=staged_base.report()
+            manifest=json.loads((output/'manifest.json').read_text())
+            manifest.update(artifact_type=staged_base.collection_source,
+                            staged_base_contract=staged_base.report(),training=False)
+            (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         meta['vr_orientation_mode']=args.vr_orientation_mode
         meta['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
         meta['vr_close_distance_m']=args.vr_close_distance_m
@@ -434,7 +455,8 @@ def main():
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
-            caption=(f'Learned pose goals | SAC | NO live reference | train={pose_sac.training}' if pose_sac else
+            caption=(f'Base staging + FROZEN grasp | DIAGNOSTIC, not new SAC' if staged_base else
+                     f'Learned pose goals | SAC | NO live reference | train={pose_sac.training}' if pose_sac else
                      f'Learned pose student | BC, NOT SAC | NO live reference' if pose_student else
                      f'Reference + {"zero" if args.residual_zero else "SAC"} residual | layout={layout.seed if layout else "fixed"} | train={args.residual_training}' if residual else
                      f'Joint-goal BC actor | NOT trained SAC | offset {args.joint_offset_rad}rad' if joint_goal else
@@ -477,6 +499,8 @@ def main():
                     'self_collision', 'obstacle_collision', 'workspace_limit',
                     'box_drop', 'box_lift_limit', 'box_speed_limit')},
                 **{key: bool(env.termination_manager.get_term(key)[0]) for key in counts})
+            if staged_base:
+                row['staged_base']=staged_base.report()
             if args.contact_diagnostics:
                 from kuavo_isaaclab_scene.rl.multi_box.state.isaac_privileged_grasp import MIN_JAW_FORCE_N
                 # These are the already measured success inputs, not new
@@ -539,12 +563,20 @@ def main():
                 if not bool(torch.isfinite(pre['policy']).all()):
                     raise ValueError('Nonfinite actor observation in physical replay')
                 actor_input = joint_goal.actor_input(pre['policy']) if joint_goal else pre['policy']
-                if pose_sac:
-                    action,pose_previous=pose_sac.act(pre['policy'],torch.cat((pre['policy'],pre['critic']),-1),step)
+                policy_step=step
+                if staged_base:
+                    robot=env.scene['robot']
+                    staged_base.update(pre['policy'],robot.data.root_lin_vel_w,robot.data.root_ang_vel_w,step)
+                    if staged_base.phase=='held_grasp':
+                        policy_step=staged_base.manipulation_index(step)
+                if staged_base and staged_base.phase=='approach':
+                    action=staged_base.action(pre['policy'])
+                elif pose_sac:
+                    action,pose_previous=pose_sac.act(pre['policy'],torch.cat((pre['policy'],pre['critic']),-1),policy_step)
                     if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                         raise ValueError('Goal-space and physical gripper projection differ; Q import prohibited')
                 elif pose_student:
-                    action=projection(pre['policy'],pose_student.act(pre['policy'],step))
+                    action=projection(pre['policy'],pose_student.act(pre['policy'],policy_step))
                 elif residual:
                     raw_critic = torch.cat((pre['policy'], pre['critic']), -1)
                     action, residual_previous = residual.act(pre['policy'], raw_critic, step)
@@ -565,13 +597,15 @@ def main():
                                                gripper_columns=projection.columns)
                 if limits is not None:
                     action = action.clamp(-limits, limits)
+                if staged_base and staged_base.phase=='held_grasp':
+                    action=staged_base.action(pre['policy'],action)
                 observation, reward, terminated, truncated, info = env.step(action)
                 terminal = info['transition_next_observations']
                 if bool(info['transition_numerical_failure'].any()):
                     raise ValueError('Numerical recovery during replay; attempt cannot enter Q')
                 if not torch.allclose(reward, env._multi_box_grasp_reward_breakdown.total, atol=1e-5, rtol=1e-5):
                     raise ValueError('Current executed reward differs from reward breakdown')
-                if pose_sac:
+                if pose_sac and not staged_base:
                     pose_sac.observe(pose_previous,terminal['policy'],torch.cat((terminal['policy'],terminal['critic']),-1),
                                      reward,terminated,step)
                     if pose_sac.training and pose_sac.actor_updates and pose_sac.actor_updates%512==0:pose_sac.save()
@@ -649,6 +683,7 @@ def main():
                       layout=layout.record() if layout else None, zero_residual_probe=args.residual_zero,
                       retarget=residual.controller.retarget_report if residual and args.residual_controller=='retargeted-goal' else None)
         report['initial_base_pose_world']=initial_base_pose
+        if staged_base:report['staged_base_contract']=staged_base.report()
         report['initial_rack_pose_world']=initial_rack_pose
         report['initial_base_rack_observation']=initial_actor[68:77].tolist()
         report['initial_active_box_tokens']=initial_actor[86:350].reshape(12,22)[

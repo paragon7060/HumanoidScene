@@ -66,6 +66,16 @@ def test_full_executed_approach_and_terminal_success_are_preserved(tmp_path):
     assert audit["recorded_old_demo_rewards_imported"] is False
 
 
+def test_staged_base_diagnostic_cannot_seed_old_goal_sac(tmp_path):
+    path,contract=_record(tmp_path)
+    with h5py.File(path,'r+') as f:
+        meta=json.loads(f.attrs['manifest_json'])
+        meta['collection_source']='staged_base_hold_diagnostic_NOT_matching_goal_SAC_replay'
+        f.attrs['manifest_json']=json.dumps(meta)
+    with pytest.raises(ValueError,match='measured current GPU replay'):
+        read_executed_successes(path,contract)
+
+
 @pytest.mark.parametrize('split',['validation','holdout','eval','evaluation'])
 def test_declared_evaluation_episodes_are_rejected_from_training_seeds(tmp_path,split):
     path,contract=_record(tmp_path)

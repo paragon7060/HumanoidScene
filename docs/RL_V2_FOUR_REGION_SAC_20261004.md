@@ -198,3 +198,73 @@ Notion 요약 페이지에도 상단 실패 영상/사진을 native 업로드로
 위 baseline과 실제 SAC 진단을 분리해 기록했다. 서버 실험 서비스는 실행 중이다.
 채팅 native 목표 상태는 아직 `blocked`이고 제공된 도구에는 재개 기능이 없다.
 자동 채팅 후속 점검이 복구됐다고 주장하지 않으며, 목표를 완료로 처리하지 않는다.
+
+### 같은 초기 상태에서 SAC 회귀를 분리하고 base 분리 대안을 시험 (08:17)
+
+새 final seed27000을 actor16910과17498로 각각 optimizer 없이 실행했다.
+로봇·랙·모든 박스·drive/action controller의 초기 기록과 첫 actor/critic 관측 차이는
+모두0이다. 업데이트 전에는409tick 성공·rack0N, 후에는603tick에
+왼팔 `zarm_l4_link`–rack22.60N 충돌로 실패했다. 탐색 없이도 평균 동작이
+회귀한 사례다. 안전 위반의 나머지 원인은 모두False였다.
+
+![동일 초기 상태의 실제 물리 경로: 랙 힘·더 먼 손의 표면 거리·qualified opposing pinch 수.](assets/rl_v2_four_region_matched_regression_20261004.png)
+
+[업데이트 전 성공 영상](assets/rl_v2_four_region_matched_before_20261004.mp4),
+[업데이트 후 실패 영상](assets/rl_v2_four_region_matched_after_20261004.mp4),
+[초기 일치·성공·충돌·영상 인코딩 원자료](assets/rl_v2_four_region_matched_regression_20261004.json).
+H264/avc1·yuv420p·faststart·전체 decode 검증 영상이며 실제 PhysX pose의 CPU mesh 재생이다.
+
+같은 실제 성공 경로409행에 대한 **모델 출력 진단**에서는 목표 차이가
+관절 최대0.0344rad·torso0.86mm·base XY1.60mm였다. 업데이트 후 Q는
+이 경로의93.9% 상태에서 실패한 새 정책의 행동을 더 높게 예측했지만
+평균 예측 차이는0.00422에 불과했다. 이를 실제 정책 return이나 개선으로
+간주하지 않는다. 관절 목표 오차17차원의 국소 피드백 진단에서도 projected
+최대 singular gain0.642·spectral radius0.125여서 명확한 자기증폭을 찾지 못했다.
+이는 일부 TRAIN 관측의 국소 검사이며 전체 폐루프 안정성 증명이 아니다.
+가상 transition이나 새 reward/Q row를 만들지 않았다.
+
+위 오른쪽 seed27300은 업데이트 전592tick·후589tick으로 **모두 성공**했다.
+따라서 훈련 후 상단 오른쪽 성공 자체로 새 일반화 능력을 획득했다고 주장하지 않는다.
+GPU3 첫 네 TRAIN은 중간 좌우 성공·위 좌우 시간초과로2/4·unsafe0이다.
+다음 개발 평가가 진행 중이며 구역별 회귀 검사·actor 복구를 유지한다.
+
+대안은 `--staged-base-waypoints /absolute/path/to/templates.json`로 켜는
+**frozen 물리 진단**으로 구현했다. 기본 기존 제어는 그대로다.
+
+1. 성공 TRAIN에서 측정한 base–초기 box XY 차이와 rack 상대 yaw를 작업 위치
+   **후보**로 사용한다. 좌우는 실제 선택 박스의 위치를 사용하며 로봇 자세를 반사하지 않는다.
+2. 서로 다른 실제 초기 base XY/yaw에서 중립 팔·torso를 유지하고 열린 gripper로
+   작업 위치까지 움직인다. 초기 성공 팔 자세를 넣거나 box를 고정하지 않는다.
+3. XY오차8mm/yaw오차0.02rad, 실제 선속도0.01m/s·각속도0.025rad/s 미만이
+   15 control step 연속 유지되면 frozen 파지 정책의 clock을0부터 시작한다.
+4. 파지 중 base XY/yaw 목표를 계속 유지한다. 이동 중 충돌·정지 실패·전체30초
+   시간초과도 동일한 task 실패다. 성공/충돌/보상/중력보상 조건은 변경하지 않는다.
+
+이 옵션은 optimizer training과 같이 사용할 수 없다. Manifest/영상에
+`frozen_neural_grasp_with_analytic_base_staging_NOT_new_staged_SAC`를 기록하고
+새 collection source를 기존 goal replay importer에서 거부한다. 새 staged SAC는
+phase/held waypoint/실행 목표가 포함된 계약과 그 제어에서 수집한 실제 경험으로
+구현해야 하며, 지금 진단을 새 SAC 학습 성공으로 표현하지 않는다.
+기존 upper/middle seed와 같은 small box만 허용하며 미측정 크기는 거부한다.
+
+GPU0 새 진단 부모:
+`artifacts/rl/drive_runs/staged_base_four_region_frozen_gpu0_20261004_081335`.
+새 네 구역37000/37100/37200/37300으로 수행하며, 같은 checkpoint와 같은 배치에서
+기존 whole-body 제어를 비교하는 부모
+`artifacts/rl/drive_runs/whole_body_matched_staging_control_gpu0_20261004_081505`도
+진단/백업 종료 후 이어 실행하도록 등록했다. 본 GPU3 학습은 유지한다.
+첫 중간 왼쪽은88step에 실제 정지 확인 후 파지 단계에 진입했다.
+아직 진단의 파지 결과는 없다. 관련22개 CPU 검사와 parser 문법 검사만 통과했다.
+
+직접 사용할 때는 기존 frozen `replay_v2_grasp_reference.py`의 demo/manifest,
+matching checkpoint/native seed/layout 인자에 아래를 추가한다. 공개 후보 JSON은
+물리 travel `.06m` 및 small box에만 대응한다.
+
+```bash
+--staged-base-waypoints /absolute/path/to/HumanoidScene/docs/assets/rl_v2_staged_base_hold_candidates_20261004.json
+```
+
+Drive 관리자 `layout_residual_with_drive.py`에서도 `--evaluation-only`로 같은
+인자를 전달할 수 있다. 기본 `CUDA_VISIBLE_DEVICES=<physical GPU>`를 지정하고
+`--gpu`도 같은 번호로 맞춘다. 예전 whole-body replay/model을 staged SAC로
+재개할 수 있다는 의미는 아니다.
