@@ -241,3 +241,71 @@ SAC 실행이나 새 독립 최종 holdout 성공으로 기록하지
 같은 시각 기존 GPU3 SAC는 **훈련7/7 성공**, 학습 전 개발4/4·첫 개발 재평가4/4,
 actor17,410으로 다음 훈련을 수행한다. 완료된15개 실행의 Drive 검증은 끝났다.
 아직20,000update 이후와 새 최종 holdout600–611은 확인 전이다.
+
+
+## Upright 상단 이동 범위와 첫 위 선반 실제 파지 (10/03 18:52)
+
+GPU3 guarded SAC는 학습12/12 성공, unsafe0, actor20,914까지 진행했다.
+학습 전·첫·두 번째 개발 검사는 각각4/4였으며,20,000update 이후 개발 재평가는
+진행 중이다. 전체112개 실행 중24개를 완료했다. 이는 개발 중인 하단 정책이며
+마지막 독립 seed600–611 평가 결과는 아직 없다. 학습을 중단하거나 교체하지 않았다.
+
+위 선반 실패의 일부는 보수적인 upright torso **소프트웨어 이동 범위**와 관련됐다.
+기본0.40m 추가 높이에서0.46m로 바꾼 별도 물리 계약을 사용했다. 원래 관절
+하드 리미트·속도·pitch 고정·랙10N/장애물5N·성공 조건은 유지했다. URDF
+오프라인 계산에서6cm 상승 목표의 pitch 오차0, 최소 관절 여유0.5967rad를 확인했다.
+이 계산만으로 물리 성공을 판단하지 않고 실제 GPU 실행을 따로 수행했다.
+
+![실제 높이 변경 진단: 명령 높이와 접촉 결과](assets/rl_v2_upper_height_diag_20261003.png)
+[측정 지표와 원본 실행](assets/rl_v2_upper_height_diag_20261003.json).
+
+- `upper_up6_staggered25_gpu0_20261003_182631`:6cm 상승·4cm forward·full gross
+  reach·current rest·closing-axis.25mm TCP-goal gate를 사용하면653tick에
+  왼손목–랙16.23N으로 실패했다. 왼손 최근접 표면1.50mm까지 접근했지만 그때
+  양쪽 jaw는 open(-1)이었고 pinch는 없었다. 표면 거리와 TCP-goal closing
+  gate 거리의 차이로 실제 가까운 상태에서도 닫지 못한 사례다.
+- `upper_up6_reference_jaws_gpu0_20261003_183758`:높이와 나머지 제어는 유지하고
+  원 데모의 jaw 닫힘 시점(left496/right495, original bilateral pinch514)을
+  유지했다. **594tick/19.8s에 실제 성공1, unsafe/invalid/timeout0**. 서로
+  반대 flap0/1을 집고 stable hands 둘 다 true, proof lift true, hold0.267s,
+  최종 rack clearance32.39mm. 실제 실행 HDF594행은 strict native reader가
+  초기 제어 상태·시간·관측 연속성·성공 terminal까지 검사해 받아들였다.
+  기존0.40m action contract로 읽으면 거부된다.
+
+[위 선반 실제 성공 진단 영상](assets/rl_v2_upper_actual_success_20261003.mp4).
+H.264/avc1/yuv420p/faststart·전체 decode 검증,60tick 간격11프레임의 실제
+물리 pose CPU mesh 재생이다. 시간은 압축됐다.
+
+이는 **VR/live-contact IK 진단의 첫 위 선반 성공이며 SAC 성공이 아니다.**
+두 실행은 모두 종료 후 영상·HDF·로그를 기존 Drive 연결로 크기/MD5 검증했다.
+기본 height 범위와 현재 GPU3 학습은 그대로 유지했다. 기존0.40m 전이나 Q를
+새0.46m 전이로 재표기하지 않는다.
+
+학습 연결은 `--torso-extra-height-m 0.06`이라는 명시적 옵션으로 동일 물리
+계약을 선택한다. VR 위치 assist는 이 옵션과 별개다. 새 BC checkpoint에
+physical contract를 기록하고 실행 시 비교하며, 계약이 없는 옛 prior는 새로운
+높이 범위에서 거부한다. `--vr-contact-torso-up-m` 진단은 기존 측정 계약을
+보존한다. 새 실제 upper594행만으로 full-observation·initial-box-relative·
+clock900 BC20,000회 CPU fit을 시작했다. Frozen 물리 재평가 후 새 SAC를
+시작하며, 다양한 실제 initial base와 dynamic box 결과를 별도 확인할 계획이다.
+단일 seed 성공을 일반화 성공으로 기록하지 않는다.
+
+첫 CPU fit은 inverse 오차0.000356115 때문에 종료1로 모델을 만들지 못했다.
+상태의 `phase=finished`/백업 완료만 보고 모델 완료로 판단했던 중간 기록을
+정정한다. 해당 모델을 요구한 평가도 실행 전에 종료2였다. 실제 성공 HDF는
+유지하고 오류 로그도 보관했다. 원인은 base의 실제 roll/pitch가 있는 상태에서
+3D rotation transpose를 XY 투영의 역으로 사용한 데 있었다. XY만 보관한
+goal에서는 상단2×2 투영 행렬의 역을 사용해야 한다. 새
+`...projected_base_v2` action coordinate를 추가했고 실제594행 최대 복원 오차
+8.34e-6를 확인했다. Action/reward를 수정하거나 검사 기준을 완화하지 않았다.
+새 prior에서만 이 좌표를 사용하며 진행 중인 GPU3의 v1 checkpoint는 기존
+좌표 해석을 유지한다. 새 CPU fit을 재실행하고 actual exit0·모델 파일·백업을
+확인한 뒤 frozen 물리 평가를 진행한다.
+
+GPU0에서는 위 선반 dynamic box와 실제 초기 base를 바꾼 훈련용 seed1000
+진단도 시작했다. Box inward25mm/yaw0.007rad, base rack-X−4cm/outward6cm/
+yaw−0.03rad, lower distractor5. Native 물리의 box는 고정/attach하지 않고
+reset footprint만 검사했다. 개발 seed2000은 분리해 fit/Q seed에서 제외한다.
+훈련 성공 여부와 frozen 학습 정책의 성공 여부를 분리해 기록한다.
+
+관련 변경·SAC·Drive·layout 검사174 passed.

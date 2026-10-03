@@ -16,6 +16,30 @@ TORSO_HEIGHT_RANGE_M = (0.0, 0.40)
 TORSO_JOINT_STEP_RAD = 0.015
 
 
+def configure_upright_travel_profile(cfg, contract, extra_height_m):
+    """Select explicit software travel without changing hard joint/safety limits.
+
+    The identifier preserves the first measured higher-travel diagnostic. All
+    controllers can use that same physical MDP; existing defaults stay intact.
+    """
+    import math
+    if not math.isfinite(extra_height_m) or not 0 <= extra_height_m <= .08:
+        raise ValueError('Upright extra height must be within0..8cm')
+    if not extra_height_m:
+        return contract
+    if (contract.get('action_contract') != 's63_upright_torso_xz_fixed_pitch_v1'
+            or tuple(cfg.actions.height.height_range_m) != TORSO_HEIGHT_RANGE_M):
+        raise ValueError('Higher torso travel requires the original reviewed upright profile')
+    effective = (TORSO_HEIGHT_RANGE_M[0], TORSO_HEIGHT_RANGE_M[1] + extra_height_m)
+    cfg.actions.height.height_range_m = effective
+    return contract | dict(
+        action_contract=f's63_upright_torso_xz_fixed_pitch_diagnostic_up_{extra_height_m:.4f}m',
+        upright_torso_diagnostic=dict(extra_height_m=extra_height_m,
+            original_height_range_m=list(TORSO_HEIGHT_RANGE_M),
+            effective_height_range_m=list(effective), global_default_changed=False,
+            physical_joint_limits_changed=False, pitch_control='fixed_reset_pitch'))
+
+
 @lru_cache(maxsize=4)
 def torso_links_from_urdf(path: str | Path) -> tuple[tuple[float, float], ...]:
     """Use the same leg/waist link origins as the Quest upright-body mapper."""

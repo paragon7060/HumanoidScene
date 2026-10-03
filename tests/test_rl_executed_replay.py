@@ -132,6 +132,13 @@ def test_reward_or_observation_contract_change_requires_new_measured_data(tmp_pa
         read_executed_successes(path, contract)
 
 
+def test_changed_upright_travel_profile_cannot_enter_the_old_goal_q(tmp_path):
+    path,contract=_record(tmp_path)
+    contract['action_contract']='s63_upright_torso_xz_fixed_pitch_diagnostic_up_0.0600m'
+    with pytest.raises(ValueError,match='action_contract'):
+        read_executed_successes(path,contract)
+
+
 def test_data_only_archive_cannot_be_restored_as_a_policy(tmp_path):
     from kuavo_isaaclab_scene.rl.multi_box.experiments.train_grasp_v2_sac import _compatible_checkpoint
     (_, contract) = _record(tmp_path)

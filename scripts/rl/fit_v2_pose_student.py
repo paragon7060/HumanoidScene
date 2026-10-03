@@ -34,7 +34,7 @@ def main():
     if not 1<=args.clock_horizon<=900:p.error('Clock horizon must be within1..900')
     args.output_dir.mkdir(parents=True,exist_ok=False)
     torch.set_num_threads(1);torch.manual_seed(41)
-    coordinates=PoseGoalCoordinates();inputs=[];labels=[];sources=[];roundtrip=0.
+    coordinates=PoseGoalCoordinates(exact_projected_base=True);inputs=[];labels=[];sources=[];roundtrip=0.
     rows=json.loads((args.training_suite/'results.json').read_text()) if args.training_suite else []
     datasets=([Path(row['run_dir'])/'executed_transitions.hdf5' for row in rows
                if row['split']=='train' and row['outcomes']==dict(success=1,unsafe=0,invalid_reset=0,time_out=0)]
@@ -105,7 +105,8 @@ def main():
         initial_box_relative_goals=args.initial_box_relative,clock_only_initial_fit=args.clock_only_fit,
         time_harmonics=args.time_harmonics,
         clock_horizon=args.clock_horizon,
-        physical_config='unchanged_v2_grasp',sources=sources)
+        physical_config=physical_contract['action_contract'],sources=sources)
+    state['physical_contract']={key:physical_contract[key] for key in (*PHYSICAL_KEYS,'flap_pose_source')}
     torch.save(state,args.output_dir/'student.pt')
     report=dict(artifact_type=PoseStudent.artifact_type,rows=len(x),sources=sources,
         actor_fit_steps=args.steps,sac_actor_updates=0,sac_critic_updates=0,
@@ -114,6 +115,7 @@ def main():
         runtime_reference_path_required=False,physical_success_verified=False)
     report.update(initial_box_relative_goals=args.initial_box_relative,clock_only_initial_fit=args.clock_only_fit,
                   time_harmonics=args.time_harmonics,clock_horizon=args.clock_horizon)
+    report['physical_contract']=state['physical_contract']
     (args.output_dir/'manifest.json').write_text(json.dumps(report,indent=2)+'\n')
     (args.output_dir/'status.json').write_text(json.dumps(dict(status='complete',physical_success_verified=False))+'\n')
     print(json.dumps(report|{'sources':len(sources)}),flush=True)

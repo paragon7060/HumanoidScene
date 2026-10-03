@@ -6,6 +6,17 @@ Scene restoration is explicitly inferred and subsequent transitions are measured
 import torch
 
 
+def configure_vr_torso_up_diagnostic(cfg,contract,extra_height_m):
+    """Isolate a higher software travel profile from existing physical replay.
+
+    Joint travel/rate, fixed pitch, reward and collision limits remain unchanged.
+    A positive height assist is a different action contract, never a silent
+    migration of an existing SAC checkpoint or its historical transitions.
+    """
+    from ..geometry.upright_torso import configure_upright_travel_profile
+    return configure_upright_travel_profile(cfg, contract, extra_height_m)
+
+
 def restore_inferred_scene(env, observation):
     if env.num_envs != 1:
         raise ValueError('Inferred VR restoration is a single-environment diagnostic')
@@ -69,12 +80,16 @@ def restore_inferred_scene(env, observation):
 class VRJointTracker:
     def __init__(self,env,demo,rack,*,orientation_mode='full',contact_torso_forward_m=0.,
                  close_distance_m=.035,coordinated_close=False,reference_grippers=False,
-                 contact_rest_mode='reference',contact_base_forward_m=0.,arm_reach_fraction=.95):
+                 contact_rest_mode='reference',contact_base_forward_m=0.,arm_reach_fraction=.95,
+                 contact_torso_up_m=0.):
         from kuavo_isaaclab_scene.rl.multi_box.state.schema import ACTUATED_BODY_JOINTS
         self.env=env;self.demo=demo;self.rack=rack;self.index=0
         if not 0<=contact_torso_forward_m<=.08:
             raise ValueError('Contact torso assist must be within0..8cm')
         self.contact_torso_forward_m=contact_torso_forward_m
+        if not 0<=contact_torso_up_m<=.08:
+            raise ValueError('Contact upright torso up diagnostic must be within0..8cm')
+        self.contact_torso_up_m=contact_torso_up_m
         if not .003<=close_distance_m<=.035:
             raise ValueError('VR closing gate must be within3..35mm')
         self.close_distance_m,self.coordinated_close=close_distance_m,coordinated_close
@@ -177,11 +192,12 @@ class VRJointTracker:
                 # Same measured velocity controller and collision termination;
                 # cap the diagnostic approach and stop advancing after contact.
                 action[:,:2]=(2*error[:,:2]/base._scale[:2]).clamp(-.3,.3)
-            if self.contact_torso_forward_m:
+            if self.contact_torso_forward_m or self.contact_torso_up_m:
                 # Bring the arm parents closer while retaining upright pitch.
                 # The hand goals stay at the box; existing physical torso
                 # travel/rate and measured collision limits remain active.
                 target_xz=desired_xz.clone();target_xz[:,0]+=self.contact_torso_forward_m
+                target_xz[:,1]+=self.contact_torso_up_m
                 action[:,self.slices['height']]=(2*(target_xz-torso.processed_actions)/torso.cfg.speed_m_s).clamp(-.3,.3)
             for hand,solver in enumerate(self.solvers):
                 columns=guide.columns[hand]

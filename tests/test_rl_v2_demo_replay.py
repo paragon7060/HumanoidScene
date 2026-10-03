@@ -12,6 +12,27 @@ from kuavo_isaaclab_scene.rl.multi_box.demo_replay import load_v2_grasp_demonstr
 from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import successful_demo_grasp_offsets
 
 
+def test_higher_upright_diagnostic_has_a_distinct_physical_contract():
+    from types import SimpleNamespace
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import configure_vr_torso_up_diagnostic
+    cfg=SimpleNamespace(actions=SimpleNamespace(height=SimpleNamespace(height_range_m=(0.,.40))))
+    original=dict(action_contract='s63_upright_torso_xz_fixed_pitch_v1',
+                  terminal_contract={'rack_contact_force_n':10},reward_profile={'profile':'reviewed'})
+    assert configure_vr_torso_up_diagnostic(cfg,original,0.) is original
+    higher=configure_vr_torso_up_diagnostic(cfg,original,.06)
+    assert cfg.actions.height.height_range_m==(0.,.46)
+    assert higher['action_contract']!=original['action_contract']
+    assert higher['terminal_contract']==original['terminal_contract']
+    assert higher['reward_profile']==original['reward_profile']
+    assert not higher['upright_torso_diagnostic']['physical_joint_limits_changed']
+    assert original['action_contract']=='s63_upright_torso_xz_fixed_pitch_v1'
+    with pytest.raises(ValueError,match='reviewed upright profile'):
+        configure_vr_torso_up_diagnostic(cfg,original,.06)
+    for bad in [-.01,.081,float('nan')]:
+        with pytest.raises(ValueError,match='within'):
+            configure_vr_torso_up_diagnostic(cfg,original,bad)
+
+
 DATASET = Path(__file__).resolve().parents[1] / "examples/demos/v2_grasp_quest_success.hdf5"
 
 

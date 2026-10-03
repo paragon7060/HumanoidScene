@@ -16,9 +16,12 @@ from .joint_offset import JointOffsetController
 
 class PoseGoalCoordinates:
     name='s63_upright_absolute_joint_xz_rack_pose_grippers_v1'
+    projected_base_name='s63_upright_absolute_joint_xz_rack_pose_grippers_projected_base_v2'
     actor_dim=439
     action_dim=24
-    def __init__(self):
+    def __init__(self, *, exact_projected_base=False):
+        self.exact_projected_base=exact_projected_base
+        if exact_projected_base:self.name=self.projected_base_name
         self.features=ActorFeatures(464,'grasp_target_no_history')
         self.joints=JointOffsetController()
         self.links=torch.tensor(torso_links_from_urdf(resolve_robot_model('s63','leju-twofinger').urdf_path))
@@ -72,7 +75,19 @@ class PoseGoalCoordinates:
         action[:,self.joints.action_columns]=(goal[:,:17]-joint)/raw.new_tensor(self.joints.scales)
         action[:,18:20]=(goal[:,17:19]-torso)/(.1/30)
         displacement=torch.cat((goal[:,19:21]-position,raw.new_zeros(len(raw),1)),-1)
-        action[:,:2]=(rotation.transpose(-1,-2)@displacement[...,None]).squeeze(-1)[:,:2]*2/.15
+        if self.exact_projected_base:
+            # Encode keeps rack XY of a body-plane command. With actual base
+            # roll/pitch, projecting loses Z: R.T is not the inverse of R[:2,:2].
+            # Solve that measured2x2 map; do not relabel old actions to fit it.
+            m=rotation[:,:2,:2]
+            determinant=m[:,0,0]*m[:,1,1]-m[:,0,1]*m[:,1,0]
+            if not torch.isfinite(determinant).all() or (determinant.abs()<.1).any():
+                raise ValueError('Base-plane projection is singular or near vertical')
+            dx,dy=displacement[:,0],displacement[:,1]
+            action[:,0]=(m[:,1,1]*dx-m[:,0,1]*dy)/determinant*2/.15
+            action[:,1]=(m[:,0,0]*dy-m[:,1,0]*dx)/determinant*2/.15
+        else:
+            action[:,:2]=(rotation.transpose(-1,-2)@displacement[...,None]).squeeze(-1)[:,:2]*2/.15
         difference=goal[:,21]-heading
         action[:,2]=torch.atan2(difference.sin(),difference.cos())*2/.5
         action[:,20:22]=goal[:,22:24]
@@ -82,15 +97,29 @@ class PoseGoalCoordinates:
 class PoseStudent:
     artifact_type='pose_goal_student_BC_diagnostic_NOT_SAC'
     def __init__(self,state,device='cpu'):
-        if state.get('artifact_type')!=self.artifact_type or state.get('action_coordinates')!=PoseGoalCoordinates.name:
+        if state.get('artifact_type')!=self.artifact_type or state.get('action_coordinates') not in {
+                PoseGoalCoordinates.name,PoseGoalCoordinates.projected_base_name}:
             raise ValueError('This checkpoint is not a matching pose-goal student')
-        self.coordinates=PoseGoalCoordinates()
+        self.coordinates=PoseGoalCoordinates(exact_projected_base=
+            state['action_coordinates']==PoseGoalCoordinates.projected_base_name)
         self.agent=AsymmetricSAC(state['actor_obs_dim'],531,24,SACConfig(**state['config']),device)
         self.agent.restore(state,training=False)
         self.center=state['goal_center'].to(device);self.scale=state['goal_scale'].to(device)
         self.index=0
         self.state=state
         self.anchor=None
+
+    def validate_physical_contract(self, contract):
+        """Old unnamed priors are eligible only for the original travel MDP."""
+        from .executed_replay import PHYSICAL_KEYS
+        recorded = self.state.get('physical_contract')
+        if recorded is None:
+            if contract.get('action_contract') != 's63_upright_torso_xz_fixed_pitch_v1':
+                raise ValueError('Legacy pose prior lacks a matching physical travel contract')
+            return
+        for key in (*PHYSICAL_KEYS, 'flap_pose_source'):
+            if recorded.get(key) != contract.get(key):
+                raise ValueError(f'Pose prior physical contract differs: {key}')
 
     @torch.no_grad()
     def act(self,raw,index):

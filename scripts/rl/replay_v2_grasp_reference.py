@@ -48,13 +48,17 @@ def main():
     parser.add_argument('--residual-scale', type=float, default=.05)
     parser.add_argument('--residual-controller',choices=('delta','goal','retargeted-goal'),default='delta',
                         help='Goal mode anchors accumulated base/torso/joint goals to measured reference controller state.')
-    parser.add_argument('--layout-json',type=Path,help='Explicit lower-box layout from a separate train/holdout split.')
+    parser.add_argument('--layout-json',type=Path,help='Explicit measured-target layout from a separate train/holdout split.')
     parser.add_argument('--layout-vr-teacher',action='store_true',help='Physical layout diagnostic using the original VR/live-contact IK guide, no SAC.')
     parser.add_argument('--residual-zero',action='store_true',help='Geometry-guide physical probe, no learned actions or optimizer updates.')
     parser.add_argument('--vr-orientation-mode',choices=('full','closing-axis'),default='full',
                         help='VR/live-IK diagnostic only: constrain the complete wrist or just its jaw closing axis.')
     parser.add_argument('--vr-contact-torso-forward-m',type=float,default=0.,
                         help='VR/live-IK diagnostic only: bounded upright torso X assist during contact.')
+    parser.add_argument('--vr-contact-torso-up-m',type=float,default=0.,
+                        help='VR diagnostic only: additional upright height with a separate travel/MDP contract; never resumes an old policy.')
+    parser.add_argument('--torso-extra-height-m',type=float,default=0.,
+                        help='Explicit physical travel profile for any controller; matching recorded data/prior required, default unchanged.')
     parser.add_argument('--vr-close-distance-m',type=float,default=.035)
     parser.add_argument('--vr-coordinated-close',action='store_true',
                         help='VR/live-IK diagnostic only: wait for both hands before closing either jaw.')
@@ -106,6 +110,12 @@ def main():
         parser.error('Zero-residual probes require --no-residual-training')
     if not 0<=args.vr_contact_torso_forward_m<=.08:
         parser.error('VR contact torso assist must be within0..8cm')
+    if not 0<=args.vr_contact_torso_up_m<=.08:
+        parser.error('VR contact torso up diagnostic must be within0..8cm')
+    if not 0<=args.torso_extra_height_m<=.08:
+        parser.error('Extra torso travel must be within0..8cm')
+    if args.torso_extra_height_m and args.vr_contact_torso_up_m and args.torso_extra_height_m!=args.vr_contact_torso_up_m:
+        parser.error('VR assist and explicit travel profile must request the same extra height')
     if not 0<=args.vr_contact_base_forward_m<=.08:
         parser.error('VR contact base assist must be within0..8cm')
     if not .95<=args.vr_arm_reach_fraction<=1:
@@ -114,7 +124,7 @@ def main():
         parser.error('VR closing gate must be within3..35mm')
     if args.vr_reference_grippers and args.vr_coordinated_close:
         parser.error('Choose reference timing or coordinated geometric closing')
-    if (args.vr_orientation_mode!='full' or args.vr_contact_torso_forward_m or
+    if (args.vr_orientation_mode!='full' or args.vr_contact_torso_forward_m or args.vr_contact_torso_up_m or
         args.vr_close_distance_m!=.035 or args.vr_coordinated_close or args.vr_reference_grippers or
         args.vr_contact_rest_mode!='reference' or args.vr_contact_base_forward_m or
         args.vr_arm_reach_fraction!=.95) and (args.actor_checkpoint or args.executed_actions or args.pose_student_checkpoint):
@@ -148,7 +158,7 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.demo_replay import load_v2_grasp_demonstrations
         from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import GraspActionProjector
         from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import (
-            VRJointTracker, select_reference_episode, settle_reference_scene,
+            VRJointTracker, select_reference_episode, settle_reference_scene,configure_vr_torso_up_diagnostic,
         )
         from kuavo_isaaclab_scene.rl.multi_box.rewards import MultiBoxRewardWeights
         from kuavo_isaaclab_scene.rl.multi_box.geometry.grasp import GRASP_ASSIGNMENT_SCALE_M
@@ -184,6 +194,8 @@ def main():
         if profile != contract['reward_profile'] or thresholds != contract['terminal_contract']['safety_thresholds'] \
                 or contract['action_contract'] != 's63_upright_torso_xz_fixed_pitch_v1':
             raise ValueError('Reference reward geometry, safety thresholds or torso control changed; supply current manifest')
+        contract=configure_vr_torso_up_diagnostic(cfg,contract,
+            args.torso_extra_height_m or args.vr_contact_torso_up_m)
 
         class ReplayEnv(TerminalObservationMixin, ManagerBasedRLEnv):
             pass
@@ -236,6 +248,7 @@ def main():
                 controller_name='learned_pose_goal_SAC_NO_live_reference'
             else:
                 pose_student=PoseStudent(pose_state,env.device)
+                pose_student.validate_physical_contract(contract)
                 controller_name='learned_absolute_pose_student_BC_NOT_SAC_NO_live_reference'
         elif args.executed_actions:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import read_executed_successes
@@ -300,7 +313,8 @@ def main():
                                      close_distance_m=args.vr_close_distance_m,coordinated_close=args.vr_coordinated_close,
                                      reference_grippers=args.vr_reference_grippers,contact_rest_mode=args.vr_contact_rest_mode,
                                      contact_base_forward_m=args.vr_contact_base_forward_m,
-                                     arm_reach_fraction=args.vr_arm_reach_fraction)
+                                     arm_reach_fraction=args.vr_arm_reach_fraction,
+                                     contact_torso_up_m=args.vr_contact_torso_up_m)
         output = args.output_dir.resolve()
         output.mkdir(parents=True, exist_ok=False)
         if pose_sac:
@@ -330,7 +344,8 @@ def main():
                 'vr_reference_grippers':args.vr_reference_grippers,
                 'vr_contact_rest_mode':args.vr_contact_rest_mode,
                 'vr_contact_base_forward_m':args.vr_contact_base_forward_m,
-                'vr_arm_reach_fraction':args.vr_arm_reach_fraction},indent=2)+'\n')
+                'vr_arm_reach_fraction':args.vr_arm_reach_fraction,
+                'vr_contact_torso_up_m':args.vr_contact_torso_up_m},indent=2)+'\n')
         meta = dict(task_family='multi_box_v2', skill='grasp', robot_model='s63',
             gripper='leju-twofinger', rack_rollers=True, controller_mapping='scaled',
             action_dim=sum(actions.values()), actor_obs_dim=dims['policy'][0],
@@ -365,6 +380,8 @@ def main():
         meta['vr_contact_rest_mode']=args.vr_contact_rest_mode
         meta['vr_contact_base_forward_m']=args.vr_contact_base_forward_m
         meta['vr_arm_reach_fraction']=args.vr_arm_reach_fraction
+        meta['vr_contact_torso_up_m']=args.vr_contact_torso_up_m
+        meta['torso_extra_height_m']=args.torso_extra_height_m
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
@@ -555,6 +572,9 @@ def main():
                                     for key in history[0]['reward_terms']} if history else {}
         report['vr_orientation_mode']=args.vr_orientation_mode
         report['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
+        report['vr_contact_torso_up_m']=args.vr_contact_torso_up_m
+        report['torso_extra_height_m']=args.torso_extra_height_m
+        report['physical_action_contract']=contract['action_contract']
         report['vr_close_distance_m']=args.vr_close_distance_m
         report['vr_coordinated_close']=args.vr_coordinated_close
         report['vr_reference_grippers']=args.vr_reference_grippers

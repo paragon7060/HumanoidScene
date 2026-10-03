@@ -15,6 +15,24 @@ def raw_state():
     return raw
 
 
+def test_pose_prior_rejects_unknown_or_different_physical_travel():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import PHYSICAL_KEYS
+    student=object.__new__(PoseStudent);student.state={}
+    original={'action_contract':'s63_upright_torso_xz_fixed_pitch_v1'}
+    higher=original|{'action_contract':'s63_upright_torso_xz_fixed_pitch_diagnostic_up_0.0600m'}
+    student.validate_physical_contract(original)
+    with pytest.raises(ValueError,match='Legacy pose prior'):
+        student.validate_physical_contract(higher)
+    contract={key:None for key in (*PHYSICAL_KEYS,'flap_pose_source')}|higher
+    student.state={'physical_contract':contract.copy()}
+    student.validate_physical_contract(contract)
+    with pytest.raises(ValueError,match='action_contract'):
+        student.validate_physical_contract(contract|original)
+    with pytest.raises(ValueError,match='reward_profile'):
+        student.validate_physical_contract(contract|{'reward_profile':{'changed':True}})
+
+
 def test_absolute_goal_inverse_reproduces_executed_commands():
     coordinates=PoseGoalCoordinates();raw=raw_state()
     generator=torch.Generator().manual_seed(5)
@@ -23,6 +41,22 @@ def test_absolute_goal_inverse_reproduces_executed_commands():
     assert torch.allclose(coordinates.decode(raw,goals),physical,atol=1e-5)
     current=coordinates.encode_physical(raw,torch.zeros_like(physical))
     assert coordinates.decode(raw,current).abs().max()<1e-5
+
+
+def test_projected_base_inverse_preserves_actual_tilted_base_commands():
+    raw=raw_state()
+    yaw=yaw_matrix(.5,raw)
+    angle=raw.new_tensor(.12)
+    pitch=raw.new_tensor([[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]])
+    pitch[0,0]=pitch[2,2]=angle.cos();pitch[0,2]=angle.sin();pitch[2,0]=-angle.sin()
+    raw[:,71:77]=matrix6(yaw@pitch)
+    physical=raw.new_zeros(2,24);physical[:,:3]=raw.new_tensor([.084,.32,-.2])
+    legacy=PoseGoalCoordinates();exact=PoseGoalCoordinates(exact_projected_base=True)
+    goals=exact.encode_physical(raw,physical)
+    assert (legacy.decode(raw,goals)-physical).abs().max()>.001
+    torch.testing.assert_close(exact.decode(raw,goals),physical,atol=1e-5,rtol=0)
+    assert exact.name!=legacy.name
+    assert torch.equal(exact.encode_physical(raw,physical),legacy.encode_physical(raw,physical))
 
 
 def test_student_input_uses_observations_and_clock_without_reference_goals():
@@ -204,7 +238,8 @@ def test_goal_discount_matches_potential_and_explicit_migration_keeps_actor(tmp_
     from kuavo_isaaclab_scene.rl.multi_box.experiments import pose_goal_sac as goal
 
     torch.set_num_threads(1)
-    contract=dict(discount=.999,reward_profile=dict(weights=dict(discount=.999)))
+    contract=dict(discount=.999,reward_profile=dict(weights=dict(discount=.999)),
+                  action_contract='s63_upright_torso_xz_fixed_pitch_v1')
     raw=raw_state()[:1].clone()
     raw[:,86+4*22]=1;raw[:,86+4*22+12:86+4*22+15]=torch.tensor([.8,.2,1.])
     raw[:,388+4]=1;raw[:,400+4]=1
@@ -278,7 +313,7 @@ def test_multiple_actual_seeds_reset_their_clock_and_initial_box_anchor(tmp_path
         initial_box_relative_goals=True)
     torch.save(state,tmp_path/'bc.pt')
     pilot=goal.PoseGoalSACPilot(tmp_path/'bc.pt',['one.hdf5','two.hdf5'],
-        dict(discount=.999),tmp_path/'run',training=False)
+        dict(discount=.999,action_contract='s63_upright_torso_xz_fixed_pitch_v1'),tmp_path/'run',training=False)
     seed=pilot.seed['actor_obs']
     torch.testing.assert_close(seed[:,438],torch.tensor([0.,1/410,0.,1/410]))
     assert torch.equal(seed[0,-2:],seed[1,-2:]) and torch.equal(seed[2,-2:],seed[3,-2:])

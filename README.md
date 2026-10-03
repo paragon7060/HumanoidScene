@@ -303,6 +303,15 @@ SAC 성공은 별도 지표로 기록된다. 기본값 0은 SAC만 실행한다.
 [GPU 재생·성공 경험 연결](docs/RL_V2_RECOVERY_20260930.md#gpu-scene-restoration-and-measured-full-path-seed--2026-10-01)에 있다.
 VR/IK 재생 성공은 SAC 정책 성공과 구분한다.
 
+위 선반의 별도 upright 이동 범위 진단과 목표 정책 연결에는
+`replay_v2_grasp_reference.py --torso-extra-height-m 0.06`을 사용한다.
+기본0.40m 추가 높이는 그대로이며,0.46m 범위는 matching physical contract를
+가진 새 실제 전이·BC prior·SAC로만 연결한다. `--vr-contact-torso-up-m`은
+VR/IK의 상승 목표 assist이며 학습 정책 명령이 아니다. 새 BC fit은 실제
+base 기울기의 XY 투영을 정확히 역산하는 별도 goal 좌표를 기록한다.
+기존 checkpoint는 기존 좌표를 유지한다. 상세 원인·실제 성공 영상·Drive 보관은
+[위 선반 진단과 SAC 복구 기록](docs/RL_V2_SAC_RECOVERY_20261003.md)을 참고한다.
+
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에
 중복하지 않는다. 처음에는 [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md)을 따른다.
 

@@ -94,6 +94,8 @@ class PoseGoalSACPilot:
             raise ValueError('Goal SAC checkpoint format differs')
         prior=saved.get('bc_prior',saved)
         self.prior=PoseStudent(prior,device)
+        self.coordinates=self.prior.coordinates
+        self.prior.validate_physical_contract(physical_contract)
         self.prior.agent.requires_grad_(False)
         self.harmonics=prior.get('time_harmonics',0)
         self.clock_horizon=prior.get('clock_horizon',410)
