@@ -28,6 +28,9 @@ def episode_validation_successes(rows):
     result={}
     for row in rows:
         key=str(row['reference_episode_index'])
+        region=row.get('layout',{}).get('target_region')
+        if region is not None:
+            key+=':'+region
         result[key]=result.get(key,0)+int(row['outcomes']['success'])
     return result
 
@@ -147,6 +150,13 @@ def main():
     if pose_mode and (not args.checkpoint or (not args.evaluation_only and '--pose-student-native-seed' not in child_args)
                       or '--residual-sac' in child_args or args.after_verified_experiment):
         parser.error('Pose-goal SAC needs its own checkpoint and measured native seed, without residual options')
+    if pose_mode and args.checkpoint:
+        checkpoint_manifest=args.checkpoint.parent/'manifest.json'
+        if checkpoint_manifest.is_file():
+            checkpoint_type=json.loads(checkpoint_manifest.read_text()).get('artifact_type')
+            has_seed_audit=any(value.split('=')[0]=='--pose-student-native-seed' for value in child_args)
+            if checkpoint_type=='pose_goal_sac_no_live_reference' and not has_seed_audit:
+                parser.error('Frozen goal-SAC evaluation also needs its declared physical native seed audit')
     layouts={split:sorted(args.layout_dir.resolve().glob(split+'_*.json'))[:count]
              for split,count in [('train',args.train_count),('holdout',args.eval_count)]}
     if guarded:

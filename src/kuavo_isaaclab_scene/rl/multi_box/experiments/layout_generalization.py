@@ -2,7 +2,8 @@
 
 The default sampler covers the lower-shelf small-box tube. Explicit layouts
 can move an already measured upper target without changing its shelf or type;
-all active footprints must still fit. Generated observations describe reset
+an explicit region can move it to the other half of the same shelf. All
+active footprints must still fit. Generated observations describe reset
 poses, never synthetic Q transitions or learned generalization evidence.
 """
 from dataclasses import asdict, dataclass
@@ -24,6 +25,8 @@ class GraspLayout:
     base_lateral_m: float = 0.0
     base_outward_m: float = 0.0
     base_yaw_rad: float = 0.0
+    target_region: str | None = None
+    align_initial_base_to_region: bool = False
 
     def validate(self):
         if self.split not in {'train', 'holdout', 'probe'}:
@@ -40,10 +43,21 @@ class GraspLayout:
             raise ValueError('Initial base yaw must be within +/-15degrees')
         if len(set(self.distractors)) != len(self.distractors) or any(i not in (5, 6, 9) for i in self.distractors):
             raise ValueError('Distractors must use separate rear/upper cells 5,6,9')
+        if self.target_region is not None and self.target_region not in (
+                'shelf_2_right', 'shelf_2_left', 'shelf_3_right', 'shelf_3_left'):
+            raise ValueError('Unknown target rack region')
+        if type(self.align_initial_base_to_region) is not bool:
+            raise ValueError('Initial base region alignment must be an explicit boolean')
+        if self.align_initial_base_to_region and self.target_region is None:
+            raise ValueError('Initial base region alignment requires an explicit target region')
         return self
 
     def record(self):
-        return asdict(self)
+        record=asdict(self)
+        if self.target_region is None:
+            record.pop('target_region')
+            record.pop('align_initial_base_to_region')
+        return record
 
 
 def sample_layout(seed, split, *, depth_limit_m=0.0):
@@ -79,6 +93,11 @@ def base_reset_observation(source, lateral_m=0., outward_m=0., yaw_rad=0.):
     """
     GraspLayout(0,'probe',0.,base_lateral_m=lateral_m,
                 base_outward_m=outward_m,base_yaw_rad=yaw_rad).validate()
+    return _reexpress_initial_base(source,lateral_m,outward_m,yaw_rad)
+
+
+def _reexpress_initial_base(source,lateral_m=0.,outward_m=0.,yaw_rad=0.):
+    """Apply a validated random offset or an explicit nominal region translation."""
     actor=source.clone()
     if not (lateral_m or outward_m or yaw_rad):return actor
     rack_rotation=_rotation_matrix(source[71:77])
@@ -139,7 +158,7 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
     describes only a new reset; measured source transitions remain untouched.
     """
     from ..scene.spawn import logical_cells
-    from ....workcell.workcell_layout import scale
+    from ....workcell.workcell_layout import scale, RACK_SHELF_CENTER_LOCAL_X_RAW
     from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
     layout.validate()
     if source.shape!=(464,) or not bool(torch.isfinite(source).all()):
@@ -156,16 +175,47 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
         raise ValueError('A layout seed requires an explicit one-hot selected target')
     if not bool(tokens[target,0]>.5 and actor[388+target]>.5):
         raise ValueError('The selected layout target must be an active measured box')
+    cells = logical_cells(spec)
+    rack_rotation = _rotation_matrix(actor[71:77])
+    nominal_base_shift=0.
+    if layout.target_region is not None:
+        original_cell=cells[target]
+        region=next(r for r in spec.rack_regions if r.name==layout.target_region)
+        if region.shelf!=original_cell.shelf:
+            raise ValueError('Target region remapping must preserve the measured shelf')
+        original_token=tokens[target].clone()
+        region_onehot=original_token.new_zeros(4);region_onehot[original_cell.region_id]=1
+        if not torch.equal(original_token[8:12],region_onehot):
+            raise ValueError('Measured target region must match its logical cell')
+        kind=('small','medium')[int(original_token[3:5].argmax())]
+        if kind not in region.allowed_box_types:
+            raise ValueError('Measured box type is not allowed in the requested region')
+        destination=next(cell for cell in cells if cell.region_name==region.name
+                         and cell.depth_index==original_cell.depth_index)
+        if destination.logical_id!=target:
+            # Translate the physical box across the actual asymmetric rack
+            # centre. Preserve orientation, depth, height and dimensions; this
+            # creates a reset only, never reflected demonstration transitions.
+            local=rack_rotation.T@(original_token[12:15]-actor[68:71])
+            center=RACK_SHELF_CENTER_LOCAL_X_RAW*scale('rack')[0]
+            nominal_base_shift=float(2*(center-local[0]))
+            original_token[12:15]+=rack_rotation@actor.new_tensor([nominal_base_shift,0.,0.])
+            original_token[8:12]=0;original_token[8+destination.region_id]=1
+            tokens[target]=0
+            target=destination.logical_id
+            tokens[target]=original_token
+            actor[400:412]=0;actor[400+target]=1
     if target in layout.distractors:
         raise ValueError('A distractor cannot replace the selected target')
     background=torch.arange(12,device=actor.device)!=target
     tokens[background]=0
-    rack_rotation = _rotation_matrix(actor[71:77])
-    delta = actor.new_tensor([layout.lateral_m, layout.depth_m, 0])
+    # Regional recipes use the same negative inward2..4cm sampler on both
+    # halves. Legacy recipes retain the original signed rack-X displacement.
+    direction=-1 if layout.target_region is not None and cells[target].side=='right' else 1
+    delta = actor.new_tensor([direction*layout.lateral_m, layout.depth_m, 0])
     tokens[target, 12:15] += rack_rotation @ delta
     original = _rotation_matrix(tokens[target, 15:21])
     tokens[target, 15:21] = matrix6(rack_rotation @ yaw_matrix(layout.yaw_rad, actor) @ rack_rotation.T @ original)
-    cells = logical_cells(spec)
     for logical in layout.distractors:
         cell = cells[logical]
         # Rear cell stays behind the target; upper cells are separate shelves.
@@ -180,6 +230,10 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
         token[21] = 1
     actor[388:400]=tokens[:,0]
     validate_layout_footprints(actor)
+    if layout.align_initial_base_to_region:
+        # A declared region-specific initial template, not a movement or a
+        # successful contact state. Random XY/yaw still applies afterwards.
+        actor=_reexpress_initial_base(actor,nominal_base_shift)
     return base_reset_observation(actor,layout.base_lateral_m,layout.base_outward_m,layout.base_yaw_rad)
 
 

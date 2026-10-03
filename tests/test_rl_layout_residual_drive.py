@@ -75,6 +75,27 @@ def test_upper_gain_does_not_hide_lower_regression():
     assert not script.episode_validation_regressed(latest,None,0)
 
 
+def test_right_gain_does_not_hide_left_regression_on_the_same_shelf():
+    script=module()
+    rows=[dict(reference_episode_index=0,layout={'target_region':'shelf_2_left'},outcomes={'success':0}),
+          dict(reference_episode_index=0,layout={'target_region':'shelf_2_right'},outcomes={'success':1})]
+    latest=script.episode_validation_successes(rows)
+    best={'0:shelf_2_left':1,'0:shelf_2_right':0}
+    assert sum(latest.values())==sum(best.values())
+    assert script.episode_validation_regressed(latest,best,0)
+
+
+def test_missing_native_seed_audit_is_rejected_before_starting_isaac(tmp_path,monkeypatch):
+    script=module();checkpoint=tmp_path/'checkpoint.pt';checkpoint.write_bytes(b'native SAC')
+    (tmp_path/'manifest.json').write_text(json.dumps({'artifact_type':'pose_goal_sac_no_live_reference'}))
+    parent=tmp_path/'must_not_start'
+    monkeypatch.setattr(sys,'argv',['suite','--experiment-dir',str(parent),'--layout-dir',str(tmp_path),
+        '--policy-mode','pose-goal','--evaluation-only','--checkpoint',str(checkpoint),
+        '--python',sys.executable,'--remote-root','test-remote:HumanoidScene-RL'])
+    with pytest.raises(SystemExit) as error:script.main()
+    assert error.value.code==2 and not parent.exists()
+
+
 def test_varied_training_keeps_failure_data_then_freezes_one_checkpoint_for_holdout(tmp_path,monkeypatch):
     script=module();layouts=tmp_path/'layouts';layouts.mkdir();parent=tmp_path/'suite';calls=[];uploads=[]
     for split in ('train','holdout'):

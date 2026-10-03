@@ -202,3 +202,62 @@ def test_invalid_base_randomization_cannot_be_silently_clipped():
         base_reset_observation(rack_seed(),.30,0.,0.)
     with pytest.raises(ValueError,match='yaw'):
         base_reset_observation(rack_seed(),0.,0.,.5)
+
+
+@pytest.mark.parametrize('episode,region,target',[(0,'shelf_2_right',1),(1,'shelf_3_right',6)])
+def test_region_reset_uses_real_right_pool_and_preserves_box_and_neutral_robot(episode,region,target):
+    from pathlib import Path
+    from kuavo_isaaclab_scene.rl.multi_box.demo_replay import load_v2_grasp_demonstrations, _rotation_matrix
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import select_reference_episode
+    from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import logical_cells, physical_pool_id
+    from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+    from kuavo_isaaclab_scene.workcell.workcell_layout import scale, RACK_SHELF_CENTER_LOCAL_X_RAW
+    batch,_=load_v2_grasp_demonstrations(Path(__file__).resolve().parents[1]/
+        'examples/demos/v2_grasp_quest_success.hdf5',self_collision_enabled=False)
+    original=select_reference_episode(batch,episode)['actor_obs'][0]
+    saved=original.clone();spec=MultiBoxSpec()
+    layout=GraspLayout(5800+episode,'holdout',-.025,depth_m=.004,target_region=region)
+    moved=layout_reset_observation(original,layout,spec)
+    assert torch.equal(original,saved)
+    assert torch.equal(original[:68],moved[:68])
+    assert torch.equal(original[68:86],moved[68:86])  # Base did not silently move.
+    old=original[86:350].reshape(12,22)[int(original[400:412].argmax())]
+    tokens=moved[86:350].reshape(12,22);new=tokens[target]
+    assert torch.where(tokens[:,0]>.5)[0].tolist()==[target]
+    assert int(moved[400:412].argmax())==target
+    assert int(new[8:12].argmax())==target//3
+    assert physical_pool_id(logical_cells(spec)[target],0)==(1 if episode==0 else 12)
+    assert torch.equal(old[3:8],new[3:8]) and torch.allclose(old[15:21],new[15:21],atol=1e-6)
+    r=_rotation_matrix(original[71:77]);before=r.T@(old[12:15]-original[68:71])
+    after=r.T@(new[12:15]-moved[68:71])
+    expected=before.clone();expected[0]=2*RACK_SHELF_CENTER_LOCAL_X_RAW*scale('rack')[0]-before[0]+.025
+    expected[1]+=.004
+    assert torch.allclose(after,expected,atol=1e-6)
+    validate_layout_footprints(moved)
+    # Explicit nominal region alignment moves the real starting robot, then
+    # applies independent random offsets; every world box stays on the rack.
+    aligned=layout_reset_observation(original,GraspLayout(5900+episode,'train',-.025,
+        depth_m=.004,target_region=region,align_initial_base_to_region=True,
+        base_lateral_m=.12,base_outward_m=.16,base_yaw_rad=.10),spec)
+    ra=_rotation_matrix(aligned[71:77]);ta=aligned[86:350].reshape(12,22)[target]
+    assert torch.allclose(ra.T@(ta[12:15]-aligned[68:71]),after,atol=1e-6)
+    nominal=float(2*(RACK_SHELF_CENTER_LOCAL_X_RAW*scale('rack')[0]-before[0]))
+    root_delta=-(ra.T@aligned[68:71])+(r.T@original[68:71])
+    assert torch.allclose(root_delta,original.new_tensor([nominal+.12,.16,0.]),atol=1e-6)
+    assert torch.equal(original[:20],aligned[:20])
+    validate_layout_footprints(aligned)
+    if episode==1:
+        with pytest.raises(ValueError,match='distractor cannot replace'):
+            layout_reset_observation(original,GraspLayout(5901,'probe',-.025,
+                target_region=region,distractors=(6,)),spec)
+
+
+def test_region_reset_rejects_cross_shelf_and_target_distractor_alias():
+    from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+    with pytest.raises(ValueError,match='preserve the measured shelf'):
+        layout_reset_observation(rack_seed(),GraspLayout(1,'probe',-.025,
+            target_region='shelf_3_right'),MultiBoxSpec())
+    with pytest.raises(ValueError,match='explicit target region'):
+        GraspLayout(1,'probe',0.,align_initial_base_to_region=True).validate()
+    # Legacy serialized recipes and transformations remain unchanged.
+    assert 'target_region' not in sample_layout(1,'train').record()

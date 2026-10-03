@@ -994,3 +994,21 @@ base/box/torso, 최종 성공을 기록한다. 개발·최종 평가 데이터�
 [reachability-prior 연구](https://arxiv.org/abs/2203.04051)는 이 설계의 참고 자료이며
 해당 연구가 우리 양손 flap task의 성공을 보장하는 것은 아니다. 성공 확인까지 현재
 학습·평가를 이어가고 필요할 때 위 구조로 전환한다.
+
+### 기존 비교 종료와 네 구역 확장 (10/04 06:40)
+
+이상의 실행은 모두 종료·Drive 검증을 마쳤다. 중간 왼쪽 guarded는 train48/48,
+독립 final10/12·unsafe0. .46m mixed guarded는 train5/16·unsafe8,
+독립 final7/8·unsafe0이고 actor 복구2회가 있었다. BC 제약 해제·지연 actor 분기는
+train2/4·unsafe1, final1/2·unsafe0·actor 복구1회로 위 선반 성능을 유지하지 못했다.
+GPU0 세 비교 분기의 final은 각각1/2이며 imitation/radius 모두 해제한 분기는
+final 안전 위반1회였다. 모두 target4/9의 왼쪽 결과다.
+
+전체 action 방식의 성공이 일부 유지되는 mixed 정책을 먼저 중간·위 × 좌우
+네 구역으로 확장한다. 실제 오른쪽 logical target/region/pool과 선택 mask를
+같이 바꾸는 reset 옵션, 명시한 구역별 초기 base template 위의 XY/yaw 변화,
+구역별 개발 회귀 판정을 구현했다. 과거 transition을 반사·재라벨하지 않는다.
+첫 중간 왼쪽 새 frozen 배치는409tick 성공했고 오른쪽과 위 선반은 확인 중이다.
+새 GPU3 학습은 현재 frozen 비교와 백업이 종료된 뒤 총116회 계획을 이어가도록
+등록했다. [새 배치 옵션·실측 비교 그림·실행 폴더·한계](RL_V2_FOUR_REGION_SAC_20261004.md)에
+진행과 결과를 기록한다. 네 구역 일반화 목표는 아직 완료하지 않았다.
