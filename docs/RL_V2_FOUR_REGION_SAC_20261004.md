@@ -113,11 +113,12 @@ Final holdout에는 optimizer update가 없고 해당 데이터를 다음 학습
 TRAIN replay·탐색 분포를 유지하고 actor LR1e−7·critic4회당 actor1회로 분기한다.
 BC neural anchor weight10/radius0.05를 유지하므로 BC 제약 없는 실행은 아니다.
 Demo replay fade는 critic 진행량에 연결해 actor 지연 때문에 사용 기간이 늘어나지 않는다.
-현재 오른쪽 파지 성공이나 네 구역 최종 성공률은 아직 확인 전이다.
+등록 당시 오른쪽 파지 성공이나 네 구역 최종 성공률은 확인 전이었다.
+이후의 실제 결과는 아래 시각별 기록을 따른다.
 
 준비 모델·실제 replay의 Drive 체크섬 검증 후 새 관리 서비스도 시작했다.
 부모는 `artifacts/rl/drive_runs/four_region_guarded_sac_gpu3_20261004_063608`이며,
-현재 frozen 평가와 최종 백업이 종료될 때까지 GPU 자식을 만들지 않는다.
+등록 당시 frozen 평가와 최종 백업이 종료될 때까지 GPU 자식을 만들지 않았다.
 이후 같은 GPU3에서 train16배치×3pass=48회, 개발4회×13block=52회,
 새 independent final16회, 총116회를 순서대로 수행한다.
 개발 배치와 final 배치는 서로 분리했다. 종료 시간을 성공 보장으로 표현하지 않는다.
@@ -268,3 +269,21 @@ Drive 관리자 `layout_residual_with_drive.py`에서도 `--evaluation-only`로 
 인자를 전달할 수 있다. 기본 `CUDA_VISIBLE_DEVICES=<physical GPU>`를 지정하고
 `--gpu`도 같은 번호로 맞춘다. 예전 whole-body replay/model을 staged SAC로
 재개할 수 있다는 의미는 아니다.
+
+### Base 분리 진단의 첫 실제 성공 (08:25)
+
+첫 새 중간 왼쪽 seed37000은 **497tick 성공·rack0N·unsafe0**으로 종료됐고
+영상·실제 데이터·로그의 Drive 검증까지 마쳤다.88step에 중립 팔 접근과15step
+정지 조건을 통과한 뒤 파지 clock을0부터 실행했다. 마지막에는 서로 다른
+flap[0,1], 양손 pinch/stable, proof lift, clearance3.91cm·hold0.267s였다.
+초기 base offset은 X−6.69cm/out14.03cm/yaw−4.23°이며 박스 inward3.47cm/
+yaw−0.53°·주변 박스를 유지했다. Base는 실제 초기 상태에서 움직였고
+파지 중 위치 오차는 마지막0.044mm였다. 성공 팔 상태로 시작한 것이 아니다.
+
+![실제 중립 base 접근 후 위치 유지 파지의 마지막 자세.](assets/rl_v2_staged_base_first_success_20261004.png)
+
+[실제 base 접근·정지·파지 영상](assets/rl_v2_staged_base_first_success_20261004.mp4),
+[초기 상태·구역·후보·정지 조건·성공 판정](assets/rl_v2_staged_base_first_success_20261004.json).
+Actor16910에 추가 optimizer update가 없었으므로 **base 제어 분리 + frozen
+파지 정책의 물리 성공**이다. 새 staged SAC가 학습해 성공한 결과도 전체 네 구역
+일반화도 아니다. 오른쪽·상단과 같은 배치의 기존 제어 비교는 계속 진행 중이다.
