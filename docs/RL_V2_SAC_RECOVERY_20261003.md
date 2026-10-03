@@ -658,3 +658,23 @@ actual1005행으로 시작하고 이전0.40m Q/replay를 섞지 않는다. 새 t
 총44회다. Dev는 비교/복구용으로 재사용하되 final은 새로운 seed로 분리했다.
 동적 box·lowerbase±20cm/yaw±15°·upperbase±8cm/yaw±5°·boxdepth±6mm 및
 선반별 개발 회귀 복구를 유지한다. 이 시점의 새 SAC는 **대기 중**이다.
+
+## 새 prior의 상단 실패와 관측·제어 경로 추가 진단 (10/03 22:00)
+
+새1005행 neural prior의 upper train1000은 **589tick unsafe·pinch0**,
+left l4–rack40.39N·거리143.4/2.8mm로 실패했다. Clearance7.83mm만으로
+성공하지 않으며 Q 초기화/새 SAC 시작 gate는 통과하지 못했다. 같은 모델의
+lower physical 검사와 기존3개 SAC는 계속 진행한다. 학습 loss 감소나
+단일 upper train1103 성공을 일반화 증거로 확대하지 않는다.
+
+Offline 성공 contact calibration을 비교했다. Nominal assignment는 모든
+bilateral pinch행에서 actual flap0/1과 일치해 이 source들의 좌우 assignment
+swap이 원인은 아니었다. TCP의 **nominal flap center 기준 box-Y offset**은
+legacy Quest 최종 pinch에서+74.1/+80.9mm, actual VR 성공에서+37.9/+41.0mm,
+actual SAC train1103 성공에서는−42.6/−42.0mm로 달랐다. 접힘/박스 이동/실제
+파지 자세가 달라지면 같은 nominal 중점과 고정 final offset을 쫓는 프로그램이
+다른 위치를 요구한다. 이것은 actual 패널 pose와 명령 target/실측 joint path를
+분리해 점검할 근거이며, 위치 기록만으로 유일한 원인으로 단정하지 않는다.
+다음 수정에서는 실제 flap 중점·방향 관측 경로와 native pending-controller
+goal 기반 재생을 우선 검토한다. 기존 계약의 actual Q행을 다른 관측 계약에
+무검증으로 재라벨링하거나 성공/충돌 기준을 완화하지 않는다.
