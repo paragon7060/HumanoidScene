@@ -349,3 +349,52 @@ servo feedback으로 목표를 추종한다. 서로 다른 위/아래 작업을 
 clock-only로 합치지 않는다. 새 정책은 물리에서 통과한 뒤 SAC에 연결한다.
 
 새 explicit-upper layout과 기존 데이터/goal 회귀 검사50 passed.
+
+
+## 실제 BC 피드백 실패와 순차 실행 보강 (10/03 19:41)
+
+GPU3 SAC는 **온라인 훈련15/15 성공·unsafe0**, actor23,010, 전체31/112를
+완료했다.20,914 고정 개발4/4 이후 다음 학습을 계속하며 actor 복구0이다.
+독립 최종 seed600–611이나 위 선반 SAC 성공은 아직 확인 전이다.
+
+`upper_up6_bc_frozen_gpu0_20261003_191616`은 종료 후 **900tick timeout,
+pinch0, unsafe0**, 최종 손 거리1.17/1.30m를 확인했다. 현재 물리0.46m 프로필과
+같은 source로 fit했지만 실제 접근이 진행되지 않았다. 종료 로그/영상/전이의
+Drive 크기/MD5 검증은 완료됐다.
+
+![실제 거리와 같은 시간 입력의 신경망 목표 변화](assets/rl_v2_upper_bc_feedback_20261003.png)
+[측정·모델·데이터 SHA256과 검사 방법](assets/rl_v2_upper_bc_feedback_20261003.json).
+
+같은 clock에서 원 성공 관측과 BC가 실제 실행한 관측을 넣으면 full-observation
+prior의 팔 관절 목표가121tick에 최대1.39rad·501tick에3.25rad 달랐다. 단일
+경로에서 현재 자세와 다음 목표의 강한 상관관계를 학습해 실행 상태가 달라지면
+접근하지 못하는 피드백이 생겼을 가능성과 일치한다. 이 비교는 단독 인과를
+증명하는 제어 실험은 아니다. Clock-only prior는 관측 입력 가중치가0이라
+같은 시간의 neural goal 차이가0이지만, 실제 servo 명령은 현재 물리 상태에
+따라 달라진다. 해당 대안의 **물리 성공은 아직 확인 전**이다.
+
+단일 upper 전용 clock-only·time harmonics16 fit은 실제 exit0·모델 생성·
+Drive 크기/MD5 검증 완료다. 동일594 실제 전이를 새 goal-Q 계약에서 검사해
+모두 받아들였고 actor473D·critic533D·normalized goal 최대1.0, SAC update0이다.
+다른 위/아래 작업을 같은 unconditioned 시간 정책으로 합치지 않는다.
+
+첫 실패했던 BC 서비스의 `Restart=on-failure`가 새 모델 생성 후 다시 평가를
+시작해 동일 모델 평가가 중복된 것을 host PID/cgroup으로 확인했다. 우리
+중복 서비스 `...bc-frozen-gpu0...` 하나만 정상 종료했다. 해당 기록은
+`requested_stop`/interrupted 평가로 보관하고 성능 실패 분모에 넣지 않는다.
+종료 로그·HDF·영상의 최종 Drive 검증은 끝났다. 기존 GPU3 학습은 계속했다.
+
+`scripts/rl/queued_experiment.py`는 CPU-only 공용 대기 gate다. `active`,
+`activating`(재시작 대기),`deactivating`은 모두 기다린다. Terminal 서비스·
+MainPID0·현재 ExecMainPID와 기록된 supervisor 일치·실행 exit0·writer 종료·
+최종 Drive 검증·launch와 실제 run 경로 일치가 있어야 다음 작업을 시작한다.
+물리 결과가 timeout이면 정상 완료된 진단이므로 후속 진단은 허용하지만,
+실행 자체가 실패하거나 백업이 끝나지 않은 경우 진행을 거부한다. 이 gate는
+학습 성공 판정이 아니며 SAC 연결은 실제 성공 조건을 따로 확인한다.
+GPU child가 없는 대기 서비스 두 개만 새 gate로 다시 읽게 했다.
+재시작 경합·다른 attempt 포인터·실행 실패·미검증 백업 검사 **8 passed**.
+
+동일 base/box train1000의 whole-path retarget 진단이 GPU0에서 진행 중이다.
+실제 settled target shift−25.12mm/yaw0.001545rad를 사용했다. 샘플 yaw0.007rad와
+settled yaw를 구분해 기록한다. 종료/검증 뒤 clock prior의 실제 frozen 평가가
+자동으로 이어진다. Retargeted demo는 가상의 Q 전이가 아닌 VR 진단 guide다.

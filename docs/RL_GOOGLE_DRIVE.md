@@ -330,3 +330,16 @@ GPU 사용량, 새 관측·EEF 계약 및 Drive 메타데이터 검증을 확인
 관리 폴더는 `artifacts/rl/drive_runs/ppo_bounded_gpu1_20260911_182052_764df1`,
 실제 실행 폴더는 `train_20260911_182101_98e97e`다. 16384 env / PPO 2000 iteration /
 64-step rollout / 10 iteration 저장이며, 실제 진행 여부는 status.json 및 PID로 확인한다.
+
+
+### 순차 진단의 실제 종료·백업 대기
+
+CPU-only `scripts/rl/queued_experiment.py`의 `wait_for_verified_run(unit, launch_record)`은
+소유한 실험 사이의 의존성을 확인한다. `launch_record`에는 실제 고유 parent와
+run 경로가 있어야 한다. Systemd 서비스가 active/activating/deactivating이면
+계속 기다리고, terminal·MainPID0·기록된 supervisor 일치·실행 exit0·writer 종료·
+최종 Drive 검증을 확인한 뒤 다음 실행을 허용한다. 재시작 대기 상태를 GPU
+사용 종료로 오인하지 않는다. 프로세스를 종료하거나 인증/GPU 런타임을
+불러오지 않는다. 예외로 끝난 실험은 수리해야 하며, 물리 성능 성공 여부는
+별도로 확인한다. 이 helper의 존재만으로 대기 서비스가 실행 중이라고
+판단하지 않는다. 실제 서비스/PID와 고유 실행 기록을 확인한다.
