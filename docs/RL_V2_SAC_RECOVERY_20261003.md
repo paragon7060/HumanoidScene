@@ -91,8 +91,11 @@ Gamma0.999에 맞추는 critic-only warmup2,000회 후 actor12,494/critic14,994�
 보지 않으며, 팔 진입 자세와 그리퍼 닫힘 시점을 함께 검토해야 한다. GPU0에서
 `upper_coordinated_reach_gpu0_20261003_161948` 진단을 시작했다. 실제 생성된
 폴더와 상태로 완료 여부를 확인한다. Base 접근3cm, 양손12mm 안에 들어온 뒤
-함께 닫기, current-rest IK와 torso 앞쪽4cm를 비교한다. 이 VR/IK 실행은 SAC가
-아니며 실제로 성공한 경우에만 native 성공 데이터로 사용할 수 있다.
+함께 닫기, current-rest IK와 torso 앞쪽4cm를 비교했다. 이 실행도578tick에 왼팔
+`zarm_l4_link`–rack44.41N으로 실패했다. Gripper는 열려 있었고 왼손 목표에2.83cm
+IK reach projection이 남았다. 종료·최종 Drive 검증 완료. 접근 거리를 줄이고
+닫힘을 늦추는 것만으로 도달 범위·팔 진입 문제를 해결하지 못했다. 이 VR/IK 실행은
+SAC가 아니며 실패 데이터에서 가상의 native 성공 seed를 만들지 않는다.
 
 이번 정책 제약·legacy resume·실제 replay 보존·개발 평가 rollback 회귀 검사
 **73 passed**, 기존 SAC·replay·Drive·배치·영상 회귀까지 포함해 **130 passed**.
