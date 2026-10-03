@@ -142,10 +142,18 @@ CPU mesh로 표시한 VR/IK 진단이다. SAC 성공 영상이 아니다. H.264/
 faststart로 저장했고 전체 decode를 검증했다. Notion의 요약·상세 기록에도 native
 영상과 그림으로 첨부했다.
 
-`upper_staggered25_full_reach_gpu0_20261003_172051`에서 손별25mm gate를 진단한다.
-먼저 도착한 손의 실제 pinch로 박스를 안정시킬 수 있는지 확인한다. 양손 opposing
+`upper_staggered25_full_reach_gpu0_20261003_172051`의 손별25mm gate 진단은
+900tick 시간 초과, unsafe/invalid0으로 끝났다. 오른손의 실제 pinch가63tick(2.1초)
+검출됐고 왼손은0이다. 오른손 pinch는717–790tick 사이에 있었으나 그 전 구간
+연속 유지가 아니므로2.47초 연속 grasp로 해석하지 않는다. Contact phase에서
+닫기 명령은 왼손39tick·오른손317tick이다. 왼손 최소 flap 거리는9.87mm였고
+TCP 목표 오차는최소20.10mm다. 마지막 왼손 gross reach projection은33.99mm로,
+박스가 이동하며 다시 도달 범위를 벗어났다. 종료·최종 Drive 크기/MD5 검증 완료.
+
+`upper_staggered25_base3_gpu0_20261003_173321`에서 같은25mm gate에 bounded
+base3cm 접근을 더해 진단한다. 첫 실제 pinch에서 base 접근을 멈춘다. 양손 opposing
 flap·8mm clearance·0.25초 유지의 최종 성공 조건, rack10N/obstacle5N은 그대로다.
-성공하기 전에는 위 선반의 positive native seed로 사용하지 않는다.
+위 선반 actual positive native seed는 아직 확보하지 않았다.
 
 ## 여러 실제 성공 episode를 학습에 연결
 
