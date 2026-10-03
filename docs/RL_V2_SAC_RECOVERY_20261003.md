@@ -157,8 +157,11 @@ profile 안에서 torso 전진을4→8cm로 바꿨지만613tick에 같은 왼팔
 실패했다. 두 진단 모두 양손 pinch0, 종료·최종 Drive 검증 완료다. 접근량을 키워
 왼손 reach sphere projection을 없애도 실제 팔 경로가 랙에 닿을 수 있다.
 
-다음 `upper_staggered25_full_wrist_gpu0` 진단은1.0 reach·torso4cm·손별25mm를
-유지하고 closing-axis만이 아닌 성공 demo의 full wrist orientation을 맞춘다.
+`upper_staggered25_full_wrist_gpu0_20261003_175310` 진단은1.0 reach·torso4cm·
+손별25mm를 유지하고 성공 demo의 full wrist orientation을 맞췄다.900tick
+시간 초과, unsafe/invalid0, 양손 pinch0으로 종료·Drive 검증 완료다.
+마지막 flap 거리는 왼손20.73mm·오른손7.24mm였다. 전체 손목 자세를 맞추는
+것만으로 남은 도달·파지 문제를 해결하지 못했다.
 양손 opposing flap·8mm clearance·0.25초 유지의 최종 성공 조건,
 rack10N/obstacle5N은 그대로다. 위 선반 actual positive native seed는 아직 미확보다.
 
@@ -198,6 +201,15 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/fit_v2_pose_
 새 pose/seed/URDF 진단과 SAC·배치·Drive 관리 회귀 검사 **153 passed**.
 학습과 성공 판단은 실제 완료된 물리 결과로 계속 확인한다.
 
+Demo TCP frame이 현재 calibrated closed TCP와 다른지도 따로 확인했다.
+데모2개와 현재 물리 진단에서30tick마다 기록된20관절로 URDF FK를 계산했다.
+두 데모의 TCP 차이는 최대0.84µm, 현재 진단은1.20µm였다. 기록된 EEF 회전도
+FK와 약1.8e-6 이하 차이로 일치했다. **이 샘플 검사에서는 오래된 TCP offset
+불일치가 원인이라는 가설을 지지하지 않는다.** Box/flap frame과 demo grasp offset의
+동일 pinch-frame 재구성도 오차0으로 맞았다. 이와 별개로 upright torso 변경 후의
+팔 경로와 live servo 추종 문제는 남아 있다.
+[TCP frame 검사 방법·원본 SHA256·측정값](assets/rl_v2_demo_tcp_fk_audit_20261003.json).
+
 ## Pooled 목표 범위와 관측 기반 prior 준비 (10/03 17:53)
 
 `pooled_lower_goal_bc_cpu_20261003_174452`는 종료·검증된 SAC **훈련 성공5개,
@@ -212,10 +224,16 @@ full observation과 initial-box-relative goals를 사용했다. 기존 GPU3 학�
 physical action inverse 최대 오차1.073e-6; 과거 action/reward를 clipping하지 않았다.
 Actor/critic 업데이트0으로 수행한 데이터 계약 검사이며 **새 정책의 물리 성공을
 뜻하지 않는다.** Fit 모델과 종료 로그의 Drive 크기/MD5 검증은 완료됐다.
+새 데이터 계약 검사 기록도 별도 고유 폴더로 Drive 업로드·MD5 검증했다.
 
 Fit 오차는 팔 관절 최대 평균0.00360rad·최대0.02457rad, base XY 평균0.256/0.403mm·
 최대2.89/3.11mm였다. Offline 오차가 작다는 것만으로 실행 안정성을 주장하지 않는다.
 실제 모델은 frozen 개발 평가를 통과해야 이후 SAC 초기화 후보로 사용할 수 있다.
+`pooled_lower_bc_dev406_gpu0`에서 새로운 모델의 optimizer를 끄고 반복 사용한
+개발 배치406을 평가한다. SAC 실행이나 새 독립 최종 holdout 성공으로 기록하지
+않으며, 해당 평가 전이를 training seed로 사용하지 않는다. Native reader는
+`layout.split=validation/holdout/eval/evaluation` 데이터를 training seed에서 거부한다.
+평가 데이터 누출 거부 회귀를 추가한 관련 검사 **157 passed**.
 
 같은 시각 기존 GPU3 SAC는 **훈련7/7 성공**, 학습 전 개발4/4·첫 개발 재평가4/4,
 actor17,410으로 다음 훈련을 수행한다. 완료된15개 실행의 Drive 검증은 끝났다.

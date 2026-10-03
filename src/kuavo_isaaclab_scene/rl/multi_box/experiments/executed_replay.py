@@ -46,6 +46,9 @@ def read_executed_successes(dataset: Path, contract: dict):
                 or source.attrs.get("format_version") != 1:
             raise ValueError("Executed replay requires the native transition format")
         meta = json.loads(source.attrs["manifest_json"])
+        layout=meta.get('layout')
+        if isinstance(layout,dict) and layout.get('split') in {'validation','holdout','eval','evaluation'}:
+            raise ValueError('Declared development/evaluation measurements cannot be used as training seeds')
         collection_source = meta.get('collection_source')
         if collection_source not in MEASURED_COLLECTION_SOURCES \
                 or meta.get("current_reward_verified_against_breakdown") is not True \
