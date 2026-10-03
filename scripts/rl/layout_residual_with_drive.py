@@ -20,6 +20,19 @@ from reference_residual_with_drive import archive_pilot
 from train_with_drive import supervise, write_status
 
 
+def validation_regressed(successes, best_successes, allowed_drop):
+    return successes < best_successes-allowed_drop
+
+
+def recover_actor(checkpoint, best_checkpoint, output_dir, python):
+    """Restore a validated actor while retaining latest measured replay and Q."""
+    command=[str(python),str(ROOT/'scripts/rl/recover_pose_goal_actor.py'),
+             '--checkpoint',str(checkpoint),'--best-checkpoint',str(best_checkpoint),
+             '--output-dir',str(output_dir)]
+    subprocess.run(command,check=True)
+    return sorted(output_dir.glob('checkpoint_*.pt'))[-1]
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--experiment-dir',type=Path,required=True)
@@ -37,6 +50,11 @@ def main():
                         help='Explicit allowed depth displacement for this fixed layout distribution; default preserves lateral-only runs.')
     parser.add_argument('--eval-count',type=int,default=8)
     parser.add_argument('--passes',type=int,default=1)
+    parser.add_argument('--validation-layout-dir',type=Path,
+                        help='Reusable development layouts; keep final holdout seeds separate.')
+    parser.add_argument('--validation-every',type=int,default=4)
+    parser.add_argument('--validation-count',type=int,default=4)
+    parser.add_argument('--allowed-validation-success-drop',type=int,default=0)
     parser.add_argument('--checkpoint',type=Path)
     parser.add_argument('--after-verified-experiment',type=Path,
                         help='Wait for this own pilot series to finish verified; inherit its final checkpoint.')
@@ -66,6 +84,11 @@ def main():
     if any(value.split('=')[0] in reserved for value in child_args):
         parser.error('This supervisor owns layout, checkpoint, device and training/evaluation mode')
     pose_mode=args.policy_mode=='pose-goal'
+    guarded=args.validation_layout_dir is not None
+    if guarded and (not pose_mode or args.evaluation_only or args.validation_every<1
+                    or args.validation_count<1 or args.allowed_validation_success_drop<0
+                    or args.allowed_validation_success_drop>=args.validation_count):
+        parser.error('Development validation requires training goal-SAC and valid counts/drop')
     if not pose_mode and '--residual-sac' not in child_args:
         parser.error('Supply --residual-sac and the current measured reference/physical manifest')
     if args.evaluation_only and (not pose_mode or not args.checkpoint):
@@ -75,8 +98,20 @@ def main():
         parser.error('Pose-goal SAC needs its own checkpoint and measured native seed, without residual options')
     layouts={split:sorted(args.layout_dir.resolve().glob(split+'_*.json'))[:count]
              for split,count in [('train',args.train_count),('holdout',args.eval_count)]}
-    for split,count in [('train',args.train_count),('holdout',args.eval_count)]:
-        if len(layouts[split])!=count or any(json.loads(path.read_text())['split']!=split for path in layouts[split]):
+    if guarded:
+        layouts['validation']=sorted(args.validation_layout_dir.resolve().glob('holdout_*.json'))[:args.validation_count]
+        if len(layouts['validation'])!=args.validation_count:
+            parser.error('Not enough development validation layouts')
+        validation_records=[json.loads(p.read_text()) for p in layouts['validation']]
+        final_records=[json.loads(p.read_text()) for p in layouts['holdout']]
+        if (any(r['split']!='holdout' for r in validation_records)
+                or {r['seed'] for r in validation_records}&{r['seed'] for r in final_records}):
+            parser.error('Development layouts must have a separate namespace from final holdout')
+    expected_counts=[('train',args.train_count),('holdout',args.eval_count)]
+    if guarded:expected_counts.append(('validation',args.validation_count))
+    for split,count in expected_counts:
+        expected_split='holdout' if split=='validation' else split
+        if len(layouts[split])!=count or any(json.loads(path.read_text())['split']!=expected_split for path in layouts[split]):
             parser.error('Each requested layout must have its correct explicit split')
         for path in layouts[split]:
             layout=json.loads(path.read_text())
@@ -108,12 +143,17 @@ def main():
     for split,paths in layouts.items():
         copies=[]
         for path in paths:
-            copy=frozen/path.name;copy.write_text(path.read_text());copies.append(copy)
+            copy=frozen/(('validation_' if split=='validation' else '')+path.name)
+            copy.write_text(path.read_text());copies.append(copy)
         layouts[split]=copies
     recipe=args.layout_dir.resolve()/'recipe.json'
     (parent/'manifest.json').write_text(json.dumps(dict(artifact_type=('layout_pose_goal_sac_suite' if pose_mode else 'layout_reference_residual_sac_suite'),
         gpu=args.gpu,train_layouts=[json.loads(p.read_text()) for p in layouts['train']],
         heldout_layouts=[json.loads(p.read_text()) for p in layouts['holdout']],
+        validation_layouts=[json.loads(p.read_text()) for p in layouts.get('validation',[])],
+        validation_every=args.validation_every if guarded else None,
+        allowed_validation_success_drop=args.allowed_validation_success_drop if guarded else None,
+        validation_reuses_development_only=guarded,
         passes=args.passes,physical_reference_dependency=not pose_mode,curriculum=False,
         evaluation_only=args.evaluation_only,frozen_checkpoint=str(args.checkpoint.resolve()) if args.evaluation_only else None,
         wait_for_verified_experiment=str(args.wait_for_verified_experiment.resolve()) if args.wait_for_verified_experiment else None,
@@ -161,8 +201,15 @@ def main():
                 return 2
             time.sleep(30)
     rows=[]
-    schedule=[('train',p,i) for i in range(args.passes) for p in layouts['train']]
+    training_schedule=[('train',p,i) for i in range(args.passes) for p in layouts['train']]
+    schedule=[]
+    if guarded:schedule.extend(('validation',p,-1) for p in layouts['validation'])
+    for count,item in enumerate(training_schedule,1):
+        schedule.append(item)
+        if guarded and (count%args.validation_every==0 or count==len(training_schedule)):
+            schedule.extend(('validation',p,count) for p in layouts['validation'])
     schedule += [('holdout',p,0) for p in layouts['holdout']]
+    best_checkpoint=None;best_successes=-1;recoveries=0
     for index,(split,layout,pass_index) in enumerate(schedule):
         trial=parent/f'{index+1:03d}_{split}_p{pass_index+1}_{layout.stem}';trial.mkdir()
         prefix='pose_sac_' if pose_mode else 'residual_'
@@ -175,7 +222,8 @@ def main():
         command=[str(args.python),'-u',str(ROOT/'scripts/rl/replay_v2_grasp_reference.py'),
                  *child_args,*extras,'--output-dir',str(run),'--device','cuda:0','--headless']
         (trial/'launch.json').write_text(json.dumps(dict(command=command,gpu=args.gpu),indent=2)+'\n')
-        write_status(parent,phase='training' if split=='train' else 'heldout_evaluation',
+        write_status(parent,phase='training' if split=='train' else
+                     'development_validation' if split=='validation' else 'heldout_evaluation',
                      active_trial=str(trial),completed_trials=len(rows),total_trials=len(schedule),
                      latest_checkpoint=str(checkpoint) if checkpoint else None)
         code=supervise(command,trial,environment,
@@ -192,8 +240,8 @@ def main():
             learning=dict(training=False,actor_updates=0)
         else:
             learning=metrics['pose_goal_sac' if pose_mode else 'residual_sac']
-        if split=='holdout' and learning['training']:
-            raise RuntimeError('Held-out evaluation unexpectedly enabled optimizer updates')
+        if split!='train' and learning['training']:
+            raise RuntimeError('Frozen validation/evaluation unexpectedly enabled optimizer updates')
         row=dict(split=split,layout=json.loads(layout.read_text()),pass_index=pass_index,
                  run_dir=str(run),outcomes=metrics['outcomes'],steps=metrics['steps'],
                  actor_updates=learning['actor_updates'],final_upload_verified=True)
@@ -203,14 +251,31 @@ def main():
             if not checkpoints:
                 raise RuntimeError('Completed training did not save a checkpoint')
             checkpoint=checkpoints[-1]
+        if split=='validation' and (index+1==len(schedule) or schedule[index+1][0]!='validation'):
+            block=rows[-args.validation_count:]
+            successes=sum(r['outcomes']['success'] for r in block)
+            if validation_regressed(successes,best_successes,args.allowed_validation_success_drop):
+                recovery=parent/'actor_recoveries'/('recovery_'+uuid.uuid4().hex[:10])
+                recovery.parent.mkdir(exist_ok=True)
+                checkpoint=recover_actor(checkpoint,best_checkpoint,recovery,args.python)
+                # The recovery has no live writers: archive real replay as well
+                # as the recovered checkpoint before allowing another rollout.
+                archive_pilot(recovery,args.remote_root,True)
+                recoveries+=1
+            elif successes>=best_successes:
+                best_successes=successes;best_checkpoint=checkpoint
+            write_status(parent,latest_validation_successes=successes,
+                         best_validation_successes=best_successes,
+                         best_validation_checkpoint=str(best_checkpoint),actor_recoveries=recoveries)
         (parent/'results.json').write_text(json.dumps(rows,indent=2)+'\n')
-        for group in ('train','holdout'):
+        for group in ('train','validation','holdout'):
             subset=[r for r in rows if r['split']==group]
             write_status(parent,**{group+'_attempts':len(subset),
                 group+'_successes':sum(r['outcomes']['success'] for r in subset),
                 group+'_unsafe':sum(r['outcomes']['unsafe'] for r in subset)})
     state=json.loads((parent/'status.json').read_text())
     write_status(parent,phase='finished',training_exit_code=0,latest_checkpoint=str(checkpoint),
+                 best_validation_checkpoint=str(best_checkpoint) if guarded else None,
                  completed_trials=len(rows),heldout_success_rate=state['holdout_successes']/args.eval_count)
     remote=Rclone(ROOT/'scripts/rl/gdrive.sh')
     destination=args.remote_root.rstrip('/')+'/'+parent.name

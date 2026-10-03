@@ -68,6 +68,37 @@ def test_goal_projection_matches_physical_close_gate_and_entropy_mask():
     assert torch.equal(goal_projector.entropy_mask(inputs)[:,22:24],torch.tensor([[1.,0.],[1.,0.]]))
 
 
+def test_neural_prior_bounds_generated_goals_and_keeps_physical_gripper_gate():
+    from types import SimpleNamespace
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import GoalGripperProjector
+    coordinates=PoseGoalCoordinates();raw=raw_state()
+    raw[:,386]=1;raw[:,350]=.1;raw[:,377]=.3
+    obs=torch.cat((coordinates.observations(raw,0),torch.zeros(2,2)),-1)
+    reference=torch.zeros(2,24);reference[:,22:]=1
+    prior=SimpleNamespace(agent=SimpleNamespace(act=lambda x,deterministic:reference))
+    projected=GoalGripperProjector(prior,.05)
+    action=torch.full((2,24),.8,requires_grad=True)
+    z=projected(obs,action)
+    assert torch.equal(z[:,:22],torch.full((2,22),.05))
+    assert torch.equal(z[:,22],torch.full((2,),.95))
+    assert z[:,23].eq(-1).all() # Distant hand remains physically open.
+    z.sum().backward();assert action.grad.eq(0).all()
+    # Historical Q labels use only the physical gate, preserving actual goals.
+    measured=GoalGripperProjector()(obs,action.detach())
+    assert measured[:,:22].eq(.8).all()
+    with pytest.raises(ValueError,match='frozen neural prior'):
+        GoalGripperProjector(max_prior_deviation=.05)
+
+
+def test_neural_prior_floor_is_independent_of_demo_replay_fade():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
+    pilot=object.__new__(PoseGoalSACPilot)
+    pilot.prior_weight=10.;pilot.prior_floor=10.;pilot.fade_updates=20000
+    assert pilot.prior_weight_at(40000)==10.
+    pilot.prior_floor=0.
+    assert pilot.prior_weight_at(10000)==5. and pilot.prior_weight_at(40000)==0.
+
+
 def test_anchor_context_does_not_change_warm_start_predictions():
     from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
     from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import widen_bc_actor,GoalGripperProjector
@@ -130,7 +161,8 @@ def test_exploration_fork_preserves_mean_Q_and_actual_experience(tmp_path):
     torch.save(state,source/'checkpoint.pt')
     (source/'manifest.json').write_text('{}')
     measured=dict(actor_obs=torch.randn(3,441),action=torch.randn(3,24),reward=torch.randn(3,1))
-    torch.save(dict(goal_contract=state['goal_contract'],executed_goal_transitions=measured),
+    torch.save(dict(goal_contract=state['goal_contract'],executed_goal_transitions=measured,
+                    collection_policy_config={'gamma':.95}),
                source/'pose_goal_experience.pt')
     destination,audit=module.fork_checkpoint(source/'checkpoint.pt',tmp_path/'fork')
     forked=torch.load(destination,weights_only=True)
@@ -146,6 +178,7 @@ def test_exploration_fork_preserves_mean_Q_and_actual_experience(tmp_path):
     data=torch.load(destination.parent/'pose_goal_experience.pt',weights_only=True)
     assert all(torch.equal(value,data['executed_goal_transitions'][key]) for key,value in measured.items())
     assert data['collection_goal_contract']==state['goal_contract']
+    assert data['collection_policy_config']=={'gamma':.95}
     assert data['goal_contract']['demo_fade_updates']==20000
     assert audit['deterministic_mean_unchanged'] and copy.config.max_policy_std==.003
 
@@ -223,3 +256,33 @@ def test_goal_discount_rejects_a_different_potential_horizon():
     from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import reward_discount
     with pytest.raises(ValueError,match='discounts differ'):
         reward_discount(dict(discount=.999,reward_profile=dict(weights=dict(discount=.99))))
+
+
+def test_actor_recovery_preserves_latest_critic_real_replay_and_fade_clock(tmp_path):
+    import importlib.util
+    from pathlib import Path
+    from copy import deepcopy
+    from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import AsymmetricSAC
+    from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
+    spec=importlib.util.spec_from_file_location('recover_actor',Path(__file__).parents[1]/'scripts/rl/recover_pose_goal_actor.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    agent=AsymmetricSAC(441,533,24,SACConfig(hidden=16))
+    state=agent.checkpoint()|dict(artifact_type='pose_goal_sac_no_live_reference',
+        goal_contract={'same_physical_contract':True},actor_updates=40000,critic_updates=40500)
+    current=tmp_path/'current';current.mkdir();best=tmp_path/'best';best.mkdir()
+    torch.save(state,best/'checkpoint.pt');(current/'manifest.json').write_text('{}')
+    latest=deepcopy(state)
+    for key,value in latest['model'].items():
+        if key.startswith(('actor.','q1.','q2.')):value.add_(.5)
+    torch.save(latest,current/'checkpoint.pt')
+    measured={'action':torch.tensor([[.7]*24]),'reward':torch.tensor([-6.])}
+    torch.save(dict(goal_contract=state['goal_contract'],executed_goal_transitions=measured),current/'pose_goal_experience.pt')
+    path,audit=module.recover(current/'checkpoint.pt',best/'checkpoint.pt',tmp_path/'recovery')
+    recovered=torch.load(path,weights_only=True)
+    for key,value in recovered['model'].items():
+        expected=state['model'][key] if key.startswith('actor.') else latest['model'][key]
+        assert torch.equal(value,expected),key
+    rows=torch.load(path.parent/'pose_goal_experience.pt',weights_only=True)['executed_goal_transitions']
+    assert all(torch.equal(value,rows[key]) for key,value in measured.items())
+    assert recovered['actor_updates']==40000 and recovered['critic_updates']==40500
+    assert audit['latest_critic_optimizer_and_replay_preserved']

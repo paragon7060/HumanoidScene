@@ -1,5 +1,10 @@
 # V2 grasp: layout generalization and demonstration-initialized goal SAC
 
+**2026-10-03 completed results:** with randomized boxes and actual base XY/yaw,
+the matched frozen BC scored10/12; both final SAC policies scored0/12 after
+longer training. See [measured regression and guarded GPU3 recovery](RL_V2_SAC_RECOVERY_20261003.md).
+The following sections retain the earlier experiment and its historical results.
+
 ## Random boxes and initial base: new experiment (2026-10-02 22:45 KST)
 
 The stabilized lower-small goal-SAC suite finished with **10/12 training

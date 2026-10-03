@@ -31,6 +31,14 @@ def reward_discount(contract):
 class GoalGripperProjector:
     name='v2_pose_goal_assigned_flap_close_gate_0p12m'
 
+    def __init__(self, prior=None, max_prior_deviation=0.):
+        if (not math.isfinite(max_prior_deviation) or not 0<=max_prior_deviation<=1
+                or (max_prior_deviation and prior is None)):
+            raise ValueError('A bounded goal policy needs a frozen neural prior and radius in0..1')
+        self.prior,self.max_prior_deviation=prior,max_prior_deviation
+        if max_prior_deviation:
+            self.name += '_neural_prior_radius_'+format(max_prior_deviation,'.8g')
+
     def near(self, observation):
         # ActorFeatures places the selected box at86:108, then the38 relations.
         relation=observation[:,108:144].reshape(-1,2,2,9)
@@ -44,7 +52,12 @@ class GoalGripperProjector:
 
     def __call__(self, observation, action):
         result=action.clone()
-        result[:,22:24]=torch.where(self.near(observation),action[:,22:24],-1.)
+        if self.max_prior_deviation:
+            with torch.no_grad():
+                reference=self.prior.agent.act(observation[:,:-2],deterministic=True)
+            result=torch.maximum(reference-self.max_prior_deviation,
+                                 torch.minimum(result,reference+self.max_prior_deviation)).clamp(-1,1)
+        result[:,22:24]=torch.where(self.near(observation),result[:,22:24],-1.)
         return result
 
     def entropy_mask(self, observation):
@@ -93,7 +106,11 @@ class PoseGoalSACPilot:
         legacy=saved.get('artifact_type')==self.artifact_type
         self.fade_updates=int(saved.get('goal_contract',{}).get('demo_fade_updates',4000 if legacy else 20000))
         self.prior_weight=float(saved.get('goal_contract',{}).get('frozen_network_prior_initial_weight',10.))
-        if self.fade_updates<1 or self.prior_weight<0:raise ValueError('Invalid goal warm-start schedule')
+        self.prior_floor=float(saved.get('goal_contract',{}).get('frozen_network_prior_weight_floor',0. if legacy else 10.))
+        self.prior_radius=float(saved.get('goal_contract',{}).get('frozen_network_prior_radius',0. if legacy else .05))
+        if (self.fade_updates<1 or not all(math.isfinite(v) for v in (self.prior_weight,self.prior_floor,self.prior_radius))
+                or not 0<=self.prior_floor<=self.prior_weight or not 0<=self.prior_radius<=1):
+            raise ValueError('Invalid goal warm-start schedule or neural prior bounds')
         self.latest={};self.online_history=[]
         self.reward_discount=reward_discount(physical_contract)
         self.discount_alignment=saved.get('discount_alignment')
@@ -103,7 +120,7 @@ class PoseGoalSACPilot:
         if saved.get('artifact_type')==self.artifact_type:
             config=SACConfig(**saved['config'])
         self.agent=AsymmetricSAC(self.actor_dim,533,24,config,device,
-                                action_projector=GoalGripperProjector())
+                                action_projector=GoalGripperProjector(self.prior,self.prior_radius))
         self.replay=AsymmetricReplayBuffer(20000,self.actor_dim,533,24,device)
         measured,audit=read_executed_successes(dataset,physical_contract)
         self.audit=audit
@@ -122,7 +139,9 @@ class PoseGoalSACPilot:
             ao,co=self.observations(raw,measured['critic_obs'][i:i+1],i,seed_anchor)
             na,nc=self.observations(measured['next_actor_obs'][i:i+1],
                 measured['next_critic_obs'][i:i+1],i+1,seed_anchor)
-            z=self.agent.action_projector(ao,z)
+            # These are measured OFF-policy commands. A new neural prior bound
+            # applies to generated actions, never to historical Q action labels.
+            z=GoalGripperProjector()(ao,z)
             if not torch.allclose(self.physical(raw,z,seed_anchor),measured['action'][i:i+1],atol=1e-5,rtol=0):
                 raise ValueError('Goal decoding/projection does not reproduce the executed seed command')
             seed.append(dict(actor_obs=ao,critic_obs=co,action=z,
@@ -177,12 +196,19 @@ class PoseGoalSACPilot:
             action_coordinates=self.coordinates.name,actor_dim=self.actor_dim,critic_dim=533,
             time_harmonics=self.harmonics,goal_center=self.center.tolist(),goal_scale=self.scale.tolist(),
             source_sha256=self.audit['source_dataset_sha256'],runtime_reference_path_required=False,
-            initial_box_anchor_in_observation=True,projection=GoalGripperProjector.name,
+            initial_box_anchor_in_observation=True,projection=self.agent.action_projector.name,
             actor_lr=self.agent.config.actor_lr,demo_fraction_initial=.2,demo_fade_updates=self.fade_updates,
             frozen_network_prior_initial_weight=self.prior_weight,prior_fade_updates=self.fade_updates)
         # Legacy410-step checkpoints retain their exact context contract.
         if 'clock_horizon' in self.prior.state:contract['clock_horizon']=self.clock_horizon
+        # Exact legacy resume remains possible. New constraints are explicit
+        # policy-only migrations; the physical decoder/reward are unchanged.
+        if self.prior_floor:contract['frozen_network_prior_weight_floor']=self.prior_floor
+        if self.prior_radius:contract['frozen_network_prior_radius']=self.prior_radius
         return contract
+
+    def prior_weight_at(self, updates):
+        return max(self.prior_floor,self.prior_weight*max(0.,1-updates/self.fade_updates))
 
     def observations(self,raw,critic,index,anchor):
         features=self.coordinates.observations(raw,index,self.harmonics,self.clock_horizon)
@@ -228,13 +254,16 @@ class PoseGoalSACPilot:
                 with torch.no_grad():
                     prior_action=self.prior.agent.act(actual['actor_obs'][:,:-2],deterministic=True)
                 self.latest=self.agent.update(actual,
-                    teacher=dict(actor_obs=actual['actor_obs'],action=prior_action),teacher_weight=self.prior_weight*fade)
+                    teacher=dict(actor_obs=actual['actor_obs'],action=prior_action),
+                    teacher_weight=self.prior_weight_at(self.actor_updates))
                 self.actor_updates+=1;self.critic_updates+=1
 
     def report(self):
         return dict(training=self.training,actor_updates=self.actor_updates,critic_updates=self.critic_updates,
             online_rows=self.online_rows,seed_rows=len(self.seed['reward']),
             runtime_reference_path_required=False,demo_fraction=.2*max(0.,1-self.actor_updates/self.fade_updates),
+            frozen_network_prior_weight=self.prior_weight_at(self.actor_updates),
+            frozen_network_prior_radius=self.prior_radius,
             min_policy_std=self.agent.config.min_policy_std,max_policy_std=self.agent.config.max_policy_std,
             learner_discount=self.agent.config.gamma,reward_discount=self.reward_discount,
             discount_mismatch=self.agent.config.gamma!=self.reward_discount,

@@ -102,3 +102,46 @@ def test_bc_comparison_preserves_box_and_base_randomization_without_updates(tmp_
     assert not manifest['train_layouts'] and manifest['initial_base_distribution']
     assert abs(manifest['heldout_layouts'][1]['lateral_m']+.03)<1e-7
     assert json.loads((parent/'status.json').read_text())['holdout_successes']==2
+
+
+def test_development_regression_recovers_before_unseen_final_holdout(tmp_path,monkeypatch):
+    script=module();layouts=tmp_path/'layouts';layouts.mkdir();dev=tmp_path/'dev';dev.mkdir()
+    parent=tmp_path/'suite';calls=[];recoveries=[]
+    for split,seeds in [('train',[1]),('holdout',[30,31])]:
+        for i,seed in enumerate(seeds):
+            (layouts/f'{split}_{i:02d}.json').write_text(json.dumps(dict(seed=seed,split=split,lateral_m=-.025)))
+    for i in range(2):
+        (dev/f'holdout_{i:02d}.json').write_text(json.dumps(dict(seed=10+i,split='holdout',lateral_m=-.025)))
+    warm=tmp_path/'warm.pt';warm.write_bytes(b'known actor')
+    def simulate(command,trial,environment,*args,**kwargs):
+        calls.append(command);run=Path(command[command.index('--output-dir')+1]);run.mkdir()
+        train='--pose-student-training' in command
+        failure=len(calls) in (4,5)
+        (trial/'status.json').write_text(json.dumps(dict(final_upload_verified=True)))
+        (run/'metrics.json').write_text(json.dumps(dict(steps=900 if failure else 410,
+            outcomes=dict(success=int(not failure),unsafe=0,time_out=int(failure)),
+            pose_goal_sac=dict(training=train,actor_updates=100))))
+        if train:(run/'checkpoint_00000100.pt').write_bytes(b'latest actor')
+        return 0
+    def recovery(checkpoint,best,output,python):
+        recoveries.append((checkpoint,best));output.mkdir(parents=True)
+        result=output/'checkpoint_00000100.pt';result.write_bytes(b'restored actor and latest Q')
+        return result
+    monkeypatch.setattr(script,'supervise',simulate)
+    monkeypatch.setattr(script,'recover_actor',recovery)
+    monkeypatch.setattr(script,'archive_pilot',lambda *a:None)
+    monkeypatch.setattr(script,'Rclone',lambda *a:object())
+    monkeypatch.setattr(script,'archive_file',lambda *a:None)
+    monkeypatch.setattr(sys,'argv',['suite','--experiment-dir',str(parent),'--layout-dir',str(layouts),
+        '--policy-mode','pose-goal','--checkpoint',str(warm),'--train-count','1','--eval-count','2',
+        '--validation-layout-dir',str(dev),'--validation-every','1','--validation-count','2',
+        '--python',sys.executable,'--remote-root','test-remote:HumanoidScene-RL',
+        '--pose-student-native-seed','measured.hdf5'])
+    assert script.main()==0 and len(calls)==7 and len(recoveries)==1
+    assert recoveries[0][1]==warm
+    assert all('--no-pose-student-training' in calls[i] for i in [0,1,3,4,5,6])
+    assert all('actor_recoveries' in c[c.index('--pose-student-checkpoint')+1] for c in calls[5:])
+    rows=json.loads((parent/'results.json').read_text())
+    assert sum(r['outcomes']['time_out'] for r in rows)==2
+    assert [r['layout']['seed'] for r in rows if r['split']=='holdout']==[30,31]
+    assert json.loads((parent/'status.json').read_text())['actor_recoveries']==1

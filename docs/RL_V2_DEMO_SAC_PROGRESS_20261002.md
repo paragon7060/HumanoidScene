@@ -1,5 +1,10 @@
 # V2 grasp: 데모 연결과 학습 진행 요약
 
+**10/03 종료 결과:** 아래10/02 초반 성공은 유지되지 않았다. 랜덤 box·base 동일
+고정 평가에서 BC10/12, 마지막 SAC는 gamma0.99/0.999 모두0/12였다.
+[완료 집계·붕괴 분석·GPU3 복구 실험](RL_V2_SAC_RECOVERY_20261003.md)을 우선 참고한다.
+아래는10/02 시점의 실행·데모 연결 기록이다.
+
 2026-10-02 22:45 KST: **박스 randomization과 초기 base XY/yaw를 함께 바꾸는
 SAC 학습**을 GPU3에서 시작했다. 첫 훈련은411tick(13.7초)에 양손 flap 파지
 유지 성공, unsafe/invalid/timeout0이었다. GPU0의 같은 heldout 분포 BC 비교도
