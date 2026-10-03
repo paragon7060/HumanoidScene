@@ -27,6 +27,10 @@ def main():
     parser.add_argument('--no-video', action='store_true')
     parser.add_argument('--contact-diagnostics', action='store_true',
                         help='Record existing privileged per-jaw pinch checks before reset; no actor/reward changes.')
+    parser.add_argument('--flap-pose-source',choices=('nominal','articulated'),default='nominal',
+                        help='Explicit observation semantics; articulated panels use the existing simulator perception proxy.')
+    parser.add_argument('--allow-nominal-flap-prior',action='store_true',
+                        help='Articulated collection only: allow an approximate old reset/VR guide; never migrates its Q rows or panel poses.')
     parser.add_argument('--actor-checkpoint', type=Path,
                         help='Evaluate this deterministic actor instead of the VR/live-IK controller.')
     parser.add_argument('--pose-student-checkpoint',type=Path,
@@ -72,6 +76,8 @@ def main():
                         help='VR diagnostic only: start live geometry tracking when BOTH perceived hands approach within this distance; default reference timing.')
     parser.add_argument('--vr-contact-rest-mode',choices=('reference','current'),default='reference',
                         help='VR/live-IK diagnostic only: use the measured current posture as contact IK rest.')
+    parser.add_argument('--vr-contact-goal',choices=('demo','center'),default='demo',
+                        help='VR diagnostic only: calibrated demo offset or perceived panel midpoint for contact IK.')
     parser.add_argument('--vr-contact-base-forward-m',type=float,default=0.,
                         help='VR/live-IK diagnostic only: bounded base approach after handoff; stop advancing on first pinch.')
     parser.add_argument('--vr-arm-reach-fraction',type=float,default=.95,
@@ -85,6 +91,8 @@ def main():
     args = parser.parse_args()
     if args.capture_every < 1 or args.episode_index < 0 or not 1 <= args.steps <= 900:
         parser.error('Capture interval must be positive, episode index nonnegative, and steps in1..900')
+    if args.allow_nominal_flap_prior and args.flap_pose_source!='articulated':
+        parser.error('Approximate nominal prior is only meaningful for articulated collection')
     if args.body_envelope and not args.actor_checkpoint:
         parser.error('--body-envelope requires --actor-checkpoint')
     if args.joint_offset_rad is not None and (not args.actor_checkpoint or args.body_envelope
@@ -137,7 +145,7 @@ def main():
     if (args.vr_orientation_mode!='full' or args.vr_contact_torso_forward_m or args.vr_contact_torso_up_m or
         args.vr_close_distance_m!=.035 or args.vr_coordinated_close or args.vr_reference_grippers or
         args.vr_contact_rest_mode!='reference' or args.vr_contact_base_forward_m or
-        args.vr_arm_reach_fraction!=.95 or args.vr_handoff_distance_m) and (args.actor_checkpoint or args.executed_actions or args.pose_student_checkpoint):
+        args.vr_arm_reach_fraction!=.95 or args.vr_handoff_distance_m or args.vr_contact_goal!='demo') and (args.actor_checkpoint or args.executed_actions or args.pose_student_checkpoint):
         parser.error('VR diagnostic options only apply to the live VR/IK guide')
     if args.actor_reference_mix is not None and (
             not 0 <= args.actor_reference_mix <= .2 or not args.actor_checkpoint or args.body_envelope):
@@ -189,7 +197,8 @@ def main():
             raise ValueError('Reference replay needs the current nominal v2 grasp contract/rewards')
         cfg = MultiBoxGraspAssemblyEnvCfg(num_envs=1)
         cfg.episode_length_s = 30.
-        cfg.multi_box = replace(cfg.multi_box, self_collision_enabled=contract['self_collision']['enabled'])
+        cfg.multi_box = replace(cfg.multi_box, self_collision_enabled=contract['self_collision']['enabled'],
+                                flap_pose_source=args.flap_pose_source)
         cfg.sim.device = args.device or 'cuda:0'
         profile = dict(weights=asdict(MultiBoxRewardWeights()), approach_scale_m=GRASP_APPROACH_REWARD_SCALE_M,
             assignment_scale_m=GRASP_ASSIGNMENT_SCALE_M, capture_scale_m=GRASP_CAPTURE_REWARD_SCALE_M,
@@ -206,6 +215,9 @@ def main():
             raise ValueError('Reference reward geometry, safety thresholds or torso control changed; supply current manifest')
         contract=configure_vr_torso_up_diagnostic(cfg,contract,
             args.torso_extra_height_m or args.vr_contact_torso_up_m)
+        if args.flap_pose_source=='articulated':
+            from kuavo_isaaclab_scene.rl.multi_box.observations.contracts import flap_observation_contract
+            contract=contract|flap_observation_contract(args.flap_pose_source)
         # The source manifest can describe a vectorized run. This replay is
         # actually one environment; preserve old archives and report new runs.
         contract=contract|{'num_envs':1}
@@ -221,8 +233,10 @@ def main():
         if dims != contract['observations'] or actions != contract['actions'] \
                 or contract.get('action_projection') != GraspActionProjector.name:
             raise ValueError('Reference replay action/observation contract differs')
-        batch, _ = load_v2_grasp_demonstrations(args.demo_dataset,
-            self_collision_enabled=cfg.multi_box.self_collision_enabled)
+        batch, demo_audit = load_v2_grasp_demonstrations(args.demo_dataset,
+            self_collision_enabled=cfg.multi_box.self_collision_enabled,
+            flap_pose_source=args.flap_pose_source,
+            allow_nominal_flap_prior=args.allow_nominal_flap_prior)
         demo = select_reference_episode(batch, args.episode_index)
         observation, _ = env.reset(seed=42)
         observation, _ = _settle_initial_resets(env, observation)
@@ -337,7 +351,8 @@ def main():
                                      contact_base_forward_m=args.vr_contact_base_forward_m,
                                      arm_reach_fraction=args.vr_arm_reach_fraction,
                                      contact_torso_up_m=args.vr_contact_torso_up_m,
-                                     handoff_distance_m=args.vr_handoff_distance_m)
+                                     handoff_distance_m=args.vr_handoff_distance_m,
+                                     contact_goal=args.vr_contact_goal)
         output = args.output_dir.resolve()
         output.mkdir(parents=True, exist_ok=False)
         if pose_sac:
@@ -370,6 +385,9 @@ def main():
                 'vr_arm_reach_fraction':args.vr_arm_reach_fraction,
                 'vr_contact_torso_up_m':args.vr_contact_torso_up_m,
                 'torso_extra_height_m':args.torso_extra_height_m,
+                'vr_handoff_distance_m':args.vr_handoff_distance_m,
+                'vr_contact_goal':args.vr_contact_goal,
+                'source_flap_prior_audit':demo_audit,
                 'layout':layout.record() if layout else None,
                 'vr_layout_retarget':args.vr_layout_retarget,
                 'vr_retarget':vr_retarget if args.vr_layout_retarget else None},indent=2)+'\n')
@@ -411,6 +429,8 @@ def main():
         meta['torso_extra_height_m']=args.torso_extra_height_m
         meta['vr_layout_retarget']=args.vr_layout_retarget
         meta['vr_handoff_distance_m']=args.vr_handoff_distance_m
+        meta['vr_contact_goal']=args.vr_contact_goal
+        meta['source_flap_prior_audit']=demo_audit
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
@@ -472,6 +492,26 @@ def main():
                     ambiguous_hands=grasp.pinch.ambiguous_hands[0].tolist(),
                     assigned_flap_index=grasp.assigned_flap_index[0].tolist(),
                     min_jaw_force_n=MIN_JAW_FORCE_N)
+                # Read only the selected two cached body poses. No extra sensor
+                # or actor input; preserve measured geometry before auto-reset.
+                from kuavo_isaaclab_scene.rl.multi_box.debug.flap_geometry import compare_flap_centers
+                adapter=env._multi_box_privileged_grasp
+                if bool((grasp.invalid_box_pose|grasp.invalid_flap_pose)[0]):
+                    row['flap_geometry_diagnostics']=dict(available=False,invalid_pose=True)
+                else:
+                    pool=int(grasp.target_pool_id[0]);logical=int(grasp.target_logical_id[0])
+                    asset=env.scene[adapter.names[pool]];ids=adapter.flap_ids[pool]
+                    panel_pose=torch.cat((asset.data.body_link_pos_w[:1,ids],
+                                          asset.data.body_link_quat_w[:1,ids]),-1)
+                    from kuavo_isaaclab_scene.workcell.rack_box_layout import BOX_DIMENSIONS_M
+                    kind=env._multi_box_box_type_ids[:1,logical]
+                    size=panel_pose.new_tensor(BOX_DIMENSIONS_M[('small','medium')[int(kind[0])]])[None]
+                    comparison=compare_flap_centers(grasp.box_pose_world[:1],panel_pose,
+                        adapter.flap_centers[pool:pool+1],adapter.flap_normal_axes[pool:pool+1],
+                        size,kind,adapter.tcp.center_pose_w[:1])
+                    row['flap_geometry_diagnostics']=dict(available=True,
+                        axis_order='hand_L_R,flap_right_left',
+                        **{key:value[0].tolist() for key,value in comparison.items()})
             history.append(row)
             for key in counts:
                 counts[key] += int(row[key])
@@ -622,6 +662,8 @@ def main():
         report['vr_layout_retarget']=args.vr_layout_retarget
         report['vr_handoff_distance_m']=args.vr_handoff_distance_m
         report['vr_handoff_step']=teacher.handoff_index if teacher else None
+        report['vr_contact_goal']=args.vr_contact_goal
+        report['source_flap_prior_audit']=demo_audit
         report['vr_retarget']=vr_retarget if args.vr_layout_retarget else None
         report['physical_action_contract']=contract['action_contract']
         report['contact_diagnostics']=args.contact_diagnostics

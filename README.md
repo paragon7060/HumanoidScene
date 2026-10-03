@@ -302,6 +302,14 @@ SAC 성공은 별도 지표로 기록된다. 기본값 0은 SAC만 실행한다.
 만드는 방법과 `--success-imitation-fraction` 설정은
 [GPU 재생·성공 경험 연결](docs/RL_V2_RECOVERY_20260930.md#gpu-scene-restoration-and-measured-full-path-seed--2026-10-01)에 있다.
 VR/IK 재생 성공은 SAC 정책 성공과 구분한다.
+재생에서도 `--flap-pose-source articulated`로 접힌 패널의 실제 중점·방향을
+관측할 수 있다. Nominal 데모를 근사 초기 장면/IK calibration으로 쓰려면
+`--allow-nominal-flap-prior`를 명시하며, 실제 패널 자세나 과거 Q 전이는
+복원하지 않는다. VR contact IK의 `--vr-contact-goal center`는 데모의 고정
+offset 대신 현재 관측된 flap 중점을 목표로 한다. 기본값은 nominal/demo다.
+`--contact-diagnostics`는 각 jaw 접촉 외에 selected 두 flap의 nominal–actual
+중점·normal 오차와 양손 거리를 기록하며 actor/reward 입력을 추가하지 않는다.
+같은 차원인 articulated 관측에 구형 nominal BC/SAC를 그대로 load하면 거부한다.
 
 위 선반의 별도 upright 이동 범위 진단과 목표 정책 연결에는
 `replay_v2_grasp_reference.py --torso-extra-height-m 0.06`을 사용한다.

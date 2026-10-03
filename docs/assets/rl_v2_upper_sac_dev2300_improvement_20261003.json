@@ -1,0 +1,106 @@
+{
+  "comparison": "Repeated development layout, NOT final unseen evaluation; single paired observation, not statistical proof",
+  "force_definition": "min_hand(max_flap(min_jaw(force_n))) diagnostics ONLY; real success includes in_region/opposed/stability/proof/hold",
+  "measurements": [
+    {
+      "label": "Frozen initial BC (failed)",
+      "run_dir": "artifacts/rl/drive_runs/mixed_shelf_guarded_base_box_sac_gpu2_20261003_204617/002_validation_p0_validation_holdout_01/pose_sac_20261003_205228_6f608c",
+      "layout": {
+        "seed": 2300,
+        "split": "holdout",
+        "lateral_m": -0.03224822133779526,
+        "yaw_rad": 0.004474399611353874,
+        "distractors": [
+          5
+        ],
+        "depth_m": 0.0007507631671614945,
+        "base_lateral_m": 0.07833103835582733,
+        "base_outward_m": 0.04989122226834297,
+        "base_yaw_rad": -0.05079404637217522
+      },
+      "outcomes": {
+        "success": 0,
+        "unsafe": 1,
+        "invalid_reset": 0,
+        "time_out": 0
+      },
+      "steps": 607,
+      "actor_updates": 0,
+      "initial_base_pose_world": [
+        -0.24945718050003052,
+        0.2404770702123642,
+        4.379451274871826e-05,
+        0.991926372051239,
+        2.51507401571871e-07,
+        4.384886779007502e-06,
+        -0.1268148124217987
+      ],
+      "source_sha256": "648c9a1ae29cd3ec469a566657261d97ffe67d00256e10d0a59874f22988be19",
+      "final_conditions": {
+        "opposing_flaps": false,
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.009952902793884277,
+        "hand_flap_index": [
+          -1,
+          -1
+        ]
+      },
+      "max_rack_force_n": 36.665557861328125
+    },
+    {
+      "label": "SAC 3,568 updates, frozen playback (success)",
+      "run_dir": "artifacts/rl/drive_runs/mixed_shelf_guarded_base_box_sac_gpu2_20261003_204617/010_validation_p5_validation_holdout_01/pose_sac_20261003_215259_41758b",
+      "layout": {
+        "seed": 2300,
+        "split": "holdout",
+        "lateral_m": -0.03224822133779526,
+        "yaw_rad": 0.004474399611353874,
+        "distractors": [
+          5
+        ],
+        "depth_m": 0.0007507631671614945,
+        "base_lateral_m": 0.07833103835582733,
+        "base_outward_m": 0.04989122226834297,
+        "base_yaw_rad": -0.05079404637217522
+      },
+      "outcomes": {
+        "success": 1,
+        "unsafe": 0,
+        "invalid_reset": 0,
+        "time_out": 0
+      },
+      "steps": 593,
+      "actor_updates": 3568,
+      "initial_base_pose_world": [
+        -0.24945718050003052,
+        0.2404770702123642,
+        4.379451274871826e-05,
+        0.991926372051239,
+        2.51507401571871e-07,
+        4.384886779007502e-06,
+        -0.1268148124217987
+      ],
+      "source_sha256": "2025558db6ef4d00f30d1cb41874734a635f2762837b46d31dc6861da32505f1",
+      "final_conditions": {
+        "opposing_flaps": true,
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.014218449592590332,
+        "hand_flap_index": [
+          0,
+          1
+        ]
+      },
+      "max_rack_force_n": 0.0
+    }
+  ]
+}

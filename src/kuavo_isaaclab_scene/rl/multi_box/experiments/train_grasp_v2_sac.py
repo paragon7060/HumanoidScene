@@ -389,6 +389,7 @@ def main() -> None:
                             dimension[0] for dimension in observation_dims.values()):
                     raise ValueError("Converted demonstration action/observation contract differs from environment")
             from .kinematic_exploration import IK_LIFT_CONFIRMATION
+            from ..observations.contracts import flap_observation_contract
             manifest = {
                 "version": 2,
                 "task_family": "multi_box_v2",
@@ -401,19 +402,7 @@ def main() -> None:
                 "action_contract": "s63_upright_torso_xz_fixed_pitch_v1",
                 "action_projection": GraspActionProjector.name,
                 "observations": observation_dims,
-                "observation_contract": (
-                    "neutral_flap_center_controller_state_actual_base_twist_v2"
-                    if args.flap_pose_source == "nominal" else
-                    "perceived_articulated_flap_center_controller_state_actual_base_twist_v3"),
-                "flap_pose_source": args.flap_pose_source,
-                "flap_perception_contract": {
-                    "source": args.flap_pose_source,
-                    "simulator_pose_proxy": args.flap_pose_source == "articulated",
-                    "real_backend": "supply_panel_midpoint_xyz_wxyz_and_confidence",
-                    "contact_force_or_success_in_actor": False,
-                    "missing_panel_pose": "zero_relations_and_assignment; closing_blocked",
-                    "legacy_demo_actual_panel_pose": "unavailable; nominal_actor_BC_prior_only",
-                },
+                **flap_observation_contract(args.flap_pose_source),
                 "contact_contract": "max_filtered_rack_and_workcell_pairs_without_boxes_or_floor_v2",
                 "critic_mapping": {
                     "actor": ["policy"],

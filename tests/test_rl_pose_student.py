@@ -33,6 +33,18 @@ def test_pose_prior_rejects_unknown_or_different_physical_travel():
         student.validate_physical_contract(contract|{'reward_profile':{'changed':True}})
 
 
+def test_unnamed_legacy_pose_prior_rejects_same_width_articulated_observations():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
+    from kuavo_isaaclab_scene.rl.multi_box.observations.contracts import flap_observation_contract
+    student=object.__new__(PoseStudent);student.state={}
+    physical={'action_contract':'s63_upright_torso_xz_fixed_pitch_v1'}
+    student.validate_physical_contract(physical|flap_observation_contract('nominal'))
+    with pytest.raises(ValueError,match='flap observation contract'):
+        student.validate_physical_contract(physical|flap_observation_contract('articulated'))
+    with pytest.raises(ValueError,match='flap observation contract'):
+        student.validate_physical_contract(physical|{'observation_contract':'unknown'})
+
+
 def test_absolute_goal_inverse_reproduces_executed_commands():
     coordinates=PoseGoalCoordinates();raw=raw_state()
     generator=torch.Generator().manual_seed(5)

@@ -31,6 +31,29 @@ def configure_vr_torso_up_diagnostic(cfg,contract,extra_height_m):
     return configure_upright_travel_profile(cfg, contract, extra_height_m)
 
 
+def vr_contact_geometry(observation,front_y,relative_rotation,goal_offset,grasp_goal,flap_pose_source):
+    """Use each perceived panel frame for the optional articulated contact guide."""
+    from .kinematic_exploration import (entry_geometry,target_token,retarget_grasp_goal,
+                                      assigned_flap_rotations)
+    from .guided_exploration import ASSIGNMENT_START
+    from ..demo_replay import _rotation_matrix
+    if grasp_goal not in {'demo','center'} or flap_pose_source not in {'nominal','articulated'}:
+        raise ValueError('Unsupported VR contact goal or flap observation source')
+    tcp,centers,stage,outward=entry_geometry(observation,front_y)
+    token,valid=target_token(observation)
+    rotation=_rotation_matrix(token[:,15:21])[:,None]
+    if flap_pose_source=='articulated':
+        rotation=assigned_flap_rotations(observation)
+        valid &= observation[:,ASSIGNMENT_START:ASSIGNMENT_START+2].sum(-1)>.5
+    goals,_,_=retarget_grasp_goal(centers,stage,outward,rotation,goal_offset,grasp_goal)
+    target_rotation=rotation@relative_rotation[None]
+    # Missing panel observations may not propose closure or arbitrary IK poses.
+    goals=torch.where(valid[:,None,None],goals,tcp[...,:3])
+    target_rotation=torch.where(valid[:,None,None,None],target_rotation,
+                                _rotation_matrix(tcp[...,3:]))
+    return tcp,goals,target_rotation,valid
+
+
 def restore_inferred_scene(env, observation):
     if env.num_envs != 1:
         raise ValueError('Inferred VR restoration is a single-environment diagnostic')
@@ -95,9 +118,11 @@ class VRJointTracker:
     def __init__(self,env,demo,rack,*,orientation_mode='full',contact_torso_forward_m=0.,
                  close_distance_m=.035,coordinated_close=False,reference_grippers=False,
                  contact_rest_mode='reference',contact_base_forward_m=0.,arm_reach_fraction=.95,
-                 contact_torso_up_m=0.,handoff_distance_m=0.):
+                 contact_torso_up_m=0.,handoff_distance_m=0.,contact_goal='demo'):
         from kuavo_isaaclab_scene.rl.multi_box.state.schema import ACTUATED_BODY_JOINTS
         self.env=env;self.demo=demo;self.rack=rack;self.index=0
+        if contact_goal not in {'demo','center'}:
+            raise ValueError('VR contact goal must be demo or center')
         vr_handoff_ready(0,1,False,torch.full((1,2),float('inf')),handoff_distance_m)
         self.handoff_distance_m=handoff_distance_m
         self.handoff_started=False;self.handoff_index=None
@@ -127,7 +152,7 @@ class VRJointTracker:
         from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import KinematicGraspExplorer
         from kuavo_isaaclab_scene.teleop.urdf_arm_ik import UrdfArm
         from kuavo_isaaclab_scene.robots.robot_model import resolve_robot_model
-        self.final_guide=KinematicGraspExplorer(env,demo,grasp_goal='demo',lift_distance_m=.08,base_clearance_m=.55,torso_forward_m=0,
+        self.final_guide=KinematicGraspExplorer(env,demo,grasp_goal=contact_goal,lift_distance_m=.08,base_clearance_m=.55,torso_forward_m=0,
                                               orientation_mode=orientation_mode)
         for side,solver in zip(('left','right'),self.final_guide.solvers):
             solver.configure_urdf(UrdfArm(resolve_robot_model().urdf_path,side,
@@ -170,18 +195,16 @@ class VRJointTracker:
                             distances,self.handoff_distance_m):
             if not self.handoff_started:self.handoff_index=self.index
             self.handoff_started=True
-            from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import entry_geometry,target_token,retarget_grasp_goal,observed_close_ticks
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import observed_close_ticks
             from kuavo_isaaclab_scene.rl.multi_box.demo_replay import _rotation_matrix
             guide=self.final_guide
             if not self.rest_seeded:
                 for solver in self.solvers:
                     solver._urdf_rest=solver._numpy(self.env.scene['robot'].data.joint_pos[0,solver._joint_ids])[solver._urdf_order].copy()
                 self.rest_seeded=True
-            tcp,centers,stage,outward=entry_geometry(observation,guide.front_y)
-            token,valid=target_token(observation)
-            rotation=_rotation_matrix(token[:,15:21])
-            goals,stage,offset=retarget_grasp_goal(centers,stage,outward,rotation,guide.goal_offset,'demo')
-            target_rotation=rotation[:,None]@guide.relative_rotation[None]
+            tcp,goals,target_rotation,valid=vr_contact_geometry(observation,guide.front_y,
+                guide.relative_rotation,guide.goal_offset,guide.grasp_goal,
+                self.env.cfg.multi_box.flap_pose_source)
             quaternion=guide.quat_from_matrix(target_rotation.reshape(-1,3,3)).reshape(-1,2,4)
             close=(goals-tcp[...,:3]).norm(dim=-1)<self.close_distance_m
             if self.reference_grippers:
@@ -197,6 +220,7 @@ class VRJointTracker:
             target_rotation=torch.where(pinching[...,None,None],self.contact_rotation,target_rotation)
             quaternion=guide.quat_from_matrix(target_rotation.reshape(-1,3,3)).reshape(-1,2,4)
             close |= pinching
+            close &= valid[:,None]
             if self.coordinated_close and not bool(pinching.any()):
                 close=close.all(-1,keepdim=True).expand_as(close)
             self.confirm_ticks=self.confirm_ticks+1 if bool(pinching.all()) else 0
@@ -235,7 +259,8 @@ class VRJointTracker:
                 solver.process_actions(torch.cat((goals[:,hand],quaternion[:,hand]),-1))
                 delta=(solver._joint_command-self.upper.processed_actions[:,columns])/self.upper._scale[:,columns]
                 action[:,[self.slices['upper_body'].start+c for c in columns]]=delta.clamp(-1,1)
-                action[:,self.slices[('left_gripper','right_gripper')[hand]]]=torch.where(close[:,hand,None] if self.lift_goal is None else torch.ones_like(close[:,hand,None]),1.,-1.)
+                action[:,self.slices[('left_gripper','right_gripper')[hand]]]=torch.where(
+                    close[:,hand,None] if self.lift_goal is None else valid[:,None],1.,-1.)
             self.phase[:]=2 if self.lift_goal is not None else 1
         self.index+=1
         return action

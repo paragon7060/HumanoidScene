@@ -127,6 +127,11 @@ class PoseStudent:
         if recorded is None:
             if contract.get('action_contract') != 's63_upright_torso_xz_fixed_pitch_v1':
                 raise ValueError('Legacy pose prior lacks a matching physical travel contract')
+            from ..observations.contracts import flap_observation_contract
+            nominal=flap_observation_contract('nominal')
+            if (contract.get('flap_pose_source','nominal')!='nominal' or
+                    contract.get('observation_contract',nominal['observation_contract'])!=nominal['observation_contract']):
+                raise ValueError('Legacy pose prior lacks a matching flap observation contract')
             return
         for key in (*PHYSICAL_KEYS, 'flap_pose_source'):
             if recorded.get(key) != contract.get(key):

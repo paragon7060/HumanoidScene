@@ -678,3 +678,68 @@ actual SAC train1103 성공에서는−42.6/−42.0mm로 달랐다. 접힘/박�
 다음 수정에서는 실제 flap 중점·방향 관측 경로와 native pending-controller
 goal 기반 재생을 우선 검토한다. 기존 계약의 actual Q행을 다른 관측 계약에
 무검증으로 재라벨링하거나 성공/충돌 기준을 완화하지 않는다.
+
+## 같은 upper 개발 배치의 SAC 개선과 panel 진단 (10/03 22:45)
+
+22:37 HOST 서비스/PID 확인에서 GPU3 lower, GPU0 upper, GPU2 mixed SAC는
+실제 active/running이었다. GPU3는 train28/28·반복 개발30/30·unsafe0·
+actor32,102이며112회 batch 중58회 완료, 최종 independent final은 아직
+남아 있다. GPU0 upper는 train1/7·개발0/8, GPU2 mixed는 train3/6·개발5/8,
+최근 shelf별 개발 lower2/2·upper1/2다. 다른 사용자의 GPU1/2 프로세스는 유지한다.
+
+Mixed의 **upper dev2300**은 초기 frozen BC(actor0)에서607tick unsafe·
+pinch0·left l4–rack36.67N이었지만, SAC actor3,568/critic4,068 후 고정
+평가에서593tick 성공했다. 실행 중 optimizer와 live VR/IK reference는 없다.
+두 실행의 actual initial base pose는 정확히 같다. Base rack-X+7.83cm/
+outward4.99cm/yaw−2.91°, box inward3.22cm/depth+0.75mm/yaw+0.26°·
+distractor5를 요청했으며 실제 physical reset 후 pose를 함께 기록했다.
+최종 다른 flap0/1 양손 opposing pinch·stable hands·proof lift,
+hold0.267s·clearance14.22mm이며 episode 전체 rack force0N이다.
+각 hand의 실제 opposing jaw 힘은 L85.04/83.02N, R60.61/65.26N으로
+5N 기준을 넘었다. 성공·충돌 조건은 변경하지 않았다.
+
+**반복 개발 배치 한 곳의 개선이다.** 개발 배치는 성능 회귀 판단/복구에
+사용하므로 최종 unseen 평가라고 부르지 않는다. Upper dev2301은 같은
+checkpoint에서853tick 시간초과였고 전체 upper 일반화는 미완료다.
+이 한 쌍만으로 통계적 개선이나 모든 initial state의 성공을 주장하지 않는다.
+
+![BC 실패와 SAC 고정 평가 성공의 실제 box/jaw/rack 시계열](assets/rl_v2_upper_sac_dev2300_improvement_20261003.png)
+
+[상단 dev2300 SAC 실제 성공 영상](assets/rl_v2_upper_sac_dev2300_success_20261003.mp4)
+은 H264/avc1·yuv420p·faststart이며 전체 decode를 검증했다. CPU mesh로
+실제 PhysX pose를 그린 영상이다. 원본 report SHA256·initial poses·layout·
+success 조건은 [그림의 측정 출처](assets/rl_v2_upper_sac_dev2300_improvement_20261003.json)에
+기록했다. Notion에는 영상/그림을 native FileUpload로 직접 올렸으며
+file-upload ID는 video `3ee63918-d42a-812d-ac51-00b2a35dac22`,
+image `3ee63918-d42a-819d-b552-00b24ab5cd92`다. 실제 실행의 HDF/영상/로그도
+기존 Drive checksum 검증 완료다.
+
+GPU1 exact native controller-goal 진단
+`upper_native_controller_goals_train1500_gpu1_20261003_221743`은 source SAC
+train1103의 **누적 PD 명령 목표**를 zero residual/no optimizer로 추종했다.
+같은 native-relative train1500의 measured-joint VR 재생은626tick rack29.36N
+실패였지만, pending-goal 재생은852tick rack0N·right-hand pinch로 안전한
+시간초과였다. Writer 종료와 최종 Drive 검증을 확인했다. Reference가 필요한
+수집 진단이며 learned SAC나 양손 성공이라고 분류하지 않는다.
+
+추가한 opt-in replay 옵션은 `--flap-pose-source articulated`,
+`--allow-nominal-flap-prior`, `--vr-contact-goal center`다. 실제 접힌 panel의
+중점/방향을 actor relations로 받아 contact goal과 wrist orientation을 panel
+frame에 맞춘다. 기존 옵션의 nominal/demo 의미는 유지하고 manifest의
+observation contract를 별도로 기록한다. 오래된 nominal source는 근사
+초기 장면/오프라인 orientation calibration prior일 뿐이며 과거 reward/Q/
+next-state를 articulated로 변환하지 않는다. 이름 없는 구형 pose prior도
+같은464차원이라는 이유로 articulated에 연결할 수 없도록 거부한다.
+Contact diagnostic은 이미 측정한 selected 두 body의 pose를 읽어 nominal–
+actual center/normal 차이와 full hand/flap distance matrix를 남긴다.
+추가 접촉 sensor나 reward 항은 없다. 관련104개 검사 통과.
+
+GPU1 새 `upper_articulated_center_train1000_gpu1_20261003_224142`은
+original Quest upper episode1와 기존 train1000 변형 배치에서22:41:42에
+실제 시작했다. Upright torso4cm-forward/6cm-up, current-rest·closing-axis·
+reach1.0, original jaw timing과 late handoff를 유지한다. Actual bent-panel
+중점/방향과 center contact goal을 비교하고 모든 새 reward/action/next-observation은
+같은 articulated0.46m 환경에서 측정한다. 이 시점 결과는 확인 전이다.
+기존3개 SAC와 다른 사용자 프로세스는 중단하지 않는다. Active goal의 자동
+이어하기로 성공 확인까지 진행하며 정확한2시간 간격 예약이 생성됐다고
+주장하지 않는다.
