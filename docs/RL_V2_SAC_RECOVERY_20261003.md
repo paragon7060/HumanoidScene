@@ -743,3 +743,46 @@ reach1.0, original jaw timing과 late handoff를 유지한다. Actual bent-panel
 기존3개 SAC와 다른 사용자 프로세스는 중단하지 않는다. Active goal의 자동
 이어하기로 성공 확인까지 진행하며 정확한2시간 간격 예약이 생성됐다고
 주장하지 않는다.
+
+### 후속 진단 종료와 neural goal fitting 정밀도 비교 (10/03 23:10)
+
+Late articulated-center 진단은556tick에 left gripper base–rack51.53N,
+양손 pinch0으로 실패했다. Left/right IK 오차71.2/128.0mm, 오른팔
+reach projection74.0mm였으며 actual–nominal panel center 차이는16.0/1.0mm,
+normal 차이는18.4/1.2°였다. Writer 종료·Drive checksum 검증 완료.
+같은 조건에서 양손 midpoint5cm 조기 handoff만 추가한
+`upper_articulated_early_center_train1000_gpu1_20261003_225221`은399tick에
+tracking을 시작해851tick rack0N·pinch0·시간초과였다. 마지막 reach projection
+107.9/45.7mm, actual IK 오차115.6/64.8mm다. 조기 전환으로 충돌은 피했지만
+중점만 쫓는 guide로 양손 파지를 해결하지 못했으므로 기본 관측/학습을
+articulated로 바꾸지 않았다. 종료 파일과 로그는 Drive 검증했다.
+
+같은 실제 TRAIN1005행·20k fit에서 source native PD 목표 정밀도를 비교했다.
+아래 값은 **학습 label에 대한 목표 오차(mrad)**이며 물리 성공률이나
+SAC 개선 지표가 아니다. 이전 F16은 lower original 성공/upper train1000 실패였다.
+
+| BC fit | Lower 전체 평균 / 닫힘 구간 최대 | Upper 전체 평균 / 닫힘 구간 최대 |
+|---|---:|---:|
+| F16, constant3e−4 |2.09 /17.03|1.76 /21.40|
+| F64, constant3e−4 |2.06 /23.36|1.96 /14.69|
+| F64, cosine3e−4→3e−6 |0.41 /6.96|0.49 /13.63|
+
+F64 constant는 upper approach 구간 최대 오차54.43mrad로 오히려 나빠졌다.
+임의로 더 좋은 모델이라 부르지 않는다. 새 opt-in
+`fit_v2_pose_student.py --fit-final-learning-rate 0.000003`는 cosine 감소로
+마지막 fit jitter를 줄이며 기본값은 기존 constant3e−4 그대로다.
+최소1step·finite positive LR·non-increasing endpoint를 검증하고 schedule을
+model/manifest/console에 기록한다. 관련31개 검사 통과.
+[Label 정밀도 측정 자료](assets/rl_v2_goal_fit_precision_20261003.json)에
+source별 worst frame/joint와 닫힘 구간 오차를 기록했다. Holdout labels와
+이전 Q는 사용하지 않으며 각 CPU model/log도 Drive 검증한다.
+
+GPU1 F64 constant 모델은23:03:06부터 실제 upper train1000/lower original
+frozen 물리 비교 중이다. F64 cosine 모델의 CPU fit도 끝났으며, 이 비교의
+**실제 writer 종료·개별 로그 Drive 검증** 뒤에 다음 frozen 물리 비교가
+이어지는 대기 서비스를 등록했다. Batch의 성능 실패(exit2)는 완료된
+진단으로 인정하되 runtime 실패나 미검증 writer는 다음 실행을 막는다.
+새 SAC는 상하단 실제 성공2/2 gate 통과 전에는 연결하지 않는다.
+기존 GPU3/GPU0/GPU2 SAC는 계속 실행한다. Mixed 개발의 upper 한 배치는
+개선됐지만 이후 lower 개발 배치 한 곳에서 다시 충돌이 관측돼 전체4개
+개발 검사와 선반별 actor 복구를 계속 확인해야 한다.

@@ -310,6 +310,10 @@ offset 대신 현재 관측된 flap 중점을 목표로 한다. 기본값은 nom
 `--contact-diagnostics`는 각 jaw 접촉 외에 selected 두 flap의 nominal–actual
 중점·normal 오차와 양손 거리를 기록하며 actor/reward 입력을 추가하지 않는다.
 같은 차원인 articulated 관측에 구형 nominal BC/SAC를 그대로 load하면 거부한다.
+별도 BC 목표 prior fit의 정밀도 진단에는
+`fit_v2_pose_student.py --fit-final-learning-rate 0.000003`로 최종 학습률을
+줄일 수 있다. 기본은 constant3e−4이며 fit loss 개선과 실제 파지 성공은
+별도 검사한다. 이 옵션은 SAC의 탐색/optimizer 설정을 변경하지 않는다.
 
 위 선반의 별도 upright 이동 범위 진단과 목표 정책 연결에는
 `replay_v2_grasp_reference.py --torso-extra-height-m 0.06`을 사용한다.

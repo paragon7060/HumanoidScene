@@ -4,7 +4,7 @@
 This does not perform SAC/Q training and excludes heldout trials. The resulting
 student must succeed in physical closed-loop evaluation before RL continuation.
 """
-import argparse,hashlib,json
+import argparse,hashlib,json,math
 from pathlib import Path
 import h5py
 import torch
@@ -12,6 +12,20 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseGoalC
 from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import AsymmetricSAC
 from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
 from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import read_executed_successes,PHYSICAL_KEYS
+
+
+def fit_learning_rate(step,steps,initial,final=None):
+    """Optional cosine refinement; the default retains the original constant LR."""
+    if not isinstance(steps,int) or steps<1 or not 0<=step<steps:
+        raise ValueError('Fit schedule requires a positive step count and valid step')
+    if not math.isfinite(initial) or initial<=0 or (final is not None and
+            (not math.isfinite(final) or not 0<final<=initial)):
+        raise ValueError('Fit learning rates must be positive, finite, and non-increasing')
+    if final is None:return initial
+    if steps==1 and final!=initial:
+        raise ValueError('Learning-rate refinement requires at least two steps')
+    fraction=step/max(1,steps-1)
+    return final+(initial-final)*.5*(1+math.cos(math.pi*fraction))
 
 
 def main():
@@ -32,10 +46,15 @@ def main():
                    help='Explicit control-step horizon; longer upper-shelf demonstrations must not saturate at410.')
     p.add_argument('--output-dir',type=Path,required=True)
     p.add_argument('--steps',type=int,default=10000)
+    p.add_argument('--fit-learning-rate',type=float,default=3e-4)
+    p.add_argument('--fit-final-learning-rate',type=float,
+                   help='Optional cosine LR refinement to reduce terminal fitting jitter; default stays constant.')
     args=p.parse_args()
     if bool(args.training_suite)==bool(args.native_dataset):p.error('Select training suite or actual native datasets')
     if not 0<=args.time_harmonics<=64:p.error('Time harmonics must be within0..64')
     if not 1<=args.clock_horizon<=900:p.error('Clock horizon must be within1..900')
+    try:fit_learning_rate(0,args.steps,args.fit_learning_rate,args.fit_final_learning_rate)
+    except ValueError as error:p.error(str(error))
     if args.clock_only_fit and args.shelf_conditioned_clock_fit:
         p.error('Choose clock-only or shelf-conditioned temporal fit')
     args.output_dir.mkdir(parents=True,exist_ok=False)
@@ -100,16 +119,18 @@ def main():
     agent.actor_normalizer.update(x)
     # All-box tokens include empty slots and are needed at unseen layouts.
     agent.actor_normalizer.var[174:438].clamp_(min=.25)
-    optimizer=torch.optim.Adam(agent.actor.parameters(),lr=3e-4)
+    optimizer=torch.optim.Adam(agent.actor.parameters(),lr=args.fit_learning_rate)
     weights=goal.new_ones(24);weights[22:24]=3.
     for step in range(args.steps):
+        lr=fit_learning_rate(step,args.steps,args.fit_learning_rate,args.fit_final_learning_rate)
+        for group in optimizer.param_groups:group['lr']=lr
         ids=torch.randint(len(x),(512,))
         predicted,_=agent.actor(agent.actor_normalizer(x[ids]),deterministic=True)
         loss=((predicted-y[ids]).square()*weights).mean()
         optimizer.zero_grad();loss.backward()
         if temporal_fit:agent.actor.network[0].weight.grad[:,:438]=0.
         torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),1.);optimizer.step()
-        if (step+1)%1000==0:print(json.dumps(dict(fit_step=step+1,loss=float(loss))),flush=True)
+        if (step+1)%1000==0:print(json.dumps(dict(fit_step=step+1,loss=float(loss),fit_learning_rate=lr)),flush=True)
     with torch.no_grad():
         prediction=agent.act(x,deterministic=True)
         errors=((center+scale*prediction)-goal).abs()
@@ -123,6 +144,8 @@ def main():
         clock_horizon=args.clock_horizon,
         physical_config=physical_contract['action_contract'],sources=sources)
     state['physical_contract']={key:physical_contract[key] for key in (*PHYSICAL_KEYS,'flap_pose_source')}
+    state['fit_learning_rate_schedule']=dict(name='constant' if args.fit_final_learning_rate is None else 'cosine',
+        initial=args.fit_learning_rate,final=lr)
     if args.shelf_conditioned_clock_fit:state['shelf_conditioned_clock_fit']=True
     if args.hold_final_clock:state['actor_clock_limit']=min(longest_episode-1,args.clock_horizon)
     torch.save(state,args.output_dir/'student.pt')
@@ -134,6 +157,7 @@ def main():
     report.update(initial_box_relative_goals=args.initial_box_relative,clock_only_initial_fit=args.clock_only_fit,
                   time_harmonics=args.time_harmonics,clock_horizon=args.clock_horizon)
     report['physical_contract']=state['physical_contract']
+    report['fit_learning_rate_schedule']=state['fit_learning_rate_schedule']
     report.update(shelf_conditioned_clock_fit=args.shelf_conditioned_clock_fit,
                   observed_shelves=sorted(observed_shelves),actor_clock_limit=state.get('actor_clock_limit'))
     (args.output_dir/'manifest.json').write_text(json.dumps(report,indent=2)+'\n')
