@@ -229,8 +229,11 @@ Actor/critic 업데이트0으로 수행한 데이터 계약 검사이며 **새 �
 Fit 오차는 팔 관절 최대 평균0.00360rad·최대0.02457rad, base XY 평균0.256/0.403mm·
 최대2.89/3.11mm였다. Offline 오차가 작다는 것만으로 실행 안정성을 주장하지 않는다.
 실제 모델은 frozen 개발 평가를 통과해야 이후 SAC 초기화 후보로 사용할 수 있다.
-`pooled_lower_bc_dev406_gpu0`에서 새로운 모델의 optimizer를 끄고 반복 사용한
-개발 배치406을 평가한다. SAC 실행이나 새 독립 최종 holdout 성공으로 기록하지
+`pooled_lower_bc_dev406_gpu0_20261003_180737`에서 새 모델의 optimizer를 끄고
+반복 사용한 개발 배치406을 평가해 **429tick에 성공·unsafe/invalid/timeout0**을
+확인했다. Model·영상·종료 로그의 Drive 검증 완료다. SAC actor/critic update0인
+**BC 개발 평가1/1**이며 기존 GPU3 SAC에는 교체하지 않았다.
+SAC 실행이나 새 독립 최종 holdout 성공으로 기록하지
 않으며, 해당 평가 전이를 training seed로 사용하지 않는다. Native reader는
 `layout.split=validation/holdout/eval/evaluation` 데이터를 training seed에서 거부한다.
 평가 데이터 누출 거부 회귀를 추가한 관련 검사 **157 passed**.
