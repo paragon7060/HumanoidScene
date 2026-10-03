@@ -150,10 +150,17 @@ faststart로 저장했고 전체 decode를 검증했다. Notion의 요약·상�
 TCP 목표 오차는최소20.10mm다. 마지막 왼손 gross reach projection은33.99mm로,
 박스가 이동하며 다시 도달 범위를 벗어났다. 종료·최종 Drive 크기/MD5 검증 완료.
 
-`upper_staggered25_base3_gpu0_20261003_173321`에서 같은25mm gate에 bounded
-base3cm 접근을 더해 진단한다. 첫 실제 pinch에서 base 접근을 멈춘다. 양손 opposing
-flap·8mm clearance·0.25초 유지의 최종 성공 조건, rack10N/obstacle5N은 그대로다.
-위 선반 actual positive native seed는 아직 확보하지 않았다.
+후속 `upper_staggered25_base3_gpu0_20261003_173321`은 같은25mm gate에 bounded
+base3cm 접근을 더했지만579tick에`zarm_l4_link`–rack24.26N으로 실패했다.
+`upper_staggered25_torso8_gpu0_20261003_174231`은 base 추가 접근 없이 기존 travel
+profile 안에서 torso 전진을4→8cm로 바꿨지만613tick에 같은 왼팔–rack47.45N으로
+실패했다. 두 진단 모두 양손 pinch0, 종료·최종 Drive 검증 완료다. 접근량을 키워
+왼손 reach sphere projection을 없애도 실제 팔 경로가 랙에 닿을 수 있다.
+
+다음 `upper_staggered25_full_wrist_gpu0` 진단은1.0 reach·torso4cm·손별25mm를
+유지하고 closing-axis만이 아닌 성공 demo의 full wrist orientation을 맞춘다.
+양손 opposing flap·8mm clearance·0.25초 유지의 최종 성공 조건,
+rack10N/obstacle5N은 그대로다. 위 선반 actual positive native seed는 아직 미확보다.
 
 ## 여러 실제 성공 episode를 학습에 연결
 
@@ -190,3 +197,26 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/fit_v2_pose_
 
 새 pose/seed/URDF 진단과 SAC·배치·Drive 관리 회귀 검사 **153 passed**.
 학습과 성공 판단은 실제 완료된 물리 결과로 계속 확인한다.
+
+## Pooled 목표 범위와 관측 기반 prior 준비 (10/03 17:53)
+
+`pooled_lower_goal_bc_cpu_20261003_174452`는 종료·검증된 SAC **훈련 성공5개,
+2,073전이**만 사용했다. 개발/최종 평가 episode를 fit에 포함하지 않았다.
+CPU 한 스레드·`CUDA_VISIBLE_DEVICES=''`로20,000회 BC fit, clock horizon900,
+full observation과 initial-box-relative goals를 사용했다. 기존 GPU3 학습에는
+교체하거나 replay를 주입하지 않았다.
+
+새 center/scale에서 실제5개 episode를 `PoseGoalSACPilot(training=False)`에
+넣어 **2,073전이 모두** 받아지는 것을 확인했다. Episode 시작 clock은 다섯 개
+모두0이고 각 초기 박스 anchor를 따로 유지한다. Normalized actual goal 최대1.0,
+physical action inverse 최대 오차1.073e-6; 과거 action/reward를 clipping하지 않았다.
+Actor/critic 업데이트0으로 수행한 데이터 계약 검사이며 **새 정책의 물리 성공을
+뜻하지 않는다.** Fit 모델과 종료 로그의 Drive 크기/MD5 검증은 완료됐다.
+
+Fit 오차는 팔 관절 최대 평균0.00360rad·최대0.02457rad, base XY 평균0.256/0.403mm·
+최대2.89/3.11mm였다. Offline 오차가 작다는 것만으로 실행 안정성을 주장하지 않는다.
+실제 모델은 frozen 개발 평가를 통과해야 이후 SAC 초기화 후보로 사용할 수 있다.
+
+같은 시각 기존 GPU3 SAC는 **훈련7/7 성공**, 학습 전 개발4/4·첫 개발 재평가4/4,
+actor17,410으로 다음 훈련을 수행한다. 완료된15개 실행의 Drive 검증은 끝났다.
+아직20,000update 이후와 새 최종 holdout600–611은 확인 전이다.
