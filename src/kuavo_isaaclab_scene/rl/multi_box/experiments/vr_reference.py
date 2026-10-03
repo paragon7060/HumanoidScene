@@ -6,6 +6,20 @@ Scene restoration is explicitly inferred and subsequent transitions are measured
 import torch
 
 
+def vr_handoff_ready(index, reference_index, started, distances=None, distance_m=0.):
+    """Latch an optional perceived bilateral approach handoff; default is exact."""
+    import math
+    if not math.isfinite(distance_m) or (distance_m and not .05<=distance_m<=.25):
+        raise ValueError('VR approach handoff distance must be0 or within5..25cm')
+    if started or index>=reference_index:
+        return True
+    if not distance_m:
+        return False
+    if distances is None or distances.shape!=(1,2):
+        raise ValueError('VR approach handoff requires both perceived hand distances')
+    return bool(torch.isfinite(distances).all() and (distances<=distance_m).all())
+
+
 def configure_vr_torso_up_diagnostic(cfg,contract,extra_height_m):
     """Isolate a higher software travel profile from existing physical replay.
 
@@ -81,9 +95,12 @@ class VRJointTracker:
     def __init__(self,env,demo,rack,*,orientation_mode='full',contact_torso_forward_m=0.,
                  close_distance_m=.035,coordinated_close=False,reference_grippers=False,
                  contact_rest_mode='reference',contact_base_forward_m=0.,arm_reach_fraction=.95,
-                 contact_torso_up_m=0.):
+                 contact_torso_up_m=0.,handoff_distance_m=0.):
         from kuavo_isaaclab_scene.rl.multi_box.state.schema import ACTUATED_BODY_JOINTS
         self.env=env;self.demo=demo;self.rack=rack;self.index=0
+        vr_handoff_ready(0,1,False,torch.full((1,2),float('inf')),handoff_distance_m)
+        self.handoff_distance_m=handoff_distance_m
+        self.handoff_started=False;self.handoff_index=None
         if not 0<=contact_torso_forward_m<=.08:
             raise ValueError('Contact torso assist must be within0..8cm')
         self.contact_torso_forward_m=contact_torso_forward_m
@@ -145,7 +162,14 @@ class VRJointTracker:
         heading=quat_apply(quat_mul(quat_inv(root[:,3:]),ref_q),root.new_tensor([[1.,0,0]]))
         action[:,2]=(torch.atan2(heading[:,1],heading[:,0])/base._scale[2]).clamp(-.5,.5)
         self.phase[:]=int(bool((action[:,20:22]>0).all()))
-        if self.index>=self.switch_index:
+        distances=None
+        if self.handoff_distance_m and not self.handoff_started:
+            from .guided_exploration import assigned_flap_center_distance
+            distances=assigned_flap_center_distance(observation)
+        if vr_handoff_ready(self.index,self.switch_index,self.handoff_started,
+                            distances,self.handoff_distance_m):
+            if not self.handoff_started:self.handoff_index=self.index
+            self.handoff_started=True
             from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import entry_geometry,target_token,retarget_grasp_goal,observed_close_ticks
             from kuavo_isaaclab_scene.rl.multi_box.demo_replay import _rotation_matrix
             guide=self.final_guide

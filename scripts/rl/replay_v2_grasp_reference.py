@@ -68,6 +68,8 @@ def main():
                         help='VR/live-IK diagnostic only: wait for both hands before closing either jaw.')
     parser.add_argument('--vr-reference-grippers',action='store_true',
                         help='VR/live-IK diagnostic only: preserve the demonstrator\'s actual jaw timing.')
+    parser.add_argument('--vr-handoff-distance-m',type=float,default=0.,
+                        help='VR diagnostic only: start live geometry tracking when BOTH perceived hands approach within this distance; default reference timing.')
     parser.add_argument('--vr-contact-rest-mode',choices=('reference','current'),default='reference',
                         help='VR/live-IK diagnostic only: use the measured current posture as contact IK rest.')
     parser.add_argument('--vr-contact-base-forward-m',type=float,default=0.,
@@ -130,10 +132,12 @@ def main():
         parser.error('VR closing gate must be within3..35mm')
     if args.vr_reference_grippers and args.vr_coordinated_close:
         parser.error('Choose reference timing or coordinated geometric closing')
+    if args.vr_handoff_distance_m and not .05<=args.vr_handoff_distance_m<=.25:
+        parser.error('VR approach handoff must be0 or within5..25cm')
     if (args.vr_orientation_mode!='full' or args.vr_contact_torso_forward_m or args.vr_contact_torso_up_m or
         args.vr_close_distance_m!=.035 or args.vr_coordinated_close or args.vr_reference_grippers or
         args.vr_contact_rest_mode!='reference' or args.vr_contact_base_forward_m or
-        args.vr_arm_reach_fraction!=.95) and (args.actor_checkpoint or args.executed_actions or args.pose_student_checkpoint):
+        args.vr_arm_reach_fraction!=.95 or args.vr_handoff_distance_m) and (args.actor_checkpoint or args.executed_actions or args.pose_student_checkpoint):
         parser.error('VR diagnostic options only apply to the live VR/IK guide')
     if args.actor_reference_mix is not None and (
             not 0 <= args.actor_reference_mix <= .2 or not args.actor_checkpoint or args.body_envelope):
@@ -332,7 +336,8 @@ def main():
                                      reference_grippers=args.vr_reference_grippers,contact_rest_mode=args.vr_contact_rest_mode,
                                      contact_base_forward_m=args.vr_contact_base_forward_m,
                                      arm_reach_fraction=args.vr_arm_reach_fraction,
-                                     contact_torso_up_m=args.vr_contact_torso_up_m)
+                                     contact_torso_up_m=args.vr_contact_torso_up_m,
+                                     handoff_distance_m=args.vr_handoff_distance_m)
         output = args.output_dir.resolve()
         output.mkdir(parents=True, exist_ok=False)
         if pose_sac:
@@ -405,6 +410,7 @@ def main():
         meta['vr_contact_torso_up_m']=args.vr_contact_torso_up_m
         meta['torso_extra_height_m']=args.torso_extra_height_m
         meta['vr_layout_retarget']=args.vr_layout_retarget
+        meta['vr_handoff_distance_m']=args.vr_handoff_distance_m
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
@@ -439,6 +445,7 @@ def main():
                     hand_flap_index=grasp.pinch.hand_flap_index[0].tolist()),
                 flap_distances=grasp.matched_flap_distance_m[0].tolist(),
                 box_pose=grasp.box_pose_world[0].tolist(), phase=int(teacher.phase[0]) if teacher else None,
+                vr_handoff_step=teacher.handoff_index if teacher else None,
                 ik_position_errors=[float(s.target_position_error()[0]) for s in teacher.solvers] if teacher else None,
                 ik_status=[s.ik_status for s in teacher.solvers] if teacher and int(teacher.phase[0])>0 else None,
                 action=action[0].tolist(), rack_peak_force=float(force.max()),
@@ -613,6 +620,8 @@ def main():
         report['vr_contact_torso_up_m']=args.vr_contact_torso_up_m
         report['torso_extra_height_m']=args.torso_extra_height_m
         report['vr_layout_retarget']=args.vr_layout_retarget
+        report['vr_handoff_distance_m']=args.vr_handoff_distance_m
+        report['vr_handoff_step']=teacher.handoff_index if teacher else None
         report['vr_retarget']=vr_retarget if args.vr_layout_retarget else None
         report['physical_action_contract']=contract['action_contract']
         report['contact_diagnostics']=args.contact_diagnostics

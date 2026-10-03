@@ -314,6 +314,13 @@ base 기울기의 XY 투영을 정확히 역산하는 별도 goal 좌표를 기�
 실제로 인식한 초기 박스 위치/yaw에 접근 경로를 맞출 수 있다. 이는 실제 전이
 수집용 진단이며 SAC 정책 성공이 아니다. 상세 원인·실제 성공 영상·Drive 보관은
 [위 선반 진단과 SAC 복구 기록](docs/RL_V2_SAC_RECOVERY_20261003.md)을 참고한다.
+Recorded 접근 중 박스가 밀리는 경우 VR 진단의 opt-in
+`--vr-handoff-distance-m 0.12`로 양손이 실제 관측의 assigned flap 중점에서
+12cm 이내에 들어오면 live geometry tracking으로 일찍 전환할 수 있다.
+전환은 유지되고 원래 demo pinch 시점은 fallback이며, 기본값0은 기존 시점이다.
+`--vr-reference-grippers`와 함께 쓰면 jaw 타이밍은 원래 demo를 유지한다.
+이 옵션은 VR/IK 수집 전용으로 neural actor/executed-action 재생에는 허용하지
+않으며, 보상·접촉힘·성공 조건을 바꾸지 않는다.
 
 두 선반의 실제 성공으로 temporal goal prior를 fit하려면 같은 물리/보상 계약의
 lower와 upper native dataset을 각각 `fit_v2_pose_student.py --native-dataset`으로

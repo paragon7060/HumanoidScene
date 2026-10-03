@@ -544,3 +544,58 @@ Mixed reset 라우팅·frozen final·누락/부적절 map·선반간 회귀 검�
 새 mixed 실행은 per-jaw diagnostic 로그를 켜 실제 힘·영역·opposed 등
 실패 원인을 다음 물리 데이터에서 구분한다. Upper generalization 문제를
 수정하고 독립 final success를 확인하는 active goal은 계속 유지한다.
+
+## 상단 SAC 첫 변형 배치 성공과 박스 밀림 진단 (10/03 21:30)
+
+GPU3 하단 SAC는 완료된 **train23/23·개발24/24·unsafe0**, actor28,616이다.
+개발24회는4개 개발 장면의 반복 검사이고 독립 final12회는 아직 수행 전이다.
+GPU0 upper SAC의 train1103은 **595tick 성공·unsafe0**, actor4,772였다.
+양손 opposing flap0/1·stable·proof lift·hold0.26667s,
+rack clearance44.04mm·실제 flap거리1.26/0mm를 확인했다. 실제 terminal HDF도
+success=true·terminated=true·unsafe=false이고 종료 파일 Drive 검증을 마쳤다.
+실행 중 VR 배열/live IK guide는 없으며 matching0.46m physical contract의
+learned pose-goal SAC다. 초기 base rackX+1.01cm·outward8.17cm·yaw−2.75°,
+boxinward2.17cm·yaw−0.69°·depth−4.49mm·distractors5/6이 적용된
+**훈련 배치**다. 이 seed의 frozen 초기 모델 비교가 없어 이1회만으로
+SAC 업데이트가 BC보다 개선됐다는 인과 결론을 내리지는 않는다.
+
+현재 upper 총 train1/4(unsafe3), 개발0/4(unsafe3/timeout1)이므로
+일반화가 해결됐다고 보고하지 않는다. GPU2 mixed의 초기 개발은
+lower2/2·upper0/2(unsafe2)이고 첫 lower train1200은408tick 성공이다.
+기존 GPU3·GPU0·GPU2 학습과 다른 사용자 프로세스를 계속 유지한다.
+
+[상단 SAC train1103의 실제 성공 영상](assets/rl_v2_upper_sac_train1103_success_20261003.mp4)
+(CPU mesh render,90tick/frame 시간 압축,H264/yuv420p·전체decode검증).
+
+![실제 상단 박스 이동과 양손 jaw-pair 힘 비교](assets/rl_v2_upper_box_motion_20261003.png)
+
+Mixed frozen 개발2300은607tick에 왼팔 `zarm_l4_link`–rack36.67N으로
+실패했고 **전체607행의 모든 flap-force 채널이0N**이다. 이미 계산된 센서는
+available=true이며 같은 물리/관측 계약의 실제 VR 성공 및 SAC train1103에서는
+양손 matched jaw-force가 측정됐다. 단순히5N 접촉 기준을 조금 못 넘은 실패와
+구분된다. Nominal flap에 실제 두 jaw를 정렬하기 전에 박스가 rack 안쪽으로
+약27cm 이동한 것을 native every-step next-state에서 확인했다. 원래 VR 성공도
+중간에 약17cm 안쪽 이동 후 live IK가 다시 잡는 경로였다. 실제 접촉 이전
+박스의 이동과 뒤늦은 추적이 일반화 실패와 연관된다는 진단이며, 이 위치 기록만으로
+박스를 밀었던 특정 robot link를 확정하지 않는다.
+
+그림은 rack rotation을 역산한 box 중심 위치와 privileged force8채널을 사용한다.
+Force는 기록의50N scale을 복원했으며200N에서 clipping된다. 하단 곡선은
+`min_hand(max_flap(min_jaw(force)))`로 한 jaw만 강하게 닿는 것을 구분하는
+진단값이다. 실제 성공은 별도의 opposed/in_region/stable/hold 조건 모두가
+필요하다. [수치·native SHA256 출처](assets/rl_v2_upper_box_motion_20261003.json)에
+VR594·실패607·SAC595의 원본을 기록했다. 개발 데이터를 성공 imitation에
+사용하거나 실제 next-state/reward를 재작성하지 않았다.
+
+GPU1의 train1000 별도 진단에서 contact 중 base를2cm 가까이 가져가는 것만으로는
+해소되지 않았다.851tick timeout·unsafe0·양손 pinch0, 마지막 IK위치오차
+11.7/12.2mm였다. 모든 종료 파일 Drive checksum 검증 후 후속
+`upper_early_handoff_train1000_gpu1_20261003_212253`을 실제 시작했다.
+`--vr-handoff-distance-m 0.12`는 양손이 perceived assigned flap 중점의
+12cm 이내에 오면 원래 demo pinch 시점보다 일찍 live geometry를 추적한다.
+양손 조건·finite/bounds 검사·한 번 전환 후 유지·원래 시점 fallback을 적용했고
+기본0은 기존 동작이다. 같은 full-path retarget/current-rest/closing-axis,
+torsoforward4cm/up6cm·full reach·원래 jaw 타이밍을 유지하고 base advance는0이다.
+이는 **VR/IK 성공 경험 수집 진단**이며 SAC 성능으로 보고하지 않는다.
+접촉/보상/성공/충돌 조건은 그대로이고 neural replay에는 옵션을 거부한다.
+이 시점에서 후속 진단의 결과는 아직 확인 전이다. 관련66개 검사 통과.
