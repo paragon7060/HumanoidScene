@@ -483,3 +483,64 @@ SAC로 연결하며, fit loss를 물리 성공으로 판단하지 않는다.
 Pose/input·실제전이·Drive layout·순차gate 검사 **51 passed** 및 관련 Python
 compile 통과. 위 성공 영상과 비교 그림은 Notion에도 native파일로 업로드했고
 video MIME는 실제 `video/mp4`로 명시한 업로드 완료 파일을 연결했다.
+
+
+## 같은 신경망의 두 선반 물리 성공과 mixed SAC 시작 (10/03 20:50)
+
+Shelf-conditioned clock BC의 **동일 student.pt**를 frozen 상태로 평가해
+하단409tick·상단603tick 모두 **성공·unsafe0**을 확인했다. 하단 실제
+rack clearance41.38mm, 상단16.84mm이며 양손 opposing flap0/1·
+stable·proof lift·0.26667s hold를 만족한다. 양쪽 실행에서 SAC optimizer
+update0이고 runtime VR array나 live IK guide는 없다. Original successful
+reset poses에서의 BC 물리 검사이며 **새 initial base/box에서의 일반화/SAC
+성공을 뜻하지 않는다**. 각 종료 HDF·로그·영상을 Drive 크기/MD5 검증했고
+`shelf_clock_bc_both_shelves_gpu2_20261003_203014`은2/2로 종료했다.
+
+[통합 신경망의 실제 위 선반 성공 영상](assets/rl_v2_mixed_shelf_bc_upper_success_20261003.mp4)
+(CPU mesh render,90tick/frame 압축,H264/avc1/yuv420p/faststart·full decode검증).
+
+실제1004행을 동일0.46m MDP의 goal 좌표로 읽어 새 critic-only500을 학습한
+`mixed_shelf_clock_goal_initial_20261003_204501`을 생성했다. Actor update0,
+actor474D·critic533D, shelf-conditioned clock limit593이고 fresh Q/normalizers/
+optimizer를 사용한다. Lower0.40m 체크포인트나 replay를 섞지 않았다.
+모델·manifest·verification의 Drive checksum 검증 뒤 **GPU2에서
+`mixed_shelf_guarded_base_box_sac_gpu2_20261003_204617`을 실제 시작**했다.
+이 시점에는 baseline frozen 개발 평가 중이고 새 SAC train 성공은 아직 없다.
+
+같은 actor를 위/아래 번갈아 사용한다. Train lower1200–1203·upper1300–1303
+×2pass=16회, 개발2200/2201·2300/2301을 매4train 재평가(초기4+중간16),
+독립 final3200–3203·3300–3303=8회: 총44회다. Target boxes는 dynamic,
+inward2–4cm·yaw±1°이며 lower 초기base rackX±20cm·outward3–25cm·yaw±15°,
+upper rackX±8cm·outward3–10cm·yaw±5°·boxdepth±6mm다. Upper 분포를
+lower보다 작게 시작한 사실을 명시하며 full upper 일반화 완료로 주장하지 않는다.
+
+공용 driver의 opt-in `--reference-episode-map` JSON은 모든 layout seed에
+초기 장면용 demo episode를 명시한다. 기존 `GraspLayout` 파일 형식이나
+기본 single-episode 학습은 유지한다. Demo는 reset 장면을 선택할 때만 쓰고
+runtime policy는 perceived shelf/box·clock·live state로 움직인다. Frozen final은
+한 checkpoint를 쓰며 optimizer를 업데이트하지 않는다. Explicit episode map과
+reset-only provenance를 manifest/results에 남긴다.
+
+개발 성능은 전체 성공 수와 **episode/선반별 성공 수를 함께 비교**한다.
+예를 들어 lower2/2·upper0/2에서 lower1/2·upper1/2로 바뀌면 total2/4가
+같아도 lower 회귀를 검출해 best actor/actor optimizer로 복구한다. 최신 Q와
+실제 replay·총 update 수는 유지한다. Best는 같은 checkpoint의 공동 성능을
+기준으로 하며 서로 다른 actor의 per-shelf 최고 수치를 합치지 않는다.
+Mixed reset 라우팅·frozen final·누락/부적절 map·선반간 회귀 검사와 기존
+관련 검사 **58 passed**, Python compile 통과.
+
+등록한 후속 CPU gate는 transient systemd가 종료 뒤 `ExecMainPID=0`으로
+기록을 비운 것 때문에 처음 assertion으로 멈췄다. 종료 launch의 supervisor와
+두 closed status의2346292를 host journal로 확인해 명시적으로 기록했고,
+현재 PID가 제공되면 추가 비교하되 실제 종료·exit0·backup·writer provenance는
+계속 필수로 검사한다. 수정 후 CPU 초기화가exit0 및 백업 검증을 마쳤고
+후속 GPU2 batch가 실제로 시작했다. 실패 상태를 성공으로 덮어쓰지 않았다.
+
+기존 GPU3 하단은 **train20/20·unsafe0**, actor26,516, 최근 개발4/4를
+유지한 채 다음 개발 block을 진행한다. GPU0 upper SAC는 새 변형 train
+**0/2(unsafe2)**로 첫 개발 재평가 중이다. Original upper BC 성공과 달리
+현재 변형 upper 학습이 성공한다고 보고하지 않는다. 세 작업 모두
+`CUDA_VISIBLE_DEVICES`로 물리 GPU를 명시하고 다른 사용자의 작업은 유지한다.
+새 mixed 실행은 per-jaw diagnostic 로그를 켜 실제 힘·영역·opposed 등
+실패 원인을 다음 물리 데이터에서 구분한다. Upper generalization 문제를
+수정하고 독립 final success를 확인하는 active goal은 계속 유지한다.

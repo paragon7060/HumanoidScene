@@ -327,6 +327,15 @@ SAC를 연결한다. `--contact-diagnostics`는 replay의 이미 계산된 손�
 힘·영역·opposed·qualified 판정을 reset 전에 로그로 남긴다. 진단 기본값은 off며
 보상·성공조건·actor 관측을 바꾸지 않는다.
 
+두 선반을 번갈아 SAC로 학습하는 경우 `layout_residual_with_drive.py
+--policy-mode pose-goal --reference-episode-map /absolute/path/to/episodes.json`을
+사용한다. JSON은 `{"1200": 0, "1300": 1, "3200": 0, "3300": 1}`처럼
+모든 train/development/final layout seed를 초기 장면용 demo episode에 연결한다.
+이는 reset의 박스/선반 장면만 선택하며 실행 중 데모 동작을 참조하지 않는다.
+선반마다 개발 성공 수를 따로 기록하고 어느 선반이든 성능이 낮아지면 검증된
+actor로 복구해 다른 선반의 개선이 회귀를 가리지 않게 한다. Final layout은
+optimizer update 없이 평가한다.
+
 Meta Quest는 여러 프로세스와 네트워크 설정이 필요하므로 전체 설치법을 루트 README에
 중복하지 않는다. 처음에는 [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md)을 따른다.
 

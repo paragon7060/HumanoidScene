@@ -3,12 +3,76 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import pytest
 
 
 def module():
     scripts=Path(__file__).resolve().parents[1]/'scripts/rl';sys.path.insert(0,str(scripts))
     spec=importlib.util.spec_from_file_location('layout_drive_test',scripts/'layout_residual_with_drive.py')
     result=importlib.util.module_from_spec(spec);spec.loader.exec_module(result);return result
+
+
+def test_mixed_shelf_reset_provenance_keeps_final_policy_frozen(tmp_path,monkeypatch):
+    script=module();layouts=tmp_path/'layouts';layouts.mkdir();parent=tmp_path/'suite';calls=[]
+    mapping={'1100':0,'1300':1,'3200':0,'3300':1}
+    for split,seeds in [('train',[1100,1300]),('holdout',[3200,3300])]:
+        for i,seed in enumerate(seeds):
+            (layouts/f'{split}_{i:02d}.json').write_text(json.dumps(dict(seed=seed,split=split,lateral_m=-.025)))
+    mapping_file=tmp_path/'episodes.json';mapping_file.write_text(json.dumps(mapping))
+    warm=tmp_path/'student.pt';warm.write_bytes(b'BC model')
+    def simulate(command,trial,environment,*args,**kwargs):
+        calls.append(command);run=Path(command[command.index('--output-dir')+1]);run.mkdir()
+        layout=json.loads(Path(command[command.index('--layout-json')+1]).read_text())
+        assert command.count('--episode-index')==1
+        assert int(command[command.index('--episode-index')+1])==mapping[str(layout['seed'])]
+        assert not any(value.startswith('--episode-index=') for value in command)
+        train='--pose-student-training' in command
+        assert train==(layout['split']=='train') and '--residual-sac' not in command
+        (trial/'status.json').write_text(json.dumps(dict(run_dir=str(run),training_exit_code=0,final_upload_verified=True)))
+        (run/'metrics.json').write_text(json.dumps(dict(steps=410,
+            outcomes=dict(success=1,unsafe=0,invalid_reset=0,time_out=0),
+            pose_goal_sac=dict(training=train,actor_updates=700*min(len(calls),2)))))
+        if train:(run/f'checkpoint_{len(calls)*700:08d}.pt').write_bytes(b'goal SAC model')
+        return 0
+    monkeypatch.setattr(script,'supervise',simulate)
+    monkeypatch.setattr(script,'Rclone',lambda *a:object())
+    monkeypatch.setattr(script,'archive_file',lambda *a:None)
+    monkeypatch.setattr(sys,'argv',['suite','--experiment-dir',str(parent),'--layout-dir',str(layouts),
+        '--policy-mode','pose-goal','--checkpoint',str(warm),'--reference-episode-map',str(mapping_file),
+        '--train-count','2','--eval-count','2','--python',sys.executable,
+        '--remote-root','test-remote:HumanoidScene-RL','--episode-index=7',
+        '--pose-student-native-seed','actual_lower.hdf5','--pose-student-native-seed','actual_upper.hdf5'])
+    assert script.main()==0 and len(calls)==4
+    assert calls[2][calls[2].index('--pose-student-checkpoint')+1]==calls[3][calls[3].index('--pose-student-checkpoint')+1]
+    manifest=json.loads((parent/'manifest.json').read_text())
+    assert manifest['reference_episode_by_seed']==mapping
+    assert manifest['reference_episodes_used_only_for_initial_scene'] is True
+    assert manifest['physical_reference_dependency'] is False
+
+
+@pytest.mark.parametrize('mapping',[{'1':0},{'1':True,'2':0},{'1':0,'2':-1},{'01':0,'2':1},[0,1]])
+def test_reference_episode_map_rejects_missing_or_ambiguous_reset_sources(tmp_path,mapping):
+    script=module();files=[]
+    for seed in [1,2]:
+        p=tmp_path/f'{seed}.json';p.write_text(json.dumps({'seed':seed}));files.append(p)
+    p=tmp_path/'map.json';p.write_text(json.dumps(mapping))
+    with pytest.raises(ValueError):script.reference_episode_map(p,{'train':files})
+    arguments=['--episode-index','0','--steps','900']
+    assert script.child_reference_episode(arguments,None)==arguments
+
+
+def test_upper_gain_does_not_hide_lower_regression():
+    script=module()
+    rows=[dict(reference_episode_index=0,outcomes={'success':1}),
+          dict(reference_episode_index=0,outcomes={'success':0}),
+          dict(reference_episode_index=1,outcomes={'success':1}),
+          dict(reference_episode_index=1,outcomes={'success':0})]
+    latest=script.episode_validation_successes(rows)
+    best={'0':2,'1':0}
+    assert sum(latest.values())==sum(best.values())
+    assert script.episode_validation_regressed(latest,best,0)
+    assert not script.episode_validation_regressed({'0':2,'1':1},best,0)
+    assert not script.episode_validation_regressed(latest,None,0)
 
 
 def test_varied_training_keeps_failure_data_then_freezes_one_checkpoint_for_holdout(tmp_path,monkeypatch):

@@ -24,6 +24,53 @@ def validation_regressed(successes, best_successes, allowed_drop):
     return successes < best_successes-allowed_drop
 
 
+def episode_validation_successes(rows):
+    result={}
+    for row in rows:
+        key=str(row['reference_episode_index'])
+        result[key]=result.get(key,0)+int(row['outcomes']['success'])
+    return result
+
+
+def episode_validation_regressed(latest, best, allowed_drop):
+    return best is not None and any(
+        validation_regressed(latest.get(key,0),value,allowed_drop)
+        for key,value in best.items())
+
+
+def reference_episode_map(path, layouts):
+    """Explicit reset-scene provenance for a mixed-shelf learned goal policy."""
+    if path is None:
+        return None
+    mapping=json.loads(Path(path).read_text())
+    if not isinstance(mapping,dict) or any(
+            not isinstance(key,str) or not key.isdecimal() or str(int(key))!=key
+            or type(value) is not int or value<0 for key,value in mapping.items()):
+        raise ValueError('Reference episode map must contain nonnegative seed and episode integers')
+    seeds={str(json.loads(layout.read_text())['seed'])
+           for group in layouts.values() for layout in group}
+    if not seeds.issubset(mapping):
+        raise ValueError('Every train/development/final layout needs an explicit reference episode')
+    return {seed:mapping[seed] for seed in sorted(seeds,key=int)}
+
+
+def child_reference_episode(arguments, episode):
+    """Replace only the reset-scene episode; preserve every policy argument."""
+    if episode is None:
+        return list(arguments)
+    result=[];index=0
+    while index<len(arguments):
+        value=arguments[index]
+        if value=='--episode-index':
+            if index+1>=len(arguments):raise ValueError('Missing reference episode argument')
+            index+=2
+        elif value.startswith('--episode-index='):
+            index+=1
+        else:
+            result.append(value);index+=1
+    return result+['--episode-index',str(episode)]
+
+
 def recover_actor(checkpoint, best_checkpoint, output_dir, python):
     """Restore a validated actor while retaining latest measured replay and Q."""
     command=[str(python),str(ROOT/'scripts/rl/recover_pose_goal_actor.py'),
@@ -56,6 +103,8 @@ def main():
     parser.add_argument('--validation-count',type=int,default=4)
     parser.add_argument('--allowed-validation-success-drop',type=int,default=0)
     parser.add_argument('--checkpoint',type=Path)
+    parser.add_argument('--reference-episode-map',type=Path,
+                        help='Pose-goal only: JSON seed->demo episode for the reset scene of mixed lower/upper layouts; no live path.')
     parser.add_argument('--after-verified-experiment',type=Path,
                         help='Wait for this own pilot series to finish verified; inherit its final checkpoint.')
     parser.add_argument('--wait-for-verified-experiment',type=Path,
@@ -84,6 +133,8 @@ def main():
     if any(value.split('=')[0] in reserved for value in child_args):
         parser.error('This supervisor owns layout, checkpoint, device and training/evaluation mode')
     pose_mode=args.policy_mode=='pose-goal'
+    if args.reference_episode_map and not pose_mode:
+        parser.error('Mixed reference episodes require a learned pose-goal policy')
     guarded=args.validation_layout_dir is not None
     if guarded and (not pose_mode or args.evaluation_only or args.validation_every<1
                     or args.validation_count<1 or args.allowed_validation_success_drop<0
@@ -130,6 +181,10 @@ def main():
                 parser.error('Use initial-base distribution explicitly to move the robot start')
             if not math.isfinite(layout.get('depth_m',0.)) or abs(layout.get('depth_m',0.))>args.max_layout_depth_m+1e-7:
                 parser.error('Layout depth exceeds the explicitly allowed fixed distribution')
+    try:
+        episodes=reference_episode_map(args.reference_episode_map,layouts)
+    except (ValueError,OSError) as exc:
+        parser.error(str(exc))
     if not args.remote_root:
         remotes=subprocess.run(['bash',str(ROOT/'scripts/rl/gdrive.sh'),'listremotes'],
                                check=True,capture_output=True,text=True).stdout.splitlines()
@@ -149,6 +204,8 @@ def main():
     recipe=args.layout_dir.resolve()/'recipe.json'
     (parent/'manifest.json').write_text(json.dumps(dict(artifact_type=('layout_pose_goal_sac_suite' if pose_mode else 'layout_reference_residual_sac_suite'),
         gpu=args.gpu,train_layouts=[json.loads(p.read_text()) for p in layouts['train']],
+        reference_episode_by_seed=episodes,
+        reference_episodes_used_only_for_initial_scene=bool(episodes),
         heldout_layouts=[json.loads(p.read_text()) for p in layouts['holdout']],
         validation_layouts=[json.loads(p.read_text()) for p in layouts.get('validation',[])],
         validation_every=args.validation_every if guarded else None,
@@ -209,7 +266,7 @@ def main():
         if guarded and (count%args.validation_every==0 or count==len(training_schedule)):
             schedule.extend(('validation',p,count) for p in layouts['validation'])
     schedule += [('holdout',p,0) for p in layouts['holdout']]
-    best_checkpoint=None;best_successes=-1;recoveries=0
+    best_checkpoint=None;best_successes=-1;best_episode_successes=None;recoveries=0
     for index,(split,layout,pass_index) in enumerate(schedule):
         trial=parent/f'{index+1:03d}_{split}_p{pass_index+1}_{layout.stem}';trial.mkdir()
         prefix='pose_sac_' if pose_mode else 'residual_'
@@ -219,8 +276,10 @@ def main():
                                   '--residual-training' if split=='train' else '--no-residual-training'])
         if checkpoint:
             extras.extend(('--pose-student-checkpoint' if pose_mode else '--residual-checkpoint',str(checkpoint)))
+        episode=episodes[str(json.loads(layout.read_text())['seed'])] if episodes else None
+        arguments=child_reference_episode(child_args,episode)
         command=[str(args.python),'-u',str(ROOT/'scripts/rl/replay_v2_grasp_reference.py'),
-                 *child_args,*extras,'--output-dir',str(run),'--device','cuda:0','--headless']
+                 *arguments,*extras,'--output-dir',str(run),'--device','cuda:0','--headless']
         (trial/'launch.json').write_text(json.dumps(dict(command=command,gpu=args.gpu),indent=2)+'\n')
         write_status(parent,phase='training' if split=='train' else
                      'development_validation' if split=='validation' else 'heldout_evaluation',
@@ -245,6 +304,7 @@ def main():
         row=dict(split=split,layout=json.loads(layout.read_text()),pass_index=pass_index,
                  run_dir=str(run),outcomes=metrics['outcomes'],steps=metrics['steps'],
                  actor_updates=learning['actor_updates'],final_upload_verified=True)
+        if episodes:row['reference_episode_index']=episode
         rows.append(row)
         if split=='train':
             checkpoints=sorted(run.glob('checkpoint_*.pt'))
@@ -254,7 +314,10 @@ def main():
         if split=='validation' and (index+1==len(schedule) or schedule[index+1][0]!='validation'):
             block=rows[-args.validation_count:]
             successes=sum(r['outcomes']['success'] for r in block)
-            if validation_regressed(successes,best_successes,args.allowed_validation_success_drop):
+            episode_successes=episode_validation_successes(block) if episodes else None
+            if (validation_regressed(successes,best_successes,args.allowed_validation_success_drop)
+                    or (episodes and episode_validation_regressed(episode_successes,best_episode_successes,
+                                                                  args.allowed_validation_success_drop))):
                 recovery=parent/'actor_recoveries'/('recovery_'+uuid.uuid4().hex[:10])
                 recovery.parent.mkdir(exist_ok=True)
                 checkpoint=recover_actor(checkpoint,best_checkpoint,recovery,args.python)
@@ -264,9 +327,13 @@ def main():
                 recoveries+=1
             elif successes>=best_successes:
                 best_successes=successes;best_checkpoint=checkpoint
+                best_episode_successes=episode_successes
             write_status(parent,latest_validation_successes=successes,
                          best_validation_successes=best_successes,
                          best_validation_checkpoint=str(best_checkpoint),actor_recoveries=recoveries)
+            if episodes:
+                write_status(parent,latest_validation_by_episode=episode_successes,
+                             best_validation_by_episode=best_episode_successes)
         (parent/'results.json').write_text(json.dumps(rows,indent=2)+'\n')
         for group in ('train','validation','holdout'):
             subset=[r for r in rows if r['split']==group]
