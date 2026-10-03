@@ -13,7 +13,7 @@ import torch
 from ...algorithms.asymmetric_sac import AsymmetricReplayBuffer, AsymmetricSAC
 from ...algorithms.sac import SACConfig
 from ...runners.storage import save_checkpoint
-from .executed_replay import read_executed_successes
+from .executed_replay import read_executed_successes,merge_executed_successes
 from .pose_student import PoseGoalCoordinates, PoseStudent
 
 
@@ -122,23 +122,30 @@ class PoseGoalSACPilot:
         self.agent=AsymmetricSAC(self.actor_dim,533,24,config,device,
                                 action_projector=GoalGripperProjector(self.prior,self.prior_radius))
         self.replay=AsymmetricReplayBuffer(20000,self.actor_dim,533,24,device)
-        measured,audit=read_executed_successes(dataset,physical_contract)
+        measured,audit=(merge_executed_successes(dataset,physical_contract)
+                        if isinstance(dataset,(list,tuple)) else
+                        read_executed_successes(dataset,physical_contract))
         self.audit=audit
         measured={key:value.to(device) for key,value in measured.items()}
-        if audit['successful_episodes']!=1:
-            raise ValueError('Pilot seed must be one contiguous actual success')
-        seed_anchor=self.coordinates.box_anchor(measured['actor_obs'][:1])
+        ends=torch.where(measured['terminated'].reshape(-1).bool())[0].cpu().tolist()
+        self.seed_episodes=audit['successful_episodes']
+        if not ends or len(ends)!=self.seed_episodes or ends[-1]!=len(measured['action'])-1:
+            raise ValueError('Goal seeds require complete separate actual successful episodes')
+        starts={0,*(end+1 for end in ends[:-1])}
         seed=[]
         for i in range(len(measured['action'])):
             raw=measured['actor_obs'][i:i+1]
+            if i in starts:
+                seed_anchor=self.coordinates.box_anchor(raw)
+                episode_index=0
             goal=self.coordinates.encode_physical(raw,measured['action'][i:i+1])
             goal[:,19:21]-=seed_anchor
             z=(goal-self.center)/self.scale
             if not torch.isfinite(z).all() or (z.abs()>1.00001).any():
                 raise ValueError('Actual seed goal exceeds the student goal bounds')
-            ao,co=self.observations(raw,measured['critic_obs'][i:i+1],i,seed_anchor)
+            ao,co=self.observations(raw,measured['critic_obs'][i:i+1],episode_index,seed_anchor)
             na,nc=self.observations(measured['next_actor_obs'][i:i+1],
-                measured['next_critic_obs'][i:i+1],i+1,seed_anchor)
+                measured['next_critic_obs'][i:i+1],episode_index+1,seed_anchor)
             # These are measured OFF-policy commands. A new neural prior bound
             # applies to generated actions, never to historical Q action labels.
             z=GoalGripperProjector()(ao,z)
@@ -147,6 +154,7 @@ class PoseGoalSACPilot:
             seed.append(dict(actor_obs=ao,critic_obs=co,action=z,
                 next_actor_obs=na,next_critic_obs=nc,
                 reward=measured['reward'][i:i+1],terminated=measured['terminated'][i:i+1]))
+            episode_index+=1
         self.seed={key:torch.cat([row[key] for row in seed]) for key in seed[0]}
         if saved.get('artifact_type')==self.artifact_type:
             if saved.get('goal_contract')!=self.contract:
@@ -205,6 +213,7 @@ class PoseGoalSACPilot:
         # policy-only migrations; the physical decoder/reward are unchanged.
         if self.prior_floor:contract['frozen_network_prior_weight_floor']=self.prior_floor
         if self.prior_radius:contract['frozen_network_prior_radius']=self.prior_radius
+        if self.seed_episodes>1:contract['seed_episode_context']='separate_clock_and_initial_box_anchor'
         return contract
 
     def prior_weight_at(self, updates):
@@ -261,6 +270,7 @@ class PoseGoalSACPilot:
     def report(self):
         return dict(training=self.training,actor_updates=self.actor_updates,critic_updates=self.critic_updates,
             online_rows=self.online_rows,seed_rows=len(self.seed['reward']),
+            seed_episodes=self.seed_episodes,
             runtime_reference_path_required=False,demo_fraction=.2*max(0.,1-self.actor_updates/self.fade_updates),
             frozen_network_prior_weight=self.prior_weight_at(self.actor_updates),
             frozen_network_prior_radius=self.prior_radius,

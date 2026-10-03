@@ -35,6 +35,24 @@ def test_box_qp_resolves_other_joints_when_one_saturates():
     np.testing.assert_allclose(x, [0., 1 / 1.001], atol=1e-6)
 
 
+def test_gross_reach_margin_can_reject_a_joint_legal_measured_pose():
+    from kuavo_isaaclab_scene.robots.end_effector import center_offset
+    path=resolve_robot_model('s63','leju-twofinger').urdf_path
+    conservative=UrdfArm(path,'left');full=UrdfArm(path,'left',reach_fraction=1.)
+    for arm in (conservative,full):arm.set_tool_offset(center_offset('left'))
+    # A real URDF FK pose, inside joint limits with0.09rad angular margin.
+    q=np.clip(np.zeros(7),full.lower+.09,full.upper-.09)
+    p,r,_,_=full.fk(q)
+    assert np.linalg.norm(p-full.shoulder)>.95*full.reach
+    assert np.linalg.norm(p-conservative.project_target(p))>.02
+    np.testing.assert_allclose(full.project_target(p),p,atol=1e-12)
+    velocity,_,status=full.step(q,p,r,q,np.zeros(7),1/30,RESPONSIVE)
+    np.testing.assert_allclose(velocity,0.,atol=1e-9)
+    assert status['projection_m']==0. and status['limit_margin_rad']>=.089
+    with pytest.raises(ValueError,match='Gross reach fraction'):
+        UrdfArm(path,'left',reach_fraction=1.01)
+
+
 def test_bounded_ik_closing_axis_leaves_wrist_roll_free():
     arm = UrdfArm(resolve_robot_model("s63", "leju-twofinger").urdf_path, "left")
     q = arm.ready_pose()

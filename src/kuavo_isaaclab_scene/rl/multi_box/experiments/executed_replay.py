@@ -29,6 +29,12 @@ WIDTHS = {"actor_obs": "actor_obs_dim", "critic_obs": "critic_obs_dim",
           "action": "action_dim", "next_actor_obs": "actor_obs_dim",
           "next_critic_obs": "critic_obs_dim"}
 
+MEASURED_COLLECTION_SOURCES={
+    'current_v2_environment_executed_vr_reference','mixed_VR_actor_DAgger',
+    'pose_goal_sac_no_live_reference','learned_pose_student_BC_no_live_reference',
+    'layout_reference_residual_sac','fixed_scene_reference_residual_sac',
+}
+
 
 def read_executed_successes(dataset: Path, contract: dict):
     """Accept complete, continuous, successful paths with the same physical MDP."""
@@ -41,7 +47,7 @@ def read_executed_successes(dataset: Path, contract: dict):
             raise ValueError("Executed replay requires the native transition format")
         meta = json.loads(source.attrs["manifest_json"])
         collection_source = meta.get('collection_source')
-        if collection_source not in {"current_v2_environment_executed_vr_reference", "mixed_VR_actor_DAgger"} \
+        if collection_source not in MEASURED_COLLECTION_SOURCES \
                 or meta.get("current_reward_verified_against_breakdown") is not True \
                 or not str(meta.get("sim_device", "")).startswith("cuda:") \
                 or meta.get("old_demo_rewards_used") is not False:
@@ -121,7 +127,9 @@ def read_executed_successes(dataset: Path, contract: dict):
     return {name: torch.cat(rows) for name, rows in parts.items()}, {
         "source_dataset_sha256": hashlib.sha256(dataset.read_bytes()).hexdigest(),
         "successful_episodes": accepted, "executed_rows": sum(len(p) for p in parts["reward"]),
-        "source": f"measured_current_gpu_{collection_source}; not_a_pure_learned_policy",
+        "source": f"measured_current_gpu_{collection_source}",
+        "neural_controller_without_live_reference":collection_source in {
+            'pose_goal_sac_no_live_reference','learned_pose_student_BC_no_live_reference'},
         "recorded_old_demo_rewards_imported": False,
         "hypothetical_correction_labels_imported": False,
         "initial_poses": meta.get("initial_poses"),
@@ -144,6 +152,8 @@ def merge_executed_successes(datasets, contract):
                  successful_episodes=sum(entry['successful_episodes'] for _, entry in sources),
                  executed_rows=len(replay['reward']), recorded_old_demo_rewards_imported=False,
                  hypothetical_correction_labels_imported=False)
+    audit['source_dataset_sha256']=hashlib.sha256(json.dumps(
+        [entry['source_dataset_sha256'] for _,entry in sources],separators=(',',':')).encode()).hexdigest()
     return replay, audit
 
 

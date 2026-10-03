@@ -258,6 +258,36 @@ def test_goal_discount_rejects_a_different_potential_horizon():
         reward_discount(dict(discount=.999,reward_profile=dict(weights=dict(discount=.99))))
 
 
+def test_multiple_actual_seeds_reset_their_clock_and_initial_box_anchor(tmp_path,monkeypatch):
+    from kuavo_isaaclab_scene.rl.multi_box.experiments import pose_goal_sac as goal
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
+    from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import AsymmetricSAC
+    from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
+    raw=raw_state()[:1].repeat(4,1)
+    raw[:,86+4*22]=1;raw[:,86+4*22+12:86+4*22+15]=torch.tensor([.8,.2,1.])
+    raw[2:,86+4*22+12]+=.15;raw[:,388+4]=1;raw[:,400+4]=1
+    physical=torch.zeros(4,24);physical[:,20:22]=-1
+    measured=dict(actor_obs=raw,critic_obs=torch.cat((raw,torch.zeros(4,66)),1),
+        action=physical,next_actor_obs=raw,next_critic_obs=torch.cat((raw,torch.zeros(4,66)),1),
+        reward=torch.tensor([0.,5.,0.,5.]),terminated=torch.tensor([False,True,False,True]))
+    monkeypatch.setattr(goal,'merge_executed_successes',lambda *args:(measured,
+        dict(successful_episodes=2,source_dataset_sha256='two-actual-episode-test-fixture')))
+    prior=AsymmetricSAC(439,531,24,SACConfig(hidden=16))
+    state=prior.checkpoint()|dict(artifact_type=PoseStudent.artifact_type,
+        action_coordinates=PoseGoalCoordinates.name,goal_center=torch.zeros(24),goal_scale=torch.ones(24),
+        initial_box_relative_goals=True)
+    torch.save(state,tmp_path/'bc.pt')
+    pilot=goal.PoseGoalSACPilot(tmp_path/'bc.pt',['one.hdf5','two.hdf5'],
+        dict(discount=.999),tmp_path/'run',training=False)
+    seed=pilot.seed['actor_obs']
+    torch.testing.assert_close(seed[:,438],torch.tensor([0.,1/410,0.,1/410]))
+    assert torch.equal(seed[0,-2:],seed[1,-2:]) and torch.equal(seed[2,-2:],seed[3,-2:])
+    assert not torch.equal(seed[0,-2:],seed[2,-2:])
+    assert pilot.report()['seed_episodes']==2
+    assert pilot.contract['seed_episode_context']=='separate_clock_and_initial_box_anchor'
+    assert torch.equal(pilot.seed['reward'],measured['reward'])
+
+
 def test_actor_recovery_preserves_latest_critic_real_replay_and_fade_clock(tmp_path):
     import importlib.util
     from pathlib import Path

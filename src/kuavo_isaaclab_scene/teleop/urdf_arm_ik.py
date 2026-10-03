@@ -94,9 +94,12 @@ class Joint:
 
 
 class UrdfArm:
-    def __init__(self, path, side):
+    def __init__(self, path, side, *, reach_fraction=.95):
         if side not in ("left", "right"):
             raise ValueError(side)
+        if not np.isfinite(reach_fraction) or not 0 < reach_fraction <= 1:
+            raise ValueError('Gross reach fraction must be finite and within(0,1]')
+        self.reach_fraction=float(reach_fraction)
         self.path = str(Path(path).resolve(strict=True))
         self.side = side
         letter = side[0]
@@ -170,7 +173,7 @@ class UrdfArm:
         target = np.asarray(target, dtype=float)
         delta = target - self.shoulder
         # Conservative gross reach bound, not an exact orientation-aware workspace.
-        radius = .95 * self.reach
+        radius = self.reach_fraction * self.reach
         return self.shoulder + delta * min(1., radius / max(np.linalg.norm(delta), 1e-9))
 
     def validate_live(self, q, position, rotation, jacobian, limits):

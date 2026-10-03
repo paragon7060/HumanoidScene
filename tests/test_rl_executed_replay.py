@@ -66,6 +66,20 @@ def test_full_executed_approach_and_terminal_success_are_preserved(tmp_path):
     assert audit["recorded_old_demo_rewards_imported"] is False
 
 
+@pytest.mark.parametrize('source',['pose_goal_sac_no_live_reference','learned_pose_student_BC_no_live_reference'])
+def test_current_neural_successes_keep_the_same_strict_physical_checks(tmp_path,source):
+    path,contract=_record(tmp_path)
+    with h5py.File(path,'r+') as f:
+        meta=json.loads(f.attrs['manifest_json']);meta['collection_source']=source
+        f.attrs['manifest_json']=json.dumps(meta)
+    rows,audit=read_executed_successes(path,contract)
+    assert audit['neural_controller_without_live_reference']
+    assert rows['reward'].tolist()==[0.,.25,1.]
+    with h5py.File(path,'r+') as f:f['episodes/attempt/transitions/next_critic_obs'][-1,464+54]=0
+    with pytest.raises(ValueError,match='terminal observation'):
+        read_executed_successes(path,contract)
+
+
 def test_old_vr_rewards_and_cpu_comparisons_are_not_imported_into_gpu_q(tmp_path):
     path, contract = _record(tmp_path)
     with h5py.File(path, "r+") as output:

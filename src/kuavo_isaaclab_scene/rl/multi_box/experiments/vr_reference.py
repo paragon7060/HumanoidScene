@@ -69,7 +69,7 @@ def restore_inferred_scene(env, observation):
 class VRJointTracker:
     def __init__(self,env,demo,rack,*,orientation_mode='full',contact_torso_forward_m=0.,
                  close_distance_m=.035,coordinated_close=False,reference_grippers=False,
-                 contact_rest_mode='reference',contact_base_forward_m=0.):
+                 contact_rest_mode='reference',contact_base_forward_m=0.,arm_reach_fraction=.95):
         from kuavo_isaaclab_scene.rl.multi_box.state.schema import ACTUATED_BODY_JOINTS
         self.env=env;self.demo=demo;self.rack=rack;self.index=0
         if not 0<=contact_torso_forward_m<=.08:
@@ -98,7 +98,8 @@ class VRJointTracker:
         self.final_guide=KinematicGraspExplorer(env,demo,grasp_goal='demo',lift_distance_m=.08,base_clearance_m=.55,torso_forward_m=0,
                                               orientation_mode=orientation_mode)
         for side,solver in zip(('left','right'),self.final_guide.solvers):
-            solver.configure_urdf(UrdfArm(resolve_robot_model().urdf_path,side))
+            solver.configure_urdf(UrdfArm(resolve_robot_model().urdf_path,side,
+                                          reach_fraction=arm_reach_fraction))
             from kuavo_isaaclab_scene.teleop.teleop_servo import RESPONSIVE
             solver.response=RESPONSIVE
         self.solvers=self.final_guide.solvers

@@ -66,9 +66,12 @@ Gamma0.999에 맞추는 critic-only warmup2,000회 후 actor12,494/critic14,994�
 실행 전 실제 native seed410개와 모든 goal/replay contract를 확인했다.
 
 24개 랜덤 훈련 배치×2회, 처음 개발 평가4회와 훈련4회마다 개발 평가4회,
-마지막 새 holdout12회로 총112개 실제 실행을 예정했다. 첫 기준 고정 평가는414tick에
-성공·unsafe/invalid/timeout0, 종료 후 Drive 검증도 끝났다. **학습 전 기준 한 번의
-성공**이며 새 온라인 학습의 개선으로 해석하지 않는다. 현재는 정확한 복구 진단을
+마지막 새 holdout12회로 총112개 실제 실행을 예정했다. 10/03 17:24 KST 기준,
+학습 전 개발 기준 평가는 **4/4 성공**, 이어진 실제 SAC 훈련은 **4/4 성공**이다.
+Actor는15,310까지 갱신됐고 첫 개발 재평가도3/3 성공 후 네 번째 배치를 수행한다.
+기준 평가에는 기존 BC가 시간 초과한405/406도 포함한다. 종료된 실행의 Drive 검증은
+완료됐다. 과거 붕괴 지점20,000 update 이후와 새 최종 holdout은 아직 확인 전이며,
+장기 개선이나 독립 최종 성능으로 해석하지 않는다. 현재는 정확한 복구 진단을
 위한 sequential one-env이며80GB VRAM을 채우는 병렬 학습은 아니다.
 
 박스는 동적 물체이며 안쪽2–4cm·yaw±1°·주변 박스0–3개 randomization을 유지한다.
@@ -100,3 +103,82 @@ SAC가 아니며 실패 데이터에서 가상의 native 성공 seed를 만들�
 이번 정책 제약·legacy resume·실제 replay 보존·개발 평가 rollback 회귀 검사
 **73 passed**, 기존 SAC·replay·Drive·배치·영상 회귀까지 포함해 **130 passed**.
 새 제약 적용 후의 파지 성공률은 실제 실행 결과로 추가 보고한다.
+
+## 위 선반: 높이 상한, IK projection과 닫힘 gate (10/03 후속)
+
+실제 torso XZ는 약(0.0629,0.7129)m까지 올라간다. 현재 upright height profile의
+최고 Z는 nominal0.3127m+height0.40m=0.7127m이므로 이미 높이 상한이다.
+이 상태에서 동일 profile의 목표만 더 위로 지정해도 clamp되어 도움이 되지 않는다.
+이번 진단에서는 torso pitch·travel profile과 기존 SAC 물리 계약을 변경하지 않았다.
+
+URDF IK의 gross reach sphere가 전체 길이의0.95를 사용해 왼손 요청 목표를
+2.826cm 잘라내는 것을 확인했다. 목표의 어깨 기준 거리는0.756034m로 현재 tool
+offset을 포함한 arm reach0.766076m의0.9869다. 실제 관절 범위 안에0.9983 reach의
+FK pose도 존재한다. Offline bounded IK는1.0 sphere에서 요청 목표에 약1.2e-10m
+오차로 도달했고 관절 여유0.212rad를 유지했다. **이는 운동학 결과이지 실제 파지나
+랙을 피하는 경로의 증명이 아니다.**
+
+`UrdfArm(..., reach_fraction=...)`와 VR 진단 전용
+`--vr-arm-reach-fraction`을 추가했다. 기본0.95는 그대로이며 진단의1.0도 기존
+관절·속도·가속도 범위를 지킨다. SAC/BC/recorded action과 함께 지정하면 거부한다.
+
+| 실제 GPU0 VR/IK 진단 | 결과 | 종료 순간 rack force / body |
+|---|---|---|
+| sphere0.95, base3cm, 양손12mm 동시 닫기 | 578tick unsafe, pinch0 | 44.41N / zarm_l4_link |
+| sphere1.0, base 추가 접근0, 양손12mm 동시 닫기 | 608tick unsafe, pinch0 | 12.98N / zarm_l7_link |
+| sphere1.0, base 추가 접근0, 손별12mm 닫기 | 616tick unsafe, pinch0 | 16.00N / zarm_l7_link |
+
+모두 current-rest·closing-axis IK·torso 앞쪽4cm이며 종료·Drive 크기/MD5 검증 완료다.
+첫 실험에는 base3cm 보조도 있어서 force 감소를 reach 비율 하나의 효과로 단정하지
+않는다. Full reach여도 실제 박스가 움직이면서 왼손 목표 오차가 남고 손목이 랙에
+닿는다. 오른손은 flap 최근접 거리0까지 왔지만12mm **TCP 목표** gate에서 닫기
+명령이4tick뿐이었다. 목표 오차와 flap 최근접 거리는 서로 다른 값이다.
+
+![위 선반 실제 접근·닫힘·충돌 측정](assets/rl_v2_upper_reach_gate_20261003.png)
+
+[그림 원본 측정과 run 경로](assets/rl_v2_upper_reach_gate_20261003.json).
+[실제 실패 영상](assets/rl_v2_upper_full_reach_failure_20261003.mp4)은 GPU0 PhysX 자세를
+CPU mesh로 표시한 VR/IK 진단이다. SAC 성공 영상이 아니다. H.264/avc1·yuv420p·
+faststart로 저장했고 전체 decode를 검증했다. Notion의 요약·상세 기록에도 native
+영상과 그림으로 첨부했다.
+
+`upper_staggered25_full_reach_gpu0_20261003_172051`에서 손별25mm gate를 진단한다.
+먼저 도착한 손의 실제 pinch로 박스를 안정시킬 수 있는지 확인한다. 양손 opposing
+flap·8mm clearance·0.25초 유지의 최종 성공 조건, rack10N/obstacle5N은 그대로다.
+성공하기 전에는 위 선반의 positive native seed로 사용하지 않는다.
+
+## 여러 실제 성공 episode를 학습에 연결
+
+현재 SAC의 첫 두 훈련 성공으로부터 **830개 실제 전이(416+414)**를 읽었다.
+현재 물리/reward 계약, GPU 실행, 초기 제어 상태, step 시간과 관측 연속성,
+최종 양손 pinch·성공 관측을 검사했다. Physical action inverse의 최대 오차는
+1.073e-6이며 action/reward를 수정하지 않았다. 해당 pool은 현재 실행에 주입하지
+않았고 `actual_multi_seed_import_audit.json`에 출처·검사 결과를 저장했다.
+
+- `read_executed_successes`는 같은 strict 물리 검사로 현재 goal-SAC/BC 등의 실제
+  성공을 받는다. Collection source만으로 성공을 인정하지 않는다.
+- `--native-dataset`과 `--pose-student-native-seed`를 반복 지정할 수 있다.
+  Episode마다 clock0과 각 초기 박스 anchor를 따로 사용하며 terminal 경계를 넘지 않는다.
+- 단일 파일의 기존 goal contract/hash는 유지한다. 서로 다른 성공 episode를
+  결합한 계약은 episode context와 ordered source SHA256을 명시한다.
+- 원래410개 단일 데모로 만든 목표 범위를 벗어나는 실제 inverse command가
+  두 실행에서 각각21/24행 있었고 normalized 최대값은2.398/2.418이다. 초기 base
+  차이와 servo의 physical clipping 때문에 실제로 같은 명령을 재현하는 inverse
+  goal이 옛 목표 범위 밖에 있을 수 있다. **실제 action을 clipping해서 억지로
+  넣지 않는다.** 새로운 pool의 실제 goal label로 center/scale을 다시 fit하고,
+  새 정책을 물리에서 검증한 뒤 별도 SAC 계약으로 시작해야 한다.
+- 위/아래 선반을 묶을 때는 full observation fit을 사용한다. Clock-only로 서로
+  다른 동작을 같은 시간 입력에 학습하지 않는다. 위 선반 실제 성공이 아직 없어
+  해당 positive 데이터는 미확보다.
+
+```bash
+# 파일은 현재 물리에서 성공한 실제 GPU 전이여야 한다. Output은 새 고유 경로다.
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/fit_v2_pose_student.py \
+  --native-dataset /absolute/path/to/actual-success-a/executed_transitions.hdf5 \
+  --native-dataset /absolute/path/to/actual-success-b/executed_transitions.hdf5 \
+  --initial-box-relative --clock-horizon 900 --steps 20000 \
+  --output-dir /absolute/path/to/unique-pooled-student
+```
+
+새 pose/seed/URDF 진단과 SAC·배치·Drive 관리 회귀 검사 **153 passed**.
+학습과 성공 판단은 실제 완료된 물리 결과로 계속 확인한다.
