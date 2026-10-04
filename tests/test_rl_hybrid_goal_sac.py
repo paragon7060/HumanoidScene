@@ -85,3 +85,44 @@ def test_learning_and_both_entropy_optimizers_survive_checkpoint():
     assert torch.equal(agent.log_alpha_discrete,restored.log_alpha_discrete)
     with pytest.raises(ValueError,match='continuous-only'):restored.restore(state|dict(algorithm='asymmetric_sac'))
     with pytest.raises(ValueError,match='binary gripper'):agent.update(batch|dict(action=torch.zeros(64,21)))
+
+
+def test_actor_recovery_keeps_hybrid_Q_actual_rows_and_both_temperature_states(tmp_path):
+    from copy import deepcopy
+    from recover_pose_goal_actor import recover
+    agent,obs=agent_and_observations(64)
+    initial=deepcopy(agent.checkpoint())
+    batch=dict(actor_obs=obs,critic_obs=torch.zeros(64,4),action=agent.act(obs),
+        next_actor_obs=obs.clone(),next_critic_obs=torch.zeros(64,4),
+        reward=torch.ones(64),terminated=torch.ones(64,dtype=torch.bool))
+    agent.update(batch)
+    contract=dict(initial_critic_warmup=2048,fade_critic_updates=20000,
+        same_physical_unit_fixture=True)
+    meta=dict(artifact_type='staged_base_hold_remaining_hybrid_sac_v1',goal_contract=contract,
+        actor_updates=1,critic_updates=2050)
+    best=initial|meta|dict(actor_updates=0,critic_updates=0)
+    latest=agent.checkpoint()|meta
+    current=tmp_path/'current';current.mkdir()
+    torch.save(latest,current/'checkpoint.pt');torch.save(best,tmp_path/'best.pt')
+    (current/'manifest.json').write_text('{}')
+    torch.save(dict(goal_contract=contract,executed_goal_transitions=batch),current/'staged_goal_experience.pt')
+    path,audit=recover(current/'checkpoint.pt',tmp_path/'best.pt',tmp_path/'recovered',
+        normalize_prior_loss_by_radius=True,anchor_prior_to_validated_policy=True,
+        replay_capacity=1024,actor_min_replay_rows=128)
+    state=torch.load(path,weights_only=True)
+    for key,value in state['model'].items():
+        assert torch.equal(value,(best if key.startswith('actor.') else latest)['model'][key])
+    assert state['algorithm']=='hybrid_goal_sac' and len(state['optimizers'])==4
+    assert state['optimizers'][0]['state']=={}
+    for actual,expected in zip(state['optimizers'][1:],latest['optimizers'][1:]):
+        assert actual['param_groups']==expected['param_groups']
+        for parameter,values in actual['state'].items():
+            for key,value in values.items():
+                assert torch.equal(value,expected['state'][parameter][key])
+    rows=torch.load(path.parent/'staged_goal_experience.pt',weights_only=True)['executed_goal_transitions']
+    for key,value in batch.items():assert torch.equal(value,rows[key])
+    assert audit['actual_rows']==64 and path.name=='checkpoint_00002050.pt'
+    assert state['actor_updates']==1 and state['critic_updates']==2050
+    invalid=best|dict(algorithm='asymmetric_sac');torch.save(invalid,tmp_path/'wrong.pt')
+    with pytest.raises(ValueError,match='binary Q'):
+        recover(current/'checkpoint.pt',tmp_path/'wrong.pt',tmp_path/'invalid')

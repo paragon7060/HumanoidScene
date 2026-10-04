@@ -34,13 +34,15 @@ def main():
         help='Frozen-only TGS velocity iteration diagnostic; does not alter control dt or position iterations')
     probes.add_argument('--contact-last-probe',action='store_true',
         help='Frozen-only articulation contact solver ordering diagnostic; never contributes matching Q replay')
+    probes.add_argument('--pgs-probe',action='store_true',
+        help='Frozen-only PGS/TGS solver comparison; preserves timestep, iterations and safety')
     parser.add_argument('--steps',type=int,default=900)
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
     args=parser.parse_args()
     if not 1<=args.steps<=900 or args.output_dir.exists():parser.error('New output and 1..900 steps required')
-    if (args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe) and args.training:
+    if (args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or args.pgs_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
     n=len(waves[0]['layouts']) if waves else 0
@@ -136,6 +138,12 @@ def main():
                 physics_dt_s=cfg.sim.dt,control_dt_s=cfg.sim.dt*cfg.decimation,
                 all_iteration_counts_and_limits_unchanged=True,
                 success_and_safety_unchanged=True,Q_import_eligible=False)
+        if args.pgs_probe:
+            cfg.sim.physx.solver_type=0
+            solver_probe=dict(frozen_only=True,name='PGS_instead_of_TGS',
+                physics_dt_s=cfg.sim.dt,control_dt_s=cfg.sim.dt*cfg.decimation,
+                all_iteration_counts_and_limits_unchanged=True,
+                success_and_safety_unchanged=True,Q_import_eligible=False)
         profile=dict(weights=asdict(MultiBoxRewardWeights()),approach_scale_m=GRASP_APPROACH_REWARD_SCALE_M,
             assignment_scale_m=GRASP_ASSIGNMENT_SCALE_M,capture_scale_m=GRASP_CAPTURE_REWARD_SCALE_M,
             front_stage_clearance_m=FRONT_STAGE_CLEARANCE_M,front_stage_lane_tolerance_m=FRONT_STAGE_LANE_TOLERANCE_M,
@@ -157,6 +165,11 @@ def main():
                 'physxScene:solveArticulationContactLast').Get()
             if value is not True:raise ValueError('Requested contact-last solver ordering was not applied')
             print('[FROZEN SOLVER PROBE] '+json.dumps(solver_probe|{'actual_USD_flag':value}),flush=True)
+        if args.pgs_probe:
+            value=env.sim.stage.GetPrimAtPath(cfg.sim.physics_prim_path).GetAttribute(
+                'physxScene:solverType').Get()
+            if value!='PGS':raise ValueError('Requested PGS solver was not applied')
+            print('[FROZEN SOLVER PROBE] '+json.dumps(solver_probe|{'actual_USD_solver':value}),flush=True)
         dims={k:list(v) for k,v in env.observation_manager.group_obs_dim.items()}
         actions={k:env.action_manager.get_term(k).action_dim for k in env.action_manager.active_terms}
         if dims!=contract['observations'] or actions!=contract['actions']:

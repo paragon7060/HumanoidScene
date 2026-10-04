@@ -9,6 +9,7 @@ import torch
 
 from kuavo_isaaclab_scene.rl.runners.storage import save_checkpoint
 
+STAGED_TYPES={'staged_base_hold_remaining_goal_sac_v1','staged_base_hold_remaining_hybrid_sac_v1'}
 
 def recover(checkpoint,best_checkpoint,output_dir,*,replay_capacity=None,
             normalize_prior_loss_by_radius=False,actor_min_replay_rows=None,
@@ -16,11 +17,17 @@ def recover(checkpoint,best_checkpoint,output_dir,*,replay_capacity=None,
     checkpoint,best_checkpoint,output_dir=map(Path,(checkpoint,best_checkpoint,output_dir))
     current=torch.load(checkpoint,map_location='cpu',weights_only=True)
     best=torch.load(best_checkpoint,map_location='cpu',weights_only=True)
-    if (current.get('artifact_type') not in {'pose_goal_sac_no_live_reference','staged_base_hold_remaining_goal_sac_v1'}
+    if (current.get('artifact_type') not in {'pose_goal_sac_no_live_reference',*STAGED_TYPES}
             or best.get('artifact_type')!=current['artifact_type']
             or current.get('goal_contract')!=best.get('goal_contract')
             or current['config']!=best['config']):
         raise ValueError('Actor recovery requires the same goal-SAC policy/physical contract')
+    staged=current['artifact_type'] in STAGED_TYPES
+    if current['artifact_type']=='staged_base_hold_remaining_hybrid_sac_v1' and (
+            current.get('algorithm')!='hybrid_goal_sac' or best.get('algorithm')!='hybrid_goal_sac'
+            or current.get('hybrid_contract')!=best.get('hybrid_contract')
+            or len(current.get('optimizers',[]))!=4 or len(best.get('optimizers',[]))!=4):
+        raise ValueError('Hybrid actor recovery requires matching binary Q and both entropy optimizers')
     # The input normalizer is frozen; different normalization would invalidate
     # the best network. Leave all critic normalization and optimizer state live.
     for key,value in best['model'].items():
@@ -29,7 +36,7 @@ def recover(checkpoint,best_checkpoint,output_dir,*,replay_capacity=None,
         if key.startswith('actor.'):
             current['model'][key]=value
     current['optimizers'][0]['state']={}
-    experience_name=('staged_goal_experience.pt' if current['artifact_type']=='staged_base_hold_remaining_goal_sac_v1'
+    experience_name=('staged_goal_experience.pt' if staged
                      else 'pose_goal_experience.pt')
     actual=torch.load(checkpoint.parent/experience_name,map_location='cpu',weights_only=True)
     if actual.get('goal_contract')!=current['goal_contract']:
@@ -41,7 +48,7 @@ def recover(checkpoint,best_checkpoint,output_dir,*,replay_capacity=None,
                latest_critic_optimizer_and_replay_preserved=True,
                actor_updates_not_reset=True,actual_rows=len(actual['executed_goal_transitions']['action']))
     if replay_capacity is not None or normalize_prior_loss_by_radius or actor_min_replay_rows is not None or anchor_prior_to_validated_policy:
-        if current['artifact_type']!='staged_base_hold_remaining_goal_sac_v1':
+        if not staged:
             raise ValueError('Training migration options require the staged21-goal controller')
         contract=dict(current['goal_contract'])
         if type(anchor_prior_to_validated_policy) is not bool or (
@@ -87,7 +94,7 @@ def recover(checkpoint,best_checkpoint,output_dir,*,replay_capacity=None,
     manifest=json.loads((checkpoint.parent/'manifest.json').read_text())|dict(
         actor_recovery=audit,goal_contract=current['goal_contract'])
     output_dir.mkdir(parents=True,exist_ok=False)
-    index=current['critic_updates'] if current['artifact_type']=='staged_base_hold_remaining_goal_sac_v1' else current['actor_updates']
+    index=current['critic_updates'] if staged else current['actor_updates']
     destination=save_checkpoint(output_dir,current,index,keep=None)
     torch.save(actual,output_dir/experience_name)
     (output_dir/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')

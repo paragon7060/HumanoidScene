@@ -717,3 +717,35 @@ GPU0 접촉 순서 진단의 실제 종료·Drive 검증 뒤 같은16개 case를
 실행하도록 CPU 대기 서비스를 등록했다. 외부 작업을 종료하지 않고, dependency가
 실패하면 자동으로 비교를 시작하지 않는다. 이 서비스는 실제 서버 실행 대기이며
 채팅/LLM의 자동 점검 예약은 아니다.
+
+## 14:57 · 물리 발산의 실제 전이와 hybrid 복구 경로
+
+종료·Drive 검증된 frozen reset 반복의 box-speed 실패17개를 actual HDF로 조사했다.
+4개는 마지막5tick 양손이 모두 열려 있었고, failure 직전 양손 pinch는1개뿐이었다.
+최대 사례는 제어1tick 동안0.07688m/s에서 **1.7272e10m/s**로 튀었으며, 기록된
+pose/rotation feature는 유한했다. 이 frozen evaluation에는 actor/Q/replay 학습이
+없었다. 따라서 SAC의 stochastic jaw 닫힘만으로 모든 발산을 설명할 수 없다.
+Mass ratio·closed linkage·접촉 solver 불안정은 조사 가설이며 원인 확정은 아니다.
+
+![종료된 실제 전이의 속도·접촉·jaw 명령](assets/rl_v2_frozen_box_speed_failure_20261004.png)
+
+GPU0 contact-last 비교는 **1/16**, rack 실패10·speed 실패1·initial 불량1로 끝났다.
+이 실행의 writer 종료 및 최종 HDF/로그 Drive 검증을 확인했다. 같은16개·같은
+initial actor·같은 parallel origins의 원래 TGS 비교가14:40에 시작됐으며, 그 종료와
+Drive 검증 후 **PGS만 변경**하는 frozen 비교를 순차 실행하도록 CPU 서비스를 등록했다.
+PGS의 실제 USD solverType도 확인하고 physics/control dt·iteration·안전/성공 조건을
+유지한다. 이 진단의 replay는 현재 TGS Q에 import하지 않는다. NVIDIA의
+[closed-loop 사례](https://forums.developer.nvidia.com/t/closed-articulation-simulation-problem/258431?page=2)는
+비교 가설의 근거이며 현재 Leju/box 문제의 해결을 보장하지 않는다.
+
+GPU3 첫 TRAIN wave는3/128 success·initial 불량41·안전66·timeout18로 끝났다.
+이는 stochastic TRAIN 결과이며 deterministic 개발 성공률 개선으로 해석하지 않는다.
+Actual held replay43,158행·critic1,474회·actor0회였고 두 번째 TRAIN으로 이어졌다.
+개발128개 baseline15/128·상단0이라는 한계를 계속 유지해 기록한다.
+
+`recover_pose_goal_actor.py`는 hybrid 계약도 엄격히 확인한다. 회귀 후 **종료된**
+동일 hybrid 계약에서 검증된 actor만 복구하고, 최신 binary Q/target·critic Adam·
+continuous/discrete alpha와 두 optimizer·실제 replay·update 횟수는 보존한다.
+Actor Adam moment만 초기화하고 새 고유 폴더에 저장한다. 다른 solver/관측 계약의
+Q를 이전하거나 DEV transition을 학습 데이터로 쓰지 않는다. 관련 CPU42검사 통과.
+현재 GPU3 actor를 되돌리거나 live process 코드를 교체한 것은 아니다.

@@ -319,3 +319,19 @@ settling을 사용한다. 초기 layout guard와 reset 계약을 manifest/HDF에
 전이 필드마다 한 번 resize/write한다. LZF 압축과64행 이하 chunk를 사용하며 실제
 행/값/정렬/라벨을 바꾸지 않는다. Quest의 한 행씩 실시간 기록은 기존 `append`를
 유지한다. 이미 실행 중인 프로세스에는 코드를 교체하지 않으므로 새 실행부터 적용된다.
+
+### Hybrid actor 회귀 복구와 solver 진단
+
+`recover_pose_goal_actor.py`의 동일-contract 복구는 hybrid SAC에서도 지원한다.
+`staged_base_hold_remaining_hybrid_sac_v1`, `hybrid_goal_sac`와 binary jaw 계약,
+4개 optimizer, 고정 actor normalization이 모두 같아야 한다. Writer가 종료된 뒤
+최신 checkpoint와 같은 폴더의 `staged_goal_experience.pt`, 개발 평가로 선택한
+best actor checkpoint를 입력한다. 최신 Q/target·critic optimizer·두 entropy
+optimizer·실제 replay·update 횟수를 보존하고 actor와 actor Adam moment만
+교체한다. 독립 final을 actor 선택에 쓰지 않는다. 사용 명령은 위 복구 예와 같다.
+
+`--pgs-probe --no-training`은 PGS solver0만 선택하는 frozen 비교다. 실제 USD
+`physxScene:solverType=PGS`를 확인하고 dt·iteration·velocity cap·success·safety를
+유지한다. TRAIN과 다른 solver probe는 거부한다. 변경된 dynamics 진단으로
+명시하며 기존 TGS Q/replay의 seed로 허용하지 않는다. 같은 정책·case·환경 수와
+원점의 원래 설정으로 비교해야 하고, 채택 시 새로운 dynamics의 fresh Q가 필요하다.
