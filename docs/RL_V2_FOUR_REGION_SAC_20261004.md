@@ -1074,3 +1074,26 @@ action contract를 HDF manifest에 기록한다. S63/RL dataset에서만 허용�
 joint limits/pitch/safety는 유지한다. [수집 예시](RL_QUEST_REWARD_DEBUG.md#현재-held-base-sac의-상단-데모-6cm-upright-travel)를 참고한다.
 Quest headset의 새 수집까지 실행한 것은 아니다. Syntax와 shared torso CPU 검사로
 연결을 확인했으며 사용자께서는 파일을 수정할 필요가 없다. 추가 수집은 선택 사항이다.
+
+### 21:35 — 수치 복구 이후의 batch identity 오류 수정
+
+21:30 GPU3 writer가 두 번째 TRAIN 중 종료했다. Env125의 root-state nonfinite를
+quarantine하여 healthy next rows가75→74로 줄었지만, `pilot.anchor`와 held waypoint
+context는 act 시점75개를 유지했다. `PoseGoalSACPilot.observations`의 anchor expand가
+74/75 mismatch로 예외를 냈다. 이 중단은 OOM/다른 사용자의 GPU 작업 때문이 아니다.
+
+`observe_measured_held_rows`가 **같은 kept IDs**로 previous rows, next policy/critic,
+reward, terminal, clocks와 anchor/held waypoint를 함께 선택하도록 수정했다.
+Corrupt row는 계속 실패로 기록하고 Q/HDF에 넣지 않는다. Healthy terminal row는
+bootstrap 없는 실제 전이로 유지한다. Unit regression은 실제 warm observation의
+anchor expansion과 각 환경의 waypoint/clock identity를 함께 확인한다.
+
+Future runner 예외에서는 finite learner일 때만 이전에 측정한 replay와 checkpoint를
+종료 전에 저장한다. 이번 이미 종료된 GPU3에는 이 개선을 소급 적용할 수 없다.
+최신 saved Q checkpoint8192와 마지막 완료 wave의 replay217497행으로 재개하며,
+현재 wave의 미저장 메모리 전이를 복구했다고 주장하지 않는다. CUDA 장치, same-MDP
+replay/waypoints/물리/보상/성공 기준은 유지한다. 파일을 user가 직접 고칠 필요는 없다.
+
+GPU0에도 같은 구 코드가 로드돼 있어 **우리 supervisor만** 정상 종료하도록 했다.
+그 run의 최신 learner와 실제 replay를 저장하고 종료/Drive 검증 후 새 폴더로 재개한다.
+다른 프로세스에는 신호를 보내지 않았다.27개 staged/hybrid/batch 검사를 통과했다.

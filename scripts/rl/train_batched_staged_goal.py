@@ -84,7 +84,7 @@ def main():
     export_robot_model_cli(args);export_gripper_cli(args);export_rack_roller_cli(args);export_base_drive_cli(args)
     app=AppLauncher(args).app
     stopped={'value':False};signal.signal(signal.SIGTERM,lambda *_:stopped.update(value=True))
-    env=recorder=None;output=args.output_dir.resolve()
+    env=recorder=pilot=None;output=args.output_dir.resolve()
     try:
         import torch
         import numpy as np
@@ -101,7 +101,7 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import StagedGoalSACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_hybrid_goal_sac import StagedHybridGoalSACPilot
-        from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard,WAVE_RESET_CONTROLLER_CONTRACT,evaluate_development_wave,measured_wave_mask
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard,WAVE_RESET_CONTROLLER_CONTRACT,evaluate_development_wave,measured_wave_mask,observe_measured_held_rows
         from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import GraspActionProjector
         from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
         from kuavo_isaaclab_scene.rl.multi_box.debug.contact_sensors import V2_RACK_SENSOR_NAMES,V2_COLLISION_BODY_NAMES
@@ -359,12 +359,8 @@ def main():
                         if not torch.allclose(reward[active],env._multi_box_grasp_reward_breakdown.total[active],atol=1e-5,rtol=1e-5):
                             raise ValueError('Actual vector reward differs from current breakdown')
                         if previous is not None:
-                            measured=active[ids]
-                            if measured.any():
-                                valid_ids=ids[measured]
-                                pilot.observe(tuple(v[measured] for v in previous),terminal['policy'][valid_ids],
-                                    torch.cat((terminal['policy'],terminal['critic']),-1)[valid_ids],
-                                    reward[valid_ids],terminated[valid_ids],clocks[measured])
+                            observe_measured_held_rows(pilot,stages,ids,previous,terminal,
+                                reward,terminated,clocks,active)
                         # One transfer per field, rather than per environment.
                         # Scene collection remains exactly the executed tensor.
                         pc={k:v.cpu().numpy() for k,v in pre.items()}
@@ -457,6 +453,15 @@ def main():
         import traceback
         failure=traceback.format_exc()
         print(failure,flush=True)
+        if pilot is not None and args.training:
+            # Preserve previously measured rows on a runner error. A corrupt
+            # learner must never replace its last finite checkpoint.
+            try:
+                if all(bool(torch.isfinite(v).all()) for v in pilot.agent.state_dict().values()):
+                    pilot.save(final=True)
+                    print('[FAILURE CHECKPOINT] finite learner and previous measured replay saved',flush=True)
+            except Exception:
+                print('[FAILURE CHECKPOINT] '+traceback.format_exc(),flush=True)
         output.mkdir(parents=True,exist_ok=True)
         if not (output/'manifest.json').exists():
             (output/'manifest.json').write_text(json.dumps(dict(artifact_type='batched_staged_runtime_failure',

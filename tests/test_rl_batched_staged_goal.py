@@ -289,3 +289,44 @@ def test_per_environment_clock_and_yaw_match_individual_decoding():
         torch.testing.assert_close(batched[i:i+1],held_goal_coordinates(Decoder(),raw[i:i+1],requested[i:i+1],single))
     context=staged_context(raw,stage,.05)
     torch.testing.assert_close(context[:,3],stage.target_yaw.sin())
+
+
+def test_numerical_quarantine_keeps_anchor_waypoint_clock_and_next_rows_on_same_ids():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import observe_measured_held_rows
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
+    raw,templates=scene();raw=raw.repeat(4,1);raw[:,98]=torch.tensor([-.2,-.1,.1,.3])
+    stages=BatchedBaseStages(Coordinates(),templates,raw)
+    raw[:,20]=raw[:,98];raw[:,21]=.7
+    zero=torch.zeros(4,3);active=torch.ones(4,dtype=torch.bool)
+    for step in range(15):stages.update(raw,zero,zero,active,step)
+    ids=torch.tensor([0,2,3]);clocks=torch.tensor([5,11,17])
+    class Pilot:
+        def observe(self,previous,next_raw,next_critic,reward,terminated,index):
+            # Exercise the real next-observation anchor expansion that crashed
+            # when75 acted rows became74 after a numerical replacement.
+            warm=SimpleNamespace(coordinates=SimpleNamespace(
+                observations=lambda raw,index,harmonics,horizon,**kwargs:raw),
+                harmonics=1,clock_horizon=594,prior=SimpleNamespace(state={}))
+            features,critic=PoseGoalSACPilot.observations(warm,next_raw,next_critic,index,self.anchor)
+            assert len(features)==len(critic)==len(previous[0])==2
+            torch.testing.assert_close(features[:,-2:],stages.anchors[torch.tensor([0,3])])
+            torch.testing.assert_close(self.stage.target_xy,stages.target_xy[torch.tensor([0,3])])
+            assert index.tolist()==[5,17]
+            assert previous[0].flatten().tolist()==[10.,30.]
+            assert reward.tolist()==[1.,4.]
+            assert terminated.tolist()==[False,True]
+            self.observed=True
+    # Actor features for this fixture need only the native anchor concatenation.
+    # Real pose_clock remains independently tested above.
+    pilot=Pilot();pilot.stage=stages.held_context(ids);pilot.anchor=stages.anchors[ids].clone()
+    terminal=dict(policy=raw.clone(),critic=torch.zeros(4,66))
+    previous=(torch.tensor([[10.],[20.],[30.]]),)*3
+    # ID2 had a numerical reset; healthy terminal ID3 remains a true Q row.
+    measured=torch.tensor([True,False,False,True])
+    assert observe_measured_held_rows(pilot,stages,ids,previous,terminal,
+        torch.arange(1,5,dtype=torch.float),torch.tensor([False,False,True,True]),clocks,measured)==2
+    assert pilot.observed
+    pilot.observed=False
+    assert observe_measured_held_rows(pilot,stages,ids,previous,terminal,
+        torch.ones(4),torch.zeros(4,dtype=torch.bool),clocks,torch.zeros(4,dtype=torch.bool))==0
+    assert not pilot.observed

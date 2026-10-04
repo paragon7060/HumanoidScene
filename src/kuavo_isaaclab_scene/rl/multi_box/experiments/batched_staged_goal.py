@@ -172,6 +172,24 @@ def measured_wave_mask(active, numerical_failure, diagnostics, last, step):
     return active&~numerical_failure
 
 
+def observe_measured_held_rows(pilot,stages,ids,previous,terminal,reward,terminated,clocks,measured):
+    """Keep physical rows and their per-environment context on identical IDs.
+
+    Numerical quarantine can remove a row after act(). Its anchor and held
+    waypoint must also leave observe(); retaining the pre-step context mixes
+    identities or crashes the entire healthy learner batch.
+    """
+    keep=measured[ids]
+    if not bool(keep.any()):return 0
+    valid_ids=ids[keep]
+    pilot.stage=stages.held_context(valid_ids)
+    pilot.anchor=stages.anchors[valid_ids].clone()
+    pilot.observe(tuple(v[keep] for v in previous),terminal['policy'][valid_ids],
+        torch.cat((terminal['policy'],terminal['critic']),-1)[valid_ids],
+        reward[valid_ids],terminated[valid_ids],clocks[keep])
+    return len(valid_ids)
+
+
 class BatchedBaseStages:
     def __init__(self,coordinates,templates,raw):
         self.stages=[StagedBaseHoldDiagnostic(coordinates,templates,row[None]) for row in raw]
