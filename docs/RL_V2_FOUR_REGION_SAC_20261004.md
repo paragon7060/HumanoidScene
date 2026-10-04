@@ -1097,3 +1097,30 @@ replay/waypoints/물리/보상/성공 기준은 유지한다. 파일을 user가 
 GPU0에도 같은 구 코드가 로드돼 있어 **우리 supervisor만** 정상 종료하도록 했다.
 그 run의 최신 learner와 실제 replay를 저장하고 종료/Drive 검증 후 새 폴더로 재개한다.
 다른 프로세스에는 신호를 보내지 않았다.27개 staged/hybrid/batch 검사를 통과했다.
+
+### 21:49 — checksum 검증 후 identity 수정 버전 재개
+
+이전 TGS/PGS의 writer가 종료한 뒤 checkpoint, logs, HDF와 저장된 실제 replay의
+Drive 크기/MD5 검증을 마쳤다. 양쪽 manager의 `final_upload_verified=true`를 확인했다.
+TGS는 runtime exception, PGS는 수정 코드를 다시 로드하기 위한 요청 종료이며,
+`training_exit_code=1`을 학습 성공/정상 완료로 해석하지 않는다.
+
+| 새 실행 | 장치 / env | 복원 source |
+|---|---|---|
+| `staged_hybrid_aligned_resume_tgs128_gpu3_20261004_214722` | GPU3 /128 | TGS checkpoint8192 + 완료 wave replay217497행 |
+| `staged_hybrid_aligned_resume_pgs128_gpu0_20261004_214747` | GPU0 /128 | PGS checkpoint12588 + 요청 종료 때 저장된 실제 replay |
+
+이번 재개에서는 actor를 rollback하지 않고 저장된 actor/Q/optimizer와 실제 replay를
+복원한다. TGS의 오류 당시 미저장 wave 전이는 사용할 수 없으며, 이미 저장된
+same-MDP replay만 사용한다. Source 첫 TRAIN 성공은 TGS1/128, PGS2/128이었다.
+128-case baseline DEV10/128·5/128은 복구 actor의 평가이며 새 학습 개선으로 세지 않는다.
+상단의 반복 성공과 독립 초기 base/box 일반화는 아직 달성하지 못했다.
+
+실제 두 새 writer PID, CUDA_VISIBLE_DEVICES=3/0과 해당 물리 GPU의 단독 사용을
+확인했다. 다른 사용자의 GPU1/2 프로세스는 그대로 두었다. 시작 당시 디스크 여유는
+약42GB였다. 기존 Drive remote/300초 검사/검증한 오래된 checkpoint만 정리/최근2개
+보존/종료 후 로그 검증을 같은 manager로 유지한다. 26-wave 원래 TRAIN/DEV/FINAL
+schedule과 base/box randomization, collision/success 기준도 유지한다.
+
+`8b6e09f`의 kept-ID regression 검사27개를 통과했다. 새 실행의 초기화와 실제
+rollout/학습은 현재 상태/PID/log로 확인하며, 재개 자체를 성능 개선으로 보지 않는다.
