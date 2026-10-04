@@ -596,6 +596,8 @@ def main():
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
             caption=(f'SAC TRAIN data | FROZEN weights, optimizer=0 | {args.train_collection_behavior}' if goal_collector else
+                     f'Base hold + physical-command SAC | NO live reference/IK | train={staged_goal_sac.training}'
+                     if staged_goal_sac and staged_goal_sac.artifact_type=='staged_held_physical_body_hybrid_sac_v1' else
                      f'Base hold + SAC21 goals | NO live reference/IK | train={staged_goal_sac.training}' if staged_goal_sac else
                      f'Base staging + FROZEN approach + local IK | TEACHER, NOT SAC' if staged_contact_ik else
                      f'Base staging + FROZEN grasp | DIAGNOSTIC, not new SAC' if staged_base else
@@ -647,7 +649,9 @@ def main():
             if staged_contact_ik:
                 row['staged_contact_ik']=staged_contact_ik.report()
             if staged_goal_sac:
-                row['staged_goal_sac']=dict(actor_updates=staged_goal_sac.actor_updates,
+                staged_key=('staged_physical_body_sac'
+                    if staged_goal_sac.artifact_type=='staged_held_physical_body_hybrid_sac_v1' else 'staged_goal_sac')
+                row[staged_key]=dict(actor_updates=staged_goal_sac.actor_updates,
                     critic_updates=staged_goal_sac.critic_updates,
                     radius=staged_goal_sac.radius,training=staged_goal_sac.training)
             if args.contact_diagnostics:

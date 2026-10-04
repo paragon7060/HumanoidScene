@@ -254,7 +254,8 @@ CUDA_VISIBLE_DEVICES=2 PYTHONPATH=src:scripts/rl \
 
 Episode0은 중간, episode1은 상단의 초기 장면을 복원하는 용도다. 평가 행동은
 checkpoint에서 나오며 live VR/IK teacher를 실행하지 않는다. 기존 DEV에서
-성공한 상단오른쪽 seed121306은 GPU2 단일 환경으로 영상 재생 중이다.
+성공한 상단오른쪽 seed121306은 GPU2 단일 환경 재생을 완료했지만 성공을
+재현하지 못했다. 아래 측정 기록을 참고한다.
 선택한 DEV 장면의 시각적 재현이며 새로운 FINAL이나 학습 개선으로 세지 않는다.
 종료된 `policy.mp4`는 H.264 브라우저 형식으로 변환하고 기존 Drive로
 영상·HDF·로그를 크기/MD5 검증한다.
@@ -272,4 +273,46 @@ Drive 크기·MD5와 다른 독자가 없음을 다시 확인한 뒤 로컬에�
 그 기록도 Drive 검증했다. 초기 checkpoint에서 다시 시작하려면 이 replay를
 먼저 같은 폴더에 다운로드하고 검증해야 한다. 현재 실행의 최신 checkpoint로
 이어갈 때는 현재 실행 폴더의 자체 replay를 사용한다.
+
+## 10/05 08:26 · 첫 TRAIN 성공과 상단오른쪽 초기 정책의 재생 실패
+
+GPU2 단일 환경의 seed121306 재생은893step(29.77s) 후 안전 위반 없이
+timeout으로 끝났다. 초기 batched DEV에서의 성공을 그대로 재현하지 못했다.
+Actor/Q/replay counter는 전후 모두0이고, 같은 source actor4865의 frozen
+명령을 사용했다. 새 학습 정책의 성능 하락이나 gain 효과를 보여주는 비교는
+아니다. 초기 기반 정책의 성공이 안정적으로 재현되지 않는다는 실제 증거다.
+
+| 실제 측정 | 왼손 | 오른손 |
+|---|---:|---:|
+| 가장 가까웠던 assigned flap 중심 거리 | 9.08cm | 7.08cm |
+| 종료 시 assigned 중심 거리 | 12.92cm | 10.66cm |
+| front/back jaw 최대 힘 | 0/0N | 0/44.62N |
+| Qualified opposing pinch 발생 | 없음 | 없음 |
+
+오른손 한 pad의44.62N만으로 성공으로 기록하지 않는다. 양쪽 jaw 각각5N,
+양손 opposing flap/안정 hold/proof-lift 조건은 그대로다. 이 궤적의 actual과
+nominal flap 중심 차이는 최대0.173mm, normal 차이는0.20도였다. 따라서
+이 사례를 큰 flap 관측 오차 하나로 설명할 수는 없다. 왼손의 실제 진입과
+양쪽 jaw 접촉이 부족했고, frozen 접근 명령을 보정하는 학습이 필요하다.
+Batch와 단일 재생의 어느 초기 상태·제어 차이가 실패를 만들었는지까지
+단정하지 않는다. 실행 중인 source HDF의 잠금을 우회해 읽지는 않았다.
+
+![손 접근·jaw 힘·닫힘 시점](assets/rl_v2_physical_body_UR_cold_replay_20261005.png)
+
+![원본 마지막 프레임: 양손 pinch 없음](assets/rl_v2_physical_body_UR_cold_replay_terminal_20261005.png)
+
+[893step 측정·실패 결과·영상 형식·Drive 검증](assets/rl_v2_physical_body_UR_cold_replay_20261005.json).
+영상150frame을 H.264/avc1/yuv420p로 전체 디코딩 확인했고 종료된 영상,
+HDF와 로그를 Drive에서 크기·MD5 검증했다. Notion에는 native MP4와 이
+그래프/원본 마지막 프레임을 함께 기록한다. 이 최초 영상의 상단 overlay는
+기존 `SAC21 goals` 문구를 물려받았지만, 실제 checkpoint/명령은 physical
+body21이다. 이후 재생의 caption과 per-step metadata는 physical 형식으로
+구분하도록 수정했으며, 원본 영상은 측정 자료로 그대로 보존했다.
+
+GPU0의 실제 학습은 계속 진행 중이다. Gain0.5 첫 TRAIN128배치가 완료되어
+actor354/Q2439와 안전한 성공7개(중간오른쪽5/중간왼쪽1/상단왼쪽1)를 확인했다.
+각 성공은 전체 episode/실제 양손 pinch/안정 hold0.2667s/보정된 lift
+19.73..30.40mm/안전 flag 없음으로 검토했다. Gain2도 actor33/Q1156까지
+새 업데이트를 시작했다. 다음 학습 후 DEV와 새 독립 FINAL은 아직 없으므로
+TRAIN 성공을 확정된 일반화 개선으로 해석하지 않는다.
 기존6GB HDF정리와합쳐약10GB를회수했고현재여유약18GiB다.
