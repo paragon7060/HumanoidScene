@@ -172,6 +172,40 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     assert not any(p.requires_grad for p in restored_confident.frozen_actor_prior.parameters())
     torch.testing.assert_close(restored_confident.act(raw,critic,0)[0],command)
 
+    # Behavior bias affects actual TRAIN commands only, survives resume as
+    # configuration, and never changes greedy evaluation or Q action labels.
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.episode_arm_exploration import episode_arm_exploration_contract
+    arm=StagedHybridGoalSACPilot(warm,contract,tmp_path/'arm_bias',stage,
+        free_grippers=True,fixed_prior_radius=.05,exploration_correlation=.98,
+        episode_arm_exploration=episode_arm_exploration_contract())
+    measured=raw.clone();measured[:,96]=1
+    arm.act(measured,critic,90)  # collecting warmup stays greedy
+    assert arm.arm_behavior is None
+    hybrid_fixture={k:v[:64].clone() for k,v in pilot.replay.data.items()}
+    hybrid_fixture['action'][:,19:21]=-1  # unit fixture uses valid binary jaw labels
+    arm.replay.add(**hybrid_fixture);arm.history.append(hybrid_fixture)
+    arm.reset_exploration(2)
+    physical,previous_arm=arm.act(measured,critic,90,exploration_ids=torch.tensor([1]))
+    assert arm.arm_behavior.initialized.tolist()==[False,True]
+    assert arm.report()['episode_arm_behavior']['body_bias_rms']>0
+    torch.testing.assert_close(physical[:,list(GOAL_COLUMNS)],previous_arm[2])
+    arm.observe(previous_arm,measured,critic,torch.ones(1),torch.zeros(1,dtype=torch.bool),90)
+    torch.testing.assert_close(arm.replay.data['action'][64],previous_arm[2][0])
+    arm.directory.mkdir();arm.save(final=True)
+    arm_cp=next(arm.directory.glob('checkpoint_*.pt'))
+    arm_resumed=StagedHybridGoalSACPilot(warm,contract,tmp_path/'arm_resume',stage,checkpoint=arm_cp)
+    assert arm_resumed.episode_arm_exploration==episode_arm_exploration_contract()
+    assert arm_resumed.replay.size==65
+    torch.testing.assert_close(arm_resumed.replay.data['action'][:65],arm.replay.data['action'][:65])
+    arm_eval=StagedHybridGoalSACPilot(warm,contract,tmp_path/'arm_eval',stage,checkpoint=arm_cp,training=False)
+    arm_eval.reset_exploration(2);rng=torch.random.get_rng_state().clone()
+    before_eval=(arm_eval.actor_updates,arm_eval.critic_updates,arm_eval.replay.size)
+    actual_eval=arm_eval.act(measured,critic,90,exploration_ids=torch.tensor([1]))[1]
+    torch.testing.assert_close(actual_eval[2],arm_eval.agent.act(actual_eval[0],True))
+    assert torch.equal(torch.random.get_rng_state(),rng) and not arm_eval.arm_behavior.initialized.any()
+    arm_eval.observe(actual_eval,measured,critic,torch.ones(1),torch.zeros(1,dtype=torch.bool),90)
+    assert (arm_eval.actor_updates,arm_eval.critic_updates,arm_eval.replay.size)==before_eval
+
     # Actual-success retention is opt-in. Its newest closed bank belongs to
     # the replay snapshot even when an immutable checkpoint counter repeats.
     from test_rl_staged_train_success import episode

@@ -65,6 +65,23 @@ def test_behavior_copula_keeps_binary_commands_and_deterministic_playback():
     assert torch.equal(agent.act(obs,True),deterministic)
 
 
+def test_arm_behavior_offset_changes_actual_goals_without_changing_jaws_or_evaluation():
+    agent,obs=agent_and_observations(16)
+    with torch.no_grad():
+        agent.actor.network[-1].weight.zero_();agent.actor.network[-1].bias.zero_()
+        agent.actor.network[-1].bias[21:].fill_(torch.log(torch.tensor(.005)))
+    deterministic=agent.act(obs,True).clone()
+    noise=torch.randn(16,21);before=agent.act_with_latent_noise(obs,noise)
+    offset=torch.zeros(16,19);offset[:,1:15]=.02
+    changed=agent.act_with_latent_noise(obs,noise,body_latent_offset=offset)
+    assert (changed[:,1:15]>before[:,1:15]).all()
+    torch.testing.assert_close(changed[:,[0,15,16,17,18,19,20]],before[:,[0,15,16,17,18,19,20]])
+    assert (changed.abs()<=1).all() and (changed[:,19:21].abs()==1).all()
+    assert torch.equal(agent.act(obs,True),deterministic)
+    with pytest.raises(ValueError,match='finite19-D'):
+        agent.act_with_latent_noise(obs,noise,body_latent_offset=torch.full((16,19),torch.nan))
+
+
 def test_learning_and_both_entropy_optimizers_survive_checkpoint():
     torch.manual_seed(8)
     agent,obs=agent_and_observations(64)

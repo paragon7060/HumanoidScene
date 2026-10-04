@@ -32,9 +32,12 @@ class CorrelatedGoalExploration:
         return value
 
     @torch.no_grad()
-    def act(self, agent, observation, ids):
+    def act(self, agent, observation, ids, *, body_latent_offset=None):
         if hasattr(agent,'act_with_latent_noise'):
-            return agent.act_with_latent_noise(observation,self.sample_noise(ids))
+            options={} if body_latent_offset is None else dict(body_latent_offset=body_latent_offset)
+            return agent.act_with_latent_noise(observation,self.sample_noise(ids),**options)
+        if body_latent_offset is not None:
+            raise ValueError('Episode-arm behavior requires an explicit hybrid goal agent')
         normalized=agent.actor_normalizer(agent.actor_features(observation))
         mean,log_std=agent.actor.network(normalized).chunk(2,-1)
         std=log_std.clamp(agent.actor.log_std_min,agent.actor.log_std_max).exp()

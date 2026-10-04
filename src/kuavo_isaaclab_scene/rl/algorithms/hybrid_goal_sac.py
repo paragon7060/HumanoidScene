@@ -56,8 +56,12 @@ class HybridGoalSAC(AsymmetricSAC):
         magnitude=math.log(confidence/(1-confidence))
         return torch.where(reference>0,magnitude,-magnitude)
 
-    def continuous_sample(self, normalized, *, deterministic=False,noise=None):
+    def continuous_sample(self, normalized, *, deterministic=False,noise=None,body_latent_offset=None):
         mean,log_std,logits=self.parameters_at(normalized)
+        if body_latent_offset is not None:
+            if body_latent_offset.shape!=mean.shape or not torch.isfinite(body_latent_offset).all():
+                raise ValueError('Behavior offset needs one finite19-D latent vector per measured state')
+            mean=mean+body_latent_offset
         std=log_std.exp()
         latent=mean if deterministic else mean+std*(torch.randn_like(mean) if noise is None else noise)
         correction=2*(math.log(2)-latent-F.softplus(-2*latent))
@@ -75,10 +79,10 @@ class HybridGoalSAC(AsymmetricSAC):
         return self.projected_command(actor_obs,body,closed)
 
     @torch.no_grad()
-    def act_with_latent_noise(self, actor_obs,noise):
+    def act_with_latent_noise(self, actor_obs,noise,*,body_latent_offset=None):
         if noise.shape!=(len(actor_obs),21):raise ValueError('One21-D behavior noise per environment required')
         normalized=self.actor_normalizer(self.actor_features(actor_obs))
-        body,_,logits=self.continuous_sample(normalized,noise=noise[:,:19])
+        body,_,logits=self.continuous_sample(normalized,noise=noise[:,:19],body_latent_offset=body_latent_offset)
         # Normal CDF gives stationary uniform marginals (and Bernoulli(p) at
         # a fixed state). Feedback-correlated collection remains off-policy;
         # target/actor expectations use the independent categorical policy.

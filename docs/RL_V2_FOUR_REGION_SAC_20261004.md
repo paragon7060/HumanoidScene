@@ -1472,3 +1472,80 @@ episode가 달라진 비교도 거부한다.
 [사용법](RL_V2_STAGED_GOAL_SAC.md#그리퍼-motor-drive만-비교하는-frozen-진단).
 기존 학습을 중단하거나 기본 물리값을 변경하지 않았고 다른 스레드의 영상 코드
 변경은 별도로 보존했다.
+
+### 10/05 03:46 — 구동 비교 완료 / 연속 팔 탐색 SAC 분기 시작
+
+그리퍼 drive만 바꾼 frozen 비교48회가 모두 끝났다. 같은16개 DEV initial layouts를
+original→soft_2nm→original로 반복했으며 각 wave의 초기 유효 배치는14/16으로
+같았다. 마지막 반복에서 원래 stiffness4000/damping400/drive limit100Nm가 실제
+PhysX에 복원됐음을 확인했고, Q/actor 업데이트0·replay0을 유지했다. 종료 exit0과
+최종 HDF/구동 audit/로그의 Drive 검증도 완료했다.
+
+| 기록 | Original | Soft2Nm | Original 재시험 |
+|---|---:|---:|---:|
+| 성공 / 전체16배치 | 0 | 0 | 1 |
+| Robot-rack 종료 | 6 | 8 | 6 |
+| Box-speed 종료 | 4 | 1 | 2 |
+| Box-lift-limit 종료 | 2 | 0 | 0 |
+| Box-drop 종료 | 1 | 0 | 0 |
+
+원인은 중복될 수 있다. 성공은 중간 오른쪽 seed121101의 opposing 양손 파지,
+안전한 실제 proof lift이며 상단 성공은 없다. Soft에서 box-speed는 줄었지만
+robot-rack이 늘었고 성공도0이었다. **원래 구동값 자체의 재시험에서도 결과가
+달라졌다.** 작은 비교만으로 구동이 단독 원인이라고 결론내리거나 기본 학습
+구동을 바꾸지 않는다. 비교용 전이는 matching Q/replay에 넣지 않았다.
+
+동시에 닫힌 실제 TRAIN 관측2만개에서 selected actor3389/Q15602를 분석했다.
+Gaussian latent 표준편차는 평균0.0011002, 절대 관절 목표의 국소 표준편차는
+평균0.000572rad(약0.033°), torsoXZ는 평균0.051mm였다. 이는 tanh의 국소
+미분과 goal scale로 추정한 **projector 이전** 값이며 실제 손끝 탐색 거리의
+측정값이 아니다. 기존 ±0.05 projector에서 mean이 잘리는 차원은2.15%,
+어느 한 차원이라도 잘리는 관측은20.41%였다. 탐색이 좁다는 근거는 있지만
+projection을 실패의 단독 원인으로 입증한 것은 아니다.
+
+![구동 비교 완료와 새 팔 탐색 설정](assets/rl_v2_episode_arm_exploration_20261005.png)
+
+새 GPU3 분기 `staged_episode_arm_bias_pgs128_gpu3_20261005_034139`를 시작했다.
+실제 child는 `batch_sac_20261005_034139_08913c`,128env,
+`CUDA_VISIBLE_DEVICES=3`/내부cuda:0/renderer physical3/multiGPU off다.
+기존 GPU0/GPU3 학습과 다른 사용자 프로세스는 유지했다. 최초128-case DEV의
+실제 step 진행과 actor2635/Q12588/replay438808, 평가 bias 없음도 확인했다.
+이 DEV를 끝낸 뒤 TRAIN으로 진행하므로 시작 자체를 성능 개선으로 세지 않는다.
+
+- 팔14개에만 에피소드별 작은 latent 편차를 뽑아3초 동안 천천히 진입하고 유지한다.
+  중간σ0.005/상단σ0.02/표준정규 표본±2이며, 실제 명령은 기존 tanh와 ±0.05
+  projector를 거친21개 목표다. Waist/head/torso/jaw의 sampler는 유지한다.
+- TRAIN 수집만 바꾸며 actor/target 분포·Q action 좌표·entropy 목표는 유지한다.
+  DEV/FINAL에서는 편차를 샘플링하지 않는다. 박스/base randomization,
+  실제 구동·reward·안전·양손 파지/proof 성공 기준·waypoint를 유지한다.
+- 완전한 Drive 백업이 검증된 닫힌 초기 입력에서 Q/actor/정규화/optimizer/counter와
+  실제438808 TRAIN replay, 성공 bank826개 row를 그대로 복제했다. 새 replay의
+  tensor 동일성과 원본 파일 SHA256 불변을 확인했다. 실제1024개 TRAIN 관측에서
+  greedy policy가 정확히 같았고, 새 optimizer 업데이트는0이다. 선택 actor weights의
+  source counter3389와 matching Q 분기의 actor counter2635/Q12588를 구분한다.
+- 모델·manifest·초기화 audit의 Drive 크기/MD5 검증 뒤 시작했다.3.62GB 초기 replay
+  전체 업로드는 시작 시 진행 중으로 표시했으며 미검증 입력을 정리하지 않는다.
+  관리자는300초마다 기존 연결로 체크포인트를 검증하고 최근2개를 보관하며 종료
+  로그까지 업로드한다. 현재 검증 상태는 입력 receipt와 실행 부모 status로 확인한다.
+
+관련 CPU 테스트41개가 통과했다. Warmup/학습/평가 분리, 실제 binary jaw와
+projected replay label, resume, held-phase/region/환경ID 검사 및 평가 RNG 보존을
+확인했다. 이는 물리 성능 검증이 아니다. 기존 성공 유지 분기의 bank는4947row,
+wave4 완료 당시 중간TRAIN12개 보관 사례였다. Bank는 구역당4096row 상한을
+넘으면 오래된 whole episode를 제거하므로 보관 episode 수는 누적 성공 수와 다르다. 첫 학습 후
+DEV는 앞서 기록한3/128 대 초기4/128로 개선되지 않았다. 새 편차 분기의 이후
+같은 DEV를 확인하기 전에는 성공률 개선을 주장하지 않는다.
+
+[설정·초기화 사용법](RL_V2_STAGED_GOAL_SAC.md#에피소드-동안-유지하는-팔-탐색-편차),
+[전체 비교·탐색 수치](assets/rl_v2_episode_arm_exploration_20261005.json)를 참고한다.
+
+**03:51 추가 확인:** 기존 GPU3 성공 유지 분기의 TRAIN wave5는7/128 성공
+(중간오른쪽5/중간왼쪽1/상단왼쪽1), 초기유효93/128이었다. 이 분기의 새 TRAIN
+누적 성공은18회이며 bank는5957row/14개 보관 episode로 갱신됐다. **첫 상단
+왼쪽 성공은 seed120241/env38**이다. 양손 pinch/stable/opposing/proof 모두true,
+unsafe false,hold0.2667초,corrected rack clearance0.028316m를 확인했다.
+초기 base lateral+0.07085m/outward+0.04687m/yaw+0.03968rad와 박스
+lateral−0.03707m/yaw+0.01007rad/depth+0.000355m의 randomization을 유지했다.
+실제 base 접근·정지 후 파지한 성공이며, 이는 새 팔 편차 실행의 결과가 아니다.
+같은 DEV에서 재현되는지 다음 frozen 평가를 기다린다. 상단오른쪽 및 안정적인
+전체 일반화는 여전히 미해결이고 independent FINAL은 사용하지 않았다.

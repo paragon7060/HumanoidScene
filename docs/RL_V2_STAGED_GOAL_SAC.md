@@ -572,3 +572,46 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src python scripts/rl/analyze_gripper_drive_p
 빠진 실패 사례,변경된 layout,TRAIN/Q replay,미검증 soft 값/원래 값 복원 실패를
 완전한 비교로 인정하지 않는다. 작은 DEV 비교만으로 기본 구동값을 자동 변경하거나
 independent FINAL 일반화를 주장하지 않는다.
+
+## 에피소드 동안 유지하는 팔 탐색 편차
+
+선택 옵션 `episode_arm_exploration`은 **TRAIN 수집 동작에만** 적용된다.
+현재 Gaussian 탐색이 작을 때 매 step의 jitter를 키우는 대신, 양팔14개 목표에
+에피소드별로 뽑은 일정한 latent 편차를 더한다. 실제 base 정지 후 held clock이
+0→90step(3초) 동안 smoothstep으로 편차를 늘린 뒤 유지한다. 중간 선반은
+표준편차0.005, 위 선반은0.02이며 표준정규 표본은 ±2로 제한한다.
+
+이는 tanh·기존 ±0.05 prior projector **이전**의 편차다. 실제 관절 목표의
+변화량이나 손끝 이동 거리를 보장하는 값은 아니다. Waist/head/torso와 binary
+jaw sampler를 바꾸지 않으며, 접근 중에는 적용하지 않는다. Region은 기존 actor
+관측의 selected-region one-hot만 사용한다. Actor/target 학습 분포와 entropy
+목표는 그대로 유지하는 off-policy 수집 옵션이다. 평가에서는 편차를 샘플링하지
+않으므로 평가 RNG와 greedy 명령도 유지한다. 환경별 ID를 유지해 다른 환경의
+종료 때문에 남은 환경의 편차가 바뀌지 않으며 wave reset 때 새로 뽑는다.
+
+이미 Drive로 전체 백업한 **닫힌 초기 입력**의 같은 Q·optimizer·실제 replay를
+사용해 별도 실행을 준비한다. 현재 CLI는 `initialized_not_trained` 또는
+`initialized_not_new_training` 표시가 있는 초기화 폴더만 허용하며, 실행 중인
+학습 폴더를 복제하거나 수정하지 않는다. 이 초기화는 새 학습 업데이트가 아니다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src python scripts/rl/prepare_staged_arm_exploration.py \
+  --checkpoint /absolute/path/to/immutable-initial/checkpoint_00012588.pt \
+  --verified-backup-receipt /absolute/path/to/full-backup-receipt.json \
+  --output-dir /absolute/path/to/new-unique-initial
+```
+
+입력 receipt는 원본 `directory`와 `final_size_md5_verified: true`를 기록한 실제
+전체 업로드 검증 결과여야 한다. 복제 전후 원본 SHA256과 새 replay tensor의
+동일성을 검사하고 `episode_arm_initialization_audit.json`에 기록한다. 모델/Q/
+정규화/optimizer/학습 counter는 재설정하지 않으며 실제 성공 TRAIN bank도
+그대로 이어간다. 새 future collection contract와 원본 collection provenance를
+따로 저장해 기존 replay를 새 탐색으로 수집한 데이터라고 표시하지 않는다.
+
+새 모델·manifest·audit를 기존 Drive 연결로 먼저 검증하고 위의
+`batched_staged_goal_with_drive.py`에 새 checkpoint를 지정한다. 옵션은 checkpoint의
+계약에서 복원되며 CLI의 전역 기본 탐색을 바꾸지 않는다. 박스·base randomization,
+구동·보상·안전·성공 판정과 waypoint를 유지하며, DEV/FINAL은 학습이나 성공 bank에
+넣지 않는다. 초기 replay 전체 업로드가 진행 중이라면 미완료로 표시하고 로컬 입력을
+보존한다. 300초 백업/검증된 checkpoint 최근2개 보관/종료 로그 검증은 기존 관리자가
+수행한다. TRAIN 성공 수보다 이후 같은 DEV의 구역별 성공률로 개선을 판단한다.

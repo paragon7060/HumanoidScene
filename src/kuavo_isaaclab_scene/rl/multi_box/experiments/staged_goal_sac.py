@@ -141,7 +141,7 @@ class StagedGoalSACPilot:
                  normalize_prior_loss_by_radius=False,actor_min_replay_rows=64,
                  anchor_prior_to_initial_policy=False,exploration_correlation=0.,
                  fixed_prior_radius=None,validated_jaw_prior_confidence=0.,jaw_prior_residual_gain=1.,
-                 train_success_retention=False):
+                 train_success_retention=False,episode_arm_exploration=None):
         if warm_start.training:
             raise ValueError('The warm-start network must remain frozen')
         self.warm_start = warm_start
@@ -173,6 +173,9 @@ class StagedGoalSACPilot:
         self.latest_actor = {}
         self.history = []
         saved = torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
+        self.episode_arm_behavior_initialization=deepcopy(
+            saved.get('episode_arm_behavior_initialization')) if saved else None
+        self.source_experience_collection_contract=None
         if saved:
             free_grippers=saved.get('goal_contract',{}).get('gripper_prior_bound') is False
             gripper_logit_scale=saved.get('goal_contract',{}).get('gripper_logit_scale',1.)
@@ -187,6 +190,14 @@ class StagedGoalSACPilot:
             self.prior_schedule_actor_origin=saved.get('prior_schedule_actor_origin',0.)
             train_success_retention='train_success_retention' in saved.get('goal_contract',{})
             self.success_schedule_actor_origin=saved.get('success_schedule_actor_origin',0.)
+            episode_arm_exploration=saved.get('goal_contract',{}).get('episode_arm_exploration')
+        from .episode_arm_exploration import episode_arm_exploration_contract
+        if episode_arm_exploration is not None and (episode_arm_exploration!=episode_arm_exploration_contract()
+                or self.agent_class is AsymmetricSAC or not exploration_correlation or not free_grippers
+                or fixed_prior_radius!=.05):
+            raise ValueError('Episode-arm exploration requires its explicit hybrid correlated TRAIN contract')
+        self.episode_arm_exploration=deepcopy(episode_arm_exploration)
+        self.arm_behavior=None
         if type(train_success_retention) is not bool or (train_success_retention and self.agent_class is AsymmetricSAC):
             raise ValueError('Actual successful TRAIN retention requires explicit hybrid goal SAC')
         from .staged_train_success import TrainSuccessBank,retention_config
@@ -265,6 +276,8 @@ class StagedGoalSACPilot:
                 if not previous.is_file():
                     raise ValueError('Staged SAC continuation requires its actual held-phase replay')
                 saved = torch.load(previous, map_location=device, weights_only=True)
+                self.source_experience_collection_contract=deepcopy(
+                    saved.get('source_experience_collection_contract'))
                 if saved.get('goal_contract') != self.contract:
                     raise ValueError('Staged replay context differs')
                 rows = saved['executed_goal_transitions']
@@ -347,6 +360,9 @@ class StagedGoalSACPilot:
             contract.update(exploration_correlation=self.exploration_correlation,
                 collection_noise='independent_per_environment_AR1_pre_tanh_Gaussian',
                 critic_actor_target_noise='standard_SAC_Gaussian_unchanged')
+        if self.episode_arm_exploration is not None:
+            contract.update(episode_arm_exploration=self.episode_arm_exploration,
+                collection_noise='AR1_Gaussian_plus_ramped_episode_arm_latent_bias_v1')
         return contract
 
     @property
@@ -389,7 +405,8 @@ class StagedGoalSACPilot:
                 # an episode. Vector callers must reset with their full count.
                 self.reset_exploration(len(raw))
             ids=(torch.arange(len(raw),device=raw.device) if exploration_ids is None else exploration_ids)
-            action=self.goal_exploration.act(self.agent,ao,ids)
+            offset=self.arm_behavior.offset(ao,index,ids) if self.arm_behavior is not None else None
+            action=self.goal_exploration.act(self.agent,ao,ids,body_latent_offset=offset)
         else:
             action=self.agent.act(ao,deterministic=deterministic)
         physical = held_goal_coordinates(self.coordinates, raw, self.center+self.scale*action, self.stage)
@@ -399,6 +416,9 @@ class StagedGoalSACPilot:
         from .correlated_goal_exploration import CorrelatedGoalExploration
         self.goal_exploration=(CorrelatedGoalExploration(self.exploration_correlation,
             num_envs,21,self.device) if self.exploration_correlation else None)
+        from .episode_arm_exploration import EpisodeArmExploration
+        self.arm_behavior=(EpisodeArmExploration(num_envs,self.device,self.episode_arm_exploration)
+                           if self.episode_arm_exploration is not None else None)
 
     def observe(self, previous, next_raw, next_critic, reward, terminated, index):
         if not self.training:
@@ -468,6 +488,8 @@ class StagedGoalSACPilot:
             report.update(successful_train_bank=self.success_bank.report(),
                 successful_train_replay_fraction=self.success_replay_fraction,
                 success_schedule_actor_origin=self.success_schedule_actor_origin)
+        if self.episode_arm_exploration is not None:
+            report['episode_arm_behavior']=self.arm_behavior.latest if self.arm_behavior is not None else {}
         return report
 
     def save(self, final=False):
@@ -485,6 +507,8 @@ class StagedGoalSACPilot:
             if self.success_bank is not None:
                 state.update(successful_train_transitions=self.success_bank.state(),
                     success_schedule_actor_origin=self.success_schedule_actor_origin)
+            if self.episode_arm_behavior_initialization is not None:
+                state['episode_arm_behavior_initialization']=self.episode_arm_behavior_initialization
             # A closed evaluation wave must not rewrite an already uploaded
             # checkpoint with the same critic counter and remote filename.
             save_checkpoint(self.directory, state, self.critic_updates, keep=None)
@@ -504,6 +528,8 @@ class StagedGoalSACPilot:
                        if recent else v[:0].detach().cpu().clone())
                     for k,v in self.replay.data.items()}
             experience=dict(goal_contract=self.contract,executed_goal_transitions=rows)
+            if self.source_experience_collection_contract is not None:
+                experience['source_experience_collection_contract']=self.source_experience_collection_contract
             if self.success_bank is not None:
                 experience['successful_train_transitions']=self.success_bank.state()
             torch.save(experience,
