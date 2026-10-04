@@ -19,6 +19,7 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.physical_body_sac import Phys
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import StagedGoalProjector
 from kuavo_isaaclab_scene.rl.multi_box.geometry.rack import grasp_lift_terminal_contract
 from kuavo_isaaclab_scene.rl.multi_box.experiments.physical_native_seed import seed_physical_training_successes
+from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_policy import staged_policy_class,staged_policy_metadata
 
 
 def setup_fixture(tmp_path,*,gain=.5):
@@ -59,6 +60,22 @@ def test_actual_physical_projection_has_gradients_and_independent_close_gate():
     assert actual[1,19:].eq(-1).all()
     actual[:,:19].sum().backward()
     torch.testing.assert_close(requested.grad[:,:19],torch.full((2,19),.5))
+
+
+@pytest.mark.parametrize('gain',[.5,2.])
+def test_frozen_replay_dispatch_restores_physical_commands_without_goal_labels(tmp_path,gain):
+    pilot,warm,physical,stage,raw,_=setup_fixture(tmp_path,gain=gain)
+    pilot.directory.mkdir(parents=True);pilot.save(final=True)
+    checkpoint=next(pilot.directory.glob('checkpoint_*.pt'))
+    cls=staged_policy_class(pilot.artifact_type)
+    replay=cls(warm,physical,tmp_path/'frozen-video',stage,checkpoint=checkpoint,training=False)
+    before=(replay.actor_updates,replay.critic_updates,replay.replay.size)
+    action,previous=replay.act(raw,torch.zeros(1,530),0)
+    torch.testing.assert_close(action[:,list(PHYSICAL_COLUMNS)],previous[2],atol=0,rtol=0)
+    replay.observe(previous,raw,torch.zeros(1,530),torch.tensor([0.]),torch.tensor([False]),0)
+    assert (replay.actor_updates,replay.critic_updates,replay.replay.size)==before
+    assert list(staged_policy_metadata(replay))==['physical_body_contract']
+    assert staged_policy_class('pose_goal_sac_no_live_reference') is None
 
 
 def test_full_gain_can_represent_opposite_servo_commands_without_larger_local_noise(tmp_path):

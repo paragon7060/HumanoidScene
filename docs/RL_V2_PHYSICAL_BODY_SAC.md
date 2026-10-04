@@ -188,4 +188,88 @@ Gain0.5재개와 기존GPU3두분기,다른사용자프로세스는 유지한다
 size/MD5와writer종료를다시확인하고로컬에서정리했다. 원본최신2checkpoint/
 로그,13성공literal corpus,현재physical replay는보존했다. 원본run의
 `closed_replay_offload.json`에복원용size/MD5/Drive상대경로를기록했다.
+
+## 10/05 08:04 · 실제 업데이트 시작과 frozen 영상 재생
+
+수정한 gain0.5 재개는 첫 TRAIN에서 actor55 / critic1241 업데이트와
+새 실제 전이8,908행까지 진행했다. 원래 실패한 critic925를 넘어섰고,
+실제 actor 업데이트에서도 Q/actor 손실이 유한했다. 다음 학습 후 DEV는
+아직 나오지 않았다. 아래 초기 DEV는 actor 업데이트0의 결과다.
+
+| 실행 | 최근 완료 DEV | 중간왼쪽 | 중간오른쪽 | 상단왼쪽 | 상단오른쪽 |
+|---|---:|---:|---:|---:|---:|
+| GPU3 기존 goal SAC 성공 유지 | 4/128 | 1/32 | 3/32 | 0/32 | 0/32 |
+| GPU3 episode 팔 탐색 | 4/128 | 0/32 | 3/32 | 1/32 | 0/32 |
+| GPU0 physical gain0.5 초기 재평가 | 7/128 | 2/32 | 4/32 | 1/32 | 0/32 |
+| GPU0 physical gain2 초기 평가 | 7/128 | 2/32 | 4/32 | 0/32 | 1/32 |
+
+GPU3의 반복 DEV는 각각 `4 → 3 → 3 → 7 → 4`와 `3 → 1 → 4`다.
+일관된 학습 개선은 아직 없다. GPU0의 두 초기 actor는 같은 frozen 기반
+명령을 사용하므로, 초기 상단 성공 위치가 달라진 것을 gain 효과나 학습
+효과로 해석하지 않는다. Reset에서 부적합하거나 바뀐 배치는 실패 분모에
+남기고 Q에서 제외한다. 초기 gain0.5의 invalid reset도30/128이었다.
+일부 원래 배경 box가 선반 밖으로 떨어지거나 충분히 안정되지 않은 것이
+기록되어 있다. 최종 guard의 상태는 respawn 이전 고장 궤적을 대신하지 않는다.
+
+![첫 실제 업데이트와 반복 DEV](assets/rl_v2_physical_body_first_updates_20261005.png)
+
+[실제 전이·완료된 DEV·frozen 재생·디스크 검증 증거](assets/rl_v2_physical_body_first_updates_20261005.json).
+Randomized base/동적 box/네 영역/보상/안전/성공 조건은 유지한다.
+네 영역의 안정적인 일반화와 독립 FINAL 성공은 아직 확인되지 않았다.
+
+학습 runner와 단일 영상 runner는 `experiments/staged_policy.py`에서 같은
+artifact dispatch를 사용한다. Physical checkpoint는 body21의 명령과
+`physical_body_contract`를 복원한다. 기존 goal checkpoint는 기존 형식을
+유지한다. Physical checkpoint로 `--collect-train-goals`를 사용하면 거부하며,
+물리 명령을 요청한 goal21로 잘못 기록하지 않는다. Frozen 재생은 실제
+전후 actor/critic/replay counter가 같아야 완료되고, 영상용 HDF는 Q에 넣지 않는다.
+
+관련57개 테스트가 통과했다. 두 gain의 실제 기록된 TRAIN 상태5,737행씩에서
+frozen 평가 dispatch의 실제 body 명령과 Q action이 bitwise 같고, 초기 명령이
+frozen prior와 같으며, RNG/actor/Q/replay가 바뀌지 않는 것도 확인했다.
+이 CPU 검사는 simulator 성공이나 학습 개선을 뜻하지 않는다.
+
+단일 영상은 기존 entrypoint의 `--staged-goal-sac`로도 physical artifact를
+자동 구분한다. 평가 입력 manifest는 학습과 같은 설정에서 action contract만
+기본 upright torso로 돌린 파일이다. Entry point가 `--torso-extra-height-m .06`을
+적용한 결과가 실제 학습 contract와 정확히 같아야 한다. 이미 +6cm인 manifest에
+다시 +6cm를 적용하지 않는다.
+
+```bash
+CUDA_VISIBLE_DEVICES=2 PYTHONPATH=src:scripts/rl \
+  /home/seonho/miniconda3/envs/env_isaaclab_232/bin/python \
+  scripts/rl/replay_v2_grasp_reference.py \
+  --pose-student-checkpoint /absolute/immutable/physical-checkpoint.pt \
+  --no-pose-student-training --staged-goal-sac --no-staged-goal-training \
+  --staged-base-waypoints docs/assets/rl_v2_staged_base_hold_candidates_20261004.json \
+  --pose-student-native-seed /absolute/lower-calibration/executed_transitions.hdf5 \
+  --pose-student-native-seed /absolute/upper-calibration/executed_transitions.hdf5 \
+  --training-manifest /absolute/closed-input/baseline_entrypoint_manifest.json \
+  --layout-json /absolute/declared-layout.json \
+  --demo-dataset examples/demos/v2_grasp_quest_success.hdf5 --episode-index 1 \
+  --torso-extra-height-m .06 --steps 900 --capture-every 6 --contact-diagnostics \
+  --output-dir /absolute/new-unique-video-run --device cuda:0 --headless \
+  --kit_args '--/renderer/activeGpu=2 --/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false'
+```
+
+Episode0은 중간, episode1은 상단의 초기 장면을 복원하는 용도다. 평가 행동은
+checkpoint에서 나오며 live VR/IK teacher를 실행하지 않는다. 기존 DEV에서
+성공한 상단오른쪽 seed121306은 GPU2 단일 환경으로 영상 재생 중이다.
+선택한 DEV 장면의 시각적 재현이며 새로운 FINAL이나 학습 개선으로 세지 않는다.
+종료된 `policy.mp4`는 H.264 브라우저 형식으로 변환하고 기존 Drive로
+영상·HDF·로그를 크기/MD5 검증한다.
+
+### 종료된 초기화 replay의 추가 정리
+
+실행 중인 GPU3 두 작업과 별개의 완료된 초기화 폴더에서
+`staged_goal_experience.pt` 두 개, 총7,246,092,722bytes(약6.75GiB)를
+Drive 크기·MD5와 다른 독자가 없음을 다시 확인한 뒤 로컬에서 정리했다.
+현재 GPU3의 실제 PID가 살아 있고 각자 최근 checkpoint와 자체 replay를
+갖고 있는지 확인했다. 초기화/현재 checkpoint, 실제 TRAIN 성공 corpus,
+활성 HDF/로그와 다른 사용자의 파일·프로세스는 그대로 둔다.
+
+각 초기화 폴더의 `closed_replay_offload.json`에 복원용 size/MD5를 기록하고
+그 기록도 Drive 검증했다. 초기 checkpoint에서 다시 시작하려면 이 replay를
+먼저 같은 폴더에 다운로드하고 검증해야 한다. 현재 실행의 최신 checkpoint로
+이어갈 때는 현재 실행 폴더의 자체 replay를 사용한다.
 기존6GB HDF정리와합쳐약10GB를회수했고현재여유약18GiB다.

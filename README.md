@@ -47,7 +47,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | Base hold + binary gripper hybrid SAC | [19개 연속 목표·양손 categorical Q·상관 탐색 설정](docs/RL_V2_STAGED_GOAL_SAC.md#binary-gripper를-직접-학습하는-hybrid-sac) |
 | SAC에서 실제 성공 경험을 유지 | [TRAIN 성공 replay·actor 보조 손실·DEV 분리](docs/RL_V2_STAGED_GOAL_SAC.md#실제-train-성공-경험-유지) |
 | Frozen SAC로 정확한 TRAIN 목표 전이 수집 | [실제 21개 목표·Q 문맥 보존·평가 데이터 제외](docs/RL_V2_STAGED_GOAL_SAC.md#frozen-sac의-train-목표-전이-수집) |
-| 실제 제어명령 좌표의 SAC | [새 Q·네 영역 TRAIN 성공 복원·GPU0 비교](docs/RL_V2_PHYSICAL_BODY_SAC.md) |
+| 실제 제어명령 좌표의 SAC | [새 Q·네 영역 TRAIN 성공 복원·GPU0 비교·frozen 영상 재생](docs/RL_V2_PHYSICAL_BODY_SAC.md) |
 | SAC에서 팔 탐색을 연속적으로 유지 | [에피소드별 팔 편차·TRAIN 전용·기존 Q/replay 재사용](docs/RL_V2_STAGED_GOAL_SAC.md#에피소드-동안-유지하는-팔-탐색-편차) |
 | Quest로 V2 grasp SAC 시연 데이터 수집 | [Quest RL 시연 수집](docs/RL_QUEST_REWARD_DEBUG.md) |
 | 기존 Google Drive 연결 재사용·결과 업로드·로컬 보관량 관리 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |

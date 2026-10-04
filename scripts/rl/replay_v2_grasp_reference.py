@@ -42,7 +42,7 @@ def main():
     parser.add_argument('--staged-base-waypoints',type=Path,
                         help='Neutral-arm approach then TRAIN-derived base hold. Default frozen diagnostic; new staged SAC has separate replay.')
     parser.add_argument('--staged-goal-sac',action='store_true',
-                        help='Separate fresh-Q SAC on the 21 remaining goals after physical base settling.')
+                        help='Restore the matching staged SAC: remaining goals or physical body commands after base settling.')
     parser.add_argument('--staged-goal-training',action=argparse.BooleanOptionalAction,default=False)
     parser.add_argument('--collect-train-goals',action='store_true',
                         help='Explicit TRAIN-data collection with frozen staged SAC; save exact21 goals, no optimizer or live teacher.')
@@ -330,10 +330,13 @@ def main():
             from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
             pose_state=torch.load(args.pose_student_checkpoint,map_location=env.device,weights_only=False)
             staged_type=pose_state.get('artifact_type')
-            staged_resume=staged_type in ('staged_base_hold_remaining_goal_sac_v1',
-                                         'staged_base_hold_remaining_hybrid_sac_v1')
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_policy import staged_policy_class, staged_policy_metadata
+            staged_class=staged_policy_class(staged_type)
+            staged_resume=staged_class is not None
             if staged_resume and not args.staged_goal_sac:
                 raise ValueError('A staged checkpoint cannot run as the legacy whole-body goal controller')
+            if args.collect_train_goals and staged_type=='staged_held_physical_body_hybrid_sac_v1':
+                raise ValueError('Physical body checkpoints cannot collect requested-goal21 labels')
             if staged_resume:
                 pose_state=pose_state['frozen_warm_start']
             if args.pose_student_training or pose_state.get('artifact_type')=='pose_goal_sac_no_live_reference':
@@ -382,14 +385,14 @@ def main():
                         raise ValueError('Staged SAC warm start must be the matching frozen goal-SAC network')
                     if not args.staged_goal_training and not staged_resume:
                         raise ValueError('Frozen staged SAC evaluation requires a trained staged checkpoint')
-                    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import StagedGoalSACPilot
-                    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_hybrid_goal_sac import StagedHybridGoalSACPilot
-                    staged_class=(StagedHybridGoalSACPilot if staged_type==StagedHybridGoalSACPilot.artifact_type
-                                  else StagedGoalSACPilot)
+                    if staged_class is None:
+                        staged_class=staged_policy_class('staged_base_hold_remaining_goal_sac_v1')
                     staged_goal_sac=staged_class(pose_sac,contract,args.output_dir,staged_base,
                         checkpoint=args.pose_student_checkpoint if staged_resume else None,
                         training=args.staged_goal_training,device=env.device)
                     controller_name='staged_base_hold_remaining_goal_SAC_NO_live_reference_or_IK_teacher'
+                    if staged_type=='staged_held_physical_body_hybrid_sac_v1':
+                        controller_name='staged_base_hold_physical_body_SAC_NO_live_reference_or_IK_teacher'
         elif args.executed_actions:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import read_executed_successes
             measured, _ = read_executed_successes(args.executed_actions, contract)
@@ -541,13 +544,23 @@ def main():
                 manifest['staged_contact_ik_contract']=staged_contact_ik.report()
             if staged_goal_sac:
                 meta['collection_source']=staged_goal_sac.artifact_type
-                meta['staged_goal_contract']=staged_goal_sac.contract
+                staged_metadata=staged_policy_metadata(staged_goal_sac)
+                if 'physical_body_contract' in staged_metadata:
+                    meta.update(staged_metadata)
+                else:
+                    meta['staged_goal_contract']=staged_goal_sac.contract
                 meta['initial_layout_guard']=staged_layout_guard
                 manifest.update(artifact_type=staged_goal_sac.artifact_type,
-                    goal_contract=staged_goal_sac.contract,training=staged_goal_sac.training,
+                    **staged_metadata,training=staged_goal_sac.training,
                     initial_layout_guard=staged_layout_guard,
                     wave_reset_controller_contract=staged_layout_guard['controller_reset']['contract'])
+                if 'physical_body_contract' in staged_metadata:
+                    manifest.pop('goal_contract',None)
+                (output/'agent.yaml').write_text(json.dumps(staged_metadata|{
+                    'sac_config':asdict(staged_goal_sac.agent.config)},indent=2)+'\n')
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+        frozen_staged_counters = ((staged_goal_sac.actor_updates,staged_goal_sac.critic_updates,
+            staged_goal_sac.replay.size) if staged_goal_sac and not staged_goal_sac.training else None)
         goal_collector = None
         if args.collect_train_goals:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.training_goal_collection import TrainingGoalCollector, FORMAT
@@ -709,9 +722,11 @@ def main():
                 if staged_base and staged_base.phase=='approach':
                     action=staged_base.action(pre['policy'])
                 elif staged_goal_sac:
+                    behavior_options = ({'sample_frozen_train_behavior':
+                        args.train_collection_behavior=='checkpoint-exploration'} if goal_collector else {})
                     action,staged_previous=staged_goal_sac.act(pre['policy'],
                         torch.cat((pre['policy'],pre['critic']),-1),policy_step,
-                        sample_frozen_train_behavior=bool(goal_collector and args.train_collection_behavior=='checkpoint-exploration'))
+                        **behavior_options)
                     if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                         raise ValueError('Staged goal and physical projection differ; replay prohibited')
                 elif pose_sac:
@@ -794,7 +809,7 @@ def main():
                     if pose_sac and not staged_goal_sac:
                         print('[POSE GOAL SAC] '+json.dumps(pose_sac.report()),flush=True)
                     if staged_goal_sac:
-                        print('[STAGED GOAL SAC] '+json.dumps(staged_goal_sac.report()),flush=True)
+                        print('[STAGED SAC] '+json.dumps(staged_goal_sac.report()),flush=True)
                 if bool((terminated | truncated)[0]):
                     recorder.finish_episode(success=row['success'],
                         reason='success' if row['success'] else 'failure')
@@ -878,7 +893,18 @@ def main():
             report['residual_sac'] = residual.report()
         if pose_sac:
             report['frozen_goal_warm_start' if staged_goal_sac else 'pose_goal_sac']=pose_sac.report()
-        if staged_goal_sac:report['staged_goal_sac']=staged_goal_sac.report()
+        if staged_goal_sac:
+            key=('staged_physical_body_sac' if staged_goal_sac.artifact_type=='staged_held_physical_body_hybrid_sac_v1'
+                 else 'staged_goal_sac')
+            report[key]=staged_goal_sac.report()
+            if frozen_staged_counters is not None:
+                final_counters=(staged_goal_sac.actor_updates,staged_goal_sac.critic_updates,
+                                staged_goal_sac.replay.size)
+                if final_counters!=frozen_staged_counters:
+                    raise ValueError('Frozen staged evaluation unexpectedly updated learner or replay')
+                report['frozen_evaluation']=dict(initial_counters=list(frozen_staged_counters),
+                    final_counters=list(final_counters),optimizer_updates=0,evaluation_rows_used_for_Q=0,
+                    deterministic=True,runtime_VR_or_IK_teacher=False)
         if goal_collector:
             if staged_goal_sac.training or collection_initial_counters != (
                     staged_goal_sac.actor_updates, staged_goal_sac.critic_updates):
