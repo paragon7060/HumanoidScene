@@ -63,6 +63,40 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl \
 실험을 계속할 때는 checkpoint와 **같은 종료 실행의 실제 experience 파일**이 함께 필요하다.
 다른 제어의 replay나 임의로 변경한 waypoint/물리 계약으로 재개하면 거부한다.
 
+### 실제 수집량과 성공 정책 유지 항
+
+`--normalize-prior-loss-by-radius --actor-min-replay-rows 16384`는 선택적 학습 설정이다.
+Actor를 바꾸기 전에 buffer에 실제 held 전이가16,384행 있어야 한다. Critic의2,048회
+warmup도 별도로 충족해야 한다. 개발/final 전이는 이 수집량에 포함하지 않는다.
+Prior 항의 effective MSE weight는 `2*(1-progress)/radius²`이며 초기 radius0.05에서800이다.
+Prior 감소와 radius 확장은 critic 횟수 대신 실제 actor 진행5,000회에 연결한다.
+따라서 수집 중 Q만 업데이트할 때 prior가 미리 사라지지 않는다. 기존 checkpoint는
+명시적으로 이 옵션을 선택하지 않으면 이전 계산과 계약을 유지한다.
+
+`--anchor-prior-to-initial-policy`를 함께 쓰면 현재 초기 actor와 normalizer의
+**고정 복사본**을 목표로 삼는다. 초기 actor 출력과 목표의 MSE는0이다. 이전 BC
+정책을 기준으로 가중치만 키우면, 성공했던 초기 actor 자체를 다른 목표로 당길 수
+있으므로 두 옵션을 구분한다. Snapshot은 actor만 포함하며 다른 Q/reward/replay를
+가져오지 않는다. 두 경우 모두 실행 시 live VR/IK가 필요하지 않다.
+
+개발 회귀 후 종료된 **동일21-goal 계약**의 Q/replay를 보존하면서 actor를 복구하고
+위 설정으로 이동하려면 다음을 사용한다. 기존 파일을 수정하지 않고 새 폴더를 만든다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl \
+  python scripts/rl/recover_pose_goal_actor.py \
+  --checkpoint /absolute/path/to/latest-closed-checkpoint.pt \
+  --best-checkpoint /absolute/path/to/same-contract-validated-checkpoint.pt \
+  --output-dir /absolute/path/to/new-recovery-directory \
+  --replay-capacity 100000 --actor-min-replay-rows 16384 \
+  --normalize-prior-loss-by-radius --anchor-prior-to-validated-policy
+```
+
+최신 critic/target/optimizer와 실제 transition tensor, actor/critic 진행 횟수는
+보존하고 actor optimizer moments만 초기화한다. Validated actor의 radius와 prior
+schedule 기준도 복구한다. Frozen prior snapshot은 선택한 validated actor다.
+이 옵션은 물리/관측/action 계약 변경을 허용하는 bypass가 아니다.
+
 ## GPU3 학습·개발 평가·독립 final
 
 [배치 생성 안내](RL_V2_FOUR_REGION_SAC_20261004.md)에 따라 서로 분리한
@@ -139,6 +173,13 @@ Isaac Lab schema의 **deg/s**다. 선속도/각속도 cap은 기존 실패 기�
 보다 높고 성공·충돌 기준은 그대로다. 이 진단은 TRAIN과 동시 사용을 거부하고
 수집 출처를 matching Q replay가 아닌 것으로 표시한다. 결과가 좋아도 그 자체는
 SAC 개선이 아니며, 실제 학습에는 새 dynamics 계약과 fresh Q가 필요하다.
+
+`--tgs-zero-velocity-probe --no-training`은 같은 physics/control dt와 position
+iteration을 유지하고 scene·robot·box의 TGS velocity iteration만0으로 하는 별도
+frozen 진단이다. 두 solver 진단을 함께 쓰거나 TRAIN에 쓰면 거부한다.
+NVIDIA는 [TGS velocity iteration 및 D6/loop-closure 제한](https://docs.omniverse.nvidia.com/kit/docs/omni_physics/107.3/dev_guide/guides/current_limitations.html)을
+안내한다. 이 문서는 현재 실패의 원인을 확정하는 근거가 아니며, 동일 실제 초기
+배치의 결과로 가설을 검사한다. 성공/보상/안전 기준은 유지하고 해당 전이를 Q에 넣지 않는다.
 
 `waves.json`은 아래 형태다. 각 wave의 환경 수가 같아야 한다. `layout`은 기존
 GraspLayout JSON 전체이며 `episode_index`는 **중립 초기 장면**의 원 demo 출처다.

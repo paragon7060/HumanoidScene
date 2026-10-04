@@ -532,3 +532,49 @@ checkpoint19393, replay/HDF/log를 기존 Drive 연결로 검증했고 다른 �
 남기고 replaced observation/transition은 제외하면서 정상15개 수집을 계속하도록
 runner를 수정했다. 똑같은16개 requested layout을 새 폴더에서 다시 실행한다.
 Seed를 유리한 것으로 바꾸거나 spawn/success guard를 완화한 것이 아니다.
+
+## 12:25 · 16개 실제 배치 결과와 actor 회귀 수정
+
+첫 균형16개 개발 배치는 **5/16 성공**으로 종료됐다. 중간 왼쪽1/4,
+중간 오른쪽4/4, 상단 왼쪽0/4·오른쪽0/4다. 초기 target 재생성1개도 실패로
+집계했다. 나머지 실패의 primary 분류는 box speed/lift7개, robot–rack3개다.
+Actor/critic 업데이트0인 frozen baseline이며 단일4개 개발 성공4/4보다 넓은
+실제 배치에서의 실패를 드러낸 결과다. 각 구역50% baseline gate 때문에 TRAIN
+전이를 수집하기 전에 종료됐다. 닫힌 HDF/로그/모델은 Drive checksum 검증 완료다.
+
+![실제 requested16개 구역별 성공 및 종료 원인](assets/rl_v2_frozen16_development_20261004.png)
+[실측·실행·분모 출처](assets/rl_v2_frozen16_development_20261004.json).
+
+더 촘촘한 solver 비교4개는 중간 왼쪽·상단 오른쪽2개 성공, 중간 오른쪽
+box drop/speed 실패·상단 왼쪽rack 충돌 실패였다. 선속도 cap이 있어도 중간
+오른쪽은 마지막 measured pose가약27m 이동했다. 기존2/4보다 좋아지지 않아
+이 설정은 실제 학습에 채택하지 않았다. 종료 로그/HDF는 Drive 검증 완료다.
+
+별도 single-env SAC pipeline은 실제 TRAIN2/4 성공 뒤 actor699회/critic4,844회
+업데이트했고, 독립 final4개는 **0/4**였다(랙 충돌2·시간초과2).
+실제 TRAIN2,485행의 projected mean 목표를 초기 정책과 비교했을 때 평균 관절
+차이0.01978rad, 최대0.17565rad(약10°), torso XZ 최대10.62mm였다.
+Latest actor의 prior MSE0.0012548×weight1.7208≈0.00216은 Q mean0.66263에
+비해 작았다. Gaussian std0.00519이므로 이 결과를 std 폭증으로 설명하지 않는다.
+
+수정은 실제 수집량 gate16,384행과 허용 radius²로 나눈 prior 손실이다.
+초기 effective weight800, prior fade/radius 진행은 actor5,000회에 연결해
+Q-only 수집 중에는 완화되지 않게 했다. 기존 물리/관측/보상/성공은 그대로다.
+Latest Q/target/optimizer·실제2,485행·진행 횟수를 보존한 새로운 recovery를
+준비했고, 성공했던 초기 actor/radius0.05의 projected 출력은 동일 TRAIN 관측에서
+최대 차이0이었다. 준비·검증은 optimizer를 학습하거나 물리 성공을 만들어낸 것이 아니다.
+
+기존 손실의 목표 BC와 validated 초기 actor도 서로 달랐다: 실제 TRAIN 관측의
+unprojected 목표 MSE0.00035595, 관절 최대0.10825rad/torso 최대4.03mm였다.
+그래서 **validated actor 자체를 고정 snapshot으로 쓰는 옵션**도 분리했다.
+이 옵션의 초기 imitation loss는0이며 snapshot에는 Q/transition이 없다.
+CPU 관련 검사84개 통과. 두 recovery의 모델/실제 replay도 Drive 검증 완료다.
+
+GPU0의 prior-BC 정규화 비교는16-env/100,000행 buffer/위 수집량 gate로 실행 중이다.
+각 구역 baseline50% gate는0으로 설정해 초기 성능이 낮은 구역도 TRAIN할 수 있게
+하되, 동일 development 구역별 성공 수의 감소 감지는 유지한다. Final16개는
+9702000대 별도 namespace이며 optimizer/recovery 선택에 쓰지 않는다.
+GPU3의 별도 frozen16-env는 scene·robot·box TGS velocity iteration만0으로 비교한다.
+Physics/control dt·position iteration·성공·안전 기준을 유지한다. NVIDIA의
+[TGS/D6/loop-closure 제한](https://docs.omniverse.nvidia.com/kit/docs/omni_physics/107.3/dev_guide/guides/current_limitations.html)은
+가설의 출처이며 원인이 확정된 것은 아니다. 아직 새 SAC 개선/목표 완료로 기록하지 않는다.

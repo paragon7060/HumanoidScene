@@ -522,3 +522,49 @@ def test_actor_recovery_preserves_latest_critic_real_replay_and_fade_clock(tmp_p
     assert all(torch.equal(value,rows[key]) for key,value in measured.items())
     assert recovered['actor_updates']==40000 and recovered['critic_updates']==40500
     assert audit['latest_critic_optimizer_and_replay_preserved']
+
+
+def test_staged_training_migration_preserves_real_q_replay_and_validated_radius(tmp_path):
+    import importlib.util
+    from pathlib import Path
+    from copy import deepcopy
+    from kuavo_isaaclab_scene.rl.algorithms.asymmetric_sac import AsymmetricSAC
+    from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig
+    spec=importlib.util.spec_from_file_location('recover_actor',Path(__file__).parents[1]/'scripts/rl/recover_pose_goal_actor.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    agent=AsymmetricSAC(480,539,21,SACConfig(hidden=16))
+    contract=dict(same_physical_contract=True,initial_critic_warmup=2048,fade_critic_updates=20000)
+    best=agent.checkpoint()|dict(artifact_type='staged_base_hold_remaining_goal_sac_v1',
+        goal_contract=contract,actor_updates=0,critic_updates=0)
+    latest=deepcopy(best);latest.update(actor_updates=699,critic_updates=4844)
+    for key,value in latest['model'].items():
+        if key.startswith(('actor.','q1.','q2.')):value.add_(.5)
+    current_dir=tmp_path/'current';current_dir.mkdir()
+    torch.save(latest,current_dir/'checkpoint.pt');torch.save(best,tmp_path/'best.pt')
+    (current_dir/'manifest.json').write_text(__import__('json').dumps(dict(goal_contract=contract)))
+    measured=dict(action=torch.tensor([[.7]*21]),reward=torch.tensor([-6.]),terminated=torch.tensor([True]))
+    torch.save(dict(goal_contract=contract,executed_goal_transitions=measured),current_dir/'staged_goal_experience.pt')
+    path,audit=module.recover(current_dir/'checkpoint.pt',tmp_path/'best.pt',tmp_path/'recovery',
+        replay_capacity=100000,normalize_prior_loss_by_radius=True,actor_min_replay_rows=16384,
+        anchor_prior_to_validated_policy=True)
+    state=torch.load(path,weights_only=True)
+    rows=torch.load(path.parent/'staged_goal_experience.pt',weights_only=True)
+    manifest=__import__('json').loads((path.parent/'manifest.json').read_text())
+    assert state['goal_contract']==rows['goal_contract']==manifest['goal_contract']
+    assert state['goal_contract']['replay_capacity']==100000
+    assert state['goal_contract']['actor_min_replay_rows']==16384
+    assert state['goal_contract']['normalize_prior_loss_by_radius']
+    assert state['goal_contract']['actor_prior_source']=='frozen_validated_remaining_goal_actor'
+    for key,value in state['frozen_actor_prior'].items():
+        assert torch.equal(value,best['model'][key])
+    assert state['actor_updates']==699 and state['critic_updates']==4844
+    assert state['prior_schedule_actor_origin']==699
+    assert audit['validated_policy_radius_preserved']==pytest.approx(.05)
+    for key,value in state['model'].items():
+        assert torch.equal(value,(best if key.startswith('actor.') else latest)['model'][key])
+    assert state['optimizers'][1:]==latest['optimizers'][1:]
+    assert all(torch.equal(value,rows['executed_goal_transitions'][key]) for key,value in measured.items())
+    assert audit['actual_rows']==1 and audit['actual_transition_tensors_unchanged']
+    with pytest.raises(ValueError,match='cannot discard'):
+        module.recover(current_dir/'checkpoint.pt',tmp_path/'best.pt',tmp_path/'invalid',
+            replay_capacity=1024,actor_min_replay_rows=16384)

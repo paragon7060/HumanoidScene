@@ -5,6 +5,7 @@ The frozen learned goal network initializes the remaining 21 goals. Neither its
 held-phase transitions enter the new replay. No live IK/VR teacher is required.
 """
 from dataclasses import replace
+from copy import deepcopy
 import math
 from pathlib import Path
 
@@ -96,7 +97,9 @@ class StagedGoalSACPilot:
 
     def __init__(self, warm_start, physical_contract, directory, stage, *,
                  checkpoint=None, training=True, device='cpu', free_grippers=False,
-                 gripper_logit_scale=1., replay_capacity=20000):
+                 gripper_logit_scale=1., replay_capacity=20000,
+                 normalize_prior_loss_by_radius=False,actor_min_replay_rows=64,
+                 anchor_prior_to_initial_policy=False):
         if warm_start.training:
             raise ValueError('The warm-start network must remain frozen')
         self.warm_start = warm_start
@@ -112,6 +115,7 @@ class StagedGoalSACPilot:
         self.device, self.training, self.stage = device, training, stage
         self.anchor = None
         self.actor_updates = self.critic_updates = self.online_rows = 0
+        self.prior_schedule_actor_origin=0.
         self.actor_dim = warm_start.actor_dim+CONTEXT_DIM
         self.critic_dim = 533+CONTEXT_DIM
         self.warmup = 2048
@@ -124,9 +128,25 @@ class StagedGoalSACPilot:
             free_grippers=saved.get('goal_contract',{}).get('gripper_prior_bound') is False
             gripper_logit_scale=saved.get('goal_contract',{}).get('gripper_logit_scale',1.)
             replay_capacity=saved.get('goal_contract',{}).get('replay_capacity',20000)
+            normalize_prior_loss_by_radius=saved.get('goal_contract',{}).get('normalize_prior_loss_by_radius',False)
+            actor_min_replay_rows=saved.get('goal_contract',{}).get('actor_min_replay_rows',64)
+            anchor_prior_to_initial_policy=saved.get('goal_contract',{}).get('actor_prior_source')=='frozen_validated_remaining_goal_actor'
+            self.prior_schedule_actor_origin=saved.get('prior_schedule_actor_origin',0.)
+        if type(normalize_prior_loss_by_radius) is not bool:
+            raise ValueError('Prior loss normalization must be an explicit boolean')
+        self.normalize_prior_loss_by_radius=normalize_prior_loss_by_radius
+        if type(anchor_prior_to_initial_policy) is not bool or (
+                anchor_prior_to_initial_policy and not normalize_prior_loss_by_radius):
+            raise ValueError('Validated actor anchoring requires normalized prior loss')
+        self.anchor_prior_to_initial_policy=anchor_prior_to_initial_policy
         if type(replay_capacity) is not int or not 1024<=replay_capacity<=2000000:
             raise ValueError('Staged replay capacity must be within1024..2000000')
         self.replay_capacity=replay_capacity
+        if type(actor_min_replay_rows) is not int or not 64<=actor_min_replay_rows<=replay_capacity:
+            raise ValueError('Actor collection warmup must be within64..replay capacity')
+        if not math.isfinite(self.prior_schedule_actor_origin):
+            raise ValueError('Malformed actor prior schedule origin')
+        self.actor_min_replay_rows=actor_min_replay_rows
         if type(free_grippers) is not bool or not math.isfinite(gripper_logit_scale) \
                 or not 0 < gripper_logit_scale <= 1 or (not free_grippers and gripper_logit_scale != 1):
             raise ValueError('Soft gripper logits require independent jaw exploration')
@@ -180,6 +200,17 @@ class StagedGoalSACPilot:
                         raise ValueError('Replay contains an unconfirmed approach phase')
                 self.replay.add(**rows)
                 self.history.append({k:v.cpu() for k,v in rows.items()})
+        self.frozen_actor_prior=None
+        if self.anchor_prior_to_initial_policy:
+            # Actor-only snapshot. It cannot bring another controller's Q,
+            # reward or transitions into the real held-phase replay.
+            self.frozen_actor_prior=torch.nn.ModuleDict(dict(
+                actor=deepcopy(self.agent.actor),actor_normalizer=deepcopy(self.agent.actor_normalizer)))
+            if saved is not None:
+                if 'frozen_actor_prior' not in state:
+                    raise ValueError('Validated prior actor snapshot is missing')
+                self.frozen_actor_prior.load_state_dict(state['frozen_actor_prior'])
+            self.frozen_actor_prior.requires_grad_(False)
         if not training:
             self.agent.requires_grad_(False)
 
@@ -204,15 +235,29 @@ class StagedGoalSACPilot:
             contract.update(gripper_prior_bound=False,gripper_logit_scale=self.gripper_logit_scale,
                             imitation_jaw_targets='same_sign_softened_frozen_prior_logits')
         if self.replay_capacity!=20000:contract['replay_capacity']=self.replay_capacity
+        if self.normalize_prior_loss_by_radius:
+            contract.update(normalize_prior_loss_by_radius=True,
+                prior_loss_units='mean_squared_normalized_goal_error_divided_by_current_radius_squared',
+                prior_fade_units='actor_updates_after_schedule_origin',fade_actor_updates=self.fade//4)
+        if self.actor_min_replay_rows!=64:contract['actor_min_replay_rows']=self.actor_min_replay_rows
+        if self.anchor_prior_to_initial_policy:
+            contract['actor_prior_source']='frozen_validated_remaining_goal_actor'
         return contract
 
     @property
     def progress(self):
+        if self.normalize_prior_loss_by_radius:
+            return min(1.,max(0,self.actor_updates-self.prior_schedule_actor_origin)/(self.fade//4))
         return min(1., max(0, self.critic_updates-self.warmup)/self.fade)
 
     @property
     def radius(self):
         return .05+.10*self.progress
+
+    @property
+    def prior_weight(self):
+        weight=2.*(1-self.progress)
+        return weight/self.radius**2 if self.normalize_prior_loss_by_radius else weight
 
     def observations(self, raw, critic, index):
         ao, co = self.warm_start.observations(raw, critic, index, self.anchor)
@@ -244,15 +289,20 @@ class StagedGoalSACPilot:
             for _ in range(2):
                 actual = self.replay.sample(256, self.device)
                 self.agent.update_normalizers(actual['actor_obs'], actual['critic_obs'])
-                update_actor = self.critic_updates >= self.warmup and self.critic_updates % 4 == 0
-                teacher, weight = None, 2.*(1-self.progress) if update_actor else 0.
+                update_actor = (self.critic_updates >= self.warmup and self.critic_updates % 4 == 0
+                                and self.replay.size>=self.actor_min_replay_rows)
+                teacher, weight = None, self.prior_weight if update_actor else 0.
                 if weight:
                     with torch.no_grad():
-                        labels = self.prior.agent.act(actual['actor_obs'][:, :self.prior.agent.actor_obs_dim],
-                                                      deterministic=True)[:, list(GOAL_COLUMNS)]
-                        if self.free_grippers:
-                            labels[:,19:21]=(labels[:,19:21].clamp(-.999999,.999999).atanh()
-                                             *self.gripper_logit_scale).tanh()
+                        if self.frozen_actor_prior is not None:
+                            normalized=self.frozen_actor_prior['actor_normalizer'](actual['actor_obs'])
+                            labels=self.frozen_actor_prior['actor'](normalized,deterministic=True)[0]
+                        else:
+                            labels = self.prior.agent.act(actual['actor_obs'][:, :self.prior.agent.actor_obs_dim],
+                                                          deterministic=True)[:, list(GOAL_COLUMNS)]
+                            if self.free_grippers:
+                                labels[:,19:21]=(labels[:,19:21].clamp(-.999999,.999999).atanh()
+                                                 *self.gripper_logit_scale).tanh()
                     teacher = dict(actor_obs=actual['actor_obs'], action=labels)
                 self.latest = self.agent.update(actual, teacher=teacher, teacher_weight=weight,
                                                 update_actor=update_actor)
@@ -266,8 +316,11 @@ class StagedGoalSACPilot:
             critic_updates=self.critic_updates, online_rows=self.online_rows,
             replay_size=self.replay.size, seed_rows=0, old_Q_or_replay_imported=False,
             gripper_prior_bound=not self.free_grippers,gripper_logit_scale=self.gripper_logit_scale,
-            prior_weight=2.*(1-self.progress), prior_radius=self.radius,
+            prior_weight=2.*(1-self.progress), effective_prior_mse_weight=self.prior_weight,
+            normalize_prior_loss_by_radius=self.normalize_prior_loss_by_radius,prior_radius=self.radius,
             critic_warmup_remaining=max(0, self.warmup-self.critic_updates),
+            actor_collection_warmup_remaining=max(0,self.actor_min_replay_rows-self.replay.size),
+            prior_schedule_actor_origin=self.prior_schedule_actor_origin,
             min_policy_std=self.agent.config.min_policy_std,
             max_policy_std=self.agent.config.max_policy_std,
             runtime_reference_path_required=False, latest=self.latest,
@@ -281,7 +334,10 @@ class StagedGoalSACPilot:
                 goal_contract=self.contract, frozen_warm_start=self.frozen_warm_start,
                 actor_updates=self.actor_updates, critic_updates=self.critic_updates,
                 latest_actor_metrics=self.latest_actor,
+                prior_schedule_actor_origin=self.prior_schedule_actor_origin,
                 reference_runtime_dependency=False)
+            if self.frozen_actor_prior is not None:
+                state['frozen_actor_prior']=self.frozen_actor_prior.state_dict()
             # A closed evaluation wave must not rewrite an already uploaded
             # checkpoint with the same critic counter and remote filename.
             save_checkpoint(self.directory, state, self.critic_updates, keep=None)

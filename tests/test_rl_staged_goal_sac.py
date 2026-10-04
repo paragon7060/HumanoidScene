@@ -128,6 +128,34 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     assert restored.actor_updates==1 and not restored.latest['actor_updated']
     assert restored.latest_actor['actor_updated'] and restored.latest_actor['critic_update']==5
     assert torch.isfinite(torch.tensor(restored.latest_actor['actor_loss']))
+    normalized=StagedGoalSACPilot(warm,contract,tmp_path/'normalized',stage,
+        normalize_prior_loss_by_radius=True,anchor_prior_to_initial_policy=True)
+    normalized.critic_updates=normalized.warmup  # unit fixture skips2048 gradient calls
+    previous=(pilot.replay.data['actor_obs'][:64],pilot.replay.data['critic_obs'][:64],
+              pilot.replay.data['action'][:64])
+    for index in range(2):
+        normalized.observe(previous,raw.expand(64,-1),critic.expand(64,-1),
+            torch.ones(64),torch.zeros(64,dtype=torch.bool),index)
+        if index==0:assert normalized.latest_actor['teacher_bc_loss']==pytest.approx(0.,abs=1e-12)
+    assert normalized.latest_actor['teacher_bc_weight']==pytest.approx(800.)
+    assert normalized.contract['normalize_prior_loss_by_radius']
+    normalized.directory.mkdir();normalized.save(final=True)
+    restored_normalized=StagedGoalSACPilot(warm,contract,tmp_path/'normalized_resume',stage,
+        checkpoint=next(normalized.directory.glob('checkpoint_*.pt')))
+    assert restored_normalized.normalize_prior_loss_by_radius
+    assert restored_normalized.critic_updates==normalized.critic_updates
+    assert restored_normalized.contract['actor_prior_source']=='frozen_validated_remaining_goal_actor'
+    assert not any(p.requires_grad for p in restored_normalized.frozen_actor_prior.parameters())
+    for key,value in normalized.frozen_actor_prior.state_dict().items():
+        assert torch.equal(value,restored_normalized.frozen_actor_prior.state_dict()[key])
+    collecting=StagedGoalSACPilot(warm,contract,tmp_path/'collecting',stage,
+        normalize_prior_loss_by_radius=True,actor_min_replay_rows=128)
+    collecting.critic_updates=collecting.warmup  # unit fixture, not a runtime migration
+    collecting.observe(previous,raw.expand(64,-1),critic.expand(64,-1),
+        torch.ones(64),torch.zeros(64,dtype=torch.bool),0)
+    assert collecting.actor_updates==0 and collecting.critic_updates==2050
+    assert collecting.radius==pytest.approx(.05) and collecting.prior_weight==pytest.approx(800.)
+    assert collecting.report()['actor_collection_warmup_remaining']==64
     larger=StagedGoalSACPilot(warm,contract,tmp_path/'larger',stage,replay_capacity=24000)
     assert larger.replay.capacity==24000 and larger.contract['replay_capacity']==24000
     assert larger.replay.size==0 and larger.critic_updates==0

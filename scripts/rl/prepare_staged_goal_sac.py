@@ -21,6 +21,9 @@ def main():
     parser.add_argument('--free-grippers',action='store_true')
     parser.add_argument('--gripper-logit-scale',type=float,default=1.)
     parser.add_argument('--replay-capacity',type=int,default=20000)
+    parser.add_argument('--normalize-prior-loss-by-radius',action='store_true')
+    parser.add_argument('--actor-min-replay-rows',type=int,default=64)
+    parser.add_argument('--anchor-prior-to-initial-policy',action='store_true')
     args=parser.parse_args()
     if not all(p.is_file() for p in (args.checkpoint,args.waypoints,*args.native_seed)):
         parser.error('Existing matching files are required')
@@ -37,7 +40,10 @@ def main():
     stage=StagedBaseHoldDiagnostic(warm.coordinates,templates,raw)
     staged=StagedGoalSACPilot(warm,contract,args.output_dir,stage,training=True,device='cpu',
                             free_grippers=args.free_grippers,gripper_logit_scale=args.gripper_logit_scale,
-                            replay_capacity=args.replay_capacity)
+                            replay_capacity=args.replay_capacity,
+                            normalize_prior_loss_by_radius=args.normalize_prior_loss_by_radius,
+                            actor_min_replay_rows=args.actor_min_replay_rows,
+                            anchor_prior_to_initial_policy=args.anchor_prior_to_initial_policy)
     args.output_dir.mkdir(parents=True,exist_ok=False)
     staged.save(final=True)
     (args.output_dir/'manifest.json').write_text(json.dumps(contract|dict(
