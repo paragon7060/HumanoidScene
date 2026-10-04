@@ -89,7 +89,12 @@ class PoseGoalSACPilot:
         self.device,self.training=device,training
         self.directory=Path(directory)
         self.coordinates=PoseGoalCoordinates()
-        saved=torch.load(checkpoint,map_location=device,weights_only=True)
+        if isinstance(checkpoint,dict):
+            if training:
+                raise ValueError('An in-memory frozen warm start cannot resume legacy replay training')
+            saved=checkpoint
+        else:
+            saved=torch.load(checkpoint,map_location=device,weights_only=True)
         if saved.get('artifact_type')==self.artifact_type and saved.get('format_version')!=1:
             raise ValueError('Goal SAC checkpoint format differs')
         prior=saved.get('bc_prior',saved)
@@ -169,8 +174,8 @@ class PoseGoalSACPilot:
                 raise ValueError('Goal SAC context, bounds or seed physical contract differs')
             self.agent.restore(saved,training=training)
             self.actor_updates=saved['actor_updates'];self.critic_updates=saved['critic_updates']
-            previous=Path(checkpoint).parent/'pose_goal_experience.pt'
-            if training and previous.exists():
+            previous=None if isinstance(checkpoint,dict) else Path(checkpoint).parent/'pose_goal_experience.pt'
+            if training and previous is not None and previous.exists():
                 data=torch.load(previous,map_location=device,weights_only=True)
                 if data.get('goal_contract')!=self.contract:raise ValueError('Goal replay contract differs')
                 rows=data['executed_goal_transitions']

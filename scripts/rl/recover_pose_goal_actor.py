@@ -14,7 +14,7 @@ def recover(checkpoint,best_checkpoint,output_dir):
     checkpoint,best_checkpoint,output_dir=map(Path,(checkpoint,best_checkpoint,output_dir))
     current=torch.load(checkpoint,map_location='cpu',weights_only=True)
     best=torch.load(best_checkpoint,map_location='cpu',weights_only=True)
-    if (current.get('artifact_type')!='pose_goal_sac_no_live_reference'
+    if (current.get('artifact_type') not in {'pose_goal_sac_no_live_reference','staged_base_hold_remaining_goal_sac_v1'}
             or best.get('artifact_type')!=current['artifact_type']
             or current.get('goal_contract')!=best.get('goal_contract')
             or current['config']!=best['config']):
@@ -27,7 +27,9 @@ def recover(checkpoint,best_checkpoint,output_dir):
         if key.startswith('actor.'):
             current['model'][key]=value
     current['optimizers'][0]['state']={}
-    actual=torch.load(checkpoint.parent/'pose_goal_experience.pt',map_location='cpu',weights_only=True)
+    experience_name=('staged_goal_experience.pt' if current['artifact_type']=='staged_base_hold_remaining_goal_sac_v1'
+                     else 'pose_goal_experience.pt')
+    actual=torch.load(checkpoint.parent/experience_name,map_location='cpu',weights_only=True)
     if actual.get('goal_contract')!=current['goal_contract']:
         raise ValueError('Latest measured replay differs from recovered actor contract')
     audit=dict(current_checkpoint=str(checkpoint.resolve()),best_checkpoint=str(best_checkpoint.resolve()),
@@ -40,7 +42,7 @@ def recover(checkpoint,best_checkpoint,output_dir):
     manifest=json.loads((checkpoint.parent/'manifest.json').read_text())|dict(actor_recovery=audit)
     output_dir.mkdir(parents=True,exist_ok=False)
     destination=save_checkpoint(output_dir,current,current['actor_updates'],keep=None)
-    torch.save(actual,output_dir/'pose_goal_experience.pt')
+    torch.save(actual,output_dir/experience_name)
     (output_dir/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (output_dir/'status.json').write_text(json.dumps(dict(status='complete',actor_recovery=audit))+'\n')
     return destination,audit

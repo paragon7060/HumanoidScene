@@ -29,6 +29,9 @@ def main():
     parser.add_argument('--native-seed',type=Path,action='append',required=True)
     parser.add_argument('--episode-index',type=int,required=True)
     parser.add_argument('--contact-mode',choices=('near-contact','after-base-hold'),default='near-contact')
+    parser.add_argument('--contact-orientation',choices=('full','closing-axis'),default='full')
+    parser.add_argument('--contact-velocity-feedforward',action='store_true',
+                        help='Diagnostic only: pair bounded IK position with its executed velocity target.')
     parser.add_argument('--gpu',type=int,default=0)
     parser.add_argument('--python',type=Path,default=Path.home()/'miniconda3/envs/env_isaaclab_232/bin/python')
     parser.add_argument('--remote-root',default=os.environ.get('RL_DRIVE_REMOTE_ROOT'))
@@ -53,6 +56,7 @@ def main():
         '--pose-student-checkpoint',str(args.checkpoint),'--no-pose-student-training',
         '--staged-base-waypoints',str(args.waypoints),'--layout-json',str(args.layout_json),
         '--staged-contact-ik-mode',args.contact_mode,
+        '--staged-contact-ik-orientation',args.contact_orientation,
         '--demo-dataset',str(args.demo_dataset),'--training-manifest',str(args.training_manifest),
         '--episode-index',str(args.episode_index),'--torso-extra-height-m','.06',
         '--steps','900','--capture-every','90','--contact-diagnostics',
@@ -61,12 +65,16 @@ def main():
     for seed in args.native_seed:
         command.extend(('--pose-student-native-seed',str(seed),
                         '--staged-contact-ik-native-seed',str(seed)))
+    if args.contact_velocity_feedforward:
+        command.append('--staged-contact-ik-velocity-feedforward')
     environment=os.environ.copy()
     environment.update(CUDA_VISIBLE_DEVICES=str(args.gpu),OMNI_KIT_ACCEPT_EULA='YES',
         PYTHONPATH=str(ROOT/'src')+':'+str(ROOT/'scripts/rl'),
         OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1')
     (parent/'launch.json').write_text(json.dumps(dict(command=command,gpu=args.gpu,
         contact_mode=args.contact_mode,
+        contact_orientation=args.contact_orientation,
+        contact_velocity_feedforward=args.contact_velocity_feedforward,
         diagnostic_only=True,optimizer_updates=0,teacher_has_privileged_pinch_confirmation=True,
         old_goal_Q_import_forbidden=True),indent=2)+'\n')
     return supervise(command,parent,environment,

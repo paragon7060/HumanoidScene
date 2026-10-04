@@ -42,6 +42,7 @@ class StagedBaseHoldDiagnostic:
         self.linear_speed = self.angular_speed = None
         self.shelf = shelf
         self.template = template
+        self.templates = templates['shelves']
 
     def update(self, raw, linear_velocity, angular_velocity, step):
         _, _, xy, yaw, _ = self.coordinates.current(raw)

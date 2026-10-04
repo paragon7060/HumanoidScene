@@ -183,7 +183,8 @@ def test_anchor_context_does_not_change_warm_start_predictions():
     assert torch.equal(new.actor_normalizer.count,original.actor_normalizer.count)
 
 
-@pytest.mark.parametrize('artifact',['pose_goal_student_BC_diagnostic_NOT_SAC','pose_goal_sac_no_live_reference'])
+@pytest.mark.parametrize('artifact',['pose_goal_student_BC_diagnostic_NOT_SAC','pose_goal_sac_no_live_reference',
+                                    'staged_base_hold_remaining_goal_sac_v1'])
 def test_ordinary_delta_trainer_rejects_pose_goal_artifacts(tmp_path,artifact):
     from kuavo_isaaclab_scene.rl.multi_box.experiments.train_grasp_v2_sac import _compatible_checkpoint
     (tmp_path/'manifest.json').write_text(json.dumps({'artifact_type':artifact}))

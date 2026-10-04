@@ -87,7 +87,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--experiment-dir',type=Path,required=True)
     parser.add_argument('--layout-dir',type=Path,required=True)
-    parser.add_argument('--policy-mode',choices=('reference-residual','pose-goal'),default='reference-residual',
+    parser.add_argument('--policy-mode',choices=('reference-residual','pose-goal','staged-goal'),default='reference-residual',
                         help='Pose-goal mode trains a learned BC-warmed SAC actor without a live demo path.')
     parser.add_argument('--train-count',type=int,default=8)
     parser.add_argument('--evaluation-only',action='store_true',
@@ -132,10 +132,15 @@ def main():
         parser.error('Initial base bounds must be within25cm and15degrees')
     reserved={'--output-dir','--device','--layout-json','--residual-checkpoint',
               '--residual-controller','--residual-training','--no-residual-training','--residual-zero',
-              '--pose-student-checkpoint','--pose-student-training','--no-pose-student-training'}
+              '--pose-student-checkpoint','--pose-student-training','--no-pose-student-training',
+              '--staged-goal-sac','--staged-goal-training','--no-staged-goal-training'}
     if any(value.split('=')[0] in reserved for value in child_args):
         parser.error('This supervisor owns layout, checkpoint, device and training/evaluation mode')
-    pose_mode=args.policy_mode=='pose-goal'
+    staged_mode=args.policy_mode=='staged-goal'
+    pose_mode=args.policy_mode in {'pose-goal','staged-goal'}
+    if staged_mode and ('--staged-base-waypoints' not in child_args
+                        or '--staged-contact-ik-native-seed' in child_args):
+        parser.error('Staged SAC needs explicit base waypoints and excludes diagnostic IK teachers')
     if args.reference_episode_map and not pose_mode:
         parser.error('Mixed reference episodes require a learned pose-goal policy')
     guarded=args.validation_layout_dir is not None
@@ -155,7 +160,7 @@ def main():
         if checkpoint_manifest.is_file():
             checkpoint_type=json.loads(checkpoint_manifest.read_text()).get('artifact_type')
             has_seed_audit=any(value.split('=')[0]=='--pose-student-native-seed' for value in child_args)
-            if checkpoint_type=='pose_goal_sac_no_live_reference' and not has_seed_audit:
+            if checkpoint_type in {'pose_goal_sac_no_live_reference','staged_base_hold_remaining_goal_sac_v1'} and not has_seed_audit:
                 parser.error('Frozen goal-SAC evaluation also needs its declared physical native seed audit')
     layouts={split:sorted(args.layout_dir.resolve().glob(split+'_*.json'))[:count]
              for split,count in [('train',args.train_count),('holdout',args.eval_count)]}
@@ -279,11 +284,14 @@ def main():
     best_checkpoint=None;best_successes=-1;best_episode_successes=None;recoveries=0
     for index,(split,layout,pass_index) in enumerate(schedule):
         trial=parent/f'{index+1:03d}_{split}_p{pass_index+1}_{layout.stem}';trial.mkdir()
-        prefix='pose_sac_' if pose_mode else 'residual_'
+        prefix='staged_sac_' if staged_mode else 'pose_sac_' if pose_mode else 'residual_'
         run=trial/(prefix+datetime.now().strftime('%Y%m%d_%H%M%S')+'_'+uuid.uuid4().hex[:6])
         extras=(['--layout-json',str(layout),'--pose-student-training' if split=='train' else '--no-pose-student-training']
                 if pose_mode else ['--residual-controller','retargeted-goal','--layout-json',str(layout),
                                   '--residual-training' if split=='train' else '--no-residual-training'])
+        if staged_mode:
+            extras=['--layout-json',str(layout),'--no-pose-student-training','--staged-goal-sac',
+                    '--staged-goal-training' if split=='train' else '--no-staged-goal-training']
         if checkpoint:
             extras.extend(('--pose-student-checkpoint' if pose_mode else '--residual-checkpoint',str(checkpoint)))
         episode=episodes[str(json.loads(layout.read_text())['seed'])] if episodes else None
@@ -308,12 +316,16 @@ def main():
                 raise RuntimeError('BC comparison unexpectedly performed RL updates')
             learning=dict(training=False,actor_updates=0)
         else:
-            learning=metrics['pose_goal_sac' if pose_mode else 'residual_sac']
+            learning=metrics['staged_goal_sac' if staged_mode else 'pose_goal_sac' if pose_mode else 'residual_sac']
         if split!='train' and learning['training']:
             raise RuntimeError('Frozen validation/evaluation unexpectedly enabled optimizer updates')
         row=dict(split=split,layout=json.loads(layout.read_text()),pass_index=pass_index,
                  run_dir=str(run),outcomes=metrics['outcomes'],steps=metrics['steps'],
                  actor_updates=learning['actor_updates'],final_upload_verified=True)
+        if 'critic_updates' in learning:
+            row['critic_updates']=learning['critic_updates']
+        write_status(parent,latest_actor_updates=learning['actor_updates'],
+                     latest_critic_updates=learning.get('critic_updates'))
         if episodes:row['reference_episode_index']=episode
         rows.append(row)
         if split=='train':

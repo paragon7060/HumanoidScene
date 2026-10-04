@@ -353,3 +353,86 @@ Conda `env_isaaclab_232`의 Python/Isaac 환경을 사용한다. 별도 인증�
 접촉/정지 handoff 및 기존 replay 거부를 포함한 관련 CPU 검사25개를 통과했다.
 이 검사는 학습 일반화 성공률을 뜻하지 않는다. 새 staged SAC에는 다른
 phase/waypoint/action 계약과 그 제어로 실행한 실제 TRAIN 경험이 필요하다.
+
+### 별도 21-goal SAC를 연결하고 첫 실제 새 Q 학습 확인 (10:05)
+
+같은 배치/actor16910 whole-body 비교도 종료·Drive 검증을 마쳤다.
+결과는3/4 성공·unsafe0으로, 중간 좌우409step 성공/위 왼쪽853step 시간초과/
+위 오른쪽590step 성공이었다. Base 분리 frozen의2/4보다 이 작은 대조에서
+좋았다. **Base 분리만으로 개선됐다는 주장은 하지 않는다.** 새 staged SAC는
+그 제어에서 남은 목표를 실제로 다시 학습하는 비교이며 최종 우세는 확인 전이다.
+
+이제 [새 staged SAC의 계약과 실행법](RL_V2_STAGED_GOAL_SAC.md)을 구현했다.
+Base XY/yaw 3개 목표를 제거한 21개 목표, actor480/critic539, 실제 held-phase
+관측/행동/보상만 사용하는 새 replay와 critic이다. 기존 24-action Q/replay를
+가져오지 않고 frozen neural actor로 초기 팔·torso·gripper 평균만 초기화했다.
+기존 base 분리 frozen 진단과 live contact IK teacher는 새 SAC 성공으로 집계하지 않는다.
+
+GPU0 pipeline 첫 실제 TRAIN55000(중간 왼쪽)은 **486step 성공·unsafe0**이다.
+실제 base 접근/정지77step 뒤 파지409step을 기록했다. 새 critic은692회
+갱신됐고, actor는 initial critic warmup2,048회 중이라 **0회**다.
+저장된 actual held replay409행·유한 Q loss0.00393·checkpoint692와 닫힌
+HDF5/영상/로그의 Drive 검증을 확인했다. 따라서 파이프라인의 실제 학습과
+초기 제어 성공을 확인했지만, 새 actor 업데이트의 개선 결과는 아직 아니다.
+이 GPU0 비교는 TRAIN4개 + 본 실험과 겹치지 않는 frozen final4개를 수행한다.
+
+GPU3에서는 두 독립 staged SAC 비교를 등록/실행했다.
+
+| 비교 | Gripper prior 제한 | 초반 gripper logit | TRAIN/개발/final |
+|---|---|---|---|
+| 기본 21-goal | 팔·torso와 함께 normalized radius 안 | 기존 그대로 |32/36/8 |
+| Free-jaw 21-goal | gripper만 radius 해제; 먼 손 닫기 차단은 유지 | 기존 logit×0.005 |32/36/8 |
+
+TRAIN과 개발 배치는 같은 조건으로 비교하며 각 실행의 final namespace는 분리했다.
+Free-jaw 초기 정책은 현재 물리 native TRAIN1,004행에서 팔·torso19개 평균
+차이0, 양손 열림/닫힘 부호 결정 차이0을 확인했다. Jaw 출력 크기는 바뀌며
+binary controller의 닫힘 힘을 낮춘 것이 아니다. 새 Q loss/gradient와 실제 결과는
+각 실행의 `staged_goal_sac`에 기록한다. Old frozen actor16910은 새 학습량이 아니다.
+기본 GPU3 초기 개발 중간 왼쪽56000은509step 성공·unsafe0이고 나머지는 진행 중이다.
+
+부모 실행 폴더:
+
+- GPU0 pipeline: `artifacts/rl/drive_runs/staged_goal21_pipeline_sac_gpu0_20261004_093220`.
+- GPU3 기본: `artifacts/rl/drive_runs/staged_goal21_four_region_sac_gpu3_20261004_092413`.
+- GPU3 free-jaw: `artifacts/rl/drive_runs/staged_goal21_free_jaws_sac_gpu3_20261004_094614`.
+
+각 관리자 서비스는 5분 Drive 체크섬 검증/최근2개 보존과 종료 후 actual experience,
+HDF5/영상/로그 검증을 사용한다. 첫 GPU0 pipeline 초기 시도는 final namespace 중복을
+발견해 실제 rollout 전에 **우리 main supervisor만** 종료 신호로 정리했다.
+그때 0-frame 영상 인코딩이 실패한 로그도 검증/보존했으며, writer 종료 후 frame0이면
+인코딩을 건너뛰도록 고쳤다. 해당 시도는 learner 성능 실패로 집계하지 않는다.
+새 관측/제어 계약·실제 replay 저장/재개·actor 지연·jaw 독립 탐색·개발 복구를
+포함한 CPU 검사79개가 통과했다. 이후 위치/속도 teacher bound 검사1개도 통과했다.
+
+### 상단 IK 실패를 운동학과 실제 제어로 분리 (10:05)
+
+별도 TRAIN45200에서 near-contact 보정은704step에 robot–rack28.28N 충돌했다.
+양손10cm handoff 조건을 충족하지 못해 IK가 실제 활성화되지 않았다.
+After-base-hold full-wrist 보정은68step 실제 base 정지 직후 활성화했지만
+850step 시간초과·rack0N·양손 qualified pinch0으로 끝났다. 실제 front-stage
+목표 오차는 마지막33.94/34.87cm, full-wrist 오차3.119/3.130rad였다.
+
+![상단 TRAIN45200의 실제 진입 거리·full-wrist 및 닫힘 축 오차. CPU에서 푼 목표는 실제 성공 경로로 표시하지 않는다.](assets/rl_v2_staged_front_IK_diagnostic_20261004.png)
+
+[실제 상단 진입 실패 영상(H264 MP4)](assets/rl_v2_staged_front_IK_diagnostic_20261004.mp4),
+[실제 종료 결과·FK 일치·별도 CPU 운동학 가설](assets/rl_v2_staged_front_IK_diagnostic_20261004.json).
+영상은 실제 PhysX pose의 CPU mesh 재생이며 RTX 화면 캡처가 아니다.
+H264/avc1·yuv420p·faststart·전체 decode를 검증했다.
+
+동일한 실패 frame의 관절 자세/목표에 대해 URDF FK와 실제 TCP가0.7/0.94µm
+이내로 일치했다. CPU static bounded IK에서 full-wrist는11.5/11.9cm 오차를
+남겼고 **closing-axis만 맞추면 두 손 위치 오차가 수치상0까지 수렴**했다.
+이는 운동학 가설이고 물리 성공이나 새 SAC 데이터가 아니다. 실제 gross target
+projection은0으로, 이 배치의 진입 정체를95% reach bound로 단정하지 않는다.
+Torso actual X/Z는 native 성공과 수 cm 이내였고 중력보상·TCP offset은 이미 있다.
+
+Closing-axis 물리 비교도850step 시간초과·unsafe0으로 끝났고 진입 phase0에
+머물렀다. 마지막 front-stage 오차35.02/33.12cm, gross projection0이었다.
+제어 코드에서 VR IK는 position/velocity target을 함께 쓰지만 diagnostic IK를
+기존 joint-delta action으로 바꿀 때 **position target만 전달**한 차이를 확인했다.
+이 차이의 영향을 시험하도록 `--contact-velocity-feedforward` 옵션과 실제
+관절 속도/IK 속도/encoded target tracking error를 기록하는 진단을 추가했다.
+실행한 position step과 같은 방향·같거나 낮은 속도로 제한하며 기존 goal-SAC
+제어에는 적용하지 않는다. 이전 진단의 종료/Drive 검증을 기다리는 GPU0
+후속 서비스를10:02 등록했다. 아직 이 변경의 성공 결과는 없다.
+이 teacher는 privileged pinch로 lift를 확인하며 standalone SAC 또는 새 Q seed가 아니다.

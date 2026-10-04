@@ -66,7 +66,8 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict, *, data_only=False)
         raise ValueError(f"Checkpoint needs its manifest.json beside it: {source_path}")
     source = json.loads(source_path.read_text())
     if source.get('artifact_type') in {'pose_goal_student_BC_diagnostic_NOT_SAC',
-            'pose_goal_sac_no_live_reference','pose_student_physical_evaluation_diagnostic'}:
+            'pose_goal_sac_no_live_reference','pose_student_physical_evaluation_diagnostic',
+            'staged_base_hold_remaining_goal_sac_v1'}:
         raise ValueError('Pose-goal artifacts use separate absolute action coordinates; use the pose-goal entrypoint')
     if source.get('artifact_type') in {'fixed_scene_reference_residual_sac','layout_reference_residual_sac'}:
         raise ValueError('Reference-residual Q/policy uses a different contextual action space; use the residual pilot entrypoint')

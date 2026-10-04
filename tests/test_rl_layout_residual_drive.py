@@ -12,7 +12,8 @@ def module():
     result=importlib.util.module_from_spec(spec);spec.loader.exec_module(result);return result
 
 
-def test_mixed_shelf_reset_provenance_keeps_final_policy_frozen(tmp_path,monkeypatch):
+@pytest.mark.parametrize('policy_mode',['pose-goal','staged-goal'])
+def test_mixed_shelf_reset_provenance_keeps_final_policy_frozen(tmp_path,monkeypatch,policy_mode):
     script=module();layouts=tmp_path/'layouts';layouts.mkdir();parent=tmp_path/'suite';calls=[]
     mapping={'1100':0,'1300':1,'3200':0,'3300':1}
     for split,seeds in [('train',[1100,1300]),('holdout',[3200,3300])]:
@@ -26,22 +27,27 @@ def test_mixed_shelf_reset_provenance_keeps_final_policy_frozen(tmp_path,monkeyp
         assert command.count('--episode-index')==1
         assert int(command[command.index('--episode-index')+1])==mapping[str(layout['seed'])]
         assert not any(value.startswith('--episode-index=') for value in command)
-        train='--pose-student-training' in command
+        staged=policy_mode=='staged-goal'
+        train=('--staged-goal-training' if staged else '--pose-student-training') in command
         assert train==(layout['split']=='train') and '--residual-sac' not in command
+        if staged:
+            assert '--staged-goal-sac' in command and '--pose-student-training' not in command
         (trial/'status.json').write_text(json.dumps(dict(run_dir=str(run),training_exit_code=0,final_upload_verified=True)))
         (run/'metrics.json').write_text(json.dumps(dict(steps=410,
             outcomes=dict(success=1,unsafe=0,invalid_reset=0,time_out=0),
-            pose_goal_sac=dict(training=train,actor_updates=700*min(len(calls),2)))))
+            **{('staged_goal_sac' if staged else 'pose_goal_sac'):
+                dict(training=train,actor_updates=700*min(len(calls),2))})))
         if train:(run/f'checkpoint_{len(calls)*700:08d}.pt').write_bytes(b'goal SAC model')
         return 0
     monkeypatch.setattr(script,'supervise',simulate)
     monkeypatch.setattr(script,'Rclone',lambda *a:object())
     monkeypatch.setattr(script,'archive_file',lambda *a:None)
     monkeypatch.setattr(sys,'argv',['suite','--experiment-dir',str(parent),'--layout-dir',str(layouts),
-        '--policy-mode','pose-goal','--checkpoint',str(warm),'--reference-episode-map',str(mapping_file),
+        '--policy-mode',policy_mode,'--checkpoint',str(warm),'--reference-episode-map',str(mapping_file),
         '--train-count','2','--eval-count','2','--python',sys.executable,
         '--remote-root','test-remote:HumanoidScene-RL','--episode-index=7',
-        '--pose-student-native-seed','actual_lower.hdf5','--pose-student-native-seed','actual_upper.hdf5'])
+        '--pose-student-native-seed','actual_lower.hdf5','--pose-student-native-seed','actual_upper.hdf5',
+        *(['--staged-base-waypoints','measured_templates.json'] if policy_mode=='staged-goal' else [])])
     assert script.main()==0 and len(calls)==4
     assert calls[2][calls[2].index('--pose-student-checkpoint')+1]==calls[3][calls[3].index('--pose-student-checkpoint')+1]
     manifest=json.loads((parent/'manifest.json').read_text())

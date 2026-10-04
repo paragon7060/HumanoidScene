@@ -40,7 +40,10 @@ def main():
     parser.add_argument('--pose-student-native-seed',type=Path,action='append',
                         help='Repeat for measured current-environment successes; episode clocks/anchors stay separate.')
     parser.add_argument('--staged-base-waypoints',type=Path,
-                        help='Frozen diagnostic only: neutral-arm base approach, then hold a TRAIN-derived waypoint. Excludes old goal Q import.')
+                        help='Neutral-arm approach then TRAIN-derived base hold. Default frozen diagnostic; new staged SAC has separate replay.')
+    parser.add_argument('--staged-goal-sac',action='store_true',
+                        help='Separate fresh-Q SAC on the 21 remaining goals after physical base settling.')
+    parser.add_argument('--staged-goal-training',action=argparse.BooleanOptionalAction,default=False)
     parser.add_argument('--staged-contact-ik-native-seed',type=Path,action='append',
                         help='Staged frozen diagnostic only: native successful TRAIN calibration for local contact IK. Not a SAC policy.')
     parser.add_argument('--executed-actions', type=Path,
@@ -67,6 +70,8 @@ def main():
                         help='VR/live-IK diagnostic only: constrain the complete wrist or just its jaw closing axis.')
     parser.add_argument('--staged-contact-ik-mode',choices=('near-contact','after-base-hold'),
                         default='near-contact',help='Frozen teacher probe: local contact correction or front-stage IK after physical base settling.')
+    parser.add_argument('--staged-contact-ik-orientation',choices=('full','closing-axis'),default='full')
+    parser.add_argument('--staged-contact-ik-velocity-feedforward',action='store_true')
     parser.add_argument('--vr-contact-torso-forward-m',type=float,default=0.,
                         help='VR/live-IK diagnostic only: bounded upright torso X assist during contact.')
     parser.add_argument('--vr-contact-torso-up-m',type=float,default=0.,
@@ -117,8 +122,14 @@ def main():
     if args.staged_contact_ik_native_seed and (not args.staged_base_waypoints
             or not all(p.is_file() for p in args.staged_contact_ik_native_seed)):
         parser.error('Native contact IK requires staged frozen control and existing TRAIN success calibration')
-    if args.staged_contact_ik_mode!='near-contact' and not args.staged_contact_ik_native_seed:
+    if (args.staged_contact_ik_mode!='near-contact' or args.staged_contact_ik_orientation!='full'
+            or args.staged_contact_ik_velocity_feedforward) and not args.staged_contact_ik_native_seed:
         parser.error('A staged contact handoff mode requires native TRAIN contact calibration')
+    if args.staged_goal_training and not args.staged_goal_sac:
+        parser.error('Staged goal training requires its separate controller mode')
+    if args.staged_goal_sac and (not args.staged_base_waypoints or args.staged_contact_ik_native_seed
+                                or not args.pose_student_native_seed):
+        parser.error('Staged SAC requires base waypoints and a frozen warm-start audit, and excludes live IK teachers')
     if args.pose_student_training and (not args.pose_student_native_seed or
             not all(path.is_file() for path in args.pose_student_native_seed)):
         parser.error('Goal SAC requires an existing measured current success seed')
@@ -275,10 +286,16 @@ def main():
         initial_actor_error = None
         staged_base = None
         staged_contact_ik = None
+        staged_goal_sac = None
         controller_name = 'VR_reference_plus_contact_confirmed_IK_NOT_SAC'
         if args.pose_student_checkpoint:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
             pose_state=torch.load(args.pose_student_checkpoint,map_location=env.device,weights_only=False)
+            staged_resume=pose_state.get('artifact_type')=='staged_base_hold_remaining_goal_sac_v1'
+            if staged_resume and not args.staged_goal_sac:
+                raise ValueError('A staged checkpoint cannot run as the legacy whole-body goal controller')
+            if staged_resume:
+                pose_state=pose_state['frozen_warm_start']
             if args.pose_student_training or pose_state.get('artifact_type')=='pose_goal_sac_no_live_reference':
                 if not args.pose_student_native_seed:raise ValueError('Goal SAC evaluation also requires the declared physical seed audit')
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
@@ -286,7 +303,8 @@ def main():
                 head=env.action_manager.get_term('head');height=env.action_manager.get_term('height')
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
                 validate_goal_feedback_rates(base._scale,upper._scale,head._scale,height.cfg.speed_m_s,env.step_dt)
-                pose_sac=PoseGoalSACPilot(args.pose_student_checkpoint,args.pose_student_native_seed,contract,
+                pose_sac=PoseGoalSACPilot(pose_state if staged_resume else args.pose_student_checkpoint,
+                                        args.pose_student_native_seed,contract,
                                         args.output_dir,training=args.pose_student_training,device=env.device)
                 controller_name='learned_pose_goal_SAC_NO_live_reference'
             else:
@@ -313,8 +331,20 @@ def main():
                     audit=audit|{'calibration_shelf':staged_base.shelf,
                                  'calibration_rows':int(mask.sum()),'used_for_Q':False}
                     staged_contact_ik=StagedContactIKDiagnostic(env,measured,audit,
-                        handoff_mode=args.staged_contact_ik_mode)
+                        handoff_mode=args.staged_contact_ik_mode,
+                        orientation_mode=args.staged_contact_ik_orientation,
+                        velocity_feedforward=args.staged_contact_ik_velocity_feedforward)
                     controller_name='frozen_neural_approach_with_staged_base_and_native_contact_IK_teacher_NOT_SAC'
+                if args.staged_goal_sac:
+                    if pose_sac is None:
+                        raise ValueError('Staged SAC warm start must be the matching frozen goal-SAC network')
+                    if not args.staged_goal_training and not staged_resume:
+                        raise ValueError('Frozen staged SAC evaluation requires a trained staged checkpoint')
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import StagedGoalSACPilot
+                    staged_goal_sac=StagedGoalSACPilot(pose_sac,contract,args.output_dir,staged_base,
+                        checkpoint=args.pose_student_checkpoint if staged_resume else None,
+                        training=args.staged_goal_training,device=env.device)
+                    controller_name='staged_base_hold_remaining_goal_SAC_NO_live_reference_or_IK_teacher'
         elif args.executed_actions:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import read_executed_successes
             measured, _ = read_executed_successes(args.executed_actions, contract)
@@ -464,6 +494,11 @@ def main():
             if staged_contact_ik:
                 meta['staged_contact_ik_contract']=staged_contact_ik.report()
                 manifest['staged_contact_ik_contract']=staged_contact_ik.report()
+            if staged_goal_sac:
+                meta['collection_source']=staged_goal_sac.artifact_type
+                meta['staged_goal_contract']=staged_goal_sac.contract
+                manifest.update(artifact_type=staged_goal_sac.artifact_type,
+                    goal_contract=staged_goal_sac.contract,training=staged_goal_sac.training)
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         meta['vr_orientation_mode']=args.vr_orientation_mode
         meta['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
@@ -482,7 +517,8 @@ def main():
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
-            caption=(f'Base staging + FROZEN approach + local IK | TEACHER, NOT SAC' if staged_contact_ik else
+            caption=(f'Base hold + SAC21 goals | NO live reference/IK | train={staged_goal_sac.training}' if staged_goal_sac else
+                     f'Base staging + FROZEN approach + local IK | TEACHER, NOT SAC' if staged_contact_ik else
                      f'Base staging + FROZEN grasp | DIAGNOSTIC, not new SAC' if staged_base else
                      f'Learned pose goals | SAC | NO live reference | train={pose_sac.training}' if pose_sac else
                      f'Learned pose student | BC, NOT SAC | NO live reference' if pose_student else
@@ -531,6 +567,10 @@ def main():
                 row['staged_base']=staged_base.report()
             if staged_contact_ik:
                 row['staged_contact_ik']=staged_contact_ik.report()
+            if staged_goal_sac:
+                row['staged_goal_sac']=dict(actor_updates=staged_goal_sac.actor_updates,
+                    critic_updates=staged_goal_sac.critic_updates,
+                    radius=staged_goal_sac.radius,training=staged_goal_sac.training)
             if args.contact_diagnostics:
                 from kuavo_isaaclab_scene.rl.multi_box.state.isaac_privileged_grasp import MIN_JAW_FORCE_N
                 # These are the already measured success inputs, not new
@@ -594,6 +634,7 @@ def main():
                     raise ValueError('Nonfinite actor observation in physical replay')
                 actor_input = joint_goal.actor_input(pre['policy']) if joint_goal else pre['policy']
                 policy_step=step
+                staged_previous=None
                 if staged_base:
                     robot=env.scene['robot']
                     staged_base.update(pre['policy'],robot.data.root_lin_vel_w,robot.data.root_ang_vel_w,step)
@@ -601,6 +642,11 @@ def main():
                         policy_step=staged_base.manipulation_index(step)
                 if staged_base and staged_base.phase=='approach':
                     action=staged_base.action(pre['policy'])
+                elif staged_goal_sac:
+                    action,staged_previous=staged_goal_sac.act(pre['policy'],
+                        torch.cat((pre['policy'],pre['critic']),-1),policy_step)
+                    if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
+                        raise ValueError('Staged goal and physical projection differ; replay prohibited')
                 elif pose_sac:
                     action,pose_previous=pose_sac.act(pre['policy'],torch.cat((pre['policy'],pre['critic']),-1),policy_step)
                     if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
@@ -641,6 +687,11 @@ def main():
                     pose_sac.observe(pose_previous,terminal['policy'],torch.cat((terminal['policy'],terminal['critic']),-1),
                                      reward,terminated,step)
                     if pose_sac.training and pose_sac.actor_updates and pose_sac.actor_updates%512==0:pose_sac.save()
+                if staged_goal_sac and staged_previous is not None:
+                    staged_goal_sac.observe(staged_previous,terminal['policy'],
+                        torch.cat((terminal['policy'],terminal['critic']),-1),reward,terminated,policy_step)
+                    if staged_goal_sac.training and staged_goal_sac.critic_updates%1024==0:
+                        staged_goal_sac.save()
                 if residual:
                     residual.observe(residual_previous, terminal['policy'],
                         torch.cat((terminal['policy'], terminal['critic']), -1),
@@ -669,8 +720,10 @@ def main():
                     print(f"[REFERENCE] step={step+1} pinch={row['pinching']} success={row['success']}", flush=True)
                     if residual:
                         print('[RESIDUAL SAC] '+json.dumps(residual.report()), flush=True)
-                    if pose_sac:
+                    if pose_sac and not staged_goal_sac:
                         print('[POSE GOAL SAC] '+json.dumps(pose_sac.report()),flush=True)
+                    if staged_goal_sac:
+                        print('[STAGED GOAL SAC] '+json.dumps(staged_goal_sac.report()),flush=True)
                 if bool((terminated | truncated)[0]):
                     recorder.finish_episode(success=row['success'],
                         reason='success' if row['success'] else 'failure')
@@ -689,6 +742,7 @@ def main():
                 'actor_reference_mix': args.actor_reference_mix,
                 'correction_labels_are_Q_transitions': False}, indent=2)+'\n')
         if pose_sac and pose_sac.training:pose_sac.save(final=True)
+        if staged_goal_sac and staged_goal_sac.training:staged_goal_sac.save(final=True)
         if residual and args.residual_training:
             residual.save(final=True)
             (output/'manifest.json').write_text(json.dumps(contract | {
@@ -698,13 +752,18 @@ def main():
         if writer is not None:
             writer.release()
             writer = None
-            from browser_video import encode_browser_video
-            video_encoding = encode_browser_video(output/video_name)
+            if frames:
+                from browser_video import encode_browser_video
+                video_encoding = encode_browser_video(output/video_name)
+            else:
+                # A normal stop during initialization can create an empty
+                # container. There is no video to transcode or publish.
+                (output/video_name).unlink(missing_ok=True)
         report = dict(policy=controller_name,
                       steps=len(history), outcomes=counts, frames=frames, history=history,
                       initial_settling_steps=settling_steps, sim_device=str(env.device),
                       interrupted=stopped['value'], completed_attempt=bool(sum(counts.values())),
-                      video=str(output/video_name) if renderer else None,
+                      video=str(output/video_name) if renderer and frames else None,
                       video_encoding=video_encoding,
                       body_envelope_diagnostic=args.body_envelope,
                       actor_reference_mix=args.actor_reference_mix, correction_label_rows=len(label_actions),
@@ -746,10 +805,13 @@ def main():
                 episode_clock_input=True,artifact_type=pose_student.artifact_type)
         if residual:
             report['residual_sac'] = residual.report()
-        if pose_sac:report['pose_goal_sac']=pose_sac.report()
+        if pose_sac:
+            report['frozen_goal_warm_start' if staged_goal_sac else 'pose_goal_sac']=pose_sac.report()
+        if staged_goal_sac:report['staged_goal_sac']=staged_goal_sac.report()
         (output/'metrics.json').write_text(json.dumps(report, indent=2)+'\n')
         (output/'status.json').write_text(json.dumps({'status':'stopped' if stopped['value'] else 'complete',
-            'outcomes':counts,'actor_updates':pose_sac.actor_updates if pose_sac else residual.actor_updates if residual else None})+'\n')
+            'outcomes':counts,'actor_updates':staged_goal_sac.actor_updates if staged_goal_sac else
+                pose_sac.actor_updates if pose_sac else residual.actor_updates if residual else None})+'\n')
         print(json.dumps({key: value for key, value in report.items() if key != 'history'}), flush=True)
     except BaseException as error:
         # Kit shutdown can replace Python's nonzero exit and suppress the

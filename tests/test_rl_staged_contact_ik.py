@@ -22,3 +22,12 @@ def test_handoff_from_a_held_base_cannot_skip_the_safe_front_stage():
     assert contact_handoff_phase(torch.ones(1,2),'after-base-hold') == 0
     assert contact_handoff_phase(torch.tensor([[.02,.11]]),'near-contact') is None
     assert contact_handoff_phase(torch.tensor([[.02,.09]]),'near-contact') == 1
+
+
+def test_velocity_teacher_respects_executed_position_clipping_and_direction():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_contact_ik import executed_velocity_feedforward
+    current=torch.zeros(1,4)
+    command=torch.tensor([[.01,-.01,-.01,.04]])
+    proposed=torch.tensor([[2.,-2.,2.,.2]])
+    torch.testing.assert_close(executed_velocity_feedforward(current,command,proposed,.1),
+                               torch.tensor([[.1,-.1,0.,.2]]))
