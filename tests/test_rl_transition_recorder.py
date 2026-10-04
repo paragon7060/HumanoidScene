@@ -46,6 +46,42 @@ def test_rl_transition_file_preserves_pre_and_post_step_observations(tmp_path):
         RlTransitionRecorder(path, {})
 
 
+def test_completed_batch_matches_streamed_values_and_can_mix_with_streaming(tmp_path):
+    rows = [_sample(i, terminal=i == 66) for i in range(67)]
+    paths = [tmp_path / 'stream.hdf5', tmp_path / 'batch.hdf5']
+    for i, path in enumerate(paths):
+        recorder = RlTransitionRecorder(path, {'actor_obs_dim': 2, 'action_dim': 1})
+        recorder.start_episode()
+        if i:
+            recorder.append_many(rows[:32])
+            recorder.append(rows[32])
+            recorder.append_many(rows[33:])
+        else:
+            for row in rows:
+                recorder.append(row)
+        recorder.finish_episode(success=True, reason='success')
+        recorder.close()
+    with h5py.File(paths[0]) as first, h5py.File(paths[1]) as second:
+        a = first['episodes/episode_000000']; b = second['episodes/episode_000000']
+        assert dict(a.attrs) == dict(b.attrs)
+        for name in a['transitions']:
+            np.testing.assert_array_equal(a['transitions'][name][:], b['transitions'][name][:])
+            assert a['transitions'][name].dtype == b['transitions'][name].dtype
+            assert b['transitions'][name].compression == 'lzf'
+
+
+def test_bad_final_batch_row_cannot_partially_append_an_episode(tmp_path):
+    recorder = RlTransitionRecorder(tmp_path / 'bad_batch.hdf5', {'action_dim': 1})
+    recorder.start_episode()
+    recorder.append_many([_sample(0), _sample(1)])
+    bad = _sample(3); bad['action'] = np.zeros(2)
+    with pytest.raises(ValueError, match='must have shape'):
+        recorder.append_many([_sample(2), bad])
+    assert recorder.count == 2
+    assert all(len(value) == 2 for value in recorder.episode['transitions'].values())
+    recorder.close()
+
+
 def test_initial_seed_preserves_flap_joints_and_pending_drive_targets(tmp_path):
     path = tmp_path / "seed.hdf5"
     q = np.array([.3, -.2], dtype=np.float32)

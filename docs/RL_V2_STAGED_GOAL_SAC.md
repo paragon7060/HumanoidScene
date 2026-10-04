@@ -301,3 +301,21 @@ Experience 저장은 최근 capacity 행만 담은 소유 tensor를 직렬화한
 잘라낸 view의 전체 원본 storage를 저장하지 않는다. Initial replay0행은 약11KB이며
 종료 replay의 크기는 실제 보유 행 수에 따라 증가한다. 주기적 모델 checkpoint와
 종료 replay를 혼동하지 않는다.
+
+`--contact-last-probe --no-training`은 PhysX의
+`solve_articulation_contact_last=True`만 바꾸는 별도 frozen 진단이다.
+Physics/control dt·iteration·속도 제한·성공·안전 기준은 유지하며 실제 USD flag도
+확인한다. TRAIN 및 다른 solver probe와 함께 쓰면 거부한다. NVIDIA의
+[articulation 안정성 안내](https://docs.omniverse.nvidia.com/kit/docs/omni_physics/107.3/dev_guide/guides/articulation_stability_guide.html)는
+접촉 순서 변경을 gripping 진단 옵션으로 설명한다. 현재 box 발산 원인 또는
+개선으로 확정하지 않으며, 다른 dynamics의 전이를 matching Q에 가져오지 않는다.
+
+단일 `replay_v2_grasp_reference.py --staged-goal-sac` 평가도 batched training과
+동일한 scene/asset/controller reset·robot FK·매 substep 중립 제어·original layout
+settling을 사용한다. 초기 layout guard와 reset 계약을 manifest/HDF에 남긴다.
+기존 VR/다른 policy replay 경로는 유지한다.
+
+완료 episode를 CPU에 모으는 batched runner는 `RlTransitionRecorder.append_many`로
+전이 필드마다 한 번 resize/write한다. LZF 압축과64행 이하 chunk를 사용하며 실제
+행/값/정렬/라벨을 바꾸지 않는다. Quest의 한 행씩 실시간 기록은 기존 `append`를
+유지한다. 이미 실행 중인 프로세스에는 코드를 교체하지 않으므로 새 실행부터 적용된다.

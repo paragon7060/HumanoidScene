@@ -56,7 +56,7 @@ class RlTransitionRecorder:
         self.file.flush()
         return name
 
-    def append(self, sample: dict) -> None:
+    def _validated_values(self, sample: dict) -> dict:
         if self.episode is None:
             raise RuntimeError("Start an RL episode before appending")
         missing = set(TRANSITION_FIELDS) - sample.keys()
@@ -73,11 +73,18 @@ class RlTransitionRecorder:
             expected = self.manifest.get(dimension)
             if expected is not None and np.shape(sample[name]) != (expected,):
                 raise ValueError(f"RL transition {name} must have shape ({expected},)")
-        group = self.episode["transitions"]
+        result = {}
         for name in TRANSITION_FIELDS:
             value = np.asarray(sample[name])
             if not np.issubdtype(value.dtype, np.number) and value.dtype != np.bool_:
                 raise TypeError(f"RL transition {name} must be numeric")
+            result[name] = value
+        return result
+
+    def append(self, sample: dict) -> None:
+        values = self._validated_values(sample)
+        group = self.episode["transitions"]
+        for name, value in values.items():
             if name not in group:
                 group.create_dataset(
                     name, shape=(0, *value.shape), maxshape=(None, *value.shape),
@@ -91,6 +98,39 @@ class RlTransitionRecorder:
         self.count += 1
         if self.count % 30 == 0:
             self.file.flush()
+
+    def append_many(self, samples) -> None:
+        """Write an already collected episode without per-row HDF5 resizing.
+
+        Batched simulation already owns completed rows in CPU memory. This
+        preserves their exact values/alignment and flushes the complete batch;
+        realtime Quest callers keep append's existing streaming behavior.
+        """
+        values = [self._validated_values(sample) for sample in samples]
+        if not values:
+            return
+        group = self.episode["transitions"]
+        arrays = {}
+        for name in TRANSITION_FIELDS:
+            shape = values[0][name].shape
+            if any(value[name].shape != shape for value in values):
+                raise ValueError(f"RL transition {name} changed shape")
+            if name in group and group[name].shape[1:] != shape:
+                raise ValueError(f"RL transition {name} changed shape")
+            # Single-row append uses the first row's dtype for this dataset.
+            dtype = group[name].dtype if name in group else values[0][name].dtype
+            arrays[name] = np.stack([value[name] for value in values]).astype(dtype, copy=False)
+        end = self.count + len(values)
+        for name, array in arrays.items():
+            if name not in group:
+                group.create_dataset(name, shape=(0, *array.shape[1:]),
+                    maxshape=(None, *array.shape[1:]), chunks=(min(64, len(values)), *array.shape[1:]),
+                    dtype=array.dtype, compression="lzf")
+            dataset = group[name]
+            dataset.resize(end, axis=0)
+            dataset[self.count:end] = array
+        self.count = end
+        self.file.flush()
 
     def finish_episode(self, *, success: bool, reason: str) -> str | None:
         if self.episode is None:

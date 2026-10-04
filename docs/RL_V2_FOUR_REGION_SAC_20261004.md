@@ -675,3 +675,45 @@ Empty storage, 최근 capacity 행만 저장, binary SAC·환경별 settling·Dr
 Frozen reset 반복3회의 실제 결과는4/16·5/16·5/16이다. 중간 선반의 성공은 있으나
 상단 좌우는 모두0/4였다. Box speed limit은 각6·5·6건이며 reset 수정만으로 flight를
 해결했다고 주장하지 않는다. 새로운 실제 SAC actor 업데이트와 독립 평가를 계속 확인한다.
+
+## 14:23 · 실제 rollout 진행과 별도 접촉 순서 진단
+
+GPU3의 첫128개 development에서 original layout99개가 통과했다. 초기 실패29개도
+분모에 남기고 replay에서 제외했다. 721step 시점에 정확한 양손 파지·lift 성공15개를
+확인했지만 중간 선반에만 있었고 상단 성공은0이다. 이 wave는 frozen baseline이며
+actor/critic/replay0이므로 SAC 학습 개선이라고 기록하지 않는다.
+
+GPU0에서 첫16개 development case·같은 초기 hybrid actor로 PhysX
+`solve_articulation_contact_last=True`만 바꾸는 frozen 진단을 시작했다.
+실제 USD flagTrue를 확인했다. NVIDIA의
+[articulation 안정성 안내](https://docs.omniverse.nvidia.com/kit/docs/omni_physics/107.3/dev_guide/guides/articulation_stability_guide.html)가
+gripping 접촉 순서 옵션을 제시하지만 원인이 확정된 것은 아니다.
+128개 원래 결과와16개 결과는 환경 수/원점 차이도 있으므로 단일 원인 비교라고
+주장하지 않는다. 적용 검토에는 같은16개 원래 설정의 별도 비교가 필요하다.
+진단은 Q/actor/replay를 업데이트하지 않고 현재 GPU3 학습 설정에도 적용하지 않았다.
+
+빈-view storage의 두 기존 파일과 compact 사본 모두를 Drive에서 크기·MD5로
+재검증하고, 모델 SHA·goal 계약·실제0행 동일성을 확인했다. 사용하지 않는 기존
+0행 replay storage만 로컬에서 제거해 **8,241,022,824bytes**를 회수했다.
+실제 학습 데이터·모든 checkpoint·Drive 과거 파일은 보존했고 별도 cleanup receipt를 남겼다.
+
+## 14:33 · 첫128개 평가 완료와 실제 TRAIN 수집 시작
+
+Development baseline은 **15/128 (11.72%)**로 종료했다. 중간 좌4/32·우11/32,
+상단 좌우0/32다. 초기 불량29개·안전 종료59개·시간초과25개도 분모에 포함한다.
+전체 rollout58,875행은 frozen evaluation이므로 replay/Q/actor에 쓰지 않았다.
+그다음 첫 TRAIN wave가 시작됐으며61step에 original87개가 살아 있고8개가 실제
+base hold를 확인했다. 실제 held replay30행, actor/critic0회인 초기 수집 시점이다.
+상단 실패와 물리 발산이 남아 있어 목표 완료 또는 학습 개선으로 기록하지 않는다.
+
+Completed episode를 한 행씩11필드 resize/write하던 HDF 경로도 bulk write로 개선했다.
+종료·Drive 검증된 frozen 실행의 실제1,480행을 두 방식으로 기록해 모든 전이 필드의
+값/dtype/순서가 같음을 확인했다. 같은 CPU에서4.026s·12,762,848B가
+0.120s·5,416,493B로 줄었다. 이는 저장 IO 비교이며 시뮬레이터·정책 학습 성능이 아니다.
+관련 recorder/teleop/batched 검사36개 통과. 기존 Quest streaming API를 유지하고
+새 batched 실행부터 적용한다. 현재 GPU3 실행 중 코드에 동적 교체는 하지 않았다.
+
+GPU0 접촉 순서 진단의 실제 종료·Drive 검증 뒤 같은16개 case를 원래 설정으로
+실행하도록 CPU 대기 서비스를 등록했다. 외부 작업을 종료하지 않고, dependency가
+실패하면 자동으로 비교를 시작하지 않는다. 이 서비스는 실제 서버 실행 대기이며
+채팅/LLM의 자동 점검 예약은 아니다.

@@ -267,6 +267,8 @@ def main():
         observation, _ = env.reset(seed=42)
         observation, _ = _settle_initial_resets(env, observation)
         layout = None
+        staged_layout_guard=None
+        scene_demo=demo
         if args.layout_json:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import GraspLayout, layout_reset_observation
             from kuavo_isaaclab_scene.workcell.rack_rollers import resolve_rack_roller_settings
@@ -275,6 +277,14 @@ def main():
             rollers=resolve_rack_roller_settings()
             scene_demo['actor_obs'][0]=layout_reset_observation(demo['actor_obs'][0],layout,cfg.multi_box,
                 roller_clearance_m=rollers.box_clearance_m if rollers.enabled else 0.)
+        if args.staged_goal_sac:
+            # Match the trained staged runner's asset/controller/FK reset.
+            # Legacy VR/other-policy replay keeps its own reset lifecycle.
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import settle_batched_layouts
+            observation,settling_steps,_,staged_layout_guard=settle_batched_layouts(
+                env,scene_demo['actor_obs'][:1].to(env.device),allow_partial=False)
+            rack=env.scene['rack'].data.root_pose_w.clone()
+        elif layout:
             observation,rack,settling_steps=settle_reference_scene(env,scene_demo,settle_all=True)
         else:
             observation, rack, settling_steps = settle_reference_scene(env, demo)
@@ -504,8 +514,11 @@ def main():
             if staged_goal_sac:
                 meta['collection_source']=staged_goal_sac.artifact_type
                 meta['staged_goal_contract']=staged_goal_sac.contract
+                meta['initial_layout_guard']=staged_layout_guard
                 manifest.update(artifact_type=staged_goal_sac.artifact_type,
-                    goal_contract=staged_goal_sac.contract,training=staged_goal_sac.training)
+                    goal_contract=staged_goal_sac.contract,training=staged_goal_sac.training,
+                    initial_layout_guard=staged_layout_guard,
+                    wave_reset_controller_contract=staged_layout_guard['controller_reset']['contract'])
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         meta['vr_orientation_mode']=args.vr_orientation_mode
         meta['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
