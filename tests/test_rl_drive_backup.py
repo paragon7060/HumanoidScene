@@ -86,6 +86,32 @@ def test_manifest_required_before_any_transfer(tmp_path):
     assert not remote.files
 
 
+def test_large_upload_extends_transfer_deadline_without_weakening_checks(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(stdout="{}")
+
+    monkeypatch.setattr(backup.subprocess, "run", run)
+    source = tmp_path / "staged_goal_experience.pt"
+    with source.open("wb") as stream:
+        stream.truncate(4 * 1024 ** 3)  # Sparse: no multi-gigabyte allocation.
+    remote = backup.Rclone(tmp_path / "wrapper.sh")
+    remote.upload(source, "drive:run/staged_goal_experience.pt")
+    command, options = calls[-1]
+    assert options["timeout"] == 4396
+    assert options["check"] and options["capture_output"]
+    assert "--checksum" in command and "--immutable" in command
+    assert command[-6:] == ["--retries", "3", "--contimeout", "15s", "--timeout", "60s"]
+    remote.call("lsjson", "drive:run/staged_goal_experience.pt", "--stat", "--hash")
+    assert calls[-1][1]["timeout"] == 600
+    source.write_bytes(b"small completed checkpoint")
+    remote.upload(source, "drive:run/checkpoint_00000001.pt")
+    assert calls[-1][1]["timeout"] == 600
+
+
 def test_dppo_logs_wait_for_finished_and_verified_retention_keeps_two(run):
     for index in range(4):
         path = run / f"checkpoint_{index:08d}.pt"

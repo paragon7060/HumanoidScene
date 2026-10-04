@@ -478,3 +478,55 @@ initial robot/box와 strict source checkpoint/templates를 복원한 뒤 실제 
 같은 seed를 반복할 때는 `(seed,candidate name)`으로 비교 attempt를 구분한다.
 원래 randomization과 물리적 성공/안전 기준을 유지하고 metadata/Q import allowlist로
 이 진단 transition을 matching SAC replay에서 제외한다. Default 학습에는 영향이 없다.
+
+## 실제 TRAIN 성공 경험 유지
+
+`prepare_staged_success_retention.py`는 matching hybrid held-goal SAC에서 실제로
+성공했던 TRAIN episode를 별도 bank에 남겨 이후 업데이트에서 재사용한다. 원래 VR
+데모의 BC prior와 별개이며, DEV/FINAL·waypoint probe·unsafe·무효 reset 자료는
+bank에 넣지 않는다. 기존 checkpoint에는 이 기능이 적용되지 않는다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_staged_success_retention.py \
+  --checkpoint /absolute/path/to/closed-matching-run/checkpoint_XXXXXXXX.pt \
+  --best-checkpoint /absolute/path/to/dev-selected-matching-actor/checkpoint_XXXXXXXX.pt \
+  --output-dir /absolute/path/to/unique-success-retention-input
+```
+
+Source manager의 writer가 종료되고 최종 Drive 백업이 검증되어야 한다. Source
+checkpoint와 replay의 solver·보상·관측·action·held controller 계약도 같아야 한다.
+Interrupted run도 유한한 checkpoint와 실제 성공 자료/최종 백업이 있으면 사용할 수
+있지만, 그 실행 전체가 정상 종료했다고 기록하지 않는다. `/proc` 검사는 실제 host의
+PID namespace에서 수행해야 한다. 체크포인트를 복사한 별도 폴더만으로는 source
+writer 종료·실측 HDF 증거를 대체할 수 없다.
+
+Native HDF 성공 궤적과 원래21-D Q rows를 raw pre/next critic·reward·termination·
+elapsed clock으로 정확히 연결한다. 포화된 physical delta를 역산하여 가상 목표를
+만들지 않는다. Bank에는 실제 opposing 양손 pinch/stability,0.25초 hold, 이미 roller
+support가 보정된8mm proof lift를 통과한 episode의 **held-phase 전체 실측 경로**를
+넣는다. 접근 phase는 포함하지 않는다.
+
+Q의256-row batch 중 초기 약20%(51행)를 이 bank에서 샘플링하고5000 actor
+updates에 걸쳐5%로 줄인다. 나머지는 원래 matching replay다. Actor에는 실제 성공
+states64개에서19개 연속 목표의 MSE와 접근 gate가 허용한 손의 binary jaw BCE를
+추가한다. Radius0.05에서 effective MSE weight400, jaw weight0.05이며 기존 frozen
+prior와 SAC objective도 유지한다. 이는 SAC의 실제 성공 경로를 보존하는 보조 모방
+손실이며, 새로운 VR 궤적이나 평가 결과를 학습 action label로 사용하는 기능이 아니다.
+
+구역마다4096행까지 whole episode로 보관하고, 자료가 있는 구역을 균등하게 샘플링한다.
+새 TRAIN wave에서 성공하면 실제 실행한21-D goals를 bank에 추가한다. 지금 초기
+bank는 중간 오른쪽2episode/826행뿐이므로 다른 세 구역의 학습 자료가 충분하다고
+해석하면 안 된다. `successful_train_bank`, `successful_train_replay_fraction`,
+`successful_train_rows_in_Q_batch`, `success_goal_loss`, `success_jaw_loss`로 확인한다.
+
+입력 checkpoint의 크기·MD5 검증 후 기존 `batched_staged_goal_with_drive.py`의
+고유 실행 폴더에서 `--training`으로 실행한다. Checkpoint 계약이 기능을 켜며 별도의
+runtime flag는 필요 없다. Source best actor/normalizer를 복구하지만 Q/replay/counter는
+matching closed Q branch를 유지하므로 서로 다른 branch의 actor update 수를 단순히
+비교하지 않는다. 초기 source/audit와 이후 실제 optimizer 증가량을 함께 확인한다.
+Checkpoint와 종료 replay에 bank를 저장하고 DEV/FINAL에서는 optimizer/replay/bank를
+수정하지 않는다. Immutable checkpoint와 최신 replay bank를 분리해 복원하므로 같은
+Q counter의 이미 업로드한 파일을 덮어쓰지 않는다.
+
+환경·randomization·진입 waypoint·성공/안전 판정은 그대로다. 기능 동작 검사는 물리적
+성공률 개선의 증거가 아니며, 같은 DEV와 독립 FINAL에서 별도로 평가해야 한다.

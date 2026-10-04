@@ -87,6 +87,29 @@ def test_learning_and_both_entropy_optimizers_survive_checkpoint():
     with pytest.raises(ValueError,match='binary gripper'):agent.update(batch|dict(action=torch.zeros(64,21)))
 
 
+def test_actual_success_retention_moves_goals_and_binary_jaws_without_Q_relabeling():
+    torch.manual_seed(3);agent,obs=agent_and_observations(64)
+    with torch.no_grad():
+        for network in [agent.q1,agent.q2,agent.target1,agent.target2]:
+            for value in network.parameters():value.zero_()
+        agent.actor.network[-1].weight.zero_();agent.actor.network[-1].bias.zero_()
+        agent.actor.network[-1].bias[21:].fill_(torch.log(torch.tensor(.005)))
+    goals=torch.full((8,21),.02);goals[:,19]=1;goals[:,20]=-1
+    successful=dict(actor_obs=obs[:8].clone(),action=goals)
+    actions=agent.act(obs)
+    batch=dict(actor_obs=obs,critic_obs=torch.zeros(64,4),action=actions.clone(),next_actor_obs=obs.clone(),
+        next_critic_obs=torch.zeros(64,4),reward=torch.ones(64),terminated=torch.ones(64,dtype=torch.bool))
+    before=agent.actor.network[-1].bias.clone()
+    report=agent.update(batch,successful_train=successful,success_goal_weight=400.,success_jaw_weight=.05)
+    after=agent.actor.network[-1].bias
+    assert report['success_goal_loss']>0 and report['success_jaw_loss']>0
+    assert (after[:19]>before[:19]).all() and after[19]>before[19] and after[20]<before[20]
+    torch.testing.assert_close(batch['action'],actions,rtol=0,atol=0)
+    frozen={k:v.clone() for k,v in agent.actor.state_dict().items()}
+    report=agent.update(batch,successful_train=successful,success_goal_weight=400.,success_jaw_weight=.05,update_actor=False)
+    assert report['success_goal_weight']==0 and all(torch.equal(v,frozen[k]) for k,v in agent.actor.state_dict().items())
+
+
 def test_actor_recovery_keeps_hybrid_Q_actual_rows_and_both_temperature_states(tmp_path):
     from copy import deepcopy
     from recover_pose_goal_actor import recover

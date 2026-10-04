@@ -1269,3 +1269,99 @@ actor3389/Q15602/replay0 유지와 GPU3 단독 CUDA 사용을 확인했다.
 로그/HDF 검증을 맡는다. 새 인증은 만들지 않았고 GPU1/2의 다른 사용자 PID1779102는
 변경하지 않았다. 기록 시점 로컬 여유는약33GB였다. 성공을 과장하지 않고 실제 접촉
 동작의 유지와 더 넓은 초기 상태에서의 성공을 계속 확인한다.
+
+### 10/05 01:47 — 미세 위치 진단 결과와 실제 TRAIN 성공을 유지하는 SAC
+
+Goal은 `randomization을 유지한 SAC 양손 파지 성공`, 상태는active다. 안정적인
+randomized 일반화나 독립 FINAL 성공을 달성한 것은 아니다. GPU0 원래 학습의 같은
+128-case DEV 결과는 **2→5→5→2→1→5/128**이었다. Wave15에서5회로 돌아왔지만
+계속 증가하는 추세나 네 구역의 성공 유지로 해석하지 않는다.
+
+GPU3 frozen 미세 위치 진단은 정상 종료했고 최종 로그/HDF의 Drive 크기·MD5 검증을
+마쳤다. 같은상단 오른쪽8개 DEV 배치×16후보에서3회 성공했다. 모두 actor3389 /
+Q15602로 고정했고, Q/replay 업데이트나 새 TRAIN 자료는 없다.
+
+| DEV seed | Workplace XY offset | 보정 proof-lift clearance |
+|---|---|---:|
+| 121324 | −2cm /0cm | 35.60mm |
+| 121300 | −1cm /−2cm | 51.03mm |
+| 121306 | +1cm /−1cm | 85.46mm |
+
+이3개는 서로 다른 초기 배치지만 DEV tuning으로 선택한 성공이다. 이후32개 초기
+배치로 넓힌 비교에서는 다음 결과였다. 모든 분모에 초기 무효 배치를 포함했다.
+
+| Frozen 후보 | 초기 유효 | 성공 | Robot–rack 실패 |
+|---|---:|---:|---:|
+| 원래 workplace | 25/32 | 0/32 | 2 |
+| X−2cm | 24/32 | 1/32 | 14 |
+| X−1cm/Y−2cm | 23/32 | 0/32 | 6 |
+| X+1cm/Y−1cm | 24/32 | 0/32 | 0 |
+
+X−2cm의 성공 seed121319는33.10mm proof lift를 통과했지만 충돌도14회였다. 따라서
+이 후보로 기본 진입 waypoint를 바꾸지 않았다. 반복 물리 상태가 조금씩 달라지는
+점과 초기 무효 reset 비중도 남아 있으며, 위치 변경만으로 학습 문제를 해결했다고
+결론내릴 수 없다. 이 probe도 정상 종료·최종 Drive 검증을 마쳤다.
+
+![실측 DEV 추세·미세 위치 성공·더 넓은 비교·새 TRAIN 성공 replay 일정](assets/rl_v2_success_retention_20261005.png)
+
+[실측 snapshot](assets/rl_v2_success_retention_20261005.json)은 frozen DEV/probe와 새
+TRAIN 업데이트를 구분한다. 오른쪽 아래 그래프는 **설정된 replay 일정**이며 성공률
+예측이나 실제 개선 곡선이 아니다.
+
+#### 이번 SAC 변경
+
+드물게 성공한 실제 TRAIN 경로가 이후 업데이트에서 사라지는 문제를 다루기 위해
+성공 episode의 정확한21-D held goals/관측/보상/next state를 별도 bank에 보관한다.
+초기 자료는 종료·최종 백업된 matching PGS 실행의 중간 오른쪽 TRAIN2개,
+seed120100/120129의 **826개 실제 전이**다. Native HDF와 원래 Q rows를 정확히
+연결했고, saturated physical delta에서 goal을 역산하지 않았다.
+
+Q batch는 초기20% 성공 자료를 사용하고5000 actor updates 동안5%로 줄인다.
+Actor에는 실제 성공 경로의 연속 goal MSE(weight400 at radius0.05)와 접근 gate가
+허용한 jaw BCE(weight0.05)를 추가했다. 성공을 새로 발견하면 TRAIN wave 종료 후
+bank에 추가한다. 구역당4096행까지 whole episodes를 보관하고, 자료가 있는 구역을
+균등하게 샘플링한다. 초기 bank는 중간 오른쪽뿐이므로 다른 구역에 편향될 위험이
+있다. DEV/FINAL/probe 자료는 bank/Q 학습에 들어가지 않는다. 기존 VR frozen prior,
+SAC Q objective와 환경·보상·관측·waypoint·randomization·안전/성공 기준은 유지한다.
+[사용법과 저장 계약](RL_V2_STAGED_GOAL_SAC.md#실제-train-성공-경험-유지)을 참고한다.
+
+시작 actor는 DEV에서 네 구역 성공이 있었던checkpoint15602/actor3389를 복구했다.
+Q/replay는 다른 **종료된 matching checkpoint12588** branch의 실제438808행을
+유지했다. 시작 runtime counters는actor2635/Q12588이며 복구 actor의source3389와
+구분한다. 초기826개 실제 TRAIN states의 greedy21-goal 출력이 선택한 actor와
+정확히 같고 모든 모델 tensor가 유한함을 확인했다. 다른 solver/MDP의 old Q를
+가져오거나 초기화 자체를 새 학습량으로 세지 않았다.
+
+#### GPU3 실제 실행 확인
+
+실행 부모는`staged_success_retention_pgs128_gpu3_20261005_012745`, 실제 child는
+`batch_sac_20261005_012745_ad5861`이다. Host writer1115417와 supervisor1115203,
+CUDA_VISIBLE_DEVICES=3 / renderer GPU3 / multiGPU off,128env를 확인했다.
+GPU 사용량은 약18.4GiB였다. 다른 사용자 PID1779102의 GPU1/2 작업은 변경하지 않았다.
+
+초기 frozen DEV는 **4/128**(중간 왼쪽1/오른쪽3,상단0/0), 초기 유효100/128이다.
+이는 새 학습 전 결과이며 retention의 개선으로 세지 않는다. 이후 TRAIN wave1에서
+actor2684/Q12784, 즉 **새 actor49/Q196 updates**, 실제 TRAIN6058행을 확인했다.
+Q256행 중 실제 성공51행이 들어갔고 goal/jaw 보조 손실이 유한했다. 초기 성공 bank826행,
+evaluation_rows=0도 유지됐다. 새 학습의 성공률 개선은 다음 DEV와 독립 FINAL에서
+확인해야 한다. 관련 자료 분리·gradient·저장/재개·runner 검사44개와 Drive 검사10개가
+통과했다. CPU 검사는 물리 성공률의 증거가 아니다.
+
+#### 저장과 실행 중단 처리
+
+기존 연결로 초기23.6MB checkpoint의 크기·MD5를 검증했다. 초기3.62GB replay는
+기존600초 전체 전송 제한시간으로 실패했고, source 파일을 보존한 채 파일 크기에
+맞춘 제한시간으로 재업로드 중이다. 인증 실패로 판정하거나 재인증하지 않았다.
+기록 당시 초기 전체 replay 백업은 **검증 대기**이며, 원래 종료된 source의 전체
+백업은 검증되어 있다. 로컬 여유는 약28GiB다.
+
+기존300초 업로더·검증된 과거 checkpoint만 정리/최근2개 유지 규칙을 재사용한다.
+이미 실행 중인 관리자는 이전 timeout 코드를 유지하므로 별도CPU 보조 unit
+`humanoid-rl-large-final-backups-20261005-0147.service`를 실제 시작·확인했다.
+이 worker는 두 학습 writer 종료와 supervisor의닫힌 로그 증거를 기다린 후 같은
+파일 잠금을 사용해 최종 replay/HDF/로그를 검증한다. GPU나 실행 중인 로그를
+사용하지 않고, 다른 업로더가 잠금을 보유하면 기다린다.
+
+GPU0 종료 시도는 자동 승인 검토에서 진행 중인 학습을 중단할 명시적 승인이
+없다는 이유로 거부되어 **종료 신호를 보내지 않았다**. GPU0는 그대로 유지하고,
+새 GPU3 학습은 닫히고 검증된 별도 source에서 시작했다. Goal은 완료 처리하지 않는다.

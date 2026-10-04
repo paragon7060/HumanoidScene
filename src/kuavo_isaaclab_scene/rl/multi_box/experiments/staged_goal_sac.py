@@ -140,7 +140,8 @@ class StagedGoalSACPilot:
                  gripper_logit_scale=1., replay_capacity=20000,
                  normalize_prior_loss_by_radius=False,actor_min_replay_rows=64,
                  anchor_prior_to_initial_policy=False,exploration_correlation=0.,
-                 fixed_prior_radius=None,validated_jaw_prior_confidence=0.,jaw_prior_residual_gain=1.):
+                 fixed_prior_radius=None,validated_jaw_prior_confidence=0.,jaw_prior_residual_gain=1.,
+                 train_success_retention=False):
         if warm_start.training:
             raise ValueError('The warm-start network must remain frozen')
         self.warm_start = warm_start
@@ -163,6 +164,7 @@ class StagedGoalSACPilot:
         self.anchor = None
         self.actor_updates = self.critic_updates = self.online_rows = 0
         self.prior_schedule_actor_origin=0.
+        self.success_schedule_actor_origin=0.
         self.actor_dim = warm_start.actor_dim+CONTEXT_DIM
         self.critic_dim = 533+CONTEXT_DIM
         self.warmup = 2048
@@ -183,6 +185,14 @@ class StagedGoalSACPilot:
             validated_jaw_prior_confidence=saved.get('goal_contract',{}).get('validated_jaw_prior_confidence',0.)
             jaw_prior_residual_gain=saved.get('goal_contract',{}).get('jaw_prior_residual_gain',1.)
             self.prior_schedule_actor_origin=saved.get('prior_schedule_actor_origin',0.)
+            train_success_retention='train_success_retention' in saved.get('goal_contract',{})
+            self.success_schedule_actor_origin=saved.get('success_schedule_actor_origin',0.)
+        if type(train_success_retention) is not bool or (train_success_retention and self.agent_class is AsymmetricSAC):
+            raise ValueError('Actual successful TRAIN retention requires explicit hybrid goal SAC')
+        from .staged_train_success import TrainSuccessBank,retention_config
+        self.success_bank=TrainSuccessBank(self.actor_dim,self.critic_dim) if train_success_retention else None
+        if train_success_retention and saved and saved['goal_contract']['train_success_retention']!=retention_config():
+            raise ValueError('Successful TRAIN retention configuration differs')
         if not math.isfinite(exploration_correlation) or not 0<=exploration_correlation<=.995:
             raise ValueError('Goal exploration correlation must be within0..0.995')
         self.exploration_correlation=exploration_correlation
@@ -208,7 +218,7 @@ class StagedGoalSACPilot:
         self.replay_capacity=replay_capacity
         if type(actor_min_replay_rows) is not int or not 64<=actor_min_replay_rows<=replay_capacity:
             raise ValueError('Actor collection warmup must be within64..replay capacity')
-        if not math.isfinite(self.prior_schedule_actor_origin):
+        if not math.isfinite(self.prior_schedule_actor_origin) or not math.isfinite(self.success_schedule_actor_origin):
             raise ValueError('Malformed actor prior schedule origin')
         self.actor_min_replay_rows=actor_min_replay_rows
         if type(free_grippers) is not bool or not math.isfinite(gripper_logit_scale) \
@@ -273,6 +283,12 @@ class StagedGoalSACPilot:
                         raise ValueError('Replay contains an unconfirmed approach phase')
                 self.replay.add(**rows)
                 self.history.append({k:v.cpu() for k,v in rows.items()})
+                if self.success_bank is not None:
+                    if 'successful_train_transitions' not in saved:
+                        raise ValueError('Actual successful TRAIN replay is missing from continuation')
+                    self.success_bank.restore(saved['successful_train_transitions'])
+            elif self.success_bank is not None:
+                self.success_bank.restore(state['successful_train_transitions'])
         self.frozen_actor_prior=None
         if self.anchor_prior_to_initial_policy:
             # Actor-only snapshot. It cannot bring another controller's Q,
@@ -322,6 +338,7 @@ class StagedGoalSACPilot:
         if self.anchor_prior_to_initial_policy:
             contract['actor_prior_source']='frozen_validated_remaining_goal_actor'
         if self.fixed_prior_radius is not None:contract['fixed_prior_radius']=self.fixed_prior_radius
+        if self.success_bank is not None:contract['train_success_retention']=self.success_bank.config
         if self.validated_jaw_prior_confidence:
             contract.update(validated_jaw_prior_confidence=self.validated_jaw_prior_confidence,
                 jaw_prior_residual_gain=self.jaw_prior_residual_gain,
@@ -347,6 +364,13 @@ class StagedGoalSACPilot:
     def prior_weight(self):
         weight=2.*(1-self.progress)
         return weight/self.radius**2 if self.normalize_prior_loss_by_radius else weight
+
+    @property
+    def success_replay_fraction(self):
+        if self.success_bank is None:return 0.
+        config=self.success_bank.config
+        progress=min(1.,max(0,self.actor_updates-self.success_schedule_actor_origin)/config['fade_actor_updates'])
+        return config['final_replay_fraction']+(config['initial_replay_fraction']-config['final_replay_fraction'])*(1-progress)
 
     def observations(self, raw, critic, index):
         ao, co = self.warm_start.observations(raw, critic, index, self.anchor)
@@ -391,6 +415,9 @@ class StagedGoalSACPilot:
         with torch.enable_grad():
             for _ in range(2):
                 actual = self.replay.sample(256, self.device)
+                success_rows=0
+                if self.success_bank is not None:
+                    actual,success_rows=self.success_bank.mix(actual,self.success_replay_fraction,self.device)
                 self.agent.update_normalizers(actual['actor_obs'], actual['critic_obs'])
                 update_actor = (self.critic_updates >= self.warmup and self.critic_updates % 4 == 0
                                 and self.replay.size>=self.actor_min_replay_rows)
@@ -407,15 +434,23 @@ class StagedGoalSACPilot:
                                 labels[:,19:21]=(labels[:,19:21].clamp(-.999999,.999999).atanh()
                                                  *self.gripper_logit_scale).tanh()
                     teacher = dict(actor_obs=actual['actor_obs'], action=labels)
+                success_options={}
+                if self.success_bank is not None and self.success_bank.size and update_actor:
+                    success_options=dict(successful_train=self.success_bank.sample(64,self.device),
+                        success_goal_weight=self.success_bank.config['actor_goal_mse_weight']/self.radius**2,
+                        success_jaw_weight=self.success_bank.config['actor_jaw_nll_weight'])
                 self.latest = self.agent.update(actual, teacher=teacher, teacher_weight=weight,
-                                                update_actor=update_actor)
+                                                update_actor=update_actor,**success_options)
+                if self.success_bank is not None:
+                    self.latest.update(successful_train_rows_in_Q_batch=success_rows,
+                        successful_train_replay_fraction=self.success_replay_fraction)
                 if update_actor:
                     self.latest_actor = dict(self.latest, critic_update=self.critic_updates+1)
                 self.actor_updates += int(update_actor)
                 self.critic_updates += 1
 
     def report(self):
-        return dict(training=self.training, actor_updates=self.actor_updates,
+        report=dict(training=self.training, actor_updates=self.actor_updates,
             critic_updates=self.critic_updates, online_rows=self.online_rows,
             replay_size=self.replay.size, seed_rows=0, old_Q_or_replay_imported=False,
             gripper_prior_bound=not self.free_grippers,gripper_logit_scale=self.gripper_logit_scale,
@@ -429,6 +464,11 @@ class StagedGoalSACPilot:
             max_policy_std=self.agent.config.max_policy_std,
             runtime_reference_path_required=False, latest=self.latest,
             latest_actor=self.latest_actor, goal_contract=self.contract)
+        if self.success_bank is not None:
+            report.update(successful_train_bank=self.success_bank.report(),
+                successful_train_replay_fraction=self.success_replay_fraction,
+                success_schedule_actor_origin=self.success_schedule_actor_origin)
+        return report
 
     def save(self, final=False):
         if not final and getattr(self, '_last_saved', None) == self.critic_updates:
@@ -442,6 +482,9 @@ class StagedGoalSACPilot:
                 reference_runtime_dependency=False)
             if self.frozen_actor_prior is not None:
                 state['frozen_actor_prior']=self.frozen_actor_prior.state_dict()
+            if self.success_bank is not None:
+                state.update(successful_train_transitions=self.success_bank.state(),
+                    success_schedule_actor_origin=self.success_schedule_actor_origin)
             # A closed evaluation wave must not rewrite an already uploaded
             # checkpoint with the same critic counter and remote filename.
             save_checkpoint(self.directory, state, self.critic_updates, keep=None)
@@ -460,5 +503,8 @@ class StagedGoalSACPilot:
             rows = {k:(torch.cat([b[k] for b in recent]).detach().cpu()
                        if recent else v[:0].detach().cpu().clone())
                     for k,v in self.replay.data.items()}
-            torch.save(dict(goal_contract=self.contract, executed_goal_transitions=rows),
+            experience=dict(goal_contract=self.contract,executed_goal_transitions=rows)
+            if self.success_bank is not None:
+                experience['successful_train_transitions']=self.success_bank.state()
+            torch.save(experience,
                        self.directory/'staged_goal_experience.pt')

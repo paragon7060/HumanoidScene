@@ -323,6 +323,7 @@ def main():
             active=valid_layout.clone()
             snapshots=[capture_rl_initial_state(env,observation,env_index=i) if valid_layout[i] else None for i in range(n)]
             rows=[[] for _ in range(n)]
+            measured_goal_batches=[]
             last=[None if valid_layout[i] else dict(steps=0,success=False,unsafe=False,
                 invalid_reset=True,time_out=False,pinching=[False,False],flap_distances=None,
                 original_layout_replaced_during_settling=True,replay_rows=0) for i in range(n)]
@@ -372,8 +373,10 @@ def main():
                         if not torch.allclose(reward[active],env._multi_box_grasp_reward_breakdown.total[active],atol=1e-5,rtol=1e-5):
                             raise ValueError('Actual vector reward differs from current breakdown')
                         if previous is not None:
-                            observe_measured_held_rows(pilot,stages,ids,previous,terminal,
+                            added=observe_measured_held_rows(pilot,stages,ids,previous,terminal,
                                 reward,terminated,clocks,active)
+                            if added and pilot.training and pilot.success_bank is not None:
+                                measured_goal_batches.append((ids[active[ids]].detach().cpu(),pilot.history[-1]))
                         # One transfer per field, rather than per environment.
                         # Scene collection remains exactly the executed tensor.
                         pc={k:v.cpu().numpy() for k,v in pre.items()}
@@ -435,6 +438,9 @@ def main():
             if wave['split']!='train' and updates_before!=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size):
                 raise ValueError('Evaluation modified optimizer counters or replay')
             pilot.training=args.training
+            if pilot.success_bank is not None:
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import add_completed_training_wave
+                add_completed_training_wave(pilot.success_bank,wave,outcomes[-n:],measured_goal_batches,source_run=output.name)
             if args.training:pilot.save(final=True)
             regression=baseline_failed=False
             if guard is not None and wave['split']=='validation':

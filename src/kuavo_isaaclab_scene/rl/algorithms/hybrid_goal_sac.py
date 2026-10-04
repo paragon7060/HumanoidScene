@@ -114,11 +114,22 @@ class HybridGoalSAC(AsymmetricSAC):
         return result.sum(-1)
 
     def update(self,batch,*,demonstration=None,demonstration_weight=0.,
-               teacher=None,teacher_weight=0.,update_actor=True):
+               teacher=None,teacher_weight=0.,update_actor=True,
+               successful_train=None,success_goal_weight=0.,success_jaw_weight=0.):
         if demonstration is not None or demonstration_weight:
             raise ValueError('Hybrid goals require actual TRAIN replay, not old delta demonstrations')
         if teacher_weight<0 or (teacher_weight and teacher is None):
             raise ValueError('Nonnegative prior weight and labels required')
+        if not all(math.isfinite(v) and v>=0 for v in (success_goal_weight,success_jaw_weight)) or (
+                (success_goal_weight or success_jaw_weight) and successful_train is None):
+            raise ValueError('Successful TRAIN labels require nonnegative retention weights')
+        if successful_train is not None:
+            labels=successful_train['action']
+            if labels.ndim!=2 or labels.shape[1]!=21 or not torch.isfinite(labels).all() \
+                    or (labels.abs()>1.00001).any() or not (labels[:,19:21].abs()==1).all() \
+                    or successful_train['actor_obs'].shape!=(len(labels),self.actor_obs_dim) \
+                    or not torch.isfinite(successful_train['actor_obs']).all():
+                raise ValueError('Successful TRAIN labels must retain real bounded goals and binary jaws')
         if not bool((batch['action'][:,19:21].abs()==1).all()):
             raise ValueError('Hybrid replay must contain actual binary gripper commands')
         ao=self.actor_normalizer(self.actor_features(batch['actor_obs']))
@@ -149,7 +160,8 @@ class HybridGoalSAC(AsymmetricSAC):
             policy_action_std_mean=body.std(0,unbiased=False).mean().item(),
             q_value_mean=torch.minimum(q1,q2).mean().item(),target_value_mean=target.mean().item(),
             entropy_bonus_mean=(-(probability*entropy).sum(-1)).mean().item(),
-            policy_gaussian_std_mean=self.parameters_at(ao)[1].exp().mean().item())
+            policy_gaussian_std_mean=self.parameters_at(ao)[1].exp().mean().item(),
+            success_goal_loss=0.,success_jaw_loss=0.,success_goal_weight=0.,success_jaw_weight=0.)
         if not update_actor:return report
         self.q1.requires_grad_(False);self.q2.requires_grad_(False)
         try:
@@ -159,6 +171,7 @@ class HybridGoalSAC(AsymmetricSAC):
             scale=q.detach().abs().mean().clamp_min(1).reciprocal() if self.config.actor_q_normalize else 1.
             actor_loss=(probability*(alpha*continuous_logp[:,None]+discrete_alpha*discrete_logp-scale*q)).sum(-1).mean()
             teacher_loss=torch.zeros((),device=ao.device);discrete_prior=torch.zeros_like(teacher_loss)
+            success_goal_loss=torch.zeros_like(teacher_loss);success_jaw_loss=torch.zeros_like(teacher_loss)
             if teacher is not None and teacher_weight:
                 normalized=self.actor_normalizer(self.actor_features(teacher['actor_obs']))
                 mean,_,jaw_logits=self.parameters_at(normalized)
@@ -170,6 +183,14 @@ class HybridGoalSAC(AsymmetricSAC):
                 discrete_prior=(p*(F.logsigmoid(teacher_logits)-F.logsigmoid(jaw_logits))+
                     (1-p)*(F.logsigmoid(-teacher_logits)-F.logsigmoid(-jaw_logits))).mean()
                 actor_loss+=teacher_weight*teacher_loss+self.discrete_prior_weight*discrete_prior
+            if successful_train is not None and (success_goal_weight or success_jaw_weight):
+                raw=successful_train['actor_obs'];normalized=self.actor_normalizer(self.actor_features(raw))
+                mean,_,jaw_logits=self.parameters_at(normalized);labels=successful_train['action']
+                success_goal_loss=F.mse_loss(mean.tanh(),labels[:,:19])
+                success_near=self.action_projector.entropy_mask(raw)[:,19:21].bool()
+                if bool(success_near.any()):
+                    success_jaw_loss=F.binary_cross_entropy_with_logits(jaw_logits[success_near],(labels[:,19:21][success_near]+1)/2)
+                actor_loss+=success_goal_weight*success_goal_loss+success_jaw_weight*success_jaw_loss
             optimize(self.actor_optimizer,actor_loss,self.actor.parameters())
         finally:
             self.q1.requires_grad_(True);self.q2.requires_grad_(True)
@@ -191,7 +212,9 @@ class HybridGoalSAC(AsymmetricSAC):
             discrete_entropy_mean=observed_entropy.mean().item(),
             target_discrete_entropy_mean=target_discrete.float().mean().item(),
             near_jaw_count_mean=near.sum(-1).float().mean().item(),
-            close_probability_mean=logits.sigmoid().mean().item())
+            close_probability_mean=logits.sigmoid().mean().item(),
+            success_goal_loss=success_goal_loss.item(),success_jaw_loss=success_jaw_loss.item(),
+            success_goal_weight=success_goal_weight,success_jaw_weight=success_jaw_weight)
         return report
 
     @property

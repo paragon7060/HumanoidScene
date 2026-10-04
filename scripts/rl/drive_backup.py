@@ -37,16 +37,22 @@ class Rclone:
     def __init__(self, wrapper):
         self.wrapper = str(wrapper)
 
-    def call(self, *args):
+    def call(self, *args, timeout=600):
         result = subprocess.run(
             ["bash", self.wrapper, *map(str, args), "--retries", "3",
              "--contimeout", "15s", "--timeout", "60s"],
-            check=True, capture_output=True, text=True, timeout=600,
+            check=True, capture_output=True, text=True, timeout=timeout,
         )
         return result.stdout
 
     def upload(self, source, destination):
-        self.call("copyto", source, destination, "--checksum", "--immutable")
+        # Completed replay files can take more than ten minutes to transfer.
+        # Allow 1 MiB/s plus five minutes; stalled network I/O still times out
+        # after 60 seconds, and metadata calls retain their ten-minute limit.
+        mib = 1024 * 1024
+        deadline = max(600, 300 + (Path(source).stat().st_size + mib - 1) // mib)
+        self.call("copyto", source, destination, "--checksum", "--immutable",
+                  timeout=deadline)
 
     def verify(self, source, destination, digest):
         record = json.loads(self.call("lsjson", destination, "--stat", "--hash", "--hash-type", "md5"))

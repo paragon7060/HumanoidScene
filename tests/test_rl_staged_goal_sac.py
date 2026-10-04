@@ -172,6 +172,28 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     assert not any(p.requires_grad for p in restored_confident.frozen_actor_prior.parameters())
     torch.testing.assert_close(restored_confident.act(raw,critic,0)[0],command)
 
+    # Actual-success retention is opt-in. Its newest closed bank belongs to
+    # the replay snapshot even when an immutable checkpoint counter repeats.
+    from test_rl_staged_train_success import episode
+    retained=StagedHybridGoalSACPilot(warm,contract,tmp_path/'retained',stage,
+        free_grippers=True,train_success_retention=True)
+    successful,outcome=episode()
+    retained.replay.add(**successful);retained.history.append(successful)
+    retained.success_bank.add_episode(successful,outcome,source_run='unit_fixture',split='train')
+    retained.directory.mkdir();retained.save(final=True)
+    retained_cp=next(retained.directory.glob('checkpoint_*.pt'));unchanged=retained_cp.read_bytes()
+    second,second_outcome=episode(env=1)
+    retained.success_bank.add_episode(second,second_outcome,source_run='unit_fixture',split='train')
+    retained.save(final=True)
+    assert retained_cp.read_bytes()==unchanged
+    continued=StagedHybridGoalSACPilot(warm,contract,tmp_path/'retained_resume',stage,checkpoint=retained_cp)
+    assert continued.replay.size==3 and continued.success_bank.size==6
+    assert continued.success_replay_fraction==pytest.approx(.2)
+    evaluated=StagedHybridGoalSACPilot(warm,contract,tmp_path/'retained_eval',stage,checkpoint=retained_cp,training=False)
+    before=(evaluated.actor_updates,evaluated.critic_updates,evaluated.replay.size,evaluated.success_bank.size)
+    evaluated.act(raw,critic,0)
+    assert (evaluated.actor_updates,evaluated.critic_updates,evaluated.replay.size,evaluated.success_bank.size)==before
+
     # A changed proof predicate starts new critics/replay. Only matching
     # behavior transfers, including its actor observation normalization.
     from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import initialize_staged_actor_only
