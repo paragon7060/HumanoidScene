@@ -524,3 +524,11 @@ randomization을 유지한다. Replay100,000행/새 Q·optimizer로 준비했으
 시작하던 manager의 stop 전파 문제도 수정했다. 마지막 닫힌 실행의 실제
 checkpoint19393, replay/HDF/log를 기존 Drive 연결로 검증했고 다른 사용자의
 프로세스는 변경하지 않았다. Bound21/free-jaw21 비교 실행은 별도로 진행 중이다.
+
+11:42 업데이트: 첫16-env 실행은 actor/Q 업데이트 이전에 development61002
+중간 왼쪽의 footprint invalid1회와 다른 target으로의 재생성을 검출했다.
+나머지15개 rack/error/active 검사에는 문제가 없었지만 전체 wave를 중단했다.
+닫힌 실패 로그/manifest는 Drive 검증 완료다. 이 사례를 성공률 분모의 실패로
+남기고 replaced observation/transition은 제외하면서 정상15개 수집을 계속하도록
+runner를 수정했다. 똑같은16개 requested layout을 새 폴더에서 다시 실행한다.
+Seed를 유리한 것으로 바꾸거나 spawn/success guard를 완화한 것이 아니다.

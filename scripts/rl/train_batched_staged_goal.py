@@ -174,17 +174,26 @@ def main():
             actors=torch.stack([layout_reset_observation(sources[r['episode_index']],
                 GraspLayout(**r['layout']).validate(),cfg.multi_box,
                 roller_clearance_m=resolve_rack_roller_settings().box_clearance_m) for r in wave['layouts']]).to(env.device)
-            observation,settled=settle_batched_layouts(env,actors)
-            stages=BatchedBaseStages(warm.coordinates,templates,observation['policy'])
+            observation,settled,valid_layout,layout_guard=settle_batched_layouts(env,actors,allow_partial=True)
+            # An invalid requested case remains a failed attempt in the
+            # denominator. Its replacement never supplies a snapshot/action
+            # or transition to this layout's replay.
+            stage_seed=observation['policy'].clone()
+            stage_seed[~valid_layout]=actors[~valid_layout]
+            stages=BatchedBaseStages(warm.coordinates,templates,stage_seed)
             if pilot is None:
                 pilot=StagedGoalSACPilot(warm,contract,output,stages.stages[0],checkpoint=args.checkpoint,
                     training=args.training,device=env.device)
                 (output/'agent.yaml').write_text(json.dumps(pilot.contract,indent=2)+'\n')
             pilot.training=args.training and wave['split']=='train'
             updates_before=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size)
-            active=torch.ones(n,device=env.device,dtype=torch.bool)
-            snapshots=[capture_rl_initial_state(env,observation,env_index=i) for i in range(n)]
-            rows=[[] for _ in range(n)];last=[None]*n;buffer={}
+            active=valid_layout.clone()
+            snapshots=[capture_rl_initial_state(env,observation,env_index=i) if valid_layout[i] else None for i in range(n)]
+            rows=[[] for _ in range(n)]
+            last=[None if valid_layout[i] else dict(steps=0,success=False,unsafe=False,
+                invalid_reset=True,time_out=False,pinching=[False,False],flap_distances=None,
+                original_layout_replaced_during_settling=True,replay_rows=0) for i in range(n)]
+            buffer={}
             compute=env.termination_manager.compute
             def capture_before_reset():
                 result=compute();g=env._multi_box_privileged_grasp_step;s=env._multi_box_grasp_safety_step
@@ -274,12 +283,19 @@ def main():
             finally:
                 env.termination_manager.compute=compute
             for i,samples in enumerate(rows):
-                recorder.start_episode(initial_state=snapshots[i])
-                for row in samples:recorder.append(row)
                 success=bool(last[i] and last[i]['success'])
-                recorder.finish_episode(success=success,reason='success' if success else 'failure' if not active[i] else 'interrupted_or_step_limit')
+                if samples:
+                    recorder.start_episode(initial_state=snapshots[i])
+                    recorder.episode.attrs['wave']=wave_index
+                    recorder.episode.attrs['environment']=i
+                    recorder.episode.attrs['layout_json']=json.dumps(wave['layouts'][i]['layout'],sort_keys=True)
+                    recorder.episode.attrs['initial_layout_guard_valid']=bool(valid_layout[i])
+                    for row in samples:recorder.append(row)
+                    recorder.finish_episode(success=success,reason='success' if success else 'failure' if not active[i] else 'interrupted_or_step_limit')
                 outcomes.append(dict(wave=wave_index,split=wave['split'],environment=i,
-                    layout=wave['layouts'][i]['layout'],result=last[i],complete=bool(not active[i])))
+                    layout=wave['layouts'][i]['layout'],result=last[i],complete=bool(not active[i]),
+                    initial_layout_valid=bool(valid_layout[i]),initial_settling_steps=settled,
+                    initial_layout_guard=layout_guard,executed_transition_rows=len(samples)))
             if wave['split']!='train' and updates_before!=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size):
                 raise ValueError('Evaluation modified optimizer counters or replay')
             pilot.training=args.training

@@ -157,7 +157,7 @@ def restore_batched_inferred_scene(env,actors):
     return env.observation_manager.compute()
 
 
-def settle_batched_layouts(env, actors):
+def settle_batched_layouts(env, actors, *, allow_partial=False):
     """Reject replaced/unsettled targets and every invalid surrounding box."""
     from ...runners.train_asymmetric_sac import _settle_initial_resets
     from ..scene.spawn import physical_asset_names
@@ -167,6 +167,7 @@ def settle_batched_layouts(env, actors):
     names=physical_asset_names();settling=env._multi_box_reset_settling
     expected=actors[:,86:350].reshape(-1,12,22)[:,:,0]>.5
     stable_ticks=0
+    failed_during_settle=torch.zeros(env.num_envs,dtype=torch.bool,device=env.device)
     for tick in range(90):
         velocities=torch.stack([env.scene[name].data.root_vel_w for name in names],1)
         pools=env._multi_box_pool_ids.clamp_min(0)
@@ -176,7 +177,9 @@ def settle_batched_layouts(env, actors):
         stable_ticks=stable_ticks+1 if bool((stable|~expected).all()) else 0
         if stable_ticks>=8:break
         observation,_,terminated,truncated,info=env.step(torch.zeros_like(env.action_manager.action))
-        if bool((terminated|truncated|info['transition_numerical_failure']).any()):
+        failed_during_settle|=terminated|truncated
+        if bool(info['transition_numerical_failure'].any()) or (
+                not allow_partial and bool((terminated|truncated).any())):
             raise ValueError('Batched layout failed while surrounding boxes settled')
     else:
         raise ValueError('Batched surrounding boxes did not settle')
@@ -186,8 +189,9 @@ def settle_batched_layouts(env, actors):
         footprint_invalid=settling.footprint_invalid_count.tolist(),ready=settling.ready.tolist(),
         base_pose=env.scene['robot'].data.root_pose_w.tolist(),rack_pose=env.scene['rack'].data.root_pose_w.tolist())
     print('[BATCH LAYOUT GUARD] '+str(guard),flush=True)
-    if not torch.equal(env._multi_box_active,expected) or (rack_error>.025).any() \
-            or (settling.invalid_count!=invalid_before).any():
+    valid=(env._multi_box_active==expected).all(-1)&torch.isfinite(rack_error)&(rack_error<=.025) \
+        &(settling.invalid_count==invalid_before)&~failed_during_settle
+    if not allow_partial and not bool(valid.all()):
         raise ValueError('Batched layout was replaced during settling; replay prohibited: '+str(guard))
     for logical in range(12):
         active=expected[:,logical]
@@ -197,11 +201,14 @@ def settle_batched_layouts(env, actors):
         pose=poses[torch.arange(env.num_envs,device=env.device),pools]
         types=env._multi_box_box_type_ids[:,logical].clamp_min(0)
         regions=env._multi_box_region_ids[:,logical].clamp_min(0)
-        valid=settling._footprint_in_region(pose,types,regions)&settling._on_assigned_shelf(pose,types,regions)
-        if not bool((valid|~active).all()):
+        footprint=settling._footprint_in_region(pose,types,regions)&settling._on_assigned_shelf(pose,types,regions)
+        valid&=footprint|~active
+        if not allow_partial and not bool((footprint|~active).all()):
             raise ValueError(f'Batched surrounding box {logical} left its assigned shelf/region')
     ids=torch.arange(env.num_envs,device=env.device)
     env.episode_length_buf[:]=0
     env._multi_box_privileged_grasp.reset(ids)
     env._multi_box_privileged_grasp_counter=-1;env._multi_box_grasp_safety_counter=-1
-    return env.observation_manager.compute(),steps+tick
+    guard['valid_original_layout']=valid.tolist()
+    guard['failed_during_settle']=failed_during_settle.tolist()
+    return env.observation_manager.compute(),steps+tick,valid,guard

@@ -116,6 +116,12 @@ held waypoint, 경과 시간을 따로 유지하며 하나의 SAC를 공유한�
 제외하고 실제 task 성공/실패는 모두 집계한다. Validation/final wave는 optimizer와
 replay가 바뀌지 않았는지 검사한다. Live VR/IK teacher나 성공 자세 reset은 없다.
 
+초기 settling에서 일부 환경이 requested layout을 잃어 자동 재생성되면 그 환경을
+`invalid_reset` 실패·0 actual replay row로 기록한다. 그 사례는 개발/final 성공률의
+분모에 남고 성공 상태로 재시도하지 않는다. 같은 wave의 정상 환경은 계속 수집한다.
+HDF에는 실제 action을 실행한 episode만 저장하며 wave/environment/layout JSON
+attribute로 사례를 명시한다. 재생성 장면의 관측을 원래 layout의 snapshot/Q로 쓰지 않는다.
+
 학습 wave 앞에 같은 development wave를 두고
 `--stop-on-validation-regression`을 지정하면 구역별 성공 수가 감소할 때
 `policy_regression` 상태로 종료한다. `--minimum-validation-region-success-rate 0.5`는
