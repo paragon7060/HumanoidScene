@@ -110,6 +110,12 @@ class StagedGoalSACPilot:
         # every field used by the common strict physical contract validator.
         self.physical_contract = {key:physical_contract.get(key)
                                   for key in (*PHYSICAL_KEYS, 'flap_pose_source')}
+        if 'physics_dynamics' in physical_contract:
+            from .staged_physics import staged_solver_contract
+            dynamics=physical_contract['physics_dynamics']
+            if not isinstance(dynamics,dict) or dynamics!=staged_solver_contract(dynamics.get('solver')):
+                raise ValueError('Staged dynamics identity differs')
+            self.physical_contract['physics_dynamics']=dict(dynamics)
         self.center = warm_start.center[list(GOAL_COLUMNS)].clone()
         self.scale = warm_start.scale[list(GOAL_COLUMNS)].clone()
         self.directory = Path(directory)

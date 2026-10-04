@@ -226,6 +226,11 @@ def main():
         cfg.multi_box = replace(cfg.multi_box, self_collision_enabled=contract['self_collision']['enabled'],
                                 flap_pose_source=args.flap_pose_source)
         cfg.sim.device = args.device or 'cuda:0'
+        if args.staged_goal_sac:
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import configure_staged_physics
+            configure_staged_physics(cfg,contract)
+        elif contract.get('physics_dynamics'):
+            raise ValueError('Explicit changed dynamics require the matching staged goal controller')
         profile = dict(weights=asdict(MultiBoxRewardWeights()), approach_scale_m=GRASP_APPROACH_REWARD_SCALE_M,
             assignment_scale_m=GRASP_ASSIGNMENT_SCALE_M, capture_scale_m=GRASP_CAPTURE_REWARD_SCALE_M,
             front_stage_clearance_m=FRONT_STAGE_CLEARANCE_M, front_stage_lane_tolerance_m=FRONT_STAGE_LANE_TOLERANCE_M,

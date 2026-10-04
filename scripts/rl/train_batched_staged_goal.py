@@ -107,6 +107,11 @@ def main():
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
         cfg.multi_box=replace(cfg.multi_box,self_collision_enabled=contract['self_collision']['enabled'])
         cfg.sim.device=args.device or 'cuda:0'
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import configure_staged_physics
+        configure_staged_physics(cfg,contract)
+        if contract.get('physics_dynamics') and (args.contact_stability_probe or args.tgs_zero_velocity_probe
+                                               or args.contact_last_probe or args.pgs_probe):
+            raise ValueError('Frozen dynamics probes require the original TGS source contract')
         solver_probe=None
         if args.contact_stability_probe:
             from isaaclab.sim import RigidBodyPropertiesCfg
@@ -165,6 +170,10 @@ def main():
             raise ValueError('Batched prototype requires its explicitly nominal observation checkpoint')
         class WaveEnv(TerminalObservationMixin,ManagerBasedRLEnv):pass
         env=WaveEnv(cfg);env.enable_numerical_dynamics_recovery()
+        if contract.get('physics_dynamics'):
+            actual=env.sim.stage.GetPrimAtPath(cfg.sim.physics_prim_path).GetAttribute('physxScene:solverType').Get()
+            if actual!=contract['physics_dynamics']['solver']:raise ValueError('Checkpoint solver was not applied')
+            print('[TRAINING PHYSICS CONTRACT] '+json.dumps(contract['physics_dynamics']|dict(actual_USD_solver=actual)),flush=True)
         if args.contact_last_probe:
             value=env.sim.stage.GetPrimAtPath(cfg.sim.physics_prim_path).GetAttribute(
                 'physxScene:solveArticulationContactLast').Get()
@@ -200,6 +209,24 @@ def main():
         initial,_=env.reset(seed=42)
         _settle_initial_resets(env,initial)
         output.mkdir(parents=True,exist_ok=False)
+        # Read initialized PhysX properties, rather than treating USD's unset
+        # mass/density attributes as the runtime masses used by the solver.
+        initialized_physics={}
+        from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import physical_asset_names
+        for name in ('robot',*physical_asset_names()):
+            asset=env.scene[name];mass=asset.root_physx_view.get_masses()
+            inertia=asset.root_physx_view.get_inertias()
+            initialized_physics[name]=dict(body_names=asset.body_names,
+                environment0_mass_kg=mass[0].tolist(),
+                mass_kg_min=float(mass.min()),mass_kg_max=float(mass.max()),
+                environment0_inertia_matrix=inertia[0].tolist(),
+                joint_names=asset.joint_names,
+                environment0_effort_limits=asset.data.joint_effort_limits[0].tolist(),
+                environment0_stiffness=asset.data.joint_stiffness[0].tolist(),
+                environment0_damping=asset.data.joint_damping[0].tolist(),
+                environment0_armature=asset.data.joint_armature[0].tolist())
+        print('[INITIALIZED PHYSICS] '+json.dumps({name:{k:value for k,value in data.items()
+            if k in ('mass_kg_min','mass_kg_max')} for name,data in initialized_physics.items()}),flush=True)
         meta=dict(task_family='multi_box_v2',skill='grasp',robot_model='s63',gripper='leju-twofinger',
             rack_rollers=True,actor_obs_dim=464,critic_obs_dim=530,action_dim=24,
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
@@ -210,10 +237,12 @@ def main():
             current_reward_verified_against_breakdown=True,
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
             wave_reset_controller_contract=WAVE_RESET_CONTROLLER_CONTRACT,
+            initialized_physics=initialized_physics,
             episode_layouts=[dict(wave=i,environment=j,**row) for i,w in enumerate(waves) for j,row in enumerate(w['layouts'])])
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
+            'initialized_physics':initialized_physics,
             'wave_reset_controller_contract':WAVE_RESET_CONTROLLER_CONTRACT},indent=2)+'\n')
         if solver_probe:
             manifest=json.loads((output/'manifest.json').read_text())

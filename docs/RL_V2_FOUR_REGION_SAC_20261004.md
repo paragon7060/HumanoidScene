@@ -773,3 +773,37 @@ paired exact 비교 옵션0.05를 추가했다. 반복/구역에 significance bu
 4/16→5/16→5/16 frozen 기록에서 마지막 raw regional1개 손실은 noisy best 대비 수량 변화지만 고정
 initial baseline과는 동일해 paired p=1.0, 회귀 stop이 아니었다. 독립 final은 이 분석에 쓰지 않았다. 현재 live128 실행은
 기존 strict guard이며 첫 learned development 결과를 확인한 뒤 후속에 적용한다.
+
+
+## 15:30 · 첫 learned development와 PGS 상단 성공의 실제 증거
+
+GPU3 actor238회·critic2,998회·실제 held replay87,939행 후 동일128개
+development는 **11/128**, 중간 좌2/32·우8/32·상단 좌1/32·우0/32였다.
+초기15/128보다 전체 성공은 감소했으므로 SAC 개선으로 기록하지 않는다.
+초기불량30개, speed48·rack16·lift12·drop10·workspace6의 원인별 실제 종료를
+기록했다(원인들은 중복 가능). 기존 strict regional guard가 policy_regression으로
+종료했다. Writer 종료·최종 Drive 검증 후 같은 TGS actor/Q/optimizer/replay를
+보존해 통계 guard0.05로 이어간다. 재개 baseline과 원래15/128은 구분한다.
+
+동일16개 initial actor/parallel origins의 originalTGS는5/16(중간 좌1·우4),
+PGS 첫 실행은5/16(중간 좌1·우3·상단 좌1), 새 PGS 실행의 첫 반복은4/16
+(중간 좌1·우2·상단 좌1)이다. 상단 왼쪽 seed121201가 첫 실행과 첫 반복에서
+실제로 성공했다. 총 성공 개선이나 독립 final 일반화의 근거는 아니다.
+
+![PGS actual upper-left grasp and proof lift](assets/rl_v2_pgs_upper_left_actual_success_20261004.png)
+
+첫 PGS 실제 HDF episode_000006의642step/21.4초 기록에서 bilateral pinch,
+stable, opposing flaps, proof lift, grasp success가 모두true였다. 마지막
+rack clearance10.5696mm·hold0.266667s다. Frozen 물리 진단은 Q/actor를
+업데이트하지 않으며 TGS replay에 넣지 않는다.
+
+초기화된 PhysX의 get_masses/get_inertias와 실제 joint gains/armature를
+읽어 manifest/HDF에 기록한다. Box body0.4kg·flap각0.03kg, 가상 EEF
+0.0005236kg·일부 helper/sensor frame1kg이다. Authored USD에 mass가
+없다고 실제 PhysX mass가0이라는 뜻은 아니다. 큰 mass ratio와 closed linkage,
+강한 drive의 결합은 발산 가설이며 원인으로 확정하지 않았다. 자산 mass를
+임의 변경하지 않았다.
+
+별도 PGS 학습은 `--physics-solver PGS`의 명시된 solver/dt 계약으로 fresh Q를
+준비한다. Actor prior만 이전하며 다른 TGS Q/replay는 strict 계약 비교에서
+거부한다. 동일 dt/control dt/iteration/성공·안전 기준은 유지한다. 관련 CPU25검사 통과.

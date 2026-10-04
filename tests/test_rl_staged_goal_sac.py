@@ -107,6 +107,10 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     pilot.directory.mkdir()
     pilot.save(final=True)
     checkpoint=next(pilot.directory.glob('checkpoint_*.pt'))
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import staged_solver_contract
+    with pytest.raises(ValueError,match='same phase/waypoint'):
+        StagedGoalSACPilot(warm,contract|dict(physics_dynamics=staged_solver_contract('PGS')),
+            tmp_path/'wrong_solver',stage,checkpoint=checkpoint)
     unchanged=checkpoint.read_bytes()
     pilot.save(final=True)
     assert checkpoint.read_bytes()==unchanged
@@ -148,6 +152,7 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     assert not any(p.requires_grad for p in restored_normalized.frozen_actor_prior.parameters())
     for key,value in normalized.frozen_actor_prior.state_dict().items():
         assert torch.equal(value,restored_normalized.frozen_actor_prior.state_dict()[key])
+
     collecting=StagedGoalSACPilot(warm,contract,tmp_path/'collecting',stage,
         normalize_prior_loss_by_radius=True,actor_min_replay_rows=128)
     collecting.critic_updates=collecting.warmup  # unit fixture, not a runtime migration
@@ -172,3 +177,16 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
         assert len(value)==1024
         torch.testing.assert_close(value,large_fixture[key][-1024:])
         assert value.untyped_storage().nbytes()==value.numel()*value.element_size()
+
+
+def test_staged_solver_identity_changes_only_solver_and_rejects_wrong_timing():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import staged_solver_contract,configure_staged_physics
+    physics=SimpleNamespace(solver_type=1,min_position_iteration_count=4,min_velocity_iteration_count=2)
+    cfg=SimpleNamespace(sim=SimpleNamespace(dt=1/120,physx=physics),decimation=4)
+    configure_staged_physics(cfg,{})
+    pgs=staged_solver_contract('PGS');configure_staged_physics(cfg,dict(physics_dynamics=pgs))
+    assert physics.solver_type==0 and physics.min_position_iteration_count==4 and physics.min_velocity_iteration_count==2
+    with pytest.raises(ValueError,match='Legacy'):configure_staged_physics(cfg,{})
+    with pytest.raises(ValueError,match='dynamics'):configure_staged_physics(cfg,dict(physics_dynamics=pgs|dict(solver_type=1)))
+    cfg.decimation=8
+    with pytest.raises(ValueError,match='timestep'):configure_staged_physics(cfg,dict(physics_dynamics=pgs))

@@ -27,6 +27,8 @@ def main():
     parser.add_argument('--exploration-correlation',type=float,default=0.)
     parser.add_argument('--hybrid-grippers',action='store_true',
         help='Fresh Q with19 continuous goals and exact two-Bernoulli jaw policy')
+    parser.add_argument('--physics-solver',choices=('TGS','PGS'),
+        help='Explicit fresh-Q dynamics identity; the source is used as actor prior only')
     args=parser.parse_args()
     if not all(p.is_file() for p in (args.checkpoint,args.waypoints,*args.native_seed)):
         parser.error('Existing matching files are required')
@@ -35,6 +37,9 @@ def main():
         contract=meta['training_contract']
         episode=next(iter(source['episodes'].values()))
         raw=torch.tensor(episode['transitions/actor_obs'][0:1])
+    if args.physics_solver:
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import staged_solver_contract
+        contract=contract|dict(physics_dynamics=staged_solver_contract(args.physics_solver))
     warm=PoseGoalSACPilot(args.checkpoint,args.native_seed,contract,args.output_dir,
                          training=False,device='cpu')
     templates=json.loads(args.waypoints.read_text())

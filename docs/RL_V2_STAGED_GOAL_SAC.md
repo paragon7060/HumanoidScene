@@ -356,3 +356,21 @@ attempt로 종료한다. Corrupt action→replacement state 행은 Q/HDF에서 �
 reward/terminal flag를 사후 수정하지 않는다. Finite box speed failure는 기존
 실제 terminal transition으로 유지한다. 이는 물리 발산 치료가 아닌 데이터
 오염·한 환경의 오류로 전체 학습이 중단되는 문제의 수정이다.
+
+
+## 별도 solver 학습의 계약
+
+`prepare_staged_goal_sac.py --physics-solver PGS`는 기존 frozen pose-goal
+actor prior만 활용해 **새 Q, 빈 replay, 빈 optimizer**를 준비한다.
+`physics_dynamics`에는 PGS/solver_type0와 physics_dt1/120s, control_dt1/30s를
+기록한다. 기존 초기화 예시의 옵션에 이 옵션을 추가하고 새 output을 사용한다.
+
+Batched runner와 single staged replay는 training manifest의 같은
+`physics_dynamics`를 적용하고 실제 USD solverType도 확인한다. Training 입력은
+기존 baseline action contract에 이 필드를 추가한 manifest이며, runner가
+상단 torso+6cm 계약을 구성한다. PGS checkpoint/replay를 TGS로 resume하거나
+그 반대는 금지한다. Legacy manifest에 필드가 없으면 TGS다.
+
+`--pgs-probe`는 기존 TGS 모델의 **frozen 비교 전용**이다. 실제 PGS 학습에
+이 옵션을 사용하지 않는다. 이 진단 전이는 TGS Q/replay에 import하지 않는다.
+Mass/inertia audit는 실제 initialized PhysX를 읽는 기록이며 dynamics를 변경하지 않는다.
