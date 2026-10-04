@@ -261,3 +261,36 @@ def test_region_reset_rejects_cross_shelf_and_target_distractor_alias():
         GraspLayout(1,'probe',0.,align_initial_base_to_region=True).validate()
     # Legacy serialized recipes and transformations remain unchanged.
     assert 'target_region' not in sample_layout(1,'train').record()
+
+
+@pytest.mark.parametrize('episode,region,distractors',[(0,'shelf_2_left',(5,6,9)),
+    (0,'shelf_2_right',(5,6,9)),(1,'shelf_3_left',(5,6)),(1,'shelf_3_right',(5,9))])
+def test_background_packing_probe_preserves_original_target_and_initial_robot(episode,region,distractors):
+    from pathlib import Path
+    from kuavo_isaaclab_scene.rl.multi_box.demo_replay import load_v2_grasp_demonstrations
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import select_reference_episode
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import packed_background_reset_observation
+    from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+    from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import DEPTH_GAP_M,logical_cells
+    dataset=Path(__file__).resolve().parents[1]/'examples/demos/v2_grasp_quest_success.hdf5'
+    batch,_=load_v2_grasp_demonstrations(dataset,self_collision_enabled=False)
+    source=select_reference_episode(batch,episode)['actor_obs'][0]
+    spec=MultiBoxSpec()
+    original=layout_reset_observation(source,GraspLayout(1,'probe',-.025,.007,distractors,
+        base_lateral_m=.04,base_outward_m=.07,base_yaw_rad=.05,
+        target_region=region,align_initial_base_to_region=True),spec,roller_clearance_m=.01)
+    unchanged=original.clone()
+    packed=packed_background_reset_observation(original,spec,roller_clearance_m=.01)
+    before=original[86:350].reshape(12,22);after=packed[86:350].reshape(12,22)
+    target=int(original[400:412].argmax())
+    assert torch.equal(original,unchanged)
+    assert torch.equal(before[target],after[target])
+    assert torch.equal(original[:86],packed[:86])
+    assert torch.equal(original[350:],packed[350:])
+    assert torch.equal(before[:,:12],after[:,:12])
+    rotation=_rotation_matrix(packed[71:77])
+    def depth(token):return -float((rotation.T@(token[12:15]-packed[68:71]))[1])
+    assert depth(after[5])<depth(before[5])
+    if logical_cells(spec)[target].region_id==logical_cells(spec)[5].region_id:
+        assert depth(after[5])-depth(after[target])>=float(after[5,6]+after[target,6])/2+DEPTH_GAP_M-1e-6
+    validate_layout_footprints(packed)

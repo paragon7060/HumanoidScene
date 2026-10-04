@@ -40,6 +40,8 @@ def main():
         help='Frozen-only PGS/TGS solver comparison; preserves timestep, iterations and safety')
     parser.add_argument('--centered-world-probe',action='store_true',
         help='Frozen-only shared origins with GPU environment collision IDs; no Q/replay training')
+    parser.add_argument('--packed-background-probe',action='store_true',
+        help='Frozen-only original/packed/original reset comparison; target/base randomization unchanged')
     parser.add_argument('--steps',type=int,default=900)
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
@@ -47,13 +49,16 @@ def main():
     args=parser.parse_args()
     if not 1<=args.steps<=900 or args.output_dir.exists():parser.error('New output and 1..900 steps required')
     if (args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or args.pgs_probe
-            or args.centered_world_probe) and args.training:
+            or args.centered_world_probe or args.packed_background_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
     n=len(waves[0]['layouts']) if waves else 0
     if not 1<=n<=128 or any(len(w['layouts'])!=n for w in waves):
         parser.error('Each wave must contain the same 1..128 independent layouts')
     for w in waves:
+        if w.get('background_placement','original') not in ('original','packed') or (
+                w.get('background_placement','original')!='original' and not args.packed_background_probe):
+            parser.error('Packed background reset is an explicitly frozen diagnostic')
         if w['split'] not in ('train','validation','holdout'):parser.error('Unknown wave split')
         if w['split']=='train' and not args.training:parser.error('Frozen runs cannot contain TRAIN waves')
         expected='train' if w['split']=='train' else 'holdout'
@@ -247,7 +252,8 @@ def main():
             rack_rollers=True,actor_obs_dim=464,critic_obs_dim=530,action_dim=24,
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
             collection_source=('changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
-                               if solver_probe else pilot_class.artifact_type),training_contract=contract,
+                               if solver_probe else 'background_placement_frozen_probe_NOT_matching_Q_replay'
+                               if args.packed_background_probe else pilot_class.artifact_type),training_contract=contract,
             contact_stability_probe=solver_probe,
             sim_device=str(env.device),multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             current_reward_verified_against_breakdown=True,
@@ -255,6 +261,8 @@ def main():
             wave_reset_controller_contract=WAVE_RESET_CONTROLLER_CONTRACT,
             initialized_physics=initialized_physics,
             centered_world_probe=args.centered_world_probe,
+            background_placement_probe=dict(enabled=args.packed_background_probe,
+                frozen_only=args.packed_background_probe,Q_import_eligible=not args.packed_background_probe),
             episode_layouts=[dict(wave=i,environment=j,**row) for i,w in enumerate(waves) for j,row in enumerate(w['layouts'])])
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
@@ -263,6 +271,11 @@ def main():
             'centered_world_probe':dict(enabled=args.centered_world_probe,frozen_only=args.centered_world_probe,
                 Q_import_eligible=not args.centered_world_probe,environment_origins=env.scene.env_origins.tolist()),
             'wave_reset_controller_contract':WAVE_RESET_CONTROLLER_CONTRACT},indent=2)+'\n')
+        if args.packed_background_probe:
+            manifest=json.loads((output/'manifest.json').read_text())
+            manifest['background_placement_probe']=dict(enabled=True,frozen_only=True,
+                Q_import_eligible=False,target_base_randomization_and_safety_unchanged=True)
+            (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         if solver_probe:
             manifest=json.loads((output/'manifest.json').read_text())
             (output/'manifest.json').write_text(json.dumps(manifest|{'contact_stability_probe':solver_probe},indent=2)+'\n')
@@ -276,6 +289,10 @@ def main():
             actors=torch.stack([layout_reset_observation(sources[r['episode_index']],
                 GraspLayout(**r['layout']).validate(),cfg.multi_box,
                 roller_clearance_m=resolve_rack_roller_settings().box_clearance_m) for r in wave['layouts']]).to(env.device)
+            if wave.get('background_placement','original')=='packed':
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import packed_background_reset_observation
+                actors=torch.stack([packed_background_reset_observation(actor,cfg.multi_box,
+                    roller_clearance_m=resolve_rack_roller_settings().box_clearance_m) for actor in actors])
             observation,settled,valid_layout,layout_guard=settle_batched_layouts(env,actors,allow_partial=True)
             # An invalid requested case remains a failed attempt in the
             # denominator. Its replacement never supplies a snapshot/action

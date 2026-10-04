@@ -1007,3 +1007,26 @@ Rack10N/robot-only obstacle5N/self-collision off,8mm active-support lift와0.25s
 서로 다른 초기 base XY/yaw 몇 가지로 수집하면 된다. 현재 두 데모는 왼쪽 구역에
 편중되어 있다. 데모 replay/새 observation 연결은 코드에서 처리한다.
 추가 데모가 없어도 현재 실제 SAC 훈련과 실패 분석을 계속한다.
+
+
+### 새 실행 —20:57 시작 확인
+
+- GPU3 TGS128: `staged_hybrid_confident_jaws_tgs128_gpu3_20261004_204706` /
+  `batch_sac_20261004_204706_fe8504`. Initial replay177155행을 복원했다.
+  첫 DEV의 original128개 중99개가 guard를 통과하고 base hold에 진입했다.
+  이 DEV는 학습 없는 평가이며, 이 단계의 rollout을 새 TRAIN replay로 세지 않는다.
+- GPU0 PGS128 비교: `staged_hybrid_confident_jaws_pgs128_gpu0_20261004_205139` /
+  `batch_sac_20261004_205139_f88c52`. Initial replay362310행을 복원했다.
+  첫 DEV original128개 중98개가 guard를 통과했다. 두 복구 폴더 모두 모델과
+  replay의 Drive checksum 검증을 **재개 전에** 마쳤다.
+- GPU0 별도 frozen64 reset probe:
+  `staged_background_packing_reset64_gpu0_20261004_205705`.
+  같은64개 original cases로 original→packed background→original을 비교한다.
+  한 tick만 실행해 initial geometry/stability를 보고 파지 성공 평가로 해석하지 않는다.
+  Target ID/type/전체 pose, 초기 base randomization/pose, active background ID/type,
+  safety를 유지하며 sparse rear background depth의 빈 slot만 앞에서 채운다.
+  현재 학습 reset은 변경하지 않았다. Probe metadata는 Q import를 거부한다.
+  결과가 나오기 전에는 rear gap이 초기화 실패 원인이라고 단정하지 않는다.
+
+Main의 학습 수정은 `93238ff`에 push했다.25개 layout CPU 검사로 원래 target/base와
+데이터를 보존하고 새 background footprint가 유효한 것을 확인했다.

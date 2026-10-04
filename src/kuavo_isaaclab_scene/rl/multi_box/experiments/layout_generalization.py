@@ -237,6 +237,44 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
     return base_reset_observation(actor,layout.base_lateral_m,layout.base_outward_m,layout.base_yaw_rad)
 
 
+def packed_background_reset_observation(source,spec,*,roller_clearance_m=0.):
+    """Frozen diagnostic: fill empty depth slots without moving the target.
+
+    The source describes a reset, never a recorded transition. Keep box IDs,
+    types, target randomization and robot start unchanged; change only the
+    nominal initial depths/heights of active surrounding boxes. Comparing
+    this reset distribution is not evidence of learned generalization.
+    """
+    from ..scene.spawn import logical_cells,DEPTH_GAP_M,RACK_BOX_FRONT_REFERENCE_DEPTH_RAW
+    from ....workcell.workcell_layout import scale
+    actor=source.clone();tokens=actor[86:350].reshape(12,22)
+    selected=torch.where(actor[400:412]>.5)[0]
+    if len(selected)!=1:raise ValueError('Background packing needs one selected target')
+    target=int(selected[0]);cells=logical_cells(spec);rack_scale=scale('rack')
+    rotation=_rotation_matrix(actor[71:77]);sy=rack_scale[1]
+    for region in range(len(spec.rack_regions)):
+        active=[cell for cell in cells if cell.region_id==region and tokens[cell.logical_id,0]>.5]
+        backgrounds=sorted((cell for cell in active if cell.logical_id!=target),key=lambda cell:cell.depth_index)
+        depth=None;previous_half=0.
+        if any(cell.logical_id==target for cell in active):
+            local=rotation.T@(tokens[target,12:15]-actor[68:71])
+            depth=-float(local[1])/sy;previous_half=float(tokens[target,6])/2
+        for cell in backgrounds:
+            token=tokens[cell.logical_id];kind=('small','medium')[int(token[3:5].argmax())]
+            half=float(token[6])/2
+            depth=(RACK_BOX_FRONT_REFERENCE_DEPTH_RAW if depth is None
+                   else depth+(previous_half+DEPTH_GAP_M+half)/sy)
+            position,_=cell.local_pose(kind,rack_scale,roller_clearance_m,depth_raw=depth)
+            # Preserve lateral position/orientation; only nominal shelf depth
+            # and its corresponding sloped support height change before reset.
+            local=rotation.T@(token[12:15]-actor[68:71])
+            local[1:3]=local.new_tensor(position[1:3])
+            token[12:15]=actor[68:71]+rotation@local
+            previous_half=half
+    validate_layout_footprints(actor)
+    return actor
+
+
 def retarget_reference_rack(reference, source_actor, current_actor):
     """Move a whole measured robot path with the perceived target in rack space.
 

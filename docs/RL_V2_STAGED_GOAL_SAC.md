@@ -443,3 +443,17 @@ Saved config와 hybrid/goal/replay contract가 모두 matching되어야 resume�
 복구 파일을 기존 Drive에 checksum 검증 업로드한 후 `batched_staged_goal_with_drive.py`
 에서 새 run directory로 재개한다. DEV에는 gradient/replay 수집을 하지 않는다.
 DEV 실패를 TRAIN 성공으로 숨기거나 randomization을 좁히지 않는다.
+
+## Sparse background의 초기 배치 비교
+
+`train_batched_staged_goal.py --packed-background-probe --no-training --steps 1`은
+frozen reset-only 진단이다. `--waves-json`의 각 wave에
+`"background_placement": "original"` 또는 `"packed"`를 넣어 같은 cases를
+original→packed→original로 비교한다. 기본은 original이며 TRAIN과 함께 사용할 수 없다.
+
+Packed mode는 selected target의 pose/type/ID와 초기 base, 모든 active masks를
+유지한다. 주변 box의 앞쪽 빈 depth slot만 크기에 맞춰 채우고 sloped support
+height를 맞춘다. 기존 `packed_region_depths`의 목적과 같은 reset 분포 진단이며,
+실제 rollout 중의 box를 고정하거나 재배치하는 기능이 아니다. Metadata와
+collection_source에 frozen/Q-import-ineligible을 기록한다. 한 tick 결과는
+초기 guard 비교이고 파지 성공률이 아니다. Main learner의 기존 reset 분포는 유지한다.
