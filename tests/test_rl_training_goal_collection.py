@@ -60,6 +60,26 @@ def test_malformed_or_discontinuous_context_cannot_be_saved():
     with pytest.raises(ValueError,match='held phase'):collector.append(previous,following,torch.tensor([0.]),torch.tensor([False]))
 
 
+@pytest.mark.parametrize('mode,seed', [('teacher',0),('checkpoint-exploration',None),
+                                     ('checkpoint-exploration',-1),('greedy',42)])
+def test_behavior_provenance_is_required(mode,seed):
+    layout,contract,_,_=fixture()
+    with pytest.raises(ValueError,match='sampling seed'):
+        TrainingGoalCollector(layout,contract,behavior=mode,behavior_seed=seed)
+
+
+def test_exploration_failure_is_preserved_as_failure_without_success_rows(tmp_path):
+    layout,contract,previous,following=fixture()
+    collector=TrainingGoalCollector(layout,contract,behavior='checkpoint-exploration',behavior_seed=120352)
+    collector.append(previous,following,torch.tensor([-.01]),torch.tensor([False]))
+    outcome=dict(split='train',layout=layout,result=dict(success=False,time_out=True))
+    collector.save(tmp_path,outcome,actor_updates=3389,critic_updates=15602,completed=True,interrupted=False)
+    saved=torch.load(tmp_path/FILENAME,weights_only=True)
+    assert saved['behavior']=='checkpoint-exploration' and saved['behavior_seed']==120352
+    assert not saved['outcome']['result']['success']
+    assert all(not episodes for episodes in saved['successful_train_transitions']['episodes'].values())
+
+
 def test_unsafe_report_or_new_layout_cannot_supply_success_bank(tmp_path):
     layout,contract,previous,following = fixture();collector=TrainingGoalCollector(layout,contract)
     collector.append(previous,following,torch.tensor([-6.]),torch.tensor([True]))

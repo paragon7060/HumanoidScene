@@ -394,11 +394,13 @@ class StagedGoalSACPilot:
         return torch.cat((ao, context), -1), torch.cat((co, context), -1)
 
     @torch.no_grad()
-    def act(self, raw, critic, index, *, exploration_ids=None):
+    def act(self, raw, critic, index, *, exploration_ids=None, sample_frozen_train_behavior=False):
+        if type(sample_frozen_train_behavior) is not bool or (sample_frozen_train_behavior and self.training):
+            raise ValueError('Frozen TRAIN behavior is an explicit collection-only option, without optimization')
         if self.anchor is None:
             self.anchor = self.coordinates.box_anchor(raw).clone()
         ao, co = self.observations(raw, critic, index)
-        deterministic=not self.training or self.replay.size<64
+        deterministic=(not self.training or self.replay.size<64) and not sample_frozen_train_behavior
         if self.exploration_correlation and not deterministic:
             if self.goal_exploration is None:
                 # The single-environment runner has one identity throughout

@@ -46,6 +46,9 @@ def main():
     parser.add_argument('--staged-goal-training',action=argparse.BooleanOptionalAction,default=False)
     parser.add_argument('--collect-train-goals',action='store_true',
                         help='Explicit TRAIN-data collection with frozen staged SAC; save exact21 goals, no optimizer or live teacher.')
+    parser.add_argument('--train-collection-behavior',choices=('greedy','checkpoint-exploration'),default='greedy',
+                        help='TRAIN collection only: keep deployed means or sample the checkpoint behavior while weights stay frozen.')
+    parser.add_argument('--train-collection-seed',type=int,default=0)
     parser.add_argument('--staged-contact-ik-native-seed',type=Path,action='append',
                         help='Staged frozen diagnostic only: native successful TRAIN calibration for local contact IK. Not a SAC policy.')
     parser.add_argument('--executed-actions', type=Path,
@@ -103,6 +106,10 @@ def main():
     add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True, robot_model='s63', gripper='leju-twofinger', rack_rollers=True)
     args = parser.parse_args()
+    if (args.train_collection_behavior!='greedy' or args.train_collection_seed) and not args.collect_train_goals:
+        parser.error('Frozen behavior sampling requires explicitly declared TRAIN goal collection')
+    if not 0<=args.train_collection_seed<2**32:
+        parser.error('TRAIN behavior seed must be in0..2**32-1')
     if args.collect_train_goals:
         from kuavo_isaaclab_scene.rl.multi_box.experiments.training_goal_collection import validate_training_collection
         try:
@@ -544,14 +551,20 @@ def main():
         goal_collector = None
         if args.collect_train_goals:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.training_goal_collection import TrainingGoalCollector, FORMAT
-            goal_collector = TrainingGoalCollector(layout.record(), staged_goal_sac.contract)
+            behavior_seed=args.train_collection_seed if args.train_collection_behavior=='checkpoint-exploration' else None
+            goal_collector = TrainingGoalCollector(layout.record(), staged_goal_sac.contract,
+                behavior=args.train_collection_behavior,behavior_seed=behavior_seed)
+            if behavior_seed is not None:
+                torch.manual_seed(behavior_seed)
             collection_initial_counters = (staged_goal_sac.actor_updates, staged_goal_sac.critic_updates)
             manifest = json.loads((output/'manifest.json').read_text())
             manifest.update(training_data_collection=FORMAT, collection_phase='train',
-                            optimizer_training=False, evaluation_data=False)
+                            optimizer_training=False, evaluation_data=False,
+                            train_collection_behavior=args.train_collection_behavior,behavior_seed=behavior_seed)
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
             meta.update(training_data_collection=FORMAT, collection_phase='train',
-                        optimizer_training=False, evaluation_data=False)
+                        optimizer_training=False, evaluation_data=False,
+                        train_collection_behavior=args.train_collection_behavior,behavior_seed=behavior_seed)
         meta['vr_orientation_mode']=args.vr_orientation_mode
         meta['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
         meta['vr_close_distance_m']=args.vr_close_distance_m
@@ -569,7 +582,7 @@ def main():
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
-            caption=(f'SAC TRAIN data | FROZEN policy, optimizer=0 | NO live reference/IK' if goal_collector else
+            caption=(f'SAC TRAIN data | FROZEN weights, optimizer=0 | {args.train_collection_behavior}' if goal_collector else
                      f'Base hold + SAC21 goals | NO live reference/IK | train={staged_goal_sac.training}' if staged_goal_sac else
                      f'Base staging + FROZEN approach + local IK | TEACHER, NOT SAC' if staged_contact_ik else
                      f'Base staging + FROZEN grasp | DIAGNOSTIC, not new SAC' if staged_base else
@@ -697,7 +710,8 @@ def main():
                     action=staged_base.action(pre['policy'])
                 elif staged_goal_sac:
                     action,staged_previous=staged_goal_sac.act(pre['policy'],
-                        torch.cat((pre['policy'],pre['critic']),-1),policy_step)
+                        torch.cat((pre['policy'],pre['critic']),-1),policy_step,
+                        sample_frozen_train_behavior=bool(goal_collector and args.train_collection_behavior=='checkpoint-exploration'))
                     if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                         raise ValueError('Staged goal and physical projection differ; replay prohibited')
                 elif pose_sac:
@@ -875,7 +889,8 @@ def main():
                 complete=report['completed_attempt'] and not report['interrupted'],
                 initial_layout_valid=bool(staged_initial_valid[0]),
                 result=dict(success=bool(last.get('success')),unsafe=bool(last.get('unsafe')),
-                    invalid_reset=bool(last.get('invalid_reset')),unsafe_causes=last.get('unsafe_causes',{}),
+                    invalid_reset=bool(last.get('invalid_reset')),time_out=bool(last.get('time_out')),
+                    unsafe_causes=last.get('unsafe_causes',{}),
                     pinching=last.get('pinching',[]),stable_hands=conditions.get('stable_hands',[]),
                     opposing_flaps=conditions.get('opposing_flaps',False),proof_lift=conditions.get('proof_lift',False),
                     hold_time_s=conditions.get('hold_time_s',0),rack_clearance_m=conditions.get('rack_clearance_m',0),

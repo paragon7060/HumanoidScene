@@ -666,3 +666,13 @@ CLI는 DEV/FINAL,optimizer 업데이트,live teacher,기록 action 실행과의 
 기존 `reference_residual_with_drive.archive_pilot`은 writer 종료 후 이 artifact도
 HDF/영상/로그와 같은 로크로 업로드하고 크기·MD5를 검증한다. Drive 연결/300초
 주기/최신2 checkpoint 보호는 기존 설정을 재사용한다.
+
+기본 수집은 `greedy`다. 과거 성공 TRAIN에서 사용한 탐색을 가중치 변경 없이
+확인하려면 `--train-collection-behavior checkpoint-exploration
+--train-collection-seed 120352`를 추가한다. 기존 checkpoint의 Gaussian/AR1/binary
+jaw sampler와 지정된 episode arm 설정을 그대로 사용하며 std/radius를 임의로
+키우지 않는다. Frozen 수집의 빈 replay 때문에 greedy warmup이 적용되지 않도록
+명시적으로 선택하되, normalizer/optimizer/Q/replay 업데이트는 계속0이다.
+Sampling mode와 seed를 manifest/HDF/goal artifact에 기록한다. 이 옵션은
+`--collect-train-goals` 없이 쓰거나 optimizer 학습과 함께 쓸 수 없다. 일반
+TRAIN의 warmup과 기존 DEV/FINAL greedy/RNG 동작은 바뀌지 않는다.

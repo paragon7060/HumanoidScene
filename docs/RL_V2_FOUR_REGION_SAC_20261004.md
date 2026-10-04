@@ -1717,3 +1717,25 @@ GPU3 성공 유지 분기는 TRAIN wave7에서6/128(중간오른쪽4/중간왼�
 상단오른쪽0개가 있다. DEV 추세4→3→3/128이므로 일반화 개선은 아직 확인되지 않았다.
 새 팔 탐색 분기 TRAIN wave1은2/128(중간왼쪽1/오른쪽1)이었으며,
 학습 전 DEV3/128 이후의 같은 DEV를 기다린다. 두 GPU3 TRAIN은 계속 진행한다.
+
+**05:37 후속:** seed120352의 greedy TRAIN 수집은 안전한 time-out으로 끝났다.
+정확한 held 목표 전이784행과 actor3389/Q15602 불변,optimizer0,binary jaw,
+연속 pre/next 문맥을 확인했다. 성공 bank는0행이며 기존 학습에 넣지 않았다.
+닫힌 goal artifact/HDF/영상/manifest/metrics/console의 Drive 크기·MD5를 다시
+직접 대조했다. [수집·실패·파일별 검증 증거](assets/rl_v2_upper_right_train_goal_collection_20261005.json).
+과거 탐색 TRAIN 성공을 greedy 정책이 재현했다고 주장하지 않는다.
+
+새 선택 옵션은 frozen **가중치**를 유지하며 checkpoint의 기존 TRAIN 탐색을
+샘플링한다. 일반 TRAIN warmup과 DEV/FINAL greedy/RNG는 유지하고 명시적
+TRAIN 수집에서만 빈 replay warmup을 우회한다. Gaussian/AR1/binary jaw/기존
+episode arm 설정은 그대로이며 탐색 크기를 바꾸지 않는다. Sampling mode/seed를
+출처에 기록한다. Frozen 수집에서 실제 행동 변화·binary jaw·RNG 사용·가중치/
+normalizer/Q/replay/counter 불변과 기본 평가 보존을 검사했고 관련35개 테스트가 통과했다.
+
+동일 TRAIN seed120352를 behavior seed120352로 수집하는 새 부모
+`staged_upper_RIGHT_TRAIN_exploration_collection_gpu0_20261005_053744`를05:37에 시작했다.
+이전 writer/백업 종료와 GPU0 여유를 확인하고 새 immutable input snapshot을
+Drive 검증한 뒤 실행했다. Optimizer0인 TRAIN 데이터 수집이며 성공 결과나
+독립 평가로 세지 않는다. GPU3 두 분기는 각각 다음 frozen DEV wave9/wave3를
+진행 중이다. 기존 성공 유지 TRAIN wave8은3/128(중간오른쪽3),새 팔 탐색 TRAIN
+wave2는2/128(중간왼쪽1/오른쪽1)이었다.

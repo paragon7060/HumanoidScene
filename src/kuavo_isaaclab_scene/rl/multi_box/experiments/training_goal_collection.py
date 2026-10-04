@@ -22,14 +22,19 @@ def validate_training_collection(layout, *, staged_policy, optimization, live_te
 
 
 class TrainingGoalCollector:
-    def __init__(self, layout, goal_contract):
+    def __init__(self, layout, goal_contract, *, behavior='greedy', behavior_seed=None):
         validate_training_collection(layout, staged_policy=True, optimization=False, live_teacher=False)
         if goal_contract.get('name') != 'staged_base_hold_remaining_hybrid_sac_v1' \
                 or goal_contract.get('actor_dim') != 480 or goal_contract.get('critic_dim') != 539:
             raise ValueError('Training goal collection requires the current hybrid21 context')
         require_current_lift_contract(goal_contract.get('physical_contract', {}))
+        if behavior not in ('greedy','checkpoint-exploration') or (
+                behavior=='checkpoint-exploration' and (type(behavior_seed) is not int or not 0<=behavior_seed<2**32)) \
+                or (behavior=='greedy' and behavior_seed is not None):
+            raise ValueError('Declare the frozen TRAIN behavior and its sampling seed')
         self.layout = deepcopy(layout)
         self.contract = deepcopy(goal_contract)
+        self.behavior,self.behavior_seed = behavior,behavior_seed
         self.rows = []
 
     def append(self, previous, following, reward, terminated):
@@ -63,6 +68,7 @@ class TrainingGoalCollector:
             bank.add_episode(rows, outcome, source_run=Path(directory).name, split='train')
         artifact = dict(artifact_type=FORMAT, collection_phase='train',
             collection_declared_before_rollout=True, frozen_policy=True, optimizer_updates=0,
+            behavior=self.behavior, behavior_seed=self.behavior_seed,
             source_actor_updates=actor_updates, source_critic_updates=critic_updates,
             source_goal_contract=self.contract, outcome=deepcopy(outcome),
             completed=bool(completed), interrupted=bool(interrupted),
@@ -75,5 +81,6 @@ class TrainingGoalCollector:
         torch.save(artifact, pending)
         pending.replace(path)
         return dict(filename=FILENAME, collection_phase='train', frozen_policy=True,
+                    behavior=self.behavior, behavior_seed=self.behavior_seed,
                     optimizer_updates=0, held_goal_rows=len(self.rows), success_bank=bank.report(),
                     evaluation_or_probe_imported=False, physical_delta_actions_inverted=False)

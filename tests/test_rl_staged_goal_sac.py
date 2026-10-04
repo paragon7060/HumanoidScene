@@ -206,6 +206,25 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     arm_eval.observe(actual_eval,measured,critic,torch.ones(1),torch.zeros(1,dtype=torch.bool),90)
     assert (arm_eval.actor_updates,arm_eval.critic_updates,arm_eval.replay.size)==before_eval
 
+    # Explicit TRAIN data can sample the same checkpoint behavior with frozen
+    # weights, even though an evaluation learner has no loaded Q replay. This
+    # must not turn on normalizer/optimizer updates or affect default evaluation.
+    assert arm_eval.replay.size==0
+    weights_before={k:v.clone() for k,v in arm_eval.agent.state_dict().items()}
+    rng=torch.random.get_rng_state().clone()
+    sampled=arm_eval.act(measured,critic,90,exploration_ids=torch.tensor([1]),
+        sample_frozen_train_behavior=True)[1]
+    assert not torch.equal(torch.random.get_rng_state(),rng)
+    assert arm_eval.arm_behavior.initialized.tolist()==[False,True]
+    assert sampled[2][:,19:].abs().eq(1).all()
+    assert not torch.equal(sampled[2],actual_eval[2])
+    arm_eval.observe(sampled,measured,critic,torch.ones(1),torch.zeros(1,dtype=torch.bool),90)
+    assert (arm_eval.actor_updates,arm_eval.critic_updates,arm_eval.replay.size)==before_eval
+    for k,v in arm_eval.agent.state_dict().items():assert torch.equal(v,weights_before[k])
+    torch.testing.assert_close(arm_eval.act(measured,critic,90)[1][2],actual_eval[2])
+    with pytest.raises(ValueError,match='collection-only'):
+        arm.act(measured,critic,90,sample_frozen_train_behavior=True)
+
     # Actual-success retention is opt-in. Its newest closed bank belongs to
     # the replay snapshot even when an immutable checkpoint counter repeats.
     from test_rl_staged_train_success import episode
