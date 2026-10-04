@@ -1,0 +1,221 @@
+{
+  "analysis_type": "closed_actual_frozen_SAC_TRAIN_case_diagnostic_not_training_data",
+  "source_run": "staged_reproduction_20261005_043940_a00e1b",
+  "source_parent": "staged_upper_RIGHT_TRAIN_frozen_diagnostic_gpu0_20261005_043940",
+  "layout": {
+    "seed": 120332,
+    "split": "train",
+    "lateral_m": -0.02222496271133423,
+    "yaw_rad": -0.006469197105616331,
+    "distractors": [
+      5,
+      9
+    ],
+    "depth_m": -0.000908997084479779,
+    "base_lateral_m": -0.002497224835678935,
+    "base_outward_m": 0.06656434386968613,
+    "base_yaw_rad": -0.004313550889492035,
+    "target_region": "shelf_3_right",
+    "align_initial_base_to_region": true
+  },
+  "policy_counters": {
+    "actor_updates": 4128,
+    "critic_updates": 18560,
+    "optimizer_updates_during_attempt": 0
+  },
+  "control_steps": 858,
+  "control_hz": 30,
+  "held_rows": 791,
+  "outcomes": {
+    "success": 0,
+    "unsafe": 0,
+    "invalid_reset": 0,
+    "time_out": 1
+  },
+  "completed_attempt": true,
+  "video_encoding": {
+    "codec": "h264",
+    "tag": "avc1",
+    "pixel_format": "yuv420p",
+    "faststart": true,
+    "full_decode_verified": true
+  },
+  "decoded_frames": 144,
+  "final_upload_verified": true,
+  "local_size_md5": {
+    "policy.mp4": {
+      "size": 2455847,
+      "md5": "e335d692d55264f6f0faa5e95e8c0943"
+    },
+    "executed_transitions.hdf5": {
+      "size": 7529698,
+      "md5": "0e32ba57782e16c6323d0ab91e54923d"
+    },
+    "manifest.json": {
+      "size": 25347,
+      "md5": "4f26f232236a081ee99abf9e572ac701"
+    },
+    "metrics.json": {
+      "size": 7011153,
+      "md5": "59697be8cdd4404e8092477377b6417c"
+    },
+    "console.log": {
+      "size": 374773,
+      "md5": "a7d3670ee5ffb45ffcb4bf03a017a2ac"
+    }
+  },
+  "qualified_hand_steps": [
+    0,
+    0
+  ],
+  "pinching_hand_steps": [
+    0,
+    0
+  ],
+  "pad_force_peaks_hand_flap_jaw": [
+    [
+      [
+        2.3835556507110596,
+        0.0
+      ],
+      [
+        0.0,
+        0.0
+      ]
+    ],
+    [
+      [
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        45.376007080078125
+      ]
+    ]
+  ],
+  "assigned_flaps": [
+    0,
+    1
+  ],
+  "terminal": {
+    "grasp_conditions": {
+      "opposing_flaps": false,
+      "stable_hands": [
+        false,
+        false
+      ],
+      "proof_lift": false,
+      "hold_time_s": 0.0,
+      "rack_clearance_m": 4.529021680355072e-05,
+      "hand_flap_index": [
+        -1,
+        -1
+      ]
+    },
+    "contact_diagnostics": {
+      "axis_order": "hand_L_R,flap_right_left,jaw_front_back",
+      "force_n": [
+        [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ]
+        ]
+      ],
+      "in_region": [
+        [
+          [
+            false,
+            false
+          ],
+          [
+            false,
+            false
+          ]
+        ],
+        [
+          [
+            false,
+            false
+          ],
+          [
+            false,
+            false
+          ]
+        ]
+      ],
+      "opposed": [
+        [
+          true,
+          false
+        ],
+        [
+          false,
+          false
+        ]
+      ],
+      "available": true,
+      "qualified_flaps": [
+        [
+          false,
+          false
+        ],
+        [
+          false,
+          false
+        ]
+      ],
+      "ambiguous_hands": [
+        false,
+        false
+      ],
+      "assigned_flap_index": [
+        0,
+        1
+      ],
+      "min_jaw_force_n": 5.0
+    },
+    "nearest_flap_surface_distance_m": [
+      0.07082170993089676,
+      0.08440973609685898
+    ],
+    "assigned_actual_midpoint_distance_m": [
+      0.12446419149637222,
+      0.09413023293018341
+    ],
+    "assigned_nominal_midpoint_distance_m": [
+      0.12446454912424088,
+      0.07439377158880234
+    ],
+    "flap_center_error_m": [
+      9.991558727051597e-07,
+      0.02797834575176239
+    ],
+    "flap_normal_error_rad": [
+      0.0,
+      0.5671374201774597
+    ]
+  },
+  "interpretation": [
+    "Both hands never met the current opposing two-pad qualification in this attempt.",
+    "A strong isolated pad contact cannot satisfy the physical pinch requirement.",
+    "Nominal-vs-articulated panel geometry differed during the attempt; this alone is not established as the cause of every upper-right failure.",
+    "This diagnostic and its actions are not imported into TRAIN Q/replay/success bank."
+  ],
+  "actual_train_goal_collection_rationale": "Original bounded Q replay no longer contains exact21-goal rows for prior successful upper-right TRAIN seed120352. New explicitly declared TRAIN collection preserves literal pre/next Q context and requested goals instead of inverting physical delta actions."
+}

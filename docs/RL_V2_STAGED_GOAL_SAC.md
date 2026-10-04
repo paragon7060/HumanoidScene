@@ -615,3 +615,54 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src python scripts/rl/prepare_staged_arm_expl
 넣지 않는다. 초기 replay 전체 업로드가 진행 중이라면 미완료로 표시하고 로컬 입력을
 보존한다. 300초 백업/검증된 checkpoint 최근2개 보관/종료 로그 검증은 기존 관리자가
 수행한다. TRAIN 성공 수보다 이후 같은 DEV의 구역별 성공률로 개선을 판단한다.
+
+## Frozen SAC의 TRAIN 목표 전이 수집
+
+`replay_v2_grasp_reference.py --collect-train-goals`는 **실행 전에 TRAIN으로 선언한
+배치**에서 frozen staged hybrid SAC가 실제로 선택한21개 목표를 기록한다.
+정책/Q/optimizer를 갱신하지 않는 학습 데이터 수집이다. 기존 VR 수집·정책 평가의
+기본 동작은 유지하며, 이 옵션을 명시해야 별도 데이터가 생긴다.
+
+기존 native HDF에는 실제24개 제어 명령이 있지만, projector/관절 속도 포화 뒤의
+명령에서 요청된21개 목표를 역산할 수 없다. Bounded replay에서 성공 경로가
+사라지면 HDF만으로 그 Q 전이를 복원하지 않는다. 이 수집기는 **실제 pre/next
+actor480·critic539 문맥, 요청 goal21, 현재 reward, termination**을 함께 보관한다.
+Base 접근은 제외하고, 실제 정지 확인을 거친 held 구간의 연속 전이만 저장한다.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 PYTHONPATH=src:scripts/rl python scripts/rl/replay_v2_grasp_reference.py \
+  --pose-student-checkpoint /absolute/path/to/immutable/checkpoint_00015602.pt \
+  --no-pose-student-training --staged-goal-sac --no-staged-goal-training \
+  --collect-train-goals --layout-json /absolute/path/to/declared_TRAIN_layout.json \
+  --staged-base-waypoints docs/assets/rl_v2_staged_base_hold_candidates_20261004.json \
+  --training-manifest /absolute/path/to/matching/baseline_entrypoint_manifest.json \
+  --pose-student-native-seed /absolute/path/to/middle_native_calibration.hdf5 \
+  --pose-student-native-seed /absolute/path/to/upper_native_calibration.hdf5 \
+  --demo-dataset examples/demos/v2_grasp_quest_success.hdf5 --episode-index 1 \
+  --torso-extra-height-m 0.06 --steps 900 --contact-diagnostics \
+  --output-dir /absolute/path/to/unique_TRAIN_collection \
+  --device cuda:0 --headless \
+  --kit_args '--/renderer/activeGpu=0 --/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false'
+```
+
+Manifest/물리 설정은 checkpoint와 일치해야 한다. 위 single-env entrypoint의
+baseline manifest는 torso 높이 설정 전의 계약이며, `--torso-extra-height-m`으로
+원래+6cm 계약을 복원한다. Native calibration/demo는 기존 neural prior 초기화에
+쓰며 실행 중 VR/IK 지시나 기록 action의 open-loop 재생을 사용하지 않는다.
+서로 다른 물리·goal 계약은 차원이 같다는 이유로 재사용하지 않는다.
+
+종료 시 `actual_train_goal_collection.pt`는 데이터 전용 artifact이며 학습
+checkpoint가 아니다. 실패도 그대로 기록한다. 안전·초기 유효성·실제 양손
+opposing pinch/stable hold0.25초·corrected proof lift8mm의 전체 조건을 만족한
+완료 성공만 `successful_train_transitions`에 추가한다. 단일 pad의 강한 접촉,
+일시적인 lift,미완료 시도는 성공 경험으로 세지 않는다.
+
+CLI는 DEV/FINAL,optimizer 업데이트,live teacher,기록 action 실행과의 동시 사용을
+거부한다. 저장 시에도 counter 불변,binary jaw,held phase,pre/next Q 문맥의
+연속성,처음 선언한 TRAIN identity를 검사한다. 과거 평가를 나중에 TRAIN으로 바꿔
+가져오는 용도로 쓰지 않는다. SAC 추가 연결은 artifact의 출처·계약·닫힌 파일
+검증을 확인하고 명시적으로 수행한다. 생성만으로 실행 중인 학습에 자동 투입되지 않는다.
+
+기존 `reference_residual_with_drive.archive_pilot`은 writer 종료 후 이 artifact도
+HDF/영상/로그와 같은 로크로 업로드하고 크기·MD5를 검증한다. Drive 연결/300초
+주기/최신2 checkpoint 보호는 기존 설정을 재사용한다.

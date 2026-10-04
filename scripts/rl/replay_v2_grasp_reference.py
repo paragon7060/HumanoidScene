@@ -44,6 +44,8 @@ def main():
     parser.add_argument('--staged-goal-sac',action='store_true',
                         help='Separate fresh-Q SAC on the 21 remaining goals after physical base settling.')
     parser.add_argument('--staged-goal-training',action=argparse.BooleanOptionalAction,default=False)
+    parser.add_argument('--collect-train-goals',action='store_true',
+                        help='Explicit TRAIN-data collection with frozen staged SAC; save exact21 goals, no optimizer or live teacher.')
     parser.add_argument('--staged-contact-ik-native-seed',type=Path,action='append',
                         help='Staged frozen diagnostic only: native successful TRAIN calibration for local contact IK. Not a SAC policy.')
     parser.add_argument('--executed-actions', type=Path,
@@ -101,6 +103,17 @@ def main():
     add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True, robot_model='s63', gripper='leju-twofinger', rack_rollers=True)
     args = parser.parse_args()
+    if args.collect_train_goals:
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.training_goal_collection import validate_training_collection
+        try:
+            validate_training_collection(
+                json.loads(args.layout_json.read_text()) if args.layout_json and args.layout_json.is_file() else None,
+                staged_policy=args.staged_goal_sac,
+                optimization=args.staged_goal_training or args.pose_student_training,
+                live_teacher=bool(args.staged_contact_ik_native_seed or args.layout_vr_teacher
+                                  or args.executed_actions or args.actor_reference_mix is not None))
+        except ValueError as error:
+            parser.error(str(error))
     if args.capture_every < 1 or args.episode_index < 0 or not 1 <= args.steps <= 900:
         parser.error('Capture interval must be positive, episode index nonnegative, and steps in1..900')
     if args.allow_nominal_flap_prior and args.flap_pose_source!='articulated':
@@ -288,7 +301,7 @@ def main():
             # Match the trained staged runner's asset/controller/FK reset.
             # Legacy VR/other-policy replay keeps its own reset lifecycle.
             from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import settle_batched_layouts
-            observation,settling_steps,_,staged_layout_guard=settle_batched_layouts(
+            observation,settling_steps,staged_initial_valid,staged_layout_guard=settle_batched_layouts(
                 env,scene_demo['actor_obs'][:1].to(env.device),allow_partial=False)
             rack=env.scene['rack'].data.root_pose_w.clone()
         elif layout:
@@ -528,6 +541,17 @@ def main():
                     initial_layout_guard=staged_layout_guard,
                     wave_reset_controller_contract=staged_layout_guard['controller_reset']['contract'])
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+        goal_collector = None
+        if args.collect_train_goals:
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.training_goal_collection import TrainingGoalCollector, FORMAT
+            goal_collector = TrainingGoalCollector(layout.record(), staged_goal_sac.contract)
+            collection_initial_counters = (staged_goal_sac.actor_updates, staged_goal_sac.critic_updates)
+            manifest = json.loads((output/'manifest.json').read_text())
+            manifest.update(training_data_collection=FORMAT, collection_phase='train',
+                            optimizer_training=False, evaluation_data=False)
+            (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+            meta.update(training_data_collection=FORMAT, collection_phase='train',
+                        optimizer_training=False, evaluation_data=False)
         meta['vr_orientation_mode']=args.vr_orientation_mode
         meta['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
         meta['vr_close_distance_m']=args.vr_close_distance_m
@@ -545,7 +569,8 @@ def main():
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
-            caption=(f'Base hold + SAC21 goals | NO live reference/IK | train={staged_goal_sac.training}' if staged_goal_sac else
+            caption=(f'SAC TRAIN data | FROZEN policy, optimizer=0 | NO live reference/IK' if goal_collector else
+                     f'Base hold + SAC21 goals | NO live reference/IK | train={staged_goal_sac.training}' if staged_goal_sac else
                      f'Base staging + FROZEN approach + local IK | TEACHER, NOT SAC' if staged_contact_ik else
                      f'Base staging + FROZEN grasp | DIAGNOSTIC, not new SAC' if staged_base else
                      f'Learned pose goals | SAC | NO live reference | train={pose_sac.training}' if pose_sac else
@@ -716,6 +741,10 @@ def main():
                                      reward,terminated,step)
                     if pose_sac.training and pose_sac.actor_updates and pose_sac.actor_updates%512==0:pose_sac.save()
                 if staged_goal_sac and staged_previous is not None:
+                    if goal_collector:
+                        following = staged_goal_sac.observations(terminal['policy'],
+                            torch.cat((terminal['policy'],terminal['critic']),-1),policy_step+1)
+                        goal_collector.append(staged_previous,following,reward,terminated)
                     staged_goal_sac.observe(staged_previous,terminal['policy'],
                         torch.cat((terminal['policy'],terminal['critic']),-1),reward,terminated,policy_step)
                     if staged_goal_sac.training and staged_goal_sac.critic_updates%1024==0:
@@ -836,6 +865,24 @@ def main():
         if pose_sac:
             report['frozen_goal_warm_start' if staged_goal_sac else 'pose_goal_sac']=pose_sac.report()
         if staged_goal_sac:report['staged_goal_sac']=staged_goal_sac.report()
+        if goal_collector:
+            if staged_goal_sac.training or collection_initial_counters != (
+                    staged_goal_sac.actor_updates, staged_goal_sac.critic_updates):
+                raise ValueError('Frozen TRAIN collection unexpectedly updated the policy or critic')
+            last = history[-1] if history else {}
+            conditions = last.get('grasp_conditions',{})
+            outcome = dict(wave=0,split='train',environment=0,layout=layout.record(),
+                complete=report['completed_attempt'] and not report['interrupted'],
+                initial_layout_valid=bool(staged_initial_valid[0]),
+                result=dict(success=bool(last.get('success')),unsafe=bool(last.get('unsafe')),
+                    invalid_reset=bool(last.get('invalid_reset')),unsafe_causes=last.get('unsafe_causes',{}),
+                    pinching=last.get('pinching',[]),stable_hands=conditions.get('stable_hands',[]),
+                    opposing_flaps=conditions.get('opposing_flaps',False),proof_lift=conditions.get('proof_lift',False),
+                    hold_time_s=conditions.get('hold_time_s',0),rack_clearance_m=conditions.get('rack_clearance_m',0),
+                    staged_base=staged_base.report()))
+            report['training_goal_collection'] = goal_collector.save(output,outcome,
+                actor_updates=staged_goal_sac.actor_updates,critic_updates=staged_goal_sac.critic_updates,
+                completed=report['completed_attempt'],interrupted=report['interrupted'])
         (output/'metrics.json').write_text(json.dumps(report, indent=2)+'\n')
         (output/'status.json').write_text(json.dumps({'status':'stopped' if stopped['value'] else 'complete',
             'outcomes':counts,'actor_updates':staged_goal_sac.actor_updates if staged_goal_sac else

@@ -1663,3 +1663,57 @@ environment ID의 seed120332를 선택했다. Distance/reward 기준으로 우�
 `staged_upper_RIGHT_TRAIN_frozen_diagnostic_gpu0_20261005_043940`이며
 checkpoint18560 snapshot/layout/manifest를 Drive 검증한 후04:39에 시작했다.
 GPU0 단독 frozen SAC/영상·접촉 진단이고 기존 GPU3 TRAIN은 계속 유지한다.
+
+### 10/05 05:16 — 상단오른쪽 안전한 실패의 접촉 분석과 TRAIN 데이터 보존
+
+상단오른쪽 TRAIN seed120332의 frozen 진단은858 control steps 후 time-out이었다.
+Unsafe/invalid reset은0이며 양손 모두 qualified pinch가 한 번도 없었다.
+Actor4128/Q18560은 실행 중 변하지 않았다. 이는 진단이며 학습 데이터로 가져오지 않는다.
+
+| 확인한 항목 | 실제 결과 | 의미 |
+|---|---|---|
+| 왼손 패드별 최대 힘 | 2.384N / 0N | 양쪽5N 조건에 도달하지 못함 |
+| 오른손 패드별 최대 힘 | 0N / 45.376N | 한쪽 접촉만 강하며 flap pinch가 아님 |
+| Terminal hand→assigned 실제 midpoint 거리 | 12.446 / 9.413cm | 양손 접촉/정렬을 확보하지 못함 |
+| 왼쪽 flap actual−nominal midpoint 차이 | 27.978mm | 박스 root 기준 nominal 목표와 실제 패널이 다름 |
+| 왼쪽 flap normal 차이 | 32.496도 | 실제 패널이 회전한 상태 |
+
+![상단오른쪽 실제 거리·패드별 힘·flap 변형](assets/rl_v2_upper_right_frozen_failure_20261005.png)
+
+오른손의 단일 패드 접촉 이후 flap midpoint 차이가 커졌다. 이 사례는 안전 종료나
+proof-lift 기준 이전의 **접촉 포획 실패**다. 그러나 flap 변형만이 모든 상단오른쪽
+실패의 원인이라고 확정하지 않는다. 작은 nearest-surface 거리나 단일 패드 힘으로
+성공을 선언하지 않으며 실제 양쪽 패드와 opposing/stable/hold/lift 기준을 유지한다.
+H.264(avc1)/yuv420p/faststart MP4144frames 전체 디코딩,실행 exit0,writer 종료,
+HDF/영상/로그의 최종 Drive 검증이 완료됐다.
+[실제 접촉·기하·파일 크기/MD5 증거](assets/rl_v2_upper_right_frozen_failure_20261005.json).
+
+#### 과거 상단오른쪽 성공 데이터의 유실을 구분
+
+기존 aligned 분기는 TRAIN wave2 seed120352에서 상단오른쪽을 실제로 성공했으며,
+corrected lift12.43mm였다. 상단오른쪽이 한 번도 성공하지 않은 것은 아니다.
+그 성공의 native HDF는 남아 있지만 최신 bounded500k Q replay에는 해당 경로의
+요청 goal21 전이가 남아 있지 않았다. HDF의 physical action24는 projector/속도
+포화 뒤의 명령이므로 이를 역산해 성공 goal label을 만들지 않는다.
+
+`--collect-train-goals`를 추가해 실행 전에 선언한 TRAIN 배치의 frozen SAC 요청
+goal21과 실제 pre/next actor480·critic539,reward,termination을 따로 보존한다.
+Optimizer 업데이트0,binary jaw/held phase/Q 연속성/원래 TRAIN identity를 검사한다.
+성공 bank는 실제 안전한 양손 파지·stable hold·corrected lift 조건을 모두 만족한
+완료 성공만 받는다. DEV/FINAL/live teacher/기록 action 실행은 거부한다.
+관련 provenance/연속성 테스트와 기존 bank 테스트21개가 통과했고 기존 기본 동작은 유지했다.
+[수집 사용법과 백업](RL_V2_STAGED_GOAL_SAC.md#frozen-sac의-train-목표-전이-수집).
+
+원래 TRAIN seed120352를 selected actor3389/Q15602로 다시 수집하는 GPU0 실행을
+05:16에 시작했다. 부모는`staged_upper_RIGHT_TRAIN_goal_collection_gpu0_20261005_051636`이다.
+Source checkpoint의 Drive 크기·MD5와 physical contract 일치를 확인하고
+immutable snapshot/layout/manifest를 먼저 업로드·검증했다. Dynamic box와 원래
+base/box randomization,PGS/구동/보상/안전/waypoint를 유지한다. Step301까지 실제
+held 전이를 모으며 actor/Q counter 불변을 확인했다. 아직 성공 결과가 아니며
+독립 일반화 평가로 세지 않는다. 생성만으로 기존 GPU3 학습에 자동 투입되지 않는다.
+
+GPU3 성공 유지 분기는 TRAIN wave7에서6/128(중간오른쪽4/중간왼쪽1/상단왼쪽1)을
+성공했다. 현재 bank6975행에는 중간오른쪽9/중간왼쪽5/상단왼쪽2개 episode,
+상단오른쪽0개가 있다. DEV 추세4→3→3/128이므로 일반화 개선은 아직 확인되지 않았다.
+새 팔 탐색 분기 TRAIN wave1은2/128(중간왼쪽1/오른쪽1)이었으며,
+학습 전 DEV3/128 이후의 같은 DEV를 기다린다. 두 GPU3 TRAIN은 계속 진행한다.
