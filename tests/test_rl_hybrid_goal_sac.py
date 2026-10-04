@@ -126,3 +126,50 @@ def test_actor_recovery_keeps_hybrid_Q_actual_rows_and_both_temperature_states(t
     invalid=best|dict(algorithm='asymmetric_sac');torch.save(invalid,tmp_path/'wrong.pt')
     with pytest.raises(ValueError,match='binary Q'):
         recover(current/'checkpoint.pt',tmp_path/'wrong.pt',tmp_path/'invalid')
+
+    migrated,_=recover(current/'checkpoint.pt',tmp_path/'best.pt',tmp_path/'confident',
+        normalize_prior_loss_by_radius=True,anchor_prior_to_validated_policy=True,
+        fixed_prior_radius=.05,validated_jaw_prior_confidence=.8,jaw_prior_residual_gain=20.,
+        body_policy_std=.001,body_policy_std_cap=.005)
+    state=torch.load(migrated,weights_only=True)
+    assert state['goal_contract']['fixed_prior_radius']==.05
+    assert state['config']['max_policy_std']==.005
+    assert state['hybrid_contract']['validated_jaw_prior_confidence']==.8
+    last=len(agent.actor.network)-1
+    for key,value in latest['model'].items():
+        if not key.startswith('actor.'):
+            assert torch.equal(value,state['model'][key])
+    assert torch.equal(state['model'][f'actor.network.{last}.bias'][:21],
+        best['model'][f'actor.network.{last}.bias'][:21])
+    rows=torch.load(migrated.parent/'staged_goal_experience.pt',weights_only=True)
+    assert rows['goal_contract']==state['goal_contract']
+    for key,value in batch.items():assert torch.equal(value,rows['executed_goal_transitions'][key])
+
+
+def test_confident_jaw_prior_preserves_validated_sign_but_SAC_can_reverse_it():
+    from copy import deepcopy
+    agent,obs=agent_and_observations(64)
+    agent.validated_jaw_prior_confidence=.8;agent.jaw_prior_residual_gain=20.
+    with torch.no_grad():
+        agent.actor.network[-1].weight.zero_();agent.actor.network[-1].bias.zero_()
+        agent.actor.network[-1].bias[19:21]=torch.tensor([.002,-.003])
+    prior=deepcopy(agent.actor).requires_grad_(False)
+    agent.validated_jaw_prior=lambda normalized:prior.network(normalized).chunk(2,-1)[0][:,19:21]
+    normalized=agent.actor_normalizer(obs)
+    logits=agent.parameters_at(normalized)[2]
+    torch.testing.assert_close(logits.sigmoid(),torch.tensor([[.8,.2]]).expand(64,-1))
+    assert (agent.act(obs,True)[:,19:21]==torch.tensor([1.,-1.])).all()
+    # A learned residual can change either choice; the old actor stays frozen.
+    with torch.no_grad():agent.actor.network[-1].bias[19]-=.1
+    assert agent.act(obs,True)[:,19].eq(-1).all()
+    assert prior.network[-1].bias[19].item()==pytest.approx(.002)
+    derivative=torch.autograd.grad(agent.parameters_at(normalized)[2].sum(),
+        agent.actor.network[-1].bias)[0]
+    torch.testing.assert_close(derivative[19:21],torch.tensor([1280.,1280.]))
+    assert not any(k.startswith('validated_jaw_prior') for k in agent.state_dict())
+    restored,_=agent_and_observations(64)
+    with pytest.raises(ValueError,match='continuous-only'):restored.restore(agent.checkpoint())
+    restored.validated_jaw_prior_confidence=.8;restored.jaw_prior_residual_gain=20.
+    restored.validated_jaw_prior=agent.validated_jaw_prior
+    restored.restore(agent.checkpoint())
+    torch.testing.assert_close(restored.act(obs,True),agent.act(obs,True))

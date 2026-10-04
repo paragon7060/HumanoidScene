@@ -359,14 +359,14 @@ def measured_initial_box_failures(env,actors,names):
     This final guard sample supplements counts, not pre-respawn observations.
     """
     from ..scene.spawn import physical_pool_id,logical_cells
-    from ..geometry.pose import quat_apply,quat_conjugate,normalize_quaternion
+    from ..geometry.pose import quat_apply,quat_conjugate,normalize_quaternion,replace_invalid_poses
     from ..geometry.rack import box_shelf_clearance_m
     from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
     from ....workcell.workcell_layout import scale
     tokens=actors[:,86:350].reshape(-1,12,22)
     poses=torch.stack([env.scene[name].data.root_pose_w for name in names],1)
     velocities=torch.stack([env.scene[name].data.root_vel_w for name in names],1)
-    rack=env.scene['rack'].data.root_pose_w
+    rack,invalid_rack=replace_invalid_poses(env.scene['rack'].data.root_pose_w)
     rows=torch.arange(env.num_envs,device=env.device)
     failures=[]
     def finite_list(value):
@@ -377,8 +377,8 @@ def measured_initial_box_failures(env,actors,names):
             selected=active&(tokens[:,logical,3:5].argmax(-1)==kind)
             if not selected.any():continue
             pool=physical_pool_id(cell,kind);pose=poses[:,pool];velocity=velocities[:,pool]
-            finite=torch.isfinite(pose).all(-1)&torch.isfinite(velocity).all(-1)&(pose[:,3:].norm(dim=-1)>1e-8)
-            safe=pose.clone();safe[~finite,:3]=0.;safe[~finite,3:]=safe.new_tensor([1.,0.,0.,0.])
+            safe,invalid_box=replace_invalid_poses(pose)
+            finite=~invalid_box&~invalid_rack&torch.isfinite(velocity).all(-1)
             type_ids=rows.new_full((env.num_envs,),kind);region_ids=rows.new_full((env.num_envs,),cell.region_id)
             footprint=finite&env._multi_box_reset_settling._footprint_in_region(safe,type_ids,region_ids)
             on_shelf=finite&env._multi_box_reset_settling._on_assigned_shelf(safe,type_ids,region_ids)
@@ -389,8 +389,9 @@ def measured_initial_box_failures(env,actors,names):
             for i in torch.where(selected&~(footprint&on_shelf&stable&same_pool))[0].tolist():
                 failures.append(dict(environment=i,logical_id=logical,original_pool_id=pool,
                     original_asset_still_active=bool(same_pool[i]),finite=bool(finite[i]),
+                    invalid_box_pose=bool(invalid_box[i]),invalid_rack_pose=bool(invalid_rack[i]),
                     footprint_in_region=bool(footprint[i]),on_assigned_shelf=bool(on_shelf[i]),
-                    stable_at_guard=bool(stable[i]),rack_local_root_xyz_m=finite_list(local[i]),
+                    stable_at_guard=bool(stable[i]),rack_local_root_xyz_m=finite_list(local[i]) if finite[i] else None,
                     shelf_clearance_m=float(clearance[i]) if finite[i] else None,
                     linear_speed_mps=float(velocity[i,:3].norm()) if finite[i] else None,
                     angular_speed_radps=float(velocity[i,3:].norm()) if finite[i] else None))

@@ -20,8 +20,17 @@ class HybridGoalSAC(AsymmetricSAC):
     discrete_entropy_target_per_jaw=.35
     discrete_prior_weight=.05
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self,*args,validated_jaw_prior_confidence=0.,jaw_prior_residual_gain=1.,**kwargs):
         super().__init__(*args,**kwargs)
+        if not math.isfinite(validated_jaw_prior_confidence) or not (
+                validated_jaw_prior_confidence==0 or .5<validated_jaw_prior_confidence<1) \
+                or not math.isfinite(jaw_prior_residual_gain) or jaw_prior_residual_gain<=0:
+            raise ValueError('Jaw prior needs confidence within(0.5,1) and positive residual gain')
+        self.validated_jaw_prior_confidence=validated_jaw_prior_confidence
+        self.jaw_prior_residual_gain=jaw_prior_residual_gain
+        # The pilot owns/checkpoints this frozen actor. A callable avoids
+        # registering another copy in this module's state/optimizer tree.
+        self.validated_jaw_prior=None
         if self.action_dim!=21 or self.action_projector is None or not self.action_projector.free_grippers:
             raise ValueError('Hybrid goal SAC needs19 goals and two independently projected grippers')
         self.log_alpha_discrete=nn.Parameter(torch.tensor(math.log(.01),device=self.log_alpha.device))
@@ -29,7 +38,23 @@ class HybridGoalSAC(AsymmetricSAC):
 
     def parameters_at(self, normalized):
         mean,log_std=self.actor.network(normalized).chunk(2,-1)
-        return mean[:,:19],log_std[:,:19].clamp(self.actor.log_std_min,self.actor.log_std_max),mean[:,19:21]
+        logits=mean[:,19:21]
+        if self.validated_jaw_prior_confidence:
+            if self.validated_jaw_prior is None:
+                raise ValueError('Confident jaw policy requires its frozen validated actor')
+            with torch.no_grad():reference=self.validated_jaw_prior(normalized)
+            prior=self.prior_jaw_logits(normalized,reference=reference)
+            logits=prior+self.jaw_prior_residual_gain*(logits-reference)
+        return mean[:,:19],log_std[:,:19].clamp(self.actor.log_std_min,self.actor.log_std_max),logits
+
+    def prior_jaw_logits(self,normalized,reference=None):
+        if self.validated_jaw_prior is None:
+            raise ValueError('Confident jaw policy requires its frozen validated actor')
+        if reference is None:
+            with torch.no_grad():reference=self.validated_jaw_prior(normalized)
+        confidence=self.validated_jaw_prior_confidence
+        magnitude=math.log(confidence/(1-confidence))
+        return torch.where(reference>0,magnitude,-magnitude)
 
     def continuous_sample(self, normalized, *, deterministic=False,noise=None):
         mean,log_std,logits=self.parameters_at(normalized)
@@ -139,7 +164,8 @@ class HybridGoalSAC(AsymmetricSAC):
                 mean,_,jaw_logits=self.parameters_at(normalized)
                 labels=teacher['action']
                 teacher_loss=F.mse_loss(mean.tanh(),labels[:,:19])
-                teacher_logits=labels[:,19:21].clamp(-.999999,.999999).atanh()
+                teacher_logits=(self.prior_jaw_logits(normalized) if self.validated_jaw_prior_confidence
+                    else labels[:,19:21].clamp(-.999999,.999999).atanh())
                 p=teacher_logits.sigmoid()
                 discrete_prior=(p*(F.logsigmoid(teacher_logits)-F.logsigmoid(jaw_logits))+
                     (1-p)*(F.logsigmoid(-teacher_logits)-F.logsigmoid(-jaw_logits))).mean()
@@ -174,16 +200,22 @@ class HybridGoalSAC(AsymmetricSAC):
 
     def checkpoint(self):
         state=super().checkpoint();state['algorithm']='hybrid_goal_sac'
-        state['hybrid_contract']=dict(continuous_dims=19,binary_jaws=2,exact_branches=4,
-            discrete_entropy_target_per_jaw=self.discrete_entropy_target_per_jaw,
-            discrete_prior_weight=self.discrete_prior_weight)
+        state['hybrid_contract']=self.hybrid_contract
         return state
 
+    @property
+    def hybrid_contract(self):
+        result=dict(continuous_dims=19,binary_jaws=2,exact_branches=4,
+            discrete_entropy_target_per_jaw=self.discrete_entropy_target_per_jaw,
+            discrete_prior_weight=self.discrete_prior_weight)
+        if self.validated_jaw_prior_confidence:
+            result.update(validated_jaw_prior_confidence=self.validated_jaw_prior_confidence,
+                jaw_prior_residual_gain=self.jaw_prior_residual_gain,
+                jaw_policy='confident_validated_binary_prior_plus_trainable_logit_residual_v1')
+        return result
+
     def restore(self,state,training=True):
-        if state.get('algorithm')!='hybrid_goal_sac' or state.get('hybrid_contract')!=dict(
-                continuous_dims=19,binary_jaws=2,exact_branches=4,
-                discrete_entropy_target_per_jaw=self.discrete_entropy_target_per_jaw,
-                discrete_prior_weight=self.discrete_prior_weight):
+        if state.get('algorithm')!='hybrid_goal_sac' or state.get('hybrid_contract')!=self.hybrid_contract:
             raise ValueError('Hybrid SAC cannot import a continuous-only Q/optimizer')
         if training and len(state.get('optimizers',[]))!=4:
             raise ValueError('Hybrid SAC requires both entropy optimizer states')

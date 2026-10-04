@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import torch
 
-from ..geometry.pose import quat_apply, quat_conjugate, normalize_quaternion
+from ..geometry.pose import quat_apply, quat_conjugate, normalize_quaternion,replace_invalid_poses
 from ..geometry.rack import box_shelf_clearance_m
 from .spawn import BOX_TYPE_IDS, physical_asset_names
 from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
@@ -98,7 +98,8 @@ class IsaacResetSettling:
         )
 
     def _footprint_in_region(self, pose, type_id, region_id):
-        rack_pose = self.env.scene["rack"].data.root_pose_w
+        pose,invalid_box=replace_invalid_poses(pose)
+        rack_pose,invalid_rack=replace_invalid_poses(self.env.scene["rack"].data.root_pose_w)
         rack_scale = workcell_scale("rack")
         corners = torch.zeros(self.env.num_envs, 4, 3, device=self.device)
         type_names = {value: key for key, value in BOX_TYPE_IDS.items()}
@@ -135,10 +136,11 @@ class IsaacResetSettling:
             (y_min >= raw_min_y * rack_scale[1])
             & (y_max <= raw_max_y * rack_scale[1])
         )
-        return side_ok & depth_ok
+        return side_ok & depth_ok & ~invalid_box & ~invalid_rack
 
     def _on_assigned_shelf(self, pose, type_id, region_id):
-        rack_pose = self.env.scene["rack"].data.root_pose_w
+        pose,invalid_box=replace_invalid_poses(pose)
+        rack_pose,invalid_rack=replace_invalid_poses(self.env.scene["rack"].data.root_pose_w)
         rack_scale = workcell_scale("rack")
         shelves = torch.tensor(
             [region.shelf for region in self.env.cfg.multi_box.rack_regions],
@@ -156,7 +158,8 @@ class IsaacResetSettling:
                         shelf=shelf, rack_scale=rack_scale,
                     )
         low, high = self.env.cfg.multi_box.reset_shelf_clearance_range
-        return torch.isfinite(clearance) & (clearance >= low) & (clearance <= high)
+        return torch.isfinite(clearance) & (clearance >= low) & (clearance <= high) \
+            & ~invalid_box & ~invalid_rack
 
     def measure(self, dt: float) -> ResetSettlingStep:
         counter = int(self.env.common_step_counter)
@@ -165,14 +168,8 @@ class IsaacResetSettling:
             self._last_counter = counter
             logical, pose, velocity, type_id, region_id = self._selected()
             pending = ~self.ready & ~self.invalid
-            finite = (
-                torch.isfinite(pose).all(-1)
-                & torch.isfinite(velocity).all(-1)
-                & (pose[:, 3:].norm(dim=-1) > 1e-8)
-            )
-            safe_pose = pose.clone()
-            safe_pose[~finite, :3] = 0.0
-            safe_pose[~finite, 3:] = safe_pose.new_tensor((1.0, 0.0, 0.0, 0.0))
+            safe_pose,invalid_pose=replace_invalid_poses(pose)
+            finite = ~invalid_pose & torch.isfinite(velocity).all(-1)
             self.footprint_in_region = finite & self._footprint_in_region(
                 safe_pose, type_id, region_id)
             self.on_assigned_shelf = finite & self._on_assigned_shelf(

@@ -157,6 +157,21 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     for key,value in normalized.frozen_actor_prior.state_dict().items():
         assert torch.equal(value,restored_normalized.frozen_actor_prior.state_dict()[key])
 
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_hybrid_goal_sac import StagedHybridGoalSACPilot
+    confident=StagedHybridGoalSACPilot(warm,contract,tmp_path/'confident',stage,
+        free_grippers=True,gripper_logit_scale=.005,normalize_prior_loss_by_radius=True,
+        anchor_prior_to_initial_policy=True,fixed_prior_radius=.05,
+        validated_jaw_prior_confidence=.8,jaw_prior_residual_gain=20.)
+    confident.actor_updates=20000
+    assert confident.radius==pytest.approx(.05)
+    command,observed=confident.act(raw,critic,0)
+    confident.directory.mkdir();confident.save(final=True)
+    restored_confident=StagedHybridGoalSACPilot(warm,contract,tmp_path/'confident_resume',stage,
+        checkpoint=next(confident.directory.glob('checkpoint_*.pt')))
+    assert restored_confident.radius==pytest.approx(.05)
+    assert not any(p.requires_grad for p in restored_confident.frozen_actor_prior.parameters())
+    torch.testing.assert_close(restored_confident.act(raw,critic,0)[0],command)
+
     # A changed proof predicate starts new critics/replay. Only matching
     # behavior transfers, including its actor observation normalization.
     from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import initialize_staged_actor_only

@@ -4,7 +4,7 @@ The frozen learned goal network initializes the remaining 21 goals. Neither its
 24-action Q nor old replay is compatible with this controller. Only executed
 held-phase transitions enter the new replay. No live IK/VR teacher is required.
 """
-from dataclasses import replace
+from dataclasses import asdict,replace
 from copy import deepcopy
 import math
 from pathlib import Path
@@ -12,6 +12,7 @@ from pathlib import Path
 import torch
 
 from ...algorithms.asymmetric_sac import AsymmetricReplayBuffer, AsymmetricSAC
+from ...algorithms.sac import SACConfig
 from ...runners.storage import save_checkpoint
 from .pose_goal_sac import GoalGripperProjector, reward_discount
 from .executed_replay import PHYSICAL_KEYS
@@ -45,17 +46,19 @@ def held_goal_coordinates(coordinates, raw, remaining, stage):
 class StagedGoalProjector:
     name = 'staged_goal_21_near_flap_jaws_frozen_network_radius_context_v1'
 
-    def __init__(self, prior, feature_width, free_grippers=False):
+    def __init__(self, prior, feature_width, free_grippers=False,fixed_prior_radius=None):
         self.prior = prior
         self.feature_width = feature_width
         self.gate = GoalGripperProjector()
         self.free_grippers = free_grippers
+        self.fixed_prior_radius=fixed_prior_radius
 
     def __call__(self, observation, action):
         with torch.no_grad():
             reference = self.prior.agent.act(observation[:, :self.feature_width], deterministic=True)
             reference = reference[:, list(GOAL_COLUMNS)]
-        radius = observation[:, -1:].clamp(.05, .15)
+        radius = (observation[:, -1:].clamp(.05, .15) if self.fixed_prior_radius is None
+                  else self.fixed_prior_radius)
         result = torch.maximum(reference-radius, torch.minimum(action, reference+radius)).clamp(-1, 1)
         if self.free_grippers:
             result[:, 19:21] = action[:, 19:21].clamp(-1,1)
@@ -136,7 +139,8 @@ class StagedGoalSACPilot:
                  checkpoint=None, training=True, device='cpu', free_grippers=False,
                  gripper_logit_scale=1., replay_capacity=20000,
                  normalize_prior_loss_by_radius=False,actor_min_replay_rows=64,
-                 anchor_prior_to_initial_policy=False,exploration_correlation=0.):
+                 anchor_prior_to_initial_policy=False,exploration_correlation=0.,
+                 fixed_prior_radius=None,validated_jaw_prior_confidence=0.,jaw_prior_residual_gain=1.):
         if warm_start.training:
             raise ValueError('The warm-start network must remain frozen')
         self.warm_start = warm_start
@@ -175,6 +179,9 @@ class StagedGoalSACPilot:
             actor_min_replay_rows=saved.get('goal_contract',{}).get('actor_min_replay_rows',64)
             anchor_prior_to_initial_policy=saved.get('goal_contract',{}).get('actor_prior_source')=='frozen_validated_remaining_goal_actor'
             exploration_correlation=saved.get('goal_contract',{}).get('exploration_correlation',0.)
+            fixed_prior_radius=saved.get('goal_contract',{}).get('fixed_prior_radius')
+            validated_jaw_prior_confidence=saved.get('goal_contract',{}).get('validated_jaw_prior_confidence',0.)
+            jaw_prior_residual_gain=saved.get('goal_contract',{}).get('jaw_prior_residual_gain',1.)
             self.prior_schedule_actor_origin=saved.get('prior_schedule_actor_origin',0.)
         if not math.isfinite(exploration_correlation) or not 0<=exploration_correlation<=.995:
             raise ValueError('Goal exploration correlation must be within0..0.995')
@@ -187,6 +194,15 @@ class StagedGoalSACPilot:
                 anchor_prior_to_initial_policy and not normalize_prior_loss_by_radius):
             raise ValueError('Validated actor anchoring requires normalized prior loss')
         self.anchor_prior_to_initial_policy=anchor_prior_to_initial_policy
+        if fixed_prior_radius is not None and (not math.isfinite(fixed_prior_radius)
+                or not .05<=fixed_prior_radius<=.15):
+            raise ValueError('Fixed goal radius must be within0.05..0.15')
+        if validated_jaw_prior_confidence and (not anchor_prior_to_initial_policy
+                or self.agent_class is AsymmetricSAC):
+            raise ValueError('Confident binary jaws require the hybrid validated actor snapshot')
+        self.fixed_prior_radius=fixed_prior_radius
+        self.validated_jaw_prior_confidence=validated_jaw_prior_confidence
+        self.jaw_prior_residual_gain=jaw_prior_residual_gain
         if type(replay_capacity) is not int or not 1024<=replay_capacity<=2000000:
             raise ValueError('Staged replay capacity must be within1024..2000000')
         self.replay_capacity=replay_capacity
@@ -208,9 +224,18 @@ class StagedGoalSACPilot:
             initial_policy_std=.005, min_policy_std=.001, max_policy_std=.02,
             gamma=reward_discount(physical_contract), freeze_actor_normalizer=True,
             actor_feature_mode='flat', critic_layer_norm=True)
-        projector = StagedGoalProjector(self.prior, self.prior.agent.actor_obs_dim,free_grippers)
+        if checkpoint:
+            state_config=saved.get('config',{})
+            expected=asdict(config)|{key:state_config.get(key) for key in
+                ('initial_policy_std','max_policy_std')}
+            if state_config!=expected:
+                raise ValueError('Saved staged SAC configuration differs from its physical learning contract')
+            config=SACConfig(**state_config)
+        projector = StagedGoalProjector(self.prior, self.prior.agent.actor_obs_dim,free_grippers,fixed_prior_radius)
+        options=(dict(validated_jaw_prior_confidence=validated_jaw_prior_confidence,
+            jaw_prior_residual_gain=jaw_prior_residual_gain) if self.agent_class is not AsymmetricSAC else {})
         self.agent = self.agent_class(self.actor_dim, self.critic_dim, 21, config, device,
-                                   action_projector=projector)
+                                   action_projector=projector,**options)
         copy_remaining_actor(warm_start.agent, self.agent)
         if free_grippers:
             with torch.no_grad():
@@ -259,8 +284,13 @@ class StagedGoalSACPilot:
                     raise ValueError('Validated prior actor snapshot is missing')
                 self.frozen_actor_prior.load_state_dict(state['frozen_actor_prior'])
             self.frozen_actor_prior.requires_grad_(False)
+        if self.validated_jaw_prior_confidence:
+            self.agent.validated_jaw_prior=self._validated_jaw_logits
         if not training:
             self.agent.requires_grad_(False)
+
+    def _validated_jaw_logits(self,normalized):
+        return self.frozen_actor_prior['actor'].network(normalized).chunk(2,-1)[0][:,19:21]
 
     @property
     def contract(self):
@@ -278,7 +308,8 @@ class StagedGoalSACPilot:
             prior_initial_weight=2., fade_critic_updates=self.fade,
             old_demo_Q_fraction=0., runtime_reference_path_required=False,
             live_IK_or_privileged_contact_teacher_required=False,
-            exploration_std_initial=.005, exploration_std_cap=.02)
+            exploration_std_initial=self.agent.config.initial_policy_std,
+            exploration_std_cap=self.agent.config.max_policy_std)
         if self.free_grippers:
             contract.update(gripper_prior_bound=False,gripper_logit_scale=self.gripper_logit_scale,
                             imitation_jaw_targets='same_sign_softened_frozen_prior_logits')
@@ -290,6 +321,11 @@ class StagedGoalSACPilot:
         if self.actor_min_replay_rows!=64:contract['actor_min_replay_rows']=self.actor_min_replay_rows
         if self.anchor_prior_to_initial_policy:
             contract['actor_prior_source']='frozen_validated_remaining_goal_actor'
+        if self.fixed_prior_radius is not None:contract['fixed_prior_radius']=self.fixed_prior_radius
+        if self.validated_jaw_prior_confidence:
+            contract.update(validated_jaw_prior_confidence=self.validated_jaw_prior_confidence,
+                jaw_prior_residual_gain=self.jaw_prior_residual_gain,
+                imitation_jaw_targets='confident_frozen_validated_binary_prior')
         if self.exploration_correlation:
             contract.update(exploration_correlation=self.exploration_correlation,
                 collection_noise='independent_per_environment_AR1_pre_tanh_Gaussian',
@@ -304,6 +340,7 @@ class StagedGoalSACPilot:
 
     @property
     def radius(self):
+        if self.fixed_prior_radius is not None:return self.fixed_prior_radius
         return .05+.10*self.progress
 
     @property

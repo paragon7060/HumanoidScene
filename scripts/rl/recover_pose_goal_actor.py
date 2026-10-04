@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 
 import torch
@@ -13,7 +14,9 @@ STAGED_TYPES={'staged_base_hold_remaining_goal_sac_v1','staged_base_hold_remaini
 
 def recover(checkpoint,best_checkpoint,output_dir,*,replay_capacity=None,
             normalize_prior_loss_by_radius=False,actor_min_replay_rows=None,
-            anchor_prior_to_validated_policy=False):
+            anchor_prior_to_validated_policy=False,fixed_prior_radius=None,
+            validated_jaw_prior_confidence=0.,jaw_prior_residual_gain=1.,
+            body_policy_std=None,body_policy_std_cap=None):
     checkpoint,best_checkpoint,output_dir=map(Path,(checkpoint,best_checkpoint,output_dir))
     current=torch.load(checkpoint,map_location='cpu',weights_only=True)
     best=torch.load(best_checkpoint,map_location='cpu',weights_only=True)
@@ -47,7 +50,23 @@ def recover(checkpoint,best_checkpoint,output_dir,*,replay_capacity=None,
                actor_restored=True,actor_optimizer_moments_reset=True,
                latest_critic_optimizer_and_replay_preserved=True,
                actor_updates_not_reset=True,actual_rows=len(actual['executed_goal_transitions']['action']))
-    if replay_capacity is not None or normalize_prior_loss_by_radius or actor_min_replay_rows is not None or anchor_prior_to_validated_policy:
+    policy_migration=(fixed_prior_radius is not None or validated_jaw_prior_confidence
+        or body_policy_std is not None or body_policy_std_cap is not None)
+    if policy_migration and not staged:
+        raise ValueError('Policy exploration migration requires staged held-goal SAC')
+    if fixed_prior_radius is not None and (not math.isfinite(fixed_prior_radius)
+            or not .05<=fixed_prior_radius<=.15):
+        raise ValueError('Fixed goal radius must be within0.05..0.15')
+    if validated_jaw_prior_confidence and (current['artifact_type']!='staged_base_hold_remaining_hybrid_sac_v1'
+            or not anchor_prior_to_validated_policy or not .5<validated_jaw_prior_confidence<1
+            or not math.isfinite(jaw_prior_residual_gain) or jaw_prior_residual_gain<=0):
+        raise ValueError('Confident binary jaws need a validated hybrid actor and finite residual gain')
+    if (body_policy_std is None)!=(body_policy_std_cap is None):
+        raise ValueError('Specify both body standard deviation and its cap')
+    if body_policy_std is not None and not (math.isfinite(body_policy_std) and math.isfinite(body_policy_std_cap)
+            and current['config']['min_policy_std']<=body_policy_std<=body_policy_std_cap<=.02):
+        raise ValueError('Body exploration must fit the existing minimum and0.02 cap')
+    if replay_capacity is not None or normalize_prior_loss_by_radius or actor_min_replay_rows is not None or anchor_prior_to_validated_policy or policy_migration:
         if not staged:
             raise ValueError('Training migration options require the staged21-goal controller')
         contract=dict(current['goal_contract'])
@@ -84,6 +103,27 @@ def recover(checkpoint,best_checkpoint,output_dir,*,replay_capacity=None,
                 if k.startswith(('actor.','actor_normalizer.'))}
             contract['actor_prior_source']='frozen_validated_remaining_goal_actor'
             audit['regularization_anchor_is_validated_actor']=True
+        if fixed_prior_radius is not None:
+            contract['fixed_prior_radius']=fixed_prior_radius
+            audit['fixed_projection_radius']=fixed_prior_radius
+        if validated_jaw_prior_confidence:
+            policy=dict(validated_jaw_prior_confidence=validated_jaw_prior_confidence,
+                jaw_prior_residual_gain=jaw_prior_residual_gain)
+            contract.update(**policy,imitation_jaw_targets='confident_frozen_validated_binary_prior')
+            current['hybrid_contract'].update(**policy,
+                jaw_policy='confident_validated_binary_prior_plus_trainable_logit_residual_v1')
+            audit.update(**policy,binary_jaws_remain_trainable=True)
+        if body_policy_std is not None:
+            current['config'].update(initial_policy_std=body_policy_std,max_policy_std=body_policy_std_cap)
+            contract.update(exploration_std_initial=body_policy_std,exploration_std_cap=body_policy_std_cap)
+            last=max(int(k.split('.')[2]) for k in current['model']
+                if k.startswith('actor.network.') and k.endswith('.weight'))
+            # Preserve all21 goal means, reset only continuous log std outputs.
+            continuous=19 if current['artifact_type']=='staged_base_hold_remaining_hybrid_sac_v1' else 21
+            current['model'][f'actor.network.{last}.weight'][21:21+continuous].zero_()
+            current['model'][f'actor.network.{last}.bias'][21:21+continuous].fill_(math.log(body_policy_std))
+            audit.update(body_policy_std=body_policy_std,body_policy_std_cap=body_policy_std_cap,
+                actor_goal_means_preserved=True)
         current['goal_contract']=actual['goal_contract']=contract
         audit.update(replay_capacity=capacity,actor_min_replay_rows=minimum,
                      normalized_prior_loss=normalize_prior_loss_by_radius,
@@ -110,11 +150,20 @@ def main():
     parser.add_argument('--normalize-prior-loss-by-radius',action='store_true')
     parser.add_argument('--actor-min-replay-rows',type=int)
     parser.add_argument('--anchor-prior-to-validated-policy',action='store_true')
+    parser.add_argument('--fixed-prior-radius',type=float)
+    parser.add_argument('--validated-jaw-prior-confidence',type=float,default=0.)
+    parser.add_argument('--jaw-prior-residual-gain',type=float,default=1.)
+    parser.add_argument('--body-policy-std',type=float)
+    parser.add_argument('--body-policy-std-cap',type=float)
     args=parser.parse_args()
     try:_,audit=recover(args.checkpoint,args.best_checkpoint,args.output_dir,
         replay_capacity=args.replay_capacity,normalize_prior_loss_by_radius=args.normalize_prior_loss_by_radius,
         actor_min_replay_rows=args.actor_min_replay_rows,
-        anchor_prior_to_validated_policy=args.anchor_prior_to_validated_policy)
+        anchor_prior_to_validated_policy=args.anchor_prior_to_validated_policy,
+        fixed_prior_radius=args.fixed_prior_radius,
+        validated_jaw_prior_confidence=args.validated_jaw_prior_confidence,
+        jaw_prior_residual_gain=args.jaw_prior_residual_gain,
+        body_policy_std=args.body_policy_std,body_policy_std_cap=args.body_policy_std_cap)
     except ValueError as error:parser.error(str(error))
     print(json.dumps(audit))
 

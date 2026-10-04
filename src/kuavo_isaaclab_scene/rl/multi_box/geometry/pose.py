@@ -44,7 +44,8 @@ def replace_invalid_poses(pose: torch.Tensor) -> tuple[torch.Tensor, torch.Tenso
     """
     if pose.shape[-1] != 7:
         raise ValueError("Pose tensors must end in xyz+wxyz (7 values).")
-    valid = torch.isfinite(pose).all(-1) & (pose[..., 3:].norm(dim=-1) >= 1e-8)
+    norm=pose[...,3:].norm(dim=-1)
+    valid = torch.isfinite(pose).all(-1) & torch.isfinite(norm) & (norm >= 1e-8)
     identity = torch.zeros_like(pose)
     identity[..., 3] = 1.0
     return torch.where(valid[..., None], pose, identity), ~valid

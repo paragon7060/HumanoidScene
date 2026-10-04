@@ -1,0 +1,95 @@
+{
+  "actual_closed_replay_states_only": true,
+  "controlled_offline_policy_comparison_not_physical_success_evaluation": true,
+  "records": [
+    {
+      "solver": "tgs",
+      "sampled_actual_states": 16105,
+      "source_replay_rows": 177155,
+      "actor_updates": 960,
+      "current_radius": 0.06920000000000001,
+      "source_initial_radius": 0.05,
+      "body_raw_network_drift": {
+        "mean_abs": 0.0007101946393959224,
+        "rms": 0.0012496078852564096,
+        "max_abs": 0.01595466397702694,
+        "fraction_components_over_0p01": 0.0013987156562507153
+      },
+      "unchanged_actor_radius_only_effect": {
+        "mean_abs": 0.00018182567146141082,
+        "rms": 0.0015730597078800201,
+        "max_abs": 0.019200026988983154,
+        "fraction_components_over_0p01": 0.007823657244443893
+      },
+      "full_projected_policy_change": {
+        "mean_abs": 0.0008741756319068372,
+        "rms": 0.0020111810881644487,
+        "max_abs": 0.019200026988983154,
+        "fraction_components_over_0p01": 0.00945113506168127
+      },
+      "eligible_jaw_states": 7768,
+      "changed_eligible_jaw_signs": 2433,
+      "initial_eligible_close": 2438,
+      "final_eligible_close": 5
+    },
+    {
+      "solver": "pgs",
+      "sampled_actual_states": 16469,
+      "source_replay_rows": 362310,
+      "actor_updates": 2100,
+      "current_radius": 0.092,
+      "source_initial_radius": 0.05,
+      "body_raw_network_drift": {
+        "mean_abs": 0.001991532975807786,
+        "rms": 0.0036492934450507164,
+        "max_abs": 0.06686969101428986,
+        "fraction_components_over_0p01": 0.018756132572889328
+      },
+      "unchanged_actor_radius_only_effect": {
+        "mean_abs": 0.00024158525047823787,
+        "rms": 0.002226870507001877,
+        "max_abs": 0.04200001060962677,
+        "fraction_components_over_0p01": 0.008673393167555332
+      },
+      "full_projected_policy_change": {
+        "mean_abs": 0.0021799944806843996,
+        "rms": 0.004258396569639444,
+        "max_abs": 0.06686985492706299,
+        "fraction_components_over_0p01": 0.027429524809122086
+      },
+      "eligible_jaw_states": 10741,
+      "changed_eligible_jaw_signs": 2892,
+      "initial_eligible_close": 3942,
+      "final_eligible_close": 1050
+    }
+  ],
+  "physical_dev": {
+    "TGS": {
+      "actor_updates": [
+        0,
+        213,
+        960
+      ],
+      "success": [
+        12,
+        9,
+        0
+      ]
+    },
+    "PGS": {
+      "actor_updates": [
+        0,
+        231,
+        981,
+        1740
+      ],
+      "success": [
+        7,
+        2,
+        0,
+        0
+      ]
+    }
+  },
+  "physical_dev_original_cases_per_wave": 128
+}

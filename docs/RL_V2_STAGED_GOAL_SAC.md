@@ -414,3 +414,32 @@ anchor하고나서 새로운 원래 배치 rollout을 수집한다. 이는 기�
 
 과거 성공 flag에는 bare shelf gap을 사용한 false positive가 섞여 있으므로
 [실제 geometry audit와 새 실행](RL_V2_FOUR_REGION_SAC_20261004.md)을 참고한다.
+
+
+## 검증된 actor 복구와 닫힘 탐색 유지
+
+2026-10-04 실제 replay 진단에서 softened jaw logits의 부호가 작은 학습 변화로
+사라졌다. 아래 옵션은 **동일 solver/physical contract**의 최신 실제 Q/replay를
+보존하고 검증된 actor를 복구하며 binary jaw prior와 continuous 탐색만 변경한다.
+기존 명령은 기존 동작을 유지한다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/recover_pose_goal_actor.py \
+  --checkpoint /absolute/path/to/latest-corrected-support/checkpoint_XXXXXXXX.pt \
+  --best-checkpoint /absolute/path/to/validated-actor/checkpoint_XXXXXXXX.pt \
+  --output-dir /absolute/path/to/unique-recovered-run \
+  --normalize-prior-loss-by-radius --anchor-prior-to-validated-policy \
+  --fixed-prior-radius 0.05 --validated-jaw-prior-confidence 0.8 \
+  --jaw-prior-residual-gain 20 --body-policy-std 0.001 --body-policy-std-cap 0.005
+```
+
+Goal means/actor normalizer는 검증된 actor 그대로이며 continuous log-std outputs만
+초기값으로 재설정한다. Q/target/actual transition tensors/optimizer counters와 두 entropy
+optimizer states는 보존한다. Frozen snapshot이 있어야 confidence 옵션을 사용할 수 있다.
+Jaw sign prior는 실제 SAC가 residual로 바꿀 수 있으며 먼 flap에서는 계속 open만 허용한다.
+Fixed radius를 지정하면 actor/Q update와 실제 collection 모두 같은 bound를 사용한다.
+Saved config와 hybrid/goal/replay contract가 모두 matching되어야 resume한다.
+
+복구 파일을 기존 Drive에 checksum 검증 업로드한 후 `batched_staged_goal_with_drive.py`
+에서 새 run directory로 재개한다. DEV에는 gradient/replay 수집을 하지 않는다.
+DEV 실패를 TRAIN 성공으로 숨기거나 randomization을 좁히지 않는다.

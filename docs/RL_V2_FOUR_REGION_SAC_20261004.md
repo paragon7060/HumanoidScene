@@ -937,3 +937,73 @@ Actor/action/관측 형식과 기존 VR 수집 옵션은 유지한다. 과거 de
 staged/hybrid/batched, upright torso, pose student). `py_compile`과 diff check도 통과했다.
 Background rear-cell 기본 깊이와 빈 depth slot 때문에 roller 이동 거리가 커지는
 가설도 확인 대상이다. 아직 물리 진단으로 확정하거나 현재 randomization을 변경하지 않았다.
+
+
+## 20:45 — 실제 SAC 회귀 원인과 재개 수정
+
+Corrected roller-support lift 판정의 TGS/PGS128 실행은 모두 종료했다.
+TGS는 paired development regression guard, PGS는 다음 wave의 background box
+geometry 측정에서 유효하지 않은 quaternion으로 종료했다. 두 실행 모두 writer가
+멈춘 뒤 checkpoint, 실제 replay/HDF, 로그의 Drive 검증을 마쳤다.
+
+| Solver | 실제 actor/Q updates | 실제 TRAIN replay rows | 고정 DEV 성공 추이 /128 |
+|---|---:|---:|---|
+| TGS |960 /5888|177155|12 →9 →0|
+| PGS |2100 /10448|362310|7 →2 →0 →0|
+
+TGS의 실제 TRAIN 성공은 두 번째 훈련 묶음에서1회, PGS도 한 묶음에서1회였다.
+Initial invalid layout은 denominator에서 실패로 유지하고 Q replay에는 넣지 않는다.
+위쪽 오른쪽은 두 실행 모두 DEV 성공0회다. 학습이 성공했다고 결론내리지 않는다.
+
+![실제 DEV 회귀와 동일한 실제 replay 상태에서 그리퍼 선택 붕괴](assets/rl_v2_jaw_collapse_recovery_20261004.png)
+
+### 실패 원인을 같은 관측에서 분리
+
+Closed actual TRAIN replay를 표본 추출하여 검증된 초기 actor와 마지막 actor를
+**같은 물리 관측**에서 비교했다. 이것은 offline policy 진단이며 추가 물리 평가가 아니다.
+
+- TGS near-jaw 관측7768개: 초기 deterministic close2438 →학습 후5.
+  PGS near-jaw10741개:3942 →1050. 약한 jaw logit의 부호 변화로 닫힘이 쉽게 사라졌다.
+- TGS raw 팔 목표 변화 RMS0.00125보다, actor를 바꾸지 않고 projection radius만
+  0.05→0.0692로 바꿀 때 실제 projected 목표 변화 RMS0.00157이 더 컸다.
+  PGS radius0.092에서는 반경 변화만으로 최대 normalized goal0.042가 바뀌었다.
+  학습 반경의 자동 확대가 actor 평균 변화 외에 제어 목표를 바꾸는 경로였다.
+- Initial background geometry 검사는 전체 tensor의 quaternion을 먼저 정규화했다.
+  NaN/zero/finite overflow quaternion이 한 환경에 있으면 다른 healthy reset도 함께
+  예외로 종료했다. 이것은 파지 성공률 저하와 구분되는 실행 중단 원인이다.
+
+### 적용한 수정
+
+1. **Invalid reset geometry 격리:** 측정용 pose만 유효한 대체값으로 계산하고 original
+   invalid mask를 실패로 유지한다. Simulator pose를 고쳐 성공시킨 것으로 보지 않는다.
+   Invalid rack/box quaternion은 그 case만 실패이며 다른 original reset은 계속 검사한다.
+2. **Actor만 복구:** 같은 corrected-support solver의 마지막 Q/target/critic normalizer,
+   양쪽 entropy optimizer와 actual replay를 유지하고, 검증된 초기 actor로 복구한다.
+   Actor optimizer moments만 비운다. 과거 잘못된 lift 기준의 Q를 가져오지 않는다.
+3. **Binary jaw 탐색:** 검증된 frozen21-goal actor의 선택에 처음80% 확률을 부여한다.
+   `logit = sign(prior)*logit(0.8) +20*(current_raw_logit-prior_raw_logit)`.
+   학습 residual로 열림/닫힘을 뒤집을 수 있다. 실제 binary actions, exact4-branch SAC,
+   near-flap gate와 categorical entropy 학습은 유지한다. 닫힘을 강제로 고정하지 않는다.
+4. **팔/torso 탐색:** correlated Gaussian initial std0.001, 최소0.001, cap0.005.
+   AR1 rho0.98은 유지한다. Projection radius는0.05로 고정한다. Replay에 저장된 과거
+   policy-radius context가 있어도 현재 projection bound는 고정값을 사용한다.
+5. **정확한 resume:** 저장된 SACConfig를 복원한다. 바뀐 std cap/confident binary policy/
+   fixed radius를 model 및 replay contract에 명시하고, 다른 contract는 strict하게 거부한다.
+
+Base/box randomization, dynamic boxes, torso/gravity compensation, nominal observation,
+Rack10N/robot-only obstacle5N/self-collision off,8mm active-support lift와0.25s hold 조건은
+유지한다. Scene curriculum을 추가하지 않았다. VR transition을 Q에 넣거나 새로운
+성공으로 합성하지 않는다. Frozen actor prior는 기존 학습 행동을 유지하는 제약이다.
+
+98개 CPU 검사와 실제177155/362310행 checkpoint의 frozen resume 검사를 통과했다.
+새 물리 rollout의 성공률 유지/개선은 별도 DEV에서 확인해야 한다.
+
+### 사용자가 직접 해야 하는 일
+
+필수 코드 수정은 없다. 위 문제의 코드·탐색·저장 수정은 이 checkout에서 처리한다.
+추가 VR 수집은 선택 사항이며, 도움이 가장 큰 구역은 아직 실제 성공이 없는
+**위쪽 오른쪽**이다. 현재 S63/Leju twofinger/rack rollers/upright torso+6cm 세팅에서
+안전 진입→서로 다른 양쪽 flap 파지→실제 roller support 위 lift를 수행하고,
+서로 다른 초기 base XY/yaw 몇 가지로 수집하면 된다. 현재 두 데모는 왼쪽 구역에
+편중되어 있다. 데모 replay/새 observation 연결은 코드에서 처리한다.
+추가 데모가 없어도 현재 실제 SAC 훈련과 실패 분석을 계속한다.
