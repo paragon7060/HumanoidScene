@@ -551,3 +551,24 @@ Isaac setters와 actuator-model tensors를 함께 갱신하고 PhysX에서 값�
 명시적 flag 없는 override,TRAIN 사용,다른 waveform/waypoint/background/origin
 진단의 동시 사용을 거부한다. 이 진단 전이는 matching Q/replay에 넣을 수 없다.
 학습 프로세스의 구동을 동적으로 교체하는 기능이 아니며 기본 학습에는 영향이 없다.
+
+완료된 wave의 비교 결과는 CPU에서 판독한다. 프로젝트의 기존 Python 환경을
+사용하며 Isaac 앱이나 CUDA를 시작하지 않는다. 결과는 실행 writer 폴더 밖에 저장한다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src python scripts/rl/analyze_gripper_drive_probe.py \
+  --run-dir /absolute/path/to/frozen-drive-run \
+  --output /absolute/path/to/analysis/drive_comparison.json
+```
+
+최초 original/soft/original 반복을 미리 선언한 같은 전체 layouts와 실제 PhysX audit를
+요구한다. 초기 무효 배치도 전체 성공률 분모에 남기고, 안전 위반 원인은 중복될 수
+있음을 표시한다. 접근 거리 평균은 초기 유효·안전 terminal만 사용하여 발산한 박스의
+좌표가 정상 접근을 왜곡하지 않게 한다. 같은 seed뿐 아니라 base·box·distractor를
+포함한 전체 initial layout을 대조한다. 쌍별 충돌 원인 변화는 양쪽 초기 유효 사례만
+비교하고 초기 유효성 변화 수도 별도로 남긴다.
+
+마지막 original 반복이 끝나기 전에는 `comparison_complete=false`다. 일부 wave,
+빠진 실패 사례,변경된 layout,TRAIN/Q replay,미검증 soft 값/원래 값 복원 실패를
+완전한 비교로 인정하지 않는다. 작은 DEV 비교만으로 기본 구동값을 자동 변경하거나
+independent FINAL 일반화를 주장하지 않는다.

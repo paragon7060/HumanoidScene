@@ -1431,3 +1431,44 @@ model tensors를 함께 바꾸고 실제 PhysX 값을 다시 읽어 확인한다
 verification도 검증됐으며 기존 인증을 재사용했다. 이번 초기 전체 백업 검증 receipt는
 새 TRAIN 부모의`initial_full_replay_backup_verification.json`에 있다. 이전01:47 기록의
 검증 대기는 해소됐고 미검증 자료를 삭제한 것은 아니다. Goal은active로 유지한다.
+
+### 10/05 02:52 — 첫 learned DEV는 개선 없음 / 그리퍼 비교 판독 연결
+
+GPU3 success-retention SAC의 같은128-case DEV wave3가 완료됐다. 새 TRAIN에서
+성공8개를 발견한 사실과 deterministic 평가 개선을 구분한다.
+
+| DEV wave | 초기 유효 /전체 | 중간 왼쪽 | 중간 오른쪽 | 상단 왼쪽 /오른쪽 |
+|---|---:|---:|---:|---:|
+| 새 학습 전0 | 100 /128 | 1 | 3 | 0 /0 |
+| 새 actor757/Q3026 updates 후3 | 95 /128 | 1 | 2 | 0 /0 |
+
+총 성공은 **4→3/128**이며, 지금까지 성공률 개선은 확인되지 않았다. 중간 오른쪽은
+초기 성공2개를 잃고 다른1개를 얻었다(paired exact p=0.5). 이 표본에서 통계적으로
+확정된 회귀라고 주장하지 않으며, 초기 유효성/물리 반복 편차도 남아 있다. 새 평가
+성공은seed121000/121112/121131의18.59/19.36/20.90mm corrected proof lift,
+양손 stable opposing pinch,0.2667초 hold,unsafe=false다. DEV는 bank에 넣지 않았다.
+Bank는4127행이고 평가 후 기존128env TRAIN wave4가 이어지고 있다.
+
+![같은128 DEV의 구역별 성공과 실패 원인 비교](assets/rl_v2_success_retention_first_dev_20261005.png)
+
+[완료 wave의 실측 snapshot](assets/rl_v2_success_retention_first_dev_20261005.json)에
+전체 초기 layout과 성공 proof를 기록했다. Box-speed 안전 종료는28→35회,
+robot–rack은28→25회였으며 원인 수는 중복될 수 있다. 평균 거리나 total reward만
+보고 개선됐다고 해석하지 않는다. 상단의 실제 새 TRAIN 성공 자료와 독립 FINAL
+일반화 증거는 여전히 부족하다. 목표를 완료 처리하지 않았다.
+
+별도 frozen16-case 그리퍼 비교의 첫 original wave는 초기 유효14/16,성공0/16,
+robot–rack6회,box-speed4회였다. 초기 무효2회도 분모에 포함했다. 이16개는 각
+구역의 미리 정한 첫4개이며 성공 seed를 선택한 배치가 아니다. 이후 soft_2nm를
+적용했고 실제 PhysX에서stiffness100/damping5/drive limit2Nm를 확인했다.
+비교 policy는actor3389/Q15602/replay0으로 고정되어 있다. Soft 결과와 마지막
+original 반복이 끝나기 전에는 구동 개선/원인 확정으로 해석하지 않는다.
+
+새`analyze_gripper_drive_probe.py`는 whole-layout identity와 initialized-drive audit를
+검사하고 전체 분모/초기 유효 쌍/안전한 terminal 거리/반복 편차를 함께 보고한다.
+누락된 실패 분모,다른 layout,TRAIN/Q replay,미검증 drive,불완전 wave를 완전한
+비교로 인정하지 않는 판독·구동 검사16개가 통과했다. Neutral 초기 자세의 source
+episode가 달라진 비교도 거부한다.
+[사용법](RL_V2_STAGED_GOAL_SAC.md#그리퍼-motor-drive만-비교하는-frozen-진단).
+기존 학습을 중단하거나 기본 물리값을 변경하지 않았고 다른 스레드의 영상 코드
+변경은 별도로 보존했다.
