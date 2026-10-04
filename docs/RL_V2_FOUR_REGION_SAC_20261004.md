@@ -1627,3 +1627,39 @@ corrected lift25.684mm,unsafe false로 성공했다. 이는 actor2635/Q12588에�
 확인하고 다음 같은 DEV를 비교한다. Bank sampler는 보관 행 수 비율로 뽑지 않고
 성공이 있는 구역 사이를 균등 배분한다.
 [양쪽 완료 DEV의 전체 초기 배치·성공/실패 증거와 실제 TRAIN 시작 snapshot](assets/rl_v2_episode_arm_first_dev_20261005.json).
+
+### 10/05 04:36 — 상단왼쪽 frozen SAC 실제 재현 성공
+
+앞서 시작한 GPU0 단일 환경에서 source TRAIN seed120241을 actor4128/Q18560의
+frozen SAC로 다시 실행해 **성공했다.** 실제650 control steps(21.667초),양손
+opposing pinch/stable,hold0.2667초,corrected proof lift29.307mm이며 unsafe/invalid
+reset/time-out은0이다. 원래 box/base randomization과 physical contract를 유지했다.
+실행 중 actor/Q 업데이트0,replay0,VR/live IK/기록 action 실행 없음이 확인됐다.
+
+![상단왼쪽 frozen SAC 성공 terminal 프레임](assets/rl_v2_upper_frozen_reproduction_terminal_20261005.png)
+
+실제 오른손 첫 pinch는21.20초,왼손/양손 첫 pinch는21.43초였다. 원래 TRAIN
+성공의 오른손15.43초 첫 pinch보다 늦어도 이번 재현은 성공했다. 따라서 조기
+오른손 닫힘의 차이만으로 이 배치의 실패를 설명할 수 없으며,앞선 offline 차이는
+성공 실패의 확정 원인이 아니다. Policy가 이 **seen TRAIN case**를 재현했다는
+증거다. 반복 성공률,상단오른쪽,전체 새로운 초기 상태의 일반화는 여전히 미해결이다.
+
+영상은1.69MB/110frames의H.264(avc1)/yuv420p/faststart MP4로,전체 디코딩을
+확인했다. 실행 exit0와 writer 종료 후 HDF/MP4/manifest/metrics/console 로그의
+Drive 크기·MD5 검증이 끝났고,추가 terminal PNG도 같은 방식으로 검증했다.
+Notion에는 native video와 image로 보관한다. 실행 child의`policy.mp4`를 로컬에서
+재생할 수 있다. [접촉·hold·lift·실행/보관 증거](assets/rl_v2_upper_frozen_reproduction_20261005.json).
+
+GPU3 성공 유지 분기는 TRAIN wave7로 진행했고 실제 actor4237/Q18996/new TRAIN
+215834행을 확인했다. 상단 bank가 포함된 균등 구역 샘플을 쓰는 auxiliary 학습도
+시작했다. 새 팔 탐색 분기는 TRAIN wave1 step421,actor2819/Q13324/new TRAIN
+28894행이며 실제 편차 RMS0.01421/max0.04를 확인했다(projector 이전 latent 단위).
+두 분기를 유지하며 다음 DEV를 확인한다. 현재 Goal은active다.
+
+다음 GPU0 진단은 상단오른쪽의 완전·유효·안전한 TRAIN 실패 중 가장 작은
+environment ID의 seed120332를 선택했다. Distance/reward 기준으로 우수 배치를
+고르거나 DEV/FINAL 데이터를 학습에 넣지 않았다. 원래 시도는810steps time-out,
+양손 pinch false,실제 flap 거리4.20/6.58cm,unsafe false였다. 새 부모는
+`staged_upper_RIGHT_TRAIN_frozen_diagnostic_gpu0_20261005_043940`이며
+checkpoint18560 snapshot/layout/manifest를 Drive 검증한 후04:39에 시작했다.
+GPU0 단독 frozen SAC/영상·접촉 진단이고 기존 GPU3 TRAIN은 계속 유지한다.
