@@ -20,7 +20,7 @@ from ..debug.contact_sensors import CONTACT_SENSOR_NAMES
 from ..geometry import relative_pose
 from ..geometry.grasp import GRASP_ASSIGNMENT_SCALE_M, closest_flap_surface
 from ..geometry.pose import quat_apply, replace_invalid_poses
-from ..geometry.rack import box_shelf_clearance_m
+from ..geometry.rack import box_shelf_clearance_m,grasp_proof_lift_clearance
 from ..metrics import (
     GRASP_APPROACH_REWARD_SCALE_M, GraspRawMetrics, MetricScaleConfig, grasp_reward_potentials,
     opposing_flap_reach_assignment,
@@ -116,6 +116,9 @@ class IsaacPrivilegedGraspAdapter:
             grasp_approach_m=GRASP_APPROACH_REWARD_SCALE_M,
             grasp_capture_m=GRASP_CAPTURE_REWARD_SCALE_M)
         self.initial_box_z = torch.zeros(self.num_envs, device=self.device)
+        from ....workcell.rack_rollers import resolve_rack_roller_settings
+        rollers=resolve_rack_roller_settings()
+        self.support_surface_offset_m=rollers.box_clearance_m if rollers.enabled else 0.
         self.initial_box_pose_world = torch.zeros(
             self.num_envs, 7, device=self.device)
         self.target_logical_id = torch.full(
@@ -278,8 +281,8 @@ class IsaacPrivilegedGraspAdapter:
                         box_pose[mask], rack_pose[mask], BOX_DIMENSIONS_M[box_name],
                         shelf=shelf, rack_scale=workcell_scale("rack"),
                     )
-        moved_up = box_pose[:, 2] - self.initial_box_z
-        return torch.minimum(moved_up, shelf_gap)
+        return grasp_proof_lift_clearance(box_pose[:,2],self.initial_box_z,shelf_gap,
+            support_offset_m=self.support_surface_offset_m)
 
     def _raw_metrics(
         self,

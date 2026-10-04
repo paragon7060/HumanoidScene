@@ -92,7 +92,7 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
         contract={'source':'unit_test_only'},observations=observations)
     stage=SimpleNamespace(phase='held_grasp',manipulation_start=0,target_xy=torch.tensor([[.12,.7]]),
         target_yaw=.3,name='test_waypoints',templates={'middle':{'source_sha256':'test'}})
-    contract={'discount':.999,'reward_profile':{'weights':{'discount':.999}}}
+    contract={'discount':.999,'reward_profile':{'weights':{'discount':.999}},'terminal_contract':{}}
     pilot=StagedGoalSACPilot(warm,contract,tmp_path/'source',stage)
     raw=torch.zeros(1,464);raw[:,144]=1
     critic=torch.zeros(1,530)
@@ -111,6 +111,10 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     with pytest.raises(ValueError,match='same phase/waypoint'):
         StagedGoalSACPilot(warm,contract|dict(physics_dynamics=staged_solver_contract('PGS')),
             tmp_path/'wrong_solver',stage,checkpoint=checkpoint)
+    from kuavo_isaaclab_scene.rl.multi_box.geometry.rack import grasp_lift_terminal_contract
+    with pytest.raises(ValueError,match='same phase/waypoint'):
+        StagedGoalSACPilot(warm,contract|dict(terminal_contract=grasp_lift_terminal_contract()),
+            tmp_path/'wrong_lift_reference',stage,checkpoint=checkpoint)
     unchanged=checkpoint.read_bytes()
     pilot.save(final=True)
     assert checkpoint.read_bytes()==unchanged
@@ -152,6 +156,24 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     assert not any(p.requires_grad for p in restored_normalized.frozen_actor_prior.parameters())
     for key,value in normalized.frozen_actor_prior.state_dict().items():
         assert torch.equal(value,restored_normalized.frozen_actor_prior.state_dict()[key])
+
+    # A changed proof predicate starts new critics/replay. Only matching
+    # behavior transfers, including its actor observation normalization.
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import initialize_staged_actor_only
+    fresh=StagedGoalSACPilot(warm,contract|dict(terminal_contract=grasp_lift_terminal_contract()),
+        tmp_path/'new_proof',stage,normalize_prior_loss_by_radius=True,anchor_prior_to_initial_policy=True)
+    q_before={k:v.clone() for k,v in fresh.agent.q1.state_dict().items()}
+    prior_state=torch.load(next(normalized.directory.glob('checkpoint_*.pt')),weights_only=True)
+    initialize_staged_actor_only(fresh,prior_state)
+    assert fresh.actor_updates==fresh.critic_updates==fresh.replay.size==0
+    assert all(not opt.state for opt in fresh.agent.optimizers)
+    for key,value in q_before.items():assert torch.equal(value,fresh.agent.q1.state_dict()[key])
+    for key,value in normalized.agent.actor.state_dict().items():
+        assert torch.equal(value,fresh.agent.actor.state_dict()[key])
+    changed=prior_state|dict(goal_contract=prior_state['goal_contract']|dict(
+        physical_contract=prior_state['goal_contract']['physical_contract']|dict(self_collision={'enabled':True})))
+    with pytest.raises(ValueError,match='coordinates, goals and safety'):initialize_staged_actor_only(fresh,changed)
+    with pytest.raises(ValueError,match='fresh Q'):initialize_staged_actor_only(normalized,prior_state)
 
     collecting=StagedGoalSACPilot(warm,contract,tmp_path/'collecting',stage,
         normalize_prior_loss_by_radius=True,actor_min_replay_rows=128)

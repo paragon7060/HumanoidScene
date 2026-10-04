@@ -11,6 +11,28 @@ from ....workcell.rack_box_layout import RACK_RAMP_BACK_DEPTH_RAW
 from ....workcell.workcell_layout import RACK_RAW_TIER_RANGES
 from .pose import quat_apply, quat_conjugate, normalize_quaternion
 
+GRASP_LIFT_CLEARANCE_CONTRACT = 'settled_initial_height_and_active_rack_support_surface_v2'
+
+
+def grasp_lift_terminal_contract():
+    from ....workcell.rack_rollers import resolve_rack_roller_settings
+    rollers=resolve_rack_roller_settings()
+    return dict(proof_lift_reference=GRASP_LIFT_CLEARANCE_CONTRACT,
+                proof_lift_support_offset_m=rollers.box_clearance_m if rollers.enabled else 0.)
+
+
+def grasp_proof_lift_clearance(box_z,initial_z,bare_shelf_gap,*,support_offset_m=0.):
+    """Require lift from the settled pose AND separation from active support.
+
+    Roller tops sit above the bare ramp. A gap from that ramp is not the
+    clearance from the surface actually carrying the box.
+    """
+    if not math.isfinite(support_offset_m) or support_offset_m<0:
+        raise ValueError('Support offset must be finite and nonnegative')
+    if box_z.shape!=initial_z.shape or box_z.shape!=bare_shelf_gap.shape:
+        raise ValueError('Proof-lift measurements must have identical shapes')
+    return torch.minimum(box_z-initial_z,bare_shelf_gap-support_offset_m)
+
 
 def box_shelf_clearance_m(
     box_pose_w: torch.Tensor,

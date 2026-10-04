@@ -15,6 +15,8 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import Staged
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--checkpoint',type=Path,required=True)
+    parser.add_argument('--actor-checkpoint',type=Path,
+        help='Matching held-goal actor/normalizer only; Q/replay/all optimizers remain fresh')
     parser.add_argument('--native-seed',type=Path,action='append',required=True)
     parser.add_argument('--waypoints',type=Path,required=True)
     parser.add_argument('--output-dir',type=Path,required=True)
@@ -30,18 +32,22 @@ def main():
     parser.add_argument('--physics-solver',choices=('TGS','PGS'),
         help='Explicit fresh-Q dynamics identity; the source is used as actor prior only')
     args=parser.parse_args()
-    if not all(p.is_file() for p in (args.checkpoint,args.waypoints,*args.native_seed)):
+    if not all(p.is_file() for p in (args.checkpoint,args.waypoints,*args.native_seed,
+                                   *((args.actor_checkpoint,) if args.actor_checkpoint else ()))):
         parser.error('Existing matching files are required')
     with h5py.File(args.native_seed[0],'r') as source:
         meta=json.loads(source.attrs['manifest_json'])
         contract=meta['training_contract']
         episode=next(iter(source['episodes'].values()))
         raw=torch.tensor(episode['transitions/actor_obs'][0:1])
+    from kuavo_isaaclab_scene.rl.multi_box.geometry.rack import grasp_lift_terminal_contract
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import frozen_prior_lift_contract
+    warm=PoseGoalSACPilot(args.checkpoint,args.native_seed,frozen_prior_lift_contract(contract),args.output_dir,
+                         training=False,device='cpu')
+    contract=contract|dict(terminal_contract=contract['terminal_contract']|grasp_lift_terminal_contract())
     if args.physics_solver:
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import staged_solver_contract
         contract=contract|dict(physics_dynamics=staged_solver_contract(args.physics_solver))
-    warm=PoseGoalSACPilot(args.checkpoint,args.native_seed,contract,args.output_dir,
-                         training=False,device='cpu')
     templates=json.loads(args.waypoints.read_text())
     if templates.get('physical_action_contract')!=contract['action_contract']:
         parser.error('Physical travel contract differs')
@@ -58,11 +64,16 @@ def main():
                             actor_min_replay_rows=args.actor_min_replay_rows,
                             anchor_prior_to_initial_policy=args.anchor_prior_to_initial_policy,
                             exploration_correlation=args.exploration_correlation)
+    migration={}
+    if args.actor_checkpoint:
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import initialize_staged_actor_only
+        migration=initialize_staged_actor_only(staged,torch.load(args.actor_checkpoint,map_location='cpu',weights_only=True))
     args.output_dir.mkdir(parents=True,exist_ok=False)
     staged.save(final=True)
     (args.output_dir/'manifest.json').write_text(json.dumps(contract|dict(
         artifact_type=staged.artifact_type,goal_contract=staged.contract,
-        initialized_not_trained=True,old_Q_or_replay_imported=False),indent=2)+'\n')
+        initialized_not_trained=True,old_Q_or_replay_imported=False,
+        actor_only_initialization=migration),indent=2)+'\n')
     (args.output_dir/'status.json').write_text(json.dumps(dict(status='complete',
         initialized_not_trained=True,actor_updates=0,critic_updates=0))+'\n')
     print(json.dumps(dict(directory=str(args.output_dir.resolve()),actor_dim=staged.actor_dim,

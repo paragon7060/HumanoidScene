@@ -27,17 +27,20 @@ def configure_upright_travel_profile(cfg, contract, extra_height_m):
         raise ValueError('Upright extra height must be within0..8cm')
     if not extra_height_m:
         return contract
-    if (contract.get('action_contract') != 's63_upright_torso_xz_fixed_pitch_v1'
-            or tuple(cfg.actions.height.height_range_m) != TORSO_HEIGHT_RANGE_M):
-        raise ValueError('Higher torso travel requires the original reviewed upright profile')
     effective = (TORSO_HEIGHT_RANGE_M[0], TORSO_HEIGHT_RANGE_M[1] + extra_height_m)
+    name=f's63_upright_torso_xz_fixed_pitch_diagnostic_up_{extra_height_m:.4f}m'
+    profile=dict(extra_height_m=extra_height_m,
+        original_height_range_m=list(TORSO_HEIGHT_RANGE_M),
+        effective_height_range_m=list(effective),global_default_changed=False,
+        physical_joint_limits_changed=False,pitch_control='fixed_reset_pitch')
+    # Prepared staged manifests already identify this reviewed extension.
+    # Apply it to a fresh cfg without adding height again or weakening checks.
+    if (contract.get('action_contract') not in ('s63_upright_torso_xz_fixed_pitch_v1',name)
+            or tuple(cfg.actions.height.height_range_m) not in (TORSO_HEIGHT_RANGE_M,effective)
+            or ('upright_torso_diagnostic' in contract and contract['upright_torso_diagnostic']!=profile)):
+        raise ValueError('Higher torso travel requires the original reviewed upright profile')
     cfg.actions.height.height_range_m = effective
-    return contract | dict(
-        action_contract=f's63_upright_torso_xz_fixed_pitch_diagnostic_up_{extra_height_m:.4f}m',
-        upright_torso_diagnostic=dict(extra_height_m=extra_height_m,
-            original_height_range_m=list(TORSO_HEIGHT_RANGE_M),
-            effective_height_range_m=list(effective), global_default_changed=False,
-            physical_joint_limits_changed=False, pitch_control='fixed_reset_pitch'))
+    return contract | dict(action_contract=name,upright_torso_diagnostic=profile)
 
 
 @lru_cache(maxsize=4)

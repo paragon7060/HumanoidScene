@@ -160,6 +160,7 @@ def run(args, app):
         xr = RawQuestOpenXRDevice(
             OpenXRDeviceCfg(xr_cfg=cfg.xr, sim_device=env.device), input_mode="controllers")
         control = QuestRLControl(env, model, args, xr)
+        from ..multi_box.geometry.rack import grasp_lift_terminal_contract
         manifest = {
             "task_family": "multi_box_v2", "skill": "grasp",
             "strategy": "staged", "robot_model": model.name,
@@ -178,6 +179,7 @@ def run(args, app):
             "rack_rollers": bool(args.rack_rollers),
             "controller_mapping": args.controller_mapping,
             "reward_source": "MultiBoxGraspAssemblyEnvCfg",
+            "proof_lift_contract": grasp_lift_terminal_contract(),
             "physical_initial_state_schema": "v2_physical_seed_v1",
             "multi_box": asdict(cfg.multi_box),
             "task": asdict(cfg.task),

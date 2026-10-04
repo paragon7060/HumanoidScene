@@ -216,6 +216,8 @@ def main():
         from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import _settle_initial_resets
 
         contract = json.loads(args.training_manifest.read_text())
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import require_current_lift_contract,frozen_prior_lift_contract
+        require_current_lift_contract(contract)
         if (contract.get('task_family') != 'multi_box_v2' or contract.get('skill') != 'grasp'
                 or contract.get('robot_model') != 's63' or contract.get('gripper') != 'leju-twofinger'
                 or contract.get('flap_pose_source', 'nominal') != 'nominal'
@@ -322,7 +324,8 @@ def main():
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
                 validate_goal_feedback_rates(base._scale,upper._scale,head._scale,height.cfg.speed_m_s,env.step_dt)
                 pose_sac=PoseGoalSACPilot(pose_state if staged_resume else args.pose_student_checkpoint,
-                                        args.pose_student_native_seed,contract,
+                                        args.pose_student_native_seed,
+                                        frozen_prior_lift_contract(contract) if staged_resume else contract,
                                         args.output_dir,training=args.pose_student_training,device=env.device)
                 controller_name='learned_pose_goal_SAC_NO_live_reference'
             else:

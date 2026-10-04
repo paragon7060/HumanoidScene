@@ -92,6 +92,42 @@ def copy_remaining_actor(source, destination):
         output.bias[21:].fill_(math.log(destination.config.initial_policy_std))
 
 
+def initialize_staged_actor_only(pilot, source):
+    """Reuse matching held-goal behavior after a lift/solver contract change.
+
+    Source Q, normalizer, entropy, optimizer, counters, and replay stay out.
+    The destination must be freshly constructed. This is initialization,
+    never a continuation of training under a different terminal predicate.
+    """
+    from .staged_physics import frozen_prior_lift_contract
+    if pilot.critic_updates or pilot.actor_updates or pilot.replay.size \
+            or any(opt.state for opt in pilot.agent.optimizers):
+        raise ValueError('Actor-only migration requires fresh Q, replay and optimizers')
+    def actor_contract(value):
+        value=deepcopy(value)
+        physical=frozen_prior_lift_contract(value['physical_contract'])
+        physical.pop('physics_dynamics',None)  # Dynamics may change only for fresh Q.
+        value['physical_contract']=physical
+        return value
+    if source.get('artifact_type')!=pilot.artifact_type \
+            or actor_contract(source['goal_contract'])!=actor_contract(pilot.contract):
+        raise ValueError('Actor-only migration requires matching coordinates, goals and safety')
+    current=pilot.agent.state_dict()
+    names=[key for key in current if key.startswith(('actor.','actor_normalizer.'))]
+    for key in names:
+        value=source['model'].get(key)
+        if value is None or value.shape!=current[key].shape or not torch.isfinite(value).all():
+            raise ValueError('Actor-only migration contains malformed tensors')
+    with torch.no_grad():
+        for key in names:current[key].copy_(source['model'][key])
+    if pilot.frozen_actor_prior is not None:
+        pilot.frozen_actor_prior.load_state_dict({key:current[key] for key in names})
+    return dict(actor_only=True,source_actor_updates=source['actor_updates'],
+                source_critic_updates_not_imported=source['critic_updates'],
+                destination_actor_updates=0,destination_critic_updates=0,
+                actual_replay_rows=0,optimizer_states_imported=False)
+
+
 class StagedGoalSACPilot:
     artifact_type = 'staged_base_hold_remaining_goal_sac_v1'
     agent_class = AsymmetricSAC

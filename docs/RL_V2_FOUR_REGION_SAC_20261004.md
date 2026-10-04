@@ -5,6 +5,10 @@ Rack10N/주변 장애물5N, self-collision off, S63/Leju twofinger,
 upright torso XZ와 중력보상 설정은 그대로다. Curriculum을 추가하지 않는다.
 실제 초기 base XY/yaw가 다른 배치에서 성공을 반복 확인하는 것이 목표다.
 
+> **16:15 판정 정정:** 이전 성공 수치는 당시 bare shelf 기준의 simulator flag다.
+> 롤러 지지 높이10mm를 제외하지 않아 일부 lift를 과대 판정했다.
+> 아래 과거 기록을 새 성공률로 재해석하지 않는다. 맨 아래 정정/새 실행을 참고한다.
+
 ## 완료된 기존 방식 비교
 
 아래 수치는 각 실행의 마지막 **학습 없는 고정 정책 평가**다. 개발 평가로
@@ -775,7 +779,7 @@ initial baseline과는 동일해 paired p=1.0, 회귀 stop이 아니었다. 독�
 기존 strict guard이며 첫 learned development 결과를 확인한 뒤 후속에 적용한다.
 
 
-## 15:30 · 첫 learned development와 PGS 상단 성공의 실제 증거
+## 15:30 · 첫 learned development와 PGS 상단의 당시 성공 판정 (16:15 정정)
 
 GPU3 actor238회·critic2,998회·실제 held replay87,939행 후 동일128개
 development는 **11/128**, 중간 좌2/32·우8/32·상단 좌1/32·우0/32였다.
@@ -788,9 +792,12 @@ development는 **11/128**, 중간 좌2/32·우8/32·상단 좌1/32·우0/32였�
 동일16개 initial actor/parallel origins의 originalTGS는5/16(중간 좌1·우4),
 PGS 첫 실행은5/16(중간 좌1·우3·상단 좌1), 새 PGS 실행의 첫 반복은4/16
 (중간 좌1·우2·상단 좌1)이다. 상단 왼쪽 seed121201가 첫 실행과 첫 반복에서
-실제로 성공했다. 총 성공 개선이나 독립 final 일반화의 근거는 아니다.
+당시 판정으로 성공했다. 첫 실행은16:15 geometry audit에서 실제 롤러
+clearance0.57mm로 확인돼 proof lift 성공 주장을 철회한다. 새 실행 첫 반복은
+마지막 실제 간격36.76mm였지만 새 판정의 연속 hold를 다시 평가해야 한다.
+총 성공 개선이나 독립 final 일반화의 근거는 아니다.
 
-![PGS actual upper-left grasp and proof lift](assets/rl_v2_pgs_upper_left_actual_success_20261004.png)
+![PGS old-predicate flags; first run does not meet corrected lift clearance](assets/rl_v2_pgs_upper_left_actual_success_20261004.png)
 
 첫 PGS 실제 HDF episode_000006의642step/21.4초 기록에서 bilateral pinch,
 stable, opposing flaps, proof lift, grasp success가 모두true였다. 마지막
@@ -820,7 +827,8 @@ final128개를 구성한다. 새 paired guard0.05 baseline은 현재 actor의 �
 넘으므로 유의한 회귀 stop은 아니지만, 실제 raw 성능 감소를 숨기지 않는다.
 
 PGS frozen 추가 반복은4/16(중간좌1·우3·상단0), speed2·rack3·drop2였다.
-따라서 상단 성공은 세 번 중 두 번으로 반복성의 한계가 있다. PGS가 전반적인
+당시 상단 성공 flag는 세 번 중 두 번이다. 첫 실행은16:15에 잘못된 proof lift로
+정정했으므로 새 성공률은 아니며 연속 hold 재평가가 필요하다. PGS가 전반적인
 해결이라고 결론내리지 않는다.15:36에 비어 있는GPU0에서 fresh-Q128 실험을
 시작했다. 동일 초기 actor/normalizer를 tensor별 동일성으로 확인하고 새 Q,
 빈 실제 replay, 빈4optimizer, counter0을 확인했다. 초기모델/빈replay도 기존
@@ -849,3 +857,83 @@ semantic layout/base randomization/solver/dt/성공·안전 조건을 유지한�
 기존 TGS의 상단우 rack 실패는 주로 zarm_r4_link가430step 전후 접촉했다.
 Base 접근 후 팔 경로도 원인 검토 대상이다. Box 발산 terminal distance의 큰
 유한 이상치가 전체 평균을 오염시키므로 접근 성능 지표로 그 평균을 쓰지 않는다.
+
+
+## 16:15 · Randomization 분석, 롤러 proof lift 판정 정정과 새 학습
+
+현재 목표 box는 inward2–4cm, yaw±1°의 동적 배치를 유지하며 상단 depth±6mm다.
+초기 base는 중간 lateral±20cm/outward3–25cm/yaw±15°, 상단±8cm/3–10cm/±5°다.
+기존 development0/3을 합친 서술적 집계에서 중간 오른쪽의 유효 성공은 lateral
+0–5cm:5/8,5–10cm:9/20,10–20cm:5/22다. 상단 오른쪽은0–5cm35개,
+5–10cm18개 유효 시도에서 모두0이다. 서로 다른 두 actor와 반복 case를 합친
+관측이므로 range의 인과 효과나 독립 성공률로 해석하지 않는다. 좁은 범위로도
+상단 오른쪽이 해결되지 않았으며 zarm_r4_link rack 충돌과 box 발산을 함께 봐야 한다.
+
+Frozen PGS shared-origin 비교는6/128(중간좌2·우3·상단좌1)로 종료·Drive
+검증했다. 초기불량28개로 기존 PGS128의31개와 큰 차이가 없고 background
+박스의 footprint/shelf 이탈이 남았다. World origin만으로 해결되지 않았다.
+
+Proof lift는 원래도 settled initial height 증가와 bare shelf 아래꼭짓점 gap의
+min이었다. 초기 롤러 높이만으로 즉시 성공한 것은 아니지만, 기울어진 box가
+롤러와 거의 접촉해도 bare shelf gap으로 lift를 과대 판정할 수 있었다.
+현재는 **min(root Z − settled initial Z, bare shelf gap − active support offset)**을
+사용한다. 기본 rollers offset10mm, plain shelf0mm며8mm/0.25s 조건을 유지한다.
+
+![Actual randomization bins and roller clearance correction](assets/rl_v2_randomization_and_roller_lift_audit_20261004.png)
+
+첫 frozen PGS 상단왼쪽은 당시 reported10.5696mm였지만 실제 롤러 간격
+0.5696mm로 잘못된 proof lift였다. 후속 같은 seed의 마지막 간격36.7576mm는
+충분하지만 새 판정에서 연속 hold 재평가 전까지 확정 성공으로 올리지 않는다.
+기존 hybrid128의 전체 old-flag 성공31개 중 TRAIN1개도 마지막 실제 간격3.53mm였다.
+이는 **마지막 실제 pose audit**이지 전체 old replay의 보상을 사후 정정한 결과가 아니다.
+
+우리 GPU3/GPU0 writer만 정상 종료하고 두 실행의 최종 checkpoint/replay/log
+Drive 검증 및 실제 process 종료를 확인했다. 새 terminal reference와 실제 support
+offset를 manifest/checkpoint/replay 계약에 넣어 old Q/replay resume를 거부한다.
+Frozen warm actor 복원을 위한 compatibility는 이 두 field만 제거하며 안전·좌표·
+보상 나머지는 엄격히 비교한다. Old seed/Q는 new Q의 학습 데이터가 아니다.
+
+16:14:58 첫 시작은 prepared manifest의 torso +6cm 설정을 다시 적용하려다
+초기화 오류로 종료됐다. 두 실패 로그도 Drive 검증 후, 같은 reviewed profile을
+중복 확장 없이 재적용하도록 수정했다.40검사 통과 후16:19:35 GPU3 TGS /
+GPU0 PGS, 각128환경에서 새 고유 실행을 시작했고 실제 writer/service active를 확인했다.
+Development를 거친 actor238과 actor normalizer만 동일하게 이전하고 Q/target Q,
+critic normalizer, entropy,4 optimizer, actual replay/counter는 모두 새로 시작했다.
+새 actor anchoring도 이전 actor로 맞췄다. Initial 모델/빈 replay는 Drive 체크섬
+검증했다. 현재 writer가 실제로 진행되는지는 각 parent status/console로 확인한다.
+
+- GPU3: `artifacts/rl/drive_runs/staged_hybrid_active_support_tgs128_gpu3_20261004_161935`
+- GPU0: `artifacts/rl/drive_runs/staged_hybrid_active_support_pgs128_gpu0_20261004_161935`
+- Replay500k, actor collection32,768행, Q warmup2,048 update, 기존 TRAIN/DEV/FINAL 분리.
+- Base/box randomization·rack10N/주변5N·selfcollisionOFF·마찰·joint gains·dt 유지.
+- CUDA_VISIBLE_DEVICES와 Kit 물리 GPU를 일치시키며 다른 사용자 process는 그대로다.
+- 300초 Drive 업로드, 체크섬 검증된 오래된 checkpoint만 정리, 최신2개 유지.
+- 판정/old replay 차단/actor-only 새 Q 초기화/기존 batched·hybrid 관련 CPU40검사 통과.
+
+Randomization 범위는 부분 요인이지만 단독 원인으로 확정하지 않는다. 현재는
+범위를 줄이거나 box를 고정하지 않고 corrected success 아래 실제 데이터를 다시 수집한다.
+상단 오른쪽의 안전한 팔 경로와 구역별 held base 후보, 초기 배치의 실제 box 이탈을
+계속 진단해야 하며 다양한 시작점에서의 독립 final 성공 목표는 아직 달성하지 못했다.
+
+
+## 16:25 · 보정된 rollout 시작과 background 배치 단서
+
+GPU3 TGS wave0 development61step/6,039행, GPU0 PGS91step/8,827행을
+확인했다. Frozen baseline이므로 actor/Q/replay counter는0이다. Runtime manifest의
+lift reference와 support offset10mm도 확인했다. 첫 자동 Drive 검증은 각각
+16:24:00/16:23:45, backup error 없음이다. 현재 Q/actor 학습 개선은 아직 측정하지 않았다.
+
+기존 동일128개 development의 background logical5 포함64개에서 initial불량은
+wave0:24개, wave3:25개다. 미포함64개에서는 두 번 모두5개다. 다른 box/region/
+base 값이 함께 달라지는 관측이므로 단독 인과 비교는 아니다. Background 원래
+asset의 실제 선반/footprint 이탈 계측과 일치하는 단서이며, randomization 범위를
+통째로 좁히기 전에 배치 생성과 물리적 안착을 점검해야 한다.
+
+Quest RL 수집 manifest에도 현재 proof lift reference/지원면 offset를 기록한다.
+Actor/action/관측 형식과 기존 VR 수집 옵션은 유지한다. 과거 demonstration의
+보상·success label을 현재 label로 사후 덮어쓰지 않는다.
+
+최종 관련 CPU suite80검사가 통과했다(새 lift/표준 PPO·SAC resume 차단,
+staged/hybrid/batched, upright torso, pose student). `py_compile`과 diff check도 통과했다.
+Background rear-cell 기본 깊이와 빈 depth slot 때문에 roller 이동 거리가 커지는
+가설도 확인 대상이다. 아직 물리 진단으로 확정하거나 현재 randomization을 변경하지 않았다.

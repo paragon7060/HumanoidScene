@@ -326,6 +326,7 @@ def main() -> None:
             from ....robots.robot_model import resolve_robot_model
             from ...envs.terminal_observation import TerminalObservationMixin
             from ..rewards import MultiBoxRewardWeights
+            from ..geometry.rack import grasp_lift_terminal_contract
             from ..demo_replay import load_v2_grasp_demonstrations
             from ..state.isaac_privileged_grasp import (
                 GRASP_APPROACH_REWARD_SCALE_M,
@@ -503,6 +504,7 @@ def main() -> None:
                     "smoke" if args.smoke_test else "pilot" if args.pilot else "train"
                 ),
                 "terminal_contract": {
+                    **grasp_lift_terminal_contract(),
                     "success": "exact_grasp_success",
                     "invalid_reset": "partial_respawn_excluded_from_replay",
                     "safety_thresholds": {

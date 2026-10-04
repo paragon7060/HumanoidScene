@@ -73,3 +73,25 @@ def test_only_approved_flap_pair_and_proof_lift_ranges_are_accepted():
         replace(GraspSuccessConfig(), proof_lift_m=0.02).validate()
     with pytest.raises(ValueError, match="0.2-0.3"):
         replace(GraspSuccessConfig(), hold_seconds=0.5).validate()
+
+
+def test_roller_supported_tilt_is_not_a_proof_lift_even_with_bilateral_pinch():
+    from kuavo_isaaclab_scene.rl.multi_box.geometry.rack import grasp_proof_lift_clearance
+    values=sample(4)
+    # Resting on a 10 mm roller deck, tilted while nearly touching it,
+    # fully lifted, and genuinely separated but not raised from initial pose.
+    initial=torch.full((4,),1.6,dtype=torch.float64)
+    z=initial+torch.tensor([0.,.012,.012,.001],dtype=torch.float64)
+    bare=torch.tensor([.010,.01056957,.022,.022],dtype=torch.float64)
+    values=replace(values,rack_clearance_m=grasp_proof_lift_clearance(z,initial,bare,support_offset_m=.010))
+    torch.testing.assert_close(values.rack_clearance_m,
+        torch.tensor([0.,.00056957,.012,.001],dtype=torch.float64))
+    tracker=GraspSuccessTracker(4,'cpu')
+    for _ in range(10):result=tracker.update(values,.05)
+    assert result.success.tolist()==[False,False,True,False]
+
+
+def test_plain_shelf_proof_lift_keeps_initial_height_and_corner_gap_requirements():
+    from kuavo_isaaclab_scene.rl.multi_box.geometry.rack import grasp_proof_lift_clearance
+    initial=torch.tensor([1.,1.,1.]);z=initial+.02;gap=torch.tensor([.004,.012,-.001])
+    torch.testing.assert_close(grasp_proof_lift_clearance(z,initial,gap),gap)

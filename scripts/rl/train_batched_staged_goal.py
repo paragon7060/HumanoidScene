@@ -105,6 +105,8 @@ def main():
         from kuavo_isaaclab_scene.recording.rl_initial_state import capture_rl_initial_state
         from kuavo_isaaclab_scene.recording.rl_transition_recorder import RlTransitionRecorder
         contract=json.loads(args.training_manifest.read_text())
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import require_current_lift_contract,frozen_prior_lift_contract
+        require_current_lift_contract(contract)
         if contract.get('reward_profile',{}).get('weights')!=asdict(MultiBoxRewardWeights()):
             raise ValueError('Current physical reward weights differ from checkpoint input manifest')
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
@@ -212,7 +214,8 @@ def main():
         if state.get('artifact_type') not in classes:
             raise ValueError('Batched learner requires the separately initialized staged checkpoint')
         pilot_class=classes[state['artifact_type']]
-        warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,contract,output,training=False,device=env.device)
+        warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,
+                            frozen_prior_lift_contract(contract),output,training=False,device=env.device)
         templates=json.loads(args.waypoints.read_text())
         if templates['physical_action_contract']!=contract['action_contract']:raise ValueError('Waypoint travel differs')
         projection=GraspActionProjector(list(actions.items()))

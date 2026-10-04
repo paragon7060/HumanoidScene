@@ -18,7 +18,7 @@ def _compatible_checkpoint(checkpoint: Path, manifest: dict) -> None:
     source = json.loads(source_path.read_text())
     for key in (
         "task_family", "schema_version", "skill", "robot_model", "gripper",
-        "actions", "action_contract", "observations", "critic_mapping",
+        "actions", "action_contract", "observations", "critic_mapping", "proof_lift_contract",
     ):
         if source.get(key) != manifest.get(key):
             raise ValueError(f"Checkpoint {key} differs from the v2 grasp environment.")
@@ -131,6 +131,7 @@ def main() -> None:
         observation_dims = {
             name: list(value) for name, value in base_env.observation_manager.group_obs_dim.items()
         }
+        from ..geometry.rack import grasp_lift_terminal_contract
         manifest = {
             "version": 2,
             "task_family": "multi_box_v2",
@@ -146,6 +147,7 @@ def main() -> None:
             "observations": observation_dims,
             "flap_pose_source": args.flap_pose_source,
             "critic_mapping": agent.obs_groups,
+            "proof_lift_contract": grasp_lift_terminal_contract(),
             "num_envs": args.num_envs,
             "seed": args.seed,
             "git_hygiene": {

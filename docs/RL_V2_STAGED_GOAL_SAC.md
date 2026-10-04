@@ -389,3 +389,28 @@ GPU enable_env_ids 경로를 사용한다.
 바꾸지 않지만 broadphase/좌표 정밀도의 효과를 보기 위한 frozen 진단이다.
 TRAIN과 함께 사용하면 거부하며 결과는 기존 Q/replay에 import하지 않는다.
 원점 자체가 현재 실패 원인이라고 확정한 것은 아니다.
+
+
+## 롤러 support 기준 lift와 actor-only 새 Q 초기화
+
+2026-10-04부터 proof lift는 settled root height 증가와 **실제 active support**
+위 box underside 최소 gap의 min이다. 기본 roller deck은 bare shelf보다10mm
+높으므로 이 offset을 제외한다. `--no-rack-rollers`의 offset은0이다.8mm lift와
+0.25s opposing bilateral hold, 안전 기준은 그대로다.
+
+Terminal contract에 `proof_lift_reference`와 `proof_lift_support_offset_m`를
+저장하고 현재 rack 설정과 비교한다. 구 manifest나 다른 offset의 Q/replay를
+resume할 수 없다. Single staged replay와 batched training 모두 비교한다.
+새 `prepare_staged_goal_sac.py` output의 `manifest.json`를 training manifest로
+사용한다. 이전 manifest만 복사하거나 field만 추가해 old Q를 resume하지 않는다.
+
+구 held-goal actor를 재사용하려면 기존 초기화 명령에 `--actor-checkpoint
+/absolute/path/to/matching_staged_checkpoint.pt`를 추가한다. Frozen24-goal
+`--checkpoint`와 `--native-seed`는 기존 actor prior 복원 용도로만 남는다.
+21-goal actor/normalizer만 이전하며 Q/target/critic normalizer/entropy/optimizer/
+replay/counter는 초기 상태다. Matching goals/좌표/안전과 source contract를 검사하며
+lift reference 또는 fresh-Q solver 차이만 허용한다. 현재 actor를 frozen prior로
+anchor하고나서 새로운 원래 배치 rollout을 수집한다. 이는 기존 SAC의 continuation이 아니다.
+
+과거 성공 flag에는 bare shelf gap을 사용한 false positive가 섞여 있으므로
+[실제 geometry audit와 새 실행](RL_V2_FOUR_REGION_SAC_20261004.md)을 참고한다.
