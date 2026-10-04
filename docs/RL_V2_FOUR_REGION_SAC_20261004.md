@@ -1199,3 +1199,73 @@ manipulation에 진입했다. Actor2100/Q10448/replay0은 유지되며, 진단�
 GPU0의 첫 새 TRAIN은0/128, actor3008/Q14080, 실제 replay487399행이었다.
 학습 개선은 아직 달성하지 못했다. [상태 snapshot](assets/rl_v2_confident_sac_live_and_reset_probe_20261004.json)에
 종료/Drive 검증을 마친 실행과 진행 중인 실행을 구분하여 기록했다.
+
+### 10/05 00:34 — randomized SAC 실제 성공과 회귀 / 상단 오른쪽 미세 진입 진단
+
+사용자가 native goal을 `randomization을 유지한 SAC 양손 파지 성공`으로 수정했다.
+실제 goal은 `active`다. 자동 재개 과정에서 objective가 `resume`으로 바뀌었던 오류를
+해소했으며, 학습 성공으로 완료 처리하지 않는다.
+
+GPU0 PGS SAC는 중단 없이 진행 중이다. 이 시점까지 완성된11개 wave에서 actor5249 /
+Q23042 updates, 이번 실행의 실제 held-phase 학습 transition363774개를 확인했다.
+평가를 포함한 실제 scene transition은667861개지만, DEV 자료를 Q 학습량에 포함하지
+않는다. 평가 wave에서는 optimizer counters와 replay가 변하지 않는다.
+
+| 동일128-case DEV | 중간 왼쪽 | 중간 오른쪽 | 상단 왼쪽 | 상단 오른쪽 | 합계 |
+|---|---:|---:|---:|---:|---:|
+| wave0 / actor2635 | 1 | 1 | 0 | 0 | 2/128 |
+| wave3 / actor3389 | 1 | 2 | 1 | 1 | 5/128 |
+| wave6 / actor4128 | 1 | 4 | 0 | 0 | 5/128 |
+| wave9 / actor4878 | 0 | 2 | 0 | 0 | 2/128 |
+
+상단 오른쪽은 TRAIN wave2의 seed120352와 DEV wave3의 seed121324에서 각각1회
+**실제 opposing 양손 pinch, 양손 stable, corrected proof lift,0.2667초 hold**를 통과했다.
+이때 unsafe cause는 모두false다. 따라서 상단 오른쪽을 물리적으로 불가능하거나
+전체 학습에서 성공0회라고 해석하면 잘못이다. 아래의 frozen 이전 actor workplace
+진단에서 성공0회였던 결과와 구분한다. 박스는 dynamic이고 각 성공의 initial base
+XY/yaw 및 box randomization 값은 연결된 JSON에 남겼다.
+
+그러나 개선은 유지되지 않았다. 같은 DEV seed121324는 wave6에서 왼손 pinch를 잃고
+wave9에서 양손 pinch를 잃었다. 마지막 손–flap 거리는 wave3의0.27/1.57cm에서
+wave9의4.95/3.55cm로 늘었다. 두 실패 모두 rack 충돌/그 밖의 unsafe cause가false다.
+TRAIN seed120352도 이후 같은 배치에서 한 손 또는 양손 접촉을 잃었다. 이것은
+**접촉 경로/파지 동작의 회귀가 충돌 없이도 생김**을 보여준다. 초기 물리 상태의 반복
+변동과 actor 변화가 함께 있으므로, 이 수치만으로 prior fade 등 하나의 원인으로
+단정하지 않는다. 낮은 초기 성공 수 때문에 현재 paired regression guard가 이런
+소수 성공의 손실을 반드시 검출하는 것도 아니다. 독립 FINAL은 아직 평가하지 않았다.
+
+![실제 SAC 성공·동일 초기 배치 회귀·이전 frozen workplace 비교](assets/rl_v2_randomized_sac_progress_20261005.png)
+
+[실측 snapshot과 성공 layout](assets/rl_v2_randomized_sac_progress_20261005.json)에 TRAIN /
+DEV, 별도 frozen 진단, 초기 무효 실패 분모, checkpoint source와 제한을 구분했다.
+그림의 terminal distance는 마지막 step 거리이며 궤적의 최소 거리나 성공 판정이 아니다.
+현재 코드의 `rack_clearance_m`은 이미 **min(root Z 증가, bare shelf gap − roller
+support offset)**으로 보정된 proof-lift 판정량이다. 여기서 roller10mm를 다시 빼면
+잘못이다. Raw root lift나 bare shelf gap 하나와도 구분한다. 위 성공은 이 값8mm 이상과
+양손 접촉/hold를 함께 만족하며, 상단 오른쪽 TRAIN/DEV의 보정 값은12.43/33.99mm다.
+
+이전 GPU3 coarse workplace 진단은 정상 종료/최종 Drive checksum 검증을 마쳤다.
+Actor2100/Q10448/replay0을 유지한32개 initial DEV cases×4후보=128 attempts다.
+상단 왼쪽2회 성공은 **같은 seed121206의 두 후보**에서 발생했으며,2개 독립 초기
+배치의 일반화 성공으로 세지 않는다. 상단 오른쪽은 후보마다0/8이었다. lateral+9.1cm /
++5cm 후보는 terminal 거리를 늘렸고, front+5cm 후보에는 box speed/lift limit 실패가
+있었다. 충돌 감소만으로 좋은 파지 진입 위치를 선택할 수 없다.
+
+GPU3 새 실행은 `staged_upper_right_fine_probe128_gpu3_20261005_002932`이며,
+학습 writer PID623449 / supervisor623372다. GPU0 writer3499249는 계속 실행한다.
+네 구역 모두 성공했던 **checkpoint15602 / actor3389**를 기존 Drive에서 내려받아
+크기18374269 bytes / MD5`a072d139f6461c32377dfd42473e7157`을 검증한 뒤 고정했다.
+
+새 비교는 상단 오른쪽8개 DEV initial cases×16개 XY workplace 후보=128 attempts다.
+각 축의 offset은−2,−1,0,+1cm이며 yaw는 변경하지 않는다. 이전 성공 seed121324와
+접촉 근접 seed121306을 포함한 **DEV tuning**이므로 선택 편향을 명시하며, 일반화
+평가나 학습 transition으로 세지 않는다. 초기 base/box pose, box dynamic physics,
+randomization, 안전·성공 기준은 유지한다. 실제 base approach/15 stable ticks 뒤
+SAC actor가 파지하며 live VR/IK는 없다. `Q_replay_import_eligible=false`이고 새
+waypoint 자료는 matching SAC replay에 넣지 않는다. 초기 실제 rollout에서
+actor3389/Q15602/replay0 유지와 GPU3 단독 CUDA 사용을 확인했다.
+
+기존 CPU Drive 관리자가300초 업로드/검증, 최근2개 checkpoint 보호, writer 종료 후
+로그/HDF 검증을 맡는다. 새 인증은 만들지 않았고 GPU1/2의 다른 사용자 PID1779102는
+변경하지 않았다. 기록 시점 로컬 여유는약33GB였다. 성공을 과장하지 않고 실제 접촉
+동작의 유지와 더 넓은 초기 상태에서의 성공을 계속 확인한다.
