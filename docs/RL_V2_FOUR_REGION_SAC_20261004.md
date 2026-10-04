@@ -1549,3 +1549,81 @@ lateral−0.03707m/yaw+0.01007rad/depth+0.000355m의 randomization을 유지했�
 실제 base 접근·정지 후 파지한 성공이며, 이는 새 팔 편차 실행의 결과가 아니다.
 같은 DEV에서 재현되는지 다음 frozen 평가를 기다린다. 상단오른쪽 및 안정적인
 전체 일반화는 여전히 미해결이고 independent FINAL은 사용하지 않았다.
+
+### 10/05 04:20 — 상단 TRAIN 성공 경로 분석 / 기존 GPU0 자연 종료
+
+Goal은 `randomization을 유지한 SAC 양손 파지 성공`으로 active다. GPU3의 성공
+유지 분기와 새 팔 탐색 분기는 계속 실행 중이며, 목표를 완료 처리하지 않았다.
+새 팔 탐색 초기 입력의 3.62GB 실제 replay까지 Drive 크기·MD5 검증을 완료했다.
+모델·정규화·optimizer·replay는 같은 초기 분기에서 복원했고 새 인증은 만들지 않았다.
+
+#### 첫 상단 성공이 최종 정책에도 남았는지 확인
+
+닫힌 checkpoint18560의 실제 TRAIN bank에서 상단왼쪽 seed120241의598개
+held-grasp 전이를 읽었다. 원본 checkpoint의 SHA256은 분석 전후 동일하며
+분석 중 optimizer 업데이트와 평가 데이터 import는0이다. 성공은 양손 opposing
+pinch/stable,hold0.2667초,corrected proof lift28.316mm,모든 unsafe flag false다.
+양쪽 hand의 실제 두 pad 중 작은 힘은 terminal에서31.82N/13.55N으로5N 조건을
+넘었다. Base/박스 randomization은 앞서 기록한 값을 유지했다.
+
+| 실제 성공 경로의 시점 | 왼손 | 오른손 |
+|---|---:|---:|
+| Nominal assigned flap center 12cm 이내 | 14.37초 | 14.07초 |
+| 실제 TRAIN jaw 첫 닫힘 | 20.87초 | 14.93초 |
+| 실제 pinch 첫 확인 | 21.33초 | 15.43초 |
+| 최종 greedy 정책을 같은 기록 관측에 적용한 첫 닫힘 | 20.87초 | 20.83초 |
+
+![상단왼쪽 실제 TRAIN 성공의 거리·그리퍼·접촉력·corrected lift](assets/rl_v2_first_upper_train_trace_20261005.png)
+
+오른손 실제 명령과 최종 greedy 명령은598개 전이 중66개에서 달랐다. Body 목표의
+평균 절대 차이는 normalized goal 좌표에서0.000703이다. **이는 기록된 성공
+관측에 대한 offline 비교이며 새 물리 평가가 아니다.** 탐색으로 찾은 조기 오른손
+닫힘이 평가 정책에 충분히 남지 않았을 가능성을 제시하지만 인과관계를 확정하지
+않는다. 그래프의 거리는 nominal flap midpoint이고 실제 변형된 패널 표면 거리가
+아니다. 접촉력/lift는 privileged critic 측정값이며 actor 입력으로 새로 넣지 않았다.
+양손 pinch 이전의 일시적인8mm lift만으로 성공을 선언하지 않는다.
+
+상단 성공 bank는 wave5 종료 때 추가됐다. 이어지는 wave6은 frozen DEV라
+학습하지 않으며, 성공 유지 auxiliary 학습에 이 상단 bank가 쓰이는 첫 다음 wave는
+TRAIN wave7이다. 아직 그 학습을 거치지 않은 상태만 보고 retention weight를
+다시 바꾸지 않는다. [실제 성공 전이와 시점 증거](assets/rl_v2_first_upper_train_trace_20261005.json).
+
+#### 오래 학습한 기존 GPU0은 성공 정책을 유지하지 못함
+
+기존 `staged_hybrid_aligned_resume_pgs128_gpu0_20261004_214747`는26개 wave를
+자연 종료했고 exit0,writer 종료,GPU0에 compute process 없음이 확인됐다.
+Actor8547/Q36234 updates,새 실제 TRAIN835560행을 모았지만 같은128-case DEV
+성공은2→5→5→2→1→5→5→0→0이었다. 마지막 독립 FINAL도0/128,초기 유효93/128,
+robot-rack35/box-speed9/box-lift3/box-drop1/workspace1회였다(원인 중복 가능).
+Frozen prior의 가중치가0이 된 오래된 분기이며 actual success bank가 없다.
+단순한 추가 학습만으로 개선되지 않았다는 근거이지 모든 SAC가 불가능하다는
+결론은 아니다. 이 기존 분기의 FINAL은 이미 사용했으며 학습 데이터로 재사용하지
+않는다. GPU3 두 분기의 독립 FINAL은 아직 사용하지 않았다.
+[종료 wave·구역별 성공·안전 원인](assets/rl_v2_original_aligned_final_20261005.json).
+닫힌 로그/대용량 replay의 최종 업로드가 끝날 때까지 기존 CPU 관리자를 유지한다.
+
+GPU0의 비어 있는 자원에서 source TRAIN seed120241을 actor4128/Q18560의
+**frozen SAC 정책으로 재현**하는 단일 환경 진단을04:16에 시작했다. 부모는
+`staged_upper_TRAIN_frozen_reproduction_gpu0_20261005_041656`다. CUDA isolation,
+PGS/+6cm upright torso/원래 그리퍼 drive/reward/안전/waypoint를 그대로 사용한다.
+Snapshot·manifest·정확한 TRAIN layout의 Drive 검증 후 시작했으며 VR/live IK나
+기록 명령의 open-loop 재생은 쓰지 않는다. 성공했던 TRAIN case를 재현하는
+진단이므로 독립 일반화 평가로 세지 않는다. 실제 H.264 video와 접촉/실패 원인을
+종료 후 보관하고 Drive 체크섬을 검증한다. 다른 실행에는 종료 신호를 보내지 않았다.
+
+**04:21 추가 확인:** 새 팔 탐색 분기의 학습 전 frozen DEV wave0는3/128,
+초기 유효100/128이었다. 중간왼쪽1/오른쪽1/상단왼쪽1이며 상단오른쪽은0이다.
+상단왼쪽 seed121231은 양손 pinch/stable/opposing/proof,hold0.2667초,
+corrected lift25.684mm,unsafe false로 성공했다. 이는 actor2635/Q12588에서
+**새 탐색 학습 전에 얻은 기준선**이며 팔 탐색 변경의 개선으로 세지 않는다.
+기존 selected actor weights의 source counter3389와 복원된 matching 분기 counter를
+구분한다. DEV 전이는 성공 bank/Q/replay에 넣지 않았다.
+
+새 분기의 TRAIN wave1 step61에서 실제29행,actor2639/Q12604로 증가했고
+팔 편차의 held-env8개 초기화와 nonzero bias를 확인했다. Staging 동안에는 편차가
+없으며 held clock을 따라 점진적으로 커진다. 기존 성공 유지 분기의 DEV wave6은
+3/128(상단0)이어서 그 분기의 DEV 추세는4→3→3/128이다. 아직 평가 개선은
+확인되지 않았다. Wave7 이후 상단 TRAIN bank가 actor auxiliary에도 쓰이는지를
+확인하고 다음 같은 DEV를 비교한다. Bank sampler는 보관 행 수 비율로 뽑지 않고
+성공이 있는 구역 사이를 균등 배분한다.
+[양쪽 완료 DEV의 전체 초기 배치·성공/실패 증거와 실제 TRAIN 시작 snapshot](assets/rl_v2_episode_arm_first_dev_20261005.json).

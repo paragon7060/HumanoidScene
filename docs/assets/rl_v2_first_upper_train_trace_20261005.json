@@ -1,0 +1,202 @@
+{
+  "checkpoint": "artifacts/rl/drive_runs/staged_success_retention_pgs128_gpu3_20261005_012745/batch_sac_20261005_012745_ad5861/checkpoint_00018560.pt",
+  "checkpoint_sha256": "a0afd91987b14c86aab047f28ab2f715990a33cf6d3a30d49970e4492755d5a3",
+  "source_actor_updates": 4128,
+  "source_critic_updates": 18560,
+  "source_is_immutable_completed_TRAIN_bank": true,
+  "training_updates_during_analysis": 0,
+  "evaluation_rows_imported": 0,
+  "full_outcome": {
+    "wave": 5,
+    "split": "train",
+    "environment": 38,
+    "layout": {
+      "seed": 120241,
+      "split": "train",
+      "lateral_m": -0.03706786036491394,
+      "yaw_rad": 0.010071241296827793,
+      "distractors": [
+        5,
+        6
+      ],
+      "depth_m": 0.0003549599787220359,
+      "base_lateral_m": 0.07085385173559189,
+      "base_outward_m": 0.04686601459980011,
+      "base_yaw_rad": 0.039684802293777466,
+      "target_region": "shelf_3_left",
+      "align_initial_base_to_region": true
+    },
+    "result": {
+      "steps": 657,
+      "success": true,
+      "unsafe": false,
+      "invalid_reset": false,
+      "time_out": false,
+      "pinching": [
+        true,
+        true
+      ],
+      "stable_hands": [
+        true,
+        true
+      ],
+      "proof_lift": true,
+      "opposing_flaps": true,
+      "hold_time_s": 0.2666666805744171,
+      "rack_clearance_m": 0.028315892443060875,
+      "flap_distances": [
+        0.0007491100113838911,
+        0.0
+      ],
+      "rack_peak_force_n": 0.0,
+      "rack_peak_body": "base_link",
+      "box_pose_world": [
+        20.5800724029541,
+        0.22909633815288544,
+        1.7855206727981567,
+        0.6110653877258301,
+        -0.263103187084198,
+        -0.3741496503353119,
+        0.6460555791854858
+      ],
+      "box_velocity_world": [
+        0.16910400986671448,
+        0.03840108960866928,
+        -0.05191343277692795,
+        -0.06893961131572723,
+        0.13436032831668854,
+        -0.023660358041524887
+      ],
+      "target_logical_id": 9,
+      "target_pool_id": 15,
+      "unsafe_causes": {
+        "invalid_box_pose": false,
+        "invalid_flap_pose": false,
+        "robot_rack_collision": false,
+        "self_collision": false,
+        "obstacle_collision": false,
+        "workspace_limit": false,
+        "box_drop": false,
+        "box_lift_limit": false,
+        "box_speed_limit": false
+      },
+      "staged_base": {
+        "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+        "phase": "held_grasp",
+        "shelf": "upper",
+        "base_target_xy_rack_m": [
+          -0.32232749462127686,
+          0.6262146830558777
+        ],
+        "base_target_yaw_rack_rad": -1.5323371887207031,
+        "stable_steps": 15,
+        "manipulation_start": 59,
+        "position_error_m": 0.0013750845100730658,
+        "yaw_error_rad": 0.004027009010314941,
+        "linear_speed_mps": 0.021999401971697807,
+        "angular_speed_radps": 0.7829720377922058,
+        "template": {
+          "base_minus_initial_box_xy_rack_m": [
+            -0.04551871120929718,
+            0.7435594499111176
+          ],
+          "base_yaw_rack_rad": -1.5323371887207031,
+          "box_size_m": [
+            0.26600000262260437,
+            0.1850000023841858,
+            0.12999999523162842
+          ],
+          "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+          "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+          "source_split": "train",
+          "measured_success": true,
+          "template_is_candidate_not_verified_neutral_start": true
+        },
+        "old_goal_replay_eligible": false
+      }
+    },
+    "complete": true,
+    "initial_layout_valid": true
+  },
+  "held_rows": 598,
+  "first_held_control_step": 60,
+  "first_nominal_assigned_distance_under_12cm": [
+    {
+      "held_transition_index": 371,
+      "control_time_s": 14.366666793823242
+    },
+    {
+      "held_transition_index": 362,
+      "control_time_s": 14.066666603088379
+    }
+  ],
+  "first_actual_close": [
+    {
+      "held_transition_index": 566,
+      "control_time_s": 20.866666793823242
+    },
+    {
+      "held_transition_index": 388,
+      "control_time_s": 14.933333396911621
+    }
+  ],
+  "first_actual_pinch": [
+    {
+      "held_transition_index": 580,
+      "control_time_s": 21.33333396911621
+    },
+    {
+      "held_transition_index": 403,
+      "control_time_s": 15.433333396911621
+    }
+  ],
+  "first_final_greedy_close_on_recorded_states": [
+    {
+      "held_transition_index": 566,
+      "control_time_s": 20.866666793823242
+    },
+    {
+      "held_transition_index": 565,
+      "control_time_s": 20.83333396911621
+    }
+  ],
+  "first_bilateral_pinch": {
+    "held_transition_index": 582,
+    "control_time_s": 21.399999618530273
+  },
+  "first_stable_bilateral": {
+    "held_transition_index": 590,
+    "control_time_s": 21.66666603088379
+  },
+  "first_actual_corrected_clearance_over_8mm": {
+    "held_transition_index": 485,
+    "control_time_s": 18.16666603088379
+  },
+  "actual_cumulative_held_reward": 9.61661434173584,
+  "min_terminal_pad_force_n": [
+    31.81682586669922,
+    13.552886009216309
+  ],
+  "nominal_assigned_distance_terminal_m": [
+    0.05750678852200508,
+    0.02802593819797039
+  ],
+  "actual_jaw_closed_fraction": [
+    0.05351170524954796,
+    0.16555184125900269
+  ],
+  "final_greedy_jaw_closed_fraction_on_actual_success_states": [
+    0.05351170524954796,
+    0.05518394708633423
+  ],
+  "actual_vs_final_greedy_jaw_mismatch_fraction": [
+    0.0,
+    0.11036789417266846
+  ],
+  "final_greedy_body_mean_absolute_difference_from_actual": 0.000703014200553298,
+  "final_actor_comparison_is_offline_not_policy_evaluation": true,
+  "actual_flap_force_and_clearance_are_privileged_critic_measurements_not_actor_inputs": true,
+  "actor_distances_are_nominal_flap_center_relations_not_actual_bent_panel_surface_distance": true,
+  "clearance_critic_feature_clips_at_32mm": true,
+  "greedy_success_or_generalization_not_established": true
+}
