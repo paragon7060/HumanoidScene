@@ -1124,3 +1124,68 @@ schedule과 base/box randomization, collision/success 기준도 유지한다.
 
 `8b6e09f`의 kept-ID regression 검사27개를 통과했다. 새 실행의 초기화와 실제
 rollout/학습은 현재 상태/PID/log로 확인하며, 재개 자체를 성능 개선으로 보지 않는다.
+
+### 22:00 — 실제 같은 관측에서 confident jaw 선택 유지 확인
+
+새 resume의 source checkpoint를 각 solver의 **이미 저장된 실제 replay16,000개 관측**에서
+frozen validated actor와 비교했다. 별도 simulator rollout, 합성 reward/transition은 없다.
+
+| Source 학습 이후 | 동일 near-jaw 관측에서 prior close | Learned close | 선택 유지 |
+|---|---:|---:|---:|
+| TGS actor960→1536 |991|846|85.4%|
+| PGS actor2100→2635 |1736|1736|100%|
+
+TGS는 eligible 결정145개가 닫힘→열림으로 바뀌었고 PGS는0개였다. Prior close였던
+관측의 평균 learned close probability는 각각0.634/0.735였다. 비교한 replay 표본은
+이전 collapse 감사의 표본과 다르므로 absolute close counts를 앞 결과와 직접 비교하지
+않는다. 이번 비교 자체에서는 각 solver가 같은 관측으로 before/after를 평가한다.
+Frozen prior를 따른 결정이 유지된 것은 **그리퍼 선택 회귀의 완화 신호**이며,
+물리 파지 성공률 개선이나 상단 일반화 성공을 의미하지 않는다.
+
+![실제 SAC 업데이트 뒤 같은 replay 관측의 닫힘 선택 유지](assets/rl_v2_confident_jaws_after_learning_20261004.png)
+
+[실제 비교 수치](assets/rl_v2_confident_jaws_after_learning_20261004.json)에 checkpoint counters,
+sampled states, eligible 결정/flip counts와 body drift를 기록했다. 같은 시점 GPU3/GPU0
+새 실행은 frozen128-case DEV rollout을 수행하고 있다. 이 평가에서는 optimizer/replay가
+변하지 않았으며 새 actor update는 뒤의 TRAIN wave에서 확인한다.
+
+### 22:13 — 재개 DEV는 개선 없음 / GPU3 workplace 비교로 전환
+
+재개 checkpoint의 완성된 frozen DEV는 **TGS0/128, PGS2/128**였다. Original initial
+valid는 각각98/128,101/128이다. 최초 confident actor의10/128·5/128보다 개선되지
+않았다. TGS의 robot–rack 종료에는 `zarm_r4_link`27개, `zarm_l4_link`10개가 포함됐다.
+닫힘 선택을 유지해도 실제 경로/접촉의 실패가 남아 있다.
+
+TGS source actor가 이미 업데이트된 채 재개됐고 이번 guard의 새 baseline이0이므로,
+현재 guard만으로 과거10→0 회귀를 검출했다고 주장하지 않는다. 직접 원래 DEV와
+비교해 **자체 GPU3 supervisor만** 종료 요청했다. Finite 새 learner와 실제 측정 replay를
+저장하고 manager가 최종 Drive 검증을 수행한다. 원래 학습 writer의 종료를 확인했고,
+CPU 백업은 계속 둔다. GPU0 PGS의 실제 TRAIN actor/Q updates는 계속 진행한다.
+
+GPU3 새 frozen 진단은 `staged_upper_waypoint_probe128_gpu3_20261004_221213`이다.
+검증 완료된 PGS confident validated actor snapshot을 고정해 **같은32개 개발 배치×4개
+workplace 후보=128개 물리 attempt**를 동시에 비교한다. 각 구역8개 original cases이며
+독립 FINAL cases는 사용하지 않는다. 반복 후보를128개 독립 초기 조건으로 세지 않는다.
+
+| 후보 | 상단 base 목표만 변경 |
+|---|---|
+| baseline | 원래 offset−4.55cm 유지 |
+| right_mirror | 오른쪽만 lateral+9.10cm; offset−4.55→+4.55cm |
+| toward_center | 왼쪽−5cm /오른쪽+5cm |
+| farther_front | 양쪽 랙에서+5cm 더 떨어진 목표 |
+
+중간 구역은 모든 후보에서 원래 workplace를 유지해 반복 물리 변동의 대조군으로 쓴다.
+초기 robot/base pose, target/background box pose와 dynamic physics, randomization,
+성공/충돌/종료 기준은 바꾸지 않는다. 실제 base controller가 후보 위치로 이동한 뒤
+15 stable ticks를 만족해야 frozen 파지를 시작한다. 손 goal은 neural actor가 낸다.
+후보가 성공하는지나 충돌 원인인지 아직 결론내리지 않는다.
+
+`--base-waypoint-probe --no-training`과 각 wave row의 `waypoint_probe` metadata를
+명시해야 한다. TRAIN 사용/flag 누락/잘못된 offset/중복 case-candidate는 거부한다.
+별도 collection source와 `Q_import_eligible=false`로 Q import를 막고, 접근 명령의
+vector cache와 held context를 같은 후보 좌표로 갱신한다.19개 CPU 검사는 실제
+approach/held controller 목표의 일치와 초기 관측/원래 templates 보존을 확인했다.
+
+사용자가 직접 고칠 코드/인증은 없다. 가장 도움이 되는 추가 자료는 현재 torso+6cm,
+양손 flap/8mm roller support lift 조건의 **상단 오른쪽 VR 성공 데모**다. 선택 사항이며,
+위 진단과 실제 SAC 수집은 추가 자료 없이 진행한다.

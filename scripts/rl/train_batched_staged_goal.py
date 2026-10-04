@@ -42,6 +42,8 @@ def main():
         help='Frozen-only shared origins with GPU environment collision IDs; no Q/replay training')
     parser.add_argument('--packed-background-probe',action='store_true',
         help='Frozen-only original/packed/original reset comparison; target/base randomization unchanged')
+    parser.add_argument('--base-waypoint-probe',action='store_true',
+        help='Frozen-only per-case workplace candidates; never contributes matching Q replay')
     parser.add_argument('--steps',type=int,default=900)
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
@@ -52,6 +54,9 @@ def main():
             or args.centered_world_probe or args.packed_background_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.waypoint_probe import validate_waypoint_probe
+    try:validate_waypoint_probe(waves,enabled=args.base_waypoint_probe,training=args.training)
+    except ValueError as error:parser.error(str(error))
     n=len(waves[0]['layouts']) if waves else 0
     if not 1<=n<=128 or any(len(w['layouts'])!=n for w in waves):
         parser.error('Each wave must contain the same 1..128 independent layouts')
@@ -77,7 +82,7 @@ def main():
     if not 0<=args.validation_regression_significance<1 or (
             args.validation_regression_significance and not args.stop_on_validation_regression):
         parser.error('Regression significance within0..1, excluding1, requires the regression guard')
-    if any(len({r['layout']['seed'] for r in w['layouts']})!=n for w in waves):
+    if not args.base_waypoint_probe and any(len({r['layout']['seed'] for r in w['layouts']})!=n for w in waves):
         parser.error('Each parallel wave needs distinct initial cases')
     if args.robot_model!='s63' or args.gripper!='leju-twofinger' or not args.rack_rollers:
         parser.error('Current held-base checkpoint requires S63/Leju/rack rollers')
@@ -253,7 +258,8 @@ def main():
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
             collection_source=('changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
                                if solver_probe else 'background_placement_frozen_probe_NOT_matching_Q_replay'
-                               if args.packed_background_probe else pilot_class.artifact_type),training_contract=contract,
+                               if args.packed_background_probe else 'base_waypoint_frozen_probe_NOT_matching_Q_replay'
+                               if args.base_waypoint_probe else pilot_class.artifact_type),training_contract=contract,
             contact_stability_probe=solver_probe,
             sim_device=str(env.device),multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             current_reward_verified_against_breakdown=True,
@@ -263,6 +269,8 @@ def main():
             centered_world_probe=args.centered_world_probe,
             background_placement_probe=dict(enabled=args.packed_background_probe,
                 frozen_only=args.packed_background_probe,Q_import_eligible=not args.packed_background_probe),
+            base_waypoint_probe=dict(enabled=args.base_waypoint_probe,frozen_only=args.base_waypoint_probe,
+                Q_import_eligible=not args.base_waypoint_probe),
             episode_layouts=[dict(wave=i,environment=j,**row) for i,w in enumerate(waves) for j,row in enumerate(w['layouts'])])
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
@@ -270,6 +278,8 @@ def main():
             'initialized_physics':initialized_physics,
             'centered_world_probe':dict(enabled=args.centered_world_probe,frozen_only=args.centered_world_probe,
                 Q_import_eligible=not args.centered_world_probe,environment_origins=env.scene.env_origins.tolist()),
+            'base_waypoint_probe':dict(enabled=args.base_waypoint_probe,frozen_only=args.base_waypoint_probe,
+                Q_import_eligible=not args.base_waypoint_probe,initial_robot_box_poses_unchanged=True),
             'wave_reset_controller_contract':WAVE_RESET_CONTROLLER_CONTRACT},indent=2)+'\n')
         if args.packed_background_probe:
             manifest=json.loads((output/'manifest.json').read_text())
@@ -304,6 +314,9 @@ def main():
                 pilot=pilot_class(warm,contract,output,stages.stages[0],checkpoint=args.checkpoint,
                     training=args.training,device=env.device)
                 (output/'agent.yaml').write_text(json.dumps(pilot.contract,indent=2)+'\n')
+            if args.base_waypoint_probe:
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.waypoint_probe import apply_waypoint_probe
+                apply_waypoint_probe(stages,wave['layouts'])
             pilot.training=args.training and wave['split']=='train'
             pilot.reset_exploration(n)
             updates_before=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size)

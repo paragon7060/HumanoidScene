@@ -82,10 +82,12 @@ class StagedBaseHoldDiagnostic:
         return result
 
     def report(self):
-        return dict(name=self.name, phase=self.phase, shelf=self.shelf,
+        result=dict(name=self.name, phase=self.phase, shelf=self.shelf,
                     base_target_xy_rack_m=self.target_xy[0].tolist(),
                     base_target_yaw_rack_rad=self.target_yaw,
                     stable_steps=self.stable_steps, manipulation_start=self.manipulation_start,
                     position_error_m=self.position_error, yaw_error_rad=self.yaw_error,
                     linear_speed_mps=self.linear_speed, angular_speed_radps=self.angular_speed,
                     template=self.template, old_goal_replay_eligible=False)
+        if hasattr(self,'waypoint_probe'):result['waypoint_probe']=self.waypoint_probe
+        return result

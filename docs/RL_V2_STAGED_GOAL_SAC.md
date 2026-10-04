@@ -457,3 +457,24 @@ height를 맞춘다. 기존 `packed_region_depths`의 목적과 같은 reset 분
 실제 rollout 중의 box를 고정하거나 재배치하는 기능이 아니다. Metadata와
 collection_source에 frozen/Q-import-ineligible을 기록한다. 한 tick 결과는
 초기 guard 비교이고 파지 성공률이 아니다. Main learner의 기존 reset 분포는 유지한다.
+
+### Frozen workplace 후보 비교
+
+`train_batched_staged_goal.py --no-training --base-waypoint-probe`는 같은 개발 배치에
+여러 base 진입 목표를 시험하는 진단이다. 각 wave layout row에 다음을 추가한다.
+
+```json
+{
+  "episode_index": 0,
+  "layout": {"seed": 123, "split": "holdout"},
+  "waypoint_probe": {"name": "toward_center", "offset_xy_yaw": [0.05, 0.0, 0.0]}
+}
+```
+
+`layout`은 기존의 완전한 `GraspLayout`을 사용한다; 위 예시는 추가 필드만 설명한다.
+XY는 rack frame의 m, yaw는 rad이며 각 XY±0.15m/yaw±15° 이내다. 원래 neutral
+initial robot/box와 strict source checkpoint/templates를 복원한 뒤 실제 base 목표만
+변경한다.15 stable ticks 뒤 frozen actor를 수행한다. TRAIN/IK/시연 재생이 아니며
+같은 seed를 반복할 때는 `(seed,candidate name)`으로 비교 attempt를 구분한다.
+원래 randomization과 물리적 성공/안전 기준을 유지하고 metadata/Q import allowlist로
+이 진단 transition을 matching SAC replay에서 제외한다. Default 학습에는 영향이 없다.
