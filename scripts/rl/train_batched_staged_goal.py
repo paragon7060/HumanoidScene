@@ -38,13 +38,16 @@ def main():
         help='Frozen-only articulation contact solver ordering diagnostic; never contributes matching Q replay')
     probes.add_argument('--pgs-probe',action='store_true',
         help='Frozen-only PGS/TGS solver comparison; preserves timestep, iterations and safety')
+    parser.add_argument('--centered-world-probe',action='store_true',
+        help='Frozen-only shared origins with GPU environment collision IDs; no Q/replay training')
     parser.add_argument('--steps',type=int,default=900)
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
     args=parser.parse_args()
     if not 1<=args.steps<=900 or args.output_dir.exists():parser.error('New output and 1..900 steps required')
-    if (args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or args.pgs_probe) and args.training:
+    if (args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or args.pgs_probe
+            or args.centered_world_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
     n=len(waves[0]['layouts']) if waves else 0
@@ -105,6 +108,10 @@ def main():
         if contract.get('reward_profile',{}).get('weights')!=asdict(MultiBoxRewardWeights()):
             raise ValueError('Current physical reward weights differ from checkpoint input manifest')
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
+        if args.centered_world_probe:
+            if not str(args.device).startswith('cuda') or not cfg.scene.replicate_physics or not cfg.scene.filter_collisions:
+                raise ValueError('Shared-origin probe requires replicated GPU physics with environment collision IDs')
+            cfg.scene.env_spacing=0.
         cfg.multi_box=replace(cfg.multi_box,self_collision_enabled=contract['self_collision']['enabled'])
         cfg.sim.device=args.device or 'cuda:0'
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import configure_staged_physics
@@ -170,6 +177,12 @@ def main():
             raise ValueError('Batched prototype requires its explicitly nominal observation checkpoint')
         class WaveEnv(TerminalObservationMixin,ManagerBasedRLEnv):pass
         env=WaveEnv(cfg);env.enable_numerical_dynamics_recovery()
+        if args.centered_world_probe:
+            if not torch.allclose(env.scene.env_origins,torch.zeros_like(env.scene.env_origins),atol=0,rtol=0):
+                raise ValueError('Shared-origin probe did not apply zero world origins')
+            print('[CENTERED WORLD PROBE] '+json.dumps(dict(frozen_only=True,environment_origins_zero=True,
+                replicate_physics=cfg.scene.replicate_physics,filter_collisions=cfg.scene.filter_collisions,
+                Q_import_eligible=False,success_and_safety_unchanged=True)),flush=True)
         if contract.get('physics_dynamics'):
             actual=env.sim.stage.GetPrimAtPath(cfg.sim.physics_prim_path).GetAttribute('physxScene:solverType').Get()
             if actual!=contract['physics_dynamics']['solver']:raise ValueError('Checkpoint solver was not applied')
@@ -238,11 +251,14 @@ def main():
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
             wave_reset_controller_contract=WAVE_RESET_CONTROLLER_CONTRACT,
             initialized_physics=initialized_physics,
+            centered_world_probe=args.centered_world_probe,
             episode_layouts=[dict(wave=i,environment=j,**row) for i,w in enumerate(waves) for j,row in enumerate(w['layouts'])])
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
             'initialized_physics':initialized_physics,
+            'centered_world_probe':dict(enabled=args.centered_world_probe,frozen_only=args.centered_world_probe,
+                Q_import_eligible=not args.centered_world_probe,environment_origins=env.scene.env_origins.tolist()),
             'wave_reset_controller_contract':WAVE_RESET_CONTROLLER_CONTRACT},indent=2)+'\n')
         if solver_probe:
             manifest=json.loads((output/'manifest.json').read_text())

@@ -830,3 +830,22 @@ Drive에 업로드·체크섬 검증했다. TGS 전이를 PGS Q에 섞지 않는
 footprint/shelf/stability 실패를 기록한다. Respawn/park된 원래 asset은 그 사실을
 명시하며 원래 물리 failure trajectory라고 주장하지 않는다. 이 계측은 spawn,
 reset 제한, 마찰, 성공 기준을 변경하지 않는다. 관련 batched14검사 통과.
+
+
+## 15:48 · 초기 박스 이탈과 원점 비교 진단
+
+새 PGS128 첫 guard는97/128 유효, 원래 asset이 아직 활성인 background
+logical5 실패19개 중 footprint 밖19·shelf 밖13·unstable9였다. 일부는
+선반 아래로 떨어진 뒤 정지했다. 단순히 settling이 늦다는 설명으로는 부족하다.
+같은16case PGS는 initial불량1개였으므로 원점/초기 접촉 영향을 별도 비교한다.
+Respawn된 asset은 원래 실패 trajectory로 해석하지 않는다.
+
+15:46 GPU2의 preexisting 작업을 유지하고 남은29GB를 확인한 뒤, frozen
+PGS128 shared-origin 진단을 시작했다. GPU 환경 collision ID 필터를 유지하고
+semantic layout/base randomization/solver/dt/성공·안전 조건을 유지한다.
+일반≥5m spacing 기본값은 변경하지 않으며 현재 TGS/PGS 학습에도 적용하지 않는다.
+이 진단의 Q/actor/replay는 업데이트하지 않는다.
+
+기존 TGS의 상단우 rack 실패는 주로 zarm_r4_link가430step 전후 접촉했다.
+Base 접근 후 팔 경로도 원인 검토 대상이다. Box 발산 terminal distance의 큰
+유한 이상치가 전체 평균을 오염시키므로 접근 성능 지표로 그 평균을 쓰지 않는다.

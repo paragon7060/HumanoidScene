@@ -374,3 +374,18 @@ Batched runner와 single staged replay는 training manifest의 같은
 `--pgs-probe`는 기존 TGS 모델의 **frozen 비교 전용**이다. 실제 PGS 학습에
 이 옵션을 사용하지 않는다. 이 진단 전이는 TGS Q/replay에 import하지 않는다.
 Mass/inertia audit는 실제 initialized PhysX를 읽는 기록이며 dynamics를 변경하지 않는다.
+
+
+## Frozen 월드 원점 비교
+
+`train_batched_staged_goal.py --centered-world-probe --no-training`은 모든 clone의
+월드 원점을0으로 놓는 별도 진단이다. Replicated GPU physics와 environment
+collision ID 필터가 모두 필요하며, 실제 env_origins가 전부0인지 검사한다.
+[설치된 SDK와 같은 공식 소스](https://isaac-sim.github.io/IsaacLab/v2.3.2/_modules/isaaclab/scene/interactive_scene.html)의
+GPU enable_env_ids 경로를 사용한다.
+
+일반 parallel 설정의 env_spacing≥5m 기본값은 유지한다. 이 flag는 num_envs와
+초기 semantic layout, base randomization, solver, control dt, 성공/충돌 기준을
+바꾸지 않지만 broadphase/좌표 정밀도의 효과를 보기 위한 frozen 진단이다.
+TRAIN과 함께 사용하면 거부하며 결과는 기존 Q/replay에 import하지 않는다.
+원점 자체가 현재 실패 원인이라고 확정한 것은 아니다.
