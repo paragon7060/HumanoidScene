@@ -116,6 +116,24 @@ held waypoint, 경과 시간을 따로 유지하며 하나의 SAC를 공유한�
 제외하고 실제 task 성공/실패는 모두 집계한다. Validation/final wave는 optimizer와
 replay가 바뀌지 않았는지 검사한다. Live VR/IK teacher나 성공 자세 reset은 없다.
 
+학습 wave 앞에 같은 development wave를 두고
+`--stop-on-validation-regression`을 지정하면 구역별 성공 수가 감소할 때
+`policy_regression` 상태로 종료한다. `--minimum-validation-region-success-rate 0.5`는
+어느 구역이든 실제 성공률50% 미만일 때 다음 TRAIN wave를 시작하지 않는다.
+전체 성공 수가 증가해도 다른 구역의 성능 손실을 숨기지 않는다. Development와
+독립 final seed도 서로 겹칠 수 없다. 종료된 실제 Q/replay는 보존하며,
+`recover_pose_goal_actor.py`로 같은 계약의 검증된 actor만 **새 폴더**에서 복구한다.
+이 옵션이 오류를 자동 수리하거나 실험을 자동 재시작하는 것은 아니다.
+
+`--contact-stability-probe --no-training`은 박스가 접촉 중 비정상적인 속도로
+날아가는 원인을 비교하기 위한 별도 frozen 진단이다. Physics dt1/240s·decimation8로
+control dt1/30s를 유지하고 box solver64/16, body linear cap25m/s,
+angular cap10,000deg/s, depenetration cap2m/s를 적용한다. Angular cap 단위는
+Isaac Lab schema의 **deg/s**다. 선속도/각속도 cap은 기존 실패 기준10m/s·100rad/s
+보다 높고 성공·충돌 기준은 그대로다. 이 진단은 TRAIN과 동시 사용을 거부하고
+수집 출처를 matching Q replay가 아닌 것으로 표시한다. 결과가 좋아도 그 자체는
+SAC 개선이 아니며, 실제 학습에는 새 dynamics 계약과 fresh Q가 필요하다.
+
 `waves.json`은 아래 형태다. 각 wave의 환경 수가 같아야 한다. `layout`은 기존
 GraspLayout JSON 전체이며 `episode_index`는 **중립 초기 장면**의 원 demo 출처다.
 개발 wave의 이름은 `validation`, layout 내부 split은 `holdout`이다. Train과

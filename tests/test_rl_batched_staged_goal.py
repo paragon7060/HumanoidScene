@@ -9,6 +9,25 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import staged
 from test_rl_staged_base_hold import scene,Coordinates
 
 
+def test_development_guard_detects_regional_loss_even_when_total_success_rises():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import DevelopmentSuccessGuard
+    guard=DevelopmentSuccessGuard()
+    layouts=[dict(episode_index=0,layout=dict(seed=i,target_region=r))
+             for i,r in enumerate(('left','left','right','right'))]
+    first=guard.evaluate(layouts,[dict(success=x) for x in (True,False,False,False)],0)
+    assert not first['regression']
+    check=guard.evaluate(layouts,[dict(success=x) for x in (False,False,True,True)],2)
+    assert check['regression'] and check['best_wave']==0
+    assert check['best_by_region']['left']['successes']==1
+    assert not check['final_outcomes_used']
+    with pytest.raises(ValueError,match='identical initial cases'):
+        guard.evaluate([dict(episode_index=0,layout=dict(seed=99,target_region='left'))]*4,
+                       [dict(success=True)]*4,4)
+    initial_floor=DevelopmentSuccessGuard(.5).evaluate(layouts,
+        [dict(success=x) for x in (True,True,False,False)],0)
+    assert initial_floor['baseline_failed'] and not initial_floor['regression']
+
+
 def test_feedback_rate_contract_checks_every_vector_environment():
     from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
     base=torch.tensor([[.15,.15,.5]]).repeat(4,1)

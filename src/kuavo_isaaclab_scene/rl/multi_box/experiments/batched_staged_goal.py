@@ -1,9 +1,49 @@
 """Independent physical base stages sharing one SAC; no live motion teacher."""
+import json
 from types import SimpleNamespace
 
 import torch
 
 from .staged_base_hold import StagedBaseHoldDiagnostic
+
+
+class DevelopmentSuccessGuard:
+    """Compare the same development cases without consulting final outcomes.
+
+    A loss in any region stops the learner. The caller saves actual Q/replay
+    before returning, so actor recovery can use a separate, immutable run.
+    """
+    def __init__(self, minimum_region_success_rate=0.):
+        if not 0<=minimum_region_success_rate<=1:
+            raise ValueError('Development success floor must be within0..1')
+        self.minimum_region_success_rate=minimum_region_success_rate
+        self.cases = None
+        self.best = None
+        self.best_wave = None
+
+    def evaluate(self, layouts, results, wave_index):
+        if len(layouts) != len(results) or not layouts:
+            raise ValueError('Development layouts and physical results differ')
+        cases = sorted(json.dumps(row, sort_keys=True) for row in layouts)
+        if self.cases is not None and cases != self.cases:
+            raise ValueError('Development regression requires identical initial cases')
+        counts = {}
+        for row, result in zip(layouts, results):
+            region = row['layout']['target_region']
+            count = counts.setdefault(region, dict(attempts=0, successes=0))
+            count['attempts'] += 1
+            count['successes'] += int(bool(result and result['success']))
+        regression = self.best is not None and any(
+            count['successes'] < self.best[region]['successes']
+            for region, count in counts.items())
+        if not regression:
+            self.cases, self.best, self.best_wave = cases, counts, wave_index
+        baseline_failed=any(count['successes']/count['attempts']<self.minimum_region_success_rate
+                            for count in counts.values())
+        return dict(regression=regression, baseline_failed=baseline_failed, by_region=counts,
+                    best_by_region=self.best, best_wave=self.best_wave,
+                    minimum_region_success_rate=self.minimum_region_success_rate,
+                    final_outcomes_used=False)
 
 
 class BatchedBaseStages:

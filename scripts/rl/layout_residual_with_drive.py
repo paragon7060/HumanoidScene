@@ -307,6 +307,12 @@ def main():
             lambda source,finished:archive_pilot(source,args.remote_root,finished),
             interval=300,run_prefix=prefix,require_run_status=True)
         state=json.loads((trial/'status.json').read_text())
+        if state.get('stop_reason')=='requested_stop':
+            write_status(parent,phase='stopped',active_trial=str(trial),
+                completed_trials=len(rows),training_exit_code=code,
+                final_upload_verified=state.get('final_upload_verified',False),
+                stop_reason='requested_stop')
+            return code
         if code!=0 or not state.get('final_upload_verified'):
             write_status(parent,phase='runtime_failed',failed_trial=str(trial),training_exit_code=code)
             return code or 2

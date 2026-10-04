@@ -81,6 +81,25 @@ def test_upper_gain_does_not_hide_lower_regression():
     assert not script.episode_validation_regressed(latest,None,0)
 
 
+def test_requested_stop_never_launches_another_layout(tmp_path,monkeypatch):
+    script=module();layouts=tmp_path/'layouts';layouts.mkdir();parent=tmp_path/'suite';calls=[]
+    for split in ('train','holdout'):
+        for index in range(2):
+            (layouts/f'{split}_{index:02d}.json').write_text(json.dumps(
+                dict(seed=index,split=split,lateral_m=-.025)))
+    def stop(command,trial,*args,**kwargs):
+        calls.append(command)
+        (trial/'status.json').write_text(json.dumps(dict(training_exit_code=0,
+            final_upload_verified=True,stop_reason='requested_stop')))
+        return 0
+    monkeypatch.setattr(script,'supervise',stop)
+    monkeypatch.setattr(sys,'argv',['suite','--experiment-dir',str(parent),'--layout-dir',str(layouts),
+        '--train-count','2','--eval-count','2','--python',sys.executable,
+        '--remote-root','test-remote:HumanoidScene-RL','--residual-sac'])
+    assert script.main()==0 and len(calls)==1
+    assert json.loads((parent/'status.json').read_text())['phase']=='stopped'
+
+
 def test_right_gain_does_not_hide_left_regression_on_the_same_shelf():
     script=module()
     rows=[dict(reference_episode_index=0,layout={'target_region':'shelf_2_left'},outcomes={'success':0}),

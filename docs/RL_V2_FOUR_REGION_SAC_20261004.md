@@ -490,3 +490,37 @@ guard를 통과했으며 rack pose 차이는 약43..58µm, 실제 base Z는 약0
 61step에4개 환경 중1개가 실제 base hold를 확인했고 아직 파지 결과 전이다.
 관련 CPU 검사61개 통과. Native seed inverse 감사도 동일한 episode별 measured
 anchor/clock을 유지한 벡터 연산으로 바꿔 반복 GPU 동기화를 줄였다.
+
+## 11:35 · 병렬 상단 접촉의 물리 발산과 균형 수집의 시작 조건
+
+같은 development56000/56100/56200/56300을4개 환경에서 동시에 재생한 결과는
+중간 좌509step·중간 우489step 성공, 상단 좌622step·상단 우479step 실패였다.
+Actor/critic 업데이트는0이다. 실패는 rack 충돌이 아니라 box lift/speed guard였다.
+실제 pre-terminal HDF에서 상단 target의 robot-relative 위치 변화가 마지막 한 step에
+95.94m/50.42m, critic의 measured box 선속도가3809.50m/s/2054.44m/s로 기록됐다.
+Quat/관측은 유한했지만 정상적인 파지 동역학으로 보기 어려운 큰 값이다.
+단일 재생4/4와 중간 두 환경의 동일 성공 step만으로 병렬 물리 동등성을 주장하지 않는다.
+
+![상단의 실제 마지막 전이 위치 변화와 측정 선속도](assets/rl_v2_batched_physics_failure_20261004.png)
+[원본 실행·측정 단위·구역별 수치](assets/rl_v2_batched_physics_failure_20261004.json).
+원본4-env 실행의 HDF/로그/결과는 writer 종료 후 Drive checksum 검증을 마쳤다.
+
+GPU0에서는 같은4개 배치와 초기 actor로 control dt·성공·충돌 기준을 유지한
+frozen solver 비교를 시작했다. Box solver32/8→64/16, physics dt1/120→1/240,
+body velocity/depenetration 제한을 명시한다. 새 Q에 넣지 않는 별도 진단이며
+물리 발산 해결 여부와 파지 결과가 나오기 전에는 개선으로 기록하지 않는다.
+
+GPU3의 새16-env 실행은 별도 seed60000대 TRAIN32개,61000대 development16개,
+62000대 final16개를 분리했다. 각 구역의 실제 initial base XY/yaw와 dynamic box
+randomization을 유지한다. Replay100,000행/새 Q·optimizer로 준비했으며,
+한 vector step의 critic2회는16개의 실제 held 전이에 공유하므로 단일-env처럼
+첫 두 성공 episode만으로 actor를 업데이트하기 쉬운 데이터 편중을 줄인다.
+초기 개발16개를 먼저 재생해 **각 구역 최소2/4 성공**일 때만 TRAIN으로 간다.
+이어 같은 개발 배치의 구역별 성공 수가 감소하면 실제 Q/replay를 저장하고 중단한다.
+최종16개는 optimizer 없이 실행하며 train/recovery 선택에는 쓰지 않는다.
+이 실행은 시작한 상태이고 성공률 개선/일반화 완료를 의미하지 않는다.
+
+개선이 없던 이전24-goal whole-body 실험만 종료했다. 종료 요청 뒤 다음 layout을
+시작하던 manager의 stop 전파 문제도 수정했다. 마지막 닫힌 실행의 실제
+checkpoint19393, replay/HDF/log를 기존 Drive 연결로 검증했고 다른 사용자의
+프로세스는 변경하지 않았다. Bound21/free-jaw21 비교 실행은 별도로 진행 중이다.

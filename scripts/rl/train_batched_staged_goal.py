@@ -25,12 +25,18 @@ def main():
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--native-seed',type=Path,action='append',required=True)
     parser.add_argument('--training',action=argparse.BooleanOptionalAction,default=False)
+    parser.add_argument('--stop-on-validation-regression',action='store_true')
+    parser.add_argument('--minimum-validation-region-success-rate',type=float,default=0.)
+    parser.add_argument('--contact-stability-probe',action='store_true',
+        help='Frozen-only finer physics integration/box solver diagnostic; cannot seed or train Q')
     parser.add_argument('--steps',type=int,default=900)
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
     args=parser.parse_args()
     if not 1<=args.steps<=900 or args.output_dir.exists():parser.error('New output and 1..900 steps required')
+    if args.contact_stability_probe and args.training:
+        parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
     n=len(waves[0]['layouts']) if waves else 0
     if not 1<=n<=128 or any(len(w['layouts'])!=n for w in waves):
@@ -43,6 +49,16 @@ def main():
     training_seeds={r['layout']['seed'] for w in waves if w['split']=='train' for r in w['layouts']}
     final_seeds={r['layout']['seed'] for w in waves if w['split']!='train' for r in w['layouts']}
     if training_seeds&final_seeds:parser.error('TRAIN and FINAL seeds overlap')
+    validation_seeds={r['layout']['seed'] for w in waves if w['split']=='validation' for r in w['layouts']}
+    heldout_seeds={r['layout']['seed'] for w in waves if w['split']=='holdout' for r in w['layouts']}
+    if validation_seeds&heldout_seeds:parser.error('Development and independent final seeds overlap')
+    if args.stop_on_validation_regression and (not args.training or waves[0]['split']!='validation'):
+        parser.error('Regression monitoring requires TRAIN and an initial development wave')
+    if not 0<=args.minimum_validation_region_success_rate<=1 or (
+            args.minimum_validation_region_success_rate and not args.stop_on_validation_regression):
+        parser.error('A development floor within0..1 requires the regression guard')
+    if any(len({r['layout']['seed'] for r in w['layouts']})!=n for w in waves):
+        parser.error('Each parallel wave needs distinct initial cases')
     if args.robot_model!='s63' or args.gripper!='leju-twofinger' or not args.rack_rollers:
         parser.error('Current held-base checkpoint requires S63/Leju/rack rollers')
     export_robot_model_cli(args);export_gripper_cli(args);export_rack_roller_cli(args);export_base_drive_cli(args)
@@ -64,7 +80,7 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import GraspLayout,layout_reset_observation
         from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import StagedGoalSACPilot
-        from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard
         from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import GraspActionProjector
         from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
         from kuavo_isaaclab_scene.rl.multi_box.debug.contact_sensors import V2_RACK_SENSOR_NAMES,V2_COLLISION_BODY_NAMES
@@ -78,6 +94,22 @@ def main():
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
         cfg.multi_box=replace(cfg.multi_box,self_collision_enabled=contract['self_collision']['enabled'])
         cfg.sim.device=args.device or 'cuda:0'
+        solver_probe=None
+        if args.contact_stability_probe:
+            from isaaclab.sim import RigidBodyPropertiesCfg
+            from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import physical_asset_names
+            cfg.sim.dt=1/240;cfg.decimation=8;cfg.sim.render_interval=8
+            for name in physical_asset_names():
+                spawn=getattr(cfg.scene,name).spawn
+                spawn.rigid_props=RigidBodyPropertiesCfg(max_linear_velocity=25.,
+                    max_angular_velocity=10000.,max_depenetration_velocity=2.)
+                spawn.articulation_props.solver_position_iteration_count=64
+                spawn.articulation_props.solver_velocity_iteration_count=16
+            solver_probe=dict(frozen_only=True,physics_dt_s=1/240,control_dt_s=1/30,
+                box_position_iterations=64,box_velocity_iterations=16,
+                box_max_linear_velocity_mps=25.,box_max_angular_velocity_degps=10000.,
+                box_max_depenetration_velocity_mps=2.,success_and_safety_unchanged=True,
+                Q_import_eligible=False)
         profile=dict(weights=asdict(MultiBoxRewardWeights()),approach_scale_m=GRASP_APPROACH_REWARD_SCALE_M,
             assignment_scale_m=GRASP_ASSIGNMENT_SCALE_M,capture_scale_m=GRASP_CAPTURE_REWARD_SCALE_M,
             front_stage_clearance_m=FRONT_STAGE_CLEARANCE_M,front_stage_lane_tolerance_m=FRONT_STAGE_LANE_TOLERANCE_M,
@@ -120,7 +152,9 @@ def main():
         meta=dict(task_family='multi_box_v2',skill='grasp',robot_model='s63',gripper='leju-twofinger',
             rack_rollers=True,actor_obs_dim=464,critic_obs_dim=530,action_dim=24,
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
-            collection_source=StagedGoalSACPilot.artifact_type,training_contract=contract,
+            collection_source=('changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
+                               if solver_probe else StagedGoalSACPilot.artifact_type),training_contract=contract,
+            contact_stability_probe=solver_probe,
             sim_device=str(env.device),multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             current_reward_verified_against_breakdown=True,
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
@@ -128,8 +162,13 @@ def main():
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':StagedGoalSACPilot.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True},indent=2)+'\n')
+        if solver_probe:
+            manifest=json.loads((output/'manifest.json').read_text())
+            (output/'manifest.json').write_text(json.dumps(manifest|{'contact_stability_probe':solver_probe},indent=2)+'\n')
         (output/'env.yaml').write_text(json.dumps(asdict(cfg.multi_box),indent=2)+'\n')
         outcomes=[];pilot=None;start=time.monotonic();total_rows=0
+        guard=DevelopmentSuccessGuard(args.minimum_validation_region_success_rate) if args.stop_on_validation_regression else None
+        development_checks=[]
         for wave_index,wave in enumerate(waves):
             if stopped['value']:break
             actors=torch.stack([layout_reset_observation(sources[r['episode_index']],
@@ -161,7 +200,9 @@ def main():
                     body=force.argmax(-1).clone(),base_pose=env.scene['robot'].data.root_pose_w.clone(),
                     causes={k:getattr(s,k).clone() for k in ('invalid_box_pose','invalid_flap_pose',
                         'robot_rack_collision','self_collision','obstacle_collision','workspace_limit',
-                        'box_drop','box_lift_limit','box_speed_limit')})
+                        'box_drop','box_lift_limit','box_speed_limit')},
+                    box_pose=g.box_pose_world.clone(),box_velocity=g.box_velocity_world.clone(),
+                    logical=g.target_logical_id.clone(),pool=g.target_pool_id.clone())
                 return result
             env.termination_manager.compute=capture_before_reset
             rollout_start=time.monotonic();wave_rows=0
@@ -215,6 +256,9 @@ def main():
                                 hold_time_s=float(bc['hold'][i]),rack_clearance_m=float(bc['clearance'][i]),
                                 flap_distances=bc['distance'][i].tolist(),rack_peak_force_n=float(bc['force'][i]),
                                 rack_peak_body=V2_COLLISION_BODY_NAMES[int(bc['body'][i])],
+                                box_pose_world=bc['box_pose'][i].tolist(),
+                                box_velocity_world=bc['box_velocity'][i].tolist(),
+                                target_logical_id=int(bc['logical'][i]),target_pool_id=int(bc['pool'][i]),
                                 unsafe_causes={k:bool(v[i]) for k,v in bc['causes'].items()},
                                 staged_base=stages.stages[i].report())
                         active&=~(terminated|truncated)
@@ -240,10 +284,22 @@ def main():
                 raise ValueError('Evaluation modified optimizer counters or replay')
             pilot.training=args.training
             if args.training:pilot.save(final=True)
+            regression=baseline_failed=False
+            if guard is not None and wave['split']=='validation':
+                check=guard.evaluate(wave['layouts'],last,wave_index)
+                development_checks.append(dict(wave=wave_index,actor_updates=pilot.actor_updates,
+                    critic_updates=pilot.critic_updates,**check))
+                regression=check['regression']
+                baseline_failed=check['baseline_failed']
             (output/'metrics.json').write_text(json.dumps(dict(policy=pilot.artifact_type,outcomes=outcomes,
-                learner=pilot.report(),actual_rows=total_rows,seconds=time.monotonic()-start),indent=2)+'\n')
-            (output/'status.json').write_text(json.dumps(dict(status='training' if wave_index+1<len(waves) else 'complete',
+                learner=pilot.report(),actual_rows=total_rows,seconds=time.monotonic()-start,
+                development_checks=development_checks),indent=2)+'\n')
+            status='policy_regression' if regression else 'baseline_performance_failed' if baseline_failed else 'training' if wave_index+1<len(waves) else 'complete'
+            (output/'status.json').write_text(json.dumps(dict(status=status,
                 completed_waves=wave_index+1,total_waves=len(waves),interrupted=stopped['value']))+'\n')
+            if regression or baseline_failed:
+                print('[DEVELOPMENT PERFORMANCE STOP] '+json.dumps(development_checks[-1]),flush=True)
+                return 1
         if stopped['value']:
             (output/'status.json').write_text(json.dumps(dict(status='interrupted',completed_waves=len(outcomes)//n))+'\n')
         return 0
