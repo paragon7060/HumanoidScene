@@ -1,0 +1,489 @@
+{
+  "measured_utc": "2026-10-04T22:24:09.408620+00:00",
+  "goal_complete": false,
+  "initial_physical_DEV": {
+    "attempts": 128,
+    "successes": 4,
+    "successes_by_region": {
+      "shelf_2_right": 3,
+      "shelf_2_left": 0,
+      "shelf_3_right": 0,
+      "shelf_3_left": 1
+    },
+    "policy_frozen_actor_updates": 0,
+    "policy_frozen_Q_updates": 0,
+    "success_evidence": [
+      {
+        "seed": 121100,
+        "region": "shelf_2_right",
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "corrected_lift_m": 0.012925734743475914,
+        "unsafe": false
+      },
+      {
+        "seed": 121111,
+        "region": "shelf_2_right",
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "corrected_lift_m": 0.018957963213324547,
+        "unsafe": false
+      },
+      {
+        "seed": 121225,
+        "region": "shelf_3_left",
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "corrected_lift_m": 0.018741359934210777,
+        "unsafe": false
+      },
+      {
+        "seed": 121131,
+        "region": "shelf_2_right",
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "corrected_lift_m": 0.02782832644879818,
+        "unsafe": false
+      }
+    ],
+    "is_not_learning_improvement": true
+  },
+  "actual_failure_fix": {
+    "checkpoint": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/physical_body_SAC_pgs128_gpu0_20261005_063724/batch_sac_20261005_063739_dc72fe/checkpoint_00000925.pt",
+    "actual_rows": 43202,
+    "bad_next_pose_rows": 1,
+    "bad_next_terminated_rows": 1,
+    "bad_next_nonterminal_rows": 0,
+    "corrected_Q_and_actor_update_finite": true,
+    "bootstrap_rows": 128,
+    "CPU_diagnostic_updates_only_not_physical_success": true,
+    "report": {
+      "q_loss": 527.35107421875,
+      "actor_loss": -0.5015508532524109,
+      "actor_updated": true,
+      "demo_bc_loss": 0.0,
+      "demo_bc_weight": 0.0,
+      "teacher_bc_loss": 0.0,
+      "teacher_bc_weight": 0.0,
+      "discrete_prior_loss": 0.0,
+      "discrete_prior_weight": 0.0,
+      "alpha": 1.0003007446357515e-05,
+      "alpha_discrete": 0.010002999566495419,
+      "policy_logp_mean": 29.974376678466797,
+      "policy_action_std_mean": 0.049805108457803726,
+      "bootstrapped_rows": 128,
+      "q_value_mean": 1.2811988592147827,
+      "target_value_mean": -10.119399070739746,
+      "entropy_bonus_mean": -0.0002997438423335552,
+      "policy_gaussian_std_mean": 0.050000011920928955,
+      "success_goal_loss": 0.06298109143972397,
+      "success_jaw_loss": 0.6630293726921082,
+      "success_goal_weight": 1,
+      "success_jaw_weight": 0.05,
+      "discrete_entropy_mean": 0.24314305186271667,
+      "target_discrete_entropy_mean": 0.34999996423721313,
+      "near_jaw_count_mean": 1.0,
+      "close_probability_mean": 0.5795676708221436
+    }
+  },
+  "actor4865_original_goal_vs_physical_decoder_CPU_semantics": {
+    "source_actor_updates": 4865,
+    "rows": 5737,
+    "original_goal_controller_body_and_binary_commands_bitwise_equal_on_identical_CPU_observations": true,
+    "base_law_difference_less_than_1e_minus5": true,
+    "source_goal_Q_not_loaded_or_used": true,
+    "simulation_not_replayed": true,
+    "episodes": [
+      {
+        "seed": 120045,
+        "region": "shelf_2_left",
+        "rows": 410,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120147,
+        "region": "shelf_2_right",
+        "rows": 415,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120352,
+        "region": "shelf_3_right",
+        "rows": 603,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120123,
+        "region": "shelf_2_right",
+        "rows": 413,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120113,
+        "region": "shelf_2_right",
+        "rows": 415,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120137,
+        "region": "shelf_2_right",
+        "rows": 412,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120115,
+        "region": "shelf_2_right",
+        "rows": 412,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120132,
+        "region": "shelf_2_right",
+        "rows": 411,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120138,
+        "region": "shelf_2_right",
+        "rows": 414,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120100,
+        "region": "shelf_2_right",
+        "rows": 411,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120231,
+        "region": "shelf_3_left",
+        "rows": 598,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120132,
+        "region": "shelf_2_right",
+        "rows": 413,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      },
+      {
+        "seed": 120000,
+        "region": "shelf_2_left",
+        "rows": 410,
+        "body_max_error": 0.0,
+        "base_max_error": 0.0
+      }
+    ]
+  },
+  "actual_TRAIN_command_support": {
+    "source_actor_updates": 4865,
+    "physical_residual_gain": 0.5,
+    "regions": {
+      "shelf_2_right": {
+        "rows": 3716,
+        "baseline_physical_command_MSE": 0.010418113321065903,
+        "physical_commands_outside_frozen_plus_minus_point5_fraction": 0.0073083676397800446,
+        "rows_with_any_unreachable_body_command_fraction": 0.0855758860707283,
+        "minimum_achievable_literal_body_imitation_MSE": 0.0007105268305167556,
+        "mean_baseline_error_per_body_column": [
+          0.008869124576449394,
+          0.14549824595451355,
+          0.01909935474395752,
+          0.06477201730012894,
+          0.11604776233434677,
+          0.05770697072148323,
+          0.042820606380701065,
+          0.028509922325611115,
+          0.06268197298049927,
+          0.06787682324647903,
+          0.039700333029031754,
+          0.11656719446182251,
+          0.06096342206001282,
+          0.04674914851784706,
+          0.030484572052955627,
+          0.008700628764927387,
+          0.013188586570322514,
+          0.01921987719833851,
+          0.01660158857703209
+        ],
+        "excess_fraction_per_body_column": [
+          0.0,
+          0.05758880451321602,
+          0.0,
+          0.003229278838261962,
+          0.03498385474085808,
+          0.005113024730235338,
+          0.0024219590704888105,
+          0.0,
+          0.005382131319493055,
+          0.0,
+          0.0,
+          0.02879440225660801,
+          0.0,
+          0.0013455328298732638,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "shelf_2_left": {
+        "rows": 820,
+        "baseline_physical_command_MSE": 0.18453408777713776,
+        "physical_commands_outside_frozen_plus_minus_point5_fraction": 0.21071887016296387,
+        "rows_with_any_unreachable_body_command_fraction": 0.5060975551605225,
+        "minimum_achievable_literal_body_imitation_MSE": 0.04133891686797142,
+        "mean_baseline_error_per_body_column": [
+          0.036933839321136475,
+          0.31870439648628235,
+          0.21786721050739288,
+          0.40913134813308716,
+          0.28421884775161743,
+          0.28448519110679626,
+          0.2566720247268677,
+          0.20910726487636566,
+          0.3791232705116272,
+          0.4345766305923462,
+          0.20815345644950867,
+          0.2682572603225708,
+          0.35763829946517944,
+          0.3059111535549164,
+          0.2946617007255554,
+          0.03800297528505325,
+          0.04112003743648529,
+          0.10441599786281586,
+          0.18006692826747894
+        ],
+        "excess_fraction_per_body_column": [
+          0.0,
+          0.26097559928894043,
+          0.18414634466171265,
+          0.41707316040992737,
+          0.2365853637456894,
+          0.2658536732196808,
+          0.22682927548885345,
+          0.18780487775802612,
+          0.3682926893234253,
+          0.3926829397678375,
+          0.15487805008888245,
+          0.21829268336296082,
+          0.2817073166370392,
+          0.27317073941230774,
+          0.30243903398513794,
+          0.0,
+          0.0,
+          0.03536585345864296,
+          0.19756098091602325
+        ]
+      },
+      "shelf_3_right": {
+        "rows": 603,
+        "baseline_physical_command_MSE": 0.002208888065069914,
+        "physical_commands_outside_frozen_plus_minus_point5_fraction": 0.0,
+        "rows_with_any_unreachable_body_command_fraction": 0.0,
+        "minimum_achievable_literal_body_imitation_MSE": 0.0,
+        "mean_baseline_error_per_body_column": [
+          0.006372757721692324,
+          0.035907406359910965,
+          0.020865239202976227,
+          0.03334478288888931,
+          0.06793783605098724,
+          0.06089833378791809,
+          0.026755837723612785,
+          0.028224028646945953,
+          0.04797627031803131,
+          0.031049450859427452,
+          0.027448603883385658,
+          0.04192166402935982,
+          0.05084719508886337,
+          0.031905874609947205,
+          0.016710106283426285,
+          0.003410212928429246,
+          0.006384911946952343,
+          0.016246911138296127,
+          0.027404174208641052
+        ],
+        "excess_fraction_per_body_column": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "shelf_3_left": {
+        "rows": 598,
+        "baseline_physical_command_MSE": 0.01177267637103796,
+        "physical_commands_outside_frozen_plus_minus_point5_fraction": 0.002816405612975359,
+        "rows_with_any_unreachable_body_command_fraction": 0.05351170524954796,
+        "minimum_achievable_literal_body_imitation_MSE": 5.768068876932375e-05,
+        "mean_baseline_error_per_body_column": [
+          0.009873703122138977,
+          0.07590260356664658,
+          0.04121396690607071,
+          0.07455341517925262,
+          0.1718897670507431,
+          0.10930035263299942,
+          0.03365643694996834,
+          0.029456689953804016,
+          0.11308509111404419,
+          0.10323144495487213,
+          0.05275445058941841,
+          0.07380790263414383,
+          0.11407126486301422,
+          0.09266726672649384,
+          0.08138308674097061,
+          0.011235367506742477,
+          0.012799074873328209,
+          0.04397359862923622,
+          0.04257163405418396
+        ],
+        "excess_fraction_per_body_column": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.05351170524954796,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "diagnostic_only_no_Q_or_actor_update": true,
+    "labels_are_literal_physical_commands_not_inverse_goals": true
+  },
+  "resume_launch": {
+    "parent": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/physical_body_SAC_terminal_fixed_resume_pgs128_gpu0_20261005_071955",
+    "unit": "humanoid-rl-physical-body-sac-terminal-fixed-resume-gpu0-20261005_071955.service",
+    "gpu": 0,
+    "parallel_envs": 128,
+    "residual_gain": 0.5,
+    "resumes_physical_Q_and_optimizer": true,
+    "source_critic_updates": 925,
+    "source_actor_updates": 0,
+    "actual_restored_rows": 43202,
+    "failure_finite_checkpoint_and_full_replay_Drive_MD5_verified": true,
+    "source_writer_and_supervisor_stopped": true,
+    "no_processes_stopped": true,
+    "terminal_Q_bootstrap_mask_and_body_only_decode_fixed": true,
+    "physical_reward_safety_randomization_and_success_unchanged": true,
+    "source_sha256": {
+      "scripts/rl/train_batched_staged_goal.py": "b4f6911d7f1c0e8f4ad37119832a08e866aeef0f8a4d34f6aa943e5952dc0911",
+      "src/kuavo_isaaclab_scene/rl/algorithms/hybrid_goal_sac.py": "f746c23984fbef858281ea17588e220302b85cb2af088aebd7d3802c5189c5ac",
+      "src/kuavo_isaaclab_scene/rl/multi_box/experiments/physical_body_actions.py": "c74572e44b1da168d8b6e899eb99283a36e0ac3fbbbef50f465b1e01f2d98479",
+      "src/kuavo_isaaclab_scene/rl/multi_box/experiments/physical_body_sac.py": "241c012096a283bc1c3de6e7b11d28df865f99b44c1ca56f116ad1a8cb2e538b"
+    }
+  },
+  "fullrange_launch": {
+    "parent": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/physical_body_SAC_fullrange_pgs128_gpu0_20261005_072246",
+    "unit": "humanoid-rl-physical-body-sac-fullrange-pgs128-gpu0-20261005_072246.service",
+    "gpu": 0,
+    "parallel_envs": 128,
+    "residual_gain": 2.0,
+    "source_actor_updates": 4865,
+    "new_actor_updates": 0,
+    "new_Q_updates": 0,
+    "initial_literal_TRAIN_rows": 5737,
+    "all_success_commands_inside_policy_range": true,
+    "first_order_physical_exploration_unchanged": true,
+    "terminal_Q_mask_and_body_only_decode_fixed": true,
+    "initial_full_model_and_replay_Drive_MD5_verified": true,
+    "previous_processes_preserved": true,
+    "inputs_dir": "/home/seonho/HumanoidScene/artifacts/rl/probes/physical_body_fullrange128_inputs_20261005_072246",
+    "fresh_FINAL_namespace": 2026104500,
+    "source_sha256": {
+      "scripts/rl/train_batched_staged_goal.py": "b4f6911d7f1c0e8f4ad37119832a08e866aeef0f8a4d34f6aa943e5952dc0911",
+      "src/kuavo_isaaclab_scene/rl/algorithms/hybrid_goal_sac.py": "f746c23984fbef858281ea17588e220302b85cb2af088aebd7d3802c5189c5ac",
+      "src/kuavo_isaaclab_scene/rl/multi_box/experiments/physical_body_actions.py": "c74572e44b1da168d8b6e899eb99283a36e0ac3fbbbef50f465b1e01f2d98479",
+      "src/kuavo_isaaclab_scene/rl/multi_box/experiments/physical_body_sac.py": "241c012096a283bc1c3de6e7b11d28df865f99b44c1ca56f116ad1a8cb2e538b"
+    }
+  },
+  "closed_original_goal_replay_offload": {
+    "source_run": "batch_sac_20261004_214747_7e35c4",
+    "file": "staged_goal_experience.pt",
+    "size": 4120512084,
+    "md5": "3f16b82feb22dfcae77e0e87b23db879",
+    "Drive_relative_path": "batch_sac_20261004_214747_7e35c4/staged_goal_experience.pt",
+    "full_original_replay_size_md5_reverified": true,
+    "original_writer_and_service_stopped": true,
+    "all13_original_TRAIN_successes_kept_in_verified_local_corpus": "/home/seonho/HumanoidScene/artifacts/rl/pose_students/actual_staged_physical_TRAIN_success_corpus_20261005_055934",
+    "local_latest_two_checkpoints_and_logs_preserved": true,
+    "other_users_and_active_files_untouched": true,
+    "checked_utc": "2026-10-04T22:02:22.097758+00:00",
+    "local_closed_replay_offloaded": true
+  },
+  "source_failing_run_writer_stopped_and_final_Drive_verified": true,
+  "success_and_safety_not_relaxed": true,
+  "reward_randomization_physics_unchanged": true
+}

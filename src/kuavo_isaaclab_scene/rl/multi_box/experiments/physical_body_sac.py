@@ -52,7 +52,7 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
     agent_class=HybridPhysicalBodySAC
 
     def __init__(self,warm_start,physical_contract,directory,stage,*,checkpoint=None,
-                 frozen_goal_state=None,training=True,device='cpu'):
+                 frozen_goal_state=None,training=True,device='cpu',residual_gain=None):
         if warm_start.training:raise ValueError('The controller prior must remain frozen')
         self.warm_start,self.coordinates=warm_start,warm_start.coordinates
         self.physical_contract=physical_signature(physical_contract)
@@ -65,6 +65,10 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
         self.goal_exploration=self.arm_behavior=None
         self.seed_provenance=None
         saved=torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
+        self.residual_gain=saved['physical_body_contract']['residual_gain'] if saved else (
+            .5 if residual_gain is None else residual_gain)
+        if self.residual_gain not in (.5,2.) or (residual_gain is not None and residual_gain!=self.residual_gain):
+            raise ValueError('Physical residual gain differs or is outside the declared .5/2 variants')
         if saved:
             if saved.get('artifact_type')!=self.artifact_type:
                 raise ValueError('Physical body SAC cannot restore goal Q or an unrelated checkpoint')
@@ -81,12 +85,13 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
                 or source_contract['shelf_templates']!=stage.templates or source_contract['waypoint_format']!=stage.name:
             raise ValueError('Physical/held-waypoint contract differs from the frozen source actor')
         self.command_prior=FrozenGoalCommandPrior(snapshot,warm_start,device)
-        config=replace(warm_start.agent.config,actor_lr=3e-5,initial_policy_std=.05,
-            min_policy_std=.02,max_policy_std=.1,gamma=reward_discount(physical_contract),
+        std_ratio=.5/self.residual_gain
+        config=replace(warm_start.agent.config,actor_lr=3e-5*std_ratio,initial_policy_std=.05*std_ratio,
+            min_policy_std=.02*std_ratio,max_policy_std=.1*std_ratio,gamma=reward_discount(physical_contract),
             freeze_actor_normalizer=True,actor_feature_mode='flat',critic_layer_norm=True,actor_q_normalize=True)
         if saved and saved['config']!=asdict(config):raise ValueError('Physical body learner configuration differs')
         self.agent=self.agent_class(self.actor_dim,self.critic_dim,21,config,device,
-            action_projector=PhysicalBodyProjector(self.command_prior))
+            action_projector=PhysicalBodyProjector(self.command_prior,self.residual_gain))
         self.agent.frozen_jaw_parameters=self.command_prior.jaw_parameters
         self.success_bank=PhysicalTrainSuccessBank(self.actor_dim,self.critic_dim)
         self.replay=AsymmetricReplayBuffer(self.replay_capacity,self.actor_dim,self.critic_dim,21,device)
@@ -109,14 +114,14 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
             self.agent.actor.load_state_dict(self.command_prior.actor.state_dict())
             self.agent.actor_normalizer.load_state_dict(self.command_prior.normalizer.state_dict())
             with torch.no_grad():
-                self.agent.actor_normalizer.mean[-1]+=.5-.05
+                self.agent.actor_normalizer.mean[-1]+=self.residual_gain-.05
                 last=self.agent.actor.network[-1]
                 last.weight[:19].zero_();last.bias[:19].zero_()
                 last.weight[21:40].zero_();last.bias[21:40].fill_(torch.log(torch.tensor(config.initial_policy_std)))
         if not training:self.agent.requires_grad_(False)
 
     @property
-    def radius(self):return .5
+    def radius(self):return self.residual_gain
 
     @property
     def contract(self):
@@ -124,13 +129,14 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
             actor_dim=480,critic_dim=539,physical_columns=list(PHYSICAL_COLUMNS),
             context_order=['held_phase','held_x_rack_m','held_y_rack_m','sin_held_yaw','cos_held_yaw','physical_residual_gain'],
             physical_contract=self.physical_contract,waypoint_format=self.stage.name,shelf_templates=self.stage.templates,
-            residual_gain=.5,replay_capacity=self.replay_capacity,initial_critic_warmup=self.warmup,
+            residual_gain=self.residual_gain,replay_capacity=self.replay_capacity,initial_critic_warmup=self.warmup,
             actor_update_interval=4,fresh_Q=True,old_goal_Q_and_optimizer_imported=False,
             native_seed_actions='literal_recorded_commands_after_validating_unchanged_held_base_feedback',
             gripper_policy='two_masked_Bernoulli_exact_four_action_expectation',
             body_success_loss='projected_physical_commands_not_inverse_residual_labels',
             residual_entropy='pre_projection_latent_policy',exploration_correlation=.98,
-            exploration_std_initial=.05,exploration_std_min=.02,exploration_std_cap=.1,
+            exploration_std_initial=self.agent.config.initial_policy_std,
+            exploration_std_min=self.agent.config.min_policy_std,exploration_std_cap=self.agent.config.max_policy_std,
             success_bank_format=BANK_FORMAT,success_replay_initial=.2,success_replay_final=.05,
             source_actor_updates=self.frozen_goal_actor['source_actor_updates'],
             source_goal_controller_contract=self.frozen_goal_actor['goal_contract'],
@@ -178,7 +184,8 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
                         _,logits=self.command_prior.jaw_parameters(self.agent.actor_normalizer(batch['actor_obs']))
                         labels[:,19:]=logits.tanh()
                         teacher=dict(actor_obs=batch['actor_obs'],action=labels)
-                    weight=.2*max(0.,1-self.actor_updates/5000)
+                    # Keep the penalty in physical units across gain variants.
+                    weight=.2*(self.residual_gain/.5)**2*max(0.,1-self.actor_updates/5000)
                 success=self.success_bank.sample(64,self.device) if self.success_bank.size and update_actor else None
                 self.latest=self.agent.update(batch,teacher=teacher,teacher_weight=weight,update_actor=update_actor,
                     successful_train=success,success_goal_weight=1. if success else 0.,success_jaw_weight=.05 if success else 0.)
@@ -190,7 +197,8 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
         return dict(training=self.training,actor_updates=self.actor_updates,critic_updates=self.critic_updates,
             online_rows=self.online_rows,replay_size=self.replay.size,action_coordinates='physical_body21',
             fresh_goal_Q_migration=False,old_goal_Q_and_optimizer_imported=False,
-            physical_residual_gain=.5,min_policy_std=.02,max_policy_std=.1,
+            physical_residual_gain=self.residual_gain,min_policy_std=self.agent.config.min_policy_std,
+            max_policy_std=self.agent.config.max_policy_std,
             successful_train_bank=self.success_bank.report(),successful_train_replay_fraction=self.success_replay_fraction,
             native_TRAIN_seed_provenance=self.seed_provenance,latest_actor_metrics=self.latest_actor)
 

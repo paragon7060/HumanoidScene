@@ -1780,3 +1780,34 @@ PGS/구동/중력보상/보상/양손pinch+hold+corrected8mm/안전은 같다.
 corpus,checkpoint/replay/logs와 다른 사용자·실행중 파일/프로세스는 보존했다.
 [설계·사용법·보관](RL_V2_PHYSICAL_BODY_SAC.md),
 [DEV·TRAIN·초기화·checksum·source digest 증거](assets/rl_v2_physical_body_sac_initial_20261005.json).
+
+
+### 10/05 07:20 · 종료된 pose의 Q bootstrap 오류 수정과 재개
+
+GPU0physical분기의첫DEV는4/128(중간오른쪽3·상단왼쪽1),actor/Q0이었다.
+원본actor4865의7/128을그대로재현하지못했으므로학습개선으로해석하지않는다.
+동일CPU관측5737행에서기존goal controller와newprior의body/jaw명령이bitwise
+같고base차이<1e-5임은독립적으로대조했다. 물리재현민감성은별도문제로남는다.
+
+첫TRAIN은Q925/실제43202행에서종료됐다. 원인은Q다음상태행에포함된
+singular pose1행이다. 해당행은이미terminated였고currentpose가singular인
+행은0이었다. 종료행bootstrap을0으로건너뛰고body명령계산에서사용하지않는
+base solver를분리했다. Livefullbase의singularity guard는보존한다.
+실제실패replay를포함하는CPU Q/actor업데이트가유한했고회귀테스트55개가통과했다.
+실패NN/replay/HDF/닫힌로그Drive검증후sourcewriter/manager종료를확인하고
+`physical_body_SAC_terminal_fixed_resume_pgs128_gpu0_20261005_071955`에서
+physicalQ925·optimizer·실제데이터를재개했다. CPU진단NN은실행에가져오지않는다.
+
+별도gain2비교도GPU0/128env로시작했다. 원본중간왼쪽성공의body명령원소21.1%가
+gain0.5에서표현범위밖이었고gain2는네영역5737행의모든명령을표현할수있다.
+상단오른쪽범위밖은원래0%이므로이문제를상단오른쪽원인으로단정하지않는다.
+Latentstd/LR을gain역수로,prior0MSE계수를gain제곱으로조정해작은physical
+탐색규모를유지한다. Full-range부모는
+`physical_body_SAC_fullrange_pgs128_gpu0_20261005_072246`이며입력전체를먼저
+Drive검증했고독립FINALnamespace2026104500을미리선언했다. 기존두GPU3분기를
+유지하며다른사용자의프로세스는건드리지않았다.
+
+종료된원본alignedgoalreplay4.12GB도Drive를다시대조해로컬정리했다.
+원본latest2checkpoint/logs와actual13성공corpus/현재physicalreplay는보존한다.
+[실제오류·범위·재개증거](assets/rl_v2_physical_body_terminal_fix_and_support_20261005.json),
+[설계·두옵션·사용법](RL_V2_PHYSICAL_BODY_SAC.md).

@@ -20,6 +20,8 @@ def main():
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--native-seed',type=Path,action='append',required=True)
     parser.add_argument('--source-run',required=True,help='Original TRAIN run basename; no DEV/FINAL data')
+    parser.add_argument('--residual-gain',type=float,choices=(.5,2.),default=.5,
+        help='2 covers every bounded physical command; local exploration std and actor LR scale inversely')
     args=parser.parse_args()
     if args.output_dir.exists():parser.error('Use a unique, new output directory')
     import h5py
@@ -43,7 +45,7 @@ def main():
     warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,
         frozen_prior_lift_contract(physical),args.output_dir,training=False)
     stage=StagedBaseHoldDiagnostic(warm.coordinates,templates,raw)
-    pilot=PhysicalBodySACPilot(warm,physical,args.output_dir,stage,frozen_goal_state=state)
+    pilot=PhysicalBodySACPilot(warm,physical,args.output_dir,stage,frozen_goal_state=state,residual_gain=args.residual_gain)
     outcomes=json.loads(args.success_outcomes.read_text())
     provenance=seed_physical_training_successes(pilot,args.native_successes,outcomes,source_run=args.source_run)
     if before!=(args.native_successes.stat().st_size,args.native_successes.stat().st_mtime_ns):

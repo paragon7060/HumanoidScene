@@ -10,6 +10,30 @@ DEV128에서 `4 → 3 → 3 → 7` 성공을 기록했다. 마지막 결과는 �
 [측정·출처·체크섬·실행 증거](assets/rl_v2_physical_body_sac_initial_20261005.json).
 기존 두 GPU3 실행은 유지했고 다른 사용자의 GPU1/2 프로세스도 그대로 두었다.
 
+07:20 후속으로 GPU0 첫 frozen DEV는4/128(중간오른쪽3/상단왼쪽1)이었다.
+Actor/Q 업데이트0의 결과이므로 학습 개선은 아니다. 같은 source actor의
+기존DEV7/128을 그대로 재현하지 못했고, 물리 재현의 민감성도 남아 있다.
+실제 동일 CPU 관측5737행에서 원본 goal controller와 새 prior의 body/jaw
+명령은 bitwise 같고 base법칙 차이는1e-5 미만임을 별도로 대조했다.
+
+첫 TRAIN은 실제43202행/Q925까지 진행하다 `Base-plane projection is singular
+or near vertical`로 종료됐다. Recorded replay의 singular next pose는1행이고
+실제로 terminated였다. 현재 actor pose가 singular인 행은0이었다.
+Q bootstrap을 종료행에서도 계산하다 불필요한 base solver가 실패한 것이다.
+종료행의 bootstrap을0으로 바로 처리하고 body19/jaw2 계산에서 base solver를
+분리했다. Live full command의 singular-base 검사는 유지한다. 실제 실패 replay를
+포함한 Q/actor 업데이트가 유한했고 관련55개 테스트가 통과했다.
+
+수정한 GPU0 재개 부모는
+`physical_body_SAC_terminal_fixed_resume_pgs128_gpu0_20261005_071955`이다.
+실패 writer/manager 종료와 Drive model/replay checksum을 확인하고 physical
+Q925·optimizer·실제43202행을 이어간다. CPU 진단에서 수행한 업데이트는
+재개 checkpoint에 저장하지 않았다. 아래 full-range 비교도 별도로 시작했다.
+
+![실제 종료행 오류와 행동 범위](assets/rl_v2_physical_body_terminal_fix_and_support_20261005.png)
+
+[실패·수정·행동 범위·재개 증거](assets/rl_v2_physical_body_terminal_fix_and_support_20261005.json).
+
 ## 변경 이유와 데이터의 의미
 
 기존 SAC의 Q 입력은 요청한 관절/torso 목표21이었다. Servo 속도와 명령이
@@ -131,3 +155,37 @@ full `executed_transitions.hdf5` 5,956,363,796bytes를 다시 검증하고 로�
 Full HDF가 필요하면 기존 remote를 환경변수로 지정하고 원래run folder에
 `gdrive.sh copyto`로 내려받아 정리 기록의 size/MD5와 대조한다.
 이 정리는 checkpoint retention과 별개이며 종료된 우리 원본 파일에만 적용했다.
+
+
+## 성공 명령 전체를 표현하는 비교 옵션
+
+`prepare_physical_body_sac.py --residual-gain 2`는 같은 frozen 기반 명령과
+literal Q를 사용하면서 보정 가능 범위를 넓힌다. Gain0.5에서는 원본 중간왼쪽
+성공 명령 원소21.1%가 policy범위 밖에 있었고, gain2에서는 네 영역5737행의
+모든body명령이 범위 안에 있다. 상단오른쪽은 gain0.5에서도 범위 밖0%였으므로
+이 제약을 상단오른쪽 실패 원인이라고 단정하지 않는다.
+
+| 설정 | gain0.5 | gain2 |
+|---|---:|---:|
+| latent Gaussian std초기 | 0.05 | 0.0125 |
+| latent std최소/최대 | 0.02/0.1 | 0.005/0.025 |
+| 초기 physical std의1차 근사 | 0.025 | 0.025 |
+| actor LR | 3e-5 | 7.5e-6 |
+| residual0 penalty초기 | 0.2 | 3.2 |
+
+Std와LR은gain의역수, residual0 MSE계수는gain제곱으로 조정해 초기 작은 탐색과
+physical 단위의 기준 정책 유지 강도를 맞춘다. Tanh/clipping 때문에 전체
+분포가 완전히 동일하다는 주장은 하지 않는다. Actor/Q/optimizer는 별도로
+초기화하고 성공body imitation은 계속 실제 projected명령을 비교한다.
+
+Full-range 부모는 `physical_body_SAC_fullrange_pgs128_gpu0_20261005_072246`이다.
+GPU0/CUDA_VISIBLE_DEVICES=0/128env이며 초기전체 checkpoint/replay/audit/waves를
+먼저 기존Drive로검증했다. TRAIN/DEV는 같고FINAL은 새namespace2026104500이다.
+Gain0.5재개와 기존GPU3두분기,다른사용자프로세스는 유지한다. 아직새학습의
+개선결과는 없으며구역별DEV로효과를판단한다.
+
+07:10에는 종료된 원본alignedrun의4,120,512,084bytes goal replay도 기존Drive
+size/MD5와writer종료를다시확인하고로컬에서정리했다. 원본최신2checkpoint/
+로그,13성공literal corpus,현재physical replay는보존했다. 원본run의
+`closed_replay_offload.json`에복원용size/MD5/Drive상대경로를기록했다.
+기존6GB HDF정리와합쳐약10GB를회수했고현재여유약18GiB다.

@@ -13,6 +13,7 @@ from ...algorithms.common import ObservationNormalizer
 from ...algorithms.sac import SquashedActor
 from .pose_goal_sac import GoalGripperProjector
 from .staged_goal_sac import GOAL_COLUMNS
+from ..geometry.upright_torso import planar_position
 
 PHYSICAL_COLUMNS = tuple(range(3,18)) + (22,23,18,19,20,21)
 PRIOR_FORMAT = 'frozen_goal_actor_to_physical_body_prior_v1'
@@ -71,6 +72,18 @@ def full_command(coordinates,observation,body):
     return physical
 
 
+def goal_body_command(coordinates,observation,goals):
+    """Decode body21 independently of the unused base-plane wheel solver."""
+    if goals.shape!=(len(observation),21) or not torch.isfinite(goals).all():
+        raise ValueError('Expected finite non-base goals21')
+    raw=servo_raw_actor(observation)
+    targets=raw[:,:20]+raw[:,416:436]
+    joint=targets[:,coordinates.joints.joint_columns]
+    torso=planar_position(targets[:,:2],coordinates.links.to(raw))
+    return torch.cat(((goals[:,:17]-joint)/raw.new_tensor(coordinates.joints.scales),
+        (goals[:,17:19]-torso)/(.1/30),goals[:,19:21]),-1).clamp(-1,1)
+
+
 class FrozenGoalCommandPrior(nn.Module):
     """Only trained actors/normalization; source Q and optimizers are excluded."""
     def __init__(self,snapshot,warm,device):
@@ -118,19 +131,16 @@ class FrozenGoalCommandPrior(nn.Module):
                                       torch.minimum(requested[:,:19],reference[:,:19]+.05)).clamp(-1,1)
         _,logits=self.jaw_parameters(normalized)
         requested[:,19:]=torch.where(self.gate.near(observation),torch.where(logits>0,1.,-1.),-1.)
-        goal=observation.new_zeros(len(observation),24)
-        goal[:,list(GOAL_COLUMNS)]=self.center+self.scale*requested
-        goal[:,19:21]=observation[:,-5:-3]
-        goal[:,21]=torch.atan2(observation[:,-3],observation[:,-2])
-        return body_command(self.coordinates.decode(servo_raw_actor(observation),goal))
+        return goal_body_command(self.coordinates,observation,self.center+self.scale*requested)
 
 
 class PhysicalBodyProjector:
     name='physical_body_delta_servo_residual_0p5_frozen_goal_actor_v1'
     free_grippers=True
     def __init__(self,prior,gain=.5):
-        if gain!=.5:raise ValueError('Unknown physical body residual gain')
+        if gain not in (.5,2.):raise ValueError('Physical residual gain must be .5 or full-range2')
         self.prior,self.gain=prior,gain
+        if gain==2.:self.name='physical_body_delta_servo_residual_full_range_2_frozen_goal_actor_v1'
         self.gate=GoalGripperProjector()
 
     def __call__(self,observation,requested):

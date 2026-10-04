@@ -21,7 +21,7 @@ from kuavo_isaaclab_scene.rl.multi_box.geometry.rack import grasp_lift_terminal_
 from kuavo_isaaclab_scene.rl.multi_box.experiments.physical_native_seed import seed_physical_training_successes
 
 
-def setup_fixture(tmp_path):
+def setup_fixture(tmp_path,*,gain=.5):
     config=SACConfig(hidden=16,gamma=.999,freeze_actor_normalizer=True,
                      initial_policy_std=.005,min_policy_std=.001,max_policy_std=.005)
     coordinates=PoseGoalCoordinates()
@@ -44,7 +44,7 @@ def setup_fixture(tmp_path):
         goal_contract=dict(actor_dim=480,critic_dim=539,fixed_prior_radius=.05,
             goal_center=[0.]*21,goal_scale=[1.]*21,physical_contract=physical_signature(physical),
             shelf_templates=stage.templates,waypoint_format=stage.name))
-    pilot=PhysicalBodySACPilot(warm,physical,tmp_path/'source',stage,frozen_goal_state=state)
+    pilot=PhysicalBodySACPilot(warm,physical,tmp_path/'source',stage,frozen_goal_state=state,residual_gain=gain)
     pilot.anchor=coordinates.box_anchor(raw).clone()
     return pilot,warm,physical,stage,raw,state
 
@@ -59,6 +59,59 @@ def test_actual_physical_projection_has_gradients_and_independent_close_gate():
     assert actual[1,19:].eq(-1).all()
     actual[:,:19].sum().backward()
     torch.testing.assert_close(requested.grad[:,:19],torch.full((2,19),.5))
+
+
+def test_full_gain_can_represent_opposite_servo_commands_without_larger_local_noise(tmp_path):
+    # Full endpoints are commands, not inverse requested-goal labels.
+    def baseline(obs):
+        result=obs.new_zeros(len(obs),21)
+        result[:,:19]=torch.linspace(-1,1,19).to(obs)
+        return result
+    obs=torch.zeros(1,480);obs[:,144]=1
+    projector=PhysicalBodyProjector(baseline,2.)
+    for target in [-1.,1.]:
+        requested=torch.zeros(1,21);requested[:,:19]=(target-baseline(obs)[:,:19])/2
+        torch.testing.assert_close(projector(obs,requested)[:,:19],torch.full((1,19),target))
+    half,_,_,_,_,_=setup_fixture(tmp_path/'half')
+    full,warm,physical,stage,raw,_=setup_fixture(tmp_path/'full',gain=2.)
+    assert full.radius==2. and full.agent.config.actor_lr==pytest.approx(half.agent.config.actor_lr/4)
+    for name in ['initial_policy_std','min_policy_std','max_policy_std']:
+        assert 2*getattr(full.agent.config,name)==pytest.approx(.5*getattr(half.agent.config,name))
+    ao,_=full.observations(raw,torch.zeros(1,530),0)
+    old=ao.clone();old[:,-1]=.05
+    torch.testing.assert_close(full.agent.actor_normalizer(ao),full.command_prior.normalizer(old),atol=1e-6,rtol=0)
+    full.directory.mkdir(parents=True);full.save(final=True)
+    cp=next(full.directory.glob('checkpoint_*.pt'))
+    resumed=PhysicalBodySACPilot(warm,physical,tmp_path/'resumed',stage,checkpoint=cp)
+    assert resumed.radius==2. and resumed.contract==full.contract
+    with pytest.raises(ValueError,match='gain differs'):
+        PhysicalBodySACPilot(warm,physical,tmp_path/'wrong',stage,checkpoint=cp,residual_gain=.5)
+
+
+@pytest.mark.parametrize('all_terminal',[False,True])
+def test_terminal_controller_placeholders_are_never_decoded_for_Q_bootstrap(tmp_path,all_terminal):
+    pilot,_,_,_,raw,_=setup_fixture(tmp_path)
+    _,previous=pilot.act(raw,torch.zeros(1,530),0)
+    ao,co,action=[v.expand(64,-1).clone() for v in previous]
+    terminal=torch.ones(64,dtype=torch.bool) if all_terminal else torch.arange(64)%2==0
+    na=ao.clone();na[terminal]=0  # These finite placeholders cannot be decoded.
+    nc=co.clone();nc[terminal]=0
+    report=pilot.agent.update(dict(actor_obs=ao,critic_obs=co,action=action,
+        next_actor_obs=na,next_critic_obs=nc,reward=torch.ones(64),terminated=terminal))
+    assert report['bootstrapped_rows']==int((~terminal).sum())
+    assert report['actor_updated'] and all(torch.isfinite(torch.tensor(v)) for v in report.values())
+
+
+def test_body_prior_does_not_solve_unused_singular_base_projection(tmp_path):
+    pilot,_,_,_,raw,_=setup_fixture(tmp_path)
+    pilot.coordinates.exact_projected_base=True
+    raw[:,71:77]=0
+    ao,_=pilot.observations(raw,torch.zeros(1,530),0)
+    body=pilot.command_prior(ao)
+    assert body.shape==(1,21) and body.isfinite().all()
+    # The live full command retains the original unsafe-base rejection.
+    with pytest.raises(ValueError,match='singular'):
+        full_command(pilot.coordinates,ao,body)
 
 
 def test_actor_only_prior_reconstructs_servo_and_never_copies_source_Q(tmp_path):

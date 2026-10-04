@@ -141,17 +141,25 @@ class HybridGoalSAC(AsymmetricSAC):
             raise ValueError('Hybrid replay must contain actual binary gripper commands')
         ao=self.actor_normalizer(self.actor_features(batch['actor_obs']))
         co=self.critic_normalizer(batch['critic_obs'])
-        na=self.actor_normalizer(self.actor_features(batch['next_actor_obs']))
-        nc=self.critic_normalizer(batch['next_critic_obs'])
         alpha=self.log_alpha.exp().detach();discrete_alpha=self.log_alpha_discrete.exp().detach()
         with torch.no_grad():
-            body,continuous_logp,logits=self.continuous_sample(na)
-            actions,probability,discrete_logp,_=self.enumerate_jaws(batch['next_actor_obs'],body,logits)
-            q=self.branch_values(nc,actions,target=True)
-            entropy=alpha*continuous_logp[:,None]+discrete_alpha*discrete_logp
-            next_value=(probability*(q-entropy if self.config.entropy_backup else q)).sum(-1)
-            target=self.config.reward_scale*batch['reward']+self.config.gamma*torch.where(
-                batch['terminated'],torch.zeros_like(next_value),next_value)
+            # Terminal observations can contain finite quarantine placeholders
+            # or physically singular poses. Their bootstrap value is exactly
+            # zero; never send them through a domain-constrained controller.
+            bootstrap=~batch['terminated'].bool()
+            next_value=torch.zeros_like(batch['reward'])
+            body=ao.new_empty(0,self.continuous_dims)
+            continuous_logp=ao.new_empty(0)
+            if bool(bootstrap.any()):
+                next_actor=batch['next_actor_obs'][bootstrap]
+                na=self.actor_normalizer(self.actor_features(next_actor))
+                nc=self.critic_normalizer(batch['next_critic_obs'][bootstrap])
+                body,continuous_logp,logits=self.continuous_sample(na)
+                actions,probability,discrete_logp,_=self.enumerate_jaws(next_actor,body,logits)
+                q=self.branch_values(nc,actions,target=True)
+                entropy=alpha*continuous_logp[:,None]+discrete_alpha*discrete_logp
+                next_value[bootstrap]=(probability*(q-entropy if self.config.entropy_backup else q)).sum(-1)
+            target=self.config.reward_scale*batch['reward']+self.config.gamma*next_value
         replay=torch.cat((co,batch['action']),-1)
         q1=self.q1(replay).squeeze(-1);q2=self.q2(replay).squeeze(-1)
         q_loss=F.mse_loss(q1,target)+F.mse_loss(q2,target)
@@ -163,10 +171,11 @@ class HybridGoalSAC(AsymmetricSAC):
             demo_bc_loss=0.,demo_bc_weight=0.,teacher_bc_loss=0.,teacher_bc_weight=0.,
             discrete_prior_loss=0.,discrete_prior_weight=0.,
             alpha=alpha.item(),alpha_discrete=discrete_alpha.item(),
-            policy_logp_mean=continuous_logp.mean().item(),
-            policy_action_std_mean=body.std(0,unbiased=False).mean().item(),
+            policy_logp_mean=continuous_logp.mean().item() if len(body) else 0.,
+            policy_action_std_mean=body.std(0,unbiased=False).mean().item() if len(body) else 0.,
+            bootstrapped_rows=int(bootstrap.sum()),
             q_value_mean=torch.minimum(q1,q2).mean().item(),target_value_mean=target.mean().item(),
-            entropy_bonus_mean=(-(probability*entropy).sum(-1)).mean().item(),
+            entropy_bonus_mean=(-(probability*entropy).sum(-1)).mean().item() if len(body) else 0.,
             policy_gaussian_std_mean=self.parameters_at(ao)[1].exp().mean().item(),
             success_goal_loss=0.,success_jaw_loss=0.,success_goal_weight=0.,success_jaw_weight=0.)
         if not update_actor:return report
