@@ -41,6 +41,8 @@ def main():
                         help='Repeat for measured current-environment successes; episode clocks/anchors stay separate.')
     parser.add_argument('--staged-base-waypoints',type=Path,
                         help='Frozen diagnostic only: neutral-arm base approach, then hold a TRAIN-derived waypoint. Excludes old goal Q import.')
+    parser.add_argument('--staged-contact-ik-native-seed',type=Path,action='append',
+                        help='Staged frozen diagnostic only: native successful TRAIN calibration for local contact IK. Not a SAC policy.')
     parser.add_argument('--executed-actions', type=Path,
                         help='Reproduce actual current GPU success commands as an open-loop diagnostic, not a learned policy.')
     parser.add_argument('--actor-reference-mix', type=float,
@@ -63,6 +65,8 @@ def main():
     parser.add_argument('--residual-zero',action='store_true',help='Geometry-guide physical probe, no learned actions or optimizer updates.')
     parser.add_argument('--vr-orientation-mode',choices=('full','closing-axis'),default='full',
                         help='VR/live-IK diagnostic only: constrain the complete wrist or just its jaw closing axis.')
+    parser.add_argument('--staged-contact-ik-mode',choices=('near-contact','after-base-hold'),
+                        default='near-contact',help='Frozen teacher probe: local contact correction or front-stage IK after physical base settling.')
     parser.add_argument('--vr-contact-torso-forward-m',type=float,default=0.,
                         help='VR/live-IK diagnostic only: bounded upright torso X assist during contact.')
     parser.add_argument('--vr-contact-torso-up-m',type=float,default=0.,
@@ -110,6 +114,11 @@ def main():
     if args.staged_base_waypoints and (not args.staged_base_waypoints.is_file()
             or not args.pose_student_checkpoint or args.pose_student_training):
         parser.error('Staged base probe requires existing templates and a frozen pose policy; new matching SAC is a separate task')
+    if args.staged_contact_ik_native_seed and (not args.staged_base_waypoints
+            or not all(p.is_file() for p in args.staged_contact_ik_native_seed)):
+        parser.error('Native contact IK requires staged frozen control and existing TRAIN success calibration')
+    if args.staged_contact_ik_mode!='near-contact' and not args.staged_contact_ik_native_seed:
+        parser.error('A staged contact handoff mode requires native TRAIN contact calibration')
     if args.pose_student_training and (not args.pose_student_native_seed or
             not all(path.is_file() for path in args.pose_student_native_seed)):
         parser.error('Goal SAC requires an existing measured current success seed')
@@ -265,6 +274,7 @@ def main():
         agent = state = limits = executed = joint_goal = residual = pose_student = pose_sac = None
         initial_actor_error = None
         staged_base = None
+        staged_contact_ik = None
         controller_name = 'VR_reference_plus_contact_confirmed_IK_NOT_SAC'
         if args.pose_student_checkpoint:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
@@ -291,6 +301,20 @@ def main():
                 staged_base=StagedBaseHoldDiagnostic((pose_sac or pose_student).coordinates,
                     waypoints,observation['policy'])
                 controller_name='frozen_neural_grasp_with_analytic_base_staging_NOT_new_staged_SAC'
+                if args.staged_contact_ik_native_seed:
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import merge_executed_successes
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import target_token
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_contact_ik import StagedContactIKDiagnostic
+                    measured,audit=merge_executed_successes(args.staged_contact_ik_native_seed,contract)
+                    token,_=target_token(measured['actor_obs'])
+                    mask=(token[:,10:12].sum(-1)>.5)==(staged_base.shelf=='upper')
+                    if not bool(mask.any()):raise ValueError('No native contact calibration for this shelf')
+                    measured={k:v[mask].to(env.device) for k,v in measured.items()}
+                    audit=audit|{'calibration_shelf':staged_base.shelf,
+                                 'calibration_rows':int(mask.sum()),'used_for_Q':False}
+                    staged_contact_ik=StagedContactIKDiagnostic(env,measured,audit,
+                        handoff_mode=args.staged_contact_ik_mode)
+                    controller_name='frozen_neural_approach_with_staged_base_and_native_contact_IK_teacher_NOT_SAC'
         elif args.executed_actions:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.executed_replay import read_executed_successes
             measured, _ = read_executed_successes(args.executed_actions, contract)
@@ -437,6 +461,9 @@ def main():
             manifest=json.loads((output/'manifest.json').read_text())
             manifest.update(artifact_type=staged_base.collection_source,
                             staged_base_contract=staged_base.report(),training=False)
+            if staged_contact_ik:
+                meta['staged_contact_ik_contract']=staged_contact_ik.report()
+                manifest['staged_contact_ik_contract']=staged_contact_ik.report()
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         meta['vr_orientation_mode']=args.vr_orientation_mode
         meta['vr_contact_torso_forward_m']=args.vr_contact_torso_forward_m
@@ -455,7 +482,8 @@ def main():
         recorder = RlTransitionRecorder(output/'executed_transitions.hdf5', meta)
         recorder.start_episode(initial_state=capture_rl_initial_state(env, observation))
         renderer = None if args.no_video else SceneVideo(env,
-            caption=(f'Base staging + FROZEN grasp | DIAGNOSTIC, not new SAC' if staged_base else
+            caption=(f'Base staging + FROZEN approach + local IK | TEACHER, NOT SAC' if staged_contact_ik else
+                     f'Base staging + FROZEN grasp | DIAGNOSTIC, not new SAC' if staged_base else
                      f'Learned pose goals | SAC | NO live reference | train={pose_sac.training}' if pose_sac else
                      f'Learned pose student | BC, NOT SAC | NO live reference' if pose_student else
                      f'Reference + {"zero" if args.residual_zero else "SAC"} residual | layout={layout.seed if layout else "fixed"} | train={args.residual_training}' if residual else
@@ -501,6 +529,8 @@ def main():
                 **{key: bool(env.termination_manager.get_term(key)[0]) for key in counts})
             if staged_base:
                 row['staged_base']=staged_base.report()
+            if staged_contact_ik:
+                row['staged_contact_ik']=staged_contact_ik.report()
             if args.contact_diagnostics:
                 from kuavo_isaaclab_scene.rl.multi_box.state.isaac_privileged_grasp import MIN_JAW_FORCE_N
                 # These are the already measured success inputs, not new
@@ -598,6 +628,8 @@ def main():
                 if limits is not None:
                     action = action.clamp(-limits, limits)
                 if staged_base and staged_base.phase=='held_grasp':
+                    if staged_contact_ik:
+                        action=staged_contact_ik.act(pre['policy'],action,step)
                     action=staged_base.action(pre['policy'],action)
                 observation, reward, terminated, truncated, info = env.step(action)
                 terminal = info['transition_next_observations']
@@ -684,6 +716,7 @@ def main():
                       retarget=residual.controller.retarget_report if residual and args.residual_controller=='retargeted-goal' else None)
         report['initial_base_pose_world']=initial_base_pose
         if staged_base:report['staged_base_contract']=staged_base.report()
+        if staged_contact_ik:report['staged_contact_ik_contract']=staged_contact_ik.report()
         report['initial_rack_pose_world']=initial_rack_pose
         report['initial_base_rack_observation']=initial_actor[68:77].tolist()
         report['initial_active_box_tokens']=initial_actor[86:350].reshape(12,22)[

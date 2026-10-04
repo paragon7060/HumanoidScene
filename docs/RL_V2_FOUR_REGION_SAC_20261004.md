@@ -287,3 +287,69 @@ yaw−0.53°·주변 박스를 유지했다. Base는 실제 초기 상태에서 
 Actor16910에 추가 optimizer update가 없었으므로 **base 제어 분리 + frozen
 파지 정책의 물리 성공**이다. 새 staged SAC가 학습해 성공한 결과도 전체 네 구역
 일반화도 아니다. 오른쪽·상단과 같은 배치의 기존 제어 비교는 계속 진행 중이다.
+
+### Base 분리 완료 결과와 상단 안전 진입 진단 (09:00)
+
+네 구역 base 분리 frozen 진단은 종료됐고 모든 실제 데이터/영상/로그의
+Drive 검증을 마쳤다. **2/4 성공·안전 위반0**이며 상단은 아직 해결되지 않았다.
+
+| 새 독립 배치 | 실제 결과 | 종료 control step |
+|---|---|---:|
+| 중간 왼쪽37000 | 양손 opposing flap 파지·proof lift 성공 | 497 |
+| 중간 오른쪽37100 | 양손 opposing flap 파지·proof lift 성공 | 496 |
+| 상단 왼쪽37200 | 시간초과 | 853 |
+| 상단 오른쪽37300 | 시간초과 | 854 |
+
+GPU0의 같은 배치/같은 actor16910 기존 whole-body 비교는08:50부터 이어
+실행 중이다. 이 결과가 나오기 전 base 분리가 기존보다 좋다고 판단하지 않는다.
+GPU3 본 SAC는 첫 TRAIN4개2/4·unsafe0, 같은 개발 네 구역 재평가2/4·unsafe0이며
+초기 개발 결과와 같았다. 두 번째 TRAIN block을 진행 중이다.
+
+상단을 위해 `StagedContactIKDiagnostic`과
+`scripts/rl/staged_contact_with_drive.py`를 추가했다. 이 코드는 **물리 진단용
+teacher이며 SAC actor 학습이나 standalone policy 성공으로 취급하지 않는다.**
+성공한 현재 물리 TRAIN의 손–flap offset/회전만 보정 목표의 근거로 사용한다.
+검증되지 않은 이전 VR reward나 가상 correction label을 Q에 넣지 않는다.
+
+- 기본 `near-contact`: 기존 frozen 팔 접근에서 양손 목표 오차가 모두10cm
+  미만이면 접촉 IK로 넘긴다. 이 조건에 도달하지 않으면 보정이 실행되지 않는다.
+- `after-base-hold`: 실제 base 정지 확인 직후 열린 손으로 랙 앞 진입 위치를
+  먼저 맞추고 접근·접촉을 수행한다. 먼 손을 바로 flap에 삽입하지 않는다.
+- 공통: 실제 URDF/USD FK·TCP/Jacobian/관절 한계 일치를 확인한 bounded
+  IK servo를 사용한다. 접촉 중 중립 rest로 당기지 않도록 실제 관절 자세를
+  rest로 유지하고 base waypoint는 기존 staged 제어가 계속 유지한다.
+- 양손 위치 오차15mm와 닫힘 축 오차0.15rad를 모두 만족해야 coordinated
+  close를 제안한다. 이미 실제 pinch가 성립한 손은 닫힘을 유지한다.
+  서로 다른 flap의 실제 opposing pinch3tick 확인 뒤 실제 TCP 기준25mm lift를
+  제안한다. 이 마지막 확인은 privileged teacher 정보이며 actor 관측에 추가하지 않는다.
+- Reward/성공/종료/접촉 센서는 변경하지 않는다. 실패도 그대로 실패로 기록한다.
+  해당 collection source는 기존 goal-SAC replay에서 거부한다.
+
+분리한 새 TRAIN45200 배치에서 기본 보정은08:46 시작했고, 안전 진입부터
+보정하는 비교는08:58 시작했다. 기존 네 구역 final37000..37300을 보정 데이터로
+사용하지 않는다. 결과는 아직 나오지 않았다.
+실제 native 성공 데이터의 URDF FK 검사에서 상단 bilateral pinch 자세의
+shoulder–TCP 길이는 팔 길이의 왼손94.48%/오른손93.62%였다.
+현재 gross reach bound95%에 가깝지만 이 진단만으로 reach 제한이 실패의
+원인이라고 단정하거나 한계를 변경하지 않았다. 중력보상이나 TCP offset이
+없다는 가정도 사용하지 않는다. 두 기능은 기존 제어에 이미 연결되어 있다.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python scripts/rl/staged_contact_with_drive.py \
+  --gpu 0 --experiment-dir /absolute/path/to/unique-contact-diagnostic \
+  --checkpoint /absolute/path/to/matching-frozen-goal-checkpoint.pt \
+  --layout-json /absolute/path/to/separate-train-layout.json \
+  --waypoints /absolute/path/to/HumanoidScene/docs/assets/rl_v2_staged_base_hold_candidates_20261004.json \
+  --demo-dataset /absolute/path/to/native-reset-demo.hdf5 \
+  --training-manifest /absolute/path/to/matching-physical-manifest.json \
+  --native-seed /absolute/path/to/measured-middle-train-success.hdf5 \
+  --native-seed /absolute/path/to/measured-upper-train-success.hdf5 \
+  --episode-index 1 --contact-mode after-base-hold
+```
+
+Conda `env_isaaclab_232`의 Python/Isaac 환경을 사용한다. 별도 인증을 만들지 않고
+기존 remote를 발견해 공용 Drive 감독자/5분 checksum 검증과 최근2개 보존을
+재사용한다. 종료 후 쓰기가 멈춘 실제 HDF5·영상·로그도 업로드/검증한다.
+접촉/정지 handoff 및 기존 replay 거부를 포함한 관련 CPU 검사25개를 통과했다.
+이 검사는 학습 일반화 성공률을 뜻하지 않는다. 새 staged SAC에는 다른
+phase/waypoint/action 계약과 그 제어로 실행한 실제 TRAIN 경험이 필요하다.
