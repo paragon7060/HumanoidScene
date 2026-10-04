@@ -1189,3 +1189,13 @@ approach/held controller 목표의 일치와 초기 관측/원래 templates 보�
 사용자가 직접 고칠 코드/인증은 없다. 가장 도움이 되는 추가 자료는 현재 torso+6cm,
 양손 flap/8mm roller support lift 조건의 **상단 오른쪽 VR 성공 데모**다. 선택 사항이며,
 위 진단과 실제 SAC 수집은 추가 자료 없이 진행한다.
+
+### 22:19 — 최신 실행·백업 실측 상태
+
+종료한 TGS resume의 `final_upload_verified=true`를 확인했다. 새 waypoint 진단에서는
+84/128 original attempts가 초기 guard/실제 base 이동과 안정 대기를 통과하여 frozen
+manipulation에 진입했다. Actor2100/Q10448/replay0은 유지되며, 진단을 새 학습/Q data로
+세지 않는다. 후보별 성공·충돌 결과는 rollout을 마친 뒤 비교한다.
+GPU0의 첫 새 TRAIN은0/128, actor3008/Q14080, 실제 replay487399행이었다.
+학습 개선은 아직 달성하지 못했다. [상태 snapshot](assets/rl_v2_confident_sac_live_and_reset_probe_20261004.json)에
+종료/Drive 검증을 마친 실행과 진행 중인 실행을 구분하여 기록했다.

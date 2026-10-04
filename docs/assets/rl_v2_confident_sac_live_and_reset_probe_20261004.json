@@ -218,5 +218,83 @@
     },
     "source_frozen_DEV_is_not_new_learning_improvement": true,
     "upper_generalization_success_achieved": false
+  },
+  "current_after_DEV_and_waypoint_probe_start": {
+    "measured_at": "2026-10-04T22:19:49.725427+09:00",
+    "runs": [
+      {
+        "solver": "tgs",
+        "experiment": "staged_hybrid_aligned_resume_tgs128_gpu3_20261004_214722",
+        "parent_status": {
+          "phase": "finished",
+          "training_exit_code": 1,
+          "final_upload_verified": true,
+          "backup_error": null
+        },
+        "learner": {
+          "actor_updates": 1573,
+          "critic_updates": 8340,
+          "replay_size": 221830,
+          "online_rows": 4333
+        },
+        "completed_DEV_successes": 0,
+        "completed_DEV_requested_cases": 128
+      },
+      {
+        "solver": "pgs",
+        "experiment": "staged_hybrid_aligned_resume_pgs128_gpu0_20261004_214747",
+        "parent_status": {
+          "phase": "training",
+          "training_exit_code": null,
+          "final_upload_verified": null,
+          "backup_error": null
+        },
+        "learner": {
+          "actor_updates": 3008,
+          "critic_updates": 14080,
+          "replay_size": 487399,
+          "online_rows": 48591
+        },
+        "completed_DEV_successes": 2,
+        "completed_DEV_requested_cases": 128
+      }
+    ],
+    "probe": {
+      "parent": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/staged_upper_waypoint_probe128_gpu3_20261004_221213",
+      "unit": "humanoid-rl-upper-waypoint-probe128-gpu3-20261004_221213.service",
+      "gpu": 3,
+      "parallel_envs": 128,
+      "policy_frozen": true,
+      "source_checkpoint": "/home/seonho/HumanoidScene/artifacts/rl/pose_students/staged_hybrid_confident_jaws_pgs_recovered_20261004_2050/checkpoint_00010448.pt",
+      "source_initial_backup_verified": true,
+      "old_gpu3_writer_stopped": true,
+      "old_gpu3_final_backup_still_in_progress": true,
+      "unique_initial_development_cases": 32,
+      "candidates": 4,
+      "physical_attempts": 128,
+      "independent_final_cases_used": false,
+      "initial_base_and_dynamic_boxes_unchanged": true,
+      "Q_replay_import_eligible": false,
+      "source_controller": "confident PGS validated actor prior; no IK/live VR",
+      "offsets_m": {
+        "right_mirror_dx": 0.09103742241859436,
+        "toward_center_dx": 0.05,
+        "farther_front_dy": 0.05
+      },
+      "run_dir": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/staged_upper_waypoint_probe128_gpu3_20261004_221213/batch_sac_20261004_221213_ffee0a",
+      "progress": {
+        "wave": 0,
+        "step": 241,
+        "active": 84,
+        "held": 84,
+        "actual_rows": 20244
+      },
+      "learner": {
+        "training": false,
+        "actor_updates": 2100,
+        "critic_updates": 10448,
+        "replay_size": 0
+      }
+    }
   }
 }
