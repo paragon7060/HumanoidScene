@@ -56,22 +56,35 @@ def settle_neutral_wave_controllers(env, steps=60):
 class DevelopmentSuccessGuard:
     """Compare the same development cases without consulting final outcomes.
 
-    A loss in any region stops the learner. The caller saves actual Q/replay
-    before returning, so actor recovery can use a separate, immutable run.
+    Strict mode stops on any regional count loss. Optional exact paired mode
+    distinguishes that loss from physical repeat noise. Its familywise alpha
+    is spent over comparisons and regions; neither mode sees final outcomes.
     """
-    def __init__(self, minimum_region_success_rate=0.):
+    def __init__(self, minimum_region_success_rate=0., *, regression_significance=0.):
         if not 0<=minimum_region_success_rate<=1:
             raise ValueError('Development success floor must be within0..1')
         self.minimum_region_success_rate=minimum_region_success_rate
+        if not 0<=regression_significance<1:
+            raise ValueError('Regression significance must be within0..1, excluding1')
+        self.regression_significance=regression_significance
         self.cases = None
         self.best = None
         self.best_wave = None
         self.best_actor_updates = None
+        self.best_success = None
+        self.comparisons = 0
+        self.paired_reference_success = None
+        self.paired_reference_counts = None
+        self.paired_reference_actor_updates = None
+        self.paired_reference_wave = None
 
     def evaluate(self, layouts, results, wave_index, *, actor_updates=None):
         if len(layouts) != len(results) or not layouts:
             raise ValueError('Development layouts and physical results differ')
-        cases = sorted(json.dumps(row, sort_keys=True) for row in layouts)
+        keys=[json.dumps(row, sort_keys=True) for row in layouts]
+        cases = sorted(keys)
+        success={key:bool(result and result['success']) for key,result in zip(keys,results)}
+        if len(success)!=len(layouts):raise ValueError('Development requires identical initial cases with distinct entries')
         if self.cases is not None and cases != self.cases:
             raise ValueError('Development regression requires identical initial cases')
         counts = {}
@@ -80,21 +93,56 @@ class DevelopmentSuccessGuard:
             count = counts.setdefault(region, dict(attempts=0, successes=0))
             count['attempts'] += 1
             count['successes'] += int(bool(result and result['success']))
-        regression = self.best is not None and any(
+        raw_loss = self.best is not None and any(
             count['successes'] < self.best[region]['successes']
             for region, count in counts.items())
+        paired={};threshold=None
+        regression=raw_loss
+        if self.best is not None and self.regression_significance:
+            self.comparisons+=1
+            # Sum over k>=1 of1/(k*(k+1)) is1: the declared familywise alpha
+            # covers repeated development looks, including this whole region set.
+            threshold=self.regression_significance/(self.comparisons*(self.comparisons+1)*len(counts))
+            for region in counts:
+                region_keys=[key for key,row in zip(keys,layouts) if row['layout']['target_region']==region]
+                # Compare to the first, preselected development baseline.
+                # Choosing the best noisy past observation as the null baseline
+                # would itself bias the exact test toward false regressions.
+                lost=sum(self.paired_reference_success[key] and not success[key] for key in region_keys)
+                gained=sum(not self.paired_reference_success[key] and success[key] for key in region_keys)
+                discordant=lost+gained
+                p=(sum(math.comb(discordant,i) for i in range(lost,discordant+1))/2**discordant
+                   if discordant else 1.)
+                paired[region]=dict(lost_successes=lost,gained_successes=gained,
+                    one_sided_exact_p=p,significant_loss=lost>gained and p<=threshold)
+            regression=any(v['significant_loss'] for v in paired.values())
+        compared_actor_updates=(self.paired_reference_actor_updates if self.regression_significance
+                                else self.best_actor_updates)
         cause=('physical_reproducibility_loss_without_actor_update'
-               if regression and actor_updates is not None and actor_updates==self.best_actor_updates
+               if regression and actor_updates is not None and actor_updates==compared_actor_updates
                else 'policy_performance_loss' if regression else None)
-        if not regression:
+        if self.paired_reference_success is None:
+            self.paired_reference_success=success
+            self.paired_reference_counts=counts
+            self.paired_reference_actor_updates=actor_updates
+            self.paired_reference_wave=wave_index
+        if self.best is None or not raw_loss:
             self.cases, self.best, self.best_wave = cases, counts, wave_index
             self.best_actor_updates=actor_updates
+            self.best_success=success
         baseline_failed=any(count['successes']/count['attempts']<self.minimum_region_success_rate
                             for count in counts.values())
         return dict(regression=regression,regression_cause=cause,
                     baseline_failed=baseline_failed, by_region=counts,
                     best_by_region=self.best, best_wave=self.best_wave,
                     minimum_region_success_rate=self.minimum_region_success_rate,
+                    regional_raw_loss=raw_loss,paired_comparison=paired,
+                    regression_significance=self.regression_significance,
+                    spent_region_significance=threshold,
+                    paired_reference_wave=self.paired_reference_wave,
+                    paired_reference_by_region=self.paired_reference_counts,
+                    regression_rule=('fixed_initial_baseline_exact_paired_alpha_spending'
+                                     if self.regression_significance else 'strict_regional_count'),
                     final_outcomes_used=False)
 
 
@@ -102,6 +150,26 @@ def evaluate_development_wave(guard,layouts,results,wave_index,*,actor_updates,c
     if not completed:
         return dict(evaluated=False,reason='requested_stop_during_development',final_outcomes_used=False)
     return dict(evaluated=True,**guard.evaluate(layouts,results,wave_index,actor_updates=actor_updates))
+
+
+def measured_wave_mask(active, numerical_failure, diagnostics, last, step):
+    """Quarantine replaced numerical states without rewriting actual past rows.
+
+    The failed requested attempt remains a denominator failure. Its corrupted
+    action->replacement observation is never a measured transition for Q/HDF.
+    Healthy terminal rows are still measured; the caller deactivates them only
+    after recording their actual terminal observations.
+    """
+    if numerical_failure.dtype!=torch.bool or numerical_failure.shape!=active.shape:
+        raise ValueError('Numerical wave mask must match active environments')
+    failed=active&numerical_failure
+    for i in torch.where(failed)[0].tolist():
+        last[i]=dict(steps=step+1,success=False,unsafe=True,invalid_reset=False,
+            time_out=False,numerical_failure=True,
+            excluded_corrupted_transition=True,
+            numerical_causes=[k for k,v in diagnostics.items() if bool(v[i])],
+            last_valid_physics_result=last[i])
+    return active&~numerical_failure
 
 
 class BatchedBaseStages:

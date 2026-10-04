@@ -335,3 +335,24 @@ optimizer·실제 replay·update 횟수를 보존하고 actor와 actor Adam mome
 유지한다. TRAIN과 다른 solver probe는 거부한다. 변경된 dynamics 진단으로
 명시하며 기존 TGS Q/replay의 seed로 허용하지 않는다. 같은 정책·case·환경 수와
 원점의 원래 설정으로 비교해야 하고, 채택 시 새로운 dynamics의 fresh Q가 필요하다.
+
+### 동일 개발 baseline과 물리 수치 실패 분리
+
+기존 guard는 구역별 성공이1개만 줄어도 중단한다. Frozen 반복4/16→5/16→5/16의
+중간 좌1→2→1에도 학습을 중단할 수 있어, 다음 실행에서
+`--stop-on-validation-regression --validation-regression-significance 0.05`를
+선택할 수 있게 했다. Default0은 기존 strict count 방식을 유지한다.
+같은 case의 초기 평가를 고정 baseline으로 삼아 성공 손실/획득을 paired exact
+binomial test로 비교한다. 각 반복 k의 threshold는0.05/[k(k+1)×구역 수]다.
+Best noisy repeat를 통계 null baseline으로 다시 고르지 않는다. 이 규칙은
+paired 결과의 교환 가능성을 가정하며 GPU 물리 재현성을 보장하지 않는다.
+Raw 구역별 하락·짝별 손실/획득·p·threshold를 모두 남기고 independent final은
+선택/학습에 쓰지 않는다. Baseline floor와 성공률 분모는 유지한다.
+
+Active layout에 nonfinite robot dynamics가 생겨 respawn됐다면 그 환경만 실패
+attempt로 종료한다. Corrupt action→replacement state 행은 Q/HDF에서 제외하고,
+마지막 valid 물리 기록과 numerical causes를 별도 요약한다. Healthy terminal
+전이는 그대로 저장하고 학습하며, 다른 환경도 계속 진행한다. 과거 valid row의
+reward/terminal flag를 사후 수정하지 않는다. Finite box speed failure는 기존
+실제 terminal transition으로 유지한다. 이는 물리 발산 치료가 아닌 데이터
+오염·한 환경의 오류로 전체 학습이 중단되는 문제의 수정이다.

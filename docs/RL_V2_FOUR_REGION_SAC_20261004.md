@@ -749,3 +749,27 @@ continuous/discrete alpha와 두 optimizer·실제 replay·update 횟수는 보�
 Actor Adam moment만 초기화하고 새 고유 폴더에 저장한다. 다른 solver/관측 계약의
 Q를 이전하거나 DEV transition을 학습 데이터로 쓰지 않는다. 관련 CPU42검사 통과.
 현재 GPU3 actor를 되돌리거나 live process 코드를 교체한 것은 아니다.
+
+## 15:04 · 실제 actor 학습 시작과 중단 조건 보완
+
+GPU3에서 실제 held replay72,423행·critic2,160회·actor28회를 확인했다.
+Binary Q와 두 entropy loss는 유한했고 TRAIN/demo BC loss는0이었다.
+Warm start의 frozen actor prior는 body regularization으로만 연결되며 current
+DEV/final 관측이나 실제 전이를 optimizer에 넣지 않는다. 이후 동일 development
+평가를 기다린다. 아직 SAC 평가 개선·상단 성공·목표 완료로 기록하지 않는다.
+
+GPU0 원래TGS의 동일16case는 **5/16**, contact-last는1/16이었다. 두 실행의
+writer 종료 및 최종 Drive 검증을 확인한 뒤14:55에 PGS frozen 비교가 실제
+시작했다. USD solverType=PGS도 확인했다. 현재GPU3 TGS는 변경하지 않았다.
+
+새 코드에는 수치 corruption 환경만 quarantine하는 measured-wave mask를
+추가했다. Respawn된 state와 action을 원래 과제 transition으로 만들지 않고
+다른 정상 환경은 계속한다. Finite speed/lift failure는 실제 reward/terminal
+그대로 Q에 남긴다. 현재 실행에는 동적으로 적용하지 않고 후속 실행부터 쓴다.
+
+Raw regional count 하락만으로 중단하던 guard에는 고정 initial baseline의
+paired exact 비교 옵션0.05를 추가했다. 반복/구역에 significance budget을
+배분하고 best noisy repeat를 통계 baseline으로 선택하지 않는다. 실제 종료된
+4/16→5/16→5/16 frozen 기록에서 마지막 raw regional1개 손실은 noisy best 대비 수량 변화지만 고정
+initial baseline과는 동일해 paired p=1.0, 회귀 stop이 아니었다. 독립 final은 이 분석에 쓰지 않았다. 현재 live128 실행은
+기존 strict guard이며 첫 learned development 결과를 확인한 뒤 후속에 적용한다.

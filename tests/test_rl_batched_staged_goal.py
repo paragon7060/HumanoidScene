@@ -137,6 +137,77 @@ def test_incomplete_evaluation_cannot_erase_baseline_and_Q_only_loss_is_named():
     assert learned['regression_cause']=='policy_performance_loss'
 
 
+def test_exact_paired_guard_retains_baseline_after_repeat_noise_but_detects_collapse():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import DevelopmentSuccessGuard
+    layouts=[dict(layout=dict(seed=i,target_region=r))
+             for i,r in enumerate(['left']*32+['right']*32)]
+    baseline=[dict(success=i<16 or i>=32 and i<48) for i in range(64)]
+    guard=DevelopmentSuccessGuard(regression_significance=.05)
+    guard.evaluate(layouts,baseline,0,actor_updates=0)
+    repeat=[dict(success=v['success']) for v in baseline];repeat[0]['success']=False
+    noise=guard.evaluate(layouts,repeat,1,actor_updates=0)
+    assert noise['regional_raw_loss'] and not noise['regression'] and guard.best_wave==0
+    assert noise['paired_comparison']['left']['one_sided_exact_p']==.5
+    # Same cases may arrive in a different order. Pair by their full layout key.
+    collapse=[dict(success=False if i<32 else v['success']) for i,v in enumerate(baseline)]
+    failed=guard.evaluate(list(reversed(layouts)),list(reversed(collapse)),2,actor_updates=80)
+    assert failed['regression'] and failed['regression_cause']=='policy_performance_loss'
+    assert failed['paired_comparison']['left']['lost_successes']==16
+    assert failed['paired_comparison']['left']['one_sided_exact_p']==2**-16
+    assert failed['spent_region_significance']==pytest.approx(.05/(2*3*2))
+    assert not failed['final_outcomes_used']
+
+
+def test_paired_guard_does_not_call_success_swaps_a_policy_regression():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import DevelopmentSuccessGuard
+    layouts=[dict(layout=dict(seed=i,target_region='left')) for i in range(32)]
+    guard=DevelopmentSuccessGuard(regression_significance=.05)
+    guard.evaluate(layouts,[dict(success=i<16) for i in range(32)],0,actor_updates=0)
+    changed=guard.evaluate(layouts,[dict(success=i>=17) for i in range(32)],1,actor_updates=100)
+    assert changed['regional_raw_loss'] and not changed['regression']
+    assert changed['paired_comparison']['left']['lost_successes']==16
+    assert changed['paired_comparison']['left']['gained_successes']==15
+    with pytest.raises(ValueError,match='distinct'):
+        guard.evaluate([layouts[0]]*32,[dict(success=False)]*32,2)
+
+
+def test_paired_null_baseline_is_not_selected_from_the_best_noisy_repeat():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import DevelopmentSuccessGuard
+    layouts=[dict(layout=dict(seed=i,target_region='left')) for i in range(32)]
+    guard=DevelopmentSuccessGuard(regression_significance=.05)
+    baseline=[dict(success=i<16) for i in range(32)]
+    guard.evaluate(layouts,baseline,0,actor_updates=0)
+    guard.evaluate(layouts,[dict(success=True)]*32,1,actor_updates=20)
+    repeat=guard.evaluate(layouts,baseline,2,actor_updates=21)
+    assert repeat['regional_raw_loss'] and guard.best['left']['successes']==32
+    assert repeat['paired_reference_wave']==0
+    assert repeat['paired_reference_by_region']['left']['successes']==16
+    assert not repeat['regression']
+    assert repeat['paired_comparison']['left']['lost_successes']==0
+
+
+def test_numerical_replacement_excludes_only_corrupt_wave_row_and_keeps_failed_attempt():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import measured_wave_mask
+    active=torch.tensor([True,True,True,False])
+    numeric=torch.tensor([False,True,False,True])
+    past=dict(success=False,unsafe=False,flap_distances=[.1,.2])
+    last=[None,past,None,dict(success=True)]
+    measured=measured_wave_mask(active,numeric,
+        {'joint_state_nonfinite':numeric.clone()},last,10)
+    assert measured.tolist()==[True,False,True,False]
+    assert last[1]['numerical_failure'] and last[1]['excluded_corrupted_transition']
+    assert not last[1]['success'] and last[1]['steps']==11
+    assert last[1]['last_valid_physics_result'] is past and not past['unsafe']
+    assert last[3]==dict(success=True)  # an already closed attempt is unchanged
+    # Healthy terminal ID2 is retained until the caller records its real row.
+    ids=torch.tensor([1,2]);previous=(torch.tensor([[11.],[22.]]),)*3
+    valid=measured[ids]
+    assert ids[valid].tolist()==[2]
+    assert all(v[valid].tolist()==[[22.]] for v in previous)
+    with pytest.raises(ValueError,match='match active'):
+        measured_wave_mask(active,torch.zeros(3,dtype=torch.bool),{},last,11)
+
+
 def test_feedback_rate_contract_checks_every_vector_environment():
     from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
     base=torch.tensor([[.15,.15,.5]]).repeat(4,1)

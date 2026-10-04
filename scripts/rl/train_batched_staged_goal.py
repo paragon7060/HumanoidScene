@@ -27,6 +27,8 @@ def main():
     parser.add_argument('--training',action=argparse.BooleanOptionalAction,default=False)
     parser.add_argument('--stop-on-validation-regression',action='store_true')
     parser.add_argument('--minimum-validation-region-success-rate',type=float,default=0.)
+    parser.add_argument('--validation-regression-significance',type=float,default=0.,
+        help='0=strict regional count; otherwise exact paired tests with alpha spending over looks/regions')
     probes=parser.add_mutually_exclusive_group()
     probes.add_argument('--contact-stability-probe',action='store_true',
         help='Frozen-only finer physics integration/box solver diagnostic; cannot seed or train Q')
@@ -64,6 +66,9 @@ def main():
     if not 0<=args.minimum_validation_region_success_rate<=1 or (
             args.minimum_validation_region_success_rate and not args.stop_on_validation_regression):
         parser.error('A development floor within0..1 requires the regression guard')
+    if not 0<=args.validation_regression_significance<1 or (
+            args.validation_regression_significance and not args.stop_on_validation_regression):
+        parser.error('Regression significance within0..1, excluding1, requires the regression guard')
     if any(len({r['layout']['seed'] for r in w['layouts']})!=n for w in waves):
         parser.error('Each parallel wave needs distinct initial cases')
     if args.robot_model!='s63' or args.gripper!='leju-twofinger' or not args.rack_rollers:
@@ -88,7 +93,7 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import StagedGoalSACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_hybrid_goal_sac import StagedHybridGoalSACPilot
-        from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard,WAVE_RESET_CONTROLLER_CONTRACT,evaluate_development_wave
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard,WAVE_RESET_CONTROLLER_CONTRACT,evaluate_development_wave,measured_wave_mask
         from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import GraspActionProjector
         from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
         from kuavo_isaaclab_scene.rl.multi_box.debug.contact_sensors import V2_RACK_SENSOR_NAMES,V2_COLLISION_BODY_NAMES
@@ -215,7 +220,8 @@ def main():
             (output/'manifest.json').write_text(json.dumps(manifest|{'contact_stability_probe':solver_probe},indent=2)+'\n')
         (output/'env.yaml').write_text(json.dumps(asdict(cfg.multi_box),indent=2)+'\n')
         outcomes=[];pilot=None;start=time.monotonic();total_rows=0;completed_wave_count=0
-        guard=DevelopmentSuccessGuard(args.minimum_validation_region_success_rate) if args.stop_on_validation_regression else None
+        guard=DevelopmentSuccessGuard(args.minimum_validation_region_success_rate,
+            regression_significance=args.validation_regression_significance) if args.stop_on_validation_regression else None
         development_checks=[]
         for wave_index,wave in enumerate(waves):
             if stopped['value']:break
@@ -282,13 +288,18 @@ def main():
                         if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                             raise ValueError('Generated and executed jaw projections differ')
                         observation,reward,terminated,truncated,info=env.step(action)
-                        if (info['transition_numerical_failure']&active).any():raise ValueError('Numerical failure in active layout')
+                        active=measured_wave_mask(active,info['transition_numerical_failure'],
+                            info.get('transition_numerical_diagnostics',{}),last,step)
                         terminal=info['transition_next_observations']
-                        if not torch.allclose(reward,env._multi_box_grasp_reward_breakdown.total,atol=1e-5,rtol=1e-5):
+                        if not torch.allclose(reward[active],env._multi_box_grasp_reward_breakdown.total[active],atol=1e-5,rtol=1e-5):
                             raise ValueError('Actual vector reward differs from current breakdown')
                         if previous is not None:
-                            pilot.observe(previous,terminal['policy'][ids],
-                                torch.cat((terminal['policy'],terminal['critic']),-1)[ids],reward[ids],terminated[ids],clocks)
+                            measured=active[ids]
+                            if measured.any():
+                                valid_ids=ids[measured]
+                                pilot.observe(tuple(v[measured] for v in previous),terminal['policy'][valid_ids],
+                                    torch.cat((terminal['policy'],terminal['critic']),-1)[valid_ids],
+                                    reward[valid_ids],terminated[valid_ids],clocks[measured])
                         # One transfer per field, rather than per environment.
                         # Scene collection remains exactly the executed tensor.
                         pc={k:v.cpu().numpy() for k,v in pre.items()}
@@ -340,7 +351,9 @@ def main():
                     recorder.episode.attrs['layout_json']=json.dumps(wave['layouts'][i]['layout'],sort_keys=True)
                     recorder.episode.attrs['initial_layout_guard_valid']=bool(valid_layout[i])
                     recorder.append_many(samples)
-                    recorder.finish_episode(success=success,reason='success' if success else 'failure' if not active[i] else 'interrupted_or_step_limit')
+                    recorder.finish_episode(success=success,reason='numerical_failure_excluded_corrupt_row'
+                        if last[i].get('numerical_failure') else 'success' if success else 'failure'
+                        if not active[i] else 'interrupted_or_step_limit')
                 outcomes.append(dict(wave=wave_index,split=wave['split'],environment=i,
                     layout=wave['layouts'][i]['layout'],result=last[i],complete=bool(not active[i]),
                     initial_layout_valid=bool(valid_layout[i]),initial_settling_steps=settled,
