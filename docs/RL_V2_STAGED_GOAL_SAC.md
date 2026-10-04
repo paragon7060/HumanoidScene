@@ -56,6 +56,10 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl \
 ```
 
 `checkpoint_00000000.pt`와 0행 `staged_goal_experience.pt`가 만들어진다.
+병렬 수집용 준비에는 `--replay-capacity 100000` 등으로 buffer를 늘릴 수 있다.
+1024..2,000,000행 범위이며 기본20,000행의 이전 계약은 그대로 지원한다.
+용량이 다른 새 모델은 명시적 계약에 저장되고 재개할 때 그 용량을 복원한다.
+기존 다른 제어의 Q/replay를 가져오는 옵션은 아니다.
 실험을 계속할 때는 checkpoint와 **같은 종료 실행의 실제 experience 파일**이 함께 필요하다.
 다른 제어의 replay나 임의로 변경한 waypoint/물리 계약으로 재개하면 거부한다.
 
@@ -102,3 +106,60 @@ Demo는 초기 장면과 출처 확인에 사용하며 실행 중 동작 경로�
 Checkpoint 번호는 **critic 업데이트 횟수**이고 actor 횟수는 별도다. Nested frozen
 warm-start의 오래된 actor16910 같은 값은 새 SAC의 학습량이 아니다.
 처음 critic-only 배치의 성공도 새 actor 학습 개선으로 해석하지 않는다.
+
+## 여러 초기 배치의 병렬 wave 실행 (실험 경로)
+
+`train_batched_staged_goal.py`는 환경마다 실제 base 정지 시점, box anchor,
+held waypoint, 경과 시간을 따로 유지하며 하나의 SAC를 공유한다. 종료한 환경은
+다음 중립 whole-wave reset까지 replay/normalizer에서 제외한다. Auto-reset 뒤의
+관측을 종료 직전 next observation으로 쓰지 않는다. Approach 전이는 새21-goal Q에서
+제외하고 실제 task 성공/실패는 모두 집계한다. Validation/final wave는 optimizer와
+replay가 바뀌지 않았는지 검사한다. Live VR/IK teacher나 성공 자세 reset은 없다.
+
+`waves.json`은 아래 형태다. 각 wave의 환경 수가 같아야 한다. `layout`은 기존
+GraspLayout JSON 전체이며 `episode_index`는 **중립 초기 장면**의 원 demo 출처다.
+개발 wave의 이름은 `validation`, layout 내부 split은 `holdout`이다. Train과
+development/final seed가 겹치면 거부한다. 원본 demo의 reward/transition을 재사용하지 않는다.
+
+```json
+[
+  {"split":"train", "layouts":[
+    {"episode_index":0, "layout":{"seed":55000,"split":"train","lateral_m":-0.025}}
+  ]},
+  {"split":"validation", "layouts":[
+    {"episode_index":0, "layout":{"seed":56000,"split":"holdout","lateral_m":-0.03}}
+  ]}
+]
+```
+
+```bash
+CUDA_VISIBLE_DEVICES=3 PYTHONPATH=src:scripts/rl \
+  python scripts/rl/batched_staged_goal_with_drive.py \
+  --gpu 3 --experiment-dir /absolute/path/to/unique-batched-run \
+  --checkpoint /absolute/path/to/staged-checkpoint.pt \
+  --native-seed /absolute/path/to/current-middle-train-success.hdf5 \
+  --native-seed /absolute/path/to/current-upper-train-success.hdf5 \
+  --demo-dataset /absolute/path/to/reset-scenes.hdf5 \
+  --training-manifest /absolute/path/to/matching-physical-manifest.json \
+  --waypoints /absolute/path/to/waypoints.json \
+  --waves-json /absolute/path/to/waves.json --training
+```
+
+기존 host-local Drive remote를 발견하고 CUDA/Kit renderer를 같은 물리 장치로
+격리한다. GPU3 자원이 부족하면 우리 실험만 별도 장치에 명시적으로 실행하며
+다른 사용자의 프로세스를 중단하지 않는다. `--no-training`에는 TRAIN wave를 넣을 수 없다.
+기존 5분 백업/검증 보존/종료 로그 검증을 그대로 쓴다. Periodic checkpoint와
+종료 때 저장하는 실제 experience의 복구 가능 시점은 다르므로 실행 중 replay까지
+영구 보관한다고 보장하지 않는다. Runtime 실패 traceback은 Kit 종료 전에 저장한다.
+
+2026-10-04 첫4-env 실행은 per-environment action scale을 flatten하던 검사가
+배열 shape를 거부했다. 모든 환경의 실제 scale을 각각 검증하도록 고쳤다.
+다음 물리 실행은 초기 배치 guard에서 중단됐으며 해당 전이는 Q에 넣지 않았다.
+환경별 reset/pose 차이를 기록하는 진단으로 이어간다. **이 문서는 코드 사용법이며
+병렬 물리 성공이나 SAC 개선 완료의 증거가 아니다.** 최신 실측은 연결된 결과 문서를 본다.
+
+후속 진단은 박스 변경/invalid reset 없이 rack–base 상대 높이가3cm 달랐다는 것을
+확인했다. 단일 runner처럼 최초 reset의 물리 settling을 거친 후 기준 pose를 잡도록
+수정한4-env 실행은 전체 scene guard를 통과했고 실제 base hold/정책 실행까지 진행했다.
+아직 완료 성공률 전이다. Closed evaluation wave는 같은 critic counter의 checkpoint를
+다시 쓰지 않아 이미 Drive에서 검증된 파일 이름을 다른 내용으로 덮어쓰지 않는다.

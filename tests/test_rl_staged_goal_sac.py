@@ -107,6 +107,9 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     pilot.directory.mkdir()
     pilot.save(final=True)
     checkpoint=next(pilot.directory.glob('checkpoint_*.pt'))
+    unchanged=checkpoint.read_bytes()
+    pilot.save(final=True)
+    assert checkpoint.read_bytes()==unchanged
     restored=StagedGoalSACPilot(warm,contract,tmp_path/'next',stage,checkpoint=checkpoint)
     assert restored.replay.size==64 and restored.critic_updates==2 and restored.actor_updates==0
     for key in pilot.replay.data:
@@ -116,3 +119,15 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     state=torch.load(checkpoint,weights_only=True)
     assert state['frozen_warm_start']['format_version']==1
     assert state['goal_contract']['old_Q_or_replay_imported'] is False
+    # The last update in a two-critic tick is critic-only. Do not lose the
+    # preceding real actor diagnostic or mistake its zero for actor inactivity.
+    restored.warmup=2  # shortened unit-test warmup, never physical training data
+    for index in range(64,66):
+        _,previous=restored.act(raw,critic,index)
+        restored.observe(previous,raw,critic,torch.ones(1),torch.zeros(1,dtype=torch.bool),index)
+    assert restored.actor_updates==1 and not restored.latest['actor_updated']
+    assert restored.latest_actor['actor_updated'] and restored.latest_actor['critic_update']==5
+    assert torch.isfinite(torch.tensor(restored.latest_actor['actor_loss']))
+    larger=StagedGoalSACPilot(warm,contract,tmp_path/'larger',stage,replay_capacity=24000)
+    assert larger.replay.capacity==24000 and larger.contract['replay_capacity']==24000
+    assert larger.replay.size==0 and larger.critic_updates==0

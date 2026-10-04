@@ -1,0 +1,121 @@
+{
+  "actual_measurements_only": true,
+  "diagnostic_teachers_not_SAC_success": true,
+  "teacher_runs": [
+    {
+      "label": "position only",
+      "path": "artifacts/rl/drive_runs/staged_axis_entry_contact_upper_train_gpu0_20261004_093003/contact_probe_20261004_093003_e09d21/metrics.json",
+      "steps": 850,
+      "outcomes": {
+        "success": 0,
+        "unsafe": 0,
+        "invalid_reset": 0,
+        "time_out": 1
+      },
+      "unsafe": {
+        "invalid_box_pose": false,
+        "invalid_flap_pose": false,
+        "robot_rack_collision": false,
+        "self_collision": false,
+        "obstacle_collision": false,
+        "workspace_limit": false,
+        "box_drop": false,
+        "box_lift_limit": false,
+        "box_speed_limit": false
+      },
+      "body": "base_link",
+      "force_N": 0.0,
+      "ik_goal_error_m": [
+        0.2582221031188965,
+        0.25560495257377625
+      ],
+      "center_error_m_max": 1.2807027815142646e-05
+    },
+    {
+      "label": "paired velocity",
+      "path": "artifacts/rl/drive_runs/staged_velocity_entry_contact_upper_train_gpu0_20261004_100226/contact_probe_20261004_100646_d0fdfd/metrics.json",
+      "steps": 202,
+      "outcomes": {
+        "success": 0,
+        "unsafe": 1,
+        "invalid_reset": 0,
+        "time_out": 0
+      },
+      "unsafe": {
+        "invalid_box_pose": false,
+        "invalid_flap_pose": false,
+        "robot_rack_collision": true,
+        "self_collision": false,
+        "obstacle_collision": false,
+        "workspace_limit": false,
+        "box_drop": false,
+        "box_lift_limit": false,
+        "box_speed_limit": false
+      },
+      "body": "l_twofinger_base",
+      "force_N": 35.90892791748047,
+      "ik_goal_error_m": [
+        0.08077781647443771,
+        0.11639358848333359
+      ],
+      "center_error_m_max": 1.2094053090550005e-05
+    },
+    {
+      "label": "paired + identity",
+      "path": "artifacts/rl/drive_runs/staged_tracked_velocity_contact_upper_train_gpu0_20261004_101821/contact_probe_20261004_101822_e62aa4/metrics.json",
+      "steps": 626,
+      "outcomes": {
+        "success": 0,
+        "unsafe": 1,
+        "invalid_reset": 0,
+        "time_out": 0
+      },
+      "unsafe": {
+        "invalid_box_pose": false,
+        "invalid_flap_pose": false,
+        "robot_rack_collision": true,
+        "self_collision": false,
+        "obstacle_collision": false,
+        "workspace_limit": false,
+        "box_drop": false,
+        "box_lift_limit": false,
+        "box_speed_limit": false
+      },
+      "body": "zarm_l7_link",
+      "force_N": 29.345104217529297,
+      "ik_goal_error_m": [
+        0.06100095435976982,
+        0.054357949644327164
+      ],
+      "center_error_m_max": 3.9984315662877634e-05
+    }
+  ],
+  "success_video": {
+    "source": "artifacts/rl/drive_runs/staged_goal21_four_region_sac_gpu3_20261004_092413/003_validation_p0_validation_holdout_002/staged_sac_20261004_095729_392b4a/metrics.json",
+    "seed": 56200,
+    "source_model_is_frozen": true,
+    "new_staged_actor_updates": 0,
+    "no_live_reference_or_IK": true,
+    "video_encoding": {
+      "codec": "h264",
+      "tag": "avc1",
+      "pixel_format": "yuv420p",
+      "faststart": true,
+      "full_decode_verified": true
+    },
+    "final_conditions": {
+      "opposing_flaps": true,
+      "stable_hands": [
+        true,
+        true
+      ],
+      "proof_lift": true,
+      "hold_time_s": 0.2666666805744171,
+      "rack_clearance_m": 0.04036378860473633,
+      "hand_flap_index": [
+        0,
+        1
+      ]
+    }
+  }
+}

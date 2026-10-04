@@ -32,11 +32,21 @@ def executed_velocity_feedforward(current, command, proposed_velocity, dt):
         encoded.sign()*torch.minimum(encoded.abs(),proposed_velocity.abs()),0.)
 
 
+def tracked_flap_observation(raw, assignment):
+    """Keep the teacher's hand/flap identity while using live panel poses."""
+    if assignment is None:
+        return raw
+    from .guided_exploration import ASSIGNMENT_START
+    result=raw.clone()
+    result[:,ASSIGNMENT_START:ASSIGNMENT_START+2]=assignment
+    return result
+
+
 class StagedContactIKDiagnostic:
     name='native_calibrated_local_contact_IK_teacher_NOT_SAC_v1'
 
     def __init__(self,env,measured,audit,*,handoff_mode='near-contact',orientation_mode='full',
-                 velocity_feedforward=False):
+                 velocity_feedforward=False,lock_assignment=False):
         from ....teleop.urdf_arm_ik import UrdfArm
         from ....teleop.teleop_servo import RESPONSIVE
         from ....robots.robot_model import resolve_robot_model
@@ -52,6 +62,8 @@ class StagedContactIKDiagnostic:
         self.handoff_mode=handoff_mode
         self.orientation_mode=orientation_mode
         self.velocity_feedforward=velocity_feedforward
+        self.lock_assignment=lock_assignment
+        self.tracked_assignment=None
         self.servo_telemetry=[]
         axes=closed_closing_axes()
         self.axes=torch.tensor([axes[side] for side in ('left','right')],device=env.device)
@@ -77,13 +89,17 @@ class StagedContactIKDiagnostic:
         return position_error,axis_error
 
     def act(self,raw,neural_action,step):
-        error,angle=self.geometry(raw)
+        tracked=tracked_flap_observation(raw,self.tracked_assignment)
+        error,angle=self.geometry(tracked)
         self.position_error,self.axis_error=error[0].tolist(),angle[0].tolist()
         if self.handoff_step is None:
             phase=contact_handoff_phase(error,self.handoff_mode)
             if phase is not None:
                 self.handoff_step=step
                 self.guide.phase[:]=phase
+                if self.lock_assignment:
+                    from .guided_exploration import ASSIGNMENT_START
+                    self.tracked_assignment=raw[:,ASSIGNMENT_START:ASSIGNMENT_START+2].clone()
             else:
                 return neural_action
         for solver in self.guide.solvers:
@@ -91,7 +107,7 @@ class StagedContactIKDiagnostic:
             # neutral pose while correcting the moving flap's geometry.
             solver._urdf_rest=solver._numpy(
                 self.env.scene['robot'].data.joint_pos[0,solver._joint_ids])[solver._urdf_order].copy()
-        proposed=self.guide.act(raw)
+        proposed=self.guide.act(tracked)
         result=neural_action.clone()
         for columns in self.guide.columns:
             indices=[self.guide.slices['upper_body'].start+c for c in columns]
@@ -123,6 +139,8 @@ class StagedContactIKDiagnostic:
             handoff_mode=self.handoff_mode,
             orientation_mode=self.orientation_mode,front_goal_error_m=self.front_error,
             velocity_feedforward=self.velocity_feedforward,
+            hand_flap_identity_locked_at_handoff=self.lock_assignment,
+            tracked_assignment=self.tracked_assignment[0].tolist() if self.tracked_assignment is not None else None,
             controller='paired_position_velocity_teacher' if self.velocity_feedforward else 'position_only_teacher',
             servo_telemetry=self.servo_telemetry,
             full_orientation_error_rad=self.full_orientation_error,

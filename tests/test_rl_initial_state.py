@@ -36,3 +36,17 @@ def test_capture_keeps_measured_angles_distinct_from_pd_targets():
     assert state["episode_step"] == 3
     with pytest.raises(ValueError, match="exactly one"):
         capture_rl_initial_state(SimpleNamespace(num_envs=2), {})
+    # Explicit vector capture must preserve the selected environment's pending
+    # command, not average environments or accidentally take environment zero.
+    q.resize((2,2),refcheck=False);q[:]=[[.1,.2],[.6,.7]]
+    data.joint_pos_target=q+.04;data.joint_vel_target=q*0;data.joint_effort_target=q*10
+    term.raw_actions=q*0;term.processed_actions=q+.04;term._targets=q+.04
+    manager.action=q*0;manager.prev_action=q*0
+    env.num_envs=2;env.episode_length_buf=np.array([3,8])
+    env._multi_box_active=np.array([[True,False],[False,True]])
+    selected=capture_rl_initial_state(env,{'policy':q},env_index=1)
+    np.testing.assert_allclose(selected['scene']['articulation']['robot']['joint_position'],[.6,.7])
+    np.testing.assert_allclose(selected['drive_targets']['robot']['joint_position'],[.64,.74])
+    assert selected['episode_step']==8
+    with pytest.raises(ValueError,match='valid environment index'):
+        capture_rl_initial_state(env,{'policy':q},env_index=2)

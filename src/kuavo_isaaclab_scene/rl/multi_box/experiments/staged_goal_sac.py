@@ -24,7 +24,8 @@ def staged_context(raw, stage, radius):
     if stage.phase != 'held_grasp' or stage.manipulation_start is None:
         raise ValueError('SAC replay starts only after physically confirmed base settling')
     target = stage.target_xy.to(raw).expand(len(raw), -1)
-    heading = raw.new_full((len(raw), 1), stage.target_yaw)
+    heading = (stage.target_yaw.to(raw)[:,None] if isinstance(stage.target_yaw,torch.Tensor)
+               else raw.new_full((len(raw), 1), stage.target_yaw))
     return torch.cat((raw.new_ones(len(raw), 1), target, heading.sin(), heading.cos(),
                       raw.new_full((len(raw), 1), radius)), -1)
 
@@ -95,7 +96,7 @@ class StagedGoalSACPilot:
 
     def __init__(self, warm_start, physical_contract, directory, stage, *,
                  checkpoint=None, training=True, device='cpu', free_grippers=False,
-                 gripper_logit_scale=1.):
+                 gripper_logit_scale=1., replay_capacity=20000):
         if warm_start.training:
             raise ValueError('The warm-start network must remain frozen')
         self.warm_start = warm_start
@@ -116,11 +117,16 @@ class StagedGoalSACPilot:
         self.warmup = 2048
         self.fade = 20000
         self.latest = {}
+        self.latest_actor = {}
         self.history = []
         saved = torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
         if saved:
             free_grippers=saved.get('goal_contract',{}).get('gripper_prior_bound') is False
             gripper_logit_scale=saved.get('goal_contract',{}).get('gripper_logit_scale',1.)
+            replay_capacity=saved.get('goal_contract',{}).get('replay_capacity',20000)
+        if type(replay_capacity) is not int or not 1024<=replay_capacity<=2000000:
+            raise ValueError('Staged replay capacity must be within1024..2000000')
+        self.replay_capacity=replay_capacity
         if type(free_grippers) is not bool or not math.isfinite(gripper_logit_scale) \
                 or not 0 < gripper_logit_scale <= 1 or (not free_grippers and gripper_logit_scale != 1):
             raise ValueError('Soft gripper logits require independent jaw exploration')
@@ -142,7 +148,7 @@ class StagedGoalSACPilot:
             with torch.no_grad():
                 self.agent.actor.network[-1].weight[19:21].mul_(gripper_logit_scale)
                 self.agent.actor.network[-1].bias[19:21].mul_(gripper_logit_scale)
-        self.replay = AsymmetricReplayBuffer(20000, self.actor_dim, self.critic_dim, 21, device)
+        self.replay = AsymmetricReplayBuffer(replay_capacity, self.actor_dim, self.critic_dim, 21, device)
         if checkpoint:
             state = saved
             if state.get('artifact_type') != self.artifact_type or state.get('goal_contract') != self.contract:
@@ -150,6 +156,7 @@ class StagedGoalSACPilot:
             self.agent.restore(state, training=training)
             self.actor_updates = state['actor_updates']
             self.critic_updates = state['critic_updates']
+            self.latest_actor = state.get('latest_actor_metrics', {})
             previous = Path(checkpoint).parent/'staged_goal_experience.pt'
             if training:
                 if not previous.is_file():
@@ -196,6 +203,7 @@ class StagedGoalSACPilot:
         if self.free_grippers:
             contract.update(gripper_prior_bound=False,gripper_logit_scale=self.gripper_logit_scale,
                             imitation_jaw_targets='same_sign_softened_frozen_prior_logits')
+        if self.replay_capacity!=20000:contract['replay_capacity']=self.replay_capacity
         return contract
 
     @property
@@ -248,6 +256,8 @@ class StagedGoalSACPilot:
                     teacher = dict(actor_obs=actual['actor_obs'], action=labels)
                 self.latest = self.agent.update(actual, teacher=teacher, teacher_weight=weight,
                                                 update_actor=update_actor)
+                if update_actor:
+                    self.latest_actor = dict(self.latest, critic_update=self.critic_updates+1)
                 self.actor_updates += int(update_actor)
                 self.critic_updates += 1
 
@@ -260,18 +270,22 @@ class StagedGoalSACPilot:
             critic_warmup_remaining=max(0, self.warmup-self.critic_updates),
             min_policy_std=self.agent.config.min_policy_std,
             max_policy_std=self.agent.config.max_policy_std,
-            runtime_reference_path_required=False, latest=self.latest, goal_contract=self.contract)
+            runtime_reference_path_required=False, latest=self.latest,
+            latest_actor=self.latest_actor, goal_contract=self.contract)
 
     def save(self, final=False):
         if not final and getattr(self, '_last_saved', None) == self.critic_updates:
             return
-        state = self.agent.checkpoint() | dict(artifact_type=self.artifact_type,
-            goal_contract=self.contract, frozen_warm_start=self.frozen_warm_start,
-            actor_updates=self.actor_updates, critic_updates=self.critic_updates,
-            reference_runtime_dependency=False)
-        # Critic warmup also makes progress before the first actor update.
-        save_checkpoint(self.directory, state, self.critic_updates, keep=None)
-        self._last_saved = self.critic_updates
+        if getattr(self, '_last_saved', None) != self.critic_updates:
+            state = self.agent.checkpoint() | dict(artifact_type=self.artifact_type,
+                goal_contract=self.contract, frozen_warm_start=self.frozen_warm_start,
+                actor_updates=self.actor_updates, critic_updates=self.critic_updates,
+                latest_actor_metrics=self.latest_actor,
+                reference_runtime_dependency=False)
+            # A closed evaluation wave must not rewrite an already uploaded
+            # checkpoint with the same critic counter and remote filename.
+            save_checkpoint(self.directory, state, self.critic_updates, keep=None)
+            self._last_saved = self.critic_updates
         if final:
             rows = {k:(torch.cat([b[k] for b in self.history])[-self.replay.capacity:]
                        if self.history else v[:0].detach().cpu())

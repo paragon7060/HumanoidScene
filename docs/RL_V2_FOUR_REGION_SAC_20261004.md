@@ -436,3 +436,57 @@ Closing-axis 물리 비교도850step 시간초과·unsafe0으로 끝났고 진�
 제어에는 적용하지 않는다. 이전 진단의 종료/Drive 검증을 기다리는 GPU0
 후속 서비스를10:02 등록했다. 아직 이 변경의 성공 결과는 없다.
 이 teacher는 privileged pinch로 lift를 확인하며 standalone SAC 또는 새 Q seed가 아니다.
+
+### Frozen 네 개발 배치 성공과 실제 SAC 회귀 (10:59)
+
+새 staged21 초기 actor는 개발56000/56100/56200/56300에서 각각
+509/489/645/657step에 **4/4 양손 opposing flap 파지·실제 proof lift 성공**했다.
+네 배치는 동적 box,
+주변 box, 실제 초기 base XY/yaw 차이를 유지하며 live VR/IK 없이 실행했다.
+이는 새 staged actor update0인 **초기 frozen 개발 성능**이다. 독립 최종 성능이나
+SAC 추가 학습의 개선으로 확대하지 않는다.
+
+[상단 왼쪽56200 실제 frozen 성공 영상](assets/rl_v2_staged_upper_left_frozen_success_20261004.mp4).
+PhysX pose를 CPU mesh로 재생한 H264/avc1/yuv420p/faststart 영상이며 전체 decode를 검증했다.
+
+GPU0 별도 pipeline은 TRAIN4개 중 중간 좌우2개 성공·상단 좌우2개 시간초과,
+unsafe0이었다. Actor699회/critic4,844회 실제 업데이트 이후 첫 독립 final9502000은
+robot–rack 충돌로 실패했다. 추가 학습이 안정적으로 개선됐다고 볼 수 없으며,
+개발 구역별 정책 회귀 검사와 실제 Q/replay 보존 복구가 필요하다.
+
+### 실제 IK 제어와 손/flap identity 비교
+
+동일 TRAIN45200에서 position-only closing-axis teacher는850step 시간초과였다.
+Paired position/velocity teacher는 진입 거리를 실제로 줄였지만202step에
+`l_twofinger_base`–rack35.91N으로 실패했다. 진입 중 assignment가[1,0]에서[0,1]로
+바뀌어 두 손이 교차하는 진단도 관측했다. Teacher만 hand/flap identity를 handoff에
+유지하도록 고친 뒤626step까지 진행했으나 `zarm_l7_link`–rack29.35N으로 실패했다.
+Actor 관측/환경 reward assignment는 변경하지 않았고 새 Q seed로 가져오지 않는다.
+
+![동일 실제 TRAIN의 진입 거리·랙 힘·파지 목표 오차·actual/nominal flap 차이](assets/rl_v2_staged_contact_comparison_20261004.png)
+
+[실측과 영상 출처 JSON](assets/rl_v2_staged_contact_comparison_20261004.json).
+Identity 유지 실행은 실제 IK projection이61.0/54.6mm였고 projected target 위치
+오차는 약1mm였다. Front-stage projection0과 final grasp-goal projection은 다른 값이다.
+도달 범위 밖 목표·팔 진입/손목 자세가 남아 있다. 실제 flap midpoint와 nominal
+midpoint 차이는 이 세 진단에서 최대0.040mm였으므로 이 실패를 nominal 관측 오차로
+단정하지 않는다. 다른 contact/성공 배치에서는 flap 휨이 cm 단위여서 그 경우는 별도다.
+
+### 균형 잡힌 실제 수집을 병렬로 연결
+
+단일 환경을 매 episode 재초기화하는 비교는 데이터 수집량이 적고 초기화 비용도 크다.
+[`batched_staged_goal_with_drive.py`](../scripts/rl/batched_staged_goal_with_drive.py)와
+새 runner는 환경별 neutral reset/실제 base hold/elapsed clock/waypoint를 분리하고
+held-phase actual transition만 공유21-goal replay에 넣도록 연결했다.
+첫4-env 시도에서 vector scale 검사 shape 오류를 고쳤고, 다음 시도는 초기 배치
+guard에 걸려 실패 전이를 학습에 넣지 않았다. GPU0에서 guard 진단을 진행한다.
+물리 실행 결과 확인 전 대규모 학습 성공/속도 개선으로 기록하지 않는다.
+GPU3의 기존 세 학습 비교는 별도 namespace와 Drive 수명주기로 계속 진행한다.
+
+11:08 원인을 확인했다. Target/logical box와 footprint/invalid-reset은 그대로였고
+rack–base 상대 높이만 약3cm 달랐다. 원래 단일 runner와 달리 최초 env reset의
+물리 settling을 생략한 차이였다. 동일 순서를 복구한 다음4-env 실행은 모든 scene
+guard를 통과했으며 rack pose 차이는 약43..58µm, 실제 base Z는 약0m였다.
+61step에4개 환경 중1개가 실제 base hold를 확인했고 아직 파지 결과 전이다.
+관련 CPU 검사61개 통과. Native seed inverse 감사도 동일한 episode별 measured
+anchor/clock을 유지한 벡터 연산으로 바꿔 반복 GPU 동기화를 줄였다.

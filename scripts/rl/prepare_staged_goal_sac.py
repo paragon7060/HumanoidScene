@@ -20,6 +20,7 @@ def main():
     parser.add_argument('--output-dir',type=Path,required=True)
     parser.add_argument('--free-grippers',action='store_true')
     parser.add_argument('--gripper-logit-scale',type=float,default=1.)
+    parser.add_argument('--replay-capacity',type=int,default=20000)
     args=parser.parse_args()
     if not all(p.is_file() for p in (args.checkpoint,args.waypoints,*args.native_seed)):
         parser.error('Existing matching files are required')
@@ -35,7 +36,8 @@ def main():
         parser.error('Physical travel contract differs')
     stage=StagedBaseHoldDiagnostic(warm.coordinates,templates,raw)
     staged=StagedGoalSACPilot(warm,contract,args.output_dir,stage,training=True,device='cpu',
-                            free_grippers=args.free_grippers,gripper_logit_scale=args.gripper_logit_scale)
+                            free_grippers=args.free_grippers,gripper_logit_scale=args.gripper_logit_scale,
+                            replay_capacity=args.replay_capacity)
     args.output_dir.mkdir(parents=True,exist_ok=False)
     staged.save(final=True)
     (args.output_dir/'manifest.json').write_text(json.dumps(contract|dict(

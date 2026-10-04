@@ -14,6 +14,16 @@ from ....robots.robot_model import resolve_robot_model
 from .joint_offset import JointOffsetController
 
 
+def pose_clock(raw,index,horizon,limit=None):
+    """Scalar replay or separate, measured elapsed clocks per environment."""
+    cap=horizon if limit is None else limit
+    if isinstance(index,torch.Tensor):
+        if index.shape!=(len(raw),) or not torch.isfinite(index).all() or (index<0).any():
+            raise ValueError('Each environment needs one finite nonnegative elapsed clock')
+        return index.to(raw).clamp_max(cap)[:,None]/horizon
+    return raw.new_full((len(raw),1),min(index,cap)/horizon)
+
+
 class PoseGoalCoordinates:
     name='s63_upright_absolute_joint_xz_rack_pose_grippers_v1'
     projected_base_name='s63_upright_absolute_joint_xz_rack_pose_grippers_projected_base_v2'
@@ -33,7 +43,7 @@ class PoseGoalCoordinates:
         if clock_limit is not None and (not isinstance(clock_limit,int) or not 0<=clock_limit<=clock_horizon):
             raise ValueError('Actor clock limit must be within0..clock horizon')
         limit=clock_horizon if clock_limit is None else clock_limit
-        clock=raw.new_full((len(raw),1),min(index,limit)/clock_horizon)
+        clock=pose_clock(raw,index,clock_horizon,limit)
         inputs=torch.cat((self.features(raw),raw[:,86:350],clock),-1)
         if time_harmonics:
             frequency=torch.arange(1,time_harmonics+1,device=raw.device,dtype=raw.dtype)[None]

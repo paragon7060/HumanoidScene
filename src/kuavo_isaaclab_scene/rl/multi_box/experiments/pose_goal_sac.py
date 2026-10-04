@@ -144,31 +144,27 @@ class PoseGoalSACPilot:
         self.seed_episodes=audit['successful_episodes']
         if not ends or len(ends)!=self.seed_episodes or ends[-1]!=len(measured['action'])-1:
             raise ValueError('Goal seeds require complete separate actual successful episodes')
-        starts={0,*(end+1 for end in ends[:-1])}
-        seed=[]
-        for i in range(len(measured['action'])):
-            raw=measured['actor_obs'][i:i+1]
-            if i in starts:
-                seed_anchor=self.coordinates.box_anchor(raw)
-                episode_index=0
-            goal=self.coordinates.encode_physical(raw,measured['action'][i:i+1])
-            goal[:,19:21]-=seed_anchor
-            z=(goal-self.center)/self.scale
-            if not torch.isfinite(z).all() or (z.abs()>1.00001).any():
-                raise ValueError('Actual seed goal exceeds the student goal bounds')
-            ao,co=self.observations(raw,measured['critic_obs'][i:i+1],episode_index,seed_anchor)
-            na,nc=self.observations(measured['next_actor_obs'][i:i+1],
-                measured['next_critic_obs'][i:i+1],episode_index+1,seed_anchor)
-            # These are measured OFF-policy commands. A new neural prior bound
-            # applies to generated actions, never to historical Q action labels.
-            z=GoalGripperProjector()(ao,z)
-            if not torch.allclose(self.physical(raw,z,seed_anchor),measured['action'][i:i+1],atol=1e-5,rtol=0):
-                raise ValueError('Goal decoding/projection does not reproduce the executed seed command')
-            seed.append(dict(actor_obs=ao,critic_obs=co,action=z,
-                next_actor_obs=na,next_critic_obs=nc,
-                reward=measured['reward'][i:i+1],terminated=measured['terminated'][i:i+1]))
-            episode_index+=1
-        self.seed={key:torch.cat([row[key] for row in seed]) for key in seed[0]}
+        starts=[0,*(end+1 for end in ends[:-1])]
+        raw=measured['actor_obs']
+        seed_anchor=torch.empty(len(raw),2,device=device,dtype=raw.dtype)
+        clocks=torch.empty(len(raw),device=device,dtype=torch.long)
+        for start,end in zip(starts,ends):
+            seed_anchor[start:end+1]=self.coordinates.box_anchor(raw[start:start+1])
+            clocks[start:end+1]=torch.arange(end-start+1,device=device)
+        goal=self.coordinates.encode_physical(raw,measured['action'])
+        goal[:,19:21]-=seed_anchor
+        z=(goal-self.center)/self.scale
+        if not torch.isfinite(z).all() or (z.abs()>1.00001).any():
+            raise ValueError('Actual seed goal exceeds the student goal bounds')
+        ao,co=self.observations(raw,measured['critic_obs'],clocks,seed_anchor)
+        na,nc=self.observations(measured['next_actor_obs'],measured['next_critic_obs'],clocks+1,seed_anchor)
+        # Batch the unchanged inverse audit; no repeated GPU synchronization
+        # for each archived row. Every episode keeps its own measured anchor.
+        z=GoalGripperProjector()(ao,z)
+        if not torch.allclose(self.physical(raw,z,seed_anchor),measured['action'],atol=1e-5,rtol=0):
+            raise ValueError('Goal decoding/projection does not reproduce the executed seed command')
+        self.seed=dict(actor_obs=ao,critic_obs=co,action=z,next_actor_obs=na,next_critic_obs=nc,
+            reward=measured['reward'],terminated=measured['terminated'])
         if saved.get('artifact_type')==self.artifact_type:
             if saved.get('goal_contract')!=self.contract:
                 raise ValueError('Goal SAC context, bounds or seed physical contract differs')
@@ -250,7 +246,8 @@ class PoseGoalSACPilot:
         features=self.coordinates.observations(raw,index,self.harmonics,self.clock_horizon,
             condition_on_shelf=self.prior.state.get('shelf_conditioned_clock_fit',False),
             clock_limit=self.prior.state.get('actor_clock_limit'))
-        clock=raw.new_full((len(raw),1),min(index,self.clock_horizon)/self.clock_horizon)
+        from .pose_student import pose_clock
+        clock=pose_clock(raw,index,self.clock_horizon)
         return torch.cat((features,anchor.expand(len(raw),-1)),-1),torch.cat((critic,clock,anchor.expand(len(raw),-1)),-1)
 
     def physical(self,raw,z,anchor):

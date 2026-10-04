@@ -490,7 +490,10 @@ def test_multiple_actual_seeds_reset_their_clock_and_initial_box_anchor(tmp_path
     assert torch.equal(pilot.seed['reward'],measured['reward'])
 
 
-def test_actor_recovery_preserves_latest_critic_real_replay_and_fade_clock(tmp_path):
+@pytest.mark.parametrize('artifact_type,experience_name,index',[
+    ('pose_goal_sac_no_live_reference','pose_goal_experience.pt',40000),
+    ('staged_base_hold_remaining_goal_sac_v1','staged_goal_experience.pt',40500)])
+def test_actor_recovery_preserves_latest_critic_real_replay_and_fade_clock(tmp_path,artifact_type,experience_name,index):
     import importlib.util
     from pathlib import Path
     from copy import deepcopy
@@ -499,7 +502,7 @@ def test_actor_recovery_preserves_latest_critic_real_replay_and_fade_clock(tmp_p
     spec=importlib.util.spec_from_file_location('recover_actor',Path(__file__).parents[1]/'scripts/rl/recover_pose_goal_actor.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     agent=AsymmetricSAC(441,533,24,SACConfig(hidden=16))
-    state=agent.checkpoint()|dict(artifact_type='pose_goal_sac_no_live_reference',
+    state=agent.checkpoint()|dict(artifact_type=artifact_type,
         goal_contract={'same_physical_contract':True},actor_updates=40000,critic_updates=40500)
     current=tmp_path/'current';current.mkdir();best=tmp_path/'best';best.mkdir()
     torch.save(state,best/'checkpoint.pt');(current/'manifest.json').write_text('{}')
@@ -508,13 +511,14 @@ def test_actor_recovery_preserves_latest_critic_real_replay_and_fade_clock(tmp_p
         if key.startswith(('actor.','q1.','q2.')):value.add_(.5)
     torch.save(latest,current/'checkpoint.pt')
     measured={'action':torch.tensor([[.7]*24]),'reward':torch.tensor([-6.])}
-    torch.save(dict(goal_contract=state['goal_contract'],executed_goal_transitions=measured),current/'pose_goal_experience.pt')
+    torch.save(dict(goal_contract=state['goal_contract'],executed_goal_transitions=measured),current/experience_name)
     path,audit=module.recover(current/'checkpoint.pt',best/'checkpoint.pt',tmp_path/'recovery')
     recovered=torch.load(path,weights_only=True)
     for key,value in recovered['model'].items():
         expected=state['model'][key] if key.startswith('actor.') else latest['model'][key]
         assert torch.equal(value,expected),key
-    rows=torch.load(path.parent/'pose_goal_experience.pt',weights_only=True)['executed_goal_transitions']
+    assert path.name==f'checkpoint_{index:08d}.pt'
+    rows=torch.load(path.parent/experience_name,weights_only=True)['executed_goal_transitions']
     assert all(torch.equal(value,rows[key]) for key,value in measured.items())
     assert recovered['actor_updates']==40000 and recovered['critic_updates']==40500
     assert audit['latest_critic_optimizer_and_replay_preserved']

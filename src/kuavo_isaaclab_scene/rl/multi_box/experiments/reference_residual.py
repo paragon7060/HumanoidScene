@@ -20,11 +20,12 @@ from ...runners.storage import load_checkpoint, save_checkpoint
 def validate_goal_feedback_rates(base,upper,head,torso_speed,dt):
     """Isaac stores uniform action scales as floats and per-joint scales as tensors."""
     for value,expected in [(base,[.15,.15,.5]),(upper,[.01]+[.02]*14),(head,[.01,.01])]:
-        actual=torch.as_tensor(value,dtype=torch.float64).reshape(-1)
-        if len(actual)==1:
-            actual=actual.expand(len(expected))
+        actual=torch.as_tensor(value,dtype=torch.float64)
+        if actual.numel()==1:
+            actual=actual.reshape(1).expand(len(expected))
         target=torch.tensor(expected,dtype=torch.float64,device=actual.device)
-        if actual.shape!=target.shape or not torch.allclose(actual,target,atol=1e-8,rtol=1e-6):
+        if actual.ndim not in (1,2) or actual.shape[-1]!=len(expected) \
+                or not torch.allclose(actual,target.expand_as(actual),atol=1e-8,rtol=1e-6):
             raise ValueError('Goal-feedback rates differ from the measured V2 controller')
     if abs(torso_speed-.1)>1e-9 or abs(dt-1/30)>1e-9:
         raise ValueError('Goal-feedback torso speed/control period differs')

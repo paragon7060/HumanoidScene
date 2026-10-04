@@ -72,6 +72,7 @@ def main():
                         default='near-contact',help='Frozen teacher probe: local contact correction or front-stage IK after physical base settling.')
     parser.add_argument('--staged-contact-ik-orientation',choices=('full','closing-axis'),default='full')
     parser.add_argument('--staged-contact-ik-velocity-feedforward',action='store_true')
+    parser.add_argument('--staged-contact-ik-lock-assignment',action='store_true')
     parser.add_argument('--vr-contact-torso-forward-m',type=float,default=0.,
                         help='VR/live-IK diagnostic only: bounded upright torso X assist during contact.')
     parser.add_argument('--vr-contact-torso-up-m',type=float,default=0.,
@@ -123,7 +124,7 @@ def main():
             or not all(p.is_file() for p in args.staged_contact_ik_native_seed)):
         parser.error('Native contact IK requires staged frozen control and existing TRAIN success calibration')
     if (args.staged_contact_ik_mode!='near-contact' or args.staged_contact_ik_orientation!='full'
-            or args.staged_contact_ik_velocity_feedforward) and not args.staged_contact_ik_native_seed:
+            or args.staged_contact_ik_velocity_feedforward or args.staged_contact_ik_lock_assignment) and not args.staged_contact_ik_native_seed:
         parser.error('A staged contact handoff mode requires native TRAIN contact calibration')
     if args.staged_goal_training and not args.staged_goal_sac:
         parser.error('Staged goal training requires its separate controller mode')
@@ -333,7 +334,8 @@ def main():
                     staged_contact_ik=StagedContactIKDiagnostic(env,measured,audit,
                         handoff_mode=args.staged_contact_ik_mode,
                         orientation_mode=args.staged_contact_ik_orientation,
-                        velocity_feedforward=args.staged_contact_ik_velocity_feedforward)
+                        velocity_feedforward=args.staged_contact_ik_velocity_feedforward,
+                        lock_assignment=args.staged_contact_ik_lock_assignment)
                     controller_name='frozen_neural_approach_with_staged_base_and_native_contact_IK_teacher_NOT_SAC'
                 if args.staged_goal_sac:
                     if pose_sac is None:

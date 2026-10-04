@@ -41,7 +41,8 @@ def recover(checkpoint,best_checkpoint,output_dir):
     current['actor_recovery']=audit
     manifest=json.loads((checkpoint.parent/'manifest.json').read_text())|dict(actor_recovery=audit)
     output_dir.mkdir(parents=True,exist_ok=False)
-    destination=save_checkpoint(output_dir,current,current['actor_updates'],keep=None)
+    index=current['critic_updates'] if current['artifact_type']=='staged_base_hold_remaining_goal_sac_v1' else current['actor_updates']
+    destination=save_checkpoint(output_dir,current,index,keep=None)
     torch.save(actual,output_dir/experience_name)
     (output_dir/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (output_dir/'status.json').write_text(json.dumps(dict(status='complete',actor_recovery=audit))+'\n')
