@@ -38,6 +38,8 @@ def main():
         help='Frozen-only articulation contact solver ordering diagnostic; never contributes matching Q replay')
     probes.add_argument('--pgs-probe',action='store_true',
         help='Frozen-only PGS/TGS solver comparison; preserves timestep, iterations and safety')
+    probes.add_argument('--gripper-drive-probe',action='store_true',
+        help='Frozen-only original/soft_2nm motor-drive comparison; never supplies matching Q replay')
     parser.add_argument('--centered-world-probe',action='store_true',
         help='Frozen-only shared origins with GPU environment collision IDs; no Q/replay training')
     parser.add_argument('--packed-background-probe',action='store_true',
@@ -50,10 +52,15 @@ def main():
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
     args=parser.parse_args()
     if not 1<=args.steps<=900 or args.output_dir.exists():parser.error('New output and 1..900 steps required')
-    if (args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or args.pgs_probe
+    if (args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or args.pgs_probe or args.gripper_drive_probe
             or args.centered_world_probe or args.packed_background_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.gripper_drive_probe import validate_gripper_drive_probe
+    try:validate_gripper_drive_probe(waves,enabled=args.gripper_drive_probe,training=args.training)
+    except ValueError as error:parser.error(str(error))
+    if args.gripper_drive_probe and (args.centered_world_probe or args.packed_background_probe or args.base_waypoint_probe):
+        parser.error('Compare gripper drives with the original physics origins, background and waypoints')
     from kuavo_isaaclab_scene.rl.multi_box.experiments.waypoint_probe import validate_waypoint_probe
     try:validate_waypoint_probe(waves,enabled=args.base_waypoint_probe,training=args.training)
     except ValueError as error:parser.error(str(error))
@@ -132,6 +139,11 @@ def main():
                                                or args.contact_last_probe or args.pgs_probe):
             raise ValueError('Frozen dynamics probes require the original TGS source contract')
         solver_probe=None
+        if args.gripper_drive_probe:
+            solver_probe=dict(frozen_only=True,name='four_claw_motor_drive_comparison',
+                Q_import_eligible=False,success_and_safety_unchanged=True,
+                physics_dt_s=cfg.sim.dt,control_dt_s=cfg.sim.dt*cfg.decimation,
+                solver_and_iterations_unchanged=True)
         if args.contact_stability_probe:
             from isaaclab.sim import RigidBodyPropertiesCfg
             from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import physical_asset_names
@@ -256,7 +268,8 @@ def main():
         meta=dict(task_family='multi_box_v2',skill='grasp',robot_model='s63',gripper='leju-twofinger',
             rack_rollers=True,actor_obs_dim=464,critic_obs_dim=530,action_dim=24,
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
-            collection_source=('changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
+            collection_source=('changed_gripper_drive_frozen_probe_NOT_matching_Q_replay'
+                               if args.gripper_drive_probe else 'changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
                                if solver_probe else 'background_placement_frozen_probe_NOT_matching_Q_replay'
                                if args.packed_background_probe else 'base_waypoint_frozen_probe_NOT_matching_Q_replay'
                                if args.base_waypoint_probe else pilot_class.artifact_type),training_contract=contract,
@@ -290,12 +303,20 @@ def main():
             manifest=json.loads((output/'manifest.json').read_text())
             (output/'manifest.json').write_text(json.dumps(manifest|{'contact_stability_probe':solver_probe},indent=2)+'\n')
         (output/'env.yaml').write_text(json.dumps(asdict(cfg.multi_box),indent=2)+'\n')
+        drive_probe=None
+        if args.gripper_drive_probe:
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.gripper_drive_probe import GripperDriveProbe
+            drive_probe=GripperDriveProbe(env.scene['robot'])
+        drive_audits=[]
         outcomes=[];pilot=None;start=time.monotonic();total_rows=0;completed_wave_count=0
         guard=DevelopmentSuccessGuard(args.minimum_validation_region_success_rate,
             regression_significance=args.validation_regression_significance) if args.stop_on_validation_regression else None
         development_checks=[]
         for wave_index,wave in enumerate(waves):
             if stopped['value']:break
+            if drive_probe is not None:
+                drive_audits.append(dict(wave=wave_index,**drive_probe.apply(wave['gripper_drive_probe'])))
+                (output/'gripper_drive_audit.json').write_text(json.dumps(drive_audits,indent=2)+'\n')
             actors=torch.stack([layout_reset_observation(sources[r['episode_index']],
                 GraspLayout(**r['layout']).validate(),cfg.multi_box,
                 roller_clearance_m=resolve_rack_roller_settings().box_clearance_m) for r in wave['layouts']]).to(env.device)

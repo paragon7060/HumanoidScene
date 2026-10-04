@@ -530,3 +530,24 @@ Q counter의 이미 업로드한 파일을 덮어쓰지 않는다.
 
 환경·randomization·진입 waypoint·성공/안전 판정은 그대로다. 기능 동작 검사는 물리적
 성공률 개선의 증거가 아니며, 같은 DEV와 독립 FINAL에서 별도로 평가해야 한다.
+
+## 그리퍼 motor drive만 비교하는 frozen 진단
+
+`train_batched_staged_goal.py --gripper-drive-probe --no-training`은 기존 PGS/TGS
+정책을 고정하고 네 개 `bar_1` 모터의 PD/drive limit만 비교한다. Source checkpoint,
+solver/시간 간격, geometry/마찰/50N close-force feedforward, body/passive drives,
+진입 위치, initial base·box randomization,성공·안전 조건은 유지한다.
+
+`--waves-json`의 각 wave에는 `"gripper_drive_probe": "original"` 또는
+`"gripper_drive_probe": "soft_2nm"`를 추가한다. 같은 완전한16-case DEV layouts를
+세 wave에 넣어 original→soft_2nm→original 순서로 비교한다. Original은 실제
+초기화된 값을 캡처해서 복원한다. Soft 후보는 stiffness100N·m/rad,
+damping5N·m·s/rad, motor drive effort limit2Nm이다. 이는 검증 전 후보이며
+하드웨어 정격이나 물리 발산 해결값으로 확정한 것이 아니다.
+
+Isaac setters와 actuator-model tensors를 함께 갱신하고 PhysX에서 값을 다시 읽어
+일치하지 않으면 실패한다. Arm/body/passive joint는 바꾸지 않는다. 실제 구동값은
+`gripper_drive_audit.json`에 wave별로 저장하고 종료 뒤 기존 Drive 업로더가 검증한다.
+명시적 flag 없는 override,TRAIN 사용,다른 waveform/waypoint/background/origin
+진단의 동시 사용을 거부한다. 이 진단 전이는 matching Q/replay에 넣을 수 없다.
+학습 프로세스의 구동을 동적으로 교체하는 기능이 아니며 기본 학습에는 영향이 없다.

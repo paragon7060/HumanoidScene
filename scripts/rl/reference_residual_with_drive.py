@@ -24,7 +24,7 @@ def archive_pilot(source, remote_root, finished):
             destination = remote_root.rstrip('/')+'/'+source.name
             for name in ('executed_transitions.hdf5','reference.mp4','policy.mp4','preview.png',
                          'failure.json','residual_experience.pt','pose_goal_experience.pt',
-                         'staged_goal_experience.pt'):
+                         'staged_goal_experience.pt','gripper_drive_audit.json'):
                 path = source/name
                 if path.exists():
                     archive_file(path,destination,remote)

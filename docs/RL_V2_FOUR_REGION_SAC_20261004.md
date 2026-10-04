@@ -1365,3 +1365,69 @@ evaluation_rows=0도 유지됐다. 새 학습의 성공률 개선은 다음 DEV�
 GPU0 종료 시도는 자동 승인 검토에서 진행 중인 학습을 중단할 명시적 승인이
 없다는 이유로 거부되어 **종료 신호를 보내지 않았다**. GPU0는 그대로 유지하고,
 새 GPU3 학습은 닫히고 검증된 별도 source에서 시작했다. Goal은 완료 처리하지 않는다.
+
+### 10/05 02:21 — 새 TRAIN8개 성공·bank 추가·그리퍼 구동 비교 시작
+
+성공 경험을 유지하는 GPU3 SAC에서 처음 두 TRAIN waves를 실제 완료했다.
+
+| TRAIN wave | 전체 시도 /초기 유효 | 중간 왼쪽 | 중간 오른쪽 | 상단 왼쪽 /오른쪽 |
+|---|---:|---:|---:|---:|
+| 1 | 128 /82 | 0 | 2 | 0 /0 |
+| 2 | 128 /95 | 2 | 4 | 0 /0 |
+
+**새로 수집한 성공8개는 서로 다른 TRAIN seeds**다. 초기 bank의120100/120129와도
+다르다. 모든 성공이 opposing 양손 pinch·양손 stable·0.2667초 hold·corrected
+proof lift13.34–47.36mm·unsafe=false를 통과했다. Box는 dynamic이며 원래 초기
+base lateral/outward/yaw randomization을 유지했다. 예를 들어120115의 시작
+base는lateral−15.70cm/outward3.26cm/yaw+4.37°,120036은−12.75cm/20.70cm/+0.92°다.
+이는 TRAIN에서의 실제 성공이며 independent FINAL 일반화나 deterministic 성공률
+개선으로 해석하지 않는다. 전체 성공은8/256으로 낮고 상단 자료는 아직0개다.
+
+![새 실제 TRAIN 성공의 초기 base 변화와 보정 proof lift](assets/rl_v2_success_retention_first_train_20261005.png)
+
+[실측 snapshot·모든8개 성공 layout·접촉/hold/lift 증거](assets/rl_v2_success_retention_first_train_20261005.json)를
+기록했다. Bank는826→1653→**4127행**으로 늘었고 중간 왼쪽2episode/827행,
+중간 오른쪽8episode/3300행이다. 여기에는 초기source2episode도 포함되므로
+10개 새 성공으로 세지 않는다. 실제 새 TRAIN101012행,새 actor757/Q3026 updates를
+확인했고 wave3의 같은 DEV 평가가 시작됐다. DEV에서는 optimizer/replay/bank를
+추가하지 않으며 평가 완료 뒤 초기4/128과 비교한다.
+
+#### 물리 발산을 그리퍼 구동에서 분리해 확인
+
+현재 초기 frozen DEV에도 박스가 한 제어 tick 동안 수백/수십억m/s로 튀는 finite
+물리 발산이 있었다. 정상적인 접근 거리 평균에 이런 terminal 값을 섞어 학습 신호를
+해석하지 않는다. 초기무효28/128과 상단의 collision-free 미접촉 실패도 남아 있다.
+그리퍼의 실제 초기화된 motor drive는 stiffness4000N·m/rad,
+damping400N·m·s/rad,effort limit100Nm이었다. `bar_1` 링크는약4.05g다.
+Authoritative 설정은`assets/leju_claw_two_finger/config.json`이며 generic
+`configs/grippers.json`의20/2와 실제 값이 다르다. Close force feedforward는50N이다.
+
+강한 drive와 가벼운 링크/closed linkage/contact의 결합은 **원인 후보**다.
+[NVIDIA 안정성 안내](https://docs.omniverse.nvidia.com/kit/docs/omni_physics/107.3/dev_guide/guides/articulation_stability_guide.html)는
+이 조합의 stiffness/force/속도/질량비를 검토하도록 안내한다. 이전 timestep·solver·
+contact-last 비교만으로 발산이 해결되지 않았으므로 같은 frozen actor에서 motor drive를
+따로 비교한다. 원인 확정이나 성능 개선으로 기록하지 않는다.
+
+새 GPU3 진단 부모는`staged_gripper_drive_probe16_gpu3_20261005_021337`이며,
+writer1519368 / supervisor1519335를 host에서 확인했다. 기존 TRAIN writer1115417와
+GPU0 writer3499249는 종료하지 않았다. GPU3 새 진단은약4GiB이며 기존TRAIN과
+합계약22.5GiB다. 다른 사용자 GPU1/2 작업은 변경하지 않았다.
+
+각 구역 원래DEV의 첫4개씩16개 cases를 success에 따른 선택 없이 사용하여,
+**original→soft_2nm→original의48개 시도**를 수행한다. Checkpoint15602/actor3389가
+고정이며 초기 실제 rollout에서actor3389/Q15602/replay0을 확인했다. Soft 후보는
+네 `bar_1` motor의100/5/2Nm이고 arm/body/passive drive는 그대로다. 설정과 actuator
+model tensors를 함께 바꾸고 실제 PhysX 값을 다시 읽어 확인한다. Geometry/마찰/
+50N feedforward/solver/시간 간격/waypoint/초기 randomization/성공·안전 조건은
+유지하며 이 전이는 Q 학습에 쓸 수 없다. 아직 비교 결과는 대기 중이다.
+[사용법](RL_V2_STAGED_GOAL_SAC.md#그리퍼-motor-drive만-비교하는-frozen-진단).
+구동 대상·원래 값 복원·PhysX 불일치 거부·frozen gate 및 기존 runner/waypoint
+검사24개가 통과했다. 기존 학습의 구동은 변경하지 않았다.
+
+#### 초기 replay 전체 백업 완료
+
+수정한 대용량 전송 제한시간으로 초기`staged_goal_experience.pt`3.62GB의 업로드,
+크기·MD5 검증을 완료했다. Manifest/checkpoint/status/retention audit/initialization
+verification도 검증됐으며 기존 인증을 재사용했다. 이번 초기 전체 백업 검증 receipt는
+새 TRAIN 부모의`initial_full_replay_backup_verification.json`에 있다. 이전01:47 기록의
+검증 대기는 해소됐고 미검증 자료를 삭제한 것은 아니다. Goal은active로 유지한다.
