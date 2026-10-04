@@ -807,3 +807,26 @@ rack clearance10.5696mm·hold0.266667s다. Frozen 물리 진단은 Q/actor를
 별도 PGS 학습은 `--physics-solver PGS`의 명시된 solver/dt 계약으로 fresh Q를
 준비한다. Actor prior만 이전하며 다른 TGS Q/replay는 strict 계약 비교에서
 거부한다. 동일 dt/control dt/iteration/성공·안전 기준은 유지한다. 관련 CPU25검사 통과.
+
+
+## 15:37 · 실제 Q/replay 재개와 별도 PGS 학습
+
+GPU3 기존 실행은15:26에 최종 Drive 검증을 끝냈고 실제 writer/service 종료를
+확인했다.15:29에 새 고유 실행에서 같은 actor238·Q2998·actual replay87,939행과
+네 optimizer를 재개했다. 같은 remaining TRAIN14wave와 development8회, 독립
+final128개를 구성한다. 새 paired guard0.05 baseline은 현재 actor의 첫 반복이며
+원래15/128과 구분한다. 종료된 기존DEV0→3의 exact paired 실제 손실/획득은
+중간좌3/1(p0.3125), 우6/3(p0.25390625)다. significance 기준0.00625를
+넘으므로 유의한 회귀 stop은 아니지만, 실제 raw 성능 감소를 숨기지 않는다.
+
+PGS frozen 추가 반복은4/16(중간좌1·우3·상단0), speed2·rack3·drop2였다.
+따라서 상단 성공은 세 번 중 두 번으로 반복성의 한계가 있다. PGS가 전반적인
+해결이라고 결론내리지 않는다.15:36에 비어 있는GPU0에서 fresh-Q128 실험을
+시작했다. 동일 초기 actor/normalizer를 tensor별 동일성으로 확인하고 새 Q,
+빈 실제 replay, 빈4optimizer, counter0을 확인했다. 초기모델/빈replay도 기존
+Drive에 업로드·체크섬 검증했다. TGS 전이를 PGS Q에 섞지 않는다.
+
+새 실행의 초기 guard에는 logical box별 실제 rack-local 위치·속도·선반 clearance·
+footprint/shelf/stability 실패를 기록한다. Respawn/park된 원래 asset은 그 사실을
+명시하며 원래 물리 failure trajectory라고 주장하지 않는다. 이 계측은 spawn,
+reset 제한, 마찰, 성공 기준을 변경하지 않는다. 관련 batched14검사 통과.

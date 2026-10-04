@@ -351,6 +351,52 @@ def wait_for_original_surrounding_boxes(env,observation,expected,names,invalid_b
     return observation,steps,failed,stable_ticks
 
 
+def measured_initial_box_failures(env,actors,names):
+    """Read why an original box fails geometry/stability; never alter its state.
+
+    A replaced case is explicitly labelled. Its parked old asset must not be
+    mistaken for the requested box's original physical failure trajectory.
+    This final guard sample supplements counts, not pre-respawn observations.
+    """
+    from ..scene.spawn import physical_pool_id,logical_cells
+    from ..geometry.pose import quat_apply,quat_conjugate,normalize_quaternion
+    from ..geometry.rack import box_shelf_clearance_m
+    from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
+    from ....workcell.workcell_layout import scale
+    tokens=actors[:,86:350].reshape(-1,12,22)
+    poses=torch.stack([env.scene[name].data.root_pose_w for name in names],1)
+    velocities=torch.stack([env.scene[name].data.root_vel_w for name in names],1)
+    rack=env.scene['rack'].data.root_pose_w
+    rows=torch.arange(env.num_envs,device=env.device)
+    failures=[]
+    def finite_list(value):
+        return [float(v) if math.isfinite(float(v)) else None for v in value]
+    for cell in logical_cells(env.cfg.multi_box):
+        logical=cell.logical_id;active=tokens[:,logical,0]>.5
+        for kind,name in enumerate(('small','medium')):
+            selected=active&(tokens[:,logical,3:5].argmax(-1)==kind)
+            if not selected.any():continue
+            pool=physical_pool_id(cell,kind);pose=poses[:,pool];velocity=velocities[:,pool]
+            finite=torch.isfinite(pose).all(-1)&torch.isfinite(velocity).all(-1)&(pose[:,3:].norm(dim=-1)>1e-8)
+            safe=pose.clone();safe[~finite,:3]=0.;safe[~finite,3:]=safe.new_tensor([1.,0.,0.,0.])
+            type_ids=rows.new_full((env.num_envs,),kind);region_ids=rows.new_full((env.num_envs,),cell.region_id)
+            footprint=finite&env._multi_box_reset_settling._footprint_in_region(safe,type_ids,region_ids)
+            on_shelf=finite&env._multi_box_reset_settling._on_assigned_shelf(safe,type_ids,region_ids)
+            clearance=box_shelf_clearance_m(safe,rack,BOX_DIMENSIONS_M[name],shelf=cell.shelf,rack_scale=scale('rack'))
+            local=quat_apply(quat_conjugate(normalize_quaternion(rack[:,3:])),safe[:,:3]-rack[:,:3])
+            stable=finite&(velocity[:,:3].norm(dim=-1)<.01)&(velocity[:,3:].norm(dim=-1)<.05)
+            same_pool=env._multi_box_active[:,logical]&(env._multi_box_pool_ids[:,logical]==pool)
+            for i in torch.where(selected&~(footprint&on_shelf&stable&same_pool))[0].tolist():
+                failures.append(dict(environment=i,logical_id=logical,original_pool_id=pool,
+                    original_asset_still_active=bool(same_pool[i]),finite=bool(finite[i]),
+                    footprint_in_region=bool(footprint[i]),on_assigned_shelf=bool(on_shelf[i]),
+                    stable_at_guard=bool(stable[i]),rack_local_root_xyz_m=finite_list(local[i]),
+                    shelf_clearance_m=float(clearance[i]) if finite[i] else None,
+                    linear_speed_mps=float(velocity[i,:3].norm()) if finite[i] else None,
+                    angular_speed_radps=float(velocity[i,3:].norm()) if finite[i] else None))
+    return failures
+
+
 def settle_batched_layouts(env, actors, *, allow_partial=False):
     """Reject replaced/unsettled targets and every invalid surrounding box."""
     from ..scene.spawn import physical_asset_names
@@ -397,5 +443,6 @@ def settle_batched_layouts(env, actors, *, allow_partial=False):
     guard['surrounding_stable_ticks']=stable_ticks.tolist()
     guard['surrounding_unsettled']=surrounding_unsettled.tolist()
     guard['box_footprint_or_shelf_failures']=footprint_failures
+    guard['measured_box_failure_details']=measured_initial_box_failures(env,actors,names)
     print('[BATCH LAYOUT GUARD] '+str(guard),flush=True)
     return env.observation_manager.compute(),steps+tick,valid,guard
