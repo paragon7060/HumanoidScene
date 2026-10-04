@@ -113,6 +113,7 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import StagedGoalSACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_hybrid_goal_sac import StagedHybridGoalSACPilot
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.physical_body_sac import PhysicalBodySACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard,WAVE_RESET_CONTROLLER_CONTRACT,evaluate_development_wave,measured_wave_mask,observe_measured_held_rows
         from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import GraspActionProjector
         from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
@@ -232,7 +233,7 @@ def main():
         sources={i:select_reference_episode(batch,i)['actor_obs'][0] for i in
                  {row['episode_index'] for w in waves for row in w['layouts']}}
         state=torch.load(args.checkpoint,map_location=env.device,weights_only=True)
-        classes={c.artifact_type:c for c in (StagedGoalSACPilot,StagedHybridGoalSACPilot)}
+        classes={c.artifact_type:c for c in (StagedGoalSACPilot,StagedHybridGoalSACPilot,PhysicalBodySACPilot)}
         if state.get('artifact_type') not in classes:
             raise ValueError('Batched learner requires the separately initialized staged checkpoint')
         pilot_class=classes[state['artifact_type']]

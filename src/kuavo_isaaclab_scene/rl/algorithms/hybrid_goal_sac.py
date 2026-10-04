@@ -117,6 +117,9 @@ class HybridGoalSAC(AsymmetricSAC):
             result+=2*(math.log(2)-mean-F.softplus(-2*mean))-self.config.max_policy_std**2
         return result.sum(-1)
 
+    def success_body_loss(self,raw,requested_body,labels):
+        return F.mse_loss(requested_body,labels[:,:19])
+
     def update(self,batch,*,demonstration=None,demonstration_weight=0.,
                teacher=None,teacher_weight=0.,update_actor=True,
                successful_train=None,success_goal_weight=0.,success_jaw_weight=0.):
@@ -190,7 +193,7 @@ class HybridGoalSAC(AsymmetricSAC):
             if successful_train is not None and (success_goal_weight or success_jaw_weight):
                 raw=successful_train['actor_obs'];normalized=self.actor_normalizer(self.actor_features(raw))
                 mean,_,jaw_logits=self.parameters_at(normalized);labels=successful_train['action']
-                success_goal_loss=F.mse_loss(mean.tanh(),labels[:,:19])
+                success_goal_loss=self.success_body_loss(raw,mean.tanh(),labels)
                 success_near=self.action_projector.entropy_mask(raw)[:,19:21].bool()
                 if bool(success_near.any()):
                     success_jaw_loss=F.binary_cross_entropy_with_logits(jaw_logits[success_near],(labels[:,19:21][success_near]+1)/2)

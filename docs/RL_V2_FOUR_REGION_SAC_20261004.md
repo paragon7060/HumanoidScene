@@ -1739,3 +1739,44 @@ Drive 검증한 뒤 실행했다. Optimizer0인 TRAIN 데이터 수집이며 성
 독립 평가로 세지 않는다. GPU3 두 분기는 각각 다음 frozen DEV wave9/wave3를
 진행 중이다. 기존 성공 유지 TRAIN wave8은3/128(중간오른쪽3),새 팔 탐색 TRAIN
 wave2는2/128(중간왼쪽1/오른쪽1)이었다.
+
+
+### 10/05 06:37 · DEV7/128와 실제 물리명령 SAC 비교
+
+성공 유지 GPU3 분기의 같은 DEV는4→3→3→7/128로 상승했다.
+마지막7개는 중간오른쪽5/중간왼쪽1/상단왼쪽1이며 상단오른쪽0이다.
+직전DEV의 중간오른쪽 성공3개를 모두 유지하고4개를 더 성공했다.
+작은 반복DEV 비교이며 네 영역의 독립 일반화 성공이나 통계적으로 확정된
+개선으로 해석하지 않는다. Episode arm bias 분기의DEV3→1/128은 개선되지 않았다.
+두 GPU3 실행은 계속 유지한다.
+
+상단오른쪽 TRAINseed120352를 frozen checkpoint 탐색으로 재수집한 GPU0 실행도
+안전한time-out으로 끝났다. 정확한 held784행/optimizer0/성공 bank0이며
+양손 성공 기준을 완화하거나 실패 데이터를 성공으로 넣지 않았다.
+
+기존 bounded goal replay에서 사라진 원본TRAIN 성공13episode의 literal
+physical24 명령과 전체pre/next/reward/종료/초기state를 별도27MB HDF로
+보존하고 Drive 크기·MD5를 검증했다. 실제 body21로 구성한 held5737행은
+중간오른쪽9episode/3716행,중간왼쪽2/820,상단오른쪽1/603,상단왼쪽1/598이다.
+잘린 physical명령의 inverse goal21 label은 만들지 않는다.
+
+선택한 성공 유지 actor4865의 NN만 frozen physical command prior로 쓰고
+Q/critic normalization/optimizer를 새로 초기화하는 별도SAC 분기를 추가했다.
+Actual command21를 Q 입력으로 사용하여 원본TRAIN 성공을 직접 활용한다.
+Init greedy 명령이 frozen prior와 같음을 실제5737행에서 확인했고,
+heldout/probe/unsafe/변경된base feedback/실제terminal evidence/중복 경로/
+재개·frozen 평가·projected physical loss 관련51개 테스트가 통과했다.
+이 초기화는 새 물리 성공이 아니다.
+
+GPU0/CUDA_VISIBLE_DEVICES=0/128env 새 부모는
+`physical_body_SAC_pgs128_gpu0_20261005_063724`,child는
+`batch_sac_20261005_063739_dc72fe`다. 초기NN/checkpoint/full literal replay와
+wave입력은 먼저 Drive검증했다. 기존TRAIN/DEV는 같고FINAL은 사전 선언한
+새seed namespace2026100500을 사용한다. Dynamic box/base·box randomization,
+PGS/구동/중력보상/보상/양손pinch+hold+corrected8mm/안전은 같다.
+
+종료된 원본aligned 실행의6GB fullHDF만 Drivesize·MD5와writer/service 종료를
+다시 확인하고 로컬에서 정리해 여유를 약15GiB로 늘렸다. 성공13개의literal
+corpus,checkpoint/replay/logs와 다른 사용자·실행중 파일/프로세스는 보존했다.
+[설계·사용법·보관](RL_V2_PHYSICAL_BODY_SAC.md),
+[DEV·TRAIN·초기화·checksum·source digest 증거](assets/rl_v2_physical_body_sac_initial_20261005.json).

@@ -618,6 +618,11 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src python scripts/rl/prepare_staged_arm_expl
 
 ## Frozen SAC의 TRAIN 목표 전이 수집
 
+2026-10-05에는 목표 역산을 하지 않고 실제 제어명령21을 Q 행동으로 쓰는
+[별도 physical-body SAC](RL_V2_PHYSICAL_BODY_SAC.md)도 추가했다.
+기존 goal Q/replay와는 artifact/algorithm/행동 문맥을 구분한다. 아래 수집기의
+기존 동작과 기본 goal SAC는 유지한다.
+
 `replay_v2_grasp_reference.py --collect-train-goals`는 **실행 전에 TRAIN으로 선언한
 배치**에서 frozen staged hybrid SAC가 실제로 선택한21개 목표를 기록한다.
 정책/Q/optimizer를 갱신하지 않는 학습 데이터 수집이다. 기존 VR 수집·정책 평가의
