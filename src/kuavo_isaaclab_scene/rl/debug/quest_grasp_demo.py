@@ -136,6 +136,10 @@ def run(args, app):
             flap_pose_source=getattr(args, "rl_demo_flap_pose_source", "nominal"))
         cfg.seed = args.seed
         cfg.sim.device = args.device
+        from ..multi_box.geometry.upright_torso import configure_upright_travel_profile
+        torso_contract=configure_upright_travel_profile(cfg,
+            dict(action_contract='s63_upright_torso_xz_fixed_pitch_v1'),
+            getattr(args,'rl_demo_torso_extra_height_m',0.))
         cfg.xr = XrCfg(
             anchor_pos=layout_offset("robot", (0.0, 0.0, 0.55)),
             anchor_rot=layout_rotation("robot"), near_plane=0.08,
@@ -184,6 +188,7 @@ def run(args, app):
             "multi_box": asdict(cfg.multi_box),
             "task": asdict(cfg.task),
         }
+        if getattr(args,'rl_demo_torso_extra_height_m',0.):manifest.update(torso_contract)
         recorder = RlTransitionRecorder(args.rl_demo_dataset, manifest)
         start_quest_xr_session(
             app, enable_ui=False, resolution_scale=args.xr_resolution_scale,

@@ -907,3 +907,32 @@ XR panel에 multi-box 배치와 선택한 box의 read-only pose shadow reward �
 - `Body must be non-kinematic`는 무시할 로그가 아니다. 검사 모드의 고정 conveyor
   표면에 대한 불필요한 zero-velocity reset을 차단했다. 박스의 동역학이나 RL 학습
   runner는 변경하지 않는다. 같은 오류가 계속되면 다른 호출/물체도 확인해야 한다.
+
+## 현재 held-base SAC의 상단 데모 (+6cm upright travel)
+
+기존 수집은 그대로 유지한다. 현재 실험의 S63/upright torso+6cm와 맞춰 상단
+데모를 수집하려면 `--rl-demo-torso-extra-height-m 0.06`을 명시한다.
+기본0은 기존0.40m software travel이며0.06은0.46m다. Hard joint limits나 고정
+pitch, 보상/충돌/성공 기준을 바꾸지 않는다. 옵션은 S63의 RL 데모 수집에서만
+허용하고0..0.08m 밖의 값이나 dataset 없는 사용은 거부한다. 실제 선택한
+`action_contract`와 travel profile을 HDF manifest에 기록한다.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 ./quest_collector.sh collect \
+  --robot-model s63 --gripper leju-twofinger --rack-rollers \
+  --rl-reward-debug 2 --device cuda:0 --no-rl-demo-self-collision \
+  --rl-demo-torso-extra-height-m 0.06 \
+  --rl-demo-dataset datasets/v2_grasp_upper_right_001.hdf5
+```
+
+GPU 번호와 출력 파일명은 수집 PC에서 맞춘다. 현재 추가 자료의 우선 구역은
+상단 오른쪽이다. Reset 후 목표 하이라이트가 그 구역인 시도를 골라 안전
+진입→양손의 서로 다른 flap 파지→실제 roller support 위 lift를 수행한다.
+서로 다른 초기 base 위치/방향에서 시도하면 같은 동작 한 번을 복제하는 것보다
+도움이 된다. 새 파일을 수집하는 작업은 선택 사항이며 현재 SAC는 계속 실행한다.
+
+이 옵션은 같은 shared torso configurator로 연결하고 metadata를 기록했다.
+Quest headset에서의 새로운 시연 수집을 이 문서 작성 시점에 실행한 것은 아니다.
+데모 수집의24-D increment action은 held-base learner의21-D absolute goal과 다르므로
+그대로 Q replay로 넣지 않는다. 실제 초기 상태로 물리 replay/goal fitting을 거친 후
+actor prior와 matching current transition 용도를 분리한다.

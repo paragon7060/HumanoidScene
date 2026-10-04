@@ -1030,3 +1030,47 @@ Rack10N/robot-only obstacle5N/self-collision off,8mm active-support lift와0.25s
 
 Main의 학습 수정은 `93238ff`에 push했다.25개 layout CPU 검사로 원래 target/base와
 데이터를 보존하고 새 background footprint가 유효한 것을 확인했다.
+
+
+### 21:17 — 초기 평가 완료와 실제 업데이트 / packing 진단 결론
+
+GPU3의 수정 후 첫 frozen DEV는 **10/128**이다: 중간왼쪽4/32,
+중간오른쪽6/32, 상단왼쪽0/32, 상단오른쪽0/32. Guard를 통과한 원래 배치는99/128이며
+29개 initial failure도 denominator에 포함했다. 기존12/128보다 개선된 결과가 아니며,
+복구된 actor가 실제 파지 동작을 다시 수행하는 것까지 확인했다.
+
+이어지는 TRAIN wave에서 새 native transition과 실제 actor/Q updates를 확인했다.
+진행 시점의 수치·run paths·완료된 wave는
+[실측 상태 snapshot](assets/rl_v2_confident_sac_live_and_reset_probe_20261004.json)에 기록했다.
+Baseline frozen 평가의10회 성공을 새 학습으로 얻은 개선으로 계산하지 않는다.
+상단 오른쪽의 forearm–rack 충돌과 실제 flap capture/lift를 계속 해결해야 한다.
+
+별도 PGS frozen64 **초기화만** 보는 original→packed→original 비교는
+유효51/64 →52/64 →51/64였다. Background5가 보고된 failure에도11 →10 →10으로
+큰 차이가 없었다. 일부 보고 값은 respawn 이후라 원래 box의 발산 원인을 대신하지
+못한다. Sparse depth를 채우는 것만으로 초기화 실패가 해소된다는 증거는 없으며,
+main의 기존 randomization/reset 분포는 그대로 유지한다. 이 진단의 파지 성공률은
+평가하지 않았고 Q/훈련 replay에도 넣지 않는다.
+
+모델·replay 복구 파일의 기존 Drive 검증과 periodic300초 업로더가 활성화되어 있다.
+Frozen 진단의 writer가 종료한 뒤 manager가 로그/HDF를 최종 업로드하고 검증한다.
+
+
+### 21:24 — 첫 TRAIN 묶음 종료 / 추가 수집 옵션
+
+GPU3의 첫 새 TRAIN wave는 **1/128** 실제 grasp/lift 성공이었다. Initial valid82/128이며
+새 measured held-phase transition40342행을 수집했다. Actor1322/Q7334는 재개 이전
+960/5888 대비 실제 **+362/+1446 updates**다. 첫 frozen DEV10/128 뒤 실제 학습이
+진행되고 있다. 학습 개선 결론은 다음 동일 DEV 결과를 확인한 뒤 내린다.
+
+Frozen background packing 진단은 종료했고 manager의 `final_upload_verified=true`를
+확인했다. Original→packed→original 유효51→52→51/64는 큰 개선을 뒷받침하지 않아
+학습 reset을 바꾸지 않는다.
+
+추가 VR 데모 수집을 도울 `--rl-demo-torso-extra-height-m 0.06` 옵션을 Quest에 연결했다.
+기본0은 기존 수집 그대로이며,
+0.06은 현재 upright software travel0.46m와 같은 shared configurator를 사용하고
+action contract를 HDF manifest에 기록한다. S63/RL dataset에서만 허용하고 hard
+joint limits/pitch/safety는 유지한다. [수집 예시](RL_QUEST_REWARD_DEBUG.md#현재-held-base-sac의-상단-데모-6cm-upright-travel)를 참고한다.
+Quest headset의 새 수집까지 실행한 것은 아니다. Syntax와 shared torso CPU 검사로
+연결을 확인했으며 사용자께서는 파일을 수정할 필요가 없다. 추가 수집은 선택 사항이다.

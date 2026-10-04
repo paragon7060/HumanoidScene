@@ -51,6 +51,8 @@ parser.add_argument("--rl-demo-self-collision", action=argparse.BooleanOptionalA
                     default=True, help="V2 staged-grasp demonstration: match the SAC self-collision setting (default enabled).")
 parser.add_argument("--rl-demo-flap-pose-source", choices=("nominal", "articulated"), default="nominal",
                     help="V2 staged-grasp demonstration: record nominal or perceived articulated flap midpoint/normal observations.")
+parser.add_argument("--rl-demo-torso-extra-height-m", type=float, default=0.,
+                    help="S63 V2 demonstration: explicit upright torso travel extension within0..0.08m; 0.06 matches the held-base SAC experiment.")
 parser.add_argument("--rl-demo-contact-markers", action=argparse.BooleanOptionalAction,
                     default=True, help="V2 staged-grasp demonstration: mark the robot links that touch the rack (red) or another obstacle (orange) in the Quest view.")
 parser.add_argument("--rl-demo-hold-terminal-frame", action=argparse.BooleanOptionalAction,
@@ -307,6 +309,10 @@ if args_cli.rl_shadow_box_count is not None and args_cli.rl_reward_debug != 2:
     parser.error("--rl-shadow-box-count requires --rl-reward-debug 2.")
 if args_cli.rl_demo_flap_pose_source != "nominal" and args_cli.rl_demo_dataset is None:
     parser.error("--rl-demo-flap-pose-source articulated requires --rl-demo-dataset.")
+if not math.isfinite(args_cli.rl_demo_torso_extra_height_m) or not 0<=args_cli.rl_demo_torso_extra_height_m<=.08:
+    parser.error("--rl-demo-torso-extra-height-m must be within0..0.08m.")
+if args_cli.rl_demo_torso_extra_height_m and (args_cli.rl_demo_dataset is None or args_cli.robot_model!='s63'):
+    parser.error("Extended upright travel requires --rl-demo-dataset and --robot-model s63.")
 if args_cli.rl_demo_dataset is not None:
     if args_cli.rl_reward_debug != 2:
         parser.error("--rl-demo-dataset requires --rl-reward-debug 2 (the v2 SAC task).")
