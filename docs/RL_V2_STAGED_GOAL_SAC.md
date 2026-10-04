@@ -175,6 +175,57 @@ wrench·joint effort/velocity target을 정리한다. Robot과 box의 teleport F
 `recover_pose_goal_actor.py`로 같은 계약의 검증된 actor만 **새 폴더**에서 복구한다.
 이 옵션이 오류를 자동 수리하거나 실험을 자동 재시작하는 것은 아니다.
 
+### Binary gripper를 직접 학습하는 hybrid SAC
+
+`prepare_staged_goal_sac.py --hybrid-grippers --free-grippers`는 **별도 fresh Q**의
+`staged_base_hold_remaining_hybrid_sac_v1`을 준비한다. 나머지19개 연속 목표와
+양손의 Bernoulli 열림/닫힘 정책을 함께 학습한다. 실제 gripper의 `action>0`
+제어를 표현하므로 Q/replay의 jaw 값은 정확히−1/+1이다. 연속 jaw 값의 부호만
+실행하면서 그 부호의0 gradient에 기대지 않는다.
+
+현재 실제 관측에서 가능한 네 jaw 조합을 Q에 대입해 actor/target의 기대값을
+정확히 계산한다. 이것은 Q의 policy expectation이고 새로운 transition 생성이나
+old demo reward/Q 수입이 아니다. 각 손이 배정 flap에서12cm 이상 멀면 open만
+가능하며 그 손의 categorical entropy도0이다. 연속 목표의 std/radius는 기존
+설정이고, categorical entropy target은 활성 jaw당0.35nats, 초기 temperature는
+0.01이다. 양손 categorical prior KL의 weight0.05는 연속 목표의 정규화 MSE와
+분리했다. 재개에는 두 entropy optimizer를 포함한4개 optimizer 상태가 필요하다.
+일반21-goal checkpoint/replay를 이 hybrid Q로 그대로 resume하면 거부한다.
+
+`--exploration-correlation 0.98`는 선택적인 **TRAIN behavior** 잡음이다.
+각 환경의 Gaussian latent를 AR(1)로 이어 body goal jitter를 줄인다. Hybrid jaw는
+normal CDF를 통해 상관 uniform threshold를 얻는다. Feedback 중 behavior는
+off-policy이고 SAC actor/target의 독립 Gaussian·Bernoulli 기대값은 유지한다.
+매 중립 wave에서 환경별 잡음 이력을 새로 만들며 접근/종료한 다른 환경의 잡음은
+진행시키지 않는다. 이 설정이 최소 파지 hold시간을 보장하지는 않는다.
+Validation/final/정책 재생은 noise 없이 deterministic mean/최대확률 jaw를 쓴다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl \
+  python scripts/rl/prepare_staged_goal_sac.py \
+  --checkpoint /absolute/path/to/matching-frozen-pose-goal-model.pt \
+  --native-seed /absolute/path/to/current-middle-train-success.hdf5 \
+  --native-seed /absolute/path/to/current-upper-train-success.hdf5 \
+  --waypoints /absolute/path/to/HumanoidScene/docs/assets/rl_v2_staged_base_hold_candidates_20261004.json \
+  --output-dir /absolute/path/to/unique-hybrid-initial-model \
+  --hybrid-grippers --free-grippers --gripper-logit-scale 0.005 \
+  --normalize-prior-loss-by-radius --anchor-prior-to-initial-policy \
+  --actor-min-replay-rows 32768 --replay-capacity 500000 \
+  --exploration-correlation 0.98
+```
+
+새 checkpoint를 같은 batched Drive runner의 `--checkpoint`에 전달한다.
+Checkpoint의 artifact type으로 일반/hybrid learner를 선택한다. 일반 delta SAC,
+PPO/DPPO의 알고리즘과 기존 옵션 기본값은 변경하지 않는다.
+Replay500,000행은 실제 buffer4,120,500,000bytes(약3.84GiB)이고 디스크의
+experience 파일도 실제 수집량에 따라 이 크기까지 커질 수 있다.
+
+Base stage의 거리/속도 계산과 접근 command는 벡터화했다. 각 환경의15연속
+정지 step·clock·anchor·종료 mask는 유지하며, 단일 제어와 일치하는 회귀 검사를 둔다.
+중도 stop한 개발 wave는 guard를 채점하지 않는다. Actor 업데이트가 같은데
+구역 성능이 감소하면 `physical_reproducibility_failed`로 구분해 기록한다.
+이는 여전히 실험 중단이며 실제 성능 손실을 무시하는 옵션은 아니다.
+
 `--contact-stability-probe --no-training`은 박스가 접촉 중 비정상적인 속도로
 날아가는 원인을 비교하기 위한 별도 frozen 진단이다. Physics dt1/240s·decimation8로
 control dt1/30s를 유지하고 box solver64/16, body linear cap25m/s,
@@ -238,3 +289,15 @@ CUDA_VISIBLE_DEVICES=3 PYTHONPATH=src:scripts/rl \
 수정한4-env 실행은 전체 scene guard를 통과했고 실제 base hold/정책 실행까지 진행했다.
 아직 완료 성공률 전이다. Closed evaluation wave는 같은 critic counter의 checkpoint를
 다시 쓰지 않아 이미 Drive에서 검증된 파일 이름을 다른 내용으로 덮어쓰지 않는다.
+
+128환경 후속 실행에서는 전체 batch의 박스가 동시에 멈추는 조건을 제거했다.
+각 requested original layout에서 모든 활성 박스가 동일한 선속도0.01m/s·각속도
+0.05rad/s 미만으로8tick 유지돼야 통과한다. 교체·numerical failure·종료·90step 뒤
+미안정 환경은 실패 attempt로 기록하고 replay에서 제외한다. 정상 환경은 계속 진행하며
+실패를 성공률 분모에서 빼지 않는다. Requested reset 대기 역시 실패 장면의 respawn을
+기다리지 않는다. 성공·안전 조건과 randomization은 유지한다.
+
+Experience 저장은 최근 capacity 행만 담은 소유 tensor를 직렬화한다. 빈 view나
+잘라낸 view의 전체 원본 storage를 저장하지 않는다. Initial replay0행은 약11KB이며
+종료 replay의 크기는 실제 보유 행 수에 따라 증가한다. 주기적 모델 checkpoint와
+종료 replay를 혼동하지 않는다.

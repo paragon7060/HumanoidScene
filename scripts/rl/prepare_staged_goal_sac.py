@@ -24,6 +24,9 @@ def main():
     parser.add_argument('--normalize-prior-loss-by-radius',action='store_true')
     parser.add_argument('--actor-min-replay-rows',type=int,default=64)
     parser.add_argument('--anchor-prior-to-initial-policy',action='store_true')
+    parser.add_argument('--exploration-correlation',type=float,default=0.)
+    parser.add_argument('--hybrid-grippers',action='store_true',
+        help='Fresh Q with19 continuous goals and exact two-Bernoulli jaw policy')
     args=parser.parse_args()
     if not all(p.is_file() for p in (args.checkpoint,args.waypoints,*args.native_seed)):
         parser.error('Existing matching files are required')
@@ -38,12 +41,18 @@ def main():
     if templates.get('physical_action_contract')!=contract['action_contract']:
         parser.error('Physical travel contract differs')
     stage=StagedBaseHoldDiagnostic(warm.coordinates,templates,raw)
-    staged=StagedGoalSACPilot(warm,contract,args.output_dir,stage,training=True,device='cpu',
+    pilot_class=StagedGoalSACPilot
+    if args.hybrid_grippers:
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_hybrid_goal_sac import StagedHybridGoalSACPilot
+        pilot_class=StagedHybridGoalSACPilot
+        if not args.free_grippers:parser.error('Hybrid jaw decisions require --free-grippers')
+    staged=pilot_class(warm,contract,args.output_dir,stage,training=True,device='cpu',
                             free_grippers=args.free_grippers,gripper_logit_scale=args.gripper_logit_scale,
                             replay_capacity=args.replay_capacity,
                             normalize_prior_loss_by_radius=args.normalize_prior_loss_by_radius,
                             actor_min_replay_rows=args.actor_min_replay_rows,
-                            anchor_prior_to_initial_policy=args.anchor_prior_to_initial_policy)
+                            anchor_prior_to_initial_policy=args.anchor_prior_to_initial_policy,
+                            exploration_correlation=args.exploration_correlation)
     args.output_dir.mkdir(parents=True,exist_ok=False)
     staged.save(final=True)
     (args.output_dir/'manifest.json').write_text(json.dumps(contract|dict(

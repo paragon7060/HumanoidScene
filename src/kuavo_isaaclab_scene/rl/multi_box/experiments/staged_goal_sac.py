@@ -94,12 +94,13 @@ def copy_remaining_actor(source, destination):
 
 class StagedGoalSACPilot:
     artifact_type = 'staged_base_hold_remaining_goal_sac_v1'
+    agent_class = AsymmetricSAC
 
     def __init__(self, warm_start, physical_contract, directory, stage, *,
                  checkpoint=None, training=True, device='cpu', free_grippers=False,
                  gripper_logit_scale=1., replay_capacity=20000,
                  normalize_prior_loss_by_radius=False,actor_min_replay_rows=64,
-                 anchor_prior_to_initial_policy=False):
+                 anchor_prior_to_initial_policy=False,exploration_correlation=0.):
         if warm_start.training:
             raise ValueError('The warm-start network must remain frozen')
         self.warm_start = warm_start
@@ -131,7 +132,12 @@ class StagedGoalSACPilot:
             normalize_prior_loss_by_radius=saved.get('goal_contract',{}).get('normalize_prior_loss_by_radius',False)
             actor_min_replay_rows=saved.get('goal_contract',{}).get('actor_min_replay_rows',64)
             anchor_prior_to_initial_policy=saved.get('goal_contract',{}).get('actor_prior_source')=='frozen_validated_remaining_goal_actor'
+            exploration_correlation=saved.get('goal_contract',{}).get('exploration_correlation',0.)
             self.prior_schedule_actor_origin=saved.get('prior_schedule_actor_origin',0.)
+        if not math.isfinite(exploration_correlation) or not 0<=exploration_correlation<=.995:
+            raise ValueError('Goal exploration correlation must be within0..0.995')
+        self.exploration_correlation=exploration_correlation
+        self.goal_exploration=None
         if type(normalize_prior_loss_by_radius) is not bool:
             raise ValueError('Prior loss normalization must be an explicit boolean')
         self.normalize_prior_loss_by_radius=normalize_prior_loss_by_radius
@@ -161,7 +167,7 @@ class StagedGoalSACPilot:
             gamma=reward_discount(physical_contract), freeze_actor_normalizer=True,
             actor_feature_mode='flat', critic_layer_norm=True)
         projector = StagedGoalProjector(self.prior, self.prior.agent.actor_obs_dim,free_grippers)
-        self.agent = AsymmetricSAC(self.actor_dim, self.critic_dim, 21, config, device,
+        self.agent = self.agent_class(self.actor_dim, self.critic_dim, 21, config, device,
                                    action_projector=projector)
         copy_remaining_actor(warm_start.agent, self.agent)
         if free_grippers:
@@ -242,6 +248,10 @@ class StagedGoalSACPilot:
         if self.actor_min_replay_rows!=64:contract['actor_min_replay_rows']=self.actor_min_replay_rows
         if self.anchor_prior_to_initial_policy:
             contract['actor_prior_source']='frozen_validated_remaining_goal_actor'
+        if self.exploration_correlation:
+            contract.update(exploration_correlation=self.exploration_correlation,
+                collection_noise='independent_per_environment_AR1_pre_tanh_Gaussian',
+                critic_actor_target_noise='standard_SAC_Gaussian_unchanged')
         return contract
 
     @property
@@ -265,13 +275,27 @@ class StagedGoalSACPilot:
         return torch.cat((ao, context), -1), torch.cat((co, context), -1)
 
     @torch.no_grad()
-    def act(self, raw, critic, index):
+    def act(self, raw, critic, index, *, exploration_ids=None):
         if self.anchor is None:
             self.anchor = self.coordinates.box_anchor(raw).clone()
         ao, co = self.observations(raw, critic, index)
-        action = self.agent.act(ao, deterministic=not self.training or self.replay.size < 64)
+        deterministic=not self.training or self.replay.size<64
+        if self.exploration_correlation and not deterministic:
+            if self.goal_exploration is None:
+                # The single-environment runner has one identity throughout
+                # an episode. Vector callers must reset with their full count.
+                self.reset_exploration(len(raw))
+            ids=(torch.arange(len(raw),device=raw.device) if exploration_ids is None else exploration_ids)
+            action=self.goal_exploration.act(self.agent,ao,ids)
+        else:
+            action=self.agent.act(ao,deterministic=deterministic)
         physical = held_goal_coordinates(self.coordinates, raw, self.center+self.scale*action, self.stage)
         return physical, (ao.detach(), co.detach(), action.detach())
+
+    def reset_exploration(self, num_envs):
+        from .correlated_goal_exploration import CorrelatedGoalExploration
+        self.goal_exploration=(CorrelatedGoalExploration(self.exploration_correlation,
+            num_envs,21,self.device) if self.exploration_correlation else None)
 
     def observe(self, previous, next_raw, next_critic, reward, terminated, index):
         if not self.training:
@@ -321,6 +345,7 @@ class StagedGoalSACPilot:
             critic_warmup_remaining=max(0, self.warmup-self.critic_updates),
             actor_collection_warmup_remaining=max(0,self.actor_min_replay_rows-self.replay.size),
             prior_schedule_actor_origin=self.prior_schedule_actor_origin,
+            exploration_correlation=self.exploration_correlation,
             min_policy_std=self.agent.config.min_policy_std,
             max_policy_std=self.agent.config.max_policy_std,
             runtime_reference_path_required=False, latest=self.latest,
@@ -343,8 +368,18 @@ class StagedGoalSACPilot:
             save_checkpoint(self.directory, state, self.critic_updates, keep=None)
             self._last_saved = self.critic_updates
         if final:
-            rows = {k:(torch.cat([b[k] for b in self.history])[-self.replay.capacity:]
-                       if self.history else v[:0].detach().cpu())
+            # torch.save serializes the entire underlying storage of a view,
+            # including an empty CPU slice or discarded history prefix.
+            # Own only the retained rows before writing the replay artifact.
+            remaining=self.replay.capacity;recent=[]
+            for batch in reversed(self.history):
+                count=min(remaining,len(batch['reward']))
+                if count:recent.append({k:v[-count:] for k,v in batch.items()})
+                remaining-=count
+                if not remaining:break
+            recent.reverse()
+            rows = {k:(torch.cat([b[k] for b in recent]).detach().cpu()
+                       if recent else v[:0].detach().cpu().clone())
                     for k,v in self.replay.data.items()}
             torch.save(dict(goal_contract=self.contract, executed_goal_transitions=rows),
                        self.directory/'staged_goal_experience.pt')

@@ -159,3 +159,16 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     larger=StagedGoalSACPilot(warm,contract,tmp_path/'larger',stage,replay_capacity=24000)
     assert larger.replay.capacity==24000 and larger.contract['replay_capacity']==24000
     assert larger.replay.size==0 and larger.critic_updates==0
+    larger.directory.mkdir();larger.save(final=True)
+    empty=torch.load(larger.directory/'staged_goal_experience.pt',weights_only=True)
+    assert (larger.directory/'staged_goal_experience.pt').stat().st_size<200000
+    assert all(v.untyped_storage().nbytes()==0 for v in empty['executed_goal_transitions'].values())
+    capped=StagedGoalSACPilot(warm,contract,tmp_path/'capped',stage,replay_capacity=1024)
+    # Storage-only unit fixture; not collected physical training data.
+    large_fixture={k:v[:64].repeat((32,*([1]*(v.ndim-1)))) for k,v in pilot.replay.data.items()}
+    capped.history=[large_fixture];capped.directory.mkdir();capped.save(final=True)
+    retained=torch.load(capped.directory/'staged_goal_experience.pt',weights_only=True)['executed_goal_transitions']
+    for key,value in retained.items():
+        assert len(value)==1024
+        torch.testing.assert_close(value,large_fixture[key][-1024:])
+        assert value.untyped_storage().nbytes()==value.numel()*value.element_size()

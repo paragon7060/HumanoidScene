@@ -134,8 +134,6 @@ def supervise(command, parent, environment, archive_run, interval=300, poll=5,
         if future is not None:
             finish_future()
         executor.shutdown(wait=True)
-        for sig, handler in handlers.items():
-            signal.signal(sig, handler)
 
     # The child has exited and the console writer is closed before --finished semantics.
     find_run()
@@ -156,17 +154,23 @@ def supervise(command, parent, environment, archive_run, interval=300, poll=5,
                     "writers_stopped_at": datetime.now().astimezone().isoformat()}
     (source / "verification.json").write_text(json.dumps(verification, indent=2))
     write_status(parent, phase="final_upload", training_exit_code=exit_code, stop_reason=reason)
-    while True:
-        try:
-            archive_run(source, True)
-            break
-        except Exception as error:
-            write_status(parent, backup_error=str(error))
-            print(f"[Supervisor] Final upload failed; retrying in {interval}s: {error}", flush=True)
-            time.sleep(interval)
-    write_status(parent, phase="finished", final_upload_verified=True, backup_error=None)
-    print(f"[Supervisor] Training exited ({exit_code}); final logs/checkpoints verified.", flush=True)
-    return exit_code if exit_code is not None else 1
+    try:
+        while True:
+            try:
+                archive_run(source, True)
+                break
+            except Exception as error:
+                write_status(parent, backup_error=str(error))
+                print(f"[Supervisor] Final upload failed; retrying in {interval}s: {error}", flush=True)
+                time.sleep(interval)
+        write_status(parent, phase="finished", final_upload_verified=True, backup_error=None)
+        print(f"[Supervisor] Training exited ({exit_code}); final logs/checkpoints verified.", flush=True)
+        return exit_code if exit_code is not None else 1
+    finally:
+        # A second stop request after the GPU writer exits must not restore
+        # SIGTERM's default and kill checksum verification halfway through.
+        for sig, handler in handlers.items():
+            signal.signal(sig, handler)
 
 
 def main():

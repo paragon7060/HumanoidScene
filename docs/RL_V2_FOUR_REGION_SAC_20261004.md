@@ -608,3 +608,70 @@ Force/torque의 실제 정리 전후 audit와 새 reset 계약을 기록한다.
 같은 actor·requested 개발 배치를 재생한다. Q/replay/optimizer 업데이트는 없고
 독립 final 배치는 사용하지 않는다. 결과가 나오기 전에는 reset 또는 flight 문제가
 해결됐다고 기록하지 않는다. 기존 실행에 코드를 동적으로 주입하지 않는다.
+
+## 13:49 · Jaw 탐색의 구조적 제한과128환경 hybrid SAC 준비
+
+실제 held TRAIN2,485행에서 초기 actor의 body goal이 prior clip 밖에 있던
+비율은 전체19개 body 차원의1.27%, 최소 한 차원이라도 clip된 행은11.23%였다.
+따라서 body의 Q gradient가 전부 막혔다고 설명하지 않는다. 반면 jaw prior의
+최소 절댓값은0.99047/0.99071이고 radius는0.05..0.06397였다. Bound jaw는
+이 전이들에서 열림/닫힘 부호를 바꿀 수 없었다.
+
+독립 jaw와 AR(1) goal 탐색의 초기 모델을 먼저 만들고 실제 과거 TRAIN 관측에서
+기존 body 목표와 최대 차이0, jaw 결정4,970개 부호 차이0임을 확인했다.
+이어 실제 binary gripper에 맞는 **hybrid SAC**를 별도 fresh Q로 연결했다.
+19개 연속 목표와 양손 Bernoulli 정책을 쓰며, 같은 실제 state의 네 jaw 조합에
+대한 Q 기대값으로 discrete 정책을 학습한다. 가짜 transition이나 old Q를 만들지 않는다.
+Replay에는 실제 실행한−1/+1 jaw를 저장하고,12cm 접근 전 닫힘 차단은 유지한다.
+
+두 entropy optimizer·resume·binary Q gradient·far-jaw mask와 기존 경로의
+관련 CPU 검사120개가 통과했다. Hybrid 초기 checkpoint를 실제 matching contract로
+restore했고 actor/critic0회·actual replay0행·4개 빈 optimizer·finite 모델을 확인했다.
+Requested TRAIN/development/final 초기 footprint512개도 검사했다. 이들은 모델·
+spawn 정적 검사이며 학습 또는 PhysX 파지 성공이 아니다.
+
+새 배치는128환경, TRAIN256개를8pass(2,048attempt), 동일 development128개를
+9회, 독립 final128개다. Seed120000대 TRAIN·121000대 개발·122000대 final을
+분리했고 기존 final 결과를 선택에 사용하지 않는다. Small box·주변 dynamic box,
+초기 base XY/yaw 범위, 보상/성공/충돌/physics dt는 기존 네 구역 recipe와 같다.
+Buffer500,000행(약3.84GiB), actual held32,768행과 critic2,048회 이전에는
+actor를 업데이트하지 않는다. TRAIN behavior correlation0.98, deterministic
+개발/final, 연속 목표의 초기 std0.005를 쓴다.
+
+이전GPU0 비교는 actual replay12,859행·critic8,038회, GPU3 비교는9,998행·
+critic6,424회에서 종료됐다. 둘 다 actor699회에서 추가 actor 업데이트0이었다.
+GPU3의 같은 개발은 중간 좌2→1·우3→4로 전체5/16을 유지했지만 regional guard에
+걸렸다. 이를 SAC actor 회귀로 해석하지 않는다. GPU0의 중도 stop 개발은 완료
+평가가 아니므로0/16 성능으로 집계하지 않는다. 이런 경우 guard를 채점하지 않고,
+동일 actor의 성능 손실은 물리 재현성 문제로 구분하도록 수정했다.
+두 종료 실행의 실제 Q/replay/HDF/로그는 Drive 검증 완료다.
+
+Reset 반복의 첫 두 frozen 결과는4/16·5/16, requested initial 불량2개·1개였다.
+실제 cached support 약2,152N/torque약35.7Nm가0으로 정리되고 새 support가
+재계산되는 것은 확인했지만, 상단 flight/rack 실패는 남았다. Reset 수정만으로
+물리 발산 또는 파지 학습을 해결했다고 주장하지 않는다.
+상세 제어/새 실행 옵션은 [hybrid SAC 안내](RL_V2_STAGED_GOAL_SAC.md#binary-gripper를-직접-학습하는-hybrid-sac)를 따른다.
+
+## 14:07 · 실제128환경 초기화 오류와 replay 저장 수정
+
+13:59 GPU3 hybrid SAC는 actor/critic 업데이트 전에 `Batched surrounding boxes did not settle`로
+종료됐다. 전체128환경의 모든 박스가 동시에8tick 정지해야 한다는 batch-wide 조건이
+정상 환경까지 막았다. 실패 실행의 writer 종료와 최종 Drive 검증을 확인한 뒤,
+14:07 고유 실행 `staged_hybrid_goal21_partial128_gpu3_20261004_140717`에서 재시작했다.
+
+Requested original layout의 invalid/termination/numerical failure를 환경별로 누적한다.
+Respawn된 대체 장면을 기다리거나 replay에 넣지 않는다. 정상 환경은 주변 박스 모두의
+선속도<0.01m/s·각속도<0.05rad/s가8tick 이어져야 통과하며, 기존90step 제한 후
+불안정한 환경은 실패 attempt로 남긴다. 성공률 분모에서 제외하지 않는다.
+충돌·보상·파지·lift 조건, box randomization과 physics/control dt는 유지한다.
+
+초기0행 replay 파일도 빈 tensor view의 원본 storage를 직렬화해 각각4.12GB가 됐었다.
+실제 최근 행만 소유하는 tensor를 저장하도록 고쳤다. 모델 SHA와 goal 계약 및0행
+데이터를 유지한 별도 compact 초기 replay는 Gaussian10,772B·hybrid11,156B다.
+기존 원격 검증 파일을 다른 내용으로 덮어쓰지 않는다. 새 실행은 compact hybrid를 읽는다.
+Empty storage, 최근 capacity 행만 저장, binary SAC·환경별 settling·Drive 종료 신호 등
+관련 CPU 검사 **122개 통과**. 이는 물리 성공률 또는 학습 개선의 증거가 아니다.
+
+Frozen reset 반복3회의 실제 결과는4/16·5/16·5/16이다. 중간 선반의 성공은 있으나
+상단 좌우는 모두0/4였다. Box speed limit은 각6·5·6건이며 reset 수정만으로 flight를
+해결했다고 주장하지 않는다. 새로운 실제 SAC actor 업데이트와 독립 평가를 계속 확인한다.

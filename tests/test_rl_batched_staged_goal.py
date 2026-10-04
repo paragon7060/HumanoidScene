@@ -9,6 +9,50 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import staged
 from test_rl_staged_base_hold import scene,Coordinates
 
 
+def settling_env(n,step):
+    settling=SimpleNamespace(ready=torch.zeros(n,dtype=torch.bool),invalid_count=torch.zeros(n,dtype=torch.long))
+    env=SimpleNamespace(num_envs=n,device='cpu',step_dt=.1,
+        cfg=SimpleNamespace(multi_box=SimpleNamespace(reset_settle_timeout_seconds=.1)),
+        action_manager=SimpleNamespace(action=torch.zeros(n,24)),_multi_box_reset_settling=settling)
+    env.step=lambda action:step(env)
+    return env
+
+
+def test_requested_settling_never_waits_for_or_accepts_respawned_cases():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import wait_for_original_layouts
+    calls=[]
+    def step(env):
+        calls.append(True);env._multi_box_reset_settling.ready[0]=True
+        env._multi_box_reset_settling.invalid_count[1]+=1
+        return {},None,torch.zeros(3,dtype=torch.bool),torch.zeros(3,dtype=torch.bool),dict(
+            transition_numerical_failure=torch.tensor([False,False,True]))
+    env=settling_env(3,step)
+    _,steps,failed=wait_for_original_layouts(env,{},env._multi_box_reset_settling.invalid_count.clone())
+    assert steps==1 and len(calls)==1 and failed.tolist()==[False,True,True]
+
+
+def test_one_unstable_surrounding_box_does_not_abort_other_original_layouts():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import wait_for_original_surrounding_boxes
+    def step(env):
+        return {},None,torch.zeros(3,dtype=torch.bool),torch.zeros(3,dtype=torch.bool),dict(
+            transition_numerical_failure=torch.zeros(3,dtype=torch.bool))
+    env=settling_env(3,step);env._multi_box_reset_settling.ready[:]=True
+    env._multi_box_active=torch.ones(3,1,dtype=torch.bool)
+    env._multi_box_pool_ids=torch.zeros(3,1,dtype=torch.long)
+    velocity=torch.zeros(3,6);velocity[1,0]=.02
+    env.scene={'box':SimpleNamespace(data=SimpleNamespace(root_vel_w=velocity))}
+    _,steps,failed,ticks=wait_for_original_surrounding_boxes(env,{},env._multi_box_active.clone(),
+        ['box'],env._multi_box_reset_settling.invalid_count.clone(),torch.tensor([False,False,True]))
+    assert steps==90 and failed.tolist()==[False,False,True]
+    assert (ticks>=8).tolist()==[True,False,False]
+    # A replaced case that is now motionless is still forbidden.
+    velocity.zero_();env._multi_box_reset_settling.invalid_count[1]=1
+    _,steps,failed,ticks=wait_for_original_surrounding_boxes(env,{},env._multi_box_active.clone(),
+        ['box'],torch.zeros(3,dtype=torch.long),torch.zeros(3,dtype=torch.bool))
+    assert steps==7 and failed.tolist()==[False,True,False]
+    assert (ticks>=8).tolist()==[True,False,True]
+
+
 def test_wave_reset_removes_old_wrench_and_effort_only_in_selected_environment():
     from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import reset_wave_controller_state
     class Asset:
@@ -80,6 +124,19 @@ def test_development_guard_detects_regional_loss_even_when_total_success_rises()
     assert initial_floor['baseline_failed'] and not initial_floor['regression']
 
 
+def test_incomplete_evaluation_cannot_erase_baseline_and_Q_only_loss_is_named():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import DevelopmentSuccessGuard,evaluate_development_wave
+    layouts=[dict(layout=dict(seed=i,target_region='left')) for i in range(2)]
+    guard=DevelopmentSuccessGuard()
+    evaluate_development_wave(guard,layouts,[dict(success=True)]*2,0,actor_updates=699)
+    partial=evaluate_development_wave(guard,layouts,[None,None],1,actor_updates=699,completed=False)
+    assert not partial['evaluated'] and guard.best_wave==0 and guard.best['left']['successes']==2
+    repeated=evaluate_development_wave(guard,layouts,[dict(success=False)]*2,2,actor_updates=699)
+    assert repeated['regression_cause']=='physical_reproducibility_loss_without_actor_update'
+    learned=evaluate_development_wave(guard,layouts,[dict(success=False)]*2,3,actor_updates=700)
+    assert learned['regression_cause']=='policy_performance_loss'
+
+
 def test_feedback_rate_contract_checks_every_vector_environment():
     from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
     base=torch.tensor([[.15,.15,.5]]).repeat(4,1)
@@ -111,6 +168,38 @@ def test_different_physical_settling_times_have_independent_anchors_and_clocks()
     context=staged_context(raw[held],stages.held_context(held),.06)
     torch.testing.assert_close(context[:,1],torch.tensor([-.2,.1]))
     assert context[:,0].eq(1).all()
+
+
+def test_batched_base_commands_and_phase_match_individual_controllers_through_resets():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_base_hold import StagedBaseHoldDiagnostic
+    raw,templates=scene();raw=raw.repeat(6,1)
+    raw[:,98]=torch.linspace(-.2,.3,6)
+    raw[:,20]=raw[:,98]+.04;raw[:,21]=.75
+    batch=BatchedBaseStages(Coordinates(),templates,raw)
+    singles=[StagedBaseHoldDiagnostic(Coordinates(),templates,row[None]) for row in raw]
+    zero=torch.zeros(6,3);active=torch.ones(6,dtype=torch.bool)
+    for step in range(45):
+        raw[:,20]=raw[:,98];raw[:,21]=.7
+        linear=zero.clone();linear[1,0]=.03 if step<12 else 0
+        angular=zero.clone();angular[2,2]=.03 if step==12 else 0
+        if step==19:active[4]=False
+        held=batch.update(raw,linear,angular,active,step)
+        expected=[]
+        for i in torch.where(active)[0].tolist():
+            singles[i].update(raw[i:i+1],linear[i:i+1],angular[i:i+1],step)
+            assert batch.stages[i].phase==singles[i].phase
+            assert batch.stages[i].stable_steps==singles[i].stable_steps
+            assert batch.stages[i].manipulation_start==singles[i].manipulation_start
+            if singles[i].phase=='held_grasp':expected.append(i)
+        assert held.tolist()==expected
+        commands=batch.approach_commands(raw,active)
+        for i in range(6):
+            expected_command=(singles[i].action(raw[i:i+1])[0]
+                if active[i] and singles[i].phase=='approach' else torch.zeros(24))
+            torch.testing.assert_close(commands[i],expected_command)
+    # A fresh wave gets no held flags, clocks or previous box anchors.
+    fresh=BatchedBaseStages(Coordinates(),templates,raw)
+    assert not fresh._held.any() and not fresh._stable_steps.any() and not fresh.anchors.any()
 
 
 def test_per_environment_clock_and_yaw_match_individual_decoding():

@@ -44,6 +44,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | SAC 학습 붕괴·복구·BC 제약 해제 비교 | [2026-10-03 실측 결과, neural prior 제약과 개발 평가 actor 복구](docs/RL_V2_SAC_RECOVERY_20261003.md) |
 | 중간·위 선반 × 좌우 네 구역 | [동적 박스와 실제 초기 base 변화를 유지한 구역별 평가·학습](docs/RL_V2_FOUR_REGION_SAC_20261004.md) |
 | Base 접근·정지 후 21개 목표 SAC | [새 Q/replay 계약·독립 gripper 탐색·Drive 실행 사용법](docs/RL_V2_STAGED_GOAL_SAC.md) |
+| Base hold + binary gripper hybrid SAC | [19개 연속 목표·양손 categorical Q·상관 탐색 설정](docs/RL_V2_STAGED_GOAL_SAC.md#binary-gripper를-직접-학습하는-hybrid-sac) |
 | Quest로 V2 grasp SAC 시연 데이터 수집 | [Quest RL 시연 수집](docs/RL_QUEST_REWARD_DEBUG.md) |
 | 기존 Google Drive 연결 재사용·결과 업로드·로컬 보관량 관리 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
 | RL 초기 자세 수정·VR 재캡처 | [모델별 초기 상태](docs/RL_INITIAL_STATES.md) |

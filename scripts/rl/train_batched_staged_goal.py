@@ -83,7 +83,8 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import GraspLayout,layout_reset_observation
         from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import StagedGoalSACPilot
-        from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard,WAVE_RESET_CONTROLLER_CONTRACT
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_hybrid_goal_sac import StagedHybridGoalSACPilot
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard,WAVE_RESET_CONTROLLER_CONTRACT,evaluate_development_wave
         from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import GraspActionProjector
         from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
         from kuavo_isaaclab_scene.rl.multi_box.debug.contact_sensors import V2_RACK_SENSOR_NAMES,V2_COLLISION_BODY_NAMES
@@ -153,8 +154,10 @@ def main():
         sources={i:select_reference_episode(batch,i)['actor_obs'][0] for i in
                  {row['episode_index'] for w in waves for row in w['layouts']}}
         state=torch.load(args.checkpoint,map_location=env.device,weights_only=True)
-        if state.get('artifact_type')!=StagedGoalSACPilot.artifact_type:
+        classes={c.artifact_type:c for c in (StagedGoalSACPilot,StagedHybridGoalSACPilot)}
+        if state.get('artifact_type') not in classes:
             raise ValueError('Batched learner requires the separately initialized staged checkpoint')
+        pilot_class=classes[state['artifact_type']]
         warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,contract,output,training=False,device=env.device)
         templates=json.loads(args.waypoints.read_text())
         if templates['physical_action_contract']!=contract['action_contract']:raise ValueError('Waypoint travel differs')
@@ -169,7 +172,7 @@ def main():
             rack_rollers=True,actor_obs_dim=464,critic_obs_dim=530,action_dim=24,
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
             collection_source=('changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
-                               if solver_probe else StagedGoalSACPilot.artifact_type),training_contract=contract,
+                               if solver_probe else pilot_class.artifact_type),training_contract=contract,
             contact_stability_probe=solver_probe,
             sim_device=str(env.device),multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             current_reward_verified_against_breakdown=True,
@@ -177,14 +180,14 @@ def main():
             wave_reset_controller_contract=WAVE_RESET_CONTROLLER_CONTRACT,
             episode_layouts=[dict(wave=i,environment=j,**row) for i,w in enumerate(waves) for j,row in enumerate(w['layouts'])])
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
-        (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':StagedGoalSACPilot.artifact_type,
+        (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
             'wave_reset_controller_contract':WAVE_RESET_CONTROLLER_CONTRACT},indent=2)+'\n')
         if solver_probe:
             manifest=json.loads((output/'manifest.json').read_text())
             (output/'manifest.json').write_text(json.dumps(manifest|{'contact_stability_probe':solver_probe},indent=2)+'\n')
         (output/'env.yaml').write_text(json.dumps(asdict(cfg.multi_box),indent=2)+'\n')
-        outcomes=[];pilot=None;start=time.monotonic();total_rows=0
+        outcomes=[];pilot=None;start=time.monotonic();total_rows=0;completed_wave_count=0
         guard=DevelopmentSuccessGuard(args.minimum_validation_region_success_rate) if args.stop_on_validation_regression else None
         development_checks=[]
         for wave_index,wave in enumerate(waves):
@@ -200,10 +203,11 @@ def main():
             stage_seed[~valid_layout]=actors[~valid_layout]
             stages=BatchedBaseStages(warm.coordinates,templates,stage_seed)
             if pilot is None:
-                pilot=StagedGoalSACPilot(warm,contract,output,stages.stages[0],checkpoint=args.checkpoint,
+                pilot=pilot_class(warm,contract,output,stages.stages[0],checkpoint=args.checkpoint,
                     training=args.training,device=env.device)
                 (output/'agent.yaml').write_text(json.dumps(pilot.contract,indent=2)+'\n')
             pilot.training=args.training and wave['split']=='train'
+            pilot.reset_exploration(n)
             updates_before=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size)
             active=valid_layout.clone()
             snapshots=[capture_rl_initial_state(env,observation,env_index=i) if valid_layout[i] else None for i in range(n)]
@@ -246,7 +250,7 @@ def main():
                             pilot.stage=stages.held_context(ids);pilot.anchor=stages.anchors[ids].clone()
                             clocks=stages.clocks(ids,step)
                             command,previous=pilot.act(pre['policy'][ids],
-                                torch.cat((pre['policy'],pre['critic']),-1)[ids],clocks)
+                                torch.cat((pre['policy'],pre['critic']),-1)[ids],clocks,exploration_ids=ids)
                             action[ids]=command
                         if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                             raise ValueError('Generated and executed jaw projections differ')
@@ -320,22 +324,29 @@ def main():
             if args.training:pilot.save(final=True)
             regression=baseline_failed=False
             if guard is not None and wave['split']=='validation':
-                check=guard.evaluate(wave['layouts'],last,wave_index)
+                check=evaluate_development_wave(guard,wave['layouts'],last,wave_index,
+                    actor_updates=pilot.actor_updates,completed=not stopped['value'])
                 development_checks.append(dict(wave=wave_index,actor_updates=pilot.actor_updates,
                     critic_updates=pilot.critic_updates,**check))
-                regression=check['regression']
-                baseline_failed=check['baseline_failed']
+                regression=check.get('regression',False)
+                baseline_failed=check.get('baseline_failed',False)
+            if not stopped['value']:completed_wave_count+=1
             (output/'metrics.json').write_text(json.dumps(dict(policy=pilot.artifact_type,outcomes=outcomes,
                 learner=pilot.report(),actual_rows=total_rows,seconds=time.monotonic()-start,
                 development_checks=development_checks),indent=2)+'\n')
-            status='policy_regression' if regression else 'baseline_performance_failed' if baseline_failed else 'training' if wave_index+1<len(waves) else 'complete'
+            status=('interrupted' if stopped['value'] else
+                'physical_reproducibility_failed' if regression and check['regression_cause']=='physical_reproducibility_loss_without_actor_update' else
+                'policy_regression' if regression else 'baseline_performance_failed' if baseline_failed else
+                'training' if wave_index+1<len(waves) else 'complete')
             (output/'status.json').write_text(json.dumps(dict(status=status,
-                completed_waves=wave_index+1,total_waves=len(waves),interrupted=stopped['value']))+'\n')
+                completed_waves=completed_wave_count,recorded_waves=wave_index+1,
+                total_waves=len(waves),interrupted=stopped['value']))+'\n')
             if regression or baseline_failed:
                 print('[DEVELOPMENT PERFORMANCE STOP] '+json.dumps(development_checks[-1]),flush=True)
                 return 1
         if stopped['value']:
-            (output/'status.json').write_text(json.dumps(dict(status='interrupted',completed_waves=len(outcomes)//n))+'\n')
+            (output/'status.json').write_text(json.dumps(dict(status='interrupted',
+                completed_waves=completed_wave_count,recorded_waves=len(outcomes)//n))+'\n')
         return 0
     except Exception:
         import traceback

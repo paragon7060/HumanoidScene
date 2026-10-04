@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+import signal
 from pathlib import Path
 import sys
 
@@ -57,6 +58,30 @@ def test_failed_initialization_still_uploads_closed_console(tmp_path):
     result = supervisor.supervise([sys.executable, "-c", "print('startup failed'); raise SystemExit(3)"],
                                   tmp_path, os.environ.copy(), backup, poll=.01, min_free_bytes=0)
     assert result == 3 and len(calls) == 1
+
+
+def test_stop_during_final_checksum_keeps_handler_until_backup_is_verified(tmp_path):
+    original=signal.getsignal(signal.SIGTERM);unexpected=[]
+    prior_handler=lambda *_:unexpected.append('restored_too_soon')
+    signal.signal(signal.SIGTERM,prior_handler)
+    script="""
+import pathlib,sys
+p=pathlib.Path(sys.argv[1])/'train_test';p.mkdir()
+(p/'writers_done').touch()
+"""
+    def backup(source,finished):
+        if finished:
+            assert (source/'writers_done').exists()
+            signal.raise_signal(signal.SIGTERM)
+            assert not unexpected
+        return []
+    try:
+        assert supervisor.supervise([sys.executable,'-c',script,str(tmp_path)],tmp_path,
+            os.environ.copy(),backup,poll=.01,min_free_bytes=0)==0
+        assert signal.getsignal(signal.SIGTERM) is prior_handler
+        assert json.loads((tmp_path/'status.json').read_text())['final_upload_verified']
+    finally:
+        signal.signal(signal.SIGTERM,original)
 
 
 def test_dppo_prefix_and_masked_kit_failure_are_reported(tmp_path):

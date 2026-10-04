@@ -11,7 +11,7 @@ class Coordinates:
     def current(self,raw):
         return raw[:,:17],raw[:,17:19],raw[:,20:22],raw[:,22],None
     def decode(self,raw,goal):
-        action=raw.new_zeros(1,24)
+        action=raw.new_zeros(len(raw),24)
         action[:,:2]=goal[:,19:21]-raw[:,20:22]
         action[:,2]=goal[:,21]-raw[:,22]
         return action

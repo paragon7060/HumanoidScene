@@ -292,7 +292,9 @@ def main():
         if args.pose_student_checkpoint:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent
             pose_state=torch.load(args.pose_student_checkpoint,map_location=env.device,weights_only=False)
-            staged_resume=pose_state.get('artifact_type')=='staged_base_hold_remaining_goal_sac_v1'
+            staged_type=pose_state.get('artifact_type')
+            staged_resume=staged_type in ('staged_base_hold_remaining_goal_sac_v1',
+                                         'staged_base_hold_remaining_hybrid_sac_v1')
             if staged_resume and not args.staged_goal_sac:
                 raise ValueError('A staged checkpoint cannot run as the legacy whole-body goal controller')
             if staged_resume:
@@ -343,7 +345,10 @@ def main():
                     if not args.staged_goal_training and not staged_resume:
                         raise ValueError('Frozen staged SAC evaluation requires a trained staged checkpoint')
                     from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import StagedGoalSACPilot
-                    staged_goal_sac=StagedGoalSACPilot(pose_sac,contract,args.output_dir,staged_base,
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_hybrid_goal_sac import StagedHybridGoalSACPilot
+                    staged_class=(StagedHybridGoalSACPilot if staged_type==StagedHybridGoalSACPilot.artifact_type
+                                  else StagedGoalSACPilot)
+                    staged_goal_sac=staged_class(pose_sac,contract,args.output_dir,staged_base,
                         checkpoint=args.pose_student_checkpoint if staged_resume else None,
                         training=args.staged_goal_training,device=env.device)
                     controller_name='staged_base_hold_remaining_goal_SAC_NO_live_reference_or_IK_teacher'
