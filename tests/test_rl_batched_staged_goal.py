@@ -9,6 +9,58 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import staged
 from test_rl_staged_base_hold import scene,Coordinates
 
 
+def test_wave_reset_removes_old_wrench_and_effort_only_in_selected_environment():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import reset_wave_controller_state
+    class Asset:
+        num_joints=2
+        def __init__(self):
+            self.data=SimpleNamespace(joint_pos=torch.ones(2,2))
+            self.velocity=torch.full((2,2),7.)
+            self.effort=torch.full((2,2),9.)
+            self.permanent_wrench_composer=SimpleNamespace(
+                composed_force_as_torch=torch.full((2,1,3),5.),
+                composed_torque_as_torch=torch.full((2,1,3),11.))
+        def set_joint_velocity_target(self,x,env_ids):self.velocity[env_ids]=x
+        def set_joint_effort_target(self,x,env_ids):self.effort[env_ids]=x
+    robot,box=Asset(),Asset()
+    class Scene(dict):
+        def reset(self,ids):
+            for a in self.values():
+                a.permanent_wrench_composer.composed_force_as_torch[ids]=0
+                a.permanent_wrench_composer.composed_torque_as_torch[ids]=0
+    env=SimpleNamespace(scene=Scene(robot=robot,box=box))
+    audit=reset_wave_controller_state(env,[robot,box],torch.tensor([1]))
+    assert audit['before']['force_n'][0]>0 and audit['before']['torque_nm'][0]>0
+    assert audit['after_scene_reset']==dict(force_n=[0.],torque_nm=[0.])
+    for a in (robot,box):
+        assert a.velocity.tolist()==[[7.,7.],[0.,0.]]
+        assert a.effort.tolist()==[[9.,9.],[0.,0.]]
+        assert a.data.joint_pos.eq(1).all()
+        assert a.permanent_wrench_composer.composed_force_as_torch[0].eq(5).all()
+
+
+def test_neutral_settling_uses_new_support_every_physics_step_without_replay():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import settle_neutral_wave_controllers
+    # Old support was for a different body-frame gravity orientation. The
+    # simulated new pose needs 2 N. Reusing 100 N, or stepping after clearing
+    # support without applying the controller, moves this otherwise held root.
+    state=SimpleNamespace(wrench=100.,position=0.,written=None,applied=0,processed=0)
+    def process(action):
+        assert action.eq(0).all();state.processed+=1
+    def apply():state.wrench=2.;state.applied+=1
+    def write():state.written=state.wrench
+    def step(render):
+        assert not render
+        state.position+=state.written-2.
+        state.wrench=100.  # each substep requires a fresh controller write
+    env=SimpleNamespace(physics_dt=.01,
+        action_manager=SimpleNamespace(action=torch.ones(2,24),process_action=process,apply_action=apply),
+        scene=SimpleNamespace(write_data_to_sim=write,update=lambda dt:None),
+        sim=SimpleNamespace(step=step))
+    settle_neutral_wave_controllers(env,steps=5)
+    assert state.position==0. and state.applied==5 and state.processed==1
+
+
 def test_development_guard_detects_regional_loss_even_when_total_success_rises():
     from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import DevelopmentSuccessGuard
     guard=DevelopmentSuccessGuard()

@@ -7,6 +7,51 @@ import torch
 from .staged_base_hold import StagedBaseHoldDiagnostic
 
 
+WAVE_RESET_CONTROLLER_CONTRACT = 'neutral_scene_reset_fresh_base_wrench_and_robot_FK_v2'
+
+
+def reset_wave_controller_state(env, assets, ids):
+    """Clear physical controller history before installing another neutral scene.
+
+    Resetting managers alone does not reset an articulation's permanent wrench
+    or joint effort targets. The floating base stores a body-frame support
+    wrench there; replaying it after a different root/arm teleport is unsafe.
+    Scene reset also clears contact sensors, while explicit zero targets remove
+    effort/velocity commands that Articulation.reset deliberately preserves.
+    Positions are installed by the caller before controllers are re-captured.
+    """
+    robot=env.scene['robot']
+    composer=robot.permanent_wrench_composer
+    def norms():
+        return dict(force_n=composer.composed_force_as_torch[ids].flatten(1).norm(dim=1).tolist(),
+                    torque_nm=composer.composed_torque_as_torch[ids].flatten(1).norm(dim=1).tolist())
+    audit=dict(contract=WAVE_RESET_CONTROLLER_CONTRACT,before=norms())
+    env.scene.reset(ids)
+    for asset in assets:
+        if asset.num_joints:
+            zero=torch.zeros_like(asset.data.joint_pos[ids])
+            asset.set_joint_velocity_target(zero,env_ids=ids)
+            asset.set_joint_effort_target(zero,env_ids=ids)
+    audit['after_scene_reset']=norms()
+    return audit
+
+
+def settle_neutral_wave_controllers(env, steps=60):
+    """Hold the newly installed neutral pose with current support every substep.
+
+    No rewards, transitions or policy actions are collected here. Managers
+    must already have captured the new joint/root poses. A zero command holds
+    them; normal action application recomputes base gravity/COM support and
+    the articulation writer recomputes joint gravity compensation as usual.
+    """
+    env.action_manager.process_action(torch.zeros_like(env.action_manager.action))
+    for _ in range(steps):
+        env.action_manager.apply_action()
+        env.scene.write_data_to_sim()
+        env.sim.step(render=False)
+        env.scene.update(env.physics_dt)
+
+
 class DevelopmentSuccessGuard:
     """Compare the same development cases without consulting final outcomes.
 
@@ -104,6 +149,9 @@ def restore_batched_inferred_scene(env,actors):
     root_q=quat_mul(rack[:,3:],quat_inv(quat_from_matrix(_rotation_matrix(actors[:,71:77]))))
     root_p=rack[:,:3]-quat_apply(root_q,actors[:,68:71])
     robot=env.scene['robot']
+    names=physical_asset_names()
+    assets=[robot,*[env.scene[name] for name in names]]
+    env._batched_reset_control_audit=reset_wave_controller_state(env,assets,ids)
     root=robot.data.root_state_w.clone();root[:,:3]=root_p;root[:,3:7]=root_q;root[:,7:]=0
     robot.write_root_state_to_sim(root,env_ids=ids)
     q=robot.data.default_joint_pos.clone()
@@ -114,7 +162,7 @@ def restore_batched_inferred_scene(env,actors):
     robot.set_joint_velocity_target(torch.zeros_like(q),env_ids=ids)
     env._multi_box_active[:]=False
     env._multi_box_box_type_ids[:]=-1;env._multi_box_region_ids[:]=-1;env._multi_box_pool_ids[:]=-1
-    names=physical_asset_names();cells=logical_cells(env.cfg.multi_box)
+    cells=logical_cells(env.cfg.multi_box)
     for name in names:
         asset=env.scene[name];parked=asset.data.default_root_state.clone()
         parked[:,:3]+=env.scene.env_origins
@@ -140,15 +188,18 @@ def restore_batched_inferred_scene(env,actors):
             asset.write_root_state_to_sim(state,env_ids=selected)
     env._multi_box_counts[:]=env._multi_box_active.sum(-1)
     env._multi_box_grasp_target_override=actors[:,400:412].argmax(-1)
-    refresh_teleported_articulations(env,[env.scene[name] for name in names],ids)
-    env.scene.write_data_to_sim();env.sim.forward();env.scene.update(env.step_dt)
+    refresh_teleported_articulations(env,assets,ids)
+    env.sim.forward();env.scene.update(env.step_dt)
     env._refresh_robot_kinematics()
     for manager in (env.action_manager,env.observation_manager,env.reward_manager,env.termination_manager):manager.reset(ids)
     if hasattr(env,'_multi_box_privileged_grasp'):env._multi_box_privileged_grasp.reset(ids)
     env._multi_box_privileged_grasp_counter=-1;env._multi_box_grasp_safety_counter=-1
     env._multi_box_reset_settling.reset(ids);env.episode_length_buf[:]=0
-    for _ in range(60):
-        env.scene.write_data_to_sim();env.sim.step(render=False);env.scene.update(env.physics_dt)
+    settle_neutral_wave_controllers(env)
+    composer=robot.permanent_wrench_composer
+    env._batched_reset_control_audit['after_neutral_hold']=dict(
+        force_n=composer.composed_force_as_torch[ids].flatten(1).norm(dim=1).tolist(),
+        torque_nm=composer.composed_torque_as_torch[ids].flatten(1).norm(dim=1).tolist())
     env._refresh_robot_kinematics()
     for manager in (env.action_manager,env.observation_manager,env.reward_manager,env.termination_manager):manager.reset(ids)
     env._multi_box_privileged_grasp.reset(ids)
@@ -187,7 +238,8 @@ def settle_batched_layouts(env, actors, *, allow_partial=False):
     guard=dict(expected=expected.to(torch.int).tolist(),actual=env._multi_box_active.to(torch.int).tolist(),
         rack_error=rack_error.tolist(),invalid=(settling.invalid_count-invalid_before).tolist(),
         footprint_invalid=settling.footprint_invalid_count.tolist(),ready=settling.ready.tolist(),
-        base_pose=env.scene['robot'].data.root_pose_w.tolist(),rack_pose=env.scene['rack'].data.root_pose_w.tolist())
+        base_pose=env.scene['robot'].data.root_pose_w.tolist(),rack_pose=env.scene['rack'].data.root_pose_w.tolist(),
+        controller_reset=env._batched_reset_control_audit)
     print('[BATCH LAYOUT GUARD] '+str(guard),flush=True)
     valid=(env._multi_box_active==expected).all(-1)&torch.isfinite(rack_error)&(rack_error<=.025) \
         &(settling.invalid_count==invalid_before)&~failed_during_settle

@@ -156,6 +156,16 @@ replay가 바뀌지 않았는지 검사한다. Live VR/IK teacher나 성공 자�
 HDF에는 실제 action을 실행한 episode만 저장하며 wave/environment/layout JSON
 attribute로 사례를 명시한다. 재생성 장면의 관측을 원래 layout의 snapshot/Q로 쓰지 않는다.
 
+Whole-wave reset은 scene asset/contact sensor를 reset하고 이전 permanent base
+wrench·joint effort/velocity target을 정리한다. Robot과 box의 teleport FK를 함께
+갱신한 뒤 새 중립 자세를 action manager에 다시 잡는다. 최초60 physics substep도
+매번 정상 zero-action controller를 적용해 현재 gravity/COM support를 계산한다.
+이 과정에는 reward/replay/policy update가 없고 성공 상태나 base teleport 경로를
+사용하지 않는다. `wave_reset_controller_contract`와 initial layout guard의
+`controller_reset`에 이전/정리 후/새 중립 hold의 실제 force·torque norm을 남긴다.
+이 lifecycle 수정의 효과는 같은 frozen development 배치의 반복으로 측정하며,
+코드 검사만으로 불량 spawn이나 물리 발산이 해결됐다고 판단하지 않는다.
+
 학습 wave 앞에 같은 development wave를 두고
 `--stop-on-validation-regression`을 지정하면 구역별 성공 수가 감소할 때
 `policy_regression` 상태로 종료한다. `--minimum-validation-region-success-rate 0.5`는

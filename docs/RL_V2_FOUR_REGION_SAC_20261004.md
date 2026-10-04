@@ -578,3 +578,33 @@ GPU3의 별도 frozen16-env는 scene·robot·box TGS velocity iteration만0으�
 Physics/control dt·position iteration·성공·안전 기준을 유지한다. NVIDIA의
 [TGS/D6/loop-closure 제한](https://docs.omniverse.nvidia.com/kit/docs/omni_physics/107.3/dev_guide/guides/current_limitations.html)은
 가설의 출처이며 원인이 확정된 것은 아니다. 아직 새 SAC 개선/목표 완료로 기록하지 않는다.
+
+## 12:56 · Solver 비교 종료와 반복 reset 제어 이력 수정
+
+TGS velocity iteration0의 같은16개 frozen 개발 결과는 **4/16**이었다.
+중간 왼쪽1/4·오른쪽3/4, 위 좌우0/4다. 원래5/16보다 좋아지지 않아
+실제 학습에 적용하지 않았다. Writer 종료 후 HDF/로그/결과의 Drive 검증 완료다.
+그 종료·검증을 기다리던 GPU3 validated-actor snapshot SAC는12:43에 실제
+시작했다. Snapshot initial MSE0, matching Q/실제2,485행·진행 횟수 보존,
+buffer100,000행·actor 실제 수집량 gate16,384행 설정이다.
+
+기존 bound/free-jaw single-env 비교의 마지막 writer들도12:33에 종료됐고
+Q/replay/HDF/영상/로그를 Drive에서 검증했다. 다른 사용자 프로세스는 변경하지 않았다.
+
+GPU0 normalized-prior 비교의 첫 개발4/16·TRAIN5/16·같은 개발 재평가5/16은
+actor 업데이트699회에서 **추가 actor 업데이트0**인 상태다. Actual held replay는
+8,352행으로 수집량 gate 미만이었다. 반면 같은 개발의 requested initial layout
+불량은1개→6개로 늘었다. 따라서 이 차이를 actor 학습 회귀나 개선으로 해석하지 않는다.
+
+Reset 경로에서 manager만 reset하고 asset의 permanent wrench를 정리하지
+않은 채 최초60 physics substep에 base controller 적용도 생략했던 차이를 발견했다.
+Floating base의 이전 body-frame support/COM torque가 다른 root/팔 teleport 뒤에도
+재사용될 수 있다. Scene/asset/contact sensor reset, effort/velocity target 정리,
+robot까지 포함한 coherent FK, 매 substep zero-action 정상 제어를 연결했다.
+성공/충돌/보상/physics dt·dynamic box randomization은 바꾸지 않았다.
+Force/torque의 실제 정리 전후 audit와 새 reset 계약을 기록한다.
+
+관련 CPU 회귀 검사50개가 통과했다. GPU0의 별도16-env frozen 반복3회를 시작해
+같은 actor·requested 개발 배치를 재생한다. Q/replay/optimizer 업데이트는 없고
+독립 final 배치는 사용하지 않는다. 결과가 나오기 전에는 reset 또는 flight 문제가
+해결됐다고 기록하지 않는다. 기존 실행에 코드를 동적으로 주입하지 않는다.

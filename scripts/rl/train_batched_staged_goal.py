@@ -83,7 +83,7 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import GraspLayout,layout_reset_observation
         from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import StagedGoalSACPilot
-        from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard,WAVE_RESET_CONTROLLER_CONTRACT
         from kuavo_isaaclab_scene.rl.multi_box.experiments.guided_exploration import GraspActionProjector
         from kuavo_isaaclab_scene.rl.multi_box.experiments.reference_residual import validate_goal_feedback_rates
         from kuavo_isaaclab_scene.rl.multi_box.debug.contact_sensors import V2_RACK_SENSOR_NAMES,V2_COLLISION_BODY_NAMES
@@ -174,10 +174,12 @@ def main():
             sim_device=str(env.device),multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             current_reward_verified_against_breakdown=True,
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
+            wave_reset_controller_contract=WAVE_RESET_CONTROLLER_CONTRACT,
             episode_layouts=[dict(wave=i,environment=j,**row) for i,w in enumerate(waves) for j,row in enumerate(w['layouts'])])
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':StagedGoalSACPilot.artifact_type,
-            'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True},indent=2)+'\n')
+            'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
+            'wave_reset_controller_contract':WAVE_RESET_CONTROLLER_CONTRACT},indent=2)+'\n')
         if solver_probe:
             manifest=json.loads((output/'manifest.json').read_text())
             (output/'manifest.json').write_text(json.dumps(manifest|{'contact_stability_probe':solver_probe},indent=2)+'\n')
