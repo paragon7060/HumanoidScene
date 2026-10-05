@@ -5,6 +5,9 @@
 무작위화한다. 박스와 base 위치, 주변 박스 배치의 기존 무작위화는 유지한다.
 실행 시작과 초기 제어 동작 대조는 성공률 개선의 증거가 아니다.
 
+10/06 재개 후 전체 평가·동일 성공 transition의 Q fitting·상단 오른쪽 충돌과
+동결 yaw 진단은 [후속 SAC 분석](RL_V2_SAC_CREDIT_AND_COLLISION_AUDIT_20261006.md)에 기록했다.
+
 ## 변경 이유와 현재 증거
 
 [기존 전체128개 접촉 진단](RL_V2_CONTACT_REWARD_SAC.md)에서 frozen 정책은

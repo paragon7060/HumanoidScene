@@ -1,0 +1,103 @@
+{
+  "previous_goal_turn_classification": "progress: committed safer terminal handling and physically verified resumed GPU3 writer",
+  "created_at": "2026-10-06T01:35:34.529018+09:00",
+  "source_actor": 1204,
+  "source_Q": 6864,
+  "previous_actor": 243,
+  "previous_Q": 3018,
+  "paired_same_success_terminal_rows": [
+    {
+      "identity": "batch_sac_20261005_224437_2f9ae7/wave2/env0/seed120032",
+      "region": "shelf_2_left",
+      "Q_3018": 3.461472511291504,
+      "Q_6864": 7.702235698699951,
+      "same_measured_terminal_target": 6.995514869689941
+    },
+    {
+      "identity": "batch_sac_20261005_224437_2f9ae7/wave2/env52/seed120045",
+      "region": "shelf_2_left",
+      "Q_3018": 3.7279696464538574,
+      "Q_6864": 7.237381458282471,
+      "same_measured_terminal_target": 6.9953742027282715
+    },
+    {
+      "identity": "batch_sac_20261005_224437_2f9ae7/wave2/env6/seed120233",
+      "region": "shelf_3_left",
+      "Q_3018": 2.8950929641723633,
+      "Q_6864": 7.329929351806641,
+      "same_measured_terminal_target": 6.996788501739502
+    },
+    {
+      "identity": "batch_sac_20261005_224437_2f9ae7/wave2/env80/seed120052",
+      "region": "shelf_2_left",
+      "Q_3018": 4.330698013305664,
+      "Q_6864": 7.064335823059082,
+      "same_measured_terminal_target": 7.006045818328857
+    }
+  ],
+  "old_paired_mean_absolute_Q_error": 3.394622564315796,
+  "new_paired_mean_absolute_Q_error": 0.33503973484039307,
+  "paired_CPU_fit_is_not_a_policy_physical_success_rate": true,
+  "nominal_actual_gate_audit": {
+    "all_preserved_actual_TRAIN_rows": {
+      "rows": 224621,
+      "assignment_changed_rows": 76,
+      "actual_both_near_rows": 43957,
+      "nominal_both_near_rows": 44322,
+      "actual_near_but_nominal_gate_closed_hand_rows": 483,
+      "nominal_gate_open_but_actual_far_hand_rows": 854,
+      "changed_assignment_and_actual_both_near_rows": 0
+    },
+    "successful_TRAIN_by_region": {
+      "shelf_2_right": {
+        "rows": 3699,
+        "assignment_changed_rows": 0,
+        "actual_both_near_rows": 688,
+        "nominal_both_near_rows": 688,
+        "actual_near_but_nominal_gate_closed_hand_rows": 0,
+        "nominal_gate_open_but_actual_far_hand_rows": 0,
+        "changed_assignment_and_actual_both_near_rows": 0
+      },
+      "shelf_2_left": {
+        "rows": 2057,
+        "assignment_changed_rows": 0,
+        "actual_both_near_rows": 384,
+        "nominal_both_near_rows": 384,
+        "actual_near_but_nominal_gate_closed_hand_rows": 0,
+        "nominal_gate_open_but_actual_far_hand_rows": 0,
+        "changed_assignment_and_actual_both_near_rows": 0
+      },
+      "shelf_3_left": {
+        "rows": 590,
+        "assignment_changed_rows": 0,
+        "actual_both_near_rows": 214,
+        "nominal_both_near_rows": 214,
+        "actual_near_but_nominal_gate_closed_hand_rows": 0,
+        "nominal_gate_open_but_actual_far_hand_rows": 0,
+        "changed_assignment_and_actual_both_near_rows": 0
+      }
+    },
+    "created_at": "2026-10-06T01:33:37.995534+09:00",
+    "CPU_read_only": true,
+    "source": "/home/seonho/HumanoidScene/artifacts/rl/pose_students/actual_flap_firm_guard_resume_20261006_010900/staged_goal_experience.pt",
+    "training_optimizer_and_physics_unchanged": true,
+    "distances_are_perceived_midpoints_not_nearest_surface": true,
+    "physical_success_not_proved_by_CPU_gate_audit": true,
+    "goal_not_complete": true
+  },
+  "actual_TRAIN_bank_episode_counts": {
+    "shelf_2_right": 9,
+    "shelf_2_left": 5,
+    "shelf_3_right": 0,
+    "shelf_3_left": 1
+  },
+  "inferences": [
+    "Q learns the saved successful terminal rewards; not disconnected or nonfinite.",
+    "Correction gradients are nonzero and trust region remains available for the real sampled TRAIN states.",
+    "Nominal/actual close-gate mismatch is rare in retained TRAIN and absent in the available successful TRAIN paths; do not replace it before evidence implicates it.",
+    "Upper-right has no firmer-flap successful TRAIN bank episode yet; continue collecting real TRAIN without importing DEV/FINAL."
+  ],
+  "next_action": "Keep current matching-contract GPU0 and GPU3 longer blocks, judge full four-region DEV again; do not reset learned Q or tighten original randomization.",
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}
