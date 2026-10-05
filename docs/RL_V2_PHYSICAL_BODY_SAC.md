@@ -569,3 +569,29 @@ normal 성분이고 collider identity·tangential friction을 직접 구분하�
 
 GPU3 native-nstep10은 첫 TRAIN에서 Q916 updates·actor0(warmup)까지 진행했다.
 이 시점에는 보강 손실의 actor 지표와 후속 DEV 결과가 없어 개선을 주장하지 않는다.
+
+### 11:11 · 초기 body contact impulse를 실제로 측정
+
+기존 normal-contact reporter만 읽는 GPU2 진단이 정상 exit0·writer 종료·최종 Drive
+검증까지 완료됐다. [접촉·root/link/flap 속도 실측](assets/rl_v2_reset_contact_onset_20261005.json).
+원래128개 중100개 유효, 최초 selected failure는 중간왼쪽10개와 상단왼쪽1개다.
+
+![정책 action 전 박스 접촉 충격과 속도](assets/rl_v2_reset_contact_onset_20261005.png)
+
+일부 중간왼쪽 target4는1–4tick에 약5N의 정상 지지 상태였지만5tick에서59–64N으로
+뛰며 root가 위로 가속했다. Failed ML10개의 tick5 최대 body normal force63.75N,
+root speed0.721m/s, flap joint speed0.00435rad/s다. 이 환경의 측정된 robot/finger
+normal contact는0이었다. Flap joint의 큰 발산은 처음 관측된 원인이 아니라 나중 현상이다.
+Rear5는1–4tick에 contact0·자유 낙하 후5tick에서 첫 접촉한다. Target 충격과
+시간적으로 겹치지만, net normal reporter로 두 박스의 인과관계/상대 collider를
+확정하지 않는다. 정상 env0에서는 target의 지지력이5N 부근에 계속 머문다.
+
+다음 frozen DEV128 비교는 background logical5만 제외한다. Selected target/base와
+나머지 background pose·동적 물리·안전/성공 판정은 유지한다. 이는 주변 박스 배치를
+바꾼 **원인 분리 진단**이고 기본 학습이나 성공 검증이 아니다. TRAIN/독립 FINAL/Q에
+사용하지 않는다. 기존 학습에서는 주변 박스를 제거하지 않는다.
+
+GPU3 native-nstep10은 첫 TRAIN631step에서 actor33/Q1156회에 도달했다.
+실제 nstep batch64행/평균 horizon9/terminal18·bootstrap46행, nstep loss0.0289와
+body/jaw 유지 weight10/0.1이 기록되어 보강 코드 실행을 확인했다. 후속 DEV 개선은
+아직 평가 전이다.
