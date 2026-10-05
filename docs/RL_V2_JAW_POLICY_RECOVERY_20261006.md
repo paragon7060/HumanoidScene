@@ -89,4 +89,34 @@ Q 수치는 모델의 예측이며 실제 안전 파지의 증거가 아니다. 
 - `src/kuavo_isaaclab_scene/rl/multi_box/experiments/actual_flap_residual_sac.py`: 설정/출처/checkpoint/replay 복원 연결.
 - `scripts/rl/train_batched_staged_goal.py`: TRAIN CLI와 manifest/HDF/결과 기록.
 
+## 실제 GPU 업데이트 후 같은 TRAIN 상태에서 비교
+
+저장된 immutable 실제 TRAIN69경로에서 안전·유효 관측·양손 production near를 만족한 실패 상태를 고정했다. Source Q6864, joint 탐색의 학습 후 Q9808, soft 복구의 첫 저장 Q7168을 **같은 입력**으로 비교했다. 각 checkpoint의 actor/Q/target/normalizer tensor54개를 CPU에서 정확히 복원하고 input size/MD5와 파일 불변성을 다시 검사했다. 실행 중 HDF/replay와 물리 상태는 읽거나 수정하지 않았다.
+
+![저장된 실제 GPU checkpoint의 동일 TRAIN 입력 비교. 물리 성공률이 아니며 두 변형의 업데이트 수가 다르다.](assets/rl_v2_jaw_recovery_first_GPU_updates_fixed_TRAIN_20261006.png)
+
+| 정책 / source 이후 새 actor update | 중간 왼쪽 P(양손 닫힘) | 중간 오른쪽 | 위 왼쪽 | 위 오른쪽 |
+| --- | ---: | ---: | ---: | ---: |
+| source / 0회 | 0.3367 | 0.2697 | 0.07768 | 5.58×10⁻⁷ |
+| joint 탐색 / 736회 | 0.2576 | 0.2392 | 0.04506 | 6.98×10⁻¹⁵ |
+| joint + soft / 첫76회 | 0.3291 | 0.2653 | 0.07523 | 2.62×10⁻⁷ |
+
+분석 상태 수는 지역 순서대로1,318/832/2,498/572개다. 값은 순수 학습 정책의 평균 `sigmoid(left_logit) × sigmoid(right_logit)`이며 수집의10% U4 탐색을 제외한다. 보관한 TRAIN 일부의 상관된 상태 표본이므로 전체 시도 성공률이나 물리 counterfactual이 아니다.
+
+위 오른쪽 왼손 logit 중앙값은 source−18.52 → joint−29.60 → soft 첫76회−18.12다. 세 정책 모두572상태 전부에서 왼손 logit<−4이고 greedy 양손 닫힘은0개다. **10% 행동 탐색만으로 학습된 닫힘이 회복된 증거는 없다.** Soft의 첫76회도 아직 회복했다고 볼 수 없으며,736회 업데이트한 joint와 동일 학습량 비교가 아니다. 남은 실제 TRAIN 및 각 실행 자신의 초기 기준선 대비 전체 greedy DEV를 확인한 뒤 다음 변경을 판단한다. [전체 수치·checkpoint SHA256](assets/rl_v2_jaw_recovery_first_GPU_updates_fixed_TRAIN_20261006.json).
+
+[audit_jaw_recovery_checkpoint.py](../scripts/rl/audit_jaw_recovery_checkpoint.py)는 CPU inference만 수행하는 재현 도구다. 첫 checkpoint를 reference로 사용하고 반복 `--checkpoint`로 정책을 추가한다. 각 checkpoint의 학습 횟수·설정·해시와 지역별 확률/logit/greedy 변화를 기록한다. Optimizer update·물리 rollout·DEV/FINAL import는0회다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=src:scripts/rl \
+python scripts/rl/audit_jaw_recovery_checkpoint.py \
+  --experience /absolute/path/to/immutable-input/staged_goal_experience.pt \
+  --verified-receipt /absolute/path/to/input-directory-verification.json \
+  --checkpoint /absolute/path/to/source/checkpoint_00006864.pt \
+  --checkpoint /absolute/path/to/saved-comparison/checkpoint_00009808.pt \
+  --output-json /absolute/path/to/jaw-policy-comparison.json
+```
+
+실제2.32GB immutable 입력과 세 saved checkpoint로 도구를 실행했고 compile도 통과했다. 첫 reference의 변화량은 정확히0이다. 이번 분석은 reward·success·safety·randomization이나 활성 학습 모델을 변경하지 않았다. 일반화 목표와 독립 FINAL 확인은 아직 완료 전이다.
+
 기존 행동 탐색 분석은 [TRAIN jaw coverage 기록](RL_V2_TRAIN_JAW_COVERAGE_20261006.md), 단단한 flap 설정과 비교 배경은 [actual-flap SAC 기록](RL_V2_ACTUAL_FLAP_RESIDUAL_SAC.md)을 참고한다.
