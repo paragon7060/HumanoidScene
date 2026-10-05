@@ -143,3 +143,51 @@ PhysX property readback을 통과했다. 강성1.5–2.5·감쇠0.15–0.25·정
 각 크기·MD5 검증까지 마쳤다. 약2.16GiB replay도 포함하며 로컬 원본은 삭제하지 않았다.
 이 시점 로컬 여유14.63GiB, 세 실행의 backup error는 없고300초 checkpoint 백업을
 계속한다. 목표와 독립 FINAL의 상태는 변하지 않는다.
+
+### 같은 상태의 실제 단위·제어 명령 민감도
+
+추가 CPU 진단은 위와 같은15경로·actor2319/Q11322의 goal scale과 실제 decoder를
+사용했다. 평균 joint goal 차이는 중간 좌0.00964rad/우0.01064rad·위 좌0.00534rad,
+torso x/z goal 차이는 각각0.671/0.786/0.590mm다. 같은 기록 상태의 decoder를 통과한
+19개 body 명령 좌표120,574개 중30,861개(25.6%)에서 recorded/current 차이가0.5를
+넘었다. 명령은−1~1 범위이며 pose·EEF 거리나 실제 추적 오차로 해석하지 않는다.
+[물리 단위·clipped command의 원본 대조](assets/rl_v2_actual_TRAIN_physical_goal_errors_Q11322_20261006.json).
+
+작은 normalized goal 차이도 joint당 한 step의0.01/0.02rad delta 제한에 비해
+크게 나타날 수 있다. 따라서 현재 정책이 성공 궤적의 body 제어도 충분히 재현한다고
+단정할 수 없다. 실제 동작 성공에 미치는 영향은 rollout으로 판단해야 한다. 현재
+n-step 실험에서는 기존 normalized-goal 성공 보존 MSE와 actor loss를 유지한다.
+보조 Q의 결과를 확인한 뒤 같은 decoder에서의 성공 body 목표/명령 보존을 별도로
+비교할 수 있도록 이 민감도를 기록한다. 성공 replay를 clipped inverse action으로
+다시 label하거나 Q action 계약을 바꾸지 않았다.
+
+## 새 보조 학습 전 전체 baseline:8/128
+
+03:17:49 KST에 새 실험의 첫 전체 DEV128이 닫혔다. 중간 왼쪽1/32·오른쪽7/32,
+위 양쪽0/32이며 초기 무효31개도 분모128에 포함한다. 유효97개는 성공8·unsafe74·
+timeout15다. Actor1204/Q6864·replay224,621·online0으로 초기 source와 같으므로
+n-step 학습 효과가 아니다. 동일 requested seed의 새 실제 reset이 이전과 같다고
+가정하지 않는다. [초기 전체128개와 안전 원인](assets/rl_v2_measured_credit16_initial_full_DEV_20261006.json).
+
+03:20의 writer3585346·supervisor3585308 UID/run/CUDA3 대조는 정상이며 첫 wave가
+완료된 상태다. `progress.json`의 마지막 DEV781step을 현재 단계로 오인하지 않고
+완료된 `metrics.json`·`status.json`과 함께 확인한다. 다음 TRAIN reset/settling 동안에는
+새 rollout progress가 아직 없을 수 있다. 실제 보조 update 지표와 TRAIN 후 전체 DEV를
+확인하기 전에는 효과나 안정적 성공을 선언하지 않는다.
+
+![전체 평가 baseline과 같은 성공 TRAIN 상태의 body 제어 대조](assets/rl_v2_credit_baseline_body_command_audit_20261006.png)
+
+### 실제 보조 Q 갱신 확인
+
+TRAIN1/91step에서 actor1223/Q6940·새 held TRAIN1,386행을 확인했다. 보조 batch64행,
+weight0.1, 평균 horizon15.59375·실제 terminal2행/endpoint bootstrap62행으로
+`measured_nstep_*` 지표가 실제 update에 나타났다. One-step Q loss0.05910,
+보조 Q loss2.78960·합산 Q loss0.33806은 모두 유한하다. Weight0.1이어도 이 update에서
+보조 기여0.27896이 one-step loss보다 커서 효과를 작은 변경으로 단정하지 않는다.
+Loss의 크기와 실제 후속 전체 DEV를 함께 판단한다. Source bank는 평가를 가져오지
+않고 기존 actual TRAIN31,447행을 유지한다. 아직 새 학습 후 평가나 성공률 개선은 아니다.
+
+03:27:02 KST의 후속 TRAIN121step은 actor1238/Q7000·새 held3,741행,
+one-step loss0.06583·보조 loss1.32855였다. 실제 owner/run/CUDA3·유한 loss·
+bank·300초 백업을 대조한 [첫 실제 갱신 snapshot](assets/rl_v2_measured_credit16_first_actual_updates_20261006.json)을
+보관했다. 새 initial full DEV8/128과 학습 후의 결과는 구분한다.
