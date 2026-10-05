@@ -191,3 +191,77 @@ Loss의 크기와 실제 후속 전체 DEV를 함께 판단한다. Source bank�
 one-step loss0.06583·보조 loss1.32855였다. 실제 owner/run/CUDA3·유한 loss·
 bank·300초 백업을 대조한 [첫 실제 갱신 snapshot](assets/rl_v2_measured_credit16_first_actual_updates_20261006.json)을
 보관했다. 새 initial full DEV8/128과 학습 후의 결과는 구분한다.
+
+## 10/06: 단위를 맞춘 성공 보존 loss 대조 — 도입 근거 부족
+
+Actual n-step checkpoint actor1280/Q7168의 복제 actor 두 개만 CPU에서200회씩
+갱신했다. 원래 실제 성공 TRAIN15경로 중 중간 좌우의 첫 episode씩2개/825행을
+학습에서 제외했고13개/5,521행을 fit에 사용했다. 위 왼쪽 성공은1개뿐이라 fit에
+남겼으며 상단 holdout이나 위 오른쪽 성공 자료는 없다. DEV/FINAL을 사용하지 않았다.
+
+두 복제 모델은 같은 초기 actor·64행 sampling·LR1e−5·jaw NLL0.05를 사용한다.
+차이는 body MSE를 기존 normalized goal로 계산하거나, goal scale/step당 servo increment의
+제곱 가중치(평균1)를 반영하는 것이다. 해당 gain은4.000~97.617로 좌표에 따라 다르다.
+Q/target/temperature를 갱신하지 않고 새로운 policy 파일을 만들거나 실행하지 않았다.
+
+| 같은 상태의 clipped body 명령 MSE, episode별 평균 | 원래 actor | 기존 MSE fit 후 | Servo 단위 가중 fit 후 |
+|---|---:|---:|---:|
+| Fit TRAIN13경로 | 0.21350 | 0.20104 | 0.20115 |
+| 제외한 TRAIN2경로 | 0.18196 | 0.19272 | 0.19348 |
+
+Fit 오차는 줄었지만 제외한 TRAIN에서는 두 방법 모두 악화됐고 단위 가중 방법도
+우세하지 않았다. 이 작은 CPU 대조로 모든 BC의 한계를 단정하지 않지만, 현재
+성공 보존 loss를 바꿀 근거도 아니다. 현재 학습의 loss·성공 bank·탐색은 유지한다.
+[경로별 결과·분리 방식·checkpoint SHA256·물리 재생을 하지 않은 경계](assets/rl_v2_actual_TRAIN_retention_controller_units_clone_audit_20261006.json).
+
+### Flap reset의 실제 물리 값을 episode별로 보존
+
+현재 physical snapshot은 joint angle/velocity와 pending target을 보존하지만
+선택된 stiffness/damping/friction은 없었다. 기존 wave JSON도 마지막 auto-reset의
+일부 환경 ID만 담아 원래 전체 배치의 값이라고 사용할 수 없었다.
+
+`randomize_flap_dynamics()`는 이미 PhysX readback을 통과한 값을 전역 환경 ID별
+CPU cache에도 보존한다. 일부 환경이 reset돼도 나머지 ID의 값을 잃지 않는다.
+`current_flap_dynamics_audit()`는 모든 initialized 환경의 현재 값과 원래 layout의
+유효 여부를 저장한다. 초기 실패 후 바뀐 환경의 값은 replacement 값으로 표시하며
+원래 실패 사례의 값이라고 주장하지 않는다. 마지막-reset 진단도 그대로 유지한다.
+
+`capture_rl_initial_state()`는 firmer profile이 켜졌을 때만 numeric
+`flap_joint_properties`/schema_version1을 snapshot에 추가한다. 각 physical box의
+네 joint 값은 manifest profile의 joint_names 순서다. Scene의 실제 각도·속도와
+pending target은 유지하고, reset의 초기±1°로 덮어쓰지 않는다. 기존 기록에 없는 값을
+소급 복원하지 않는다. 기존 raw464/추가38/goal21/reward/종료 label도 변경하지 않는다.
+
+추가 데이터는 환경당288 float(1,152byte)이며 HDF 그룹 metadata는 별도다. 새로운
+sensor·physics step·property write는 없다. Snapshot의 PhysX contact warm-start·
+perception filter·reward hold timer는 여전히 완전 복원이 아니며, 이 변경만으로
+물리 재생이 bitwise 동일해진다고 주장하지 않는다. 이미 실행 중인 세 writer는
+유지하고 **다음 신규 writer부터** 이 기록 코드가 적용된다.
+
+부분 reset의 다른 환경 보존·snapshot alias 차단·실제 HDF 숫자 저장·legacy capture·
+기존 actual-flap learner를 포함한 관련 CPU17개와 변경된 Python compile을 통과했다.
+추가로 실행한 기존 `test_rl_v2_demo_replay`의 torso-up 진단 검사1개는 현재 main의
+travel profile 동작과 오래된 기대값이 달라 실패했다. 그 테스트와 torso profile 코드는
+이번 변경 전 HEAD와 동일하며, 이번 flap 기록 수정의 성공 검사로 포함하지 않았다.
+
+### 04:02 KST: firmer 실행의 세 번째 전체 DEV, 개선 미확인
+
+GPU3 기존 firmer 실행의 DEV6은 actor2676/Q12752를 고정한 전체128개에서
+중간 왼쪽1/32·오른쪽3/32·상단 양쪽0/32였다. 성공4·unsafe83·timeout11·초기
+무효30이며 이전6→7→4/128을 개선으로 표현하지 않는다. Unsafe 원인은 rack67,
+box speed15·lift4·drop5개로 서로 겹칠 수 있다. Rack peak body는 오른손 gripper
+base33·왼손10 등이다. 이 집계는 종료 시점의 원인이며 특정 controller의 물리적
+원인을 독립적으로 증명하지 않는다. 자동 비교의 significant-loss flag가 false여도
+성공률이 좋아졌다는 뜻은 아니다.
+
+새 n-step 실행은 첫 TRAIN128에서5개 성공(중간 좌2·우3), unsafe60·timeout20·
+초기 무효43이었다. 두 번째 TRAIN151step에서 actor1631/Q8572·새 held49,478행,
+actual TRAIN 보조 bank32,014행(평가0행)을 확인했다. One-step loss0.16631·보조
+loss4.45620은 유한하며 weight0.1을 유지한다. 아직 학습 후 전체 DEV가 닫히지 않아
+초기8/128 대비 효과를 판단하지 않는다.
+
+GPU0 nominal은 새 DEV9/31step으로 진행한다. 실제 owner/PID/run/CUDA 대조에서
+세 writer·supervisor가 모두 살아 있고 backup error는 없다. 현재 로컬 여유10.33GiB,
+기존300초 checkpoint 검증·보존과 original DR·양손 성공 조건을 유지한다.
+[완료128개·안전 원인·시점별 실험 상태](assets/rl_v2_flap_profiles_recording_live_state_20261006.json).
+목표는 진행 중이며 독립 FINAL은 사용하지 않았다.

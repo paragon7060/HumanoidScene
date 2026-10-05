@@ -85,3 +85,57 @@ def randomize_flap_dynamics(env,ids):
         audit[name]['initial_angle_rad']=angle.detach().cpu().tolist()
         audit[name]['PhysX_properties_verified']=True
     env._flap_dynamics_last_reset_audit=dict(contract=profile,env_ids=ids.cpu().tolist(),assets=audit)
+    # Auto-reset can overwrite the last-reset audit with a small subset. Keep
+    # the verified current properties by global environment identity as well.
+    # This is a CPU record, not an extra PhysX write or a simulation step.
+    record=getattr(env,'_flap_dynamics_current_parameters',None)
+    count=len(next(iter(audit.values()))['stiffness_nm_per_rad'])
+    if count!=len(ids):raise ValueError('Flap reset audit identity count differs')
+    num_envs=env.num_envs
+    if record is None:
+        record=dict(contract=deepcopy(profile),initialized=torch.zeros(num_envs,dtype=torch.bool),assets={})
+        env._flap_dynamics_current_parameters=record
+    if record['contract']!=profile or record['initialized'].shape!=(num_envs,):
+        raise ValueError('Current flap property record belongs to another contract or environment count')
+    selected=ids.detach().cpu()
+    for name,properties in audit.items():
+        if name not in record['assets']:
+            record['assets'][name]={key:torch.zeros(num_envs,4) for key in
+                ('stiffness_nm_per_rad','damping_nm_s_per_rad','static_friction','dynamic_friction')}
+        cached=record['assets'][name]
+        for key,value in cached.items():value[selected]=torch.tensor(properties[key])
+    record['initialized'][selected]=True
+
+
+def current_flap_dynamics_audit(env,*,original_layout_valid=None):
+    """All initialized current profiles; replacements are labelled separately."""
+    profile=getattr(env.cfg,'flap_dynamics',None)
+    if profile is None:return None
+    record=getattr(env,'_flap_dynamics_current_parameters',None)
+    if record is None or record['contract']!=profile:
+        raise ValueError('No verified current flap parameters were recorded')
+    selected=torch.where(record['initialized'])[0]
+    result=dict(contract=deepcopy(profile),env_ids=selected.tolist(),
+        scope='current_verified_properties_for_all_initialized_environments',
+        state_overwritten_or_randomization_resampled=False,
+        assets={name:{**{key:value[selected].tolist() for key,value in properties.items()},
+                      'PhysX_properties_verified':True} for name,properties in record['assets'].items()})
+    if original_layout_valid is not None:
+        valid=torch.as_tensor(original_layout_valid).detach().cpu()
+        if valid.shape!=record['initialized'].shape or valid.dtype!=torch.bool:
+            raise ValueError('Original-layout flags must match current flap environment identities')
+        result.update(original_layout_valid=valid[selected].tolist(),
+            invalid_original_cases_are_current_replacement_parameters=True)
+    return result
+
+
+def flap_initial_parameters(env,index):
+    """Numeric, detached four-joint parameters for one pre-action snapshot."""
+    profile=getattr(getattr(env,'cfg',None),'flap_dynamics',None)
+    if profile is None:return None
+    record=getattr(env,'_flap_dynamics_current_parameters',None)
+    if record is None or record['contract']!=profile or type(index) is not int \
+            or not 0<=index<len(record['initialized']) or not record['initialized'][index]:
+        raise ValueError('Physical flap seed requires verified parameters for this environment')
+    return {name:{key:value[index].numpy().copy() for key,value in properties.items()}
+            for name,properties in record['assets'].items()}

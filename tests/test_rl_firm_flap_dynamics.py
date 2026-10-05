@@ -5,7 +5,8 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.scene.flap_dynamics import (
-    firm_flap_dynamics_contract,require_flap_dynamics,configure_flap_dynamics,randomize_flap_dynamics)
+    firm_flap_dynamics_contract,require_flap_dynamics,configure_flap_dynamics,randomize_flap_dynamics,
+    current_flap_dynamics_audit,flap_initial_parameters)
 from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import physical_asset_names
 
 
@@ -37,7 +38,7 @@ def test_hinge_randomization_is_independent_and_preserves_unselected_environment
         def set_joint_position_target(self,value,**kwargs):self.put('joint_pos_target',value,**kwargs)
         def set_joint_velocity_target(self,value,**kwargs):self.put('joint_vel_target',value,**kwargs)
     names=physical_asset_names();scene={name:Asset() for name in names}
-    env=SimpleNamespace(cfg=SimpleNamespace(flap_dynamics=firm_flap_dynamics_contract()),scene=scene,device='cpu')
+    env=SimpleNamespace(cfg=SimpleNamespace(flap_dynamics=firm_flap_dynamics_contract()),scene=scene,device='cpu',num_envs=4)
     ids=torch.tensor([1,3]);torch.manual_seed(12);randomize_flap_dynamics(env,ids)
     for asset in scene.values():
         stiffness=asset.data.joint_stiffness
@@ -51,3 +52,18 @@ def test_hinge_randomization_is_independent_and_preserves_unselected_environment
     randomize_flap_dynamics(env,ids)
     assert all(not torch.equal(scene[name].data.joint_stiffness[ids],value[ids]) for name,value in before.items())
     assert env._flap_dynamics_last_reset_audit['env_ids']==[1,3]
+    # The current-property record survives a later disjoint auto-reset and
+    # snapshots never alias that mutable record.
+    snapshot=flap_initial_parameters(env,1)
+    randomize_flap_dynamics(env,torch.tensor([0]))
+    full=current_flap_dynamics_audit(env,original_layout_valid=torch.tensor([False,True,False,True]))
+    assert env._flap_dynamics_last_reset_audit['env_ids']==[0]
+    assert full['env_ids']==[0,1,3] and full['original_layout_valid']==[False,True,True]
+    assert full['invalid_original_cases_are_current_replacement_parameters']
+    for name in names:
+        torch.testing.assert_close(torch.tensor(full['assets'][name]['stiffness_nm_per_rad']),scene[name].data.joint_stiffness[[0,1,3]])
+        torch.testing.assert_close(torch.tensor(snapshot[name]['stiffness_nm_per_rad']),scene[name].data.joint_stiffness[1])
+    randomize_flap_dynamics(env,torch.tensor([1]))
+    assert any(not torch.equal(torch.tensor(snapshot[name]['stiffness_nm_per_rad']),scene[name].data.joint_stiffness[1]) for name in names)
+    with pytest.raises(ValueError,match='verified parameters'):flap_initial_parameters(env,2)
+    with pytest.raises(ValueError,match='flags'):current_flap_dynamics_audit(env,original_layout_valid=torch.zeros(3,dtype=torch.bool))

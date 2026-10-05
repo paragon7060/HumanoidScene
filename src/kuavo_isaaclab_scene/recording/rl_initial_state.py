@@ -31,6 +31,7 @@ def capture_rl_initial_state(env, observations, *, env_index=None) -> dict:
     Called only once per collected attempt, not on every training transition.
     Targets and action memory are recorded separately from measured joints;
     substituting measured angles would lose the pending PD command.
+    With randomized flap dynamics, verified hinge properties are included.
     """
     if env_index is None and env.num_envs != 1:
         raise ValueError("Physical demo seed requires exactly one environment")
@@ -66,7 +67,7 @@ def capture_rl_initial_state(env, observations, *, env_index=None) -> dict:
         value = getattr(env, "_multi_box_" + field, None)
         if value is not None:
             logical[field] = select(value)
-    return {
+    result = {
         "scene": scene,
         "drive_targets": drives,
         "action_terms": terms,
@@ -77,3 +78,8 @@ def capture_rl_initial_state(env, observations, *, env_index=None) -> dict:
         "control_step": np.int64(env.common_step_counter),
         "episode_step": select(env.episode_length_buf),
     }
+    if getattr(getattr(env, "cfg", None), "flap_dynamics", None) is not None:
+        from ..rl.multi_box.scene.flap_dynamics import flap_initial_parameters
+        result["flap_joint_properties"] = flap_initial_parameters(env, index)
+        result["flap_joint_properties_schema_version"] = np.int64(1)
+    return result

@@ -45,9 +45,14 @@ episode 중 자세나 속도를 덮어써서 붙잡지 않는다. 작은 초기 
 
 Reset은 Isaac API로 값을 쓰고 PhysX stiffness/damping/friction을 다시 읽어
 확인한다. `flap_dynamics_wave_*.json`의 `env_ids`와 각 asset별 실제 적용 값을
-확인한다. 자동 reset 때문에 마지막 기록이 일부 환경만 포함할 수 있으므로
-기록된 ID를 전체128개로 오인하지 않는다. 변경된 물리 계약의 Q/replay를
-기존 nominal 실행에 섞지 않는다.
+확인한다. 기존 writer의 파일은 마지막 auto-reset의 일부 ID만 담을 수 있으므로
+전체128개 기록으로 오인하지 않는다. 10/06 기록 수정 이후 시작한 writer는
+전역 환경 ID별로 readback을 통과한 현재 값을 보존하고 모든 initialized ID를
+저장한다. `original_layout_valid`가 false인 ID는 초기 실패 후 replacement의
+현재 값으로 표시하며, 원래 실패 시점의 값으로 해석하지 않는다. Firmer profile의
+pre-action snapshot에도 numeric `flap_joint_properties`를 포함한다. 각도·속도나
+randomization을 덮어쓰거나 기존 기록에 없는 값을 소급 복원하지 않는다.
+변경된 물리 계약의 Q/replay를 기존 nominal 실행에 섞지 않는다.
 
 ![힌지 무작위화와 새 SAC 연결 구성](assets/rl_v2_actual_flap_firm_configuration_20261005.png)
 

@@ -590,9 +590,11 @@ def main():
         if supplemental:
             meta['supplemental_actor_obs_dim'] = SUPPLEMENTAL_DIM
         if contract.get('flap_dynamics'):
+            from kuavo_isaaclab_scene.rl.multi_box.scene.flap_dynamics import current_flap_dynamics_audit
             (output/'flap_dynamics_wave_0000.json').write_text(json.dumps(
                 dict(wave=0, split=layout.split if layout else 'diagnostic',
-                     **env._flap_dynamics_last_reset_audit), indent=2)+'\n')
+                     **current_flap_dynamics_audit(env,original_layout_valid=
+                        staged_initial_valid if staged_goal_sac is not None else None)), indent=2)+'\n')
         goal_collector = None
         if args.collect_train_goals:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.training_goal_collection import TrainingGoalCollector, FORMAT

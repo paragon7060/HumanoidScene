@@ -533,8 +533,10 @@ def main():
                 capture_reset_diagnostics=args.reset_failure_diagnostics,
                 zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe)
             if contract.get('flap_dynamics'):
+                from kuavo_isaaclab_scene.rl.multi_box.scene.flap_dynamics import current_flap_dynamics_audit
                 (output/f'flap_dynamics_wave_{wave_index:04d}.json').write_text(json.dumps(
-                    dict(wave=wave_index,split=wave['split'],**env._flap_dynamics_last_reset_audit),indent=2)+'\n')
+                    dict(wave=wave_index,split=wave['split'],
+                         **current_flap_dynamics_audit(env,original_layout_valid=valid_layout)),indent=2)+'\n')
             if args.reset_failure_diagnostics:
                 if args.passive_bearing_probe_layer:
                     captured=layout_guard['reset_failure_diagnostics']

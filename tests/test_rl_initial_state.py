@@ -4,11 +4,13 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+import torch
+import h5py
 
 from kuavo_isaaclab_scene.recording.rl_initial_state import capture_rl_initial_state
 
 
-def test_capture_keeps_measured_angles_distinct_from_pd_targets():
+def test_capture_keeps_measured_angles_distinct_from_pd_targets(tmp_path):
     q = np.array([[.1, .2]])
     data = SimpleNamespace(joint_pos_target=q + .04, joint_vel_target=q * 0,
                            joint_effort_target=q * 10)
@@ -50,3 +52,30 @@ def test_capture_keeps_measured_angles_distinct_from_pd_targets():
     assert selected['episode_step']==8
     with pytest.raises(ValueError,match='valid environment index'):
         capture_rl_initial_state(env,{'policy':q},env_index=2)
+    # A randomized hinge's actual parameters are part of the numeric seed,
+    # not reconstructed from its angle or from the profile's midpoint.
+    from kuavo_isaaclab_scene.rl.multi_box.scene.flap_dynamics import firm_flap_dynamics_contract
+    from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import physical_asset_names
+    from kuavo_isaaclab_scene.recording.rl_transition_recorder import RlTransitionRecorder
+    profile=firm_flap_dynamics_contract()
+    env.cfg=SimpleNamespace(flap_dynamics=profile)
+    properties={name:{key:torch.tensor([[a]*4,[b]*4]) for key,a,b in (
+        ('stiffness_nm_per_rad',1.6,2.2),('damping_nm_s_per_rad',.16,.22),
+        ('static_friction',.5,.6),('dynamic_friction',.3,.38))} for name in physical_asset_names()}
+    env._flap_dynamics_current_parameters=dict(contract=profile,initialized=torch.ones(2,dtype=torch.bool),assets=properties)
+    seed=capture_rl_initial_state(env,{'policy':q},env_index=1)
+    first=physical_asset_names()[0]
+    properties[first]['stiffness_nm_per_rad'][1].fill_(9)
+    np.testing.assert_allclose(seed['flap_joint_properties'][first]['stiffness_nm_per_rad'],[2.2]*4)
+    recorder=RlTransitionRecorder(tmp_path/'physical_seed.hdf5',{'skill':'grasp'})
+    recorder.start_episode(initial_state=seed)
+    recorder.append(dict(actor_obs=q[1],critic_obs=q[1],action=q[1]*0,reward=0.,
+        next_actor_obs=q[1],next_critic_obs=q[1],terminated=True,truncated=False,
+        success=False,unsafe=False,sim_time_s=0.))
+    recorder.close()
+    with h5py.File(tmp_path/'physical_seed.hdf5') as source:
+        initial=source['episodes/episode_000000/initial_state']
+        assert initial['flap_joint_properties_schema_version'][()]==1
+        np.testing.assert_allclose(initial[f'flap_joint_properties/{first}/stiffness_nm_per_rad'][:],[2.2]*4)
+    del env._flap_dynamics_current_parameters
+    with pytest.raises(ValueError,match='verified parameters'):capture_rl_initial_state(env,{'policy':q},env_index=1)
