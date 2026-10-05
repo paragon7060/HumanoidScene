@@ -1060,3 +1060,41 @@ Box token에도 flap joint q/v가 없다. `GoalGripperProjector`의12cm close ga
 nominal Q 데이터를 같은 폭이라는 이유로 articulated 데이터로 재라벨하면 안 된다.
 Frozen nominal actor는 별도 입력 변환과 의미 계약을 유지한 actor prior로만 재사용하고,
 실제 panel 관측의 새 Q/replay는 새로 모아야 한다. 이 단계에서는 기존 SAC를 유지한다.
+
+### 16:08 · 독립 scene 생성은 초기 실패를 해결하지 못함
+
+[원래 순서·역순의 두 비교](assets/rl_v2_independent_scene_N16_20261005.json)는
+exit0·writer 종료·MainPID0·최종 Drive 검증을 모두 마쳤다. 각각 같은16개 layout과
+43개 active 박스·원래 world frame·세 support 전체 q/v를 요청했으며, 실제 박스
+Body/네 flap world pose와 support q/v 차이는0이었다. 실제 USD의 환경 간 충돌
+차단, 모든 root/contact-source view의 row 순서와 source pose 일치도 통과했다.
+Environment0에서 읽은 support mass/inertia/armature/damping/stiffness/force limit도
+각 대조와 같았다.
+
+| 요청 순서 | 복제 scene | 독립 scene |
+| --- | --- | --- |
+| 원래 순서 | 초기 유효12/16 | 초기 유효10/16 |
+| 역순 | 초기 유효14/16 | 초기 유효11/16 |
+
+![독립 scene 생성은 초기 유효 환경 수를 늘리지 못함](assets/rl_v2_independent_scene_N16_20261005.png)
+
+독립 생성은 초기화 문제를 해결하지 못했다. 다만 conveyor7개 root의 실제 위치는
+최대8.804cm 달랐고 constructor/contact solver 이력도 동일하지 않아 전체 초기
+물리 상태를 완전히 맞춘 비교라고 쓰지 않는다. 이 결과로 replication 자체가
+실패 원인이라고 단정하지 않으며 일반학습의 `replicate_physics=True`를 유지한다.
+Actor/Q update0·TRAIN/Q import 불가·독립FINAL 제외의 진단 결과다.
+
+### 중립 상태의 flap 오차는 유효 layout에서 작음
+
+[닫힌 네 N16 실행의 nominal/actual flap 비교](assets/rl_v2_startup_nominal_flap_pose_error_20261005.json)는
+production `nominal_flap_geometry`와 실제 flap link pose·composed USD의 panel center를
+대조했다. 사용한 small/medium panel의 rigid-frame center는0이다. 초기 중립 유지가
+끝난 유효 layout의 flap center 최대 오차는 네 실행을 통틀어0.036mm, panel 회전
+최대 오차는0.042°였다. 최대1.69cm/19.41°의 큰 오차는 초기 무효 layout에서 나왔다.
+
+따라서 중립 초기 상태의 nominal flap 오차만으로 학습 부진을 설명할 근거는 없다.
+손이 실제 flap에 닿아 굽히는 파지 단계의 오차와 닫힘 gate 차이는 아직 측정하지
+않았다. 다음에는 그 구간의 관측·양손 접근·접촉·닫힘 시점을 함께 확인한다.
+기존 다섯 SAC는 유지한다. 15:58 실제 writer가 모두 살아 있었고 Drive 오류가
+없었으며 최신 완료된 DEV 성공은 gain0.5=5/128, gain2=5/128, retention=8/128,
+arm-bias=3/128, native-credit10=6/128이다. 목표 달성이나 충분한 일반화로 판단하지 않는다.
