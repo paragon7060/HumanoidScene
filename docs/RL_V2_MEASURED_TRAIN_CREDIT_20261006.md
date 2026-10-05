@@ -4,6 +4,7 @@
 중간 왼쪽2/32·오른쪽5/32, 양쪽 위 선반은0/32다. 일반화 성공이나 확실한 개선으로
 해석하지 않는다. 기존128-env 학습을 유지하고 같은 물리·관측·동작 계약에서
 n-step critic 보조 학습을 별도로 시험한다.
+[전체DEV128·안전 원인·고정기준비교](assets/rl_v2_firmer_flap_guarded_SAC_DEV7_20261006.json).
 
 ## 관측 증거와 변경 목적
 
@@ -90,3 +91,11 @@ gamma^16 endpoint·binary jaw 기대값·actor/Q/optimizer 보존·bank 재개�
 검사는 물리 성공을 증명하지 않는다. 실제 새 실행과 보조 Q update는 PID·현재
 progress/metrics로 확인한다. 원래 box/base/background DR·동적 firmer flap·네 영역32개씩
 평가를 유지한다. 독립 FINAL은 아직 사용하지 않았고 goal은 계속 진행 중이다.
+
+02:41:49 KST에 `actual_flap_measured_credit16_sac_pgs128_gpu3_20261006_024149`를 시작했다.
+Run은 `batch_sac_20261006_024149_31996b`, 실제 writer3585346·supervisor3585308이다.
+서비스와UID·실행 경로·CUDA3를 확인했고 원래 writer2763569는 유지했다.
+초기 전체 DEV → original TRAIN7/8 → 후속 전체 DEV의4wave다. 현재 초기화와
+첫 평가를 진행하므로 실제 보조 Q 갱신 및 성공률 개선은 아직 확인 전이다.
+입력4개는 별도 CPU 서비스가 기존 Drive 연결로 업로드·검증하며 완료 전에는 보존한다.
+Notion은 새 native PNG를 포함한95개 미디어를 확인했고 기존94개를 모두 보존했다.
