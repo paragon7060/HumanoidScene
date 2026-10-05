@@ -53,6 +53,8 @@ def main():
         help='Frozen reset diagnostic only: preserve roller angles/poses but remove inherited angular velocities')
     parser.add_argument('--rear5-support-gap-probe-m',type=float,default=None,
         help='Frozen reset diagnostic only: keep dynamic background5, change its initial support gap (default0.008m)')
+    parser.add_argument('--reset-contact-pair-diagnostics',action='store_true',
+        help='Frozen reset diagnostic only: extend existing box reporters to rack/rollers/other box bodies and measure support motion')
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
@@ -67,6 +69,8 @@ def main():
     try:validate_reset_diagnostic_request(waves,enabled=args.reset_failure_diagnostics,
         training=args.training,steps=args.steps)
     except ValueError as error:parser.error(str(error))
+    if args.reset_contact_pair_diagnostics and not args.reset_failure_diagnostics:
+        parser.error('Contact pair diagnostics require frozen reset diagnostics')
     try:validate_rear5_support_gap_diagnostic_request(waves,gap_m=args.rear5_support_gap_probe_m,
         reset_enabled=args.reset_failure_diagnostics,training=args.training,steps=args.steps,
         other_probe=any((args.zero_passive_roller_velocities_probe,args.contact_stability_probe,
@@ -148,6 +152,19 @@ def main():
         if contract.get('reward_profile',{}).get('weights')!=asdict(MultiBoxRewardWeights()):
             raise ValueError('Current physical reward weights differ from checkpoint input manifest')
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
+        pair_filter_manifest=None
+        if args.reset_contact_pair_diagnostics:
+            from kuavo_isaaclab_scene.rl.multi_box.debug.contact_sensors import BELT_CONTACT_SENSOR_NAMES,_rack_contact_targets
+            from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import physical_asset_names
+            from kuavo_isaaclab_scene.rl.scenes.asset_geometry import box_geometry
+            from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import extend_startup_contact_pair_filters
+            targets=_rack_contact_targets(cfg.scene)
+            flaps=('flap_front','flap_back','flap_right','flap_left')
+            for name in physical_asset_names():
+                asset=getattr(cfg.scene,name);geometry=box_geometry(asset,flaps)
+                paths=[geometry.body_path,*[geometry.flaps[f].body_path for f in flaps]]
+                targets.extend(asset.prim_path+('/'+p if p!='.' else '') for p in paths)
+            pair_filter_manifest=extend_startup_contact_pair_filters(cfg.scene,BELT_CONTACT_SENSOR_NAMES,targets)
         if args.centered_world_probe:
             if not str(args.device).startswith('cuda') or not cfg.scene.replicate_physics or not cfg.scene.filter_collisions:
                 raise ValueError('Shared-origin probe requires replicated GPU physics with environment collision IDs')
@@ -222,6 +239,7 @@ def main():
             raise ValueError('Batched prototype requires its explicitly nominal observation checkpoint')
         class WaveEnv(TerminalObservationMixin,ManagerBasedRLEnv):pass
         env=WaveEnv(cfg);env.enable_numerical_dynamics_recovery()
+        env._reset_contact_pair_diagnostics=args.reset_contact_pair_diagnostics
         if args.centered_world_probe:
             if not torch.allclose(env.scene.env_origins,torch.zeros_like(env.scene.env_origins),atol=0,rtol=0):
                 raise ValueError('Shared-origin probe did not apply zero world origins')
@@ -323,7 +341,10 @@ def main():
                 initial_passive_roller_velocity_changed=args.zero_passive_roller_velocities_probe,
                 zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe,
                 rear5_initial_support_gap_probe_m=args.rear5_support_gap_probe_m,
-                initial_box_pose_changed=args.rear5_support_gap_probe_m is not None)
+                initial_box_pose_changed=args.rear5_support_gap_probe_m is not None,
+                normal_contact_pair_filters=pair_filter_manifest,
+                contact_pair_reporting_extended=args.reset_contact_pair_diagnostics,
+                new_sensors_added=False)
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         if args.packed_background_probe:
             manifest=json.loads((output/'manifest.json').read_text())

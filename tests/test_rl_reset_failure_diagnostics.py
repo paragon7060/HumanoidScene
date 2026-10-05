@@ -203,3 +203,65 @@ def test_rear5_support_gap_cannot_mix_with_training_final_or_other_physics_probe
     with pytest.raises(ValueError):validate_rear5_support_gap_diagnostic_request(**args)
     args['gap_m']=None
     validate_rear5_support_gap_diagnostic_request(**args)  # existing training path stays opt-in
+
+
+def test_pair_reporter_extension_keeps_previous_filters_and_collision_config():
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import extend_startup_contact_pair_filters
+    shared=['belt']
+    a,b=(SimpleNamespace(filter_prim_paths_expr=shared,force_threshold=5.,history_length=1) for _ in range(2))
+    scene=SimpleNamespace(a=a,b=b,collision_rules=['unchanged'])
+    result=extend_startup_contact_pair_filters(scene,['a','b'],['rack','roller','rack','box'])
+    assert shared==['belt']
+    assert result['a']==result['b']==['belt','rack','roller','box']
+    assert a.filter_prim_paths_expr is not b.filter_prim_paths_expr
+    assert a.force_threshold==b.force_threshold==5.
+    assert scene.collision_rules==['unchanged']
+
+
+def test_pair_matrix_identity_is_not_the_vector_sum_and_nonfinite_pairs_are_preserved():
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import strongest_normal_contact_pairs
+    matrix=torch.tensor([[[9.,0.,0.],[-8.,0.,0.],[0.,0.,1.],[0.,0.,0.]],
+                         [[0.,0.,0.],[0.,0.,0.],[0.,0.,0.],[0.,0.,0.]]])
+    rows=strongest_normal_contact_pairs(matrix,['rack','rear5','belt','idle'],count=2)
+    assert [r['target_path'] for r in rows[0]['strongest_normal_pairs']]==['rack','rear5']
+    assert [r['normal_force_magnitude_n'] for r in rows[0]['strongest_normal_pairs']]==[9.,8.]
+    assert rows[1]['strongest_normal_pairs']==[]
+    matrix[1,2,0]=float('nan')
+    rows=strongest_normal_contact_pairs(matrix,['rack','rear5','belt','idle'])
+    assert rows[1]['nonfinite_filter_count']==1
+    assert rows[1]['strongest_normal_pairs'][0]['target_path']=='belt'
+    assert rows[1]['strongest_normal_pairs'][0]['normal_force_magnitude_n'] is None
+    json.dumps(rows,allow_nan=False)
+    assert torch.isnan(matrix[1,2,0])
+    with pytest.raises(ValueError,match='filter axis'):
+        strongest_normal_contact_pairs(matrix,['ambiguous'])
+
+
+def test_pair_target_pose_uses_measured_environment_identity_and_rejects_ambiguity():
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import attach_contact_target_states
+    state=dict(asset='deck2',body='Roller_7',pose=[[1.]*7,[2.]*7],velocity=[[3.]*6,[4.]*6])
+    rows=[dict(strongest_normal_pairs=[dict(target_path='/scene/deck2/Roller_7')])]
+    lookup={('/scene/deck2','Roller_7'):state}
+    attach_contact_target_states(rows,[1],lookup)
+    pair=rows[0]['strongest_normal_pairs'][0]
+    assert pair['target_pose_world']==[2.]*7 and pair['target_velocity_world']==[4.]*6
+    ambiguous={**lookup,('/scene','Roller_7'):state}
+    rows=[dict(strongest_normal_pairs=[dict(target_path='/scene/deck2/Roller_7')])]
+    attach_contact_target_states(rows,[1],ambiguous)
+    assert rows[0]['strongest_normal_pairs'][0]['target_pose_resolution']=='unresolved_or_ambiguous'
+    assert 'target_pose_world' not in rows[0]['strongest_normal_pairs'][0]
+
+
+def test_support_snapshot_detects_fixed_base_or_roller_center_motion_without_physics_writes():
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import support_root_snapshot
+    pose=torch.zeros(2,3,7);pose[...,3]=1.;velocity=torch.zeros(2,3,6)
+    asset=SimpleNamespace(body_names=['Base','r0','r1'],is_fixed_base=True,
+        data=SimpleNamespace(body_link_pose_w=pose,body_link_vel_w=velocity))
+    env=SimpleNamespace(scene=SimpleNamespace(articulations={'rack_roller_deck_02':asset}))
+    initial=support_root_snapshot(env);assert initial['rack_roller_deck_02']['maximum_link_center_displacement_m']==[0.,0.]
+    pose[1,2,0]=.2;velocity[1,0,2]=.3
+    result=support_root_snapshot(env)['rack_roller_deck_02']
+    assert result['is_fixed_base']
+    assert result['maximum_link_center_displacement_m'][1]==pytest.approx(.2)
+    assert result['base_velocity_world'][1][2]==pytest.approx(.3)
+    assert pose[1,2,0]==pytest.approx(.2)

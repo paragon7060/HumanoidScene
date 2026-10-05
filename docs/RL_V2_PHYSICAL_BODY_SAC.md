@@ -649,3 +649,18 @@ shared support constraint/solver 문제를 구분한다. Cold 반복 결과로 �
 gain2는7→1→5/128이다. 최근 wave6에서 각각 MR3, MR4/UR1이었고 ML/UL은0이다.
 일부 반등이지만 초기 성능보다 낮고 네 영역의 안정적인 개선은 아니다.
 GPU0·3의 기존 다섯 SAC PID와 최근 Drive 백업을 실제 확인했으며 중단하지 않았다.
+
+### 11:42 · 실제 contact pair와 fixed support 이동의 분리 측정
+
+`--reset-failure-diagnostics --reset-contact-pair-diagnostics --no-training --steps 1`
+은 기존 box Body reporter의 filter만 rack 구조물·546개 roller·모든18개 box의
+Body/4flap으로 확장한다. 새 sensor·collision geometry·collision rule·servo는 추가하지
+않는다. Frozen DEV startup만 허용하며 TRAIN/독립 FINAL/replay에는 사용하지 않는다.
+
+각 tick에서 source Body의 가장 큰 normal force pair3개를 개별 vector/magnitude로
+저장한다. Filter 축과 선언 target 수가 다르면 attribution을 거부하고 nonfinite force는
+null로 보존한다. Contact 상대의 실제 body-link pose/velocity를 같은 environment ID로
+읽으며 ambiguous/unresolved 경로를 USD pose로 대신하지 않는다. Tangential friction은
+측정하지 않는다. Fixed support Base의 실제 pose/velocity와 모든 roller center의 처음
+대비 이동량도 기록해 contact identity 오류와 shared-support motion을 구분한다.
+Pair 순서/환경 identity/nonfinite/기본 reset과 관련한70개 검사 통과.

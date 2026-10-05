@@ -33,6 +33,88 @@ def _finite_values(values):
     return [float(v) if math.isfinite(float(v)) else None for v in values]
 
 
+def extend_startup_contact_pair_filters(scene, sensor_names, targets):
+    """Extend existing reporters before creation; never touch collision rules."""
+    result = {}
+    for name in sensor_names:
+        cfg = getattr(scene, name)
+        cfg.filter_prim_paths_expr = list(dict.fromkeys([*cfg.filter_prim_paths_expr, *targets]))
+        result[name] = list(cfg.filter_prim_paths_expr)
+    return result
+
+
+def strongest_normal_contact_pairs(matrix, target_paths, *, count=3):
+    """Describe the largest reported pairs, retaining nonfinite evidence."""
+    if matrix.ndim != 3 or matrix.shape[-1] != 3 or matrix.shape[1] != len(target_paths):
+        raise ValueError('Contact matrix filter axis does not match declared rigid-body targets')
+    magnitude = matrix.norm(dim=-1)
+    values, indices = magnitude.topk(min(count, len(target_paths)), dim=-1)
+    forces = matrix.gather(1, indices[..., None].expand(-1, -1, 3)).detach().cpu().tolist()
+    nonfinite = (~torch.isfinite(matrix).all(-1)).sum(-1).cpu().tolist()
+    result = []
+    for sizes, ids, vectors, invalid_count in zip(values.cpu().tolist(), indices.cpu().tolist(), forces, nonfinite, strict=True):
+        pairs = [dict(target_path=target_paths[index], normal_force_world_n=_finite_values(force),
+                      normal_force_magnitude_n=_finite_values([size])[0])
+                 for size, index, force in zip(sizes, ids, vectors, strict=True)
+                 if not math.isfinite(size) or size > 0]
+        result.append(dict(strongest_normal_pairs=pairs, nonfinite_filter_count=invalid_count))
+    return result
+
+
+def contact_target_state_lookup(env):
+    """CPU evidence from existing live bodies; no USD pose fallback."""
+    result = {}
+    for name, asset in env.scene.articulations.items():
+        prefix = asset.cfg.prim_path
+        pose = asset.data.body_link_pose_w.detach().cpu().tolist()
+        velocity = asset.data.body_link_vel_w.detach().cpu().tolist()
+        for j, body in enumerate(asset.body_names):
+            result[(prefix, body)] = dict(asset=name, body=body,
+                pose=[row[j] for row in pose], velocity=[row[j] for row in velocity])
+    for name, asset in env.scene.rigid_objects.items():
+        result[(asset.cfg.prim_path, None)] = dict(asset=name, body=None,
+            pose=asset.data.root_pose_w.detach().cpu().tolist(),
+            velocity=asset.data.root_vel_w.detach().cpu().tolist())
+    return result
+
+
+def attach_contact_target_states(pair_rows, environment_ids, lookup):
+    for row, i in zip(pair_rows, environment_ids, strict=True):
+        for pair in row['strongest_normal_pairs']:
+            path = pair['target_path']; leaf = path.rsplit('/', 1)[-1]
+            candidates = [state for (prefix, body), state in lookup.items()
+                          if (body is None and path == prefix) or
+                          (body == leaf and path.startswith(prefix + '/'))]
+            if len(candidates) != 1:
+                pair['target_pose_resolution'] = 'unresolved_or_ambiguous'
+                continue
+            state = candidates[0]
+            pair.update(target_asset=state['asset'], target_body=state['body'],
+                target_pose_world=_finite_values(state['pose'][i]),
+                target_velocity_world=_finite_values(state['velocity'][i]),
+                target_pose_resolution='measured_live_body_link_or_rigid_root')
+
+
+def support_root_snapshot(env):
+    """Observe fixed support base motion and center drift during first contact."""
+    result = {}
+    baseline = getattr(env, '_reset_support_initial_centers', None)
+    if baseline is None:
+        baseline = {name: asset.data.body_link_pose_w[..., :3].clone()
+                    for name, asset in env.scene.articulations.items() if name.startswith('rack_roller_deck_')}
+        env._reset_support_initial_centers = baseline
+    for name, asset in env.scene.articulations.items():
+        if name not in baseline:
+            continue
+        base = asset.body_names.index('Base')
+        displacement = (asset.data.body_link_pose_w[..., :3] - baseline[name]).norm(dim=-1).amax(-1)
+        result[name] = dict(is_fixed_base=asset.is_fixed_base,
+            base_pose_world=[_finite_values(row) for row in asset.data.body_link_pose_w[:, base].cpu().tolist()],
+            base_velocity_world=[_finite_values(row) for row in asset.data.body_link_vel_w[:, base].cpu().tolist()],
+            maximum_link_center_displacement_m=_finite_values(displacement.cpu().tolist()))
+    return result
+
+
 def passive_roller_snapshot(env):
     """Measure the support's hidden dynamic state separately from box roots."""
     result = {}
@@ -71,6 +153,8 @@ def startup_normal_contact_snapshot(env, asset_names, box_sensor_names, robot_se
     """
     active = env._multi_box_active.detach().cpu()
     pools = env._multi_box_pool_ids.detach().cpu()
+    pairs_enabled = getattr(env, '_reset_contact_pair_diagnostics', False)
+    target_states = contact_target_state_lookup(env) if pairs_enabled else None
     rows = []
     for pool, (name, sensor_name) in enumerate(zip(asset_names, box_sensor_names, strict=True)):
         selected = torch.nonzero(active & (pools == pool), as_tuple=False)
@@ -86,13 +170,17 @@ def startup_normal_contact_snapshot(env, asset_names, box_sensor_names, robot_se
             asset.data.joint_vel[ids].abs().amax(-1, keepdim=True),
             body_velocity[..., :3].norm(dim=-1).amax(-1, keepdim=True),
             body_velocity[..., 3:].norm(dim=-1).amax(-1, keepdim=True)), -1).detach().cpu().tolist()
-        for (i, logical), value in zip(selected.tolist(), values, strict=True):
+        pair_rows = [{} for _ in values]
+        if pairs_enabled:
+            pair_rows = strongest_normal_contact_pairs(sensor.data.force_matrix_w[ids, 0], sensor.cfg.filter_prim_paths_expr)
+            attach_contact_target_states(pair_rows, selected[:, 0].tolist(), target_states)
+        for (i, logical), value, pair_row in zip(selected.tolist(), values, pair_rows, strict=True):
             rows.append(dict(environment=i, logical_id=logical, original_pool_id=pool,
                 source_body=sensor.body_names[0], box_velocity_world=_finite_values(value[:6]),
                 normal_contact_force_world_n=_finite_values(value[6:9]),
                 maximum_absolute_flap_joint_speed_radps=_finite_values(value[9:10])[0],
                 maximum_link_linear_speed_mps=_finite_values(value[10:11])[0],
-                maximum_link_angular_speed_radps=_finite_values(value[11:12])[0]))
+                maximum_link_angular_speed_radps=_finite_values(value[11:12])[0], **pair_row))
     robot = {}
     for name in robot_sensor_names:
         sensor = env.scene[name]
@@ -101,8 +189,12 @@ def startup_normal_contact_snapshot(env, asset_names, box_sensor_names, robot_se
             normal_contact_force_world_n=[[_finite_values(body) for body in row] for row in force.tolist()])
     rollers = {name: _finite_values(asset.data.joint_vel.abs().amax(-1).detach().cpu().tolist())
         for name, asset in env.scene.articulations.items() if name.startswith('rack_roller_deck_')}
-    return dict(boxes=rows, robot=robot, roller_maximum_absolute_speed_radps=rollers,
+    result = dict(boxes=rows, robot=robot, roller_maximum_absolute_speed_radps=rollers,
         measurement='net normal contact force on source bodies; collider identity and tangential friction are not measured')
+    if pairs_enabled:
+        result.update(support_roots=support_root_snapshot(env),
+            measurement='normal contact forces per declared rigid-body filter, plus measured target poses; tangential friction not measured')
+    return result
 
 
 class ResetFailureCapture:
