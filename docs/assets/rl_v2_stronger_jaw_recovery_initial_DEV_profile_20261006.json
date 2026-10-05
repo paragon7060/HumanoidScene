@@ -1,0 +1,101 @@
+{
+  "recorded_at": "2026-10-06T08:11:09.166014+09:00",
+  "source_commit": "71dadd4e30c4e54218c13361229fbfabde625ff5",
+  "run_basename": "batch_sac_20261006_075810_59a062",
+  "parent_basename": "actual_flap_joint_jaw_logit4_strong_credit16_sac_pgs128_gpu3_20261006_075810",
+  "wave": 0,
+  "split": "validation",
+  "progress_step": 31,
+  "requested_original_cases": 128,
+  "initial_valid_original_cases": 98,
+  "initial_invalid_original_cases": 30,
+  "original_invalid_cases_still_in_requested128_denominator": true,
+  "initialized_environment_count": 128,
+  "physical_assets": 18,
+  "hinges_per_asset": 4,
+  "property_ranges": {
+    "stiffness_nm_per_rad": {
+      "actual_min": 1.500059723854065,
+      "actual_max": 2.4996306896209717,
+      "requested_range": [
+        1.5,
+        2.5
+      ],
+      "initialized_environment_asset_hinge_values": 9216,
+      "all_within_requested_range": true
+    },
+    "damping_nm_s_per_rad": {
+      "actual_min": 0.15000897645950317,
+      "actual_max": 0.2499818503856659,
+      "requested_range": [
+        0.15,
+        0.25
+      ],
+      "initialized_environment_asset_hinge_values": 9216,
+      "all_within_requested_range": true
+    },
+    "static_friction": {
+      "actual_min": 0.45002028346061707,
+      "actual_max": 0.6499976515769958,
+      "requested_range": [
+        0.45,
+        0.65
+      ],
+      "initialized_environment_asset_hinge_values": 9216,
+      "all_within_requested_range": true
+    },
+    "dynamic_friction": {
+      "actual_min": 0.3000035881996155,
+      "actual_max": 0.39999955892562866,
+      "requested_range": [
+        0.3,
+        0.4
+      ],
+      "initialized_environment_asset_hinge_values": 9216,
+      "all_within_requested_range": true
+    }
+  },
+  "all_initialized_cached_parameters_setter_PhysX_readback_verified": true,
+  "current_parameters_for_invalid_original_cases_belong_to_replacements": true,
+  "no_extra_simulation_or_pose_write_or_randomization_resample_performed": true,
+  "initial_angle_contract_degrees": [
+    -1.0,
+    1.0
+  ],
+  "cached_four_property_audit_does_not_recover_initial_angles": true,
+  "actor_updates": 1204,
+  "critic_updates": 6864,
+  "replay_size": 224621,
+  "online_TRAIN_rows": 0,
+  "TRAIN_jaw_sampler_rows": 0,
+  "jaw_saturation_config": {
+    "variant": "logit4-soft-strong",
+    "format_version": 1,
+    "logit_limit": 4.0,
+    "weight": 0.001,
+    "scope": "actual_flap_TRAIN_actor_updates_only",
+    "loss": "mean_rows_sum_eligible_jaws_relu_abs_logit_minus_limit_squared_over_active_count",
+    "eligible_jaws": "unchanged_production_nominal_near_gate",
+    "symmetric_open_close": true,
+    "reward_or_success_labels_used": false,
+    "hard_logit_clipping": false,
+    "probability_floor": false,
+    "Q_target_and_behavior_distribution_unchanged": true
+  },
+  "jaw_saturation_origin": {
+    "source_checkpoint": "/home/seonho/HumanoidScene/artifacts/rl/pose_students/actual_flap_measured_train_credit16_20261006_023500/checkpoint_00006864.pt",
+    "actor_updates_at_activation": 1204,
+    "critic_updates_at_activation": 6864,
+    "old_replay_rows_at_activation": 224621,
+    "model_Q_normalizers_and_four_optimizer_states_kept": true,
+    "old_replay_kept_without_relabeling": true,
+    "source_checkpoint_actor_regularization": "off",
+    "scope": "future_real_TRAIN_actor_updates"
+  },
+  "optimizer_and_replay_counters_in_initial_DEV_unchanged": true,
+  "actual_new_TRAIN_success_not_yet_verified": true,
+  "whole_initial_DEV_not_yet_finished": true,
+  "active_HDF_and_replay_not_read": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}
