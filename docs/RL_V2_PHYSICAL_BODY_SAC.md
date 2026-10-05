@@ -770,3 +770,17 @@ velocity, environment/logical/physical pool identity를함께기록한다. Norma
 감쇠·보상·성공·안전은변경하지않고TRAIN/Q/독립FINAL에는사용하지않는다.
 기본학습에서는새sensor와추가읽기가없다. Pool mapping·one-source/filter axis·
 숨은other-box contact·nonfinite보존을포함한관련95개검사통과.
+
+### 13:05 · 뒤박스가 없는 실패 환경도 존재: 국소 인과관계로 단정하지 않음
+
+[실제 초기 link pose와 composed geometry bounds의 CPU 검사](assets/rl_v2_initial_box4_box5_bounds_clearance_20261005.json)에서
+최초 실패ML10개 중env28/100/116/124는처음부터active logical5가없었다.
+나머지6개에서는Body와네flap의모든25개bounds pair가분리되어있었고
+최소분리축투영gap은약0.430m였다. 이는실측초기link pose에대한bounds 검사이며
+충돌manifold 자체나이후접촉을측정한결과는아니다. 기하/물리/학습상태를쓰지않았다.
+
+따라서모든환경에서주변5를제외했을때128/128이유효해진결과를
+각실패환경의뒤박스가앞박스에직접충격을줬다는증거로해석하지않는다.
+Batch contact 처리·reset의숨은상태·view/environment ordering 가능성도구분해야한다.
+현재의flap source 진단은이전기록의측정공백을메우며, 직접접촉이없다면다음에는
+PhysX 실제prim ordering과teleport후contact cache를확인한다. 아직엔진오류로확정하지않는다.
