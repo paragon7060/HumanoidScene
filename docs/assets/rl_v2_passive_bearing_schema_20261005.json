@@ -1,0 +1,180 @@
+{
+  "artifact_type": "closed_original_PGS_support_dynamics_and_native_USD_schema_audit",
+  "source_run": "artifacts/rl/drive_runs/physical_body_reset_support_dynamics_pgs128_gpu2_20261005_121144/batch_sac_20261005_121201_02c99a",
+  "source_commit": "d0c61651ce7fd64c072ad78232d22eaa7d004aaf",
+  "source_json_sha256": "9eef4290e76b417e05f5e1c90ac19adbb4eae7d70c4a3b42e56847a92fd968bc",
+  "writer_stopped": true,
+  "exit_code": 0,
+  "final_Drive_verified": true,
+  "selected_layout_valid": 101,
+  "layout_count": 128,
+  "selected_first_failure_count": 10,
+  "first_failure_environment_ids": [
+    8,
+    24,
+    28,
+    68,
+    84,
+    88,
+    100,
+    116,
+    120,
+    124
+  ],
+  "supports": {
+    "rack_roller_deck_01": {
+      "fixed_base": true,
+      "joint_count": 182,
+      "base_mass_kg": 1.0,
+      "roller_mass_kg": 0.05000000074505806,
+      "first_roller_inertia_kg_m2": [
+        5.625000085274223e-06,
+        0.0,
+        0.0,
+        0.0,
+        1.7812501027947292e-05,
+        0.0,
+        0.0,
+        0.0,
+        1.7812501027947292e-05
+      ],
+      "initialized_armature_set": [
+        0.0
+      ],
+      "initialized_damping_set": [
+        0.0
+      ],
+      "initialized_stiffness_set": [
+        0.0
+      ],
+      "matrix_shape": [
+        128,
+        182,
+        182
+      ],
+      "diagonal_min": 5.624993718811311e-06,
+      "diagonal_max": 5.625001449516276e-06,
+      "maximum_absolute_off_diagonal": 0.0,
+      "maximum_normalized_off_diagonal": 0.0,
+      "nonfinite_entry_count": 0,
+      "invalid_diagonal_count": 0
+    },
+    "rack_roller_deck_02": {
+      "fixed_base": true,
+      "joint_count": 182,
+      "base_mass_kg": 1.0,
+      "roller_mass_kg": 0.05000000074505806,
+      "first_roller_inertia_kg_m2": [
+        5.625000085274223e-06,
+        0.0,
+        0.0,
+        0.0,
+        1.7812501027947292e-05,
+        0.0,
+        0.0,
+        0.0,
+        1.7812501027947292e-05
+      ],
+      "initialized_armature_set": [
+        0.0
+      ],
+      "initialized_damping_set": [
+        0.0
+      ],
+      "initialized_stiffness_set": [
+        0.0
+      ],
+      "matrix_shape": [
+        128,
+        182,
+        182
+      ],
+      "diagonal_min": 5.62499326406396e-06,
+      "diagonal_max": 5.625002359010978e-06,
+      "maximum_absolute_off_diagonal": 0.0,
+      "maximum_normalized_off_diagonal": 0.0,
+      "nonfinite_entry_count": 0,
+      "invalid_diagonal_count": 0
+    },
+    "rack_roller_deck_03": {
+      "fixed_base": true,
+      "joint_count": 182,
+      "base_mass_kg": 1.0,
+      "roller_mass_kg": 0.05000000074505806,
+      "first_roller_inertia_kg_m2": [
+        5.625000085274223e-06,
+        0.0,
+        0.0,
+        0.0,
+        1.7812501027947292e-05,
+        0.0,
+        0.0,
+        0.0,
+        1.7812501027947292e-05
+      ],
+      "initialized_armature_set": [
+        0.0
+      ],
+      "initialized_damping_set": [
+        0.0
+      ],
+      "initialized_stiffness_set": [
+        0.0
+      ],
+      "matrix_shape": [
+        128,
+        182,
+        182
+      ],
+      "diagonal_min": 5.624993718811311e-06,
+      "diagonal_max": 5.625002359010978e-06,
+      "maximum_absolute_off_diagonal": 0.0,
+      "maximum_normalized_off_diagonal": 0.0,
+      "nonfinite_entry_count": 0,
+      "invalid_diagonal_count": 0
+    }
+  },
+  "native_USD_API_audit": {
+    "asset": "assets/rack_roller_runtime.usda",
+    "asset_sha256": "220dc096efc73ad3f337c4de71f554082dd34c9754a840ec00c576538c553bba",
+    "joints_checked": 546,
+    "canonical_damping_name": "drive:angular:physics:damping",
+    "ignored_authored_name": "physics:drive:angular:damping",
+    "actual_API_damping": [
+      0.0
+    ],
+    "actual_API_max_force": "infinity",
+    "ignored_authored_damping": [
+      1.9999999494757503e-05
+    ],
+    "canonical_max_force_name": "drive:angular:physics:maxForce",
+    "installed_schema_used": true
+  },
+  "proposed_correction": {
+    "canonical_namespace": "drive:angular:physics",
+    "damping_runtime_nm_s_per_rad": 2e-05,
+    "damping_USD_nm_s_per_deg": 3.49065850399e-07,
+    "angular_unit_conversion": "USD damping = runtime damping * pi / 180",
+    "stiffness_nm_per_rad": 0,
+    "max_force_nm": 0.05,
+    "target_velocity": 0,
+    "cylinder_spin_inertia_kg_m2": 5.625e-06,
+    "decay_time_s": 0.28125,
+    "gain_serialization_significant_digits": 12,
+    "live_packaged_asset_modified": false,
+    "frozen_unique_overlay_first": true,
+    "actual_initialized_drive_verification_required": true
+  },
+  "interpretation": {
+    "initial_inertial_branch_coupling_observed": false,
+    "incorrect_drive_namespace_confirmed": true,
+    "contact_solver_interaction_not_excluded": true,
+    "bearing_correction_has_not_yet_been_physically_evaluated": true,
+    "does_not_prove_cause_of_first_box_impulse": true
+  },
+  "actor_updates": 0,
+  "critic_updates": 0,
+  "TRAIN_Q_import": false,
+  "independent_FINAL_used": false,
+  "no_policy_grasp_success_claim": true
+}

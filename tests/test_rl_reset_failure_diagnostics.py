@@ -332,6 +332,7 @@ def test_support_dynamics_audit_reads_actual_view_parameters_and_keeps_other_ass
         get_inertias=lambda:torch.eye(3).reshape(1,1,9).expand(1,3,9),
         get_dof_armatures=lambda:torch.zeros(1,2),get_dof_dampings=lambda:torch.full((1,2),.00002),
         get_dof_stiffnesses=lambda:torch.zeros(1,2),
+        get_dof_max_forces=lambda:torch.full((1,2),.05),
         get_generalized_mass_matrices=lambda:torch.diag(torch.tensor([4.e-6,9.e-6]))[None])
     asset=SimpleNamespace(body_names=['Base','r0','r1'],joint_names=['r0_joint','r1_joint'],
         is_fixed_base=True,root_physx_view=view)
@@ -341,3 +342,16 @@ def test_support_dynamics_audit_reads_actual_view_parameters_and_keeps_other_ass
     assert result['generalized_mass']['maximum_normalized_off_diagonal']==[0.]
     assert result['physics_parameters_written'] is False
     assert result['environment0_joint_stiffness']==[0.,0.]
+    assert result['environment0_joint_max_force_nm']==pytest.approx([.05,.05])
+
+
+@pytest.mark.parametrize('field',('damping','stiffness','max_force'))
+def test_bearing_verifier_rejects_fallback_zero_damping_and_bad_gains_or_limits(field):
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import verify_passive_bearing_drives
+    values=dict(damping=torch.full((2,3),.00002),stiffness=torch.zeros(2,3),max_force=torch.full((2,3),.05))
+    view=SimpleNamespace(get_dof_dampings=lambda:values['damping'],
+        get_dof_stiffnesses=lambda:values['stiffness'],get_dof_max_forces=lambda:values['max_force'])
+    env=SimpleNamespace(scene=SimpleNamespace(articulations={'rack_roller_deck_02':SimpleNamespace(root_physx_view=view)}))
+    assert verify_passive_bearing_drives(env,.00002)['rack_roller_deck_02']['instances']==2
+    values[field][1,2]=0. if field=='damping' else float('inf')
+    with pytest.raises(ValueError,match=field):verify_passive_bearing_drives(env,.00002)

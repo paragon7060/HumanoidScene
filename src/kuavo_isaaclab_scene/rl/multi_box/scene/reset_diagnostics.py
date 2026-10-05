@@ -172,8 +172,31 @@ def startup_support_dynamics_snapshot(env):
             environment0_joint_armature_kg_m2=_finite_values(view.get_dof_armatures()[0].cpu().tolist()),
             environment0_joint_damping=_finite_values(view.get_dof_dampings()[0].cpu().tolist()),
             environment0_joint_stiffness=_finite_values(view.get_dof_stiffnesses()[0].cpu().tolist()),
+            environment0_joint_max_force_nm=_finite_values(view.get_dof_max_forces()[0].cpu().tolist()),
             generalized_mass=summarize_branch_mass_matrix(view.get_generalized_mass_matrices().detach()),
             measurement_only=True,physics_parameters_written=False)
+    return result
+
+
+def verify_passive_bearing_drives(env, damping):
+    """Require real initialized gains/limits, not authored USD text alone."""
+    result={}
+    for name,asset in env.scene.articulations.items():
+        if not name.startswith('rack_roller_deck_'):
+            continue
+        view=asset.root_physx_view
+        actual={'stiffness':view.get_dof_stiffnesses(),'damping':view.get_dof_dampings(),
+                'max_force':view.get_dof_max_forces()}
+        for field,expected in (('stiffness',0.),('damping',damping),('max_force',.05)):
+            values=actual[field]
+            if not torch.isfinite(values).all() or not torch.isclose(values,torch.full_like(values,expected),
+                    rtol=1e-5,atol=1e-10).all():
+                raise ValueError(f'Initialized passive bearing {name} {field} differs from the intended drive')
+        result[name]=dict(instances=actual['damping'].shape[0],joints=actual['damping'].shape[1],
+            measured_damping_min=float(actual['damping'].min()),measured_damping_max=float(actual['damping'].max()),
+            measured_max_force_nm=float(actual['max_force'].max()),measured_stiffness_max=float(actual['stiffness'].max()))
+    if not result:
+        raise ValueError('No passive rack supports found for bearing verification')
     return result
 
 

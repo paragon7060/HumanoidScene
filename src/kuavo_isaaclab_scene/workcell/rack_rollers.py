@@ -348,6 +348,47 @@ def _usda_float(value: float) -> str:
     return f"{value:.6f}"
 
 
+def usd_angular_drive_damping(damping_rad: float) -> str:
+    """USD angular drive gains use degrees; runtime gains use radians."""
+    if not math.isfinite(damping_rad) or damping_rad < 0:
+        raise ValueError('Passive bearing damping must be finite and nonnegative')
+    # Six fixed decimal places would round the intended bearing gain to0.
+    return f'{damping_rad * math.pi / 180.0:.12g}'
+
+
+def write_passive_bearing_overlay(path: Path, settings: RackRollerSettings) -> Path:
+    """Correct only drive schema fields over the live geometry, in a new layer.
+
+    This does not edit or reload the packaged layer used by active jobs.
+    A new process must explicitly select the overlay. It preserves all root,
+    roller and joint paths, collision geometry, masses, materials and anchors.
+    """
+    path = Path(path)
+    if path.exists() or not settings.enabled:
+        raise ValueError('Bearing overlay requires a new path and enabled rollers')
+    base = RACK_ROLLER_RUNTIME_ASSET.resolve().as_posix()
+    damping = usd_angular_drive_damping(settings.angular_damping)
+    tiers=[]
+    for tier in RACK_ROLLER_TIERS:
+        joints=[]
+        for row in range(settings.rows):
+            for column in range(settings.columns):
+                joints.append(f'''        over "Roller_r{row:02d}_c{column:02d}_Joint"
+        {{
+            uniform token drive:angular:physics:type = "force"
+            float drive:angular:physics:stiffness = 0
+            float drive:angular:physics:damping = {damping}
+            float drive:angular:physics:maxForce = 0.05
+            float drive:angular:physics:targetVelocity = 0
+        }}''')
+        tiers.append(f'    over "RollerDeck_{tier:02d}"\n    {{\n'+ '\n'.join(joints)+'\n    }')
+    text='#usda 1.0\n(defaultPrim = "RackRollerRuntime"\nmetersPerUnit = 1\nupAxis = "Z")\n'
+    text+=f'def Xform "RackRollerRuntime" (prepend references = @{base}@</RackRollerRuntime>)\n{{\n'
+    text+='\n'.join(tiers)+'\n}\n'
+    path.write_text(text)
+    return path
+
+
 def _tier_fragment(
     tier: int,
     settings: RackRollerSettings,
@@ -428,11 +469,11 @@ def _tier_fragment(
             point3f physics:localPos1 = (0, 0, 0)
             quatf physics:localRot0 = ({_usda_float(pitch_quat[0])}, {_usda_float(pitch_quat[1])}, {_usda_float(pitch_quat[2])}, {_usda_float(pitch_quat[3])})
             quatf physics:localRot1 = (1, 0, 0, 0)
-            uniform token physics:drive:angular:type = "force"
-            float physics:drive:angular:stiffness = 0
-            float physics:drive:angular:damping = {_usda_float(settings.angular_damping)}
-            float physics:drive:angular:maxForce = 0.05
-            float physics:drive:angular:targetVelocity = 0
+            uniform token drive:angular:physics:type = "force"
+            float drive:angular:physics:stiffness = 0
+            float drive:angular:physics:damping = {usd_angular_drive_damping(settings.angular_damping)}
+            float drive:angular:physics:maxForce = 0.05
+            float drive:angular:physics:targetVelocity = 0
         }}"""
             )
 

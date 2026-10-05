@@ -710,3 +710,37 @@ stiffness와 generalized mass matrix를 한 번 읽도록 보강했다. 고정 B
 기존 GPU3 success-retention의 완료된 DEV18은5/128(MR3/ML1/UL1/UR0),
 초기불량28개였다. DEV15의4/128에서 한 건 늘었지만 초기4/128·최고7/128와
 비교해 안정적인 네 영역 일반화 개선을 입증하지 못했다. 기존 학습은 유지한다.
+
+### 12:35 · 실제 관성은 정상, USD drive 속성 이름 오류 확인
+
+[닫힌 원래 PGS 진단과 설치된 USD API 감사](assets/rl_v2_passive_bearing_schema_20261005.json)에서
+128개 중101개 초기 상태가 유효했고 최초 selected failure10개가 남았다. 세 지지대는
+fixed Base이며 실제 roller mass0.05kg, spin inertia약5.625e-6kg·m²였다.
+각 generalized mass matrix는128×182×182이며 모든 대각 원소가 양수·유한하고
+최대 정규화 비대각 값은0이었다. 초기 정적 관성 coupling 가설과 맞지 않지만
+접촉 solver의 상호작용까지 배제하는 결과는 아니다. Writer 종료·exit0·최종 Drive 검증 완료.
+
+실제 PhysX의 roller K/D/armature는 모두0이었다. 원인은 actuator 없는 설정이
+감쇠를 지운 것이 아니라 작성된 USD 속성 이름이었다. 기존
+`physics:drive:angular:damping`은 canonical
+`drive:angular:physics:damping`과 달라 엔진이 무시한다. 설치된 `UsdPhysics.DriveAPI`로
+546개 joint 모두 damping0/maxForce∞를 확인했다. Generator의 다섯 drive 속성을
+canonical namespace로 수정했고 작은 감쇠가0으로 반올림되지 않게12유효숫자를 쓴다.
+
+USD angular damping은 degree 기준이다. 의도한 runtime damping2e-5N·m·s/rad를
+USD에3.490658504e-7N·m·s/deg로 기록한다. 이는
+[OpenUSD Drive API의 단위](https://openusd.org/dev/api/class_usd_physics_drive_a_p_i.html)와
+설치된 IsaacLab schema 변환에 따른다. K0/target velocity0/maxForce0.05N·m로
+수동 bearing 감쇠만 복구하며 위치 servo나 roller 잠금을 추가하지 않는다.
+
+현재 학습5개가 읽은 packaged USD는 건드리지 않는다. 새 고유 입력 폴더의
+overlay가 원본 geometry/material/mass/anchor/path를 그대로 참조하고 drive 속성만
+덮는다. GPU2의 frozen DEV128/steps1에서
+`--passive-bearing-probe-layer /absolute/path/bearing.usda`로 비교한다. 실제 초기화된
+모든 환경·joint의 K0/D2e-5/F0.05를 읽어 확인하지 못하면 진단을 거부한다.
+TRAIN/독립 FINAL/다른 물리 probe와 혼합할 수 없으며 Q import 불가를 기록한다.
+Native USD schema·단위·546개 geometry/anchor 보존과 실제 drive 검사 포함88개 테스트 통과.
+
+이 수정이 최초 박스 충격이나 파지 실패를 해소했는지는 아직 물리 비교 전이다.
+물리가 바뀌므로 향후 학습에는 새 물리 identity와 fresh Q/replay가 필요하다.
+기존 D0 Q/replay를 새 bearing 경험으로 이름만 바꾸어 이어 쓰지 않는다.

@@ -42,6 +42,8 @@ def main():
         help='Frozen-only original/soft_2nm motor-drive comparison; never supplies matching Q replay')
     probes.add_argument('--reset-solver-probe',choices=('PGS','TGS'),default=None,
         help='Frozen DEV reset --steps 1 only: change just the physics solver; no TRAIN/FINAL or matching Q replay')
+    probes.add_argument('--passive-bearing-probe-layer',type=Path,default=None,
+        help='Frozen DEV reset --steps 1 only: select a separately verified canonical bearing drive overlay; no Q import')
     parser.add_argument('--centered-world-probe',action='store_true',
         help='Frozen-only shared origins with GPU environment collision IDs; no Q/replay training')
     parser.add_argument('--packed-background-probe',action='store_true',
@@ -75,15 +77,20 @@ def main():
         parser.error('Contact pair diagnostics require frozen reset diagnostics')
     if args.reset_solver_probe and not args.reset_failure_diagnostics:
         parser.error('Reset solver probe requires frozen reset diagnostics')
+    if args.passive_bearing_probe_layer and (not args.reset_failure_diagnostics
+            or not args.passive_bearing_probe_layer.is_file() or args.zero_passive_roller_velocities_probe
+            or args.rear5_support_gap_probe_m is not None or args.centered_world_probe
+            or args.packed_background_probe or args.base_waypoint_probe):
+        parser.error('Bearing layer requires an existing overlay and otherwise unchanged frozen reset diagnostics')
     try:validate_rear5_support_gap_diagnostic_request(waves,gap_m=args.rear5_support_gap_probe_m,
         reset_enabled=args.reset_failure_diagnostics,training=args.training,steps=args.steps,
         other_probe=any((args.zero_passive_roller_velocities_probe,args.contact_stability_probe,
             args.tgs_zero_velocity_probe,args.contact_last_probe,args.pgs_probe,
-            args.gripper_drive_probe,args.reset_solver_probe,args.centered_world_probe,args.packed_background_probe,args.base_waypoint_probe)))
+            args.gripper_drive_probe,args.reset_solver_probe,args.passive_bearing_probe_layer,args.centered_world_probe,args.packed_background_probe,args.base_waypoint_probe)))
     except ValueError as error:parser.error(str(error))
     if args.zero_passive_roller_velocities_probe and (not args.reset_failure_diagnostics or
             args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or
-            args.pgs_probe or args.gripper_drive_probe or args.reset_solver_probe or args.centered_world_probe or
+            args.pgs_probe or args.gripper_drive_probe or args.reset_solver_probe or args.passive_bearing_probe_layer or args.centered_world_probe or
             args.packed_background_probe or args.base_waypoint_probe):
         parser.error('Passive roller velocity probe requires an otherwise unchanged frozen reset diagnostic')
     from kuavo_isaaclab_scene.rl.multi_box.experiments.gripper_drive_probe import validate_gripper_drive_probe
@@ -186,6 +193,13 @@ def main():
                                                or args.contact_last_probe or args.pgs_probe):
             raise ValueError('Frozen dynamics probes require the original TGS source contract')
         solver_probe=reset_solver_probe
+        if args.passive_bearing_probe_layer:
+            import hashlib
+            cfg.scene.rack_assembly.spawn.usd_path=str(args.passive_bearing_probe_layer.resolve())
+            solver_probe=dict(name='canonical_passive_bearing_drive_overlay',frozen_only=True,
+                Q_import_eligible=False,source_layer_sha256=hashlib.sha256(args.passive_bearing_probe_layer.read_bytes()).hexdigest(),
+                stiffness_nm_per_rad=0.,damping_nm_s_per_rad=resolve_rack_roller_settings().angular_damping,
+                max_force_nm=.05,all_geometry_masses_friction_anchors_randomization_success_safety_unchanged=True)
         if args.gripper_drive_probe:
             solver_probe=dict(frozen_only=True,name='four_claw_motor_drive_comparison',
                 Q_import_eligible=False,success_and_safety_unchanged=True,
@@ -249,6 +263,11 @@ def main():
         class WaveEnv(TerminalObservationMixin,ManagerBasedRLEnv):pass
         env=WaveEnv(cfg);env.enable_numerical_dynamics_recovery()
         env._reset_contact_pair_diagnostics=args.reset_contact_pair_diagnostics
+        if args.passive_bearing_probe_layer:
+            from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import verify_passive_bearing_drives
+            solver_probe['initialized_passive_drives']=verify_passive_bearing_drives(
+                env,resolve_rack_roller_settings().angular_damping)
+            print('[INITIALIZED PASSIVE BEARING PROBE] '+json.dumps(solver_probe),flush=True)
         if args.centered_world_probe:
             if not torch.allclose(env.scene.env_origins,torch.zeros_like(env.scene.env_origins),atol=0,rtol=0):
                 raise ValueError('Shared-origin probe did not apply zero world origins')
@@ -351,8 +370,9 @@ def main():
             manifest=json.loads((output/'manifest.json').read_text())
             manifest['reset_failure_diagnostics']=dict(enabled=True,frozen_only=True,
                 Q_import_eligible=False,first_failure_before_respawn=True,
-                physics_randomization_success_safety_unchanged=reset_solver_probe is None,
+                physics_randomization_success_safety_unchanged=solver_probe is None,
                 reset_solver_probe=reset_solver_probe,
+                passive_bearing_drive_probe=solver_probe if args.passive_bearing_probe_layer else None,
                 initial_passive_roller_velocity_changed=args.zero_passive_roller_velocities_probe,
                 zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe,
                 rear5_initial_support_gap_probe_m=args.rear5_support_gap_probe_m,
@@ -398,6 +418,13 @@ def main():
                 capture_reset_diagnostics=args.reset_failure_diagnostics,
                 zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe)
             if args.reset_failure_diagnostics:
+                if args.passive_bearing_probe_layer:
+                    captured=layout_guard['reset_failure_diagnostics']
+                    captured['passive_bearing_drive_probe']=solver_probe
+                    captured['physics_parameters_unchanged']=False
+                    captured['physical_state_unchanged']=False
+                    captured['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
+                    captured['box_base_poses_randomization_success_and_safety_unchanged']=True
                 if reset_solver_probe:
                     captured=layout_guard['reset_failure_diagnostics']
                     captured['reset_solver_probe']=reset_solver_probe
