@@ -184,6 +184,33 @@ actor243/Q3018로 시각화하는 고유 실행은
 부분은 원래 wave row에서 읽도록 수정했다. GPU writer를 시작하기 전의 준비 오류였고,
 진행 중인 SAC 학습에는 영향을 주지 않았다. 이미 검증된 입력을 재검증해 재사용했다.
 
+### 10/06 닫힌 동결 영상: 접근했지만 대향 파지는 부족
+
+위왼쪽 원본 DEV seed121200의 actor243/Q3018 동결 영상은 안전 위반0,
+파지0, timeout1로 종료했다. Writer exit0은 재생 정상 종료이며 파지 성공이 아니다.
+단일 cold N1 장면은 전체 N128 성공률이나 새로운 FINAL이 아니다.
+
+![동결 영상의 실제 손 거리·pad 접촉·flap 법선 변화](assets/rl_v2_actual_flap_frozen_visual_diagnostics_20261006.png)
+
+[읽기 전용 측정](assets/rl_v2_actual_flap_frozen_visual_audit_20261006.json):
+종료 시 최근접 표면 거리는 좌3.49cm/우3.38cm이며 실제 flap 중점 거리는
+좌8.50cm/우6.83cm다. Raw pad 접촉 최대16.78N/11.20N은 있었지만 영역·대향 조건을
+통과한 약한 pad의 힘은 양손 모두0N이고 파지·proof lift는0frame이었다.
+단일 pad 접촉이나 거리만으로 대향 파지 성공을 기록하지 않는다. 마지막 flap 법선의
+actual/nominal 차이는 오른0.28°/왼11.82°였다. 초기±1°는 hard 회전 한계가 아니며
+한 장면의 차이를 강성만의 인과 효과로 해석하지 않는다.
+
+Actor/Q 카운터243/3018은 전후 같고 optimizer 업데이트·평가 replay import·실시간
+VR/IK teacher는0이다. 현재/다음 HDF 추가 관측은 각각858×38이며 모두 유한하다.
+Writer가 종료한 뒤 영상은H264/avc1/yuv420p/faststart와 전체 decode를 확인했다.
+원래 관리자의 닫힌 영상·로그·HDF Drive 검증을 마쳤으며 native 영상과 그림을
+[Notion 진행 페이지](https://app.notion.com/p/3ec63918d42a81389724c8cc53084726)에 추가했다.
+로컬 영상은 위 고유 재생 run의 `policy.mp4`다.
+
+GPU3 새 학습 writer는 유지한다. 10/06 00:26 실제 대조에서 actor1002/Q6054,
+held TRAIN replay192,912행, 유한 손실·백업 정상이며 wave5 TRAIN이 진행 중이었다.
+최신 전체 DEV는 여전히9/128이고 다음 전체 DEV6/9/12에서 네 영역을 다시 판단한다.
+
 ## 검증 및 실행
 
 실제 source TRAIN 관측405개에서 새 초기 몸 명령 오차0, 그리퍼 변경0,
