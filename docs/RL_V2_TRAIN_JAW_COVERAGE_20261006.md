@@ -88,3 +88,17 @@ measured bank31,447행에서 시작한다. 초기 전체 DEV128→원래 TRAIN7/
 학습은 유지하며 입력 replay를 복사하지 않는다. 기존 Drive 연결·300초 업로드·checksum
 검증 후 최신2 checkpoint 보호·writer 종료 후 로그/HDF/replay 검증을 재사용한다.
 실제 launch/PID와 수집 통계를 확인한 뒤 결과를 이어 기록한다. 목표는 아직 미완료다.
+
+04:33:09 KST에 `actual_flap_joint_jaw_credit16_sac_pgs128_gpu3_20261006_043309`를 시작했다.
+실제 run은 `batch_sac_20261006_043309_c23294`, writer562553·supervisor562445이며
+서비스active·소유UID·CUDA3를 확인했다. 구현 commit은 `75e1143`이다. PGS 환경 설정을
+마쳤고 초기 DEV 전 model/input 준비 단계다. 아직 mixture의 실제 TRAIN 수집이나 물리
+성공률 개선은 확인 전이다. 기존 n-step 비교는 actor1961/Q9890으로 TRAIN 두 wave를
+마친 뒤 후속 전체 DEV를 시작했으며 TRAIN 성공은5→8/128, 양쪽 상단은0이다.
+
+SSD 여유는 약10GiB여서 새 출력만 `/dev/shm/HumanoidScene_rl_seonho/`의 private0700
+owned tmpfs에 둔다. 시작 전 기존 tmpfs504GiB와 가용RAM 약948GiB를 확인했다.
+기존 입력2.16GiB를 복사하지 않으며 기존 Drive와 관리자를 그대로 사용한다. RAM 로컬
+파일은 재부팅 시 사라진다. Drive의 검증본이 보관본이며 active log는 업로드하지 않고
+writer 종료 뒤 검증한다. 기존 SSD 실행이나 다른 사용자 파일/프로세스는 변경하지 않았다.
+Notion에 새 native PNG를 포함한97개 미디어를 확인했고 기존96개를 모두 보존했다.
