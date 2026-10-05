@@ -316,3 +316,54 @@ actor354/Q2439와 안전한 성공7개(중간오른쪽5/중간왼쪽1/상단왼�
 새 업데이트를 시작했다. 다음 학습 후 DEV와 새 독립 FINAL은 아직 없으므로
 TRAIN 성공을 확정된 일반화 개선으로 해석하지 않는다.
 기존6GB HDF정리와합쳐약10GB를회수했고현재여유약18GiB다.
+
+## 10/05 09:00 · 성공 명령의 이탈 분석과 학습 후 DEV 평가
+
+Goal은 `randomization을 유지한 SAC 양손 파지 성공`으로 active다. GPU0의
+physical SAC 두 실행과 GPU3의 기존 두 실행은 실제 PID/GPU로 계속 실행
+중임을 확인했다. 아직 네 영역의 일반화나 독립 FINAL 성공을 확인한 것은 아니다.
+
+Gain0.5의 완료된 checkpoint2439(actor354)를 고정하여 실제 성공 TRAIN
+bank6,741행만 CPU에서 분석했다. 아래 오차는 **같은 기록 상태에서 예측한
+19개 normalized body 명령과 실제 성공 명령의 평균 제곱 오차**다.
+요청한 goal을 물리 명령으로 역변환한 label이나 평가 데이터를 쓰지 않는다.
+
+| 영역 | 실제 성공 TRAIN 행 | Frozen prior 오차 | Actor354 오차 |
+|---|---:|---:|---:|
+| 중간오른쪽 | 3,706 | 0.01953 | 0.05633 |
+| 중간왼쪽 | 1,233 | 0.12825 | 0.12989 |
+| 상단오른쪽 | 603 | 0.00221 | 0.05585 |
+| 상단왼쪽 | 1,199 | 0.01552 | 0.03939 |
+
+상단오른쪽의 기존 성공 명령에서 특히 멀어졌다. 균등하게 뽑은 실제 성공
+TRAIN256행에서 가중 actor gradient의 norm은 Q2.837/body 유지0.428/
+jaw 유지1.641/prior 유지0.343이었다. Q와 body/jaw 유지 gradient의
+cosine은 각각−0.234/−0.930이었다. 이 표본에서는 Q와 성공 명령 유지가
+반대 방향으로 작용한다. 전체 온라인 실패 상태의 gradient를 대표하는 분석은 아니다.
+
+![동일 TRAIN 상태의 명령 오차와 actor gradient](assets/rl_v2_physical_body_actor_drift_20261005.png)
+
+[원래 audit·현재 학습 counter·완료 wave·평가 재실행 증거](assets/rl_v2_physical_body_actor_drift_20261005.json).
+실제 성공 행동의 discounted return6.07..7.31에 비해 해당 행동의 Q는
+0.29..0.94이고 새 actor 행동의 Q는 더 높았다. 그러나 실제 성공 궤적의
+후속 행동과 새 정책의 후속 행동이 다르므로 이 return을 새 정책 Q의
+정답으로 취급하지 않는다. 성공의 긴 시간 지연 신호를 충분히 배우기 전에
+critic이 성공 명령을 벗어나는 쪽으로 actor를 당긴다는 **가설**을 세웠다.
+CPU의 명령 오차·gradient만으로 simulator 성공률 하락을 단정하지 않는다.
+
+같은 사전 선언 DEV128에서 actor354를 frozen 평가하도록 GPU2에 새
+고유 실행 폴더를 만들었다. `CUDA_VISIBLE_DEVICES=2`, internal `cuda:0`,
+물리 renderer2로 격리하며 기존 다른 작업은 그대로 둔다. 최초 시도는
+`--no-training`에 학습 전용 `--stop-on-validation-regression`이 섞여
+argparse에서 exit2로 종료했다. 정책/물리 실행 실패가 아니며 종료된 로그의
+Drive 검증을 확인했다. 해당 guard와 전용 floor/significance 인자를 제거해
+새 폴더 `physical_body_frozen_DEV354_fixed_pgs128_gpu2_20261005_085748`에서
+다시 실행했다. 재실행 PID1225010/systemd active/GPU2와 모델 입력의
+Drive 크기·MD5를 확인했다. 기록 시점에는 초기화 중이며 평가 결과는 아직 없다.
+
+이 평가는 optimizer/Q/replay를 업데이트하지 않고 TRAIN이나 새 FINAL을
+추가하지 않는다. 같은 DEV의 반복 평가이므로 독립 FINAL로 세지 않는다.
+성공 조건, safety, 동적 box와 base randomization은 유지한다. 평가 결과를
+본 뒤 physical-body 성공 명령 유지의 가중치와 완료된 TRAIN 궤적의
+multi-step terminal credit을 강화할지 결정한다. 이 추가 학습 변경은
+아직 구현하거나 실행하지 않았다.
