@@ -167,3 +167,23 @@ DEV이며 독립FINAL은 포함하지 않는다. 배치와 randomization 범위�
 fresh Q migration·categorical jaw 기준 network 보존 등 관련 CPU34개 검사가 통과했다.
 새 reward의 실제 학습 효과는 이후 같은 DEV128에서 검토해야 하며, 초기화 통과나
 첫 Q 업데이트 자체가 파지 성공을 뜻하지 않는다.
+
+## 18:56: 실제 Q 학습 시작 확인
+
+수정한 GPU0 실행의 첫 frozen DEV는6/128(ML1/MR3/UL1/UR1)이었다.
+Actor/Q 업데이트는 모두0이며 새 보상의 학습 효과가 아니다. 초기 유효 배치는99/128이고
+실패한 reset도 전체128회 분모에 남는다. Cold 물리 초기화에 따른 변동을 고려한다.
+
+이어 첫 TRAIN의91step에서 critic56회 업데이트를 확인했다. Actor는0회로,
+critic2048회 warmup과 실제 replay32768행 조건을 기다린다. 원래 입력498개의
+초기 body/jaw 동작 보존, 실제 reward와 breakdown 합 일치, GPU0 격리를 확인했다.
+로그의 actual_rows는 DEV와 base 접근도 포함하므로 TRAIN replay 크기로 해석하지 않는다.
+실행 소스의SHA256도 공개 commit78fbd63의 바이트와 일치한다.
+
+기존 GPU3의 다음 DEV는6/128로,9→8→11→6의 변동을 보여 지속 개선을 확인하지
+못했다. 새 GPU0의 변경 후 DEV는 아직 없고 네 영역 일반화 목표는 완료되지 않았다.
+
+닫힌 DEV 진단9827행에 접촉 수식만 적용한 조건부 preview는16개 중14개에 신호를
+만들었다(기존 양손 pinch5개). 센서 availability가 해당 trace에 없으므로 이 preview는
+availability=True를 가정한 수식 점검이다. 실제 reward 측정이나 새 Q seed가 아니고,
+기존 reward를 relabel하지 않았다. 실제 새 학습에서는 availability를 직접 검사한다.
