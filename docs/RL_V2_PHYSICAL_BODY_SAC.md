@@ -644,3 +644,8 @@ tick부터 최대21.10N·0.183m/s로 튀기 시작했고,12tick에2.03m/s에 도
 다음에는 실제 contact pair와 support link의 움직임을 분리해 stale/phantom contact와
 shared support constraint/solver 문제를 구분한다. Cold 반복 결과로 독립 파지 성능을
 주장하거나 실패 판정을 완화하지 않는다.
+
+11:34 현재 GPU0 gain0.5의 frozen DEV 성공은 wave0/3/6에서7→1→3/128,
+gain2는7→1→5/128이다. 최근 wave6에서 각각 MR3, MR4/UR1이었고 ML/UL은0이다.
+일부 반등이지만 초기 성능보다 낮고 네 영역의 안정적인 개선은 아니다.
+GPU0·3의 기존 다섯 SAC PID와 최근 Drive 백업을 실제 확인했으며 중단하지 않았다.
