@@ -70,6 +70,8 @@ Q 수치는 모델의 예측이며 실제 안전 파지의 증거가 아니다. 
 
 [그림이 포함된 간단한 Notion 하위 페이지](https://app.notion.com/p/3f063918d42a8116bfaccbac51842e3e)에도 원인·수정·실험·해석 한계를 기록했다. 새 그림은 native 이미지1개로 저장했고 부모 페이지의 기존 native media99개와 기존 하위 페이지를 보존했다.
 
+06:16 KST에는 새 실행이 초기 frozen DEV0의31step에 진입했다. Actor1204·critic6864·replay224621·online TRAIN0·jaw sampler0을 확인했다. 128개 중 원래 초기 유효97·무효31이며 무효도 전체 분모에 포함한다. 18개 asset의 네 hinge, **각 물성 9,216개**를 모두 확인해 강성1.5000~2.4999·감쇠0.1500~0.2500·static friction0.4500~0.6500·dynamic friction0.3000~0.4000이 요청 범위 안에 있음을 검증했다. 이는 reset setter에서 실제 PhysX readback으로 검증된 값을 environment identity별로 보관한 기록이다. 상태를 다시 쓰거나 randomization을 재추첨하지 않았다. 초기 무효 사례의 값은 현재 replacement의 값이며 원래 실패의 원인으로 사용하지 않는다. 초기 각도는 이 네 물성 cache에 포함되지 않는다. [전체 적용값·초기 DEV 카운터 확인](assets/rl_v2_jaw_saturation_initial_DEV_profile_20261006.json). 아직 전체 초기 DEV와 새 TRAIN 결과는 완료 전이다.
+
 ## 코드
 
 - `src/kuavo_isaaclab_scene/rl/multi_box/experiments/jaw_saturation.py`: 선택형 손실·통계.
