@@ -64,6 +64,12 @@ Q 수치는 모델의 예측이며 실제 안전 파지의 증거가 아니다. 
 
 판단 기준은 실제 pad 접촉과 안정된 양손 파지, 네 구역 전체 DEV 성공률이다. 닫힘 명령이 증가하거나 CPU 경사가 커지는 것만으로 학습 성공을 판단하지 않는다. 독립 FINAL은 아직 사용하지 않았다.
 
+06:03 KST에 실제 비교를 시작했다. 부모 폴더는 `actual_flap_joint_jaw_logit4_credit16_sac_pgs128_gpu3_20261006_060348`, run은 `batch_sac_20261006_060349_1b67f5`다. Writer PID1547049와 supervisor PID1546914의 소유자·run·`CUDA_VISIBLE_DEVICES=3` 및 unit running을 확인했다. 시작 전 GPU3 free 47,032 MiB, host MemAvailable 약959 GiB, private tmpfs free 약500 GiB였다. 실행 설정은 구현 커밋 `0ae624f`이며 기존 실행을 중단하지 않았다. 현재는 초기 전체 DEV 전 입력 복원 단계이고 실제 새 actor update의 효과는 아직 확인 전이다. 실제 manifest에서 flap 범위와 선택형 actor 손실·행동 탐색을 확인했다. [실제 실행·manifest 확인 원본](assets/rl_v2_jaw_saturation_actual_GPU3_startup_20261006.json).
+
+기존 joint-jaw 탐색의 첫 TRAIN은 3/128 성공(모두 중간 오른쪽), 위쪽 0건이었다. 별도 GPU0 장기 비교도 정상 종료했지만 전체 DEV가 초기4→최종1/128이었다. 실제 수집이나 학습 횟수 증가를 성공 개선으로 해석하지 않는다.
+
+[그림이 포함된 간단한 Notion 하위 페이지](https://app.notion.com/p/3f063918d42a8116bfaccbac51842e3e)에도 원인·수정·실험·해석 한계를 기록했다. 새 그림은 native 이미지1개로 저장했고 부모 페이지의 기존 native media99개와 기존 하위 페이지를 보존했다.
+
 ## 코드
 
 - `src/kuavo_isaaclab_scene/rl/multi_box/experiments/jaw_saturation.py`: 선택형 손실·통계.

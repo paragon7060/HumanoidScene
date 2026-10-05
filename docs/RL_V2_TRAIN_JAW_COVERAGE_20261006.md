@@ -213,3 +213,22 @@ held3638행을 추가해 replay224621→228259, actor1204→1238, critic6864→7
 branch·패드 접촉과 후속 전체DEV를 계속 확인한다. 평가의 sampler0·optimizer
 불변과 실제 TRAIN의 수집/업데이트 증가를 각각 기록했다.
 [첫 실제 TRAIN 카운터·분포 원본](assets/rl_v2_joint_jaw_first_real_TRAIN_20261006.json).
+
+## 첫 실제 TRAIN wave 완료
+
+06:07 KST 확인에서 첫 TRAIN128건은 성공3·unsafe62·timeout18·초기 무효45였다.
+네 구역 각32개를 모두 분모로 포함한다. 성공은 중간 오른쪽3건뿐이며 중간 왼쪽과
+위쪽 양쪽은0건이다. 세 성공의 양손 pinch·stable hands·서로 다른 flap·hold0.2667s·
+roller clearance0.0328~0.0470m를 실제 결과 JSON으로 확인했고 안전 위반은 없었다.
+이는 학습 중 행동 탐색이 포함된 성공이며 일반화 개선의 증거가 아니다.
+
+완료 wave의 실제 held40677행을 추가해 actor1560·critic8286·replay265298이 되었다.
+Uniform joint mixture는4088행, projector 이후 OO36992·OC1495·CO1124·CC1066행이었다.
+초반 모두열림에서 실제 양손 닫힘 명령이 생겼지만 위쪽 성공은 아직 없으므로
+후속 전체 greedyDEV를 기다리며 [near jaw 확률 복구 비교](RL_V2_JAW_POLICY_RECOVERY_20261006.md)를
+동일 input으로 별도 진행한다. 활성 HDF/replay는 읽거나 바꾸지 않았다.
+[완료된 첫 TRAIN 집계·실제 성공 조건 원본](assets/rl_v2_joint_jaw_completed_first_TRAIN_20261006.json).
+
+기존 n-step16 manager도05:53 KST에 `phase=finished`, `training_exit_code=0`,
+`final_upload_verified=true`를 기록했다. Writer 종료 후 checkpoint·로그·HDF·replay를
+기존 Drive 연결에 최종 checksum 검증한 상태다. 독립 FINAL은 여전히 사용하지 않았다.

@@ -1,0 +1,132 @@
+{
+  "recorded_at": "2026-10-06T06:10:27.081317+09:00",
+  "source_commit": "0ae624fcf0cf90a35f69eb9c8909dbb5ad26d42e",
+  "parent_basename": "actual_flap_joint_jaw_logit4_credit16_sac_pgs128_gpu3_20261006_060348",
+  "run_basename": "batch_sac_20261006_060349_1b67f5",
+  "roles": {
+    "training": {
+      "pid": 1547049,
+      "owned_run_and_CUDA3_verified": true
+    },
+    "supervisor": {
+      "pid": 1546914,
+      "owned_run_and_CUDA3_verified": true
+    }
+  },
+  "gpu": 3,
+  "num_envs": 128,
+  "CUDA_VISIBLE_DEVICES": "3",
+  "GPU3_free_MiB": 37730,
+  "storage_kind": "existing_tmpfs_private_owned_directory",
+  "local_RAM_is_volatile": true,
+  "existing_jobs_kept_running": true,
+  "other_users_untouched": true,
+  "source_checkpoint_SHA256": "731dd3281326722e5f56838d13774b61d23e696182faa1a6e9bd5d8fae5a20f0",
+  "same_input_and_original_four_region_schedule": true,
+  "flap_dynamics": {
+    "name": "firm_dynamic_flap_randomization_v1",
+    "joint_names": [
+      "joint_front",
+      "joint_back",
+      "joint_left",
+      "joint_right"
+    ],
+    "stiffness_nm_per_rad": [
+      1.5,
+      2.5
+    ],
+    "damping_nm_s_per_rad": [
+      0.15,
+      0.25
+    ],
+    "static_friction": [
+      0.45,
+      0.65
+    ],
+    "dynamic_friction": [
+      0.3,
+      0.4
+    ],
+    "initial_angle_degrees": [
+      -1.0,
+      1.0
+    ],
+    "spring_rest_angle_rad": 0.0,
+    "effort_limit_nm": 5.0,
+    "velocity_limit_rad_s": 10.0,
+    "distribution": "independent_uniform_per_environment_panel_and_reset",
+    "joint_limits_masses_geometry_contact_materials_unchanged": true,
+    "dynamic_articulation": true,
+    "in_episode_state_overwrite": false,
+    "box_base_and_background_layout_randomization_unchanged": true
+  },
+  "contact_contract": "max_filtered_rack_and_workcell_pairs_without_boxes_or_floor_v2",
+  "terminal_contract": {
+    "invalid_reset": "partial_respawn_excluded_from_replay",
+    "safety_thresholds": {
+      "max_box_angular_speed_radps": 100.0,
+      "max_box_lift_height_m": 0.5,
+      "max_box_linear_speed_mps": 10.0,
+      "obstacle_contact_force_n": 5.0,
+      "rack_contact_force_n": 10.0,
+      "workspace_radius_m": 1.5
+    },
+    "success": "exact_grasp_success",
+    "timeouts_bootstrap": true,
+    "unsafe": [
+      "robot_rack_collision",
+      "obstacle_collision",
+      "workspace_limit",
+      "box_drop",
+      "box_lift_limit",
+      "box_speed_limit"
+    ],
+    "proof_lift_reference": "settled_initial_height_and_active_rack_support_surface_v2",
+    "proof_lift_support_offset_m": 0.009999999999999998
+  },
+  "self_collision": {
+    "actor_observation": false,
+    "backend": "reviewed_urdf_fcl",
+    "clearance_m": 0.003,
+    "enabled": false
+  },
+  "actor_regularization": {
+    "variant": "logit4-soft",
+    "format_version": 1,
+    "logit_limit": 4.0,
+    "weight": 0.0001,
+    "scope": "actual_flap_TRAIN_actor_updates_only",
+    "loss": "mean_rows_sum_eligible_jaws_relu_abs_logit_minus_limit_squared_over_active_count",
+    "eligible_jaws": "unchanged_production_nominal_near_gate",
+    "symmetric_open_close": true,
+    "reward_or_success_labels_used": false,
+    "hard_logit_clipping": false,
+    "probability_floor": false,
+    "Q_target_and_behavior_distribution_unchanged": true
+  },
+  "TRAIN_jaw_behavior": {
+    "variant": "joint-epsilon10",
+    "format_version": 1,
+    "uniform_joint_fraction": 0.1,
+    "scope": "actual_flap_real_TRAIN_collection_only",
+    "noise_source": "existing_correlated_two_jaw_gaussians_no_extra_rng",
+    "learned_branch_left_uniform": "conditional_rescale_after_mixture_selection",
+    "branches": [
+      "open_open",
+      "open_close",
+      "close_open",
+      "close_close"
+    ],
+    "projection": "unchanged_production_nominal_near_gate",
+    "body_policy_actor_Q_targets_and_eval_unchanged": true
+  },
+  "CPU_minimum_tests_passed": 57,
+  "upload_interval_seconds": 300,
+  "verified_checkpoint_keep": 2,
+  "manifest_physical_ranges_verified": true,
+  "all_environment_cached_flap_values_not_yet_available": true,
+  "actual_new_TRAIN_effect_not_yet_verified": true,
+  "DEV_or_FINAL_imported": false,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}
