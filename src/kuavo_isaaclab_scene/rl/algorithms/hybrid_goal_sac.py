@@ -120,9 +120,37 @@ class HybridGoalSAC(AsymmetricSAC):
     def success_body_loss(self,raw,requested_body,labels):
         return F.mse_loss(requested_body,labels[:,:19])
 
+    def validate_critic_auxiliary(self,batch,weight):
+        if batch is not None or weight:
+            raise ValueError('This hybrid learner does not support auxiliary critic targets')
+
+    @torch.no_grad()
+    def critic_target(self,batch,alpha,discrete_alpha,*,bootstrap_discount=None):
+        # Terminal placeholders must never enter a domain-constrained decoder.
+        bootstrap=~batch['terminated'].bool()
+        value=torch.zeros_like(batch['reward'])
+        statistics=dict(bootstrapped_rows=int(bootstrap.sum()),policy_logp_mean=0.,
+                        policy_action_std_mean=0.,entropy_bonus_mean=0.)
+        if bool(bootstrap.any()):
+            next_actor=batch['next_actor_obs'][bootstrap]
+            na=self.actor_normalizer(self.actor_features(next_actor))
+            nc=self.critic_normalizer(batch['next_critic_obs'][bootstrap])
+            body,continuous_logp,logits=self.continuous_sample(na)
+            actions,probability,discrete_logp,_=self.enumerate_jaws(next_actor,body,logits)
+            q=self.branch_values(nc,actions,target=True)
+            entropy=alpha*continuous_logp[:,None]+discrete_alpha*discrete_logp
+            value[bootstrap]=(probability*(q-entropy if self.config.entropy_backup else q)).sum(-1)
+            statistics.update(policy_logp_mean=continuous_logp.mean().item(),
+                policy_action_std_mean=body.std(0,unbiased=False).mean().item(),
+                entropy_bonus_mean=(-(probability*entropy).sum(-1)).mean().item())
+        discount=self.config.gamma if bootstrap_discount is None else bootstrap_discount
+        return self.config.reward_scale*batch['reward']+discount*value,statistics
+
     def update(self,batch,*,demonstration=None,demonstration_weight=0.,
                teacher=None,teacher_weight=0.,update_actor=True,
-               successful_train=None,success_goal_weight=0.,success_jaw_weight=0.):
+               successful_train=None,success_goal_weight=0.,success_jaw_weight=0.,
+               critic_auxiliary=None,critic_auxiliary_weight=0.):
+        self.validate_critic_auxiliary(critic_auxiliary,critic_auxiliary_weight)
         if demonstration is not None or demonstration_weight:
             raise ValueError('Hybrid goals require actual TRAIN replay, not old delta demonstrations')
         if teacher_weight<0 or (teacher_weight and teacher is None):
@@ -142,27 +170,26 @@ class HybridGoalSAC(AsymmetricSAC):
         ao=self.actor_normalizer(self.actor_features(batch['actor_obs']))
         co=self.critic_normalizer(batch['critic_obs'])
         alpha=self.log_alpha.exp().detach();discrete_alpha=self.log_alpha_discrete.exp().detach()
-        with torch.no_grad():
-            # Terminal observations can contain finite quarantine placeholders
-            # or physically singular poses. Their bootstrap value is exactly
-            # zero; never send them through a domain-constrained controller.
-            bootstrap=~batch['terminated'].bool()
-            next_value=torch.zeros_like(batch['reward'])
-            body=ao.new_empty(0,self.continuous_dims)
-            continuous_logp=ao.new_empty(0)
-            if bool(bootstrap.any()):
-                next_actor=batch['next_actor_obs'][bootstrap]
-                na=self.actor_normalizer(self.actor_features(next_actor))
-                nc=self.critic_normalizer(batch['next_critic_obs'][bootstrap])
-                body,continuous_logp,logits=self.continuous_sample(na)
-                actions,probability,discrete_logp,_=self.enumerate_jaws(next_actor,body,logits)
-                q=self.branch_values(nc,actions,target=True)
-                entropy=alpha*continuous_logp[:,None]+discrete_alpha*discrete_logp
-                next_value[bootstrap]=(probability*(q-entropy if self.config.entropy_backup else q)).sum(-1)
-            target=self.config.reward_scale*batch['reward']+self.config.gamma*next_value
+        target,target_statistics=self.critic_target(batch,alpha,discrete_alpha)
         replay=torch.cat((co,batch['action']),-1)
         q1=self.q1(replay).squeeze(-1);q2=self.q2(replay).squeeze(-1)
-        q_loss=F.mse_loss(q1,target)+F.mse_loss(q2,target)
+        one_step_q_loss=F.mse_loss(q1,target)+F.mse_loss(q2,target)
+        q_loss=one_step_q_loss
+        auxiliary_statistics={}
+        if critic_auxiliary is not None and critic_auxiliary_weight:
+            auxiliary_target,aux_stats=self.critic_target(critic_auxiliary,alpha,discrete_alpha,
+                bootstrap_discount=critic_auxiliary['bootstrap_discount'])
+            auxiliary_features=torch.cat((self.critic_normalizer(critic_auxiliary['critic_obs']),
+                                          critic_auxiliary['action']),-1)
+            auxiliary_loss=(F.mse_loss(self.q1(auxiliary_features).squeeze(-1),auxiliary_target)+
+                            F.mse_loss(self.q2(auxiliary_features).squeeze(-1),auxiliary_target))
+            q_loss=q_loss+critic_auxiliary_weight*auxiliary_loss
+            auxiliary_statistics=dict(one_step_q_loss=one_step_q_loss.item(),
+                native_nstep_q_loss=auxiliary_loss.item(),native_nstep_weight=critic_auxiliary_weight,
+                native_nstep_rows=len(auxiliary_target),native_nstep_target_mean=auxiliary_target.mean().item(),
+                native_nstep_bootstrapped_rows=aux_stats['bootstrapped_rows'],
+                native_nstep_terminal_rows=int(critic_auxiliary['terminated'].sum()),
+                native_nstep_horizon_mean=critic_auxiliary['n_steps'].float().mean().item())
         optimize(self.q_optimizer,q_loss,[*self.q1.parameters(),*self.q2.parameters()])
         with torch.no_grad():
             for a,b in ((self.q1,self.target1),(self.q2,self.target2)):
@@ -171,13 +198,11 @@ class HybridGoalSAC(AsymmetricSAC):
             demo_bc_loss=0.,demo_bc_weight=0.,teacher_bc_loss=0.,teacher_bc_weight=0.,
             discrete_prior_loss=0.,discrete_prior_weight=0.,
             alpha=alpha.item(),alpha_discrete=discrete_alpha.item(),
-            policy_logp_mean=continuous_logp.mean().item() if len(body) else 0.,
-            policy_action_std_mean=body.std(0,unbiased=False).mean().item() if len(body) else 0.,
-            bootstrapped_rows=int(bootstrap.sum()),
+            **target_statistics,
             q_value_mean=torch.minimum(q1,q2).mean().item(),target_value_mean=target.mean().item(),
-            entropy_bonus_mean=(-(probability*entropy).sum(-1)).mean().item() if len(body) else 0.,
             policy_gaussian_std_mean=self.parameters_at(ao)[1].exp().mean().item(),
             success_goal_loss=0.,success_jaw_loss=0.,success_goal_weight=0.,success_jaw_weight=0.)
+        report.update(auxiliary_statistics)
         if not update_actor:return report
         self.q1.requires_grad_(False);self.q2.requires_grad_(False)
         try:

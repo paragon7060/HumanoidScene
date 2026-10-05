@@ -22,7 +22,7 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.physical_native_seed import s
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_policy import staged_policy_class,staged_policy_metadata
 
 
-def setup_fixture(tmp_path,*,gain=.5):
+def setup_fixture(tmp_path,*,gain=.5,credit_variant=None):
     config=SACConfig(hidden=16,gamma=.999,freeze_actor_normalizer=True,
                      initial_policy_std=.005,min_policy_std=.001,max_policy_std=.005)
     coordinates=PoseGoalCoordinates()
@@ -45,7 +45,8 @@ def setup_fixture(tmp_path,*,gain=.5):
         goal_contract=dict(actor_dim=480,critic_dim=539,fixed_prior_radius=.05,
             goal_center=[0.]*21,goal_scale=[1.]*21,physical_contract=physical_signature(physical),
             shelf_templates=stage.templates,waypoint_format=stage.name))
-    pilot=PhysicalBodySACPilot(warm,physical,tmp_path/'source',stage,frozen_goal_state=state,residual_gain=gain)
+    pilot=PhysicalBodySACPilot(warm,physical,tmp_path/'source',stage,frozen_goal_state=state,
+                             residual_gain=gain,credit_variant=credit_variant)
     pilot.anchor=coordinates.box_anchor(raw).clone()
     return pilot,warm,physical,stage,raw,state
 
@@ -200,9 +201,9 @@ def test_physical_success_labels_and_projected_actor_loss_cannot_be_confused_wit
     with pytest.raises(ValueError,match='binary jaws'):full_command(pilot.coordinates,ao,broken)
 
 
-def native_fixture(tmp_path,mutation=None):
+def native_fixture(tmp_path,mutation=None,*,credit_variant=None):
     """Synthetic recorded states exercise import guards, not physical success."""
-    pilot,_,physical,_,raw,_=setup_fixture(tmp_path)
+    pilot,_,physical,_,raw,_=setup_fixture(tmp_path,credit_variant=credit_variant)
     raw=raw.expand(2,-1).clone()
     critic=torch.zeros(2,530);critic[:,:464]=raw
     next_critic=critic.clone()
@@ -257,3 +258,111 @@ def test_native_invalid_paths_never_mutate_physical_replay_or_stage(tmp_path,mut
     with pytest.raises(ValueError):
         seed_physical_training_successes(pilot,dataset,[outcome],source_run='synthetic_fixture')
     assert pilot.replay.size==pilot.success_bank.size==0 and pilot.stage is stage and pilot.anchor is anchor
+
+
+def test_completed_credit_discount_endpoint_and_short_terminal_are_actual_forward_paths():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.physical_train_credit import discounted_episode_windows
+    states=torch.arange(6,dtype=torch.float32)[:,None]
+    rows=dict(actor_obs=states[:-1],critic_obs=states[:-1]+10,action=torch.arange(5)[:,None],
+        next_actor_obs=states[1:],next_critic_obs=states[1:]+10,
+        reward=torch.tensor([1.,2.,3.,4.,5.]),terminated=torch.tensor([False,False,False,False,True]))
+    windows=discounted_episode_windows(rows,horizon=3,gamma=.9)
+    torch.testing.assert_close(windows['reward'],torch.tensor([5.23,7.94,10.65,8.5,5.]))
+    torch.testing.assert_close(windows['next_actor_obs'],torch.tensor([[3.],[4.],[5.],[5.],[5.]]))
+    torch.testing.assert_close(windows['next_critic_obs'],windows['next_actor_obs']+10)
+    torch.testing.assert_close(windows['bootstrap_discount'],torch.tensor([.729,.729,0.,0.,0.]))
+    assert windows['n_steps'].tolist()==[3,3,3,2,1]
+    assert windows['terminated'].tolist()==[False,False,True,True,True]
+    assert torch.equal(windows['action'],rows['action']) and torch.equal(windows['actor_obs'],rows['actor_obs'])
+    broken=deepcopy(rows);broken['actor_obs']=broken['actor_obs'].clone();broken['actor_obs'][2]=99
+    with pytest.raises(ValueError,match='discontinuous'):
+        discounted_episode_windows(broken,horizon=3,gamma=.9)
+    broken=deepcopy(rows);broken['terminated'][2]=True
+    with pytest.raises(ValueError,match='actual terminal'):
+        discounted_episode_windows(broken,horizon=3,gamma=.9)
+
+
+def test_native_nstep_terminal_placeholders_and_discount_use_measured_endpoint(tmp_path):
+    from dataclasses import replace
+    pilot,_,_,_,raw,_=setup_fixture(tmp_path)
+    agent=pilot.agent;agent.config=replace(agent.config,entropy_backup=False)
+    ao,co=pilot.observations(raw,torch.zeros(1,530),0)
+    class ConstantQ(torch.nn.Module):
+        def forward(self,x):return x.new_full((len(x),1),2.)
+    agent.target1=ConstantQ();agent.target2=ConstantQ()
+    next_actor=ao.expand(2,-1).clone();next_actor[1]=0
+    batch=dict(actor_obs=ao.expand(2,-1),critic_obs=co.expand(2,-1),
+        action=agent.act(ao,True).expand(2,-1),next_actor_obs=next_actor,
+        next_critic_obs=co.expand(2,-1),reward=torch.tensor([1.,5.]),
+        terminated=torch.tensor([False,True]),bootstrap_discount=torch.tensor([.999**10,0.]),
+        n_steps=torch.tensor([10,2]))
+    agent.validate_critic_auxiliary(batch,1.)
+    target,stats=agent.critic_target(batch,torch.tensor(0.),torch.tensor(0.),
+        bootstrap_discount=batch['bootstrap_discount'])
+    torch.testing.assert_close(target,torch.tensor([1.+2*.999**10,5.]))
+    assert stats['bootstrapped_rows']==1
+    batch['bootstrap_discount'][0]=.999  # Single-step bootstrap would be wrong here.
+    with pytest.raises(ValueError,match='actual horizon'):
+        agent.validate_critic_auxiliary(batch,1.)
+
+
+def test_native_credit_updates_real_Q_and_actor_then_restores_same_variant_frozen(tmp_path):
+    pilot,dataset,outcome,transitions=native_fixture(tmp_path,credit_variant='native-nstep10')
+    seed_physical_training_successes(pilot,dataset,[outcome],source_run='synthetic_fixture')
+    assert pilot.training_credit['horizon']==10
+    assert torch.equal(pilot.replay.data['action'][:2],body_command(transitions['action']))
+    windows=pilot.success_bank.sample_nstep(64,'cpu',horizon=10,gamma=.999,terminal_fraction=.25)
+    assert windows['terminated'].all() and windows['bootstrap_discount'].eq(0).all()
+    assert windows['n_steps'].min()==1 and windows['n_steps'].max()==2
+    pilot.warmup=0
+    raw=transitions['actor_obs'][:1];critic=transitions['critic_obs'][:1]
+    _,previous=pilot.act(raw,critic,0)
+    pilot.observe(tuple(v.expand(64,-1) for v in previous),raw.expand(64,-1),critic.expand(64,-1),
+        torch.ones(64),torch.zeros(64,dtype=torch.bool),0)
+    report=pilot.latest_actor
+    assert report['native_nstep_rows']==64 and report['native_nstep_terminal_rows']==64
+    assert report['native_nstep_q_loss']>0 and report['success_goal_weight']==10.
+    assert report['success_jaw_weight']==.1 and report['teacher_bc_weight']==1.
+    assert all(torch.isfinite(torch.tensor(v)) for v in report.values() if isinstance(v,(float,int)))
+    pilot.warmup=1024;pilot.directory.mkdir();pilot.save(final=True)
+    cp=next(pilot.directory.glob('checkpoint_*.pt'))
+    resumed=PhysicalBodySACPilot(pilot.warm_start,pilot.physical_contract,tmp_path/'resumed-credit',
+        pilot.stage,checkpoint=cp)
+    assert resumed.contract==pilot.contract and resumed.training_credit==pilot.training_credit
+    with pytest.raises(ValueError,match='credit differs'):
+        PhysicalBodySACPilot(pilot.warm_start,pilot.physical_contract,tmp_path/'wrong-credit',
+            pilot.stage,checkpoint=cp,credit_variant='one-step')
+    frozen=PhysicalBodySACPilot(pilot.warm_start,pilot.physical_contract,tmp_path/'frozen-credit',
+        pilot.stage,checkpoint=cp,training=False)
+    before=(frozen.actor_updates,frozen.critic_updates,frozen.replay.size)
+    rng=torch.random.get_rng_state().clone();frozen.act(raw,critic,0)
+    assert torch.equal(torch.random.get_rng_state(),rng)
+    assert before==(frozen.actor_updates,frozen.critic_updates,frozen.replay.size)
+
+
+def test_nstep_sampler_preserves_regions_and_terminal_quota_without_crossing_episodes(tmp_path):
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import REGIONS
+    pilot,dataset,template,transitions=native_fixture(tmp_path)
+    seed_physical_training_successes(pilot,dataset,[template],source_run='synthetic_fixture')
+    source=pilot.success_bank.episodes['shelf_3_right'][0]['rows']
+    bank=PhysicalTrainSuccessBank(480,539)
+    for region_index,region in enumerate(REGIONS):
+        n=25;states=source['actor_obs'][0].expand(n+1,-1).clone()
+        states[:,94:98]=0;states[:,94+region_index]=1
+        states[:,0]=torch.arange(n+1)+100*region_index
+        critics=source['critic_obs'][0].expand(n+1,-1).clone();critics[:,0]=states[:,0]
+        actions=source['action'][0].expand(n,-1).clone();actions[:,0]=.1*region_index
+        terminal=torch.zeros(n,dtype=torch.bool);terminal[-1]=True
+        rows=dict(actor_obs=states[:-1],next_actor_obs=states[1:],critic_obs=critics[:-1],
+            next_critic_obs=critics[1:],action=actions,reward=torch.ones(n),terminated=terminal)
+        outcome=deepcopy(template);outcome['layout']['target_region']=region
+        bank.add_episode(rows,outcome,source_run='synthetic_balanced_fixture',split='train')
+    samples=bank.sample_nstep(64,'cpu',horizon=10,gamma=.9,terminal_fraction=.25)
+    region=samples['actor_obs'][:,94:98].argmax(-1)
+    assert torch.bincount(region,minlength=4).tolist()==[16]*4
+    assert int(samples['terminated'].sum())>=16
+    torch.testing.assert_close(samples['action'][:,0],.1*region.float())
+    torch.testing.assert_close(samples['next_actor_obs'][:,0]-samples['actor_obs'][:,0],samples['n_steps'].float())
+    for i in range(64):
+        k=int(samples['n_steps'][i])
+        assert samples['reward'][i]==pytest.approx(sum(.9**j for j in range(k)))

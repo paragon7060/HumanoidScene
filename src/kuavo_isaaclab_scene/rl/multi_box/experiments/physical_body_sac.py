@@ -19,6 +19,7 @@ from .pose_goal_sac import reward_discount
 from .physical_body_actions import (
     FrozenGoalCommandPrior,PhysicalBodyProjector,PHYSICAL_COLUMNS,actor_only_snapshot,full_command,
 )
+from .physical_train_credit import discounted_episode_windows,resolve_training_credit
 from .staged_goal_sac import StagedGoalSACPilot
 from .staged_physics import require_current_lift_contract
 from .staged_train_success import TrainSuccessBank,FORMAT as GOAL_BANK_FORMAT
@@ -35,6 +36,28 @@ def physical_signature(contract):
 
 
 class PhysicalTrainSuccessBank(TrainSuccessBank):
+    def sample_nstep(self,count,device,*,horizon,gamma,terminal_fraction):
+        if not 0<=terminal_fraction<=1 or count<1 or not self.size:
+            raise ValueError('Native multi-step sampling needs a nonempty successful TRAIN bank')
+        available=[region for region,episodes in self.episodes.items() if episodes]
+        identities={(region,episode['identity']) for region,episodes in self.episodes.items() for episode in episodes}
+        cache=getattr(self,'_nstep_cache',{})
+        cache={key:value for key,value in cache.items() if key[:2] in identities}
+        targeted=round(count*terminal_fraction);selected=[]
+        for i in range(count):
+            region=available[i%len(available)];episodes=self.episodes[region]
+            episode=episodes[int(torch.randint(len(episodes),()))]
+            key=(region,episode['identity'],horizon,gamma)
+            if key not in cache:
+                cache[key]=discounted_episode_windows(episode['rows'],horizon=horizon,gamma=gamma)
+            windows=cache[key];n=len(windows['reward'])
+            low=max(0,n-horizon) if i<targeted else 0
+            j=int(torch.randint(low,n,()))
+            selected.append({k:v[j] for k,v in windows.items()})
+        self._nstep_cache=cache
+        order=torch.randperm(count)
+        return {k:torch.stack([row[k] for row in selected])[order].to(device) for k in selected[0]}
+
     def report(self):
         return super().report()|dict(action_coordinates='literal_physical_body21')
 
@@ -52,7 +75,7 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
     agent_class=HybridPhysicalBodySAC
 
     def __init__(self,warm_start,physical_contract,directory,stage,*,checkpoint=None,
-                 frozen_goal_state=None,training=True,device='cpu',residual_gain=None):
+                 frozen_goal_state=None,training=True,device='cpu',residual_gain=None,credit_variant=None):
         if warm_start.training:raise ValueError('The controller prior must remain frozen')
         self.warm_start,self.coordinates=warm_start,warm_start.coordinates
         self.physical_contract=physical_signature(physical_contract)
@@ -65,6 +88,7 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
         self.goal_exploration=self.arm_behavior=None
         self.seed_provenance=None
         saved=torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
+        self.training_credit=resolve_training_credit(saved['physical_body_contract'] if saved else None,credit_variant)
         self.residual_gain=saved['physical_body_contract']['residual_gain'] if saved else (
             .5 if residual_gain is None else residual_gain)
         if self.residual_gain not in (.5,2.) or (residual_gain is not None and residual_gain!=self.residual_gain):
@@ -125,7 +149,7 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
 
     @property
     def contract(self):
-        return dict(name=self.artifact_type,action_coordinates='literal_executed_physical_body21',
+        result=dict(name=self.artifact_type,action_coordinates='literal_executed_physical_body21',
             actor_dim=480,critic_dim=539,physical_columns=list(PHYSICAL_COLUMNS),
             context_order=['held_phase','held_x_rack_m','held_y_rack_m','sin_held_yaw','cos_held_yaw','physical_residual_gain'],
             physical_contract=self.physical_contract,waypoint_format=self.stage.name,shelf_templates=self.stage.templates,
@@ -141,6 +165,8 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
             source_actor_updates=self.frozen_goal_actor['source_actor_updates'],
             source_goal_controller_contract=self.frozen_goal_actor['goal_contract'],
             runtime_VR_or_IK_teacher=False,box_fixed=False)
+        if self.training_credit is not None:result['training_credit']=deepcopy(self.training_credit)
+        return result
 
     def add_native_rows(self,rows):
         n=len(rows['reward']);shapes=dict(actor_obs=(n,480),critic_obs=(n,539),action=(n,21),
@@ -178,6 +204,7 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
                 self.agent.update_normalizers(batch['actor_obs'],batch['critic_obs'])
                 update_actor=self.critic_updates>=self.warmup and self.critic_updates%4==0
                 teacher=None;weight=0.
+                credit=self.training_credit
                 if update_actor:
                     with torch.no_grad():
                         labels=torch.zeros(len(batch['reward']),21,device=self.device)
@@ -185,10 +212,18 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
                         labels[:,19:]=logits.tanh()
                         teacher=dict(actor_obs=batch['actor_obs'],action=labels)
                     # Keep the penalty in physical units across gain variants.
-                    weight=.2*(self.residual_gain/.5)**2*max(0.,1-self.actor_updates/5000)
+                    prior_weight=.2 if credit is None else credit['prior_body_weight']
+                    prior_fade=5000 if credit is None else credit['prior_fade_actor_updates']
+                    weight=prior_weight*(self.residual_gain/.5)**2*max(0.,1-self.actor_updates/prior_fade)
                 success=self.success_bank.sample(64,self.device) if self.success_bank.size and update_actor else None
+                auxiliary=(self.success_bank.sample_nstep(credit['batch_size'],self.device,
+                    horizon=credit['horizon'],gamma=self.agent.config.gamma,
+                    terminal_fraction=credit['terminal_window_fraction']) if credit and self.success_bank.size else None)
                 self.latest=self.agent.update(batch,teacher=teacher,teacher_weight=weight,update_actor=update_actor,
-                    successful_train=success,success_goal_weight=1. if success else 0.,success_jaw_weight=.05 if success else 0.)
+                    successful_train=success,
+                    success_goal_weight=(credit['actor_body_weight'] if credit else 1.) if success else 0.,
+                    success_jaw_weight=(credit['actor_jaw_weight'] if credit else .05) if success else 0.,
+                    critic_auxiliary=auxiliary,critic_auxiliary_weight=credit['critic_weight'] if auxiliary else 0.)
                 self.latest.update(successful_train_rows_in_Q_batch=count,body_loss_coordinates='physical_commands')
                 if update_actor:self.latest_actor=dict(self.latest,critic_update=self.critic_updates+1)
                 self.actor_updates+=int(update_actor);self.critic_updates+=1
@@ -200,7 +235,8 @@ class PhysicalBodySACPilot(StagedGoalSACPilot):
             physical_residual_gain=self.residual_gain,min_policy_std=self.agent.config.min_policy_std,
             max_policy_std=self.agent.config.max_policy_std,
             successful_train_bank=self.success_bank.report(),successful_train_replay_fraction=self.success_replay_fraction,
-            native_TRAIN_seed_provenance=self.seed_provenance,latest_actor_metrics=self.latest_actor)
+            native_TRAIN_seed_provenance=self.seed_provenance,latest_actor_metrics=self.latest_actor,
+            training_credit=self.training_credit)
 
     def save(self,final=False):
         if getattr(self,'_last_saved',None)!=self.critic_updates:
