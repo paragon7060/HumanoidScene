@@ -30,3 +30,11 @@ Weak 복구 실행의 saved Q8192/actor1536을 같은 immutable 실제 TRAIN69�
 관련 CPU 검사35개와 실제 immutable 입력의 두 full-SAC 복제 비교가 통과했다. 다음 GPU 비교는 같은 source Q6864/replay·네 구역 원래 schedule·n-step16·10% joint-jaw 탐색으로 `전체 DEV → 실제 TRAIN 두 wave → 전체 DEV`를 수행한다. 기존 healthy writer를 중단하거나 CPU 복제 actor를 가져오지 않는다. 새 고유 private RAM 폴더와 `CUDA_VISIBLE_DEVICES=3`, 기존 Drive300초 업로드·검증 후 최신두 checkpoint·writer 종료 후 최종 로그/HDF/replay 검증을 사용한다. RAM 원본은 재부팅 시 사라진다. 실행 여부와 물리 효과는 실제 PID·manifest·전체 평가 결과로 따로 확인한다.
 
 판단은 해당 실행 자신의 초기 전체 DEV와 학습 후 전체 DEV, 실제 pad 접촉·안정된 양손 파지로 한다. Independent FINAL은 아직 사용하지 않았다. 닫힘 회복 후에도 접촉이 부족하면 실제 moving-fingertip capture의 더 좁은 falloff와 약한 손 점수로 새 matching-reward 비교를 만든다. Old reward replay를 추정한 새 개별 손 error로 재라벨링하지 않는다.
+
+## 실제 GPU3 실행 시작 확인
+
+07:58 KST에 `actual_flap_joint_jaw_logit4_strong_credit16_sac_pgs128_gpu3_20261006_075810` / `batch_sac_20261006_075810_59a062`를 시작했다. 구현 커밋은 `71dadd4`다. 실제 writer2726960·supervisor2726927의 소유자/run/`CUDA_VISIBLE_DEVICES=3`와 unit active를 확인했다. 시작 직전 GPU3 free47,030MiB·host MemAvailable955GiB·private tmpfs free496GiB였고 기존 writer2763569·1547049를 유지했다. 기존 Drive `about`도 성공했으며 새 인증을 만들지 않았다.
+
+이후 실제 manifest에서 actor variant `logit4-soft-strong`·weight0.001·128환경·동적 flap 범위·10% joint-jaw 탐색·rack10N/obstacle5N·self-collision OFF를 확인했다. Manifest의 요청 설정 검사이며 전체9,216개 PhysX 적용값 cache나 초기 각도를 검증한 결과는 아니다. 초기 전체 DEV 및 새로운 TRAIN 효과는 아직 완료 전이고 CPU clone은 사용하지 않았다. [실제 PID/manifest/백업 설정 확인](assets/rl_v2_stronger_jaw_recovery_actual_GPU3_startup_20261006.json).
+
+기존 weak 실행의 첫 완료 TRAIN은5/128(중간 왼쪽1·중간 오른쪽4·위쪽0), initial invalid42·unsafe62·timeout19이며 현재 두 번째 TRAIN 중이다. 탐색 TRAIN 성공을 greedy 일반화 성공으로 해석하지 않는다. 모든 결과는 원래 invalid를 분모에 유지한다.
