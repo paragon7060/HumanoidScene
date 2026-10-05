@@ -48,7 +48,7 @@ def main():
         help='Frozen-only per-case workplace candidates; never contributes matching Q replay')
     parser.add_argument('--steps',type=int,default=900)
     parser.add_argument('--reset-failure-diagnostics',action='store_true',
-        help='Frozen DEV --steps 1: measure original boxes before/after neutral hold and before partial respawn')
+        help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
     parser.add_argument('--zero-passive-roller-velocities-probe',action='store_true',
         help='Frozen reset diagnostic only: preserve roller angles/poses but remove inherited angular velocities')
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
@@ -357,6 +357,7 @@ def main():
                 layout_guard['reset_failure_diagnostics']=dict(file=diagnostic_name,
                     first_selected_failure_count=len(captured['first_invalid_before_respawn']),
                     neutral_hold_trace_steps=[x['physics_step'] for x in captured['neutral_hold_trace']],
+                    normal_contact_trace_steps=[x['physics_step'] for x in captured['neutral_normal_contact_trace']],
                     complete_trace_in_diagnostic_file=True)
             # An invalid requested case remains a failed attempt in the
             # denominator. Its replacement never supplies a snapshot/action

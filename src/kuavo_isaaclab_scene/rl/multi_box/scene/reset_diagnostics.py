@@ -52,6 +52,48 @@ def zero_passive_roller_velocities(env, env_ids):
     return matched
 
 
+def startup_normal_contact_snapshot(env, asset_names, box_sensor_names, robot_sensor_names):
+    """Read existing normal-contact reporters; no new sensor or physics writes.
+
+    Net normal forces do not identify the other collider and do not contain
+    tangential friction. Keep that limitation explicit in the saved evidence.
+    """
+    active = env._multi_box_active.detach().cpu()
+    pools = env._multi_box_pool_ids.detach().cpu()
+    rows = []
+    for pool, (name, sensor_name) in enumerate(zip(asset_names, box_sensor_names, strict=True)):
+        selected = torch.nonzero(active & (pools == pool), as_tuple=False)
+        if not len(selected):
+            continue
+        ids = selected[:, 0].to(env.device)
+        asset, sensor = env.scene[name], env.scene[sensor_name]
+        force = sensor.data.net_forces_w[ids]
+        if force.shape[1] != 1 or len(sensor.body_names) != 1:
+            raise ValueError('Startup contact trace needs one box-body reporter per physical asset')
+        body_velocity = asset.data.body_link_vel_w[ids]
+        values = torch.cat((asset.data.root_vel_w[ids], force[:, 0],
+            asset.data.joint_vel[ids].abs().amax(-1, keepdim=True),
+            body_velocity[..., :3].norm(dim=-1).amax(-1, keepdim=True),
+            body_velocity[..., 3:].norm(dim=-1).amax(-1, keepdim=True)), -1).detach().cpu().tolist()
+        for (i, logical), value in zip(selected.tolist(), values, strict=True):
+            rows.append(dict(environment=i, logical_id=logical, original_pool_id=pool,
+                source_body=sensor.body_names[0], box_velocity_world=_finite_values(value[:6]),
+                normal_contact_force_world_n=_finite_values(value[6:9]),
+                maximum_absolute_flap_joint_speed_radps=_finite_values(value[9:10])[0],
+                maximum_link_linear_speed_mps=_finite_values(value[10:11])[0],
+                maximum_link_angular_speed_radps=_finite_values(value[11:12])[0]))
+    robot = {}
+    for name in robot_sensor_names:
+        sensor = env.scene[name]
+        force = sensor.data.net_forces_w.detach().cpu()
+        robot[name] = dict(source_bodies=list(sensor.body_names),
+            normal_contact_force_world_n=[[_finite_values(body) for body in row] for row in force.tolist()])
+    rollers = {name: _finite_values(asset.data.joint_vel.abs().amax(-1).detach().cpu().tolist())
+        for name, asset in env.scene.articulations.items() if name.startswith('rack_roller_deck_')}
+    return dict(boxes=rows, robot=robot, roller_maximum_absolute_speed_radps=rollers,
+        measurement='net normal contact force on source bodies; collider identity and tangential friction are not measured')
+
+
 class ResetFailureCapture:
     """Keep only the first selected-box failure per requested environment.
 

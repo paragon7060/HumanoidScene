@@ -138,3 +138,53 @@ def test_passive_roller_probe_removes_spin_only_in_selected_environment():
 def test_passive_roller_probe_rejects_a_scene_without_roller_decks():
     with pytest.raises(ValueError,match='live rack roller'):
         zero_passive_roller_velocities(SimpleNamespace(scene=SimpleNamespace(articulations={})),torch.tensor([0]))
+
+
+def test_startup_normal_contact_trace_uses_active_pool_mapping_and_preserves_physics():
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import startup_normal_contact_snapshot
+    class Scene(dict):
+        pass
+    scene=Scene()
+    for pool in range(2):
+        scene[f'box{pool}']=SimpleNamespace(data=SimpleNamespace(
+            root_vel_w=torch.full((2,6),float(pool+1)),
+            joint_vel=torch.full((2,4),float(pool+2)),
+            body_link_vel_w=torch.full((2,5,6),float(pool+3))))
+        scene[f'contact{pool}']=SimpleNamespace(body_names=['Body'],data=SimpleNamespace(
+            net_forces_w=torch.tensor([[[1.,2.,3.]],[[4.,5.,6.]]])))
+    scene['robot_contact']=SimpleNamespace(body_names=['arm','waist'],data=SimpleNamespace(
+        net_forces_w=torch.arange(12,dtype=torch.float).reshape(2,2,3)))
+    scene.articulations={'rack_roller_deck_02':SimpleNamespace(data=SimpleNamespace(
+        joint_vel=torch.tensor([[5.,-7.],[0.,1.]])))}
+    env=SimpleNamespace(device='cpu',scene=scene,
+        _multi_box_active=torch.tensor([[True,True],[True,False]]),
+        _multi_box_pool_ids=torch.tensor([[0,1],[1,-1]]))
+    original={name:obj.data.root_vel_w.clone() for name,obj in scene.items() if name.startswith('box')}
+    result=startup_normal_contact_snapshot(env,['box0','box1'],['contact0','contact1'],['robot_contact'])
+    rows={(r['environment'],r['logical_id']):r for r in result['boxes']}
+    assert set(rows)=={(0,0),(0,1),(1,0)}
+    assert rows[(1,0)]['original_pool_id']==1
+    assert rows[(1,0)]['box_velocity_world']==[2.]*6
+    assert rows[(1,0)]['normal_contact_force_world_n']==[4.,5.,6.]
+    assert rows[(1,0)]['maximum_absolute_flap_joint_speed_radps']==3.
+    assert result['roller_maximum_absolute_speed_radps']['rack_roller_deck_02']==[7.,1.]
+    assert result['robot']['robot_contact']['source_bodies']==['arm','waist']
+    for name,value in original.items():torch.testing.assert_close(scene[name].data.root_vel_w,value)
+    # Preserve nonfinite evidence as null; do not repair physics or claim a
+    # vector-summed normal reporter identifies an individual rack collider.
+    scene['box1'].data.joint_vel[1,0]=float('nan')
+    result=startup_normal_contact_snapshot(env,['box0','box1'],['contact0','contact1'],[])
+    rows={(r['environment'],r['logical_id']):r for r in result['boxes']}
+    assert rows[(1,0)]['maximum_absolute_flap_joint_speed_radps'] is None
+    assert 'collider identity' in result['measurement']
+    json.dumps(result,allow_nan=False)
+    assert torch.isnan(scene['box1'].data.joint_vel[1,0])
+
+
+def test_startup_normal_contact_trace_rejects_ambiguous_box_sources():
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import startup_normal_contact_snapshot
+    sensor=SimpleNamespace(body_names=['Body','flap'],data=SimpleNamespace(net_forces_w=torch.zeros(1,2,3)))
+    env=SimpleNamespace(device='cpu',scene={'box':None,'contact':sensor},
+        _multi_box_active=torch.tensor([[True]]),_multi_box_pool_ids=torch.tensor([[0]]))
+    with pytest.raises(ValueError,match='one box-body reporter'):
+        startup_normal_contact_snapshot(env,['box'],['contact'],[])

@@ -1,0 +1,113 @@
+{
+  "measured_at": "2026-10-05T01:58:45.020994+00:00",
+  "original_repeat": {
+    "source_run": "artifacts/rl/drive_runs/physical_body_reset_onset_trace_pgs128_gpu2_20261005_102658/batch_sac_20261005_102714_80501e",
+    "source_commit": "89fb57748bc5cd13b925c4e4fee6f6908fd05b98",
+    "source_file": "reset_failure_diagnostics_wave_0000.json",
+    "source_SHA256": "bada1d25716af9bb1ce9b4b190a9a0c5922df04b9bbed741b822ffb15b41b276",
+    "original_valid_cases": 100,
+    "selected_failure_environments": [
+      8,
+      24,
+      28,
+      68,
+      84,
+      88,
+      100,
+      116,
+      124,
+      120
+    ],
+    "after_hold_geometry_failures_by_logical": {
+      "4": 8,
+      "5": 18
+    },
+    "maximum_background5_speed_mps": 2.723560333251953,
+    "writer_exit_code": 0,
+    "final_Drive_verified": true
+  },
+  "zero_initial_spin": {
+    "source_run": "artifacts/rl/drive_runs/physical_body_reset_roller_zero_spin_pgs128_gpu2_20261005_104325/batch_sac_20261005_104353_200d39",
+    "source_commit": "603d3ad9171ee374a4016709067a7ad472ff79d3",
+    "source_file": "reset_failure_diagnostics_wave_0000.json",
+    "source_SHA256": "c4707bcc619c6f8e6e262b62d0e980584798cb2ab853d38bb0cb27d3bd7500b6",
+    "original_valid_cases": 100,
+    "selected_failure_environments": [
+      8,
+      24,
+      28,
+      68,
+      84,
+      88,
+      100,
+      116,
+      120,
+      124
+    ],
+    "after_hold_geometry_failures_by_logical": {
+      "4": 9,
+      "5": 20
+    },
+    "maximum_background5_speed_mps": 1383.4599609375,
+    "writer_exit_code": 0,
+    "final_Drive_verified": true
+  },
+  "passive_roller_measurements": {
+    "passive_rollers_before_velocity_probe": {
+      "rack_roller_deck_01": {
+        "maximum_absolute_speed_radps": 0.0,
+        "nonzero_environment_count": 0
+      },
+      "rack_roller_deck_02": {
+        "maximum_absolute_speed_radps": 19.110483169555664,
+        "nonzero_environment_count": 57
+      },
+      "rack_roller_deck_03": {
+        "maximum_absolute_speed_radps": 19.29905891418457,
+        "nonzero_environment_count": 71
+      }
+    },
+    "passive_rollers_before_neutral_hold": {
+      "rack_roller_deck_01": {
+        "maximum_absolute_speed_radps": 0.0,
+        "nonzero_environment_count": 0
+      },
+      "rack_roller_deck_02": {
+        "maximum_absolute_speed_radps": 0.0,
+        "nonzero_environment_count": 0
+      },
+      "rack_roller_deck_03": {
+        "maximum_absolute_speed_radps": 0.0,
+        "nonzero_environment_count": 0
+      }
+    },
+    "passive_rollers_after_neutral_hold": {
+      "rack_roller_deck_01": {
+        "maximum_absolute_speed_radps": 0.0,
+        "nonzero_environment_count": 0
+      },
+      "rack_roller_deck_02": {
+        "maximum_absolute_speed_radps": 271.8068542480469,
+        "nonzero_environment_count": 93
+      },
+      "rack_roller_deck_03": {
+        "maximum_absolute_speed_radps": 24.715362548828125,
+        "nonzero_environment_count": 107
+      }
+    }
+  },
+  "roller_angles_unchanged_by_zero_velocity_write": true,
+  "different_validity_environment_ids": [
+    34,
+    114
+  ],
+  "comparison_is_cold_not_bitwise_physics_paired": true,
+  "conclusion": "Inherited spin is present, but removing it did not improve valid original cases or remove the first selected-box geometry failures.",
+  "default_training_changed": false,
+  "TRAIN_Q_import": false,
+  "independent_FINAL_used": false,
+  "frozen_actor_updates": 0,
+  "frozen_critic_updates": 0,
+  "policy_success_claim": false,
+  "next_measurement": "Observe normal contact onset and velocities at each of the first 12 physics ticks without changing dynamics."
+}

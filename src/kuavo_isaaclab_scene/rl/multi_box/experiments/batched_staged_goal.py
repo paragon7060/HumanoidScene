@@ -322,16 +322,23 @@ def restore_batched_inferred_scene(env,actors,*,capture_reset_diagnostics=False,
     env._multi_box_privileged_grasp_counter=-1;env._multi_box_grasp_safety_counter=-1
     env._multi_box_reset_settling.reset(ids);env.episode_length_buf[:]=0
     if capture_reset_diagnostics:
-        from ..scene.reset_diagnostics import passive_roller_snapshot
+        from ..scene.reset_diagnostics import passive_roller_snapshot, startup_normal_contact_snapshot
+        from ..debug.contact_sensors import BELT_CONTACT_SENSOR_NAMES, CONTACT_SENSOR_NAMES, V2_OBSTACLE_SENSOR_NAME
         env._batched_reset_box_diagnostics=dict(before_neutral_hold=
             measured_initial_box_failures(env,actors,names,failures_only=False,include_link_states=True),
-            neutral_hold_trace=[],passive_rollers_before_velocity_probe=passive_roller_snapshot(env))
+            neutral_hold_trace=[],neutral_normal_contact_trace=[],
+            passive_rollers_before_velocity_probe=passive_roller_snapshot(env))
     if zero_passive_roller_velocity_probe:
         from ..scene.reset_diagnostics import zero_passive_roller_velocities
         zero_passive_roller_velocities(env,ids)
     if capture_reset_diagnostics:
         env._batched_reset_box_diagnostics['passive_rollers_before_neutral_hold']=passive_roller_snapshot(env)
     def capture_hold_step(index):
+        if index <= 12 or index in (16,32,60):
+            env._batched_reset_box_diagnostics['neutral_normal_contact_trace'].append(dict(
+                physics_step=index,elapsed_s=index*env.physics_dt,
+                **startup_normal_contact_snapshot(env,names,BELT_CONTACT_SENSOR_NAMES,
+                    (V2_OBSTACLE_SENSOR_NAME,*CONTACT_SENSOR_NAMES))))
         if index in (1,2,4,8,16,32):
             env._batched_reset_box_diagnostics['neutral_hold_trace'].append(dict(
                 physics_step=index,elapsed_s=index*env.physics_dt,

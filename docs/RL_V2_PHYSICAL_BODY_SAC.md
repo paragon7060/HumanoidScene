@@ -548,3 +548,24 @@ joint velocity를0으로 쓰지는 않는다. 현재 batched restore는 robot/bo
 Zero-spin은 initial support velocity를 바꾼 frozen 진단이다. 기본 학습 설정은
 바꾸지 않고 TRAIN/독립 FINAL/Q replay에서는 사용하지 않는다. 이 가설의 효과는
 새 결과가 나오기 전까지 확정하지 않는다.
+
+### 10:58 · Roller 초기 회전 제거는 실패를 해소하지 못함
+
+Zero-spin frozen DEV128도 정상 exit0·writer 종료·Drive 전체 크기/MD5 검증을 완료했다.
+[원본 반복과 단일 변수 비교의 실측](assets/rl_v2_reset_zero_roller_spin_20261005.json).
+중간/위 deck의 초기 최대 회전19.11/19.30rad/s를 실제로0으로 썼고 각도는 유지했다.
+그러나 원본 반복과 zero-spin 모두 유효100/128이며, 최초 selected-box 실패10개는
+같은 중간왼쪽 환경에서 발생했다. Hold 후 target4/rear5 geometry 이탈은 원본8/18,
+zero-spin9/20이다. Zero-spin에서도 background5 최대1383m/s의 비정상 속도가 발생했다.
+두 cold 실행의 validity는 환경34/114에서 달라 bitwise paired 물리 비교는 아니다.
+
+Inherited roller spin은 존재하지만 이를 제거해도 초기 실패가 사라지지 않았다.
+이 가설을 주원인으로 확정하거나 기본 학습에 zero-spin을 적용하지 않는다.
+다음 opt-in reset 진단은 기존 box Body·robot·finger normal-contact 센서를 읽어
+첫12개 physics tick와16/32/60tick에 접촉력·root/link/flap 속도·roller 회전을 기록한다.
+새 collision geometry나 물리 controller를 추가하지 않는다. 이 센서의 net force는
+normal 성분이고 collider identity·tangential friction을 직접 구분하지 않으므로,
+관측된 접촉 onset만으로 rack 접촉을 확정하지 않는다.
+
+GPU3 native-nstep10은 첫 TRAIN에서 Q916 updates·actor0(warmup)까지 진행했다.
+이 시점에는 보강 손실의 actor 지표와 후속 DEV 결과가 없어 개선을 주장하지 않는다.
