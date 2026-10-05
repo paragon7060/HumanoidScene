@@ -193,3 +193,11 @@ PGS 초기화 결과는 동일한 요청 layout에도 서로 달라 각 실행�
 replay의 최종 Drive 검증 완료를 구분한다. 새 GPU3 joint-jaw 비교는 같은 immutable
 초기 모델에서 초기 전체 DEV를 진행하고 있으며 실제 TRAIN 비교가 뒤따른다.
 [완료된 DEV·TRAIN 집계와 실제 위 왼쪽 성공 원본](assets/rl_v2_measured_nstep16_completed_DEV_20261006.json).
+
+새 joint-jaw 비교도05:24 KST에 초기 전체 DEV를 마쳤다. 중간 L1/R5, 위 L0/R0으로
+**6/128**, 초기 무효29·unsafe69·timeout24였다. 초기 모델 actor1204/Q6864·
+replay224621·online0·jaw sampler0을 확인했다. 기존 n-step의 초기8/128·무효31과
+PGS 초기 물리 상태가 다르며 평가에는 mixture를 쓰지 않았으므로 이 차이는 새
+탐색의 악화/개선 효과가 아니다. 각 실행의 초기와 후속 DEV를 함께 보고 실제
+TRAIN 닫힘/패드 접촉 경험과 후속 전체128 평가로 판단한다.
+[새 비교의 완료된 초기 DEV·카운터 원본](assets/rl_v2_joint_jaw_completed_initial_DEV_20261006.json).
