@@ -170,6 +170,11 @@ Checkpoint 번호는 **critic 업데이트 횟수**이고 actor 횟수는 별도
 warm-start의 오래된 actor16910 같은 값은 새 SAC의 학습량이 아니다.
 처음 critic-only 배치의 성공도 새 actor 학습 개선으로 해석하지 않는다.
 
+병렬 runner의 완료 결과는 [CPU 지표 요약 사용법](RL_V2_CONTACT_REWARD_SAC.md#gpu-없이-완료된-학습-지표-읽기)의
+`summarize_batched_staged_run.py`로 읽을 수 있다. 전체 시도 분모와 초기화 실패를
+보존하며 실제 held TRAIN replay, 영역별 성공, 겹치는 안전 종료 원인을 구분한다.
+이 도구는 저장된 snapshot만 읽고 현재 writer 생존 여부는 따로 확인한다.
+
 ## 여러 초기 배치의 병렬 wave 실행 (실험 경로)
 
 `train_batched_staged_goal.py`는 환경마다 실제 base 정지 시점, box anchor,

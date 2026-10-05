@@ -67,6 +67,11 @@ Q의 absorbing 상태로 취급해 `Q_done = terminated | truncated`를 사용�
 Q/replay를 이어 쓰지 않는다. 이 연결 수정 전에 첫 GPU0 DEV 실행을 정상 종료했고
 actor/Q 업데이트는 모두0이었다. 수정한 계약으로 별도 초기 폴더와 실행을 만든다.
 
+새 manifest에 남아 있는 기본 `terminal_contract.timeouts_bootstrap=true` 설명보다
+`reward_profile.contact_shaping.time_limit_is_absorbing_for_Q=true`의 명시적 규칙이
+우선한다. 아래 요약 도구는 두 값을 따로 표시하며 실제 새 Q의 timeout bootstrap은
+false다. 설명 필드만 보고 기존 Q 의미로 해석하지 않는다.
+
 ## 변경한 가중치
 
 | 항목 | 기존 | 접촉 프로필 |
@@ -187,3 +192,79 @@ critic2048회 warmup과 실제 replay32768행 조건을 기다린다. 원래 입
 만들었다(기존 양손 pinch5개). 센서 availability가 해당 trace에 없으므로 이 preview는
 availability=True를 가정한 수식 점검이다. 실제 reward 측정이나 새 Q seed가 아니고,
 기존 reward를 relabel하지 않았다. 실제 새 학습에서는 availability를 직접 검사한다.
+
+## 19:40: 첫 actor 학습 후 DEV 결과
+
+![첫 학습과 DEV 결과](assets/rl_v2_contact_reward_first_learning_20261005.png)
+
+[측정 snapshot·실제 성공 전이 Q 진단](assets/rl_v2_contact_reward_first_learning_20261005.json).
+GPU0의 첫 두 TRAIN에서 실제 양손 lift/hold 성공12건을 수집했다. 새 보상의
+성공 저장소5308행은 ML2/MR8/UL2/UR0 에피소드이며 DEV 전이는0행이다.
+Actor230회, critic2966회, 실제 held TRAIN replay99667행이다. 기존 BC-prior loss는
+0이고 성공 actor 보조 항은 이번 TRAIN에서 모은 실제 경험에만 적용한다.
+
+첫 학습 후 DEV는 **6/128→6/128**으로 전체 개선이 없다.
+
+| 영역 | 초기 DEV | actor230/Q2966 후 DEV | 두 실행 모두 초기 유효한 사례 |
+|---|---:|---:|---:|
+| 중간왼쪽 | 1/32 | 2/32 | 18개에서1→2 |
+| 중간오른쪽 | 3/32 | 3/32 | 23개에서2→3 |
+| 위왼쪽 | 1/32 | 1/32 | 30개에서1→1 |
+| 위오른쪽 | 1/32 | 0/32 | 25개에서1→0 |
+
+모든128개는 같은 requested layout이다. Initial valid는99→98이며 공통 유효96개에서는
+5→6 성공이다. 공통 유효만의 비교는 진단용이고 원래 성공률 분모128을 바꾸지 않는다.
+반복 reset의 실제 물리 이력까지 같다고 주장하지 않는다. 기록된 성공6건 모두
+양손 pinch·opposing flap·안전·0.25초 hold·8mm proof lift를 충족했고, unsupported
+success flag는 없었다. 위오른쪽 감소는 기록하되 현재 회귀 guard의 exact paired
+검사에서는 유의한 손실이 아니었다. 다음 TRAIN wave를 같은 Q/replay로 진행한다.
+
+Q2966 checkpoint의 model tensor는 모두 finite였다. 실제 TRAIN 성공12건의
+terminal pre-state와 실행된 action만 CPU로 읽어 계산한 평균 min(Q1,Q2)는4.15,
+실제 terminal target은6.99였다. 성공의 양의 신호가 새 critic에 연결되어 있으며
+아직 약2.84 낮게 평가한다. 이 값은 성공률이나 독립 일반화 성능이 아니다.
+
+첫 post-TRAIN DEV의 초기 유효98건 중59건은 unsafe,33건은 timeout이었다.
+Unsafe 원인에는 rack29건, box speed32건, lift limit12건, workspace6건,
+drop6건, obstacle1건이 있었다. 한 실패에 여러 원인이 겹칠 수 있어 이 숫자를
+서로 더해 실패 수로 쓰지 않는다. 같은 DEV에서 종료 직전 양손 pinch는6건이었다.
+
+비정상 속도/위치로 실패한 박스의 마지막 flap distance에는 극단적으로 큰 유한값도
+있다. 이를 안전한 접근 거리의 평균으로 해석하면 지표가 왜곡된다. 실패를 삭제하지
+않고 종료 결과별 거리를 분리한다. Safe timeout33건의 마지막 손–flap surface 거리
+중앙값은 왼손4.37cm/오른손4.06cm였다. 이는 마지막 상태이고 episode 중 최고
+접촉/접근 점수가 아니다. 초기화 실패와 unsafe 종료도 계속 해결할 항목으로 남는다.
+
+같은 시각 기존 GPU3 DEV 이력은9→8→11→6→10/128이었다. 최신 영역별 성공은
+ML1/MR8/UL1/UR0으로 중간오른쪽에 편중되고 네 영역의 안정적인 개선은 없다.
+두 실행은 시작 Q/replay와 reset 이력이 달라 보상 변경의 인과 비교로 쓰지 않는다.
+두 실행 모두 독립FINAL 기록은0개이고 네 영역 일반화 목표는 진행 중이다.
+
+## GPU 없이 완료된 학습 지표 읽기
+
+표준 Python만으로 runner가 저장한 완료 wave를 요약한다. Isaac/Torch/GPU/Drive를
+사용하지 않고 학습·replay·optimizer를 변경하지 않는다.
+
+```bash
+python3 scripts/rl/summarize_batched_staged_run.py \
+  --run-dir /absolute/path/to/batch_sac_run \
+  --output /absolute/path/to/new-progress-snapshot.json
+```
+
+`--output`은 기존 파일을 덮어쓰지 않으므로 매번 새 경로를 지정한다. 생략하면
+표준 출력으로 표시한다. `recorded_writer_status`는 저장된 상태일 뿐 현재 PID가
+살아 있다는 증거가 아니다. 실행 여부는 관리 폴더의 PID와 실제 프로세스를 별도로
+확인한다. JSON을 쓰는 순간의 불완전한 내용은 잠깐 다시 읽고, 계속 실패하면
+관측 오류를 보고하며 학습이 중단됐다고 추정하지 않는다.
+
+- `held_TRAIN_rows_total`/`current_TRAIN_replay_rows`: 실제 Q에 사용되는 수집량/현재 buffer.
+  `last_recorded_collection_rows_all_splits`에는 DEV와 base 접근도 포함한다.
+- `waves`: 영역별 전체 시도·초기 유효·성공 조건 대조·unsafe·timeout, 겹치는
+  개별 안전 원인과 동시 원인 조합, 종료 직전 접촉과 결과별 거리 분포.
+- `paired_DEV_against_initial`: 같은 requested layout인지와 공통 유효 사례의 변화.
+  초기화 실패를 원래 분모에서 제외하는 새 점수가 아니다.
+- `effective_Q_timeouts_bootstrap`: 보상 프로필의 우선 규칙을 적용한 실제 Q 의미.
+- `recorded_FINAL_waves`: 이미 기록된 독립FINAL 수. 계획된 미래 평가 수가 아니다.
+
+이번 지표 도구는 GPU0/3의 실제 완료 snapshot을 읽어 결과를 대조하고 Python
+compile을 확인했다. 학습 코드와 활성 writer의 설정을 다시 바꾸지는 않았다.
