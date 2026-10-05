@@ -166,3 +166,28 @@ capture potential0.849였지만 실제 left pinch는0이었다. 점수는 geomet
 현재 bounded distribution/entropy 계산은 변경하지 않는다. 이 확인은 radius0
 고착을 배제하는 진단이며 충분한 물리 탐색 범위나 일반화를 입증하지 않는다.
 [좌표·지역·경로별 radius 원본](assets/rl_v2_actual_TRAIN_body_correction_bounds_20261006.json).
+
+## n-step16 실제 비교의 학습 후 전체 DEV
+
+05:15 KST에 기존 n-step 비교 writer가 exit0으로4개 wave를 마쳤다. 두 실제
+TRAIN wave에서89167행을 추가하고 actor1204→1961·critic6864→9890을 업데이트했다.
+그 후 학습·탐색 없는 전체 DEV128개를 마친 결과는 **8→8/128(6.25%→6.25%)**이다.
+
+| 전체 DEV 지역 | 초기 /32 | TRAIN 두 wave 후 /32 |
+|---|---:|---:|
+| 중간 왼쪽 | 1 | 3 |
+| 중간 오른쪽 | 7 | 4 |
+| 위 왼쪽 | 0 | 1 |
+| 위 오른쪽 | 0 | 0 |
+
+위 왼쪽1건은 실제 양손 pinch·서로 다른 flap·stable hands·hold0.2667s·
+roller 기준 clearance0.0580m를 만족했고 unsafe가 없었다. DEV 성공 경로를
+TRAIN/Q/retention으로 가져오지 않았다. 전체 초기 무효는31→28, unsafe는74→81이다.
+PGS 초기화 결과는 동일한 요청 layout에도 서로 달라 각 실행의 원래 무효를 포함한
+128개로 비교한다. 한 지역의1건을 전체 개선 또는 일반화 성공으로 결론짓지 않는다.
+위 오른쪽 실패와 불안정한 초기화가 남았으며 독립 FINAL은 아직 사용하지 않았다.
+
+종료된 manager는 final upload 중이다. Writer의 정상 종료와 checkpoint·로그·HDF·
+replay의 최종 Drive 검증 완료를 구분한다. 새 GPU3 joint-jaw 비교는 같은 immutable
+초기 모델에서 초기 전체 DEV를 진행하고 있으며 실제 TRAIN 비교가 뒤따른다.
+[완료된 DEV·TRAIN 집계와 실제 위 왼쪽 성공 원본](assets/rl_v2_measured_nstep16_completed_DEV_20261006.json).
