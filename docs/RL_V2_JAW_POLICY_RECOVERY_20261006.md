@@ -119,4 +119,12 @@ python scripts/rl/audit_jaw_recovery_checkpoint.py \
 
 실제2.32GB immutable 입력과 세 saved checkpoint로 도구를 실행했고 compile도 통과했다. 첫 reference의 변화량은 정확히0이다. 이번 분석은 reward·success·safety·randomization이나 활성 학습 모델을 변경하지 않았다. 일반화 목표와 독립 FINAL 확인은 아직 완료 전이다.
 
+## 10% joint-jaw 비교의 학습 후 전체 DEV 완료
+
+07:41 KST에 전체128건이 닫혔음을 확인했다. 초기6/128 → 학습 후9/128이며, 지역별 성공은 중간 왼쪽1→2·중간 오른쪽5→7·위 왼쪽0→0·위 오른쪽0→0이다. 초기 무효는29→29, unsafe69→77, timeout24→13이다. 새 actor736회·Q2944회와 실제 TRAIN88,794행 이후의 평가다. 평가 중에는 actor1940/Q9808/replay313415/online88794 및 행동 탐색 카운터가 TRAIN 종료 때와 동일하게 유지됐다.
+
+9건 모두 실제 양손 unique pinch·stable hands·서로 다른 flap·hold≥0.25s·roller clearance≥8mm·안전 위반 없음을 확인했다. Pad≥5N은 production unique-pinch 판정으로 검증했으며 outcome snapshot에는 pad별 raw force가 없다. 원래 초기 invalid를128개 분모에서 빼지 않았다. [전체128건 요약·9건 물리 증거](assets/rl_v2_joint_jaw_completed_final_DEV_20261006.json).
+
+관측된 성공 증가3건은 중간 선반에 한정되고 unsafe도 늘었다. 한 차례 비교에서 통계적으로 확실한 개선이나 네 구역 일반화 성공을 주장하지 않는다. 고정 TRAIN 상태 분석에서 위 오른쪽 열림 포화가 심해진 결과와 모순되지 않는다. 이 실행의 물리 평가는 끝났으며 원래 manager의 종료 후 로그/HDF/replay Drive 검증은 별도로 진행한다. Soft 복구 실행은 계속 실제 TRAIN 중이고 자신의 초기9/128 대비 최종 전체 DEV는 아직 완료 전이다. 독립 FINAL은 사용하지 않았다.
+
 기존 행동 탐색 분석은 [TRAIN jaw coverage 기록](RL_V2_TRAIN_JAW_COVERAGE_20261006.md), 단단한 flap 설정과 비교 배경은 [actual-flap SAC 기록](RL_V2_ACTUAL_FLAP_RESIDUAL_SAC.md)을 참고한다.
