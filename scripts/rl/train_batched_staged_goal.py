@@ -58,7 +58,7 @@ def main():
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
-        help='With frozen grasp audit: replay all128 DEV cases as one scene,32 per region; never imports Q rows')
+        help='With frozen grasp audit: all128 DEV cases parallel or serial,32 per region; never imports Q rows')
     parser.add_argument('--reset-world-frame-probe',type=Path,default=None,
         help='Frozen DEV reset only: original measured world origins/rack/support poses; passive DOF history retained')
     parser.add_argument('--zero-passive-roller-velocities-probe',action='store_true',
@@ -445,6 +445,7 @@ def main():
             'initial_layout_guard_storage':'whole_wave_initial_layout_guard_reference_v1',
             'grasp_observation_audit':dict(enabled=args.grasp_observation_audit,
                 full_original_DEV_distribution=args.full_distribution_grasp_observation_audit,
+                parallel_environments=n,requested_cases=sum(len(w['layouts']) for w in waves),
                 frozen_only=True,Q_import_eligible=False,actor_input_and_physics_unchanged=True),
             'centered_world_probe':dict(enabled=args.centered_world_probe,frozen_only=args.centered_world_probe,
                 Q_import_eligible=not args.centered_world_probe,environment_origins=env.scene.env_origins.tolist()),

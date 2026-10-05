@@ -146,7 +146,7 @@ def supervise(command, parent, environment, archive_run, interval=300, poll=5,
     if require_run_status:
         status_path = source / "status.json"
         run_status = json.loads(status_path.read_text()) if status_path.exists() else {"status": "missing"}
-        controlled_stop = run_status.get("status") == "stopped" and stop_at is not None
+        controlled_stop = run_status.get("status") in ("stopped", "interrupted") and stop_at is not None
         if run_status.get("status") != "complete" and not controlled_stop and exit_code == 0:
             exit_code = 1  # Kit can mask an exception with a zero process exit code.
     verification = {"training_exit_code": exit_code, "stop_reason": reason,

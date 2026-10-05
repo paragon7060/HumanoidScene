@@ -313,7 +313,8 @@ MAE0.40/RMSE0.56이었다. 평균만 같다고 완전히 수렴했다고 주장�
 따로 확인해야 한다. 기존 두 학습은 계속 진행한다.
 
 `--grasp-observation-audit --full-distribution-grasp-observation-audit --no-training`은
-서로 다른128개 DEV seed를 한 장면씩 실행하면서 실제/nominal flap 자세, pad 힘·영역,
+서로 다른128개 DEV seed를128개 병렬 환경의 한 wave 또는 한 환경의128개 wave로
+실행하면서 실제/nominal flap 자세, pad 힘·영역,
 closing gate와 움직임을 기록한다. 4영역 각32개, original 주변 배치만 허용한다.
 TRAIN/독립FINAL, 중복 seed, 불균형/일부 사례만의 목록, 다른 physics probe와의 결합은
 거부한다. 기존 한 wave/최대16개 선택 진단은 그대로다. 모든 진단 전이는 Q/replay나
@@ -338,3 +339,37 @@ CUDA_VISIBLE_DEVICES=0 python scripts/rl/batched_staged_goal_with_drive.py \
 새로 시작하고 각 기록에 원래 wave/seed/region을 붙여 같은 local step의 다른 사례가
 누락되지 않게 한다. 위 guard와 접촉 보상 관련 CPU32개
 검사가 통과했고 독립FINAL을 학습/진단에 가져오지 않는다.
+
+## 10/05 21:10 — 전체128개 병렬 접촉 진단과 단일 환경 비교
+
+GPU3 legacy 학습의 DEV 성공 개수는 `9 → 8 → 11 → 6 → 10 → 10 → 9 /128`로,
+지속적인 개선이 없다. 최신 DEV18은 중간 좌1/우7, 위 좌0/우1이다.
+독립FINAL을 실행하기 전에 본인 소유 관리자에게 정상 종료를 요청했으며,
+실제 GPU writer 종료와 GPU3 메모리 해제를 확인했다. 기존 관리자는 닫힌
+checkpoint/replay/HDF/로그의 최종 Drive 검증을 계속 수행한다.
+GPU0 새 접촉 보상 SAC는 계속 학습하고, DEV9에서 actor1740/Q9006을 평가한다.
+
+전체 DEV128 N1 진단의 첫 사례(seed121000, 중간 왼쪽)는501 control step에서
+양손의 서로 반대 flap 파지·pad force·안전·proof lift·hold 조건을 모두 충족했다.
+최종 각 손의 pad 힘은 `[16.34,15.69] N`과 `[8.81,8.86] N`, hold0.267초,
+rack clearance3.03cm다. 같은 요청 배치는 GPU0 N128 DEV0에서 성공했으나
+DEV3/6에서는 랙 충돌로 실패했다. N1과 DEV6의 실제 rack world yaw, base pose,
+settling 이력이 다르므로 이것만으로 병렬 물리 오류나 정책 개선을 주장할 수 없다.
+단일 성공을 전체 분포 성공률로 사용하지 않는다.
+
+모든128개 원본 DEV 사례를 유지한 N128 frozen audit를 추가할 수 있도록
+진단 범위를 확장했다. N1과 똑같은 actor986/Q5990 checkpoint를 쓰고 실제/nominal
+flap 중심·방향, 각 pad 힘·영역, closing gate, 종료 원인을 기록한다.
+4영역 각32개, box/base/background DR, 기존 성공·안전·물리 설정을 유지한다.
+TRAIN/독립FINAL, 일부 사례, 혼합 wave 구성, 중복 seed와 다른 물리 probe는
+허용하지 않으며 진단 데이터를 학습 replay에 넣지 않는다. 기본 TRAIN 동작은 변하지 않는다.
+병렬 입력은 원본 DEV wave와 정확히 같음을 확인하고 기존 Drive 연결로
+크기·MD5까지 검증했다.
+
+정상 종료 처리에서도 표시 오류를 확인했다. Batched runner는 요청된 종료를
+`interrupted`로 쓰는데 이전 관리자는`stopped`만 인정해 exit0을1로 바꿨다.
+관리자 자신의 종료 요청이 실제로 있었을 때만 두 상태를 인정하도록 수정했다.
+요청 없이 불완전한 상태로 exit0을 반환하는 Kit 오류는 계속 실패로 판정한다.
+이미 실행되던 GPU3 관리자의 exit1 기록은 그대로 보존하며, 정상 종료 요청과
+실제 writer 종료 증거를 따로 기록한다. 이 수정은 새 관리자부터 적용된다.
+접촉 진단·접촉 보상·실제 CPU 자식 프로세스 종료/백업 순서 검사55개가 통과했다.

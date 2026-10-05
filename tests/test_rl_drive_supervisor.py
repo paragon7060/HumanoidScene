@@ -105,13 +105,14 @@ print('Kit returned zero despite failed training')
 
 
 @pytest.mark.parametrize("controlled", [False, True])
-def test_stopped_status_is_accepted_only_after_an_owned_stop_request(tmp_path, controlled):
+@pytest.mark.parametrize("child_status", ["stopped", "interrupted"])
+def test_stopped_status_is_accepted_only_after_an_owned_stop_request(tmp_path, controlled, child_status):
     script = """
-import pathlib, signal, sys, time
+import json, pathlib, signal, sys, time
 p = pathlib.Path(sys.argv[1]) / 'sac_test'
 p.mkdir()
 def finish(number=None, frame=None):
-    (p / 'status.json').write_text('{"status": "stopped"}')
+    (p / 'status.json').write_text(json.dumps({'status': sys.argv[3]}))
     (p / 'final_checkpoint.pt').write_bytes(b'complete checkpoint')
     raise SystemExit(0)
 signal.signal(signal.SIGTERM, finish)
@@ -126,7 +127,7 @@ while True:
             assert (source / "final_checkpoint.pt").read_bytes() == b"complete checkpoint"
         return []
     result = supervisor.supervise(
-        [sys.executable, "-c", script, str(tmp_path), str(int(controlled))],
+        [sys.executable, "-c", script, str(tmp_path), str(int(controlled)), child_status],
         tmp_path, os.environ.copy(), backup, poll=.01, min_free_bytes=0,
         run_prefix="sac_", require_run_status=True,
         resource_check=(lambda pid: "test_owned_stop" if (tmp_path / "sac_test/ready").exists() else None)

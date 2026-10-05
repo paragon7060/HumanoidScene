@@ -37,14 +37,18 @@ def full_dev_distribution():
         split='holdout',target_region=regions[i%4]))]) for i in range(128)]
 
 
-def test_full_distribution_is_frozen_balanced_and_keeps_legacy_layout_labels():
-    rows=full_dev_distribution();original=json.dumps(rows,sort_keys=True)
+@pytest.mark.parametrize('parallel',[False,True])
+def test_full_distribution_is_frozen_balanced_and_keeps_legacy_layout_labels(parallel):
+    rows=full_dev_distribution()
+    if parallel:rows=[dict(split='validation',layouts=[w['layouts'][0] for w in rows])]
+    original=json.dumps(rows,sort_keys=True)
     validate_grasp_observation_audit(rows,enabled=True,training=False,steps=900,full_distribution=True)
     assert json.dumps(rows,sort_keys=True)==original
 
 
+@pytest.mark.parametrize('parallel',[False,True])
 @pytest.mark.parametrize('change',['TRAIN','FINAL','duplicate','unbalanced','selected_subset','packed'])
-def test_full_distribution_cannot_import_training_final_or_easier_subset(change):
+def test_full_distribution_cannot_import_training_final_or_easier_subset(change,parallel):
     rows=full_dev_distribution()
     if change=='TRAIN':rows[7]['split']='train'
     elif change=='FINAL':rows[7]['split']='holdout'
@@ -52,8 +56,22 @@ def test_full_distribution_cannot_import_training_final_or_easier_subset(change)
     elif change=='unbalanced':rows[7]['layouts'][0]['layout']['target_region']='shelf_2_left'
     elif change=='selected_subset':rows=rows[:16]
     elif change=='packed':rows[7]['background_placement']='packed'
+    if parallel:
+        # Keep any split/background violation when packing the case list.
+        split=next((w['split'] for w in rows if w['split']!='validation'),'validation')
+        background=next((w.get('background_placement') for w in rows
+                         if w.get('background_placement','original')!='original'),'original')
+        rows=[dict(split=split,background_placement=background,
+                   layouts=[w['layouts'][0] for w in rows])]
     with pytest.raises(ValueError):
         validate_grasp_observation_audit(rows,enabled=True,training=False,steps=900,full_distribution=True)
+
+
+def test_full_distribution_rejects_mixed_parallel_and_serial_waves():
+    rows=full_dev_distribution()
+    mixed=[dict(split='validation',layouts=[w['layouts'][0] for w in rows[:64]]),*rows[64:]]
+    with pytest.raises(ValueError):
+        validate_grasp_observation_audit(mixed,enabled=True,training=False,steps=900,full_distribution=True)
 
 
 @pytest.mark.parametrize('change',[dict(training=True),dict(enabled=False),dict(other_probe=True)])

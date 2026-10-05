@@ -29,14 +29,15 @@ def validate_grasp_observation_audit(waves,*,enabled,training,steps,other_probe=
     if training or other_probe or not 31<=steps<=900:
         raise ValueError('Grasp observation audit requires frozen DEV,31..900steps and unchanged physics')
     if full_distribution:
-        # Same complete DEV distribution, serialized in one physics scene.
+        # Same complete DEV distribution, either parallel or serialized in
+        # one physics scene. Both contexts must retain all original cases.
         # This cannot silently turn a selected small diagnostic into a broad
         # result, or mix TRAIN/independent FINAL rows into a frozen audit.
-        if len(waves)!=128 or any(w.get('split')!='validation'
-                or len(w.get('layouts',[]))!=1
+        counts=[len(w.get('layouts',[])) for w in waves]
+        if counts not in ([128],[1]*128) or any(w.get('split')!='validation'
                 or w.get('background_placement','original')!='original' for w in waves):
-            raise ValueError('Full DEV audit requires128 frozen single-case waves with original backgrounds')
-        rows=[w['layouts'][0].get('layout',{}) for w in waves]
+            raise ValueError('Full DEV audit requires128 frozen cases, parallel or single-case, with original backgrounds')
+        rows=[r.get('layout',{}) for w in waves for r in w['layouts']]
         regions=('shelf_2_left','shelf_2_right','shelf_3_left','shelf_3_right')
         if len({r.get('seed') for r in rows})!=128 or any(
                 sum(r.get('target_region')==region for r in rows)!=32 for region in regions):
