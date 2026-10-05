@@ -44,6 +44,8 @@ def main():
         help='Frozen DEV reset --steps 1 only: change just the physics solver; no TRAIN/FINAL or matching Q replay')
     probes.add_argument('--passive-bearing-probe-layer',type=Path,default=None,
         help='Frozen DEV reset --steps 1 only: select a separately verified canonical bearing drive overlay; no Q import')
+    probes.add_argument('--reset-independent-scene-probe',action='store_true',
+        help='Frozen DEV/steps1 with matched world/passive state only: disable scene physics replication; retain collision filtering')
     parser.add_argument('--centered-world-probe',action='store_true',
         help='Frozen-only shared origins with GPU environment collision IDs; no Q/replay training')
     parser.add_argument('--packed-background-probe',action='store_true',
@@ -91,6 +93,13 @@ def main():
                     args.reset_solver_probe,args.passive_bearing_probe_layer,args.zero_passive_roller_velocities_probe,
                     args.rear5_support_gap_probe_m is not None)))
         except (OSError,ValueError) as error:parser.error(str(error))
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_replication import validate_independent_scene_request
+    try:validate_independent_scene_request(waves,world_frame_probe,
+        enabled=args.reset_independent_scene_probe,reset_enabled=args.reset_failure_diagnostics,
+        training=args.training,steps=args.steps,other_probe=any((args.centered_world_probe,
+            args.packed_background_probe,args.base_waypoint_probe,args.zero_passive_roller_velocities_probe,
+            args.rear5_support_gap_probe_m is not None)))
+    except ValueError as error:parser.error(str(error))
     if args.reset_contact_pair_diagnostics and not args.reset_failure_diagnostics:
         parser.error('Contact pair diagnostics require frozen reset diagnostics')
     if args.reset_flap_contact_pair_diagnostics and not args.reset_contact_pair_diagnostics:
@@ -185,6 +194,9 @@ def main():
         if contract.get('reward_profile',{}).get('weights')!=asdict(MultiBoxRewardWeights()):
             raise ValueError('Current physical reward weights differ from checkpoint input manifest')
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
+        from kuavo_isaaclab_scene.rl.multi_box.scene.reset_replication import (
+            configure_independent_scene_probe,verify_independent_scene_probe)
+        replication_probe=configure_independent_scene_probe(cfg,enabled=args.reset_independent_scene_probe)
         pair_filter_manifest=None;flap_contact_reporters=[]
         if args.reset_contact_pair_diagnostics:
             from kuavo_isaaclab_scene.rl.multi_box.debug.contact_sensors import BELT_CONTACT_SENSOR_NAMES,_rack_contact_targets
@@ -292,6 +304,9 @@ def main():
             raise ValueError('Batched prototype requires its explicitly nominal observation checkpoint')
         class WaveEnv(TerminalObservationMixin,ManagerBasedRLEnv):pass
         env=WaveEnv(cfg);env.enable_numerical_dynamics_recovery()
+        replication_probe=verify_independent_scene_probe(env,replication_probe)
+        if replication_probe is not None:
+            print('[FROZEN INDEPENDENT SCENE] '+json.dumps(replication_probe),flush=True)
         env._reset_contact_pair_diagnostics=args.reset_contact_pair_diagnostics
         if flap_contact_reporters:
             from kuavo_isaaclab_scene.rl.multi_box.scene.reset_flap_contacts import resolve_startup_flap_contact_paths
@@ -387,6 +402,7 @@ def main():
             contact_stability_probe=solver_probe,
             startup_flap_contact_reporters=flap_contact_reporters,
             startup_world_frame_probe=world_frame_audit,
+            startup_scene_replication_probe=replication_probe,
             sim_device=str(env.device),multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             current_reward_verified_against_breakdown=True,
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
@@ -403,6 +419,7 @@ def main():
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
             'initialized_physics':initialized_physics,
             'startup_world_frame_probe':world_frame_audit,
+            'startup_scene_replication_probe':replication_probe,
             'centered_world_probe':dict(enabled=args.centered_world_probe,frozen_only=args.centered_world_probe,
                 Q_import_eligible=not args.centered_world_probe,environment_origins=env.scene.env_origins.tolist()),
             'base_waypoint_probe':dict(enabled=args.base_waypoint_probe,frozen_only=args.base_waypoint_probe,
@@ -482,6 +499,9 @@ def main():
                     layout_guard['reset_failure_diagnostics']['physical_state_unchanged']=False
                     layout_guard['reset_failure_diagnostics']['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
                 captured=layout_guard['reset_failure_diagnostics']
+                if replication_probe is not None:
+                    captured['startup_scene_replication_probe']=replication_probe
+                    captured['physical_state_unchanged']=False
                 if world_frame_audit is not None:
                     captured['startup_world_frame_probe']=world_frame_audit
                     captured['initial_world_placement_changed']=world_frame_audit['world_root_placements_changed']

@@ -1026,3 +1026,37 @@ row 갱신 경로를 우선 확인할 근거다. TRAIN/Q/독립FINAL은 계속 �
 다음에는 scene의 physics replication/fabric clone 경로와 초기 contact state의
 일관성을 frozen 비교로검토한다. 근거가 확인되기 전에는 기본학습 reset·보상·
 randomization·안전/성공조건을바꾸지 않는다. 기존SAC 다섯 실행은유지한다.
+
+## 2026-10-05 · Physics replication과 flap 관측 검토
+
+### 독립 scene 생성 frozen 비교 추가
+
+앞선 같은16개 layout/43개 박스의 row 순서 대조에서 실제 초기 박스 world pose와
+세 support 전체 q/v 차이가0인데도 실패 사례가 달라졌다. 다음 비교는 같은 입력에서
+`--reset-independent-scene-probe`로 `replicate_physics=False`만 적용한다.
+`clone_in_fabric=False`는 이미 기본값이며 바꾸지 않는다.
+
+설치된 IsaacLab2.3.2 `InteractiveScene`의 실제 생성 코드를 확인했다. 복제 경로는
+전체env를 source에서 복제하고 PhysX replication을 사용한다. 독립 경로는env Xform을
+먼저 만들고 object별로 생성하며, `filter_collisions=True`인 경우 별도 collision group을
+작성한다. 설치된 Isaac Sim cloner는 PhysX scene의 전역 inverted group filter를
+사용하므로 per-group 플래그만 읽으면 잘못 해석할 수 있다. 진단은 실제 scene 플래그·
+전역 invert 값·모든env의collider collection·서로 다른env의group 제외 여부를 확인한다.
+
+이 옵션은 world frame과 전체 passive state를 맞춘 단일 frozen DEV/steps1에서만
+허용한다. TRAIN·독립FINAL·다른 물리 probe와 혼합하면 Isaac 시작 전에 거부한다.
+PGS/D0·시간 간격·박스/로봇·보상·randomization·성공·안전은 유지하며 일반학습
+기본값을 바꾸지 않는다. 진단 데이터는 Q import 불가다. 실제 USD schema를 사용하는
+충돌 group 검사와 미검증 filtering 거부를 포함한 관련129개 검사 통과.
+
+### 활성 SAC의 flap 관측에서 확인한 한계
+
+현재 다섯 SAC 입력 계약의 `flap_pose_source`는 `nominal`이다. 박스Body pose/크기로
+중립 flap center를 추정하며 실제 굽힌 panel pose는 actor에 들어가지 않는다.
+Box token에도 flap joint q/v가 없다. `GoalGripperProjector`의12cm close gate 역시
+이 hand-flap relation을 사용한다. 관측 누락은 실제 flap이 움직였을 때 접근/닫힘의
+부분 관측 문제가 될 수 있지만, 실제 오차량을 측정하기 전에 학습 부진의 주원인으로
+단정하지 않는다. 이미 `articulated` perception 경로가 존재한다. 다만 기존 VR/
+nominal Q 데이터를 같은 폭이라는 이유로 articulated 데이터로 재라벨하면 안 된다.
+Frozen nominal actor는 별도 입력 변환과 의미 계약을 유지한 actor prior로만 재사용하고,
+실제 panel 관측의 새 Q/replay는 새로 모아야 한다. 이 단계에서는 기존 SAC를 유지한다.
