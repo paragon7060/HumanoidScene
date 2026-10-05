@@ -199,3 +199,58 @@ def test_train_jaw_behavior_activation_preserves_models_replay_and_frozen_eval(t
         ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_behavior',stage,checkpoint=saved,jaw_behavior='policy')
     frozen=ActualFlapResidualSACPilot(warm,physical,tmp_path/'frozen_behavior',stage,checkpoint=saved,training=False)
     assert frozen.jaw_behavior==new.jaw_behavior and frozen.jaw_behavior_sampler.report()==new.jaw_behavior_sampler.report()
+
+
+def test_jaw_saturation_activation_preserves_physical_contract_state_and_frozen_actions(tmp_path):
+    _,old,warm,physical,stage,_=pilots(tmp_path)
+    raw=torch.zeros(64,464);raw[:,144]=1;critic=torch.zeros(64,530);extra=torch.zeros(64,38)
+    previous=old.act(raw,critic,0,supplemental=extra)[1]
+    old.observe(previous,raw,critic,torch.ones(64),torch.ones(64,dtype=torch.bool),0,supplemental=extra)
+    old.directory.mkdir();old.save(final=True)
+    checkpoint=next(old.directory.glob('checkpoint_*.pt'))
+    new=ActualFlapResidualSACPilot(warm,physical,tmp_path/'saturation',stage,
+        checkpoint=checkpoint,jaw_saturation='logit4-soft')
+    assert new.contract==old.contract and new.replay.size==64
+    assert (new.actor_updates,new.critic_updates)==(old.actor_updates,old.critic_updates)
+    for key,value in old.agent.state_dict().items():assert torch.equal(value,new.agent.state_dict()[key])
+    for key,value in old.replay.data.items():assert torch.equal(value[:64],new.replay.data[key][:64])
+    for before,after in zip(old.agent.optimizers,new.agent.optimizers):
+        b,a=before.state_dict(),after.state_dict()
+        assert b['param_groups']==a['param_groups'] and b['state'].keys()==a['state'].keys()
+        for pid,values in b['state'].items():
+            for key,value in values.items():
+                assert torch.equal(value,a['state'][pid][key]) if isinstance(value,torch.Tensor) else value==a['state'][pid][key]
+    assert new.jaw_saturation_origin['old_replay_rows_at_activation']==64
+    assert old.agent.actor_jaw_regularization(torch.zeros(1,2),torch.ones(1,2,dtype=torch.bool)) is None
+    new.anchor=old.anchor;new.training=old.training=False
+    assert torch.equal(new.act(raw,critic,0,supplemental=extra)[0],old.act(raw,critic,0,supplemental=extra)[0])
+    new.directory.mkdir();new.save(final=True)
+    saved=next(new.directory.glob('checkpoint_*.pt'))
+    restored=ActualFlapResidualSACPilot(warm,physical,tmp_path/'restored_saturation',stage,checkpoint=saved)
+    assert restored.jaw_saturation==new.jaw_saturation and restored.jaw_saturation_origin==new.jaw_saturation_origin
+    assert restored.agent.jaw_saturation_config==new.jaw_saturation
+    with pytest.raises(ValueError,match='differs from checkpoint'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_saturation',stage,checkpoint=saved,jaw_saturation='off')
+    # Wrong actor-objective provenance must fail even though physical Q coordinates match.
+    experience=saved.parent/'staged_goal_experience.pt'
+    state=torch.load(experience,weights_only=True);state.pop('jaw_saturation_origin');torch.save(state,experience)
+    with pytest.raises(ValueError,match='replay origin'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_replay_saturation',stage,checkpoint=saved)
+
+
+def test_jaw_saturation_penalty_reaches_actual_actor_update_and_skips_critic_only(tmp_path):
+    _,pilot,*_=pilots(tmp_path)
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.jaw_saturation import jaw_saturation_config
+    agent=pilot.agent;agent.jaw_saturation_config=jaw_saturation_config('logit4-soft')
+    raw=torch.zeros(8,518);raw[:,144]=1
+    with torch.no_grad():agent.actor.network[-1].bias[19].sub_(2.)
+    labels=agent.act(raw,True)
+    batch=dict(actor_obs=raw,critic_obs=torch.zeros(8,577),action=labels,
+        next_actor_obs=raw.clone(),next_critic_obs=torch.zeros(8,577),reward=torch.ones(8),
+        terminated=torch.zeros(8,dtype=torch.bool))
+    q_only=agent.update(batch,update_actor=False)
+    assert 'jaw_saturation_loss' not in q_only
+    report=agent.update(batch)
+    assert report['actor_updated'] and report['jaw_saturation_loss']>0
+    assert report['jaw_saturation_active_hands']==16 and report['jaw_saturation_saturated_hands']>0
+    assert all(torch.isfinite(torch.tensor(v)) for v in report.values())

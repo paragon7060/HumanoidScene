@@ -130,6 +130,10 @@ class HybridGoalSAC(AsymmetricSAC):
     def success_body_loss(self,raw,requested_body,labels):
         return F.mse_loss(requested_body,labels[:,:19])
 
+    def actor_jaw_regularization(self, logits, near):
+        """Optional subclass objective; ordinary hybrid SAC stays unchanged."""
+        return None
+
     def validate_critic_auxiliary(self,batch,weight):
         if batch is not None or weight:
             raise ValueError('This hybrid learner does not support auxiliary critic targets')
@@ -242,6 +246,11 @@ class HybridGoalSAC(AsymmetricSAC):
                 if bool(success_near.any()):
                     success_jaw_loss=F.binary_cross_entropy_with_logits(jaw_logits[success_near],(labels[:,19:21][success_near]+1)/2)
                 actor_loss+=success_goal_weight*success_goal_loss+success_jaw_weight*success_jaw_loss
+            regularization = self.actor_jaw_regularization(logits, near)
+            if regularization is not None:
+                extra_loss, extra_statistics = regularization
+                actor_loss = actor_loss+extra_loss
+                report.update(extra_statistics)
             optimize(self.actor_optimizer,actor_loss,self.actor.parameters())
         finally:
             self.q1.requires_grad_(True);self.q2.requires_grad_(True)

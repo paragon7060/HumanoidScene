@@ -1,0 +1,474 @@
+{
+  "created_at": "2026-10-06T05:44:40.265264+09:00",
+  "source_checkpoint": "artifacts/rl/drive_runs/actual_flap_measured_credit16_sac_pgs128_gpu3_20261006_024149/batch_sac_20261006_024149_31996b/checkpoint_00009890.pt",
+  "source_checkpoint_sha256": "dc9fc6fb27fdde4dbef93755c188b77c663a9e93ed61c1ed0a30dd4edcbb5f6e",
+  "source_actor_updates": 1961,
+  "source_critic_updates": 9890,
+  "source_real_TRAIN_upper_right_both_near_safe_rows": 572,
+  "gradient": {
+    "logits_min_max_by_hand": [
+      {
+        "min": -43.661460876464844,
+        "max": -21.199623107910156
+      },
+      {
+        "min": -8.467386245727539,
+        "max": 0.7577266693115234
+      }
+    ],
+    "Q_gradient_per_hand": [
+      {
+        "mean": 1.9884927038305023e-11,
+        "median": 2.812202944471598e-12,
+        "max": 2.1617030387943714e-09,
+        "below1e_minus8": 572
+      },
+      {
+        "mean": 0.0024200582411140203,
+        "median": 0.0004855990409851074,
+        "max": 0.045565128326416016,
+        "below1e_minus8": 0
+      }
+    ],
+    "entropy_gradient_per_hand": [
+      {
+        "mean": 5.948192893096005e-12,
+        "median": 1.4830567329759958e-12,
+        "max": 2.6091817595386146e-10,
+        "below1e_minus8": 572
+      },
+      {
+        "mean": 0.0014835629845038056,
+        "median": 0.0013826582580804825,
+        "max": 0.004398989956825972,
+        "below1e_minus8": 0
+      }
+    ],
+    "Q_plus_entropy_gradient_per_hand": [
+      {
+        "mean": 1.399996178014229e-11,
+        "median": 5.650094107856329e-13,
+        "max": 1.90078486284051e-09,
+        "below1e_minus8": 572
+      },
+      {
+        "mean": 0.003384365001693368,
+        "median": 0.0017550162738189101,
+        "max": 0.04309242591261864,
+        "below1e_minus8": 0
+      }
+    ],
+    "hypothetical_barrier_gradient_per_hand": [
+      {
+        "mean": 0.0023944710846990347,
+        "median": 0.002258738735690713,
+        "max": 0.003966146148741245,
+        "below1e_minus8": 0
+      },
+      {
+        "mean": 8.573901141062379e-05,
+        "median": 0.0,
+        "max": 0.00044673861702904105,
+        "below1e_minus8": 300
+      }
+    ],
+    "hypothetical_barrier_logit_limit": 4.0,
+    "hypothetical_barrier_weight": 0.0001,
+    "both_close_Q_advantage_vs_current_greedy_above0p05_rows": 131
+  },
+  "CPU_controlled_shadow_trials": [
+    {
+      "barrier_weight": 0.0,
+      "trace": [
+        {
+          "step": 0,
+          "loss": 0.9905737042427063,
+          "standard_jaw_loss": 0.9905737042427063,
+          "barrier_loss": 0.0,
+          "mean_close_probability": [
+            1.2656339518080095e-11,
+            0.17880786955356598
+          ],
+          "mean_both_close_probability": 3.613291523624218e-12,
+          "max_abs_logit": 43.661460876464844,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 1,
+          "loss": 0.9905285835266113,
+          "standard_jaw_loss": 0.9905285835266113,
+          "barrier_loss": 0.0,
+          "mean_close_probability": [
+            1.2413124347854243e-11,
+            0.18275389075279236
+          ],
+          "mean_both_close_probability": 3.6190393130214327e-12,
+          "max_abs_logit": 43.693023681640625,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 8,
+          "loss": 0.9894227981567383,
+          "standard_jaw_loss": 0.9894227981567383,
+          "barrier_loss": 0.0,
+          "mean_close_probability": [
+            1.1308329272985418e-11,
+            0.28318625688552856
+          ],
+          "mean_both_close_probability": 4.771130105579724e-12,
+          "max_abs_logit": 43.83744430541992,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 32,
+          "loss": 0.9823432564735413,
+          "standard_jaw_loss": 0.9823432564735413,
+          "barrier_loss": 0.0,
+          "mean_close_probability": [
+            1.0812030090678881e-11,
+            0.8485442399978638
+          ],
+          "mean_both_close_probability": 9.133368540636955e-12,
+          "max_abs_logit": 43.876380920410156,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 64,
+          "loss": 0.9794947504997253,
+          "standard_jaw_loss": 0.9794947504997253,
+          "barrier_loss": 0.0,
+          "mean_close_probability": [
+            1.3602579999882902e-11,
+            0.643489420413971
+          ],
+          "mean_both_close_probability": 8.039488345878976e-12,
+          "max_abs_logit": 43.57917785644531,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 128,
+          "loss": 0.9764879941940308,
+          "standard_jaw_loss": 0.9764879941940308,
+          "barrier_loss": 0.0,
+          "mean_close_probability": [
+            1.0866692094768649e-11,
+            0.6164572238922119
+          ],
+          "mean_both_close_probability": 5.727892118945199e-12,
+          "max_abs_logit": 43.82072067260742,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 256,
+          "loss": 0.973052978515625,
+          "standard_jaw_loss": 0.973052978515625,
+          "barrier_loss": 0.0,
+          "mean_close_probability": [
+            8.738793542961698e-12,
+            0.610467791557312
+          ],
+          "mean_both_close_probability": 4.5747476987156865e-12,
+          "max_abs_logit": 44.20444107055664,
+          "both_greedy_close_rows": 0
+        }
+      ]
+    },
+    {
+      "barrier_weight": 3e-05,
+      "trace": [
+        {
+          "step": 0,
+          "loss": 0.9994248151779175,
+          "standard_jaw_loss": 0.9905737042427063,
+          "barrier_loss": 0.008851137012243271,
+          "mean_close_probability": [
+            1.2656339518080095e-11,
+            0.17880786955356598
+          ],
+          "mean_both_close_probability": 3.613291523624218e-12,
+          "max_abs_logit": 43.661460876464844,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 1,
+          "loss": 0.9993622303009033,
+          "standard_jaw_loss": 0.9905270934104919,
+          "barrier_loss": 0.008835122920572758,
+          "mean_close_probability": [
+            1.2866711168735279e-11,
+            0.18286541104316711
+          ],
+          "mean_both_close_probability": 3.754628118829428e-12,
+          "max_abs_logit": 43.63164138793945,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 8,
+          "loss": 0.9975072741508484,
+          "standard_jaw_loss": 0.9893928170204163,
+          "barrier_loss": 0.008114476688206196,
+          "mean_close_probability": [
+            2.8906816176843542e-11,
+            0.2847764194011688
+          ],
+          "mean_both_close_probability": 1.2234363695740047e-11,
+          "max_abs_logit": 42.241661071777344,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 32,
+          "loss": 0.9871187210083008,
+          "standard_jaw_loss": 0.9822919964790344,
+          "barrier_loss": 0.004826745018362999,
+          "mean_close_probability": [
+            2.6373574435467617e-09,
+            0.8432565331459045
+          ],
+          "mean_both_close_probability": 2.1131147942554662e-09,
+          "max_abs_logit": 34.637489318847656,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 64,
+          "loss": 0.9818663597106934,
+          "standard_jaw_loss": 0.979483425617218,
+          "barrier_loss": 0.0023829371202737093,
+          "mean_close_probability": [
+            3.0561727726308163e-07,
+            0.644164502620697
+          ],
+          "mean_both_close_probability": 1.7165694998766412e-07,
+          "max_abs_logit": 26.867481231689453,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 128,
+          "loss": 0.9777002334594727,
+          "standard_jaw_loss": 0.9768419861793518,
+          "barrier_loss": 0.0008582575246691704,
+          "mean_close_probability": [
+            3.590587948565371e-05,
+            0.6221887469291687
+          ],
+          "mean_both_close_probability": 2.0533094357233495e-05,
+          "max_abs_logit": 19.197940826416016,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 256,
+          "loss": 0.9715762734413147,
+          "standard_jaw_loss": 0.9715614318847656,
+          "barrier_loss": 1.4821433069300838e-05,
+          "mean_close_probability": [
+            0.04934009537100792,
+            0.615016520023346
+          ],
+          "mean_both_close_probability": 0.028097432106733322,
+          "max_abs_logit": 8.031013488769531,
+          "both_greedy_close_rows": 9
+        }
+      ]
+    },
+    {
+      "barrier_weight": 0.0001,
+      "trace": [
+        {
+          "step": 0,
+          "loss": 1.0200774669647217,
+          "standard_jaw_loss": 0.9905737042427063,
+          "barrier_loss": 0.02950378879904747,
+          "mean_close_probability": [
+            1.2656339518080095e-11,
+            0.17880786955356598
+          ],
+          "mean_both_close_probability": 3.613291523624218e-12,
+          "max_abs_logit": 43.661460876464844,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 1,
+          "loss": 1.0199371576309204,
+          "standard_jaw_loss": 0.990545928478241,
+          "barrier_loss": 0.02939128316938877,
+          "mean_close_probability": [
+            1.3140257978938585e-11,
+            0.18117763102054596
+          ],
+          "mean_both_close_probability": 3.804543485808054e-12,
+          "max_abs_logit": 43.59610366821289,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 8,
+          "loss": 1.0157219171524048,
+          "standard_jaw_loss": 0.9899023175239563,
+          "barrier_loss": 0.025819577276706696,
+          "mean_close_probability": [
+            4.559637736822886e-11,
+            0.23914624750614166
+          ],
+          "mean_both_close_probability": 1.6735161867398318e-11,
+          "max_abs_logit": 41.490657806396484,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 32,
+          "loss": 0.994081437587738,
+          "standard_jaw_loss": 0.9828781485557556,
+          "barrier_loss": 0.011203285306692123,
+          "mean_close_probability": [
+            3.6377347356619794e-08,
+            0.8732724785804749
+          ],
+          "mean_both_close_probability": 2.8568951648821894e-08,
+          "max_abs_logit": 30.491771697998047,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 64,
+          "loss": 0.98284512758255,
+          "standard_jaw_loss": 0.9799191355705261,
+          "barrier_loss": 0.002925964305177331,
+          "mean_close_probability": [
+            3.788674439419992e-05,
+            0.6901801824569702
+          ],
+          "mean_both_close_probability": 2.253726233902853e-05,
+          "max_abs_logit": 19.719562530517578,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 128,
+          "loss": 0.977005124092102,
+          "standard_jaw_loss": 0.9766980409622192,
+          "barrier_loss": 0.0003071035898756236,
+          "mean_close_probability": [
+            0.013241774402558804,
+            0.634070098400116
+          ],
+          "mean_both_close_probability": 0.007664658594876528,
+          "max_abs_logit": 11.201699256896973,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 256,
+          "loss": 0.9678832292556763,
+          "standard_jaw_loss": 0.9678832292556763,
+          "barrier_loss": 0.0,
+          "mean_close_probability": [
+            0.27031779289245605,
+            0.6280753016471863
+          ],
+          "mean_both_close_probability": 0.17385146021842957,
+          "max_abs_logit": 3.8768365383148193,
+          "both_greedy_close_rows": 40
+        }
+      ]
+    },
+    {
+      "barrier_weight": 0.0003,
+      "trace": [
+        {
+          "step": 0,
+          "loss": 1.079085111618042,
+          "standard_jaw_loss": 0.9905737042427063,
+          "barrier_loss": 0.0885113775730133,
+          "mean_close_probability": [
+            1.2656339518080095e-11,
+            0.17880786955356598
+          ],
+          "mean_both_close_probability": 3.613291523624218e-12,
+          "max_abs_logit": 43.661460876464844,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 1,
+          "loss": 1.078714370727539,
+          "standard_jaw_loss": 0.9905588626861572,
+          "barrier_loss": 0.08815547078847885,
+          "mean_close_probability": [
+            1.3175446844648775e-11,
+            0.1800321787595749
+          ],
+          "mean_both_close_probability": 3.794019785841041e-12,
+          "max_abs_logit": 43.59170913696289,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 8,
+          "loss": 1.0673828125,
+          "standard_jaw_loss": 0.9902627468109131,
+          "barrier_loss": 0.07712011784315109,
+          "mean_close_probability": [
+            4.807656356353718e-11,
+            0.2057027965784073
+          ],
+          "mean_both_close_probability": 1.561617848921948e-11,
+          "max_abs_logit": 41.40683364868164,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 32,
+          "loss": 1.0168253183364868,
+          "standard_jaw_loss": 0.9867302179336548,
+          "barrier_loss": 0.03009512461721897,
+          "mean_close_probability": [
+            7.564180748431681e-08,
+            0.43889933824539185
+          ],
+          "mean_both_close_probability": 3.0609204060283446e-08,
+          "max_abs_logit": 29.438831329345703,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 64,
+          "loss": 0.9869816899299622,
+          "standard_jaw_loss": 0.9815080761909485,
+          "barrier_loss": 0.005473597906529903,
+          "mean_close_probability": [
+            0.00022529481793753803,
+            0.6988441944122314
+          ],
+          "mean_both_close_probability": 0.00011140254355268553,
+          "max_abs_logit": 17.38174057006836,
+          "both_greedy_close_rows": 0
+        },
+        {
+          "step": 128,
+          "loss": 0.9764620065689087,
+          "standard_jaw_loss": 0.9764262437820435,
+          "barrier_loss": 3.574625952751376e-05,
+          "mean_close_probability": [
+            0.11340408027172089,
+            0.6586287617683411
+          ],
+          "mean_both_close_probability": 0.07109823822975159,
+          "max_abs_logit": 6.814391136169434,
+          "both_greedy_close_rows": 33
+        },
+        {
+          "step": 256,
+          "loss": 0.9668402075767517,
+          "standard_jaw_loss": 0.9668402075767517,
+          "barrier_loss": 0.0,
+          "mean_close_probability": [
+            0.29285886883735657,
+            0.6306443214416504
+          ],
+          "mean_both_close_probability": 0.19053280353546143,
+          "max_abs_logit": 3.3494460582733154,
+          "both_greedy_close_rows": 53
+        }
+      ]
+    }
+  ],
+  "shadow_actor_optimizer_restored_from_independent_deepcopy_of_source": true,
+  "shadow_Q_body_entropy_temperature_frozen": true,
+  "shadow_is_not_full_SAC": true,
+  "shadow_is_not_a_physical_success_result": true,
+  "original_source_checkpoint_unchanged": true,
+  "live_policy_replay_not_modified": true,
+  "DEV_or_FINAL_imported": false,
+  "shared_network_updates_and_success_NLL_may_change_logits_even_when_local_Q_gradient_small": true,
+  "goal_not_complete": true
+}
