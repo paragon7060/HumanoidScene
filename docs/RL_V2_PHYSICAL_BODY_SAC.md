@@ -1125,3 +1125,59 @@ GPU writer와 원래 CPU supervisor가 모두 종료된 경우에만 현재 업�
 supervisor·관리 폴더 밖 run·symlink run을 거부하며 원래 학습 종료 코드를 보존하는
 CPU 검사7개 통과. 큰 파일의 미검증 로컬 사본은 유지하고 종료 로그 검증을
 계속한다. 목표와 독립FINAL은 그대로이며 randomized 양손 파지 성공은 미달성이다.
+
+### 17:30 · 실제 파지 구간 진단과 재개 후 DEV
+
+GPU3 재개 후 actor8516→9241/Q36110→39010의 실제 학습이 진행됐다.
+완료된 DEV0→DEV3은9/128→8/128이다. 중간좌3→1,중간우4→5,
+상단좌1→1,상단우1→1이며 전체 개선으로 판단하지 않는다. 초기 유효99→97,
+두 평가에서 모두 유효한96case에서도 성공9→8이었다.
+
+비어 있던 GPU0에서 같은 frozen actor의 성공9개/가까운 유효 실패7개를
+선택해 네 구역4개씩,원래 box/base/background randomization으로 재생했다.
+`full_grasp_observation_audit_pgs16_gpu0_20261005_171728`의
+`batch_sac_20261005_171728_e3f79c`는 exit0·실제 writer 종료·최종 Drive
+검증을 마쳤다. 추가 actor/Q update0,9827행/823frame,invalid pose 측정0이다.
+이 선택은 진단용이며 N128과 cold N16의 contact history는 동일하지 않다.
+선택한9개 성공을 그대로 재현하지 못한 결과도 일반화 성능 점수로 쓰지 않는다.
+
+- 초기16/16 유효,양손 모두 surface3cm 안에 들어온 환경14/16.
+- 실제 동시 양손 pinch5/16,기존8mm proof lift/0.25s hold 성공3/16.
+- 상단좌4/4는3cm 안에 왔지만 동시 양손 pinch0/4였다.
+- 실패13개 중 rack 충돌8개,box speed limit1개,time-out4개.
+- Actor target ID와 reward target의 불일치0,중립 hand-flap relation 오차0.
+- 실제/중립 flap 오차의 전체 p95는7.49mm/8.59°,접촉 frame p95는
+  29.85mm/34.74°였다. 최대84.96mm/84.79°를 보통 상태로 해석하지 않는다.
+- 실제 panel로12cm gate를 다시 계산했을 때37/17040 hand-step(0.22%)만
+  달랐다. Gate 오류만으로 다수 실패를 설명할 근거는 없다.
+
+![파지 접근 이후 접촉과 유지에서 실패하는 실제 진단](assets/rl_v2_full_grasp_observation_audit_20261005.png)
+
+[구역별 결과·원본 run·측정·소스 SHA256·종료 검증](assets/rl_v2_full_grasp_observation_audit_20261005.json),
+[진단 실행법과 Q import 차단](RL_V2_STAGED_GOAL_SAC.md#파지-중-관측닫힘접촉-진단).
+가까운 거리와 낮은 capture 오차에도 한쪽 pad 힘이 없거나5N 미만인 사례가
+있었고,일부 손은 각각 pinch했지만 동시에 유지하지 못했다. 다만 접촉/유지의
+실패 원인과 개선 효과는 아직 구분해야 한다. 다음 수정의 우선순위는 양손의
+실제 pad 접촉 품질과 연속 유지 학습 신호이며,닫힘 자체만 보상하지 않는다.
+Articulated flap 관측은 접촉 시 별도 검토 대상으로 유지하고 기존 nominal
+Q/demo를 같은 폭의 새 관측 데이터로 바꾸지 않는다. 독립FINAL은 미사용이다.
+
+### 초기화 기록의 중복 저장 감소
+
+전체128환경 guard가 outcome128행마다 반복돼 metric 크기가 병렬 수의
+제곱에 비례했다. 새 runner는 `initial_layout_guard_wave_NNNN.json`에 원본
+전체 evidence를 한 번 저장하고각 outcome은 파일명/wave/environment를
+참조한다. HDF의 per-episode guard validity와 실패 분모·보상·학습 전이는 같다.
+`debug.layout_guard_storage.load_layout_guard(outcome,run_directory)`로 기존
+inline 기록과 새 참조를 모두 읽는다. 새 참조는 wave/environment 일치와
+canonical 로컬 파일을 확인하며 symlink/상위 경로를 거부한다.
+종료 업로드에서 이 evidence 파일도 크기·MD5를 검증한다. 현재 GPU3에 이미
+로드된 코드는 그대로이며 다음 새 실행부터 적용한다. 이미 닫힌 기록을 삭제하거나
+활성 로그를 압축하지 않는다. 관측/gate/종료 중복/strict JSON·참조/원본 보존 관련
+서로 다른 CPU 검사24개와 실제 frozen GPU 재생이 통과했다.
+
+기존 retention의 backup lock은 별도 소유한 대용량 업로더 서비스
+`humanoid-rl-large-final-backups-20261005-0147.service`가 보유하고 실제 rclone
+전송 중임을 확인했다. 추가 유휴 감시는 중복이어서 그 감시만 종료했고 기존 전송과
+원래 관리자/GPU writer/다른 사용자 프로세스는 종료하지 않았다. 이 기존 실행의
+최종 백업은 아직 완료로 표시하지 않는다.

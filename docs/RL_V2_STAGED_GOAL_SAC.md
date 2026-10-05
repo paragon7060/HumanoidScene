@@ -9,6 +9,32 @@
 이 실험의 [현재 물리 결과·영상](RL_V2_FOUR_REGION_SAC_20261004.md)은 별도로 갱신한다.
 실행 코드나 서비스의 존재가 학습 완료 또는 일반화 성공을 뜻하지 않는다.
 
+## 파지 중 관측·닫힘·접촉 진단
+
+`train_batched_staged_goal.py --grasp-observation-audit`는 기존 정책의 입력·제어·
+물리·보상·성공 판정을 유지하면서 파지 전체 구간을 기록한다. 기존 flap link/
+TCP/접촉 tensor를 읽으며 sensor나 physics step을 추가하지 않는다. 고정 정책,
+단일 `validation` wave,1..16환경,31..900 step,원래 background 배치에서만
+허용한다. TRAIN·독립FINAL·다른 물리/배치 probe와의 혼합은 시작 전에 거부한다.
+
+기존 frozen 실행 명령에 `--no-training --grasp-observation-audit --steps 900`를
+추가하고 DEV layout만 담긴 `--waves-json`을 사용한다. Drive 관리는 같은
+`batched_staged_goal_with_drive.py`와 고유 `--experiment-dir`을 사용한다.
+`--gpu`와 `CUDA_VISIBLE_DEVICES`를 동일하게 지정한다.
+
+`grasp_observation_audit.jsonl.gz`는 step 직전과 termination 계산 후 reset 직전의
+실제 flap center/normal·양손 거리·production12cm close gate·배정·명령/실제 닫힘·
+각 pad 힘/접촉영역/대향 여부·pinch·hold/proof lift·안전 원인을 기록한다.
+Actor의 목표 ID/hand-flap relation도 reward의 실제 목표와 대조한다. 유효하지 않은
+pose는 환경별로 표시하며 nonfinite 값은 strict JSON의 null로 기록한다.
+종료 시 summary와 압축 trace가 닫히고 기존 finished 업로드에서 크기·MD5를 검증한다.
+
+이 자료와 함께 수집된 transition의 source는
+`grasp_observation_audit_NOT_matching_Q_replay`다. Matching Q replay로 가져오지
+않으며 actor/Q/replay 평가 불변성 검사도 그대로다. 특정 성공/실패 사례를 골라
+진단한 점수는 일반화 성공률이 아니다. N128 사례를 cold N16에서 재생하면
+constructor·contact history도 달라지므로 동일 초기 물리 상태를 보장하지 않는다.
+
 ## 제어와 데이터 계약
 
 - 기존 `pose-goal` 24개 목표에서 base XY/yaw 3개를 제거한 **21개 목표**다.

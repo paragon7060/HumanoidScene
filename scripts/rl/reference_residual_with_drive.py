@@ -25,11 +25,14 @@ def archive_pilot(source, remote_root, finished):
             for name in ('executed_transitions.hdf5','reference.mp4','policy.mp4','preview.png',
                          'failure.json','residual_experience.pt','pose_goal_experience.pt',
                          'staged_goal_experience.pt','gripper_drive_audit.json',
-                         'actual_train_goal_collection.pt','physical_body_experience.pt'):
+                         'actual_train_goal_collection.pt','physical_body_experience.pt',
+                         'grasp_observation_audit.jsonl.gz','grasp_observation_audit_summary.json'):
                 path = source/name
                 if path.exists():
                     archive_file(path,destination,remote)
             for path in sorted(source.glob('reset_failure_diagnostics_wave_*.json')):
+                archive_file(path,destination,remote)
+            for path in sorted(source.glob('initial_layout_guard_wave_*.json')):
                 archive_file(path,destination,remote)
     return removed
 

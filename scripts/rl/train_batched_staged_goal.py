@@ -55,6 +55,8 @@ def main():
     parser.add_argument('--steps',type=int,default=900)
     parser.add_argument('--reset-failure-diagnostics',action='store_true',
         help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
+    parser.add_argument('--grasp-observation-audit',action='store_true',
+        help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--reset-world-frame-probe',type=Path,default=None,
         help='Frozen DEV reset only: original measured world origins/rack/support poses; passive DOF history retained')
     parser.add_argument('--zero-passive-roller-velocities-probe',action='store_true',
@@ -76,6 +78,14 @@ def main():
             or args.centered_world_probe or args.packed_background_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
+    from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_observation_audit import validate_grasp_observation_audit
+    try:validate_grasp_observation_audit(waves,enabled=args.grasp_observation_audit,
+        training=args.training,steps=args.steps,other_probe=any((args.reset_failure_diagnostics,
+            args.contact_stability_probe,args.tgs_zero_velocity_probe,args.contact_last_probe,args.pgs_probe,
+            args.gripper_drive_probe,args.centered_world_probe,args.packed_background_probe,args.base_waypoint_probe,
+            args.reset_solver_probe,args.passive_bearing_probe_layer,args.reset_independent_scene_probe,
+            args.reset_world_frame_probe,args.zero_passive_roller_velocities_probe,args.rear5_support_gap_probe_m is not None)))
+    except ValueError as error:parser.error(str(error))
     from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import (
         validate_reset_diagnostic_request,validate_rear5_support_gap_diagnostic_request)
     try:validate_reset_diagnostic_request(waves,enabled=args.reset_failure_diagnostics,
@@ -164,7 +174,7 @@ def main():
     export_robot_model_cli(args);export_gripper_cli(args);export_rack_roller_cli(args);export_base_drive_cli(args)
     app=AppLauncher(args).app
     stopped={'value':False};signal.signal(signal.SIGTERM,lambda *_:stopped.update(value=True))
-    env=recorder=pilot=None;output=args.output_dir.resolve()
+    env=recorder=pilot=grasp_audit=None;output=args.output_dir.resolve()
     try:
         import torch
         import numpy as np
@@ -393,7 +403,8 @@ def main():
         meta=dict(task_family='multi_box_v2',skill='grasp',robot_model='s63',gripper='leju-twofinger',
             rack_rollers=True,actor_obs_dim=464,critic_obs_dim=530,action_dim=24,
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
-            collection_source=('reset_failure_diagnostic_NOT_matching_Q_replay'
+            collection_source=('grasp_observation_audit_NOT_matching_Q_replay'
+                               if args.grasp_observation_audit else 'reset_failure_diagnostic_NOT_matching_Q_replay'
                                if args.reset_failure_diagnostics else 'changed_gripper_drive_frozen_probe_NOT_matching_Q_replay'
                                if args.gripper_drive_probe else 'changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
                                if solver_probe else 'background_placement_frozen_probe_NOT_matching_Q_replay'
@@ -415,11 +426,17 @@ def main():
                 Q_import_eligible=not args.base_waypoint_probe),
             episode_layouts=[dict(wave=i,environment=j,**row) for i,w in enumerate(waves) for j,row in enumerate(w['layouts'])])
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
+        if args.grasp_observation_audit:
+            from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_observation_audit import GraspObservationAudit
+            grasp_audit=GraspObservationAudit(env,output)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
             'initialized_physics':initialized_physics,
             'startup_world_frame_probe':world_frame_audit,
             'startup_scene_replication_probe':replication_probe,
+            'initial_layout_guard_storage':'whole_wave_initial_layout_guard_reference_v1',
+            'grasp_observation_audit':dict(enabled=args.grasp_observation_audit,
+                frozen_only=True,Q_import_eligible=False,actor_input_and_physics_unchanged=True),
             'centered_world_probe':dict(enabled=args.centered_world_probe,frozen_only=args.centered_world_probe,
                 Q_import_eligible=not args.centered_world_probe,environment_origins=env.scene.env_origins.tolist()),
             'base_waypoint_probe':dict(enabled=args.base_waypoint_probe,frozen_only=args.base_waypoint_probe,
@@ -519,6 +536,8 @@ def main():
                     neutral_hold_trace_steps=[x['physics_step'] for x in captured['neutral_hold_trace']],
                     normal_contact_trace_steps=[x['physics_step'] for x in captured['neutral_normal_contact_trace']],
                     complete_trace_in_diagnostic_file=True)
+            from kuavo_isaaclab_scene.rl.multi_box.debug.layout_guard_storage import store_layout_guard
+            layout_guard_references=store_layout_guard(output,wave_index,n,layout_guard)
             # An invalid requested case remains a failed attempt in the
             # denominator. Its replacement never supplies a snapshot/action
             # or transition to this layout's replay.
@@ -561,6 +580,7 @@ def main():
                         'box_drop','box_lift_limit','box_speed_limit')},
                     box_pose=g.box_pose_world.clone(),box_velocity=g.box_velocity_world.clone(),
                     logical=g.target_logical_id.clone(),pool=g.target_pool_id.clone())
+                if grasp_audit is not None:grasp_audit.finish(g,s)
                 return result
             env.termination_manager.compute=capture_before_reset
             rollout_start=time.monotonic();wave_rows=0
@@ -581,6 +601,7 @@ def main():
                             action[ids]=command
                         if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                             raise ValueError('Generated and executed jaw projections differ')
+                        if grasp_audit is not None:grasp_audit.prepare(step,pre['policy'],action,active,ids,previous)
                         observation,reward,terminated,truncated,info=env.step(action)
                         active=measured_wave_mask(active,info['transition_numerical_failure'],
                             info.get('transition_numerical_diagnostics',{}),last,step)
@@ -649,7 +670,7 @@ def main():
                 outcomes.append(dict(wave=wave_index,split=wave['split'],environment=i,
                     layout=wave['layouts'][i]['layout'],result=last[i],complete=bool(not active[i]),
                     initial_layout_valid=bool(valid_layout[i]),initial_settling_steps=settled,
-                    initial_layout_guard=layout_guard,executed_transition_rows=len(samples)))
+                    initial_layout_guard=layout_guard_references[i],executed_transition_rows=len(samples)))
             if wave['split']!='train' and updates_before!=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size):
                 raise ValueError('Evaluation modified optimizer counters or replay')
             pilot.training=args.training
@@ -704,6 +725,7 @@ def main():
         (output/'status.json').write_text(json.dumps(dict(status='failed'))+'\n')
         raise
     finally:
+        if grasp_audit:grasp_audit.close()
         if recorder:recorder.close()
         if env:env.close()
         app.close()

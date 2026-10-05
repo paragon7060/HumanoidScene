@@ -1,0 +1,1987 @@
+{
+  "experiment_dir": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/full_grasp_observation_audit_pgs16_gpu0_20261005_171728",
+  "run_dir": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/full_grasp_observation_audit_pgs16_gpu0_20261005_171728/batch_sac_20261005_171728_e3f79c",
+  "diagnostic_selection": true,
+  "independent_FINAL_untouched": true,
+  "cold_N16_not_matched_DEV128_physics_history": true,
+  "actual_policy_and_Q_updates": 0,
+  "by_region": {
+    "shelf_2_left": {
+      "attempts": 4,
+      "valid": 4,
+      "success": 1,
+      "ever_bilateral_within_3cm": 4,
+      "ever_bilateral_pinch": 2
+    },
+    "shelf_2_right": {
+      "attempts": 4,
+      "valid": 4,
+      "success": 2,
+      "ever_bilateral_within_3cm": 4,
+      "ever_bilateral_pinch": 3
+    },
+    "shelf_3_left": {
+      "attempts": 4,
+      "valid": 4,
+      "success": 0,
+      "ever_bilateral_within_3cm": 4,
+      "ever_bilateral_pinch": 0
+    },
+    "shelf_3_right": {
+      "attempts": 4,
+      "valid": 4,
+      "success": 0,
+      "ever_bilateral_within_3cm": 2,
+      "ever_bilateral_pinch": 0
+    }
+  },
+  "unsafe_causes": {
+    "robot_rack_collision": 8,
+    "box_speed_limit": 1
+  },
+  "nominal_actual_center_error_m": {
+    "count": 17040,
+    "p50": 7.76234628574457e-06,
+    "p95": 0.007492033927701403,
+    "max": 0.08495631814002991
+  },
+  "nominal_actual_normal_error_degrees": {
+    "count": 17040,
+    "p50": 0.04423465961263638,
+    "p95": 8.593309442924088,
+    "max": 84.79013228107837
+  },
+  "contact_frames_center_error_m": {
+    "count": 1638,
+    "p50": 7.263603038154542e-05,
+    "p95": 0.029854614846408323,
+    "max": 0.08495631814002991
+  },
+  "contact_frames_normal_error_degrees": {
+    "count": 1638,
+    "p50": 0.08956170593038515,
+    "p95": 34.74094646981533,
+    "max": 84.79013228107837
+  },
+  "close_gate_different_hand_steps": 37,
+  "close_gate_total_hand_steps": 17040,
+  "actor_relation_vs_reward_target_error_max_m": 0.0,
+  "actor_target_disagreement_steps": 0,
+  "cases": [
+    {
+      "environment": 0,
+      "source_environment": 0,
+      "region": "shelf_2_left",
+      "seed": 121000,
+      "previous_DEV128_success": true,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 501,
+        "success": true,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.045470111072063446,
+        "flap_distances": [
+          0.0013116311747580767,
+          0.0
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          12.570127487182617,
+          -11.835687637329102,
+          1.1097668409347534,
+          0.7474578022956848,
+          -0.05574750900268555,
+          -0.07088463753461838,
+          0.6581598520278931
+        ],
+        "box_velocity_world": [
+          0.06656937301158905,
+          0.040057580918073654,
+          0.1550407111644745,
+          0.30509352684020996,
+          -0.3593059778213501,
+          -0.07910555601119995
+        ],
+        "target_logical_id": 4,
+        "target_pool_id": 4,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.266355961561203,
+            0.5832672119140625
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 92,
+          "position_error_m": 0.00010730036592576653,
+          "yaw_error_rad": 0.0006747245788574219,
+          "linear_speed_mps": 0.0007351962849497795,
+          "angular_speed_radps": 0.016455477103590965,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 501,
+      "held_rows": 409,
+      "minimum_worse_hand_surface_distance_m": 0.0007134464103728533,
+      "minimum_surface_distance_by_hand_m": [
+        8.318689651787281e-05,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        true,
+        true
+      ],
+      "bilateral_pinch_steps": 12,
+      "maximum_hold_s": 0.2666666805744171,
+      "actual_flap_center_error_max_m": 0.0011051015462726355,
+      "actual_flap_normal_error_max_degrees": 1.267177035625551,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 818,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 39
+    },
+    {
+      "environment": 1,
+      "source_environment": 1,
+      "region": "shelf_2_right",
+      "seed": 121100,
+      "previous_DEV128_success": true,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 524,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0007807109504938126,
+        "flap_distances": [
+          0.03331056982278824,
+          0.01935628615319729
+        ],
+        "rack_peak_force_n": 67.9823226928711,
+        "rack_peak_body": "zarm_r4_link",
+        "box_pose_world": [
+          12.475716590881348,
+          -4.057737350463867,
+          1.0493279695510864,
+          0.704544186592102,
+          -0.03469003736972809,
+          -0.03536476939916611,
+          0.7079288959503174
+        ],
+        "box_velocity_world": [
+          -0.0036430233158171177,
+          -0.01942276954650879,
+          0.010228865779936314,
+          -0.0764072835445404,
+          -0.16274520754814148,
+          -0.008960099890828133
+        ],
+        "target_logical_id": 1,
+        "target_pool_id": 1,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.5849426984786987,
+            0.5832675695419312
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 95,
+          "position_error_m": 0.0004493905580602586,
+          "yaw_error_rad": 0.0032856466714292765,
+          "linear_speed_mps": 0.003062955103814602,
+          "angular_speed_radps": 0.058112695813179016,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 524,
+      "held_rows": 429,
+      "minimum_worse_hand_surface_distance_m": 0.00036916020326316357,
+      "minimum_surface_distance_by_hand_m": [
+        0.00036916020326316357,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        true,
+        true
+      ],
+      "bilateral_pinch_steps": 1,
+      "maximum_hold_s": 0.03333333507180214,
+      "actual_flap_center_error_max_m": 0.08495631814002991,
+      "actual_flap_normal_error_max_degrees": 82.60377506737895,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 858,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 60
+    },
+    {
+      "environment": 2,
+      "source_environment": 26,
+      "region": "shelf_3_left",
+      "seed": 121206,
+      "previous_DEV128_success": false,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 670,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0062428805977106094,
+        "flap_distances": [
+          0.07650507241487503,
+          0.0628635585308075
+        ],
+        "rack_peak_force_n": 269.4256896972656,
+        "rack_peak_body": "zarm_l4_link",
+        "box_pose_world": [
+          12.588807106018066,
+          4.257752418518066,
+          1.6650508642196655,
+          0.8053386211395264,
+          -0.022567249834537506,
+          -0.011073396541178226,
+          0.5922818779945374
+        ],
+        "box_velocity_world": [
+          0.10596007108688354,
+          0.053671568632125854,
+          -0.06611770391464233,
+          0.6744067668914795,
+          0.5303777456283569,
+          1.1971862316131592
+        ],
+        "target_logical_id": 9,
+        "target_pool_id": 15,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.31237977743148804,
+            0.6255950927734375
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 65,
+          "position_error_m": 0.003730132943019271,
+          "yaw_error_rad": 0.008218169212341309,
+          "linear_speed_mps": 0.06454389542341232,
+          "angular_speed_radps": 0.7245593667030334,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 670,
+      "held_rows": 605,
+      "minimum_worse_hand_surface_distance_m": 0.0002876531798392534,
+      "minimum_surface_distance_by_hand_m": [
+        8.461694233119488e-05,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        true,
+        false
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 0.017672663554549217,
+      "actual_flap_normal_error_max_degrees": 20.357991830701014,
+      "close_gate_different_hand_steps": 3,
+      "close_gate_total_hand_steps": 1210,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 78
+    },
+    {
+      "environment": 3,
+      "source_environment": 35,
+      "region": "shelf_3_right",
+      "seed": 121308,
+      "previous_DEV128_success": false,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 437,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 1.1920928955078125e-07,
+        "flap_distances": [
+          0.08111371099948883,
+          0.026923077180981636
+        ],
+        "rack_peak_force_n": 30.013771057128906,
+        "rack_peak_body": "zarm_r4_link",
+        "box_pose_world": [
+          12.694175720214844,
+          11.942475318908691,
+          1.659179449081421,
+          0.6114503145217896,
+          -0.027513248845934868,
+          -0.035157084465026855,
+          0.7900224328041077
+        ],
+        "box_velocity_world": [
+          8.731827983865514e-05,
+          -5.199904535402311e-06,
+          -0.0001956412597792223,
+          -0.000754120119381696,
+          0.0052061802707612514,
+          0.00033912001526914537
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.6216478943824768,
+            0.6261600255966187
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 74,
+          "position_error_m": 0.0005736276507377625,
+          "yaw_error_rad": 0.0003124475770164281,
+          "linear_speed_mps": 0.010199206881225109,
+          "angular_speed_radps": 0.9239766597747803,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 437,
+      "held_rows": 363,
+      "minimum_worse_hand_surface_distance_m": 0.08111371099948883,
+      "minimum_surface_distance_by_hand_m": [
+        0.08111371099948883,
+        0.0252444539219141
+      ],
+      "ever_bilateral_within_3cm": false,
+      "ever_pinching_by_hand": [
+        false,
+        false
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 2.8689839382423088e-05,
+      "actual_flap_normal_error_max_degrees": 0.06561061040415737,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 726,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 0
+    },
+    {
+      "environment": 4,
+      "source_environment": 42,
+      "region": "shelf_3_left",
+      "seed": 121210,
+      "previous_DEV128_success": false,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 823,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": true,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.9581751227378845e-05,
+        "flap_distances": [
+          0.045574210584163666,
+          0.027800479903817177
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          4.539422988891602,
+          -11.741719245910645,
+          1.6605373620986938,
+          0.7065336108207703,
+          -0.027311934158205986,
+          -0.03531895950436592,
+          0.7062696218490601
+        ],
+        "box_velocity_world": [
+          -1.0928583833447192e-05,
+          1.7885045963339508e-05,
+          -0.00010036914318334311,
+          -0.0007214366341941059,
+          0.002182222902774811,
+          0.00035138175007887185
+        ],
+        "target_logical_id": 9,
+        "target_pool_id": 15,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.30917060375213623,
+            0.6268470883369446
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 54,
+          "position_error_m": 8.539288501197007e-06,
+          "yaw_error_rad": 0.00018548965454101562,
+          "linear_speed_mps": 0.0086154630407691,
+          "angular_speed_radps": 0.8748028874397278,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 823,
+      "held_rows": 769,
+      "minimum_worse_hand_surface_distance_m": 0.011294654570519924,
+      "minimum_surface_distance_by_hand_m": [
+        0.010214900597929955,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        false,
+        true
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 0.007122875191271305,
+      "actual_flap_normal_error_max_degrees": 8.170295337057702,
+      "close_gate_different_hand_steps": 1,
+      "close_gate_total_hand_steps": 1538,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 24
+    },
+    {
+      "environment": 5,
+      "source_environment": 45,
+      "region": "shelf_2_right",
+      "seed": 121111,
+      "previous_DEV128_success": true,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 494,
+        "success": true,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.027034511789679527,
+        "flap_distances": [
+          0.0010177579242736101,
+          0.0
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          4.507819175720215,
+          -4.161958694458008,
+          1.1027283668518066,
+          0.7683857083320618,
+          -0.06050291284918785,
+          -0.10068172961473465,
+          0.629115104675293
+        ],
+        "box_velocity_world": [
+          0.061417922377586365,
+          -0.0039530410431325436,
+          0.1384180337190628,
+          0.3691844046115875,
+          -0.3019706606864929,
+          -0.12208294868469238
+        ],
+        "target_logical_id": 1,
+        "target_pool_id": 1,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.576454758644104,
+            0.5827988386154175
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 84,
+          "position_error_m": 0.00013780668086837977,
+          "yaw_error_rad": 0.0021355152130126953,
+          "linear_speed_mps": 0.002312507713213563,
+          "angular_speed_radps": 0.01846754178404808,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 494,
+      "held_rows": 410,
+      "minimum_worse_hand_surface_distance_m": 0.0008997258264571428,
+      "minimum_surface_distance_by_hand_m": [
+        0.00013885763473808765,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        true,
+        true
+      ],
+      "bilateral_pinch_steps": 12,
+      "maximum_hold_s": 0.2666666805744171,
+      "actual_flap_center_error_max_m": 0.00292532448656857,
+      "actual_flap_normal_error_max_degrees": 3.35310378809934,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 820,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 43
+    },
+    {
+      "environment": 6,
+      "source_environment": 46,
+      "region": "shelf_3_left",
+      "seed": 121211,
+      "previous_DEV128_success": false,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 823,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": true,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0017306897789239883,
+        "flap_distances": [
+          0.030484898015856743,
+          0.015636203810572624
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          4.6127424240112305,
+          4.2116899490356445,
+          1.674757957458496,
+          0.666418731212616,
+          -0.009340361692011356,
+          -0.009561154991388321,
+          0.7454577684402466
+        ],
+        "box_velocity_world": [
+          0.003759873565286398,
+          -0.00031407715869136155,
+          -0.006926016882061958,
+          0.04660385474562645,
+          -0.041834063827991486,
+          -0.013633914291858673
+        ],
+        "target_logical_id": 9,
+        "target_pool_id": 15,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.32214832305908203,
+            0.6265218257904053
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 67,
+          "position_error_m": 1.1820707186416257e-05,
+          "yaw_error_rad": 7.510185241699219e-06,
+          "linear_speed_mps": 0.00895385816693306,
+          "angular_speed_radps": 0.8644692897796631,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 823,
+      "held_rows": 756,
+      "minimum_worse_hand_surface_distance_m": 0.012046989053487778,
+      "minimum_surface_distance_by_hand_m": [
+        0.007211505901068449,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        false,
+        true
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 0.004199057351797819,
+      "actual_flap_normal_error_max_degrees": 4.8136910770087304,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 1512,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 17
+    },
+    {
+      "environment": 7,
+      "source_environment": 48,
+      "region": "shelf_2_left",
+      "seed": 121012,
+      "previous_DEV128_success": true,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 823,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": true,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": true,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.31336700916290283,
+        "flap_distances": [
+          0.22138366103172302,
+          0.15727747976779938
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          4.116068363189697,
+          11.754036903381348,
+          1.3891898393630981,
+          0.6473845839500427,
+          -0.19302791357040405,
+          0.12022732198238373,
+          0.7274467349052429
+        ],
+        "box_velocity_world": [
+          0.0003863152232952416,
+          0.006770631764084101,
+          -0.00022960753994993865,
+          -0.0729617029428482,
+          -0.2409346103668213,
+          0.08514504134654999
+        ],
+        "target_logical_id": 4,
+        "target_pool_id": 4,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.2714731991291046,
+            0.5832668542861938
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 112,
+          "position_error_m": 2.1994679627823643e-05,
+          "yaw_error_rad": 1.3947486877441406e-05,
+          "linear_speed_mps": 0.007023152895271778,
+          "angular_speed_radps": 0.5852411985397339,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 823,
+      "held_rows": 711,
+      "minimum_worse_hand_surface_distance_m": 0.00033584493212401867,
+      "minimum_surface_distance_by_hand_m": [
+        7.654307410120964e-06,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        true,
+        true
+      ],
+      "bilateral_pinch_steps": 2,
+      "maximum_hold_s": 0.03333333507180214,
+      "actual_flap_center_error_max_m": 0.05992487818002701,
+      "actual_flap_normal_error_max_degrees": 73.63275189448491,
+      "close_gate_different_hand_steps": 3,
+      "close_gate_total_hand_steps": 1422,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 40
+    },
+    {
+      "environment": 8,
+      "source_environment": 49,
+      "region": "shelf_2_right",
+      "seed": 121112,
+      "previous_DEV128_success": true,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 497,
+        "success": true,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.027983179315924644,
+        "flap_distances": [
+          0.0023170250933617353,
+          0.0012837618123739958
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          -3.516371011734009,
+          -12.124968528747559,
+          1.0999996662139893,
+          0.6946126818656921,
+          -0.03916428983211517,
+          -0.0915454849600792,
+          0.7124595642089844
+        ],
+        "box_velocity_world": [
+          0.028491714969277382,
+          -0.0616639144718647,
+          0.09733301401138306,
+          0.22304508090019226,
+          -0.05374801531434059,
+          -0.10642140358686447
+        ],
+        "target_logical_id": 1,
+        "target_pool_id": 1,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.5779291391372681,
+            0.5824142098426819
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 86,
+          "position_error_m": 0.0005811676965095103,
+          "yaw_error_rad": 0.005191326141357422,
+          "linear_speed_mps": 0.0030603669583797455,
+          "angular_speed_radps": 0.012603444047272205,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 497,
+      "held_rows": 411,
+      "minimum_worse_hand_surface_distance_m": 4.3875304982066154e-05,
+      "minimum_surface_distance_by_hand_m": [
+        4.3875304982066154e-05,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        true,
+        true
+      ],
+      "bilateral_pinch_steps": 11,
+      "maximum_hold_s": 0.2666666805744171,
+      "actual_flap_center_error_max_m": 0.004164993762969971,
+      "actual_flap_normal_error_max_degrees": 4.774257833609308,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 822,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 41
+    },
+    {
+      "environment": 9,
+      "source_environment": 51,
+      "region": "shelf_3_right",
+      "seed": 121312,
+      "previous_DEV128_success": false,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 823,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": true,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.220435559749603e-05,
+        "flap_distances": [
+          0.062204062938690186,
+          0.007151896134018898
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          -3.5442054271698,
+          -4.119650363922119,
+          1.662335991859436,
+          0.8288025856018066,
+          -0.027529317885637283,
+          -0.03513714671134949,
+          0.5577577352523804
+        ],
+        "box_velocity_world": [
+          9.27191194932675e-06,
+          2.604316614451818e-05,
+          -0.00012822699500247836,
+          -0.000332947529386729,
+          0.002780603477731347,
+          0.00039559416472911835
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.621700644493103,
+            0.6254355311393738
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 77,
+          "position_error_m": 3.923643089365214e-05,
+          "yaw_error_rad": 9.298324584960938e-06,
+          "linear_speed_mps": 0.008998752571642399,
+          "angular_speed_radps": 0.824300229549408,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 823,
+      "held_rows": 746,
+      "minimum_worse_hand_surface_distance_m": 0.00988789089024067,
+      "minimum_surface_distance_by_hand_m": [
+        0.00032943603582680225,
+        1.395377330482006e-05
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        false,
+        false
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 0.0003539854660630226,
+      "actual_flap_normal_error_max_degrees": 0.4063823284331542,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 1492,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 101
+    },
+    {
+      "environment": 10,
+      "source_environment": 52,
+      "region": "shelf_2_left",
+      "seed": 121013,
+      "previous_DEV128_success": true,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 680,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0041861627250909805,
+        "flap_distances": [
+          0.04831784963607788,
+          0.6822932362556458
+        ],
+        "rack_peak_force_n": 225.83151245117188,
+        "rack_peak_body": "zarm_l4_link",
+        "box_pose_world": [
+          -3.295231580734253,
+          4.031542778015137,
+          1.1982901096343994,
+          0.6364730000495911,
+          -0.309442937374115,
+          -0.5500355958938599,
+          0.4434050917625427
+        ],
+        "box_velocity_world": [
+          0.42013683915138245,
+          -0.1391451060771942,
+          0.07431187480688095,
+          1.3503884077072144,
+          0.6551311016082764,
+          -1.4152940511703491
+        ],
+        "target_logical_id": 4,
+        "target_pool_id": 4,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.2632945775985718,
+            0.5830309987068176
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 76,
+          "position_error_m": 0.0012000490678474307,
+          "yaw_error_rad": 0.0011477470397949219,
+          "linear_speed_mps": 0.03391951322555542,
+          "angular_speed_radps": 0.7574352025985718,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 680,
+      "held_rows": 604,
+      "minimum_worse_hand_surface_distance_m": 0.01137359905987978,
+      "minimum_surface_distance_by_hand_m": [
+        2.4608103558421135e-05,
+        0.004581055603921413
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        true,
+        false
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 0.06742385029792786,
+      "actual_flap_normal_error_max_degrees": 84.79013228107837,
+      "close_gate_different_hand_steps": 30,
+      "close_gate_total_hand_steps": 1208,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 169
+    },
+    {
+      "environment": 11,
+      "source_environment": 59,
+      "region": "shelf_3_right",
+      "seed": 121314,
+      "previous_DEV128_success": false,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 436,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -1.1920928955078125e-07,
+        "flap_distances": [
+          0.093882255256176,
+          0.015414194203913212
+        ],
+        "rack_peak_force_n": 77.60902404785156,
+        "rack_peak_body": "zarm_r4_link",
+        "box_pose_world": [
+          -3.287994861602783,
+          11.858412742614746,
+          1.6591334342956543,
+          0.6168320775032043,
+          -0.02761957235634327,
+          -0.03508254513144493,
+          0.7858272790908813
+        ],
+        "box_velocity_world": [
+          -4.948160130879842e-05,
+          -6.082808249630034e-05,
+          -0.00016644953575450927,
+          -0.00022486237867269665,
+          0.005431361962109804,
+          -0.0006958380690775812
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.625436007976532,
+            0.6266677379608154
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 75,
+          "position_error_m": 0.0005810281145386398,
+          "yaw_error_rad": 0.000351190596120432,
+          "linear_speed_mps": 0.010062554851174355,
+          "angular_speed_radps": 0.9232206344604492,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 436,
+      "held_rows": 361,
+      "minimum_worse_hand_surface_distance_m": 0.093882255256176,
+      "minimum_surface_distance_by_hand_m": [
+        0.093882255256176,
+        0.015414194203913212
+      ],
+      "ever_bilateral_within_3cm": false,
+      "ever_pinching_by_hand": [
+        false,
+        false
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 3.140005355817266e-05,
+      "actual_flap_normal_error_max_degrees": 0.06255725571100383,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 722,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 0
+    },
+    {
+      "environment": 12,
+      "source_environment": 62,
+      "region": "shelf_3_left",
+      "seed": 121215,
+      "previous_DEV128_success": true,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 657,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.041830308735370636,
+        "flap_distances": [
+          0.14973896741867065,
+          0.05894007533788681
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          -11.371134757995605,
+          -11.775732040405273,
+          1.739646077156067,
+          0.7394591569900513,
+          0.2424781769514084,
+          0.382811576128006,
+          0.4978550672531128
+        ],
+        "box_velocity_world": [
+          13.264690399169922,
+          3.1755080223083496,
+          -7.625315189361572,
+          -246.68978881835938,
+          147.91119384765625,
+          -138.92991638183594
+        ],
+        "target_logical_id": 9,
+        "target_pool_id": 15,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": true
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.3145892024040222,
+            0.6248798370361328
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 60,
+          "position_error_m": 0.0029363620560616255,
+          "yaw_error_rad": 0.0017768144607543945,
+          "linear_speed_mps": 0.011550238355994225,
+          "angular_speed_radps": 0.9768081307411194,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 657,
+      "held_rows": 597,
+      "minimum_worse_hand_surface_distance_m": 0.002828209428116679,
+      "minimum_surface_distance_by_hand_m": [
+        0.00014952593483030796,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        false,
+        true
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 0.018068265169858932,
+      "actual_flap_normal_error_max_degrees": 20.81912180723067,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 1194,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 92
+    },
+    {
+      "environment": 13,
+      "source_environment": 72,
+      "region": "shelf_2_left",
+      "seed": 121018,
+      "previous_DEV128_success": false,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 598,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.03357113152742386,
+        "flap_distances": [
+          0.06108648329973221,
+          0.24434340000152588
+        ],
+        "rack_peak_force_n": 54.42229080200195,
+        "rack_peak_body": "r_twofinger_base",
+        "box_pose_world": [
+          -11.503140449523926,
+          -3.8118014335632324,
+          1.0475995540618896,
+          0.6563643217086792,
+          -0.12057312577962875,
+          0.04285677149891853,
+          0.7435126900672913
+        ],
+        "box_velocity_world": [
+          0.010553731583058834,
+          -0.08357299119234085,
+          0.012904229573905468,
+          -0.6175944209098816,
+          0.4547158479690552,
+          -0.04926777258515358
+        ],
+        "target_logical_id": 4,
+        "target_pool_id": 4,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.26746678352355957,
+            0.5821468830108643
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 113,
+          "position_error_m": 0.0019552314188331366,
+          "yaw_error_rad": 0.002586841583251953,
+          "linear_speed_mps": 0.013331578113138676,
+          "angular_speed_radps": 0.007460856810212135,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 598,
+      "held_rows": 485,
+      "minimum_worse_hand_surface_distance_m": 0.0009288128931075335,
+      "minimum_surface_distance_by_hand_m": [
+        7.534143514931202e-05,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        true,
+        false
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 0.00914118904620409,
+      "actual_flap_normal_error_max_degrees": 10.489706343336264,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 970,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 31
+    },
+    {
+      "environment": 14,
+      "source_environment": 91,
+      "region": "shelf_3_right",
+      "seed": 121322,
+      "previous_DEV128_success": true,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 505,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -7.331371307373047e-05,
+        "flap_distances": [
+          0.025197656825184822,
+          0.038334522396326065
+        ],
+        "rack_peak_force_n": 13.293468475341797,
+        "rack_peak_body": "r_twofinger_base",
+        "box_pose_world": [
+          -11.448909759521484,
+          3.949842929840088,
+          1.659116506576538,
+          0.616893470287323,
+          -0.02755345217883587,
+          -0.03509454056620598,
+          0.7857807874679565
+        ],
+        "box_velocity_world": [
+          6.05320155955269e-06,
+          -5.704377599613508e-06,
+          -2.1685620595235378e-05,
+          3.699028820847161e-05,
+          0.0005486981244757771,
+          1.4980731975811068e-05
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.6231878399848938,
+            0.6260314583778381
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 77,
+          "position_error_m": 0.0015371869085356593,
+          "yaw_error_rad": 0.001719832420349121,
+          "linear_speed_mps": 0.013846195302903652,
+          "angular_speed_radps": 0.8104757070541382,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 505,
+      "held_rows": 428,
+      "minimum_worse_hand_surface_distance_m": 0.014012073166668415,
+      "minimum_surface_distance_by_hand_m": [
+        0.01051614060997963,
+        0.0
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        false,
+        true
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 0.0009534911368973553,
+      "actual_flap_normal_error_max_degrees": 1.0928901380789835,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 856,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 61
+    },
+    {
+      "environment": 15,
+      "source_environment": 125,
+      "region": "shelf_2_right",
+      "seed": 121131,
+      "previous_DEV128_success": true,
+      "initial_valid": true,
+      "outcome": {
+        "steps": 536,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.018399247899651527,
+        "flap_distances": [
+          0.036237746477127075,
+          0.05376860126852989
+        ],
+        "rack_peak_force_n": 57.89754867553711,
+        "rack_peak_body": "zarm_r4_link",
+        "box_pose_world": [
+          -11.561323165893555,
+          11.769322395324707,
+          1.073928713798523,
+          0.7808058261871338,
+          0.008919164538383484,
+          -0.1585477888584137,
+          0.6042559146881104
+        ],
+        "box_velocity_world": [
+          -0.02640548162162304,
+          0.035605598241090775,
+          0.12574779987335205,
+          0.8340405225753784,
+          -0.9742416739463806,
+          0.12578244507312775
+        ],
+        "target_logical_id": 1,
+        "target_pool_id": 1,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.5663639903068542,
+            0.5827018618583679
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 100,
+          "position_error_m": 0.0013733247760683298,
+          "yaw_error_rad": 0.010623812675476074,
+          "linear_speed_mps": 0.0065035284496843815,
+          "angular_speed_radps": 0.035476233810186386,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        }
+      },
+      "measured_rows": 536,
+      "held_rows": 436,
+      "minimum_worse_hand_surface_distance_m": 0.008734983392059803,
+      "minimum_surface_distance_by_hand_m": [
+        0.00024398532696068287,
+        3.7609366700053215e-05
+      ],
+      "ever_bilateral_within_3cm": true,
+      "ever_pinching_by_hand": [
+        true,
+        false
+      ],
+      "bilateral_pinch_steps": 0,
+      "maximum_hold_s": 0.0,
+      "actual_flap_center_error_max_m": 0.039676252752542496,
+      "actual_flap_normal_error_max_degrees": 46.751743283766835,
+      "close_gate_different_hand_steps": 0,
+      "close_gate_total_hand_steps": 872,
+      "actual_assignment_disagreement_steps": 0,
+      "actor_relation_vs_reward_target_error_max_m": 0.0,
+      "actor_target_disagreement_steps": 0,
+      "force_on_any_pad_steps": 23
+    }
+  ],
+  "runtime_verification": {
+    "training_exit_code": 0,
+    "final_upload_verified": true,
+    "writer_stopped_at": "2026-10-05T17:29:50.138119+09:00",
+    "source_checkpoint_MD5": "f6e8e8fdcb22573af2922e088ff4de78"
+  },
+  "source_code_SHA256": {
+    "scripts/rl/train_batched_staged_goal.py": "627c2b6993b92a0ded5c6db633bd5ec42dd6dc9f21743454637dc122cf40ebe4",
+    "scripts/rl/reference_residual_with_drive.py": "3e4139dd4d2ec77151edc5f9670f94da4fe257c9c2acb241ac4c5219d3559dfb",
+    "src/kuavo_isaaclab_scene/rl/multi_box/debug/grasp_observation_audit.py": "3bfdf58af49d5a5e11fa75e8e6be410f04044d670cb56cbced74d511d7d9892b"
+  }
+}
