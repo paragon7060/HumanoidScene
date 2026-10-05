@@ -130,6 +130,12 @@ class HybridGoalSAC(AsymmetricSAC):
     def success_body_loss(self,raw,requested_body,labels):
         return F.mse_loss(requested_body,labels[:,:19])
 
+    def successful_jaw_loss(self, raw, logits, labels):
+        near = self.action_projector.entropy_mask(raw)[:,19:21].bool()
+        loss = (F.binary_cross_entropy_with_logits(logits[near], (labels[:,19:21][near]+1)/2)
+                if bool(near.any()) else logits.new_zeros(()))
+        return loss, {}
+
     def actor_jaw_regularization(self, logits, near):
         """Optional subclass objective; ordinary hybrid SAC stays unchanged."""
         return None
@@ -242,9 +248,8 @@ class HybridGoalSAC(AsymmetricSAC):
                 raw=successful_train['actor_obs'];normalized=self.actor_normalizer(self.actor_features(raw))
                 mean,_,jaw_logits=self.parameters_at(normalized);labels=successful_train['action']
                 success_goal_loss=self.success_body_loss(raw,mean.tanh(),labels)
-                success_near=self.action_projector.entropy_mask(raw)[:,19:21].bool()
-                if bool(success_near.any()):
-                    success_jaw_loss=F.binary_cross_entropy_with_logits(jaw_logits[success_near],(labels[:,19:21][success_near]+1)/2)
+                success_jaw_loss, success_jaw_statistics = self.successful_jaw_loss(raw, jaw_logits, labels)
+                report.update(success_jaw_statistics)
                 actor_loss+=success_goal_weight*success_goal_loss+success_jaw_weight*success_jaw_loss
             regularization = self.actor_jaw_regularization(logits, near)
             if regularization is not None:

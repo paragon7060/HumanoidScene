@@ -36,6 +36,15 @@ class AbsoluteGoalJawProjector:
 
 
 class BoundedCorrectionHybridSAC(HybridGoalSAC):
+    def successful_jaw_loss(self, raw, logits, labels):
+        config = getattr(self, 'success_jaw_balance_config', None)
+        if config is None:
+            return super().successful_jaw_loss(raw, logits, labels)
+        from .success_jaw_balance import balanced_success_jaw_loss
+        near = self.action_projector.entropy_mask(raw)[:,19:21].bool()
+        return balanced_success_jaw_loss(logits, near, labels[:,19:21],
+            raw[:,94:98].argmax(-1), config)
+
     def actor_jaw_regularization(self, logits, near):
         config = getattr(self, 'jaw_saturation_config', None)
         if config is None:
@@ -112,7 +121,8 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
     correction_radius=.15
 
     def __init__(self,*args,body_anchor_state=None,checkpoint=None,device='cpu',
-                 measured_train_credit=None,jaw_behavior=None,jaw_saturation=None,**kwargs):
+                 measured_train_credit=None,jaw_behavior=None,jaw_saturation=None,
+                 success_jaw_balance=None,**kwargs):
         saved=torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
         if saved is not None and saved.get('artifact_type')!=self.artifact_type:
             raise ValueError('Old observation/control replay cannot resume an actual-flap correction learner')
@@ -160,6 +170,18 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         self.jaw_saturation_origin = deepcopy(saved.get('jaw_saturation_origin')) if stored_saturation else None
         if stored_saturation is not None and not isinstance(self.jaw_saturation_origin, dict):
             raise ValueError('Saved jaw saturation penalty origin is missing')
+        from .success_jaw_balance import success_jaw_balance_config, VARIANT as BALANCE_VARIANT
+        stored_balance = saved.get('success_jaw_balance') if saved else None
+        if stored_balance is not None and stored_balance != success_jaw_balance_config(BALANCE_VARIANT):
+            raise ValueError('Saved successful TRAIN jaw balance configuration differs')
+        requested_balance = success_jaw_balance_config(success_jaw_balance)
+        if stored_balance is not None and success_jaw_balance is not None and requested_balance != stored_balance:
+            raise ValueError('Requested successful TRAIN jaw balance differs from checkpoint')
+        self.success_jaw_balance = deepcopy(stored_balance if stored_balance is not None else requested_balance)
+        self._saved_success_jaw_balance = stored_balance
+        self.success_jaw_balance_origin = deepcopy(saved.get('success_jaw_balance_origin')) if stored_balance else None
+        if stored_balance is not None and not isinstance(self.success_jaw_balance_origin, dict):
+            raise ValueError('Saved successful TRAIN jaw balance origin is missing')
         if not checkpoint:
             # Defaults are specific to this opt-in contract. Existing pilot
             # construction and all ordinary RL settings remain unchanged.
@@ -171,6 +193,13 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
                 raise ValueError('Correction controller requires its explicit independent-jaw/frozen-anchor contract')
             kwargs.update(required)
         super().__init__(*args,checkpoint=checkpoint,device=device,**kwargs)
+        if self.success_jaw_balance is not None and self.success_jaw_balance_origin is None:
+            self.success_jaw_balance_origin = dict(source_checkpoint=str(checkpoint) if checkpoint else None,
+                actor_updates_at_activation=self.actor_updates,critic_updates_at_activation=self.critic_updates,
+                old_replay_rows_at_activation=self.replay.size,
+                model_Q_normalizers_and_four_optimizer_states_kept=True,
+                actual_success_labels_body_loss_and_Q_replay_kept=True,
+                scope='future_real_TRAIN_successful_jaw_NLL_updates')
         if self.jaw_saturation is not None and self.jaw_saturation_origin is None:
             self.jaw_saturation_origin = dict(source_checkpoint=str(checkpoint) if checkpoint else None,
                 actor_updates_at_activation=self.actor_updates,critic_updates_at_activation=self.critic_updates,
@@ -248,6 +277,7 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
                 self.agent.config.gamma, self.measured_train_credit)
         self.agent.measured_train_credit_enabled = self.measured_train_credit is not None
         self.agent.jaw_saturation_config = self.jaw_saturation
+        self.agent.success_jaw_balance_config = self.success_jaw_balance
         with torch.no_grad():
             old=self.body_anchor['actor'].state_dict();new=self.agent.actor.state_dict()
             prefix=self.warm_start.actor_dim
@@ -296,6 +326,9 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def checkpoint_extras(self):
         result = dict(body_anchor_state=self.body_anchor_state)
+        if self.success_jaw_balance is not None:
+            result.update(success_jaw_balance=self.success_jaw_balance,
+                success_jaw_balance_origin=self.success_jaw_balance_origin)
         if self.jaw_saturation is not None:
             result.update(jaw_saturation=self.jaw_saturation,jaw_saturation_origin=self.jaw_saturation_origin)
         if self.jaw_behavior is not None:
@@ -307,6 +340,10 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         return result
 
     def restore_experience_extras(self, state):
+        if state.get('success_jaw_balance') != self._saved_success_jaw_balance:
+            raise ValueError('Successful TRAIN jaw balance checkpoint/replay provenance differs')
+        if self._saved_success_jaw_balance is not None and state.get('success_jaw_balance_origin') != self.success_jaw_balance_origin:
+            raise ValueError('Successful TRAIN jaw balance replay origin differs')
         if state.get('jaw_saturation') != self._saved_jaw_saturation:
             raise ValueError('Jaw saturation checkpoint/replay provenance differs')
         if self._saved_jaw_saturation is not None and state.get('jaw_saturation_origin') != self.jaw_saturation_origin:
@@ -323,6 +360,9 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def experience_extras(self):
         result = {}
+        if self.success_jaw_balance is not None:
+            result.update(success_jaw_balance=self.success_jaw_balance,
+                success_jaw_balance_origin=self.success_jaw_balance_origin)
         if self.jaw_saturation is not None:
             result.update(jaw_saturation=self.jaw_saturation,jaw_saturation_origin=self.jaw_saturation_origin)
         if self.jaw_behavior is not None:
@@ -348,6 +388,9 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def report(self):
         result = super().report()
+        if self.success_jaw_balance is not None:
+            result.update(success_jaw_balance=self.success_jaw_balance,
+                success_jaw_balance_origin=self.success_jaw_balance_origin)
         if self.jaw_saturation is not None:
             result.update(jaw_saturation=self.jaw_saturation,jaw_saturation_origin=self.jaw_saturation_origin)
         if self.jaw_behavior is not None:

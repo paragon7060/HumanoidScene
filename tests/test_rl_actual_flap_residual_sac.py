@@ -111,6 +111,39 @@ def test_new_replay_terminal_supplement_and_resume_remain_under_new_contract(tmp
         ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad',stage,checkpoint=next(old.directory.glob('checkpoint_*.pt')))
 
 
+def test_success_jaw_balance_preserves_model_replay_and_frozen_action_then_restores(tmp_path):
+    _,old,warm,physical,stage,_=pilots(tmp_path)
+    raw=torch.zeros(64,464);raw[:,144]=1;critic=torch.zeros(64,530);extra=torch.zeros(64,38)
+    previous=old.act(raw,critic,0,supplemental=extra)[1]
+    old.observe(previous,raw,critic,torch.ones(64),torch.ones(64,dtype=torch.bool),0,supplemental=extra)
+    old.directory.mkdir();old.save(final=True)
+    checkpoint=next(old.directory.glob('checkpoint_*.pt'))
+    new=ActualFlapResidualSACPilot(warm,physical,tmp_path/'balanced',stage,
+        checkpoint=checkpoint,success_jaw_balance='region-hand-class')
+    assert new.contract==old.contract and new.replay.size==old.replay.size==64
+    for key,value in old.agent.state_dict().items():assert torch.equal(value,new.agent.state_dict()[key])
+    for key,value in old.replay.data.items():assert torch.equal(value[:64],new.replay.data[key][:64])
+    for before,after in zip(old.agent.optimizers,new.agent.optimizers):
+        b,a=before.state_dict(),after.state_dict()
+        assert b['param_groups']==a['param_groups'] and b['state'].keys()==a['state'].keys()
+        for pid,values in b['state'].items():
+            for key,value in values.items():
+                assert torch.equal(value,a['state'][pid][key]) if isinstance(value,torch.Tensor) else value==a['state'][pid][key]
+    new.anchor=old.anchor;new.training=old.training=False
+    assert torch.equal(new.act(raw,critic,0,supplemental=extra)[0],old.act(raw,critic,0,supplemental=extra)[0])
+    new.directory.mkdir();new.save(final=True);saved=next(new.directory.glob('checkpoint_*.pt'))
+    restored=ActualFlapResidualSACPilot(warm,physical,tmp_path/'restored_balance',stage,checkpoint=saved)
+    assert restored.success_jaw_balance==new.success_jaw_balance
+    assert restored.success_jaw_balance_origin==new.success_jaw_balance_origin
+    assert restored.agent.success_jaw_balance_config==new.success_jaw_balance
+    with pytest.raises(ValueError,match='differs from checkpoint'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_balance',stage,checkpoint=saved,success_jaw_balance='off')
+    experience=saved.parent/'staged_goal_experience.pt'
+    state=torch.load(experience,weights_only=True);state.pop('success_jaw_balance_origin');torch.save(state,experience)
+    with pytest.raises(ValueError,match='replay origin'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_balance_provenance',stage,checkpoint=saved)
+
+
 def test_actual_midpoint_relations_track_panel_rotation_and_mask_invalid_pose():
     panels=torch.zeros(2,2,7);panels[:,:,3]=1
     tcp=panels.clone();tcp[:,:,:3]=.1

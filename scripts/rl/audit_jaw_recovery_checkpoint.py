@@ -146,6 +146,7 @@ def main():
         results.append(dict(checkpoint_basename=path.name,checkpoint_bytes=len(payload),
             checkpoint_SHA256=hashlib.sha256(payload).hexdigest(),actor_updates=state['actor_updates'],
             critic_updates=state['critic_updates'],jaw_saturation=state.get('jaw_saturation'),
+            success_jaw_balance=state.get('success_jaw_balance'),
             jaw_behavior=state.get('jaw_behavior'),
             latest_actor_update_metrics=state.get('latest_actor_metrics',{}),
             latest_actor_metrics_may_predate_checkpoint_Q_update=True,
