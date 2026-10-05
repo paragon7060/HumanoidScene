@@ -12,11 +12,14 @@ from .perception import PerceptionFrame, simulated_perception_frame
 class IsaacScenePerceptionAdapter:
     """Use simulator truth temporarily, behind a replaceable perception API."""
 
-    def __init__(self, env):
+    def __init__(self, env, *, flap_pose_source=None):
         self.env = env
         self.asset_names = physical_asset_names()
         self.flap_ids = self.flap_centers = None
-        if env.cfg.multi_box.flap_pose_source == "articulated":
+        source=env.cfg.multi_box.flap_pose_source if flap_pose_source is None else flap_pose_source
+        if source not in ('nominal','articulated'):
+            raise ValueError('Unknown perceived flap pose source')
+        if source == "articulated":
             # Static asset geometry only. No privileged grasp/contact adapter
             # is imported by this replaceable perception source.
             from ...scenes.asset_geometry import box_geometry

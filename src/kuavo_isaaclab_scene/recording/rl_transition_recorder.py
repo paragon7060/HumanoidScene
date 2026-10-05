@@ -21,6 +21,11 @@ class RlTransitionRecorder:
 
     def __init__(self, path: str | Path, manifest: dict):
         self.manifest = dict(manifest)
+        supplemental=self.manifest.get('supplemental_actor_obs_dim',0)
+        if type(supplemental)!=int or supplemental<0:
+            raise ValueError('Supplemental actor observation width must be a nonnegative integer')
+        self.transition_fields=TRANSITION_FIELDS+(
+            ('actor_supplemental','next_actor_supplemental') if supplemental else ())
         self.path = Path(path).expanduser().resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.file = h5py.File(self.path, "x")
@@ -59,8 +64,8 @@ class RlTransitionRecorder:
     def _validated_values(self, sample: dict) -> dict:
         if self.episode is None:
             raise RuntimeError("Start an RL episode before appending")
-        missing = set(TRANSITION_FIELDS) - sample.keys()
-        extra = sample.keys() - set(TRANSITION_FIELDS)
+        missing = set(self.transition_fields) - sample.keys()
+        extra = sample.keys() - set(self.transition_fields)
         if missing or extra:
             raise ValueError(f"RL transition fields mismatch: missing={missing}, extra={extra}")
         for name, dimension in (
@@ -73,8 +78,13 @@ class RlTransitionRecorder:
             expected = self.manifest.get(dimension)
             if expected is not None and np.shape(sample[name]) != (expected,):
                 raise ValueError(f"RL transition {name} must have shape ({expected},)")
+        if self.manifest.get('supplemental_actor_obs_dim'):
+            for name in ('actor_supplemental','next_actor_supplemental'):
+                if np.shape(sample[name])!=(self.manifest['supplemental_actor_obs_dim'],) \
+                        or not np.isfinite(sample[name]).all():
+                    raise ValueError('Supplemental perception needs aligned finite declared-width rows')
         result = {}
-        for name in TRANSITION_FIELDS:
+        for name in self.transition_fields:
             value = np.asarray(sample[name])
             if not np.issubdtype(value.dtype, np.number) and value.dtype != np.bool_:
                 raise TypeError(f"RL transition {name} must be numeric")
@@ -111,7 +121,7 @@ class RlTransitionRecorder:
             return
         group = self.episode["transitions"]
         arrays = {}
-        for name in TRANSITION_FIELDS:
+        for name in self.transition_fields:
             shape = values[0][name].shape
             if any(value[name].shape != shape for value in values):
                 raise ValueError(f"RL transition {name} changed shape")

@@ -186,9 +186,13 @@ def observe_measured_held_rows(pilot,stages,ids,previous,terminal,reward,termina
     valid_ids=ids[keep]
     pilot.stage=stages.held_context(valid_ids)
     pilot.anchor=stages.anchors[valid_ids].clone()
+    options={}
+    if getattr(pilot,'supplemental_observation_dim',0):
+        from ..observations.flap_supplement import SUPPLEMENTAL_GROUP
+        options['supplemental']=terminal[SUPPLEMENTAL_GROUP][valid_ids]
     pilot.observe(tuple(v[keep] for v in previous),terminal['policy'][valid_ids],
         torch.cat((terminal['policy'],terminal['critic']),-1)[valid_ids],
-        reward[valid_ids],terminated[valid_ids],clocks[keep])
+        reward[valid_ids],terminated[valid_ids],clocks[keep],**options)
     return len(valid_ids)
 
 
@@ -314,6 +318,8 @@ def restore_batched_inferred_scene(env,actors,*,capture_reset_diagnostics=False,
             asset.write_root_state_to_sim(state,env_ids=selected)
     env._multi_box_counts[:]=env._multi_box_active.sum(-1)
     env._multi_box_grasp_target_override=actors[:,400:412].argmax(-1)
+    from ..scene.flap_dynamics import randomize_flap_dynamics
+    randomize_flap_dynamics(env,ids)
     refresh_teleported_articulations(env,assets,ids)
     env.sim.forward();env.scene.update(env.step_dt)
     env._refresh_robot_kinematics()

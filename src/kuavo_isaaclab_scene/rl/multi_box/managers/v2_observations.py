@@ -127,6 +127,32 @@ class PrivilegedGraspObservation(ManagerTermBase):
         return result
 
 
+class ActualFlapRelationsObservation(ManagerTermBase):
+    """Optional perception only; do not step the nominal target-selection runtime."""
+    def __init__(self,cfg,env):
+        super().__init__(cfg,env)
+        self.perception=self.robot=None
+
+    def __call__(self,env):
+        from ..observations.flap_supplement import actual_flap_relations,SUPPLEMENTAL_DIM
+        if not hasattr(env,'_multi_box_active') or not hasattr(env,'_multi_box_deployable_step'):
+            return torch.zeros(env.num_envs,SUPPLEMENTAL_DIM,device=env.device)
+        if self.perception is None:
+            from ..state.isaac_perception import IsaacScenePerceptionAdapter
+            from ..state.isaac_robot_proprio import IsaacRobotProprioAdapter
+            self.perception=IsaacScenePerceptionAdapter(env,flap_pose_source='articulated')
+            self.robot=IsaacRobotProprioAdapter(env)
+        boxes=self.perception.read().boxes
+        # This is the nominal runtime's locked logical target, not a second
+        # selector or the privileged reward assignment.
+        target=env._multi_box_deployable_step.actor_observation.target_box
+        rows=torch.arange(env.num_envs,device=target.device);ids=target.clamp(0,11)
+        valid=(target>=0)&(target<12)&boxes.active[rows,ids] \
+            &(boxes.pose_confidence[rows,ids]>0)&(boxes.flap_pose_confidence[rows,ids]>0).all(-1)
+        return actual_flap_relations(boxes.flap_pose_world[rows,ids],boxes.size_m[rows,ids],
+            boxes.box_type_id[rows,ids],self.robot.read().tcp_pose_world,valid)
+
+
 @configclass
 class V2PolicyCfg(ObservationGroupCfg):
     actor = Term(func=DeployableActorObservation)
@@ -143,6 +169,15 @@ class V2CriticCfg(ObservationGroupCfg):
     def __post_init__(self):
         self.concatenate_terms = True
         self.enable_corruption = False
+
+
+@configclass
+class ActualFlapRelationsCfg(ObservationGroupCfg):
+    relations=Term(func=ActualFlapRelationsObservation)
+
+    def __post_init__(self):
+        self.concatenate_terms=True
+        self.enable_corruption=False
 
 
 @configclass

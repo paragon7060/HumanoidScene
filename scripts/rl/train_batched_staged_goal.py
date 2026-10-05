@@ -208,6 +208,15 @@ def main():
             configured_reward_weights,frozen_actor_reward_contract,learning_termination_mask)
         reward_weights=configured_reward_weights(contract['reward_profile'])
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
+        from kuavo_isaaclab_scene.rl.multi_box.observations.flap_supplement import (
+            SUPPLEMENTAL_GROUP,SUPPLEMENTAL_DIM,supplemental_perception_contract)
+        supplemental=contract.get('supplemental_perception')
+        if supplemental is not None:
+            if supplemental!=supplemental_perception_contract():raise ValueError('Unknown supplemental perception contract')
+            from kuavo_isaaclab_scene.rl.multi_box.managers.v2_observations import ActualFlapRelationsCfg
+            setattr(cfg.observations,SUPPLEMENTAL_GROUP,ActualFlapRelationsCfg())
+        from kuavo_isaaclab_scene.rl.multi_box.scene.flap_dynamics import configure_flap_dynamics
+        configure_flap_dynamics(cfg,contract)
         if 'contact_shaping' in contract['reward_profile']:
             cfg.rewards.grasp.params=dict(reward_profile=contract['reward_profile'])
         from kuavo_isaaclab_scene.rl.multi_box.scene.reset_replication import (
@@ -362,7 +371,8 @@ def main():
             print('[FROZEN SOLVER PROBE] '+json.dumps(solver_probe|{'actual_USD_solver':value}),flush=True)
         dims={k:list(v) for k,v in env.observation_manager.group_obs_dim.items()}
         actions={k:env.action_manager.get_term(k).action_dim for k in env.action_manager.active_terms}
-        if dims!=contract['observations'] or actions!=contract['actions']:
+        expected_dims=contract['observations']|({SUPPLEMENTAL_GROUP:[SUPPLEMENTAL_DIM]} if supplemental else {})
+        if dims!=expected_dims or actions!=contract['actions']:
             raise ValueError('Batched physical observation/action widths differ')
         base=env.action_manager.get_term('base');upper=env.action_manager.get_term('upper_body')
         head=env.action_manager.get_term('head');height=env.action_manager.get_term('height')
@@ -374,6 +384,8 @@ def main():
         pilot_class=staged_policy_class(state.get('artifact_type'))
         if pilot_class is None:
             raise ValueError('Batched learner requires the separately initialized staged checkpoint')
+        if bool(pilot_class.supplemental_observation_dim)!=bool(supplemental):
+            raise ValueError('Staged policy and current measured supplemental perception differ')
         warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,
                             frozen_prior_lift_contract(frozen_actor_reward_contract(contract)),output,training=False,device=env.device)
         templates=json.loads(args.waypoints.read_text())
@@ -433,6 +445,8 @@ def main():
             base_waypoint_probe=dict(enabled=args.base_waypoint_probe,frozen_only=args.base_waypoint_probe,
                 Q_import_eligible=not args.base_waypoint_probe),
             episode_layouts=[dict(wave=i,environment=j,**row) for i,w in enumerate(waves) for j,row in enumerate(w['layouts'])])
+        if supplemental:
+            meta.update(supplemental_actor_obs_dim=SUPPLEMENTAL_DIM,supplemental_perception=supplemental)
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         if args.grasp_observation_audit:
             from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_observation_audit import GraspObservationAudit
@@ -506,6 +520,9 @@ def main():
             observation,settled,valid_layout,layout_guard=settle_batched_layouts(env,actors,allow_partial=True,
                 capture_reset_diagnostics=args.reset_failure_diagnostics,
                 zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe)
+            if contract.get('flap_dynamics'):
+                (output/f'flap_dynamics_wave_{wave_index:04d}.json').write_text(json.dumps(
+                    dict(wave=wave_index,split=wave['split'],**env._flap_dynamics_last_reset_audit),indent=2)+'\n')
             if args.reset_failure_diagnostics:
                 if args.passive_bearing_probe_layer:
                     captured=layout_guard['reset_failure_diagnostics']
@@ -610,8 +627,9 @@ def main():
                         if len(ids):
                             pilot.stage=stages.held_context(ids);pilot.anchor=stages.anchors[ids].clone()
                             clocks=stages.clocks(ids,step)
+                            perception_options=({"supplemental":pre[SUPPLEMENTAL_GROUP][ids]} if supplemental else {})
                             command,previous=pilot.act(pre['policy'][ids],
-                                torch.cat((pre['policy'],pre['critic']),-1)[ids],clocks,exploration_ids=ids)
+                                torch.cat((pre['policy'],pre['critic']),-1)[ids],clocks,exploration_ids=ids,**perception_options)
                             action[ids]=command
                         if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                             raise ValueError('Generated and executed jaw projections differ')
@@ -644,6 +662,9 @@ def main():
                                 terminated=bool(te[i]),truncated=bool(tr[i]),
                                 success=bool(bc['success'][i]),unsafe=bool(bc['unsafe'][i]),
                                 sim_time_s=env.common_step_counter*env.step_dt)
+                            if supplemental:
+                                r.update(actor_supplemental=pc[SUPPLEMENTAL_GROUP][i].copy(),
+                                    next_actor_supplemental=tc[SUPPLEMENTAL_GROUP][i].copy())
                             rows[i].append(r);total_rows+=1;wave_rows+=1
                             last[i]=dict(steps=step+1,success=r['success'],unsafe=r['unsafe'],
                                 invalid_reset=bool(bc['invalid_reset'][i]),time_out=bool(bc['time_out'][i]),

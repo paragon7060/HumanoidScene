@@ -1,0 +1,169 @@
+{
+  "flap_dynamics": {
+    "name": "firm_dynamic_flap_randomization_v1",
+    "joint_names": [
+      "joint_front",
+      "joint_back",
+      "joint_left",
+      "joint_right"
+    ],
+    "stiffness_nm_per_rad": [
+      1.5,
+      2.5
+    ],
+    "damping_nm_s_per_rad": [
+      0.15,
+      0.25
+    ],
+    "static_friction": [
+      0.45,
+      0.65
+    ],
+    "dynamic_friction": [
+      0.3,
+      0.4
+    ],
+    "initial_angle_degrees": [
+      -1.0,
+      1.0
+    ],
+    "spring_rest_angle_rad": 0.0,
+    "effort_limit_nm": 5.0,
+    "velocity_limit_rad_s": 10.0,
+    "distribution": "independent_uniform_per_environment_panel_and_reset",
+    "joint_limits_masses_geometry_contact_materials_unchanged": true,
+    "dynamic_articulation": true,
+    "in_episode_state_overwrite": false,
+    "box_base_and_background_layout_randomization_unchanged": true
+  },
+  "supplemental_perception": {
+    "name": "perceived_articulated_flap_midpoint_relations_v1",
+    "observation_group": "actual_flap_relations",
+    "dimension": 38,
+    "order": [
+      "left_hand_right_flap_pose9",
+      "left_hand_left_flap_pose9",
+      "right_hand_right_flap_pose9",
+      "right_hand_left_flap_pose9",
+      "left_hand_flap_assignment_one_hot2"
+    ],
+    "pose_representation": "hand_relative_midpoint_position_m_rotation6d",
+    "source": "replaceable_perceived_panel_midpoints_and_orientations",
+    "current_simulator_backend": "articulated_link_pose_plus_known_local_midpoint",
+    "nominal_policy_group_preserved": true,
+    "contact_forces_or_success_labels_in_actor": false,
+    "terminal_capture": "observation_manager_before_autoreset",
+    "new_sensors_or_physics_steps": false
+  },
+  "initial_control_identity": {
+    "actual_TRAIN_input_rows": 405,
+    "executed_body_error_max": 0.0,
+    "executed_jaw_disagreement_count": 0,
+    "jaw_logit_error_max": 0.0,
+    "arbitrary_actual_extra_features_cannot_change_initial_zero_body_correction": true,
+    "source_radius_preserved": 0.05,
+    "destination_radius": 0.15,
+    "comparison_only_no_source_rewards_or_replay_imported": true,
+    "all_model_tensors_finite": true,
+    "fresh_Q_replay_optimizers_and_success_bank": true
+  },
+  "actual_gpu3_launch": {
+    "parent": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/actual_flap_firm_correction_sac_pgs128_gpu3_20261005_224437",
+    "unit": "humanoid-rl-actual-flap-firm-correction-sac-gpu3-20261005_224437.service",
+    "command": [
+      "/home/seonho/miniconda3/envs/env_isaaclab_232/bin/python",
+      "-u",
+      "/home/seonho/HumanoidScene/scripts/rl/batched_staged_goal_with_drive.py",
+      "--experiment-dir",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/actual_flap_firm_correction_sac_pgs128_gpu3_20261005_224437",
+      "--gpu",
+      "3",
+      "--checkpoint",
+      "/home/seonho/HumanoidScene/artifacts/rl/pose_students/actual_flap_firm_residual_initial_20261005_224500/checkpoint_00000000.pt",
+      "--waves-json",
+      "/home/seonho/HumanoidScene/artifacts/rl/pose_students/actual_flap_firm_residual_initial_20261005_224500/first_training_block_waves.json",
+      "--waypoints",
+      "/home/seonho/HumanoidScene/docs/assets/rl_v2_staged_base_hold_candidates_20261004.json",
+      "--demo-dataset",
+      "/home/seonho/HumanoidScene/examples/demos/v2_grasp_quest_success.hdf5",
+      "--training-manifest",
+      "/home/seonho/HumanoidScene/artifacts/rl/pose_students/actual_flap_firm_residual_initial_20261005_224500/training_manifest.json",
+      "--training",
+      "--native-seed",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+      "--native-seed",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+      "--stop-on-validation-regression",
+      "--minimum-validation-region-success-rate",
+      "0",
+      "--validation-regression-significance",
+      "0.05"
+    ],
+    "gpu": 3,
+    "parallel_envs": 128,
+    "source_commit": "05ef1207c0d530502ba881ab7c1e0b4b1c4958e5",
+    "source_uncommitted_at_launch": true,
+    "source_SHA256": {
+      "scripts/rl/train_batched_staged_goal.py": "77639a9b4a4e548a287c432ec137c33bb0f4e518016d30dfad978075f885188e",
+      "scripts/rl/prepare_actual_flap_residual_sac.py": "aff53a778179d96a41d34732384de2e7f840a3b4439b0d7dfb712d9b12a5b26d",
+      "src/kuavo_isaaclab_scene/rl/algorithms/hybrid_goal_sac.py": "b4c84f3577a55737ca7488b97a7cceeff2cf3ca240a77afb3396203b6d6eaa36",
+      "src/kuavo_isaaclab_scene/rl/multi_box/experiments/staged_goal_sac.py": "e64fae888d0f3bec81cf561c467d6731abec56ddc2961aebfec429ea9dbab5b2",
+      "src/kuavo_isaaclab_scene/rl/multi_box/experiments/actual_flap_residual_sac.py": "cb79f3de94500afcc0ea7804796fddb2acccffd65f058a4ff774072696b620e1",
+      "src/kuavo_isaaclab_scene/rl/multi_box/experiments/batched_staged_goal.py": "149b73d43b0f636b216bc964051ff1be7ae695274a4665758cffcbd35fa86ad1",
+      "src/kuavo_isaaclab_scene/rl/multi_box/managers/v2_observations.py": "df82d5b995fa37f898eea487172d95d9e947a600764d1b5d12deecf8b3c32ae9",
+      "src/kuavo_isaaclab_scene/rl/multi_box/scene/flap_dynamics.py": "1096d727687e1fca98dac216ee834d437f8d39e827edd84542b724f9013ef9b7",
+      "src/kuavo_isaaclab_scene/rl/multi_box/state/isaac_perception.py": "d4a4ad642f1a193e68fedfdac335ceb885eed9f15ab7f6f148d5d5d223e22777",
+      "src/kuavo_isaaclab_scene/recording/rl_transition_recorder.py": "9b6e80b8aa8aab69ec5e07df8413b72ccbd35571dfd96d1773fe700c449cb7c9"
+    },
+    "initialization_directory": "/home/seonho/HumanoidScene/artifacts/rl/pose_students/actual_flap_firm_residual_initial_20261005_224500",
+    "initial_Drive_verified": true,
+    "old_GPU3_writer_and_supervisor_closed_verified": true,
+    "old_CPU_final_uploader_not_interrupted": true,
+    "CUDA_VISIBLE_DEVICES": "3",
+    "source_actor_updates": 1740,
+    "source_Q_replay_and_optimizers_imported": false,
+    "actor_dim": 518,
+    "critic_dim": 577,
+    "independent_FINAL_unused": true,
+    "original_four_regions_and_box_base_background_randomization_preserved": true,
+    "flap_dynamics": {
+      "name": "firm_dynamic_flap_randomization_v1",
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_left",
+        "joint_right"
+      ],
+      "stiffness_nm_per_rad": [
+        1.5,
+        2.5
+      ],
+      "damping_nm_s_per_rad": [
+        0.15,
+        0.25
+      ],
+      "static_friction": [
+        0.45,
+        0.65
+      ],
+      "dynamic_friction": [
+        0.3,
+        0.4
+      ],
+      "initial_angle_degrees": [
+        -1.0,
+        1.0
+      ],
+      "spring_rest_angle_rad": 0.0,
+      "effort_limit_nm": 5.0,
+      "velocity_limit_rad_s": 10.0,
+      "distribution": "independent_uniform_per_environment_panel_and_reset",
+      "joint_limits_masses_geometry_contact_materials_unchanged": true,
+      "dynamic_articulation": true,
+      "in_episode_state_overwrite": false,
+      "box_base_and_background_layout_randomization_unchanged": true
+    }
+  },
+  "physical_success_improvement_unverified": true,
+  "goal_not_complete": true
+}

@@ -340,6 +340,13 @@ CUDA_VISIBLE_DEVICES=0 python scripts/rl/batched_staged_goal_with_drive.py \
 누락되지 않게 한다. 위 guard와 접촉 보상 관련 CPU32개
 검사가 통과했고 독립FINAL을 학습/진단에 가져오지 않는다.
 
+## 10/05 후속 실험: 실제 flap 관측과 단단한 동적 힌지
+
+GPU3에 별도 [관측·교정 SAC 및 flap randomization 실험](RL_V2_ACTUAL_FLAP_RESIDUAL_SAC.md)을
+구현하고 시작했다. 더 단단한 힌지도 움직일 수 있으며 박스/base/배경의 원래 DR를
+유지한다. Source1740 동작의 초기 동일성을 실제 TRAIN405개에서 확인했지만,
+이것을 새 물리조건의 학습 성공으로 해석하지 않는다. 기존 GPU0 실행은 유지한다.
+
 ## 10/05 21:10 — 전체128개 병렬 접촉 진단과 단일 환경 비교
 
 GPU3 legacy 학습의 DEV 성공 개수는 `9 → 8 → 11 → 6 → 10 → 10 → 9 /128`로,

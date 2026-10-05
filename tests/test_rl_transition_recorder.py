@@ -115,3 +115,21 @@ def test_invalid_seed_does_not_create_episode(tmp_path, state):
     assert not recorder.recording
     assert len(recorder.episodes) == 0
     recorder.close()
+
+
+def test_optional_perceived_features_preserve_current_and_terminal_rows(tmp_path):
+    path=tmp_path/'supplemental.hdf5'
+    recorder=RlTransitionRecorder(path,{'supplemental_actor_obs_dim':38})
+    recorder.start_episode()
+    row=_sample(0,terminal=True)
+    row.update(actor_supplemental=np.arange(38,dtype=np.float32),next_actor_supplemental=np.arange(38,dtype=np.float32)+10)
+    recorder.append_many([row]);recorder.finish_episode(success=True,reason='unit_fixture');recorder.close()
+    with h5py.File(path) as source:
+        t=source['episodes/episode_000000/transitions']
+        np.testing.assert_array_equal(t['actor_supplemental'][0],row['actor_supplemental'])
+        np.testing.assert_array_equal(t['next_actor_supplemental'][0],row['next_actor_supplemental'])
+    recorder=RlTransitionRecorder(tmp_path/'missing.hdf5',{'supplemental_actor_obs_dim':38});recorder.start_episode()
+    with pytest.raises(ValueError,match='fields mismatch'):recorder.append(_sample(0))
+    row['next_actor_supplemental'][0]=np.nan
+    with pytest.raises(ValueError,match='finite'):recorder.append(row)
+    recorder.close()

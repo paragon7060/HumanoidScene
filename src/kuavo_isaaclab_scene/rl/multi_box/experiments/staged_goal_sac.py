@@ -150,6 +150,7 @@ def initialize_staged_actor_only(pilot, source,*,allow_contact_reward_change=Fal
 class StagedGoalSACPilot:
     artifact_type = 'staged_base_hold_remaining_goal_sac_v1'
     agent_class = AsymmetricSAC
+    supplemental_observation_dim = 0
 
     def __init__(self, warm_start, physical_contract, directory, stage, *,
                  checkpoint=None, training=True, device='cpu', free_grippers=False,
@@ -173,6 +174,10 @@ class StagedGoalSACPilot:
             if not isinstance(dynamics,dict) or dynamics!=staged_solver_contract(dynamics.get('solver')):
                 raise ValueError('Staged dynamics identity differs')
             self.physical_contract['physics_dynamics']=dict(dynamics)
+        if 'flap_dynamics' in physical_contract:
+            from ..scene.flap_dynamics import require_flap_dynamics
+            require_flap_dynamics(physical_contract['flap_dynamics'])
+            self.physical_contract['flap_dynamics']=deepcopy(physical_contract['flap_dynamics'])
         self.center = warm_start.center[list(GOAL_COLUMNS)].clone()
         self.scale = warm_start.scale[list(GOAL_COLUMNS)].clone()
         self.directory = Path(directory)
@@ -181,8 +186,8 @@ class StagedGoalSACPilot:
         self.actor_updates = self.critic_updates = self.online_rows = 0
         self.prior_schedule_actor_origin=0.
         self.success_schedule_actor_origin=0.
-        self.actor_dim = warm_start.actor_dim+CONTEXT_DIM
-        self.critic_dim = 533+CONTEXT_DIM
+        self.actor_dim = warm_start.actor_dim+CONTEXT_DIM+self.supplemental_observation_dim
+        self.critic_dim = 533+CONTEXT_DIM+self.supplemental_observation_dim
         self.warmup = 2048
         self.fade = 20000
         self.latest = {}
@@ -261,6 +266,7 @@ class StagedGoalSACPilot:
             initial_policy_std=.005, min_policy_std=.001, max_policy_std=.02,
             gamma=reward_discount(physical_contract), freeze_actor_normalizer=True,
             actor_feature_mode='flat', critic_layer_norm=True)
+        config = self.learning_config(config)
         if checkpoint:
             state_config=saved.get('config',{})
             expected=asdict(config)|{key:state_config.get(key) for key in
@@ -278,6 +284,7 @@ class StagedGoalSACPilot:
             with torch.no_grad():
                 self.agent.actor.network[-1].weight[19:21].mul_(gripper_logit_scale)
                 self.agent.actor.network[-1].bias[19:21].mul_(gripper_logit_scale)
+        self.configure_controller(saved)
         self.replay = AsymmetricReplayBuffer(replay_capacity, self.actor_dim, self.critic_dim, 21, device)
         if checkpoint:
             state = saved
@@ -322,17 +329,30 @@ class StagedGoalSACPilot:
         if self.anchor_prior_to_initial_policy:
             # Actor-only snapshot. It cannot bring another controller's Q,
             # reward or transitions into the real held-phase replay.
-            self.frozen_actor_prior=torch.nn.ModuleDict(dict(
-                actor=deepcopy(self.agent.actor),actor_normalizer=deepcopy(self.agent.actor_normalizer)))
-            if saved is not None:
-                if 'frozen_actor_prior' not in state:
-                    raise ValueError('Validated prior actor snapshot is missing')
-                self.frozen_actor_prior.load_state_dict(state['frozen_actor_prior'])
+            self.frozen_actor_prior=self.make_frozen_actor_prior(state if checkpoint else None)
             self.frozen_actor_prior.requires_grad_(False)
         if self.validated_jaw_prior_confidence:
             self.agent.validated_jaw_prior=self._validated_jaw_logits
         if not training:
             self.agent.requires_grad_(False)
+
+    def learning_config(self, config):
+        return config
+
+    def configure_controller(self, saved):
+        pass
+
+    def make_frozen_actor_prior(self, state):
+        prior=torch.nn.ModuleDict(dict(actor=deepcopy(self.agent.actor),
+            actor_normalizer=deepcopy(self.agent.actor_normalizer)))
+        if state is not None:
+            if 'frozen_actor_prior' not in state:
+                raise ValueError('Validated prior actor snapshot is missing')
+            prior.load_state_dict(state['frozen_actor_prior'])
+        return prior
+
+    def checkpoint_extras(self):
+        return {}
 
     def _validated_jaw_logits(self,normalized):
         return self.frozen_actor_prior['actor'].network(normalized).chunk(2,-1)[0][:,19:21]
@@ -404,18 +424,25 @@ class StagedGoalSACPilot:
         progress=min(1.,max(0,self.actor_updates-self.success_schedule_actor_origin)/config['fade_actor_updates'])
         return config['final_replay_fraction']+(config['initial_replay_fraction']-config['final_replay_fraction'])*(1-progress)
 
-    def observations(self, raw, critic, index):
+    def observations(self, raw, critic, index, supplemental=None):
         ao, co = self.warm_start.observations(raw, critic, index, self.anchor)
         context = staged_context(raw, self.stage, self.radius)
+        if self.supplemental_observation_dim:
+            if supplemental is None or supplemental.shape!=(len(raw),self.supplemental_observation_dim) \
+                    or not torch.isfinite(supplemental).all():
+                raise ValueError('Measured supplemental current/terminal observations required')
+            ao=torch.cat((ao,supplemental),-1);co=torch.cat((co,supplemental),-1)
+        elif supplemental is not None:
+            raise ValueError('This policy has no supplemental perception contract')
         return torch.cat((ao, context), -1), torch.cat((co, context), -1)
 
     @torch.no_grad()
-    def act(self, raw, critic, index, *, exploration_ids=None, sample_frozen_train_behavior=False):
+    def act(self, raw, critic, index, *, exploration_ids=None, sample_frozen_train_behavior=False,supplemental=None):
         if type(sample_frozen_train_behavior) is not bool or (sample_frozen_train_behavior and self.training):
             raise ValueError('Frozen TRAIN behavior is an explicit collection-only option, without optimization')
         if self.anchor is None:
             self.anchor = self.coordinates.box_anchor(raw).clone()
-        ao, co = self.observations(raw, critic, index)
+        ao, co = self.observations(raw, critic, index,supplemental)
         deterministic=(not self.training or self.replay.size<64) and not sample_frozen_train_behavior
         if self.exploration_correlation and not deterministic:
             if self.goal_exploration is None:
@@ -438,11 +465,11 @@ class StagedGoalSACPilot:
         self.arm_behavior=(EpisodeArmExploration(num_envs,self.device,self.episode_arm_exploration)
                            if self.episode_arm_exploration is not None else None)
 
-    def observe(self, previous, next_raw, next_critic, reward, terminated, index):
+    def observe(self, previous, next_raw, next_critic, reward, terminated, index,*,supplemental=None):
         if not self.training:
             return
         ao, co, action = previous
-        na, nc = self.observations(next_raw, next_critic, index+1)
+        na, nc = self.observations(next_raw, next_critic, index+1,supplemental)
         batch = dict(actor_obs=ao, critic_obs=co, action=action, next_actor_obs=na,
                      next_critic_obs=nc, reward=reward.detach(), terminated=terminated.detach())
         self.replay.add(**batch)
@@ -519,7 +546,7 @@ class StagedGoalSACPilot:
                 actor_updates=self.actor_updates, critic_updates=self.critic_updates,
                 latest_actor_metrics=self.latest_actor,
                 prior_schedule_actor_origin=self.prior_schedule_actor_origin,
-                reference_runtime_dependency=False)
+                reference_runtime_dependency=False,**self.checkpoint_extras())
             if self.frozen_actor_prior is not None:
                 state['frozen_actor_prior']=self.frozen_actor_prior.state_dict()
             if self.success_bank is not None:

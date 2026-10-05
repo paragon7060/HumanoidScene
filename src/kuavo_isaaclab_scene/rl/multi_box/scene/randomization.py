@@ -133,6 +133,8 @@ def reset_randomized_scene(env, env_ids):
     rack_pose = _move_rack(env, ids, batch)
     _move_conveyor(env, ids, batch)
     _move_active_boxes(env, ids, batch, rack_pose)
+    from .flap_dynamics import randomize_flap_dynamics
+    randomize_flap_dynamics(env,ids)
     # Teleported roots and flap links must describe one configuration before
     # collision solving or reset validation. Unchanged zero DOFs otherwise
     # leave child links parked in the installed GPU runtime.

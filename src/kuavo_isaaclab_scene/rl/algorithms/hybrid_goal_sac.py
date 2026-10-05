@@ -56,7 +56,17 @@ class HybridGoalSAC(AsymmetricSAC):
         magnitude=math.log(confidence/(1-confidence))
         return torch.where(reference>0,magnitude,-magnitude)
 
-    def continuous_sample(self, normalized, *, deterministic=False,noise=None,body_latent_offset=None):
+    def body_from_latent(self, normalized, body, raw=None):
+        """Map a squashed body sample once, before physical jaw projection."""
+        return body
+
+    def body_log_probability(self, normalized, per_dim, raw=None):
+        return per_dim.sum(-1)
+
+    def body_entropy_target(self, normalized, per_dim, raw=None):
+        return per_dim.sum(-1)
+
+    def continuous_sample(self, normalized, *, deterministic=False,noise=None,body_latent_offset=None,raw=None):
         mean,log_std,logits=self.parameters_at(normalized)
         if body_latent_offset is not None:
             if body_latent_offset.shape!=mean.shape or not torch.isfinite(body_latent_offset).all():
@@ -65,8 +75,8 @@ class HybridGoalSAC(AsymmetricSAC):
         std=log_std.exp()
         latent=mean if deterministic else mean+std*(torch.randn_like(mean) if noise is None else noise)
         correction=2*(math.log(2)-latent-F.softplus(-2*latent))
-        logp=(gaussian_log_prob(latent,mean,std)-correction).sum(-1)
-        return latent.tanh(),logp,logits
+        logp=self.body_log_probability(normalized,gaussian_log_prob(latent,mean,std)-correction,raw)
+        return self.body_from_latent(normalized,latent.tanh(),raw),logp,logits
 
     def projected_command(self, observation,body,closed):
         return self.action_projector(observation,torch.cat((body,closed.to(body)*2-1),-1))
@@ -74,7 +84,7 @@ class HybridGoalSAC(AsymmetricSAC):
     @torch.no_grad()
     def act(self, actor_obs, deterministic=False):
         normalized=self.actor_normalizer(self.actor_features(actor_obs))
-        body,_,logits=self.continuous_sample(normalized,deterministic=deterministic)
+        body,_,logits=self.continuous_sample(normalized,deterministic=deterministic,raw=actor_obs)
         closed=logits>0 if deterministic else torch.rand_like(logits)<logits.sigmoid()
         return self.projected_command(actor_obs,body,closed)
 
@@ -82,7 +92,7 @@ class HybridGoalSAC(AsymmetricSAC):
     def act_with_latent_noise(self, actor_obs,noise,*,body_latent_offset=None):
         if noise.shape!=(len(actor_obs),21):raise ValueError('One21-D behavior noise per environment required')
         normalized=self.actor_normalizer(self.actor_features(actor_obs))
-        body,_,logits=self.continuous_sample(normalized,noise=noise[:,:19],body_latent_offset=body_latent_offset)
+        body,_,logits=self.continuous_sample(normalized,noise=noise[:,:19],body_latent_offset=body_latent_offset,raw=actor_obs)
         # Normal CDF gives stationary uniform marginals (and Bernoulli(p) at
         # a fixed state). Feedback-correlated collection remains off-policy;
         # target/actor expectations use the independent categorical policy.
@@ -110,12 +120,12 @@ class HybridGoalSAC(AsymmetricSAC):
         a,b=(self.target1,self.target2) if target else (self.q1,self.q2)
         return torch.minimum(a(features),b(features)).reshape(n,4)
 
-    def continuous_entropy_target(self,normalized):
+    def continuous_entropy_target(self,normalized,raw=None):
         mean,_,_=self.parameters_at(normalized)
         result=torch.full_like(mean,self.target_entropy_per_dim)
         if self.config.max_policy_std<=1:
             result+=2*(math.log(2)-mean-F.softplus(-2*mean))-self.config.max_policy_std**2
-        return result.sum(-1)
+        return self.body_entropy_target(normalized,result,raw)
 
     def success_body_loss(self,raw,requested_body,labels):
         return F.mse_loss(requested_body,labels[:,:19])
@@ -135,7 +145,7 @@ class HybridGoalSAC(AsymmetricSAC):
             next_actor=batch['next_actor_obs'][bootstrap]
             na=self.actor_normalizer(self.actor_features(next_actor))
             nc=self.critic_normalizer(batch['next_critic_obs'][bootstrap])
-            body,continuous_logp,logits=self.continuous_sample(na)
+            body,continuous_logp,logits=self.continuous_sample(na,raw=next_actor)
             actions,probability,discrete_logp,_=self.enumerate_jaws(next_actor,body,logits)
             q=self.branch_values(nc,actions,target=True)
             entropy=alpha*continuous_logp[:,None]+discrete_alpha*discrete_logp
@@ -206,7 +216,7 @@ class HybridGoalSAC(AsymmetricSAC):
         if not update_actor:return report
         self.q1.requires_grad_(False);self.q2.requires_grad_(False)
         try:
-            body,continuous_logp,logits=self.continuous_sample(ao)
+            body,continuous_logp,logits=self.continuous_sample(ao,raw=batch['actor_obs'])
             actions,probability,discrete_logp,near=self.enumerate_jaws(batch['actor_obs'],body,logits)
             q=self.branch_values(co,actions)
             scale=q.detach().abs().mean().clamp_min(1).reciprocal() if self.config.actor_q_normalize else 1.
@@ -235,7 +245,7 @@ class HybridGoalSAC(AsymmetricSAC):
             optimize(self.actor_optimizer,actor_loss,self.actor.parameters())
         finally:
             self.q1.requires_grad_(True);self.q2.requires_grad_(True)
-        target_entropy=self.continuous_entropy_target(ao).detach()
+        target_entropy=self.continuous_entropy_target(ao,raw=batch['actor_obs']).detach()
         optimize(self.alpha_optimizer,-(self.log_alpha*(continuous_logp.detach()+target_entropy)).mean(),[self.log_alpha])
         observed_entropy=-(probability*discrete_logp).sum(-1).detach()
         target_discrete=self.discrete_entropy_target_per_jaw*near.sum(-1)
