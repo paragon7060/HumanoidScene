@@ -201,3 +201,15 @@ PGS 초기 물리 상태가 다르며 평가에는 mixture를 쓰지 않았으�
 탐색의 악화/개선 효과가 아니다. 각 실행의 초기와 후속 DEV를 함께 보고 실제
 TRAIN 닫힘/패드 접촉 경험과 후속 전체128 평가로 판단한다.
 [새 비교의 완료된 초기 DEV·카운터 원본](assets/rl_v2_joint_jaw_completed_initial_DEV_20261006.json).
+
+## 새 비교의 실제 TRAIN 수집 확인
+
+05:34 KST에 TRAIN 첫 wave의121step·유효83환경·held83을 확인했다. 실제
+held3638행을 추가해 replay224621→228259, actor1204→1238, critic6864→7000으로
+업데이트했다. Sampler도3638행을 처리했고 그중403행에서 uniform joint mixture를
+선택했다. 최종 projector 이후 jaw 조합은 아직 모두 open/open3638행이었다.
+이는 접근 초반의 실행 기록이며 닫힘·두 패드 접촉·물리 파지 개선을 아직 입증하지
+않는다. Production12cm gate와 기본 성공/안전 조건은 유지한다. 후반 near 구간의
+branch·패드 접촉과 후속 전체DEV를 계속 확인한다. 평가의 sampler0·optimizer
+불변과 실제 TRAIN의 수집/업데이트 증가를 각각 기록했다.
+[첫 실제 TRAIN 카운터·분포 원본](assets/rl_v2_joint_jaw_first_real_TRAIN_20261006.json).
