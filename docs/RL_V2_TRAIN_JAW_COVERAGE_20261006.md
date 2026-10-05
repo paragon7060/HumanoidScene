@@ -102,3 +102,17 @@ owned tmpfs에 둔다. 시작 전 기존 tmpfs504GiB와 가용RAM 약948GiB를 �
 파일은 재부팅 시 사라진다. Drive의 검증본이 보관본이며 active log는 업로드하지 않고
 writer 종료 뒤 검증한다. 기존 SSD 실행이나 다른 사용자 파일/프로세스는 변경하지 않았다.
 Notion에 새 native PNG를 포함한97개 미디어를 확인했고 기존96개를 모두 보존했다.
+
+04:45:39 KST에 실제 초기DEV31step을 확인했다. 검증 property cache는18개 box asset·
+전체128환경·각4panel을 포함하며 각 property9,216값이 모두 요청 범위 안이었다.
+이는 reset 때 setter readback을 누적한 cache이며 새 전체 PhysX query가 아니다.
+요청128개 중 원래 유효99개·무효29개로 후자의 대체 상태 property를 원래 요청의
+성공 데이터로 세지 않는다. 기존 비교 초기DEV의 유효97개와 동일한 초기 물리 상태라고
+주장하지 않으며 각 실행의 무효 요청을 포함한 전체128개로 비교한다.
+Actor1204/Q6864·replay224,621행·online0·measured bank31,447행·jaw sampler0행을
+그대로 유지했다. 평가 중 탐색/학습을 하지 않았으며 실제 TRAIN 탐색 효과는 확인 전이다.
+[최초 DEV·전체 flap 범위 readback 요약](assets/rl_v2_joint_jaw_GPU3_initial_DEV_readback_20261006.json).
+
+분석·구현·검사·launch 기록22개와 영수증을 기존 Drive에 업로드해 각각 크기/MD5를
+검증했다. 활성 로그·인증·계정별 remote 별칭은 복사하지 않았다. 학습의 완료 및
+성공률 개선과 이 분석 자료 백업의 완료를 구분한다.
