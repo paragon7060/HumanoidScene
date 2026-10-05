@@ -50,7 +50,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 실제 제어명령 좌표의 SAC | [새 Q·네 영역 TRAIN 성공 복원·GPU0 비교·frozen 영상 재생](docs/RL_V2_PHYSICAL_BODY_SAC.md) |
 | SAC에서 팔 탐색을 연속적으로 유지 | [에피소드별 팔 편차·TRAIN 전용·기존 Q/replay 재사용](docs/RL_V2_STAGED_GOAL_SAC.md#에피소드-동안-유지하는-팔-탐색-편차) |
 | Quest로 V2 grasp SAC 시연 데이터 수집 | [Quest RL 시연 수집](docs/RL_QUEST_REWARD_DEBUG.md) |
-| 기존 Google Drive 연결 재사용·결과 업로드·로컬 보관량 관리 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
+| 기존 Google Drive 연결·결과 업로드·로컬 보관·종료 후 백업 재시도 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
 | RL 초기 자세 수정·VR 재캡처 | [모델별 초기 상태](docs/RL_INITIAL_STATES.md) |
 | Isaac Sim에서 배치 편집·캡처 | [Workcell 편집](docs/ISAACSIM_WORKCELL_GUIDE.md) |
 | Meta Quest를 처음 연결하고 수집 | [Quest 빠른 시작](docs/QUEST3_QUICKSTART.md) |

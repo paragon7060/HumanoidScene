@@ -1098,3 +1098,30 @@ production `nominal_flap_geometry`와 실제 flap link pose·composed USD의 pan
 기존 다섯 SAC는 유지한다. 15:58 실제 writer가 모두 살아 있었고 Drive 오류가
 없었으며 최신 완료된 DEV 성공은 gain0.5=5/128, gain2=5/128, retention=8/128,
 arm-bias=3/128, native-credit10=6/128이다. 목표 달성이나 충분한 일반화로 판단하지 않는다.
+
+### 16:28 · 디스크 보호 종료 후 GPU3에서 성공 유지 SAC 재개
+
+16:15 실제 상태를 다시 읽었을 때 이전 다섯 writer는16:01~16:02
+`low_disk_space`로 종료됐고 최종 Drive 업로드 중이었다. 15:58 실행 확인 이후
+상태가 바뀐 것이다. 디스크 여유는0까지 줄었으며 sandbox 시작도 실패했다.
+문서에 남아 있던50GB 예약 파일은 현재 없었다. 예전 closed pose-goal replay
+한 파일164,968,122bytes를 Drive 크기/MD5 재검증·writer/supervisor 종료·다른
+reader 부재·현재 입력 미사용을 확인한 뒤 정리했다. Metadata/checkpoint/log와
+현재 demo/replay는 유지했다. 이후 파일시스템 여유는36GB로 회복됐으나 이번
+정리로 확보한 양은157MiB이며 나머지 여유 변동의 원인은 확인되지 않았다.
+
+GPU3에서 `staged_success_retention_disk_resume_pgs128_gpu3_20261005_162839`를
+새 고유 관리 폴더로 시작했다. 실제 run은 `batch_sac_20261005_162839_316a6d`다.
+직전 동일 계약 checkpoint36110과 실제 `staged_goal_experience.pt`를 이어받으며
+128env·PGS/D0·nominal flap 관측·reward·waypoint·box/base randomization과 안전/
+성공 조건을 유지한다. `CUDA_VISIBLE_DEVICES=3`과 같은 Kit renderer GPU를
+지정한다. Actor8516/Q36110 복원과 실제 DEV rollout 진행을 확인했다. 아직
+재개 후 새 학습 개선 결과는 아니다. 기존 종료 실행의 소스 replay/checkpoint는
+새 실행의 복원 입력이므로 정리하지 않는다.
+
+기존 CPU 업로더 일부는 시작 당시600초 코드로 큰 HDF 전송을 재시도하고 있다.
+GPU writer와 원래 CPU supervisor가 모두 종료된 경우에만 현재 업로드 코드를
+새 프로세스에서 재사용하는 `finalize_with_drive.py`를 추가했다. 실행 중인 writer/
+supervisor·관리 폴더 밖 run·symlink run을 거부하며 원래 학습 종료 코드를 보존하는
+CPU 검사7개 통과. 큰 파일의 미검증 로컬 사본은 유지하고 종료 로그 검증을
+계속한다. 목표와 독립FINAL은 그대로이며 randomized 양손 파지 성공은 미달성이다.

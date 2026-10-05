@@ -135,6 +135,27 @@ python3 scripts/rl/drive_backup.py \
 관리자의 최종 대용량 업로드가 시간초과하면 writer 종료를 확인한 뒤 같은 파일 잠금과
 기존 연결로 재시도한다. 시간초과만으로 인증을 다시 만들거나 미검증 파일을 지우지 않는다.
 
+### 종료된 관리자의 대용량 업로드 재시도
+
+오래 실행된 관리자가 이전600초 제한 코드를 메모리에 가진 채 재시도하는 경우,
+새 CPU 프로세스에서 `scripts/rl/finalize_with_drive.py`를 실행하면 현재 파일 크기별
+시간 제한을 적용할 수 있다. **기록된 GPU writer와 원래 CPU supervisor가 모두
+종료된 기존 관리 폴더**만 허용하며 새 학습을 시작하지 않는다. 원래 업로더가
+실제 전송 중이면 끝날 때까지 유지한다. 기존 연결·파일 잠금·최신 두 checkpoint
+보존·크기/MD5 검증을 재사용한다.
+
+```bash
+python3 scripts/rl/finalize_with_drive.py \
+  --experiment-dir /absolute/path/to/closed-managed-experiment \
+  --remote-root "$RL_DRIVE_REMOTE_ROOT"
+```
+
+실패 시 로컬 파일을 유지하고300초마다 재시도한다. Checkpoint·닫힌 로그와
+SAC replay/HDF까지 검증한 뒤 부모 `status.json`을 `finished`/
+`final_upload_verified: true`로 갱신한다. 원래 `training_exit_code`와 종료 사유는
+보존한다. 이 도구의 exit0은 **백업 검증 완료**이며 학습 성공을 의미하지 않는다.
+새 인증이나 GPU/Isaac runtime은 사용하지 않는다.
+
 한 번 실행할 때는 실패 시 nonzero로 종료한다. `--watch`에서는 실패한 회차의
 체크포인트 정리를 건너뛰고 다음 회차에 재시도한다. 네트워크 장애로 학습
 프로세스가 직접 중단되지는 않지만, 업로드가 실패하면 로컬 공간은 계속 필요하다.
