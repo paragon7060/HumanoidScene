@@ -533,6 +533,7 @@ GPU3 native-nstep10 분기는 첫 frozen DEV가 아직 진행 중이며, 초기 
 ### 10:37 · 첫 tick/link 추적 완료, passive roller 초기 상태 분리
 
 두 번째 GPU2 진단도 정상 종료·Drive 최종 검증을 완료했다.
+[각 tick의 실측·원래 target8의 전체 link trace](assets/rl_v2_reset_neutral_tick_trace_20261005.json).
 Teleport 직후 모든 flap 링크는 root에서0.224m 이내였고 link/joint velocity는0이었다.
 일부 중간왼쪽 target은4tick까지 속도0.005m/s 미만이다가8tick에1.3–1.4m/s로
 튄 뒤16tick부터 assigned geometry를 벗어났다. 단순히 원래 flap이 parked pose에
