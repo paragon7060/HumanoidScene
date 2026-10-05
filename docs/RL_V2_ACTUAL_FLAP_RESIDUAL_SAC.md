@@ -260,6 +260,15 @@ GPU3 관리자는300초 Drive 백업·체크섬 검증 후 최근2개 checkpoint
 writer 종료 후 로그 검증을 기존 연결로 수행한다. 이전 writer의 닫힌 대용량
 백업은 CPU에서 별도로 유지하며, 전송 중인 rclone을 중단하지 않는다.
 
+새 부모 폴더는 `actual_flap_firm_guard_resume_sac_pgs128_gpu3_20261006_011849`,
+run은 `batch_sac_20261006_011850_13d57f`다. 01:23 KST에 실제 writer2763569와
+supervisor2763537의 UID·고유 경로·CUDA3 격리를 확인했다. 첫 DEV rollout61step/
+5,978 transition에서 actor1204/Q6864, TRAIN replay224,621행 복원과 유한 지표를
+확인했고 새 guard를 manifest에 기록했다. DEV는 학습하지 않으며 이 시작 확인은
+성능 개선을 뜻하지 않는다. 최초 Drive 메타데이터 백업은 검증됐다. 별도 immutable
+재개 입력4개와 이전 종료 실행의 대용량 최종 백업은 검증 완료를 기다린다.
+Notion의 기존 native 영상·그림93개를 보존하고 원인·수정·현재 실행을 추가했다.
+
 ```bash
 PYTHONPATH=src:scripts/rl CUDA_VISIBLE_DEVICES='' python scripts/rl/prepare_projected_base_guard_resume.py \
   --checkpoint /absolute/path/to/closed-run/checkpoint_00006864.pt \
