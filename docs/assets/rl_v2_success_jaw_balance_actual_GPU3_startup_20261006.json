@@ -1,0 +1,139 @@
+{
+  "gpu": 3,
+  "num_envs": 128,
+  "CUDA_VISIBLE_DEVICES": "3",
+  "source_commit": "265e2b96fa182774a0625d9226cae42bb68327df",
+  "checkpoint_sha256": "731dd3281326722e5f56838d13774b61d23e696182faa1a6e9bd5d8fae5a20f0",
+  "initial_actor_updates": 1204,
+  "initial_critic_updates": 6864,
+  "one_step_replay_rows": 224621,
+  "measured_train_credit": "measured-nstep16",
+  "jaw_behavior": "joint-epsilon10",
+  "jaw_saturation_penalty": "logit4-soft-strong",
+  "soft_logit_limit": 4.0,
+  "actor_penalty_weight": 0.001,
+  "comparison_is_same_input_and_training_schedule": true,
+  "only_successful_jaw_NLL_reduction_differs_from_strong": true,
+  "success_jaw_balance": "region-hand-class",
+  "successful_jaw_outer_weight": 0.05,
+  "actual_success_jaw_labels_unchanged": true,
+  "actual_learned_jaw_distribution_behavior_sampler_and_Q_target_equations_unchanged": true,
+  "model_Q_normalizers_four_optimizers_and_old_replay_kept_at_activation": true,
+  "CPU_shadow_actor_not_used": true,
+  "actor_objective_changed": true,
+  "hard_logit_clipping": false,
+  "probability_floor": false,
+  "old_input_replay_not_copied": true,
+  "four_regions_requested_per_wave": 32,
+  "original_box_base_background_randomization_unchanged": true,
+  "dynamic_firm_flap_unchanged": true,
+  "success_safety_reward_unchanged": true,
+  "storage_kind": "existing_tmpfs_private_owned_directory",
+  "RAM_local_output_lost_on_reboot": true,
+  "minimum_RAM_and_tmpfs_free_GiB": 32,
+  "existing_training_writers_kept_running": true,
+  "other_users_files_and_processes_untouched": true,
+  "checkpoint_backup_interval_seconds": 300,
+  "verified_local_checkpoint_keep": 2,
+  "closed_logs_HDF_and_replay_final_backup": true,
+  "independent_FINAL_unused": true,
+  "DEV_or_FINAL_imported": false,
+  "goal_not_complete": true,
+  "existing_GPU3_writer_pids": [
+    1547049,
+    2726960
+  ],
+  "GPU3_free_MiB_before_launch": 46750,
+  "host_MemAvailable_GiB": 956.8885879516602,
+  "tmpfs_free_GiB": 493.63550567626953,
+  "actual_run_basename": "batch_sac_20261006_084235_d73ae4",
+  "writer_pid": 3173061,
+  "supervisor_pid": 3173028,
+  "verified_startup": {
+    "writer_pid": 3173061,
+    "supervisor_pid": 3173028,
+    "run_dir": "/dev/shm/HumanoidScene_rl_seonho/actual_flap_balanced_success_jaw_credit16_sac_pgs128_gpu3_20261006_084235/batch_sac_20261006_084235_d73ae4",
+    "owned_writer_alive": true,
+    "owned_supervisor_alive": true,
+    "CUDA_VISIBLE_DEVICES": "3",
+    "source_commit": "265e2b96fa182774a0625d9226cae42bb68327df",
+    "original_weak_and_strong_writer_alive": [
+      true,
+      true
+    ],
+    "no_other_users_processes_modified": true,
+    "goal_not_complete": true,
+    "actual_manifest_available": true,
+    "actual_run_directory_created": true,
+    "actual_manifest_success_jaw_balance": {
+      "variant": "region-hand-class",
+      "format_version": 1,
+      "scope": "actual_flap_successful_TRAIN_actor_jaw_NLL_only",
+      "reduction": "mean_present_regions_then_eligible_hands_then_present_open_close_classes",
+      "labels": "unchanged_actual_executed_binary_jaw_commands",
+      "eligibility": "unchanged_production_nominal_near_gate",
+      "absent_classes_not_invented": true,
+      "body_loss_and_Q_replay_unchanged": true
+    },
+    "actual_manifest_saturation": {
+      "variant": "logit4-soft-strong",
+      "format_version": 1,
+      "logit_limit": 4.0,
+      "weight": 0.001,
+      "scope": "actual_flap_TRAIN_actor_updates_only",
+      "loss": "mean_rows_sum_eligible_jaws_relu_abs_logit_minus_limit_squared_over_active_count",
+      "eligible_jaws": "unchanged_production_nominal_near_gate",
+      "symmetric_open_close": true,
+      "reward_or_success_labels_used": false,
+      "hard_logit_clipping": false,
+      "probability_floor": false,
+      "Q_target_and_behavior_distribution_unchanged": true
+    },
+    "actual_manifest_flap_dynamics": {
+      "name": "firm_dynamic_flap_randomization_v1",
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_left",
+        "joint_right"
+      ],
+      "stiffness_nm_per_rad": [
+        1.5,
+        2.5
+      ],
+      "damping_nm_s_per_rad": [
+        0.15,
+        0.25
+      ],
+      "static_friction": [
+        0.45,
+        0.65
+      ],
+      "dynamic_friction": [
+        0.3,
+        0.4
+      ],
+      "initial_angle_degrees": [
+        -1.0,
+        1.0
+      ],
+      "spring_rest_angle_rad": 0.0,
+      "effort_limit_nm": 5.0,
+      "velocity_limit_rad_s": 10.0,
+      "distribution": "independent_uniform_per_environment_panel_and_reset",
+      "joint_limits_masses_geometry_contact_materials_unchanged": true,
+      "dynamic_articulation": true,
+      "in_episode_state_overwrite": false,
+      "box_base_and_background_layout_randomization_unchanged": true
+    },
+    "actual_manifest_safety_thresholds": {
+      "max_box_angular_speed_radps": 100.0,
+      "max_box_lift_height_m": 0.5,
+      "max_box_linear_speed_mps": 10.0,
+      "obstacle_contact_force_n": 5.0,
+      "rack_contact_force_n": 10.0,
+      "workspace_radius_m": 1.5
+    }
+  },
+  "initial_whole_DEV_and_new_TRAIN_effect_pending": true
+}

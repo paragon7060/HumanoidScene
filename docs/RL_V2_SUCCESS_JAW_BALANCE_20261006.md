@@ -38,6 +38,8 @@ Source Q6864의 성공 bank에는15경로/6,346행이 있다. 실제 sampler는 
 
 관련29검사가 통과했다. 실제 GPU 비교는 기존 두 실행을 유지하고 원래 source/replay/네 구역 schedule에서 `전체 DEV → 실제 TRAIN 두 wave → 전체 DEV`를 별도 고유 폴더로 실행한다. 자기 초기 DEV 대비 실제 안전 양손 접촉/hold/clearance와 전체 구역 성능으로 판단한다. Independent FINAL은 모델 선택 후에만 사용한다. 아직 목표 완료가 아니다.
 
+08:42 KST에 `actual_flap_balanced_success_jaw_credit16_sac_pgs128_gpu3_20261006_084235` / `batch_sac_20261006_084235_d73ae4`를 실제 시작했다. Writer3173061·supervisor3173028의 소유자/run/`CUDA_VISIBLE_DEVICES=3`을 확인했다. 시작 직전 GPU3 free46,750MiB, host available956.9GiB, private tmpfs free493.6GiB였고 기존 weak/strong writer1547049·2726960을 유지했다. Drive `about`도 기존 인증으로 통과했다. 08:48에 실제 manifest에서 `region-hand-class`·strong saturation0.001·동적 flap 물성 범위·rack/obstacle 안전 기준을 검증했다. 초기 전체 DEV·새 TRAIN 효과는 아직 확인 전이다. [실제 시작·manifest 근거](assets/rl_v2_success_jaw_balance_actual_GPU3_startup_20261006.json).
+
 ## 실행 및 재현
 
 현재 actual-flap TRAIN 명령에 다음 옵션을 추가한다. 물리 reward identity와 observation/action 계약이 같은 checkpoint만 사용한다.

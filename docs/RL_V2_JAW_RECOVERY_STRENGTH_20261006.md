@@ -40,3 +40,11 @@ Weak 복구 실행의 saved Q8192/actor1536을 같은 immutable 실제 TRAIN69�
 기존 weak 실행의 첫 완료 TRAIN은5/128(중간 왼쪽1·중간 오른쪽4·위쪽0), initial invalid42·unsafe62·timeout19이며 현재 두 번째 TRAIN 중이다. 탐색 TRAIN 성공을 greedy 일반화 성공으로 해석하지 않는다. 모든 결과는 원래 invalid를 분모에 유지한다.
 
 08:11 KST에 strong 실행의 초기 frozen DEV31step을 확인했다. Actor1204/Q6864/replay224621/online TRAIN0/jaw sampler0이다. 초기 유효98·무효30건을 모두 원래128개 분모에 유지한다. 128환경×18asset×4hinge의 **각 물성9,216개**가 전부 요청 범위 안이었다: 강성1.50006–2.49963·감쇠0.150009–0.249982·static friction0.45002–0.649998·dynamic friction0.300004–0.400000. Reset setter의 actual PhysX readback으로 검증된 cache를 읽었고 상태 쓰기·재추첨·추가 rollout은 하지 않았다. 무효 사례의 cache는 현재 replacement의 값이며 원래 실패 원인을 설명하지 않는다. 초기 각도는 이 네 물성 cache로 검증하지 않았다. [실제 적용값·학습 전 카운터](assets/rl_v2_stronger_jaw_recovery_initial_DEV_profile_20261006.json). 전체 초기 DEV와 실제 새 학습 효과는 아직 완료 전이다.
+
+## 전체 초기 DEV와 후속 실제 GPU 업데이트
+
+Strong 실행의 초기 전체 DEV는10/128(중간 왼쪽2/중간 오른쪽8/위쪽0), invalid30/unsafe66/timeout22였다. 실제 저장된 source Q6864/actor1204 checkpoint의 모델54개 tensor가 원래 source와 정확히 같았다. **새 학습 효과가 아니며** weak 초기9와의 차이는 물리 reset/배치 변동이다. 08:48에는 실제 TRAIN1 step61/actor1208/Q6880/online33행으로 업데이트를 시작했다. [전체 초기 DEV·checkpoint 해시·모델 일치](assets/rl_v2_strong_recovery_completed_initial_DEV_20261006.json).
+
+Weak 실행은 실제 TRAIN 두 wave를 끝내 source 이후760actor/Q9902·실제88,978행을 추가하고 frozen 전체 최종 DEV 중이다. 같은 immutable69경로의 위 오른쪽572실패 상태에는 greedy 양손 닫힘이 여전히0개이며 mean P(양손 닫힘)은 source5.58e-7→weak6.31e-8이다. 모든54모델을 정확히 복원하고 실제 입력 MD5를 새로 확인했다. 전체 최종 DEV는 완료 전이며 이 CPU 출력은 물리 성공률이 아니다. [실제 GPU Q9902의 고정 TRAIN 비교](assets/rl_v2_weak_jaw_recovery_GPU_Q9902_fixed_TRAIN_20261006.json).
+
+실제 성공 TRAIN의 열림/닫힘 비율과 별도 선택형 NLL 균형 비교는 [성공 jaw 학습 신호 균형](RL_V2_SUCCESS_JAW_BALANCE_20261006.md)에 기록했다. 기존 healthy 실행은 유지하며 변경된 loss의 효과는 자기 초기 대비 전체 greedy DEV와 실제 pad/hold/clearance로 판단한다. 목표는 원래 randomization을 유지한 네 구역 양손 파지이며 아직 완료되지 않았다.
