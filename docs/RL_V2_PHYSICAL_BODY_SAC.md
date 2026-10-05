@@ -367,3 +367,89 @@ Drive 크기·MD5를 확인했다. 기록 시점에는 초기화 중이며 평�
 본 뒤 physical-body 성공 명령 유지의 가중치와 완료된 TRAIN 궤적의
 multi-step terminal credit을 강화할지 결정한다. 이 추가 학습 변경은
 아직 구현하거나 실행하지 않았다.
+
+## 10/05 09:30 · 학습 후 DEV2/128 확인과 native TRAIN10-step 보강 실행
+
+Actor354/Q2439의 고정 DEV128이 정상 종료했고 닫힌 데이터·로그의 Drive
+검증도 완료됐다. 중간오른쪽1/32, 중간왼쪽1/32, 상단 양쪽0/32로 총2/128이다.
+초기 GPU0 DEV7/128보다 낮지만 GPU2의 cold 실행이므로 학습 효과만의
+비교로 단정하지 않는다. 초기 actor0를 **같은 GPU2·같은 DEV128**에서
+고정 재평가하는 대조 실행도 시작했다. 두 평가 모두 학습이나 FINAL이 아니다.
+
+Invalid reset30개는 원래128개 분모에 그대로 남겼다. 안전 위반 종료77개에서
+rack 충돌39/box 속도35/과도 lift11/drop8/workspace5가 기록됐다.
+한 episode에서 여러 원인이 동시에 켜질 수 있어 원인별 수를 합산한 값을
+전체 안전 실패 수로 쓰지 않는다. 초기 배치가 바뀌거나 불안정해지는 문제와
+네 영역의 안정적인 성공은 아직 해결하지 못했다.
+
+![완료된 DEV와 안전 위반 원인](assets/rl_v2_physical_body_credit10_20261005.png)
+
+[종료된128개 평가·원인·새 실행·실제 TRAIN CPU 검증](assets/rl_v2_physical_body_credit10_20261005.json).
+
+### 별도 보강 옵션: `native-nstep10`
+
+기본 `one-step`은 기존 설정을 유지한다. 새로운 옵션은 원래 실제 성공
+TRAIN13개(5,737행)로 새 Q/optimizer를 시작한다. 실제 물리 body21
+명령과 기록 관측을 사용하며 old goal Q, inverse goal label, DEV/FINAL이나
+다른 물리 probe를 학습 데이터로 가져오지 않는다. Live VR/IK teacher는 없다.
+
+| 항목 | 기존 physical SAC | 보강 옵션 |
+|---|---:|---:|
+| 온라인 SAC Bellman target | 1-step | 동일한1-step 유지 |
+| 완료 TRAIN의 추가 critic target | 없음 | 최대10-step, 실제 종료에서 끊음 |
+| 추가 critic batch/loss weight | 없음 | 64행/1.0 |
+| 추가 샘플의 terminal window 지정 비율 | 없음 | 25%; 나머지는 균등 샘플 |
+| 성공 body 명령 MSE weight | 1.0 | 10.0 |
+| 가까운 손의 성공 jaw NLL weight | 0.05 | 0.1 |
+| 물리 단위 prior body 유지 weight | 0.2 | 1.0; actor5,000회에 걸쳐 감소 |
+| 실제 성공 TRAIN의 기본 replay 비율 | 20→5% | 동일하게20→5% |
+
+10-step window는 첫 기록 상태·실제 action과 마지막 실제 next state를
+사용한다. 실제 reward를 gamma의 거듭제곱으로 더하고, 실제 종료가 없을
+때만 `gamma**k`로 endpoint의 soft SAC 값을 bootstrap한다. 종료 window는
+bootstrap0이며 terminal placeholder를 controller에 넣지 않는다.
+관측 chain이 끊긴 episode는 거부하고, 영역별 성공 bank를 균등 샘플하며
+episode를 가로질러 이어붙이지 않는다. 종료를 향하는16행 이상이 매64행에
+포함되지만 중간 reward를 새로 만들거나 success label을 완화하지 않는다.
+
+이 방식은1-step/n-step loss를 결합하는
+[DQfD 원문](https://ojs.aaai.org/index.php/AAAI/article/download/11757/11616)의
+신호 전달 아이디어를 SAC 보강에 적용한 실험이다. DQfD 전체 구현이나
+unbiased SAC를 뜻하지 않는다. 중간 action은 기록 behavior의 action이고
+off-policy correction과 중간 entropy를 넣지 않아 auxiliary target에
+bias가 있을 수 있다. [Experience replay 연구](https://proceedings.mlr.press/v119/fedus20a/fedus20a.pdf)의
+uncorrected n-step 결과도 DQN 계열의 실험이며, 이 SAC task의 개선을
+증명하는 근거로 쓰지 않는다. 실제 DEV/독립 FINAL로 효과를 확인해야 한다.
+
+관련61개 테스트가 통과했다. 실제13개 episode 전체의 observation chain이
+bitwise 이어지고, 최초5,737행의 정책 명령이 기존 frozen prior와 같으며,
+physical action/reward/safety 계약이 기존 fullrange와 같음을 확인했다.
+별도의 CPU 복사본에서 critic·actor·두 entropy optimizer를 한 번 업데이트해
+유한한 loss/parameter를 확인했다. 초기 저장 모델은 그 업데이트 전후 hash가
+같고 actor/Q counter0이며, 이 CPU 검사는 새 simulator 성공이 아니다.
+
+초기화 CLI에는 다음 옵션을 추가한다. 실행할 때는 기본과 마찬가지로
+새 checkpoint를 기존 `batched_staged_goal_with_drive.py`에 전달한다.
+Checkpoint의 학습 계약에서 옵션을 복원하므로 다른 설정으로 조용히 재개하지 않는다.
+
+```bash
+# 기존 prepare_physical_body_sac.py의 입력 인자에 추가
+--residual-gain 2 --credit-variant native-nstep10
+```
+
+GPU3의 새 실행은
+`physical_body_SAC_credit10_pgs128_gpu3_20261005_092821`이고128 env다.
+`CUDA_VISIBLE_DEVICES=3`/internal `cuda:0`/renderer3이며 PGS와 기존
+그리퍼 구동·gravity compensation·동적 box/base randomization·성공/안전
+조건을 유지한다. TRAIN/DEV는 기존 fullrange 비교와 동일하며 새 FINAL
+namespace2026105500은 정책 선택에 쓰지 않는다. 코드 기준 commit은
+`95f1af9`다. 이 기록 시점에는 실제 PID1557650/systemd active/GPU3와
+PGS 초기화가 확인됐으며 새 학습 성능은 아직 나오지 않았다.
+초기 checkpoint/replay/입력은 기존 Drive에서 크기·MD5 검증했고, 기존
+관리자가300초 업로드/검증된 checkpoint 최신2개 보호/종료 로그 검증을 맡는다.
+기존 GPU0·GPU3 학습과 다른 사용자의 프로세스는 중단하지 않았다.
+
+저장공간은 종료·Drive 검증·실제 writer/다른 독자 부재를 확인한 예전 제
+실험 두 개의 replay/HDF만 추가로 정리해9,720,453,463bytes(약9.05GiB)를
+회수했다. 원격 데이터와 복원 size/MD5 기록, 로컬 checkpoint·로그·현재
+TRAIN corpus와 활성 replay는 보존했다. 이 정리 후 여유는 약27.35GiB였다.
