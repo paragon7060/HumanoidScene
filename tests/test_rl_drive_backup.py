@@ -101,7 +101,7 @@ def test_large_upload_extends_transfer_deadline_without_weakening_checks(tmp_pat
     remote = backup.Rclone(tmp_path / "wrapper.sh")
     remote.upload(source, "drive:run/staged_goal_experience.pt")
     command, options = calls[-1]
-    assert options["timeout"] == 4396
+    assert options["timeout"] == 16684
     assert options["check"] and options["capture_output"]
     assert "--checksum" in command and "--immutable" in command
     assert command[-6:] == ["--retries", "3", "--contimeout", "15s", "--timeout", "60s"]

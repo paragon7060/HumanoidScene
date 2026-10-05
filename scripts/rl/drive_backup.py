@@ -47,10 +47,13 @@ class Rclone:
 
     def upload(self, source, destination):
         # Completed replay files can take more than ten minutes to transfer.
-        # Allow 1 MiB/s plus five minutes; stalled network I/O still times out
-        # after 60 seconds, and metadata calls retain their ten-minute limit.
+        # Concurrent healthy transfers on this host have progressed below
+        # 1 MiB/s. Budget 0.25 MiB/s plus five minutes rather than repeatedly
+        # cancelling an upload that is still making progress. Stalled network
+        # I/O still times out after 60 seconds; metadata remains ten minutes.
         mib = 1024 * 1024
-        deadline = max(600, 300 + (Path(source).stat().st_size + mib - 1) // mib)
+        size_mib = (Path(source).stat().st_size + mib - 1) // mib
+        deadline = max(600, 300 + 4 * size_mib)
         self.call("copyto", source, destination, "--checksum", "--immutable",
                   timeout=deadline)
 

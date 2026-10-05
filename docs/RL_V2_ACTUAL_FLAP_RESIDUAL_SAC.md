@@ -144,6 +144,11 @@ box speed16, lift limit5, drop3, workspace1은 겹칠 수 있는 안전 원인�
 남아 있다(중간 좌3/우9, 위 좌1/우0). Replay는 실제 held TRAIN98,473행이며 DEV/FINAL
 행은0이다. 학습은 계속 진행하며 다음 전체 DEV에서 지역별 유지 여부를 다시 본다.
 
+10/06 00:12의 실제 PID·CUDA3·서비스 대조에서 새 학습 writer1292348은 유지됐고,
+actor687/Q4796, 실제 held TRAIN replay153,307행이었다. 손실은 유한하다.
+Wave5 TRAIN이 진행 중이며 전체13-wave 중5개가 닫혔다. 최신 전체 DEV는 여전히
+9/128이므로 이 업데이트 수를 새로운 성공률로 해석하지 않는다.
+
 ### 읽기 전용 CPU 대조
 
 [실제 checkpoint와 TRAIN 입력의 진단](assets/rl_v2_actual_flap_firm_actor_Q_audit_20261005.json)은
@@ -204,6 +209,15 @@ Writer의 소유권·run 경로·CUDA 격리·실제 세 관측 그룹과 첫 ro
 불러온 uploader는 새로운 flap wave 파일 glob 이전 버전이므로, 종료 후 현재
 `archive_pilot`으로 해당 immutable JSON까지 추가 확인한다. 재인증이나 다른
 사용자의 파일·프로세스 변경은 없다.
+
+대용량 종료 백업 두 개는 기존1MiB/s 예산보다 느리게 진행해 반복 시간초과했다.
+`Rclone.upload`만0.25MiB/s+300초(최소600초)로 연장하고 접속15초/진행 없는 I/O60초,
+immutable/size/MD5 검사와 최근 두 checkpoint 보존은 유지했다. 관련 CPU 테스트17개가
+통과했다. 현재 복사 중인 원래 rclone은 유지하고, 종료된 writer의 CPU 관리자만
+전송 자식이 없는 오류 후 대기 시점에 현재 코드로 이어받도록 별도 CPU 대기를
+등록했다. 이는 백업 작업이며 GPU 학습·평가 결과와 무관하다. 최종 검증을 마치기
+전에는 해당 대용량 파일을 지우지 않는다. 자세한 제한은
+[Drive 운영 안내](RL_GOOGLE_DRIVE.md)를 참고한다.
 
 ```bash
 PYTHONPATH=src:scripts/rl CUDA_VISIBLE_DEVICES='' python scripts/rl/prepare_actual_flap_residual_sac.py \
