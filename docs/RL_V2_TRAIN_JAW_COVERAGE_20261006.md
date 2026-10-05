@@ -173,6 +173,8 @@ capture potential0.849였지만 실제 left pinch는0이었다. 점수는 geomet
 TRAIN wave에서89167행을 추가하고 actor1204→1961·critic6864→9890을 업데이트했다.
 그 후 학습·탐색 없는 전체 DEV128개를 마친 결과는 **8→8/128(6.25%→6.25%)**이다.
 
+![지역별 실제 DEV 성공과 전체 종료 원인](assets/rl_v2_measured_nstep16_completed_DEV_20261006.png)
+
 | 전체 DEV 지역 | 초기 /32 | TRAIN 두 wave 후 /32 |
 |---|---:|---:|
 | 중간 왼쪽 | 1 | 3 |
