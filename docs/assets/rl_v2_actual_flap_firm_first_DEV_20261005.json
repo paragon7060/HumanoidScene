@@ -1,0 +1,274 @@
+{
+  "run_dir": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/actual_flap_firm_correction_sac_pgs128_gpu3_20261005_224437/batch_sac_20261005_224437_2f9ae7",
+  "recorded_writer_status": {
+    "status": "training",
+    "completed_waves": 1,
+    "recorded_waves": 1,
+    "total_waves": 13,
+    "interrupted": false
+  },
+  "writer_liveness_not_inferred": true,
+  "last_recorded_collection_rows_all_splits": 59715,
+  "collection_rows_include_DEV_and_base_approach": true,
+  "held_TRAIN_rows_total": 0,
+  "current_TRAIN_replay_rows": 0,
+  "learner": {
+    "actor_updates": 0,
+    "critic_updates": 0,
+    "online_rows": 0,
+    "replay_size": 0,
+    "critic_warmup_remaining": 2048,
+    "actor_collection_warmup_remaining": 32768,
+    "prior_weight": 0.0,
+    "effective_prior_mse_weight": 0.0,
+    "successful_train_bank": {
+      "rows": 0,
+      "by_region": {
+        "shelf_2_right": {
+          "episodes": 0,
+          "rows": 0
+        },
+        "shelf_2_left": {
+          "episodes": 0,
+          "rows": 0
+        },
+        "shelf_3_right": {
+          "episodes": 0,
+          "rows": 0
+        },
+        "shelf_3_left": {
+          "episodes": 0,
+          "rows": 0
+        }
+      },
+      "TRAIN_only": true,
+      "evaluation_rows": 0
+    },
+    "successful_train_replay_fraction": 0.2,
+    "latest": {},
+    "latest_actor": {}
+  },
+  "effective_Q_timeouts_bootstrap": false,
+  "inherited_base_terminal_description_timeouts_bootstrap": true,
+  "profile_rule_overrides_inherited_timeout_description": true,
+  "recorded_FINAL_waves": 0,
+  "waves": [
+    {
+      "wave": 0,
+      "split": "validation",
+      "by_region": {
+        "shelf_2_left": {
+          "attempts": 32,
+          "initial_valid": 19,
+          "complete": 32,
+          "task_success_flags": 1,
+          "supported_successes": 1,
+          "unsafe": 18,
+          "timeout": 0
+        },
+        "shelf_2_right": {
+          "attempts": 32,
+          "initial_valid": 25,
+          "complete": 32,
+          "task_success_flags": 5,
+          "supported_successes": 5,
+          "unsafe": 20,
+          "timeout": 0
+        },
+        "shelf_3_left": {
+          "attempts": 32,
+          "initial_valid": 30,
+          "complete": 32,
+          "task_success_flags": 2,
+          "supported_successes": 2,
+          "unsafe": 17,
+          "timeout": 11
+        },
+        "shelf_3_right": {
+          "attempts": 32,
+          "initial_valid": 25,
+          "complete": 32,
+          "task_success_flags": 0,
+          "supported_successes": 0,
+          "unsafe": 11,
+          "timeout": 14
+        }
+      },
+      "supported_successes": 8,
+      "attempts": 128,
+      "initial_valid": 99,
+      "unsupported_success_environments": [],
+      "safety_causes_on_valid_completed_attempts": {
+        "robot_rack_collision": 42,
+        "box_speed_limit": 23,
+        "box_lift_limit": 7,
+        "workspace_limit": 2,
+        "box_drop": 2
+      },
+      "simultaneous_safety_cause_sets": {
+        "robot_rack_collision": 42,
+        "box_speed_limit": 15,
+        "box_lift_limit + box_speed_limit": 5,
+        "box_lift_limit": 1,
+        "box_lift_limit + box_speed_limit + workspace_limit": 1,
+        "box_drop + box_speed_limit": 1,
+        "box_drop + box_speed_limit + workspace_limit": 1
+      },
+      "end_pinching_hand_counts": {
+        "2": 8,
+        "0": 86,
+        "1": 5
+      },
+      "end_contact_quality": {
+        "count": 99,
+        "mean": 0.10488712686970077,
+        "median": 0.0,
+        "p90": 0.25,
+        "maximum": 1.0
+      },
+      "end_matched_flap_surface_distance_m": [
+        {
+          "count": 99,
+          "mean": 1838692.8113315876,
+          "median": 0.035336367785930634,
+          "p90": 1.6606983900070191,
+          "maximum": 182005328.0
+        },
+        {
+          "count": 99,
+          "mean": 1838692.8214706967,
+          "median": 0.052764613181352615,
+          "p90": 1.3993587017059328,
+          "maximum": 182005328.0
+        }
+      ],
+      "end_flap_surface_distance_by_outcome_m": {
+        "supported_success": [
+          {
+            "count": 8,
+            "mean": 0.001941631839144975,
+            "median": 0.0010270682396367192,
+            "p90": 0.0036397889954969272,
+            "maximum": 0.00906173512339592
+          },
+          {
+            "count": 8,
+            "mean": 8.282734779641032e-05,
+            "median": 0.0,
+            "p90": 0.0003013126086443662,
+            "maximum": 0.00040630134753882885
+          }
+        ],
+        "safe_timeout": [
+          {
+            "count": 25,
+            "mean": 0.03433715750463307,
+            "median": 0.023931192234158516,
+            "p90": 0.07036366313695915,
+            "maximum": 0.13993072509765625
+          },
+          {
+            "count": 25,
+            "mean": 0.03982510708272457,
+            "median": 0.032063741236925125,
+            "p90": 0.0784114956855774,
+            "maximum": 0.16362439095973969
+          }
+        ],
+        "unsafe": [
+          {
+            "count": 66,
+            "mean": 2758039.2037555333,
+            "median": 0.06754042953252792,
+            "p90": 2.4121392965316772,
+            "maximum": 182005328.0
+          },
+          {
+            "count": 66,
+            "mean": 2758039.2171107377,
+            "median": 0.0965166836977005,
+            "p90": 2.327334403991699,
+            "maximum": 182005328.0
+          }
+        ]
+      },
+      "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+      "end_contact_statistics_are_not_ever_contact_rates": true
+    }
+  ],
+  "paired_DEV_against_initial": [],
+  "development_checks": [
+    {
+      "wave": 0,
+      "actor_updates": 0,
+      "critic_updates": 0,
+      "evaluated": true,
+      "regression": false,
+      "regression_cause": null,
+      "baseline_failed": false,
+      "by_region": {
+        "shelf_2_left": {
+          "attempts": 32,
+          "successes": 1
+        },
+        "shelf_2_right": {
+          "attempts": 32,
+          "successes": 5
+        },
+        "shelf_3_left": {
+          "attempts": 32,
+          "successes": 2
+        },
+        "shelf_3_right": {
+          "attempts": 32,
+          "successes": 0
+        }
+      },
+      "best_by_region": {
+        "shelf_2_left": {
+          "attempts": 32,
+          "successes": 1
+        },
+        "shelf_2_right": {
+          "attempts": 32,
+          "successes": 5
+        },
+        "shelf_3_left": {
+          "attempts": 32,
+          "successes": 2
+        },
+        "shelf_3_right": {
+          "attempts": 32,
+          "successes": 0
+        }
+      },
+      "best_wave": 0,
+      "minimum_region_success_rate": 0.0,
+      "regional_raw_loss": false,
+      "paired_comparison": {},
+      "regression_significance": 0.05,
+      "spent_region_significance": null,
+      "paired_reference_wave": 0,
+      "paired_reference_by_region": {
+        "shelf_2_left": {
+          "attempts": 32,
+          "successes": 1
+        },
+        "shelf_2_right": {
+          "attempts": 32,
+          "successes": 5
+        },
+        "shelf_3_left": {
+          "attempts": 32,
+          "successes": 2
+        },
+        "shelf_3_right": {
+          "attempts": 32,
+          "successes": 0
+        }
+      },
+      "regression_rule": "fixed_initial_baseline_exact_paired_alpha_spending",
+      "final_outcomes_used": false
+    }
+  ]
+}

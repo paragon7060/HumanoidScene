@@ -99,6 +99,35 @@ Actual flap 자세를 보는 새 trainable jaw/body policy가 이후 이를 교�
 Base 접근/정지 stage는 기존 fallback이며, 새 SAC가 base 이동을 학습했다고
 표현하지 않는다.
 
+## 첫 전체 평가와 실제 학습 시작
+
+새 설정의 학습 전 DEV0는 **8/128**이었다. 중간왼쪽1/32, 중간오른쪽5/32,
+위왼쪽2/32, 위오른쪽0/32다. 초기 무효29개도 분모에 포함한다. 유효99개는
+성공8·안전 위반66·timeout25였다. 안전 원인은 rack42, box speed23,
+lift limit7, drop2, workspace2이며 중복될 수 있다.
+[실제 전체128개 요약](assets/rl_v2_actual_flap_firm_first_DEV_20261005.json).
+
+이때 actor/Q 업데이트는0이었다. Frozen source의 기존DEV9는8/128(2/5/0/1)이므로
+새 조건에서 큰 성공률 상승이 확인된 것은 아니다. 실제 초기 물리 상태도 달라
+flap만의 순수 효과라고 단정하지 않는다. 이후 첫 TRAIN의 live progress에서
+Q718 업데이트·실제 held TRAIN28,910개와 유한 Q loss를 확인했다.
+Actor는 critic2,048업데이트와 held32,768개를 모두 확보한 다음 갱신한다.
+
+23:22의 live TRAIN2에서 warmup이 끝나 **actor33/Q2180**, 실제 held TRAIN76,687개를
+확인했다. Q loss0.01248, actor loss0.26161이며 유한하다. 첫 완료 TRAIN128개는
+성공6개(모두 중간오른쪽), 초기 무효44개였다. TRAIN 결과는 평가 성공률로
+표현하지 않으며, 학습 후 첫 전체 DEV는 아직 완료되지 않았다.
+
+기존 GPU0 첫 블록은 exit0으로 끝났지만 최종DEV12가5/128(0/3/2/0)으로
+하락했다. Source actor2476/Q11952와 실제 TRAIN393,021개를 그대로 이어
+더 오래 학습하는 대조 실행을 별도 시작했다. 고유 부모는
+`contact_reward_matching_long_control_sac_pgs128_gpu0_20261005_230535`이며,
+새 GPU3 물리/관측과 데이터를 섞지 않는다. 원래 box/base/background DR와
+네 영역별32개 기준을 두 실행에서 계속 유지한다. 이 결과만으로 목표를
+완료하지 않는다. 학습 후의 전체 DEV와 영역별 유지가 다음 판단 근거다.
+새 GPU0 writer PID1487816의 소유권·run 경로·CUDA0 및 실제 전체 DEV rollout도
+확인했다. Source replay393,021개를 읽어 같은 계약의 학습을 이어간다.
+
 ## 검증 및 실행
 
 실제 source TRAIN 관측405개에서 새 초기 몸 명령 오차0, 그리퍼 변경0,
