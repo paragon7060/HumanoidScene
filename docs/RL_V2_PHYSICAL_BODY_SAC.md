@@ -1001,3 +1001,28 @@ tick5 Body normal이약68.9N이었다. 반대로 원래 ML10개 중 다수는이
 유지한 채 요청row의 순서만 뒤집는 frozen 대조다. 생성/접촉 이력을 bitwise로
 맞춘 것은아니며 engine 오류로 확정하지 않는다. 일반 학습 설정과 독립FINAL을
 바꾸지 않고 기존 SAC 다섯 실행은 유지한다.
+
+### 15:20 · 순서를 바꾸니 실패 layout은 바뀌지만 row2/8의 실패는 남음
+
+[닫힌 같은16환경 순서 대조](assets/rl_v2_matched_state_row_order_20261005.json)는
+exit0·writer 종료·MainPID0·최종 Drive 검증을 완료했다. 같은16개 layout과43개
+active 박스·원래world frame·전체support q/v를 유지하고 요청row 순서만 뒤집었다.
+두 실행의 runtime source SHA256도 모두 같았다. 같은layout끼리 비교한 모든
+실제 Body/네flap world pose 차이와support 초기q/v 차이는모두0이었다.
+
+| 대조 | 초기 유효 | 실패 row → 원래 사례 |
+| --- | --- | --- |
+| 원래 순서 | 12/16 | 2→8,8→32,5→20,12→100 |
+| 역순 | 14/16 | 2→116,8→28 |
+
+다른 원래 사례가 배치내 row2/8에 배정돼도그row의 실패가 관찰됐다. 단, 원래
+row8은0.0667초, 역순row8은0.4초에실패했으므로 같은 궤적·같은 충격이라고
+주장하지 않는다. Constructor/contact solver 이력을 bitwise로맞추지는 못했으며
+engine defect나특정 index 버그로확정할 결과는 아니다. 이 관찰은 원래
+randomization 범위를 줄이는 것보다 scene 복제·초기 접촉 이력·물리 상태의
+row 갱신 경로를 우선 확인할 근거다. TRAIN/Q/독립FINAL은 계속 제외하며
+초기유효14/16을 학습파지성공으로기록하지 않는다.
+
+다음에는 scene의 physics replication/fabric clone 경로와 초기 contact state의
+일관성을 frozen 비교로검토한다. 근거가 확인되기 전에는 기본학습 reset·보상·
+randomization·안전/성공조건을바꾸지 않는다. 기존SAC 다섯 실행은유지한다.
