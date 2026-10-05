@@ -47,6 +47,8 @@ def main():
     parser.add_argument('--base-waypoint-probe',action='store_true',
         help='Frozen-only per-case workplace candidates; never contributes matching Q replay')
     parser.add_argument('--steps',type=int,default=900)
+    parser.add_argument('--reset-failure-diagnostics',action='store_true',
+        help='Frozen DEV --steps 1: measure original boxes before/after neutral hold and before partial respawn')
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
@@ -56,6 +58,10 @@ def main():
             or args.centered_world_probe or args.packed_background_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import validate_reset_diagnostic_request
+    try:validate_reset_diagnostic_request(waves,enabled=args.reset_failure_diagnostics,
+        training=args.training,steps=args.steps)
+    except ValueError as error:parser.error(str(error))
     from kuavo_isaaclab_scene.rl.multi_box.experiments.gripper_drive_probe import validate_gripper_drive_probe
     try:validate_gripper_drive_probe(waves,enabled=args.gripper_drive_probe,training=args.training)
     except ValueError as error:parser.error(str(error))
@@ -266,7 +272,8 @@ def main():
         meta=dict(task_family='multi_box_v2',skill='grasp',robot_model='s63',gripper='leju-twofinger',
             rack_rollers=True,actor_obs_dim=464,critic_obs_dim=530,action_dim=24,
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
-            collection_source=('changed_gripper_drive_frozen_probe_NOT_matching_Q_replay'
+            collection_source=('reset_failure_diagnostic_NOT_matching_Q_replay'
+                               if args.reset_failure_diagnostics else 'changed_gripper_drive_frozen_probe_NOT_matching_Q_replay'
                                if args.gripper_drive_probe else 'changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
                                if solver_probe else 'background_placement_frozen_probe_NOT_matching_Q_replay'
                                if args.packed_background_probe else 'base_waypoint_frozen_probe_NOT_matching_Q_replay'
@@ -292,6 +299,12 @@ def main():
             'base_waypoint_probe':dict(enabled=args.base_waypoint_probe,frozen_only=args.base_waypoint_probe,
                 Q_import_eligible=not args.base_waypoint_probe,initial_robot_box_poses_unchanged=True),
             'wave_reset_controller_contract':WAVE_RESET_CONTROLLER_CONTRACT},indent=2)+'\n')
+        if args.reset_failure_diagnostics:
+            manifest=json.loads((output/'manifest.json').read_text())
+            manifest['reset_failure_diagnostics']=dict(enabled=True,frozen_only=True,
+                Q_import_eligible=False,first_failure_before_respawn=True,
+                physics_randomization_success_safety_unchanged=True)
+            (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         if args.packed_background_probe:
             manifest=json.loads((output/'manifest.json').read_text())
             manifest['background_placement_probe']=dict(enabled=True,frozen_only=True,
@@ -322,7 +335,11 @@ def main():
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import packed_background_reset_observation
                 actors=torch.stack([packed_background_reset_observation(actor,cfg.multi_box,
                     roller_clearance_m=resolve_rack_roller_settings().box_clearance_m) for actor in actors])
-            observation,settled,valid_layout,layout_guard=settle_batched_layouts(env,actors,allow_partial=True)
+            observation,settled,valid_layout,layout_guard=settle_batched_layouts(env,actors,allow_partial=True,
+                capture_reset_diagnostics=args.reset_failure_diagnostics)
+            if args.reset_failure_diagnostics:
+                (output/f'reset_failure_diagnostics_wave_{wave_index:04d}.json').write_text(json.dumps(
+                    dict(wave=wave_index,split=wave['split'],layouts=wave['layouts'],guard=layout_guard),indent=2)+'\n')
             # An invalid requested case remains a failed attempt in the
             # denominator. Its replacement never supplies a snapshot/action
             # or transition to this layout's replay.

@@ -470,3 +470,32 @@ TRAIN corpus와 활성 replay는 보존했다. 이 정리 후 여유는 약27.35
 [같은 GPU 대조의 영역별 결과·공통 유효 장면·판정 변화 seed](assets/rl_v2_physical_body_same_GPU_control_20261005.json).
 
 대조 실행의 종료된 데이터·로그도09:48에 기존 Drive 크기/MD5 최종 검증을 확인했다.
+## 초기화 실패를 재생성 전에 확인하는 진단
+
+`train_batched_staged_goal.py --reset-failure-diagnostics --no-training --steps 1`
+은 선언된 DEV wave의 원래 active 박스들을 neutral hold 전/후에 측정하고,
+selected target이 처음 무효가 된 **partial respawn 직전**의 실제 pose·velocity·
+flap joint·rack/base pose와 원인 mask를 보존한다. 이후 parked asset이나
+replacement의 값으로 원래 실패를 덮어쓰지 않는다. 일반 학습의 기본은 off다.
+
+기존 batched Drive 실행 명령에 이 옵션들을 추가하고 새 실험 폴더를 지정한다.
+DEV만 허용하며 TRAIN/독립 FINAL 및 900-step 평가와 함께 쓸 수 없다.
+물리·randomization·충돌·성공 조건은 바꾸지 않으며, 파지 성공률을 측정하는
+실행이 아니다. 자료는 Q/replay 학습에 가져오지 않는다.
+
+각 wave의 `reset_failure_diagnostics_wave_<index>.json` 및 기존 `metrics.json`의
+`initial_layout_guard.reset_failure_diagnostics`에 기록한다. 60 physics-step
+neutral hold는 `env.step`이 아니므로 settling failure/partial respawn은 그 hold
+중에는 발생하지 않는다. 그 사이 발생한 물리 움직임은 전/후 snapshot으로 확인한다.
+이후 첫 selected failure는 cumulative counter·elapsed·geometry/timeout/invalid
+pose flags와 함께 기록한다. 주변 박스의 최종 guard sample은 실패 직전 궤적과
+구분한다. 닫힌 진단 JSON도 기존 Drive 관리자의 최종 업로드·MD5 검증에 포함한다.
+
+초기 DEV354 guard의 실제 active 주변 박스 failure 18건은 모두 logical5였다.
+이 값만으로 원인을 확정하거나 배치/timeout 기준을 완화하지 않는다. 이전
+original→packed→original 진단의 valid51→52→51/64에서도 packing만으로 큰
+개선은 없었다. 새 진단은 원래 DEV128 분포를 유지한 채 재현한다.
+
+CPU reset/respawn/기존 batched 회귀 검사27개와 Drive 검사13개를 통과했다.
+첫-step grace·timeout·nonfinite quarantine과 capture off/on의 동일 reset
+판정, 재생성 후 원래 snapshot 보존, 닫힌 diagnostic의 checksum 검증을 확인했다.

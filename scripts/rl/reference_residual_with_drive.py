@@ -29,6 +29,8 @@ def archive_pilot(source, remote_root, finished):
                 path = source/name
                 if path.exists():
                     archive_file(path,destination,remote)
+            for path in sorted(source.glob('reset_failure_diagnostics_wave_*.json')):
+                archive_file(path,destination,remote)
     return removed
 
 

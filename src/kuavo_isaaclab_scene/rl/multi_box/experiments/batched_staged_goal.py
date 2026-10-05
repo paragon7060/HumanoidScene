@@ -253,7 +253,7 @@ class BatchedBaseStages:
         return result
 
 
-def restore_batched_inferred_scene(env,actors):
+def restore_batched_inferred_scene(env,actors,*,capture_reset_diagnostics=False):
     """Whole-wave reset from neutral source observations, never success states.
 
     Every scene has its own dynamic boxes, rack-relative sampled layout and
@@ -318,7 +318,13 @@ def restore_batched_inferred_scene(env,actors):
     if hasattr(env,'_multi_box_privileged_grasp'):env._multi_box_privileged_grasp.reset(ids)
     env._multi_box_privileged_grasp_counter=-1;env._multi_box_grasp_safety_counter=-1
     env._multi_box_reset_settling.reset(ids);env.episode_length_buf[:]=0
+    if capture_reset_diagnostics:
+        env._batched_reset_box_diagnostics=dict(before_neutral_hold=
+            measured_initial_box_failures(env,actors,names,failures_only=False))
     settle_neutral_wave_controllers(env)
+    if capture_reset_diagnostics:
+        env._batched_reset_box_diagnostics['after_neutral_hold']=\
+            measured_initial_box_failures(env,actors,names,failures_only=False)
     composer=robot.permanent_wrench_composer
     env._batched_reset_control_audit['after_neutral_hold']=dict(
         force_n=composer.composed_force_as_torch[ids].flatten(1).norm(dim=1).tolist(),
@@ -369,7 +375,7 @@ def wait_for_original_surrounding_boxes(env,observation,expected,names,invalid_b
     return observation,steps,failed,stable_ticks
 
 
-def measured_initial_box_failures(env,actors,names):
+def measured_initial_box_failures(env,actors,names,*,failures_only=True):
     """Read why an original box fails geometry/stability; never alter its state.
 
     A replaced case is explicitly labelled. Its parked old asset must not be
@@ -404,7 +410,9 @@ def measured_initial_box_failures(env,actors,names):
             local=quat_apply(quat_conjugate(normalize_quaternion(rack[:,3:])),safe[:,:3]-rack[:,:3])
             stable=finite&(velocity[:,:3].norm(dim=-1)<.01)&(velocity[:,3:].norm(dim=-1)<.05)
             same_pool=env._multi_box_active[:,logical]&(env._multi_box_pool_ids[:,logical]==pool)
-            for i in torch.where(selected&~(footprint&on_shelf&stable&same_pool))[0].tolist():
+            chosen=selected&~(footprint&on_shelf&stable&same_pool) if failures_only else selected
+            for i in torch.where(chosen)[0].tolist():
+                asset=env.scene[names[pool]];joints=getattr(asset.data,'joint_pos',None)
                 failures.append(dict(environment=i,logical_id=logical,original_pool_id=pool,
                     original_asset_still_active=bool(same_pool[i]),finite=bool(finite[i]),
                     invalid_box_pose=bool(invalid_box[i]),invalid_rack_pose=bool(invalid_rack[i]),
@@ -412,20 +420,30 @@ def measured_initial_box_failures(env,actors,names):
                     stable_at_guard=bool(stable[i]),rack_local_root_xyz_m=finite_list(local[i]) if finite[i] else None,
                     shelf_clearance_m=float(clearance[i]) if finite[i] else None,
                     linear_speed_mps=float(velocity[i,:3].norm()) if finite[i] else None,
-                    angular_speed_radps=float(velocity[i,3:].norm()) if finite[i] else None))
+                    angular_speed_radps=float(velocity[i,3:].norm()) if finite[i] else None,
+                    box_pose_world=finite_list(pose[i]),box_velocity_world=finite_list(velocity[i]),
+                    joint_names=list(getattr(asset,'joint_names',[])),
+                    joint_positions_rad=None if joints is None else finite_list(joints[i])))
     return failures
 
 
-def settle_batched_layouts(env, actors, *, allow_partial=False):
+def settle_batched_layouts(env, actors, *, allow_partial=False,capture_reset_diagnostics=False):
     """Reject replaced/unsettled targets and every invalid surrounding box."""
     from ..scene.spawn import physical_asset_names
-    observation=restore_batched_inferred_scene(env,actors)
+    observation=restore_batched_inferred_scene(env,actors,capture_reset_diagnostics=capture_reset_diagnostics)
     invalid_before=env._multi_box_reset_settling.invalid_count.clone()
-    observation,steps,failed_during_settle=wait_for_original_layouts(env,observation,invalid_before)
     names=physical_asset_names();settling=env._multi_box_reset_settling
     expected=actors[:,86:350].reshape(-1,12,22)[:,:,0]>.5
-    observation,tick,failed_during_settle,stable_ticks=wait_for_original_surrounding_boxes(
-        env,observation,expected,names,invalid_before,failed_during_settle)
+    if capture_reset_diagnostics:
+        from ..scene.reset_diagnostics import ResetFailureCapture
+        settling.failure_capture=ResetFailureCapture(env)
+    try:
+        observation,steps,failed_during_settle=wait_for_original_layouts(env,observation,invalid_before)
+        observation,tick,failed_during_settle,stable_ticks=wait_for_original_surrounding_boxes(
+            env,observation,expected,names,invalid_before,failed_during_settle)
+        captured=[] if settling.failure_capture is None else settling.failure_capture.records
+    finally:
+        settling.failure_capture=None
     surrounding_unsettled=stable_ticks<8
     if not allow_partial and bool((failed_during_settle|surrounding_unsettled).any()):
         raise ValueError('Batched layout failed or surrounding boxes did not settle')
@@ -463,5 +481,9 @@ def settle_batched_layouts(env, actors, *, allow_partial=False):
     guard['surrounding_unsettled']=surrounding_unsettled.tolist()
     guard['box_footprint_or_shelf_failures']=footprint_failures
     guard['measured_box_failure_details']=measured_initial_box_failures(env,actors,names)
+    if capture_reset_diagnostics:
+        guard['reset_failure_diagnostics']=dict(**env._batched_reset_box_diagnostics,
+            first_invalid_before_respawn=captured,final_guard_is_not_pre_respawn_trajectory=True,
+            physical_state_safety_and_randomization_unchanged=True)
     print('[BATCH LAYOUT GUARD] '+str(guard),flush=True)
     return env.observation_manager.compute(),steps+tick,valid,guard

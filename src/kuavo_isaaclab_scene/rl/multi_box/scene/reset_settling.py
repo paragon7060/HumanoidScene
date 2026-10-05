@@ -61,6 +61,7 @@ class IsaacResetSettling:
         self.last_invalid_spawn_depth_m = torch.full(
             (n,), float("nan"), device=self.device)
         self._last_counter = int(env.common_step_counter)
+        self.failure_capture = None
 
     def reset(self, env_ids) -> None:
         ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
@@ -217,6 +218,9 @@ class IsaacResetSettling:
                 self.last_invalid_region_id[ids] = region_id[ids]
                 self.last_invalid_spawn_depth_m[ids] = -self.env._multi_box_rack_local_positions[
                     ids, logical[ids], 1]
+                if self.failure_capture is not None:
+                    self.failure_capture.record(self, logical, pose, velocity, type_id,
+                        region_id, newly_invalid, left_region, timed_out)
         return ResetSettlingStep(
             ready=self.ready.clone(), invalid=self.invalid.clone(),
             settling=(~self.ready & ~self.invalid).clone(),

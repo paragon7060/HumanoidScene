@@ -43,3 +43,27 @@ def test_series_stops_after_first_failed_frozen_actor(tmp_path,monkeypatch):
     assert len(calls)==2  # train, frozen eval; no second training episode
     assert '--no-residual-training' in calls[1]
     assert json.loads((parent/'status.json').read_text())['phase']=='performance_gate_failed'
+
+
+def test_reset_diagnostic_files_wait_for_closed_writers_and_are_checksum_verified(tmp_path,monkeypatch):
+    import hashlib
+    module=load_script();source=tmp_path/'reset_probe';source.mkdir()
+    diagnostic=source/'reset_failure_diagnostics_wave_0000.json'
+    diagnostic.write_text('{"first_invalid_before_respawn":[]}')
+    (source/'unrelated.json').write_text('{}')
+    class Remote:
+        files={}
+        checked=[]
+        def upload(self,path,destination):self.files[destination]=path.read_bytes()
+        def verify(self,path,destination,digest):
+            assert hashlib.md5(self.files[destination]).hexdigest()==digest
+            self.checked.append(destination)
+    remote=Remote()
+    monkeypatch.setattr(module,'archive',lambda *_:[])
+    monkeypatch.setattr(module,'Rclone',lambda *_:remote)
+    module.archive_pilot(source,'test:HumanoidScene-RL',False)
+    assert not remote.files
+    module.archive_pilot(source,'test:HumanoidScene-RL',True)
+    expected='test:HumanoidScene-RL/reset_probe/'+diagnostic.name
+    assert list(remote.files)==remote.checked==[expected]
+    assert diagnostic.is_file()
