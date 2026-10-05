@@ -128,6 +128,57 @@ Actor는 critic2,048업데이트와 held32,768개를 모두 확보한 다음 갱
 새 GPU0 writer PID1487816의 소유권·run 경로·CUDA0 및 실제 전체 DEV rollout도
 확인했다. Source replay393,021개를 읽어 같은 계약의 학습을 이어간다.
 
+## 첫 학습 후 전체 DEV — 일반화 개선은 아직 없음
+
+Actor243/Q3018 뒤 DEV3는 **9/128**이다. 원래 네 영역 각32개와 초기 무효29개를
+분모에서 빼지 않았다. 중간왼쪽은1→4, 중간오른쪽5→5, 위왼쪽2→0,
+위오른쪽0→0이다. 유효99개 중 성공9·unsafe63·timeout27이며 rack45,
+box speed16, lift limit5, drop3, workspace1은 겹칠 수 있는 안전 원인이다.
+한 영역의 개선만으로 네 영역 일반화 성공을 선언하지 않는다. 이번 실제 reset의
+물리 상태/힌지 난수는 이전 평가와 같다고 가정하지 않는다.
+
+![첫 전체 학습 후 DEV와 실제 TRAIN의 학습 연결](assets/rl_v2_actual_flap_firm_first_post_DEV_20261005.png)
+
+[전체 결과 snapshot](assets/rl_v2_actual_flap_firm_first_post_DEV_20261005.json).
+두 완료 TRAIN에는 실제 성공14개가 있었고, checkpoint 성공 bank에는13episode가
+남아 있다(중간 좌3/우9, 위 좌1/우0). Replay는 실제 held TRAIN98,473행이며 DEV/FINAL
+행은0이다. 학습은 계속 진행하며 다음 전체 DEV에서 지역별 유지 여부를 다시 본다.
+
+### 읽기 전용 CPU 대조
+
+[실제 checkpoint와 TRAIN 입력의 진단](assets/rl_v2_actual_flap_firm_actor_Q_audit_20261005.json)은
+GPU나 optimizer를 사용하지 않는다. 모델 tensor는 모두 유한하고 실제4096 TRAIN
+입력의 몸 목표는 frozen 기준에서 평균0.01213 normalized goal만큼 변했다.
+성공 경로282행에서는0.00503이다. 실제 추가38개 특징의 첫 layer weight는0에서
+변했고, 이 특징을0으로 만들면 몸 명령이 평균0.000468만큼 달라지며 gripper 결정은
+14개 변했다. 이는 CPU feature ablation이며 실제 물리 반사실 성공률이 아니다.
+표본에서 Q→몸 교정 latent의 gradient가0인 좌표는0%였다.
+
+보존한 성공13개의 실제 terminal target 평균은6.996, learned minQ는4.655다.
+성공의 양의 신호를 배우고 있지만 아직 평균2.341 낮게 평가한다. 연결과 유한 손실은
+일반화 성공의 증거가 아니다. 현재 독립 FINAL은 사용하지 않는다.
+
+### 실제 flap 정책의 동결 영상 재생
+
+`replay_v2_grasp_reference.py --staged-goal-sac --no-staged-goal-training`도 이제
+manifest의 optional 실제 flap38D 그룹과 firmer hinge profile을 생성한다.
+정책 클래스와 추가 관측 계약을 대조하고, 현재와 autoreset 전 다음 추가 관측을
+SAC/기록기에 전달한다. HDF의 supplementary38D와 PhysX hinge readback을 남긴다.
+구 nominal 정책은 추가 그룹 없이 그대로 재생한다. 추가 관측의 TRAIN goal 수집은
+matching batched runner를 사용한다.
+
+관련 CPU19개 통과와 실제 GPU3의 동결 checkpoint 로드·세 관측 그룹 및121step의
+base 정지 후 실제 SAC 제어를 확인했다. 원본 DEV 위왼쪽 seed121200을
+actor243/Q3018로 시각화하는 고유 실행은
+`actual_flap_firm_frozen_visual_gpu3_20261005_234823 / actual_replay_20261005_234823_cf3034`다.
+새 SAC 학습 writer는 유지했다. 재생 입력5개는 기존 Drive에서 크기·MD5를 확인했다.
+단일 cold N1의 영상은 전체 N128 성능이나 독립 FINAL이 아니다. 학습/replay 갱신을
+금지하고, 닫힌 영상은 browser H264로 변환한 뒤 기존 Drive와 Notion에 보관한다.
+
+별도 CPU 영상 준비 helper가 episode 인덱스를 layout 내부에서 읽으려다 실패한
+부분은 원래 wave row에서 읽도록 수정했다. GPU writer를 시작하기 전의 준비 오류였고,
+진행 중인 SAC 학습에는 영향을 주지 않았다. 이미 검증된 입력을 재검증해 재사용했다.
+
 ## 검증 및 실행
 
 실제 source TRAIN 관측405개에서 새 초기 몸 명령 오차0, 그리퍼 변경0,

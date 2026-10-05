@@ -247,6 +247,19 @@ def main():
         reward_weights = configured_reward_weights(contract['reward_profile'])
         cfg = MultiBoxGraspAssemblyEnvCfg(num_envs=1)
         cfg.episode_length_s = 30.
+        from kuavo_isaaclab_scene.rl.multi_box.observations.flap_supplement import (
+            SUPPLEMENTAL_GROUP, SUPPLEMENTAL_DIM, supplemental_perception_contract,
+        )
+        supplemental = contract.get('supplemental_perception')
+        if supplemental is not None:
+            if supplemental != supplemental_perception_contract() or not args.staged_goal_sac:
+                raise ValueError('Actual flap replay requires the matching staged SAC perception contract')
+            if args.collect_train_goals:
+                raise ValueError('Use the augmented batched runner for actual-flap TRAIN goal collection')
+            from kuavo_isaaclab_scene.rl.multi_box.managers.v2_observations import ActualFlapRelationsCfg
+            setattr(cfg.observations, SUPPLEMENTAL_GROUP, ActualFlapRelationsCfg())
+        from kuavo_isaaclab_scene.rl.multi_box.scene.flap_dynamics import configure_flap_dynamics
+        configure_flap_dynamics(cfg, contract)
         if 'contact_shaping' in contract['reward_profile']:
             cfg.rewards.grasp.params = dict(reward_profile=contract['reward_profile'])
         cfg.multi_box = replace(cfg.multi_box, self_collision_enabled=contract['self_collision']['enabled'],
@@ -289,7 +302,8 @@ def main():
         dims = {key: list(value) for key, value in env.observation_manager.group_obs_dim.items()}
         actions = {name: env.action_manager.get_term(name).action_dim
                    for name in env.action_manager.active_terms}
-        if dims != contract['observations'] or actions != contract['actions'] \
+        expected_dims = contract['observations'] | ({SUPPLEMENTAL_GROUP: [SUPPLEMENTAL_DIM]} if supplemental else {})
+        if dims != expected_dims or actions != contract['actions'] \
                 or contract.get('action_projection') != GraspActionProjector.name:
             raise ValueError('Reference replay action/observation contract differs')
         batch, demo_audit = load_v2_grasp_demonstrations(args.demo_dataset,
@@ -339,6 +353,8 @@ def main():
             from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_policy import staged_policy_class, staged_policy_metadata
             staged_class=staged_policy_class(staged_type)
             staged_resume=staged_class is not None
+            if staged_class is not None and bool(staged_class.supplemental_observation_dim) != bool(supplemental):
+                raise ValueError('Frozen staged checkpoint and measured supplemental perception differ')
             if staged_resume and not args.staged_goal_sac:
                 raise ValueError('A staged checkpoint cannot run as the legacy whole-body goal controller')
             if args.collect_train_goals and staged_type=='staged_held_physical_body_hybrid_sac_v1':
@@ -567,6 +583,12 @@ def main():
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         frozen_staged_counters = ((staged_goal_sac.actor_updates,staged_goal_sac.critic_updates,
             staged_goal_sac.replay.size) if staged_goal_sac and not staged_goal_sac.training else None)
+        if supplemental:
+            meta['supplemental_actor_obs_dim'] = SUPPLEMENTAL_DIM
+        if contract.get('flap_dynamics'):
+            (output/'flap_dynamics_wave_0000.json').write_text(json.dumps(
+                dict(wave=0, split=layout.split if layout else 'diagnostic',
+                     **env._flap_dynamics_last_reset_audit), indent=2)+'\n')
         goal_collector = None
         if args.collect_train_goals:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.training_goal_collection import TrainingGoalCollector, FORMAT
@@ -734,6 +756,8 @@ def main():
                 elif staged_goal_sac:
                     behavior_options = ({'sample_frozen_train_behavior':
                         args.train_collection_behavior=='checkpoint-exploration'} if goal_collector else {})
+                    if supplemental:
+                        behavior_options['supplemental'] = pre[SUPPLEMENTAL_GROUP]
                     action,staged_previous=staged_goal_sac.act(pre['policy'],
                         torch.cat((pre['policy'],pre['critic']),-1),policy_step,
                         **behavior_options)
@@ -786,7 +810,8 @@ def main():
                         goal_collector.append(staged_previous,following,reward,terminated)
                     staged_goal_sac.observe(staged_previous,terminal['policy'],
                         torch.cat((terminal['policy'],terminal['critic']),-1),reward,
-                        learning_termination_mask(contract['reward_profile'],terminated,truncated),policy_step)
+                        learning_termination_mask(contract['reward_profile'],terminated,truncated),policy_step,
+                        **({'supplemental': terminal[SUPPLEMENTAL_GROUP]} if supplemental else {}))
                     if staged_goal_sac.training and staged_goal_sac.critic_updates%1024==0:
                         staged_goal_sac.save()
                 if residual:
@@ -799,13 +824,17 @@ def main():
                 row['reward']=float(reward[0])
                 row['reward_terms']={key:float(value[0]) for key,value in
                                      env._multi_box_grasp_reward_breakdown.terms.items()}
-                recorder.append(dict(actor_obs=pre['policy'][0].cpu().numpy(),
+                recorded = dict(actor_obs=pre['policy'][0].cpu().numpy(),
                     critic_obs=torch.cat((pre['policy'], pre['critic']), -1)[0].cpu().numpy(),
                     action=action[0].cpu().numpy(), reward=float(reward[0]),
                     next_actor_obs=terminal['policy'][0].cpu().numpy(),
                     next_critic_obs=torch.cat((terminal['policy'], terminal['critic']), -1)[0].cpu().numpy(),
                     terminated=bool(terminated[0]), truncated=bool(truncated[0]),
-                    success=row['success'], unsafe=row['unsafe'], sim_time_s=env.common_step_counter*env.step_dt))
+                    success=row['success'], unsafe=row['unsafe'], sim_time_s=env.common_step_counter*env.step_dt)
+                if supplemental:
+                    recorded.update(actor_supplemental=pre[SUPPLEMENTAL_GROUP][0].cpu().numpy(),
+                                    next_actor_supplemental=terminal[SUPPLEMENTAL_GROUP][0].cpu().numpy())
+                recorder.append(recorded)
                 if 'frame' in pixels:
                     frame = pixels.pop('frame')
                     writer.write(frame)
