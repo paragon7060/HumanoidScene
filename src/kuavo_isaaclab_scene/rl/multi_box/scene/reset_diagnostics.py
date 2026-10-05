@@ -279,6 +279,11 @@ def startup_normal_contact_snapshot(env, asset_names, box_sensor_names, robot_se
     if pairs_enabled:
         result.update(support_roots=support_root_snapshot(env),
             measurement='normal contact forces per declared rigid-body filter, plus measured target poses; tangential friction not measured')
+        flap_reporters=getattr(env,'_reset_flap_contact_reporters',())
+        if flap_reporters:
+            from .reset_flap_contacts import startup_flap_contact_snapshot
+            result['flaps']=startup_flap_contact_snapshot(env,flap_reporters,target_states)
+            result['flap_measurement']='one rigid flap source per reporter; every other-box normal pair maximum/count retained'
     return result
 
 

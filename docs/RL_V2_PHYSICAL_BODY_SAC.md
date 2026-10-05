@@ -744,3 +744,29 @@ Native USD schema·단위·546개 geometry/anchor 보존과 실제 drive 검사 
 이 수정이 최초 박스 충격이나 파지 실패를 해소했는지는 아직 물리 비교 전이다.
 물리가 바뀌므로 향후 학습에는 새 물리 identity와 fresh Q/replay가 필요하다.
 기존 D0 Q/replay를 새 bearing 경험으로 이름만 바꾸어 이어 쓰지 않는다.
+
+### 12:50 · 감쇠 복구는 확인했으나 초기 충격은 남음: flap source까지 측정
+
+[감쇠 복구 전후의 닫힌 비교](assets/rl_v2_passive_bearing_comparison_20261005.json)는
+writer 종료·exit0·최종 Drive 검증을 완료했다. 수정한 모든128×546개 joint의 실제
+K0/D2e-5/F0.05를 확인했으나 초기 유효100/128, 최초 selected failure는원래와
+동일한중간왼쪽10개였다. Tick5의 최대 body net normal59.04N/root speed0.650m/s로
+큰 초기 충격도 남았다. Cold 반복의101→100은성능 변화나파지 성공률이 아니다.
+
+![감쇠는 복구됐지만 정책 action 전 초기 충격은 지속](assets/rl_v2_passive_bearing_comparison_20261005.png)
+
+작성된 drive 오류는확인된결함이나 초기 충격을해결했다고주장하지 않는다.
+현재의 contact pair 보고는 source가Body이므로 flap–flap 접촉은직접 측정하지 않았다.
+뒤박스 최초 접촉과 앞박스 충격의 동시성만으로 shared-articulation/engine 원인을
+확정하지않는다. 다음 원래PGS/D0/DEV128 진단은모든원래배치를 유지하면서
+`--reset-flap-contact-pair-diagnostics`로18개physical box의네flap을각각측정한다.
+
+설치된IsaacLab의filtered contact는source한개대여러target만지원하므로72개
+단일flap source reporter를별도로추가한다. 기존Body/finger reporter는보존한다.
+모든다른box의Body/4flap pair 최대값·nonzero 개수·nonfinite 개수를전체filter에서
+기록해global top3에가려진다른박스접촉도확인한다. Source/target의실제link pose와
+velocity, environment/logical/physical pool identity를함께기록한다. Normal force만
+측정하며vector합산을충돌판정으로쓰지않는다. Mass·geometry·collision rule·초기pose·
+감쇠·보상·성공·안전은변경하지않고TRAIN/Q/독립FINAL에는사용하지않는다.
+기본학습에서는새sensor와추가읽기가없다. Pool mapping·one-source/filter axis·
+숨은other-box contact·nonfinite보존을포함한관련95개검사통과.

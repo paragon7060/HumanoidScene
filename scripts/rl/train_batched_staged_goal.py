@@ -59,6 +59,8 @@ def main():
         help='Frozen reset diagnostic only: keep dynamic background5, change its initial support gap (default0.008m)')
     parser.add_argument('--reset-contact-pair-diagnostics',action='store_true',
         help='Frozen reset diagnostic only: extend existing box reporters to rack/rollers/other box bodies and measure support motion')
+    parser.add_argument('--reset-flap-contact-pair-diagnostics',action='store_true',
+        help='Frozen reset pair audit only: add one-source reporters for all four flaps; collision rules unchanged')
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
@@ -75,6 +77,8 @@ def main():
     except ValueError as error:parser.error(str(error))
     if args.reset_contact_pair_diagnostics and not args.reset_failure_diagnostics:
         parser.error('Contact pair diagnostics require frozen reset diagnostics')
+    if args.reset_flap_contact_pair_diagnostics and not args.reset_contact_pair_diagnostics:
+        parser.error('Flap pair diagnostics require frozen reset and contact pair diagnostics')
     if args.reset_solver_probe and not args.reset_failure_diagnostics:
         parser.error('Reset solver probe requires frozen reset diagnostics')
     if args.passive_bearing_probe_layer and (not args.reset_failure_diagnostics
@@ -163,7 +167,7 @@ def main():
         if contract.get('reward_profile',{}).get('weights')!=asdict(MultiBoxRewardWeights()):
             raise ValueError('Current physical reward weights differ from checkpoint input manifest')
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
-        pair_filter_manifest=None
+        pair_filter_manifest=None;flap_contact_reporters=[]
         if args.reset_contact_pair_diagnostics:
             from kuavo_isaaclab_scene.rl.multi_box.debug.contact_sensors import BELT_CONTACT_SENSOR_NAMES,_rack_contact_targets
             from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import physical_asset_names
@@ -171,11 +175,18 @@ def main():
             from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import extend_startup_contact_pair_filters
             targets=_rack_contact_targets(cfg.scene)
             flaps=('flap_front','flap_back','flap_right','flap_left')
+            box_paths=[]
             for name in physical_asset_names():
                 asset=getattr(cfg.scene,name);geometry=box_geometry(asset,flaps)
                 paths=[geometry.body_path,*[geometry.flaps[f].body_path for f in flaps]]
                 targets.extend(asset.prim_path+('/'+p if p!='.' else '') for p in paths)
+                box_paths.append(dict(asset_name=name,
+                    body=asset.prim_path+'/'+geometry.body_path,
+                    flaps={f:asset.prim_path+'/'+geometry.flaps[f].body_path for f in flaps}))
             pair_filter_manifest=extend_startup_contact_pair_filters(cfg.scene,BELT_CONTACT_SENSOR_NAMES,targets)
+            if args.reset_flap_contact_pair_diagnostics:
+                from kuavo_isaaclab_scene.rl.multi_box.scene.reset_flap_contacts import add_startup_flap_contact_reporters
+                flap_contact_reporters=add_startup_flap_contact_reporters(cfg.scene,BELT_CONTACT_SENSOR_NAMES,box_paths)
         if args.centered_world_probe:
             if not str(args.device).startswith('cuda') or not cfg.scene.replicate_physics or not cfg.scene.filter_collisions:
                 raise ValueError('Shared-origin probe requires replicated GPU physics with environment collision IDs')
@@ -263,6 +274,7 @@ def main():
         class WaveEnv(TerminalObservationMixin,ManagerBasedRLEnv):pass
         env=WaveEnv(cfg);env.enable_numerical_dynamics_recovery()
         env._reset_contact_pair_diagnostics=args.reset_contact_pair_diagnostics
+        env._reset_flap_contact_reporters=flap_contact_reporters
         if args.passive_bearing_probe_layer:
             from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import verify_passive_bearing_drives
             solver_probe['initialized_passive_drives']=verify_passive_bearing_drives(
@@ -346,6 +358,7 @@ def main():
                                if args.packed_background_probe else 'base_waypoint_frozen_probe_NOT_matching_Q_replay'
                                if args.base_waypoint_probe else pilot_class.artifact_type),training_contract=contract,
             contact_stability_probe=solver_probe,
+            startup_flap_contact_reporters=flap_contact_reporters,
             sim_device=str(env.device),multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             current_reward_verified_against_breakdown=True,
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
@@ -379,7 +392,9 @@ def main():
                 initial_box_pose_changed=args.rear5_support_gap_probe_m is not None,
                 normal_contact_pair_filters=pair_filter_manifest,
                 contact_pair_reporting_extended=args.reset_contact_pair_diagnostics,
-                new_sensors_added=False)
+                flap_contact_reporters=flap_contact_reporters,
+                new_sensors_added=bool(flap_contact_reporters),
+                additional_one_source_reporter_count=len(flap_contact_reporters))
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         if args.packed_background_probe:
             manifest=json.loads((output/'manifest.json').read_text())
