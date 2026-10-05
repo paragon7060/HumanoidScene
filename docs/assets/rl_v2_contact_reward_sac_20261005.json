@@ -1,0 +1,465 @@
+{
+  "time_KST": "2026-10-05T18:39:12.602588",
+  "artifact_type": "opt_in_contact_reward_SAC_initialization_and_launch_evidence",
+  "goal_complete": false,
+  "original_randomization_maintained": true,
+  "box_dynamic": true,
+  "independent_FINAL_unused": true,
+  "profile": {
+    "name": "opposing_pad_contact_progress_v1",
+    "min_jaw_force_n": 5.0,
+    "contact_progress_weight": 1.0,
+    "pad_force_saturates_at_success_threshold": true,
+    "score": "weaker_pad_then_weaker_hand_opposing_flaps",
+    "geometry": "filtered_contact_in_panel_region_and_opposed_jaws",
+    "terminal_potential_zero": true,
+    "time_limit_is_absorbing_for_Q": true,
+    "closing_without_contact_reward": false
+  },
+  "legacy_weights": {
+    "discount": 0.999,
+    "common": {
+      "robot_rack_collision": 6.0,
+      "self_collision": 4.0,
+      "box_drop": 8.0,
+      "obstacle_collision": 4.0,
+      "workspace_limit": 8.0,
+      "base_motion": 0.002,
+      "action_rate": 0.001,
+      "joint_limit": 0.002
+    },
+    "grasp": {
+      "base_motion": 0.0002,
+      "action_rate": 0.0001,
+      "approach_progress": 2.0,
+      "front_staging_progress": 1.0,
+      "front_distance_cost": 0.002,
+      "approach_distance_cost": 0.002,
+      "alignment_progress": 0.5,
+      "capture_progress": 0.5,
+      "jaw_gap_progress": 0.0,
+      "premature_close": 0.002,
+      "proof_lift_progress": 0.4,
+      "one_hand_pinch_event": 2.0,
+      "bilateral_pinch_event": 1.0,
+      "success_event": 5.0
+    },
+    "carry": {
+      "extraction_progress": 0.6,
+      "belt_progress": 1.0,
+      "free_space_progress": 0.5,
+      "pre_place_height_progress": 0.4,
+      "grasp_loss_event": 3.0,
+      "placed_box_disturbance_event": 1.0,
+      "success_event": 4.0
+    },
+    "place": {
+      "footprint_progress": 0.8,
+      "alignment_progress": 0.8,
+      "free_space_progress": 0.6,
+      "descent_progress": 0.5,
+      "stability_progress": 0.3,
+      "support_event": 0.5,
+      "correct_release_event": 1.0,
+      "premature_release_event": 2.5,
+      "success_event": 5.0
+    },
+    "high_level": {
+      "first_placement": 5.0,
+      "displacement": 3.0,
+      "full_success_event": 12.0,
+      "failure_event": 8.0,
+      "elapsed_second": 0.01
+    }
+  },
+  "weights": {
+    "discount": 0.999,
+    "common": {
+      "robot_rack_collision": 6.0,
+      "self_collision": 4.0,
+      "box_drop": 12.0,
+      "obstacle_collision": 4.0,
+      "workspace_limit": 12.0,
+      "base_motion": 0.002,
+      "action_rate": 0.001,
+      "joint_limit": 0.002
+    },
+    "grasp": {
+      "base_motion": 0.0002,
+      "action_rate": 0.0001,
+      "approach_progress": 2.0,
+      "front_staging_progress": 1.0,
+      "front_distance_cost": 0.002,
+      "approach_distance_cost": 0.002,
+      "alignment_progress": 0.5,
+      "capture_progress": 0.5,
+      "jaw_gap_progress": 0.0,
+      "premature_close": 0.002,
+      "proof_lift_progress": 0.4,
+      "one_hand_pinch_event": 0.5,
+      "bilateral_pinch_event": 2.0,
+      "success_event": 8.0
+    },
+    "carry": {
+      "extraction_progress": 0.6,
+      "belt_progress": 1.0,
+      "free_space_progress": 0.5,
+      "pre_place_height_progress": 0.4,
+      "grasp_loss_event": 3.0,
+      "placed_box_disturbance_event": 1.0,
+      "success_event": 4.0
+    },
+    "place": {
+      "footprint_progress": 0.8,
+      "alignment_progress": 0.8,
+      "free_space_progress": 0.6,
+      "descent_progress": 0.5,
+      "stability_progress": 0.3,
+      "support_event": 0.5,
+      "correct_release_event": 1.0,
+      "premature_release_event": 2.5,
+      "success_event": 5.0
+    },
+    "high_level": {
+      "first_placement": 5.0,
+      "displacement": 3.0,
+      "full_success_event": 12.0,
+      "failure_event": 12.0,
+      "elapsed_second": 0.01
+    }
+  },
+  "score_examples_are_formula_examples_not_success_rates": true,
+  "contact_quality_examples": {
+    "no_contact": 0.0,
+    "one_pad_one_hand": 0.0625,
+    "one_pinch_hand": 0.25,
+    "opposing_bilateral_pinch": 1.0
+  },
+  "selected_frozen_audit_counts": {
+    "cases": 16,
+    "both_hands_near_3cm": 14,
+    "ever_bilateral_pinch": 5,
+    "proof_lift_hold_success": 3
+  },
+  "GPU3_same_DEV128_successes": [
+    9,
+    8,
+    11
+  ],
+  "GPU3_latest_DEV_by_region": {
+    "ML": 4,
+    "MR": 6,
+    "UL": 1,
+    "UR": 0
+  },
+  "GPU3_learning_improvement_not_statistically_verified": true,
+  "initialization_verification": {
+    "actor_only": true,
+    "source_actor_updates": 8516,
+    "source_critic_updates_not_imported": 36110,
+    "destination_actor_updates": 0,
+    "destination_critic_updates": 0,
+    "actual_replay_rows": 0,
+    "optimizer_states_imported": false,
+    "contact_reward_change": true,
+    "original_confident_jaw_controller_prior_preserved": true,
+    "fresh_Q_replay_and_all_optimizers": true,
+    "greedy_actor_identity": {
+      "actual_TRAIN_input_rows": 498,
+      "greedy_goals_exactly_equal": true,
+      "greedy_body_error_max": 0.0,
+      "executed_jaw_disagreement_count": 0,
+      "comparison_only_no_rewards_or_replay_imported": true
+    },
+    "all_model_tensors_finite": true
+  },
+  "initial_Drive_verification": {
+    "verified": true,
+    "directory": "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_183400",
+    "files": [
+      {
+        "file": "checkpoint_00000000.pt",
+        "size": 13378677,
+        "MD5": "f216bc6e31c0af18a6babd17d8c4a109"
+      },
+      {
+        "file": "staged_goal_experience.pt",
+        "size": 12692,
+        "MD5": "33a612c0c5ee6e97a6b92eee33b1a2e7"
+      },
+      {
+        "file": "training_manifest.json",
+        "size": 21353,
+        "MD5": "dfd27ddb5747e10c12a38f8bf880a6c6"
+      },
+      {
+        "file": "manifest.json",
+        "size": 37358,
+        "MD5": "37b864699cc87c4936b401d83bdb5a3f"
+      },
+      {
+        "file": "status.json",
+        "size": 62,
+        "MD5": "eb9158de5ab8c8984b759058089a0ba3"
+      },
+      {
+        "file": "initialization_verification.json",
+        "size": 657,
+        "MD5": "d41a0e52f916569087399d025305275d"
+      },
+      {
+        "file": "first_training_block_waves.json",
+        "size": 909906,
+        "MD5": "1fb294e7e0390cea309a25e26db8f5f1"
+      }
+    ],
+    "greedy_actor_identity": {
+      "actual_TRAIN_input_rows": 498,
+      "greedy_goals_exactly_equal": true,
+      "greedy_body_error_max": 0.0,
+      "executed_jaw_disagreement_count": 0,
+      "comparison_only_no_rewards_or_replay_imported": true
+    }
+  },
+  "source_prior_fade_progress_preserved": 7170,
+  "old_BC_prior_penalty_not_reactivated": true,
+  "old_reward_Q_replay_imported": false,
+  "time_limit_is_absorbing_for_Q": true,
+  "CPU_relevant_tests_passed": 34,
+  "closed_trace_offload": {
+    "time": "2026-10-05T18:25:51.622779",
+    "files": [
+      {
+        "file": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/physical_body_SAC_terminal_fixed_resume_pgs128_gpu0_20261005_071955/batch_sac_20261005_071955_05b57c/executed_transitions.hdf5",
+        "size": 3327957944,
+        "MD5": "00531af258882de64f9297dc019b412d",
+        "remote_size_MD5_reverified": true,
+        "writer_and_supervisor_stopped": true,
+        "no_owned_process_readers": true,
+        "source_retention_inputs_preserved": true
+      },
+      {
+        "file": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/physical_body_SAC_fullrange_pgs128_gpu0_20261005_072246/batch_sac_20261005_072302_e0b615/executed_transitions.hdf5",
+        "size": 3286254871,
+        "MD5": "a3a4fa7816bb22b0a49fbd1fe561ce93",
+        "remote_size_MD5_reverified": true,
+        "writer_and_supervisor_stopped": true,
+        "no_owned_process_readers": true,
+        "source_retention_inputs_preserved": true
+      },
+      {
+        "file": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/staged_episode_arm_bias_pgs128_gpu3_20261005_034139/batch_sac_20261005_034139_08913c/executed_transitions.hdf5",
+        "size": 4028800891,
+        "MD5": "7d0c7f521ba7ba7c043a4aa89404adc5",
+        "remote_size_MD5_reverified": true,
+        "writer_and_supervisor_stopped": true,
+        "no_owned_process_readers": true,
+        "source_retention_inputs_preserved": true
+      },
+      {
+        "file": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/physical_body_SAC_credit10_pgs128_gpu3_20261005_092821/batch_sac_20261005_092836_52729c/executed_transitions.hdf5",
+        "size": 1724910749,
+        "MD5": "c70ab9a516db9c759e68d9c6bc2916f9",
+        "remote_size_MD5_reverified": true,
+        "writer_and_supervisor_stopped": true,
+        "no_owned_process_readers": true,
+        "source_retention_inputs_preserved": true
+      }
+    ],
+    "freed_bytes": 12367924455,
+    "free_disk_GiB": 41.780452728271484,
+    "only_checksum_verified_closed_owned_traces_removed": true,
+    "no_checkpoint_or_replay_removed": true
+  },
+  "timeout_pretraining_correction": {
+    "source_launch": {
+      "parent": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/contact_reward_fresh_sac_pgs128_gpu0_20261005_182003",
+      "unit": "humanoid-rl-contact-reward-fresh-sac-gpu0-20261005_182003.service",
+      "command": [
+        "/home/seonho/miniconda3/envs/env_isaaclab_232/bin/python",
+        "-u",
+        "/home/seonho/HumanoidScene/scripts/rl/batched_staged_goal_with_drive.py",
+        "--experiment-dir",
+        "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/contact_reward_fresh_sac_pgs128_gpu0_20261005_182003",
+        "--gpu",
+        "0",
+        "--checkpoint",
+        "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_180711/checkpoint_00000000.pt",
+        "--waves-json",
+        "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_180711/first_training_block_waves.json",
+        "--waypoints",
+        "/home/seonho/HumanoidScene/docs/assets/rl_v2_staged_base_hold_candidates_20261004.json",
+        "--demo-dataset",
+        "/home/seonho/HumanoidScene/examples/demos/v2_grasp_quest_success.hdf5",
+        "--training-manifest",
+        "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_180711/training_manifest.json",
+        "--training",
+        "--native-seed",
+        "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+        "--native-seed",
+        "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+        "--stop-on-validation-regression",
+        "--minimum-validation-region-success-rate",
+        "0",
+        "--validation-regression-significance",
+        "0.05"
+      ],
+      "gpu": 0,
+      "parallel_envs": 128,
+      "source_commit": "c92f3e1f3d95d137427a924e6c4d171e0c18d205",
+      "source_SHA256": {
+        "scripts/rl/train_batched_staged_goal.py": "3017721ef14cf116979bf5af1c41b27d3ce0003001cc5b1de8ad147ec28e6518",
+        "scripts/rl/prepare_contact_reward_sac.py": "9a2a5aaaab34d258a46757e1c6aa328370e29ee4b91569ab84d50d4184fbde01",
+        "src/kuavo_isaaclab_scene/rl/multi_box/experiments/staged_goal_sac.py": "1beda6981849eb8106c0cd3d19f34741c8812261d7ede44cefb5ab2f5c2a28b9",
+        "src/kuavo_isaaclab_scene/rl/multi_box/managers/v2_grasp.py": "88651bcbe2d5b709fcd2cc41525b3bd20391153a149ca29ee6f8456641b90cef",
+        "src/kuavo_isaaclab_scene/rl/multi_box/rewards/contact_profile.py": "e4c0204c7418b7067dfa40cd1248ab978f464af8fb505572efcedf00474a1beb",
+        "src/kuavo_isaaclab_scene/rl/multi_box/debug/layout_guard_storage.py": "2b4eb6a826ac4eb99a297d0d494f5fb313f2ef598708b6e4fa0c8ec36dc5a33b"
+      },
+      "source_uncommitted_at_launch": true,
+      "initialization_directory": "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_180711",
+      "initial_Drive_verified": true,
+      "actual_TRAIN_actor_inputs_exactly_equal": 498,
+      "old_reward_Q_replay_optimizer_imported": false,
+      "first_training_block_waves": 13,
+      "TRAIN_waves": 8,
+      "DEV_waves": 5,
+      "independent_FINAL_unused": true,
+      "original_randomization_and_four_regions_unchanged": true,
+      "purpose": "Opt-in opposing-pad tactile progress and terminal success weighting, literal inherited actor, fresh Q/replay/optimizers."
+    },
+    "writer_PID": 3115775,
+    "reason": "Align absorbing timeout contact potential with explicit opt-in Q done mask",
+    "stopped_only_our_GPU0_writer": true,
+    "source_actor_and_Q_updates": 0,
+    "last_progress_line": "[BATCHED SAC] {\"wave\": 0, \"split\": \"validation\", \"step\": 631, \"active\": 44, \"held\": 44, \"actual_rows\": 55334, \"transition_per_s\": 85.69428662875549, \"rollout_transition_per_s\": 102.90177885432774} actor=0 critic=0",
+    "old_Q_or_replay_imported": false,
+    "existing_GPU3_not_signaled": true,
+    "goal_not_complete": true
+  },
+  "launch": {
+    "parent": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/contact_reward_fresh_sac_pgs128_gpu0_20261005_183700",
+    "unit": "humanoid-rl-contact-reward-fresh-sac-gpu0-20261005_183700.service",
+    "command": [
+      "/home/seonho/miniconda3/envs/env_isaaclab_232/bin/python",
+      "-u",
+      "/home/seonho/HumanoidScene/scripts/rl/batched_staged_goal_with_drive.py",
+      "--experiment-dir",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/contact_reward_fresh_sac_pgs128_gpu0_20261005_183700",
+      "--gpu",
+      "0",
+      "--checkpoint",
+      "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_183400/checkpoint_00000000.pt",
+      "--waves-json",
+      "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_183400/first_training_block_waves.json",
+      "--waypoints",
+      "/home/seonho/HumanoidScene/docs/assets/rl_v2_staged_base_hold_candidates_20261004.json",
+      "--demo-dataset",
+      "/home/seonho/HumanoidScene/examples/demos/v2_grasp_quest_success.hdf5",
+      "--training-manifest",
+      "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_183400/training_manifest.json",
+      "--training",
+      "--native-seed",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+      "--native-seed",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+      "--stop-on-validation-regression",
+      "--minimum-validation-region-success-rate",
+      "0",
+      "--validation-regression-significance",
+      "0.05"
+    ],
+    "gpu": 0,
+    "parallel_envs": 128,
+    "source_commit": "c92f3e1f3d95d137427a924e6c4d171e0c18d205",
+    "source_SHA256": {
+      "scripts/rl/train_batched_staged_goal.py": "eaddb77e34c2ae5eed25d85c63001b332ef4bf084183518f2ac5d5243be4798e",
+      "scripts/rl/prepare_contact_reward_sac.py": "9a2a5aaaab34d258a46757e1c6aa328370e29ee4b91569ab84d50d4184fbde01",
+      "src/kuavo_isaaclab_scene/rl/multi_box/experiments/staged_goal_sac.py": "1beda6981849eb8106c0cd3d19f34741c8812261d7ede44cefb5ab2f5c2a28b9",
+      "src/kuavo_isaaclab_scene/rl/multi_box/managers/v2_grasp.py": "88651bcbe2d5b709fcd2cc41525b3bd20391153a149ca29ee6f8456641b90cef",
+      "src/kuavo_isaaclab_scene/rl/multi_box/rewards/contact_profile.py": "02a151b120ffd157d30ebee84e8645653e680e8f38bdf0ddefa846da7646704b",
+      "src/kuavo_isaaclab_scene/rl/multi_box/debug/layout_guard_storage.py": "2b4eb6a826ac4eb99a297d0d494f5fb313f2ef598708b6e4fa0c8ec36dc5a33b"
+    },
+    "source_uncommitted_at_launch": true,
+    "initialization_directory": "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_183400",
+    "initial_Drive_verified": true,
+    "actual_TRAIN_actor_inputs_exactly_equal": 498,
+    "old_reward_Q_replay_optimizer_imported": false,
+    "time_limit_is_absorbing_for_Q": true,
+    "superseded_DEV_only_launch": {
+      "parent": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/contact_reward_fresh_sac_pgs128_gpu0_20261005_182003",
+      "unit": "humanoid-rl-contact-reward-fresh-sac-gpu0-20261005_182003.service",
+      "command": [
+        "/home/seonho/miniconda3/envs/env_isaaclab_232/bin/python",
+        "-u",
+        "/home/seonho/HumanoidScene/scripts/rl/batched_staged_goal_with_drive.py",
+        "--experiment-dir",
+        "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/contact_reward_fresh_sac_pgs128_gpu0_20261005_182003",
+        "--gpu",
+        "0",
+        "--checkpoint",
+        "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_180711/checkpoint_00000000.pt",
+        "--waves-json",
+        "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_180711/first_training_block_waves.json",
+        "--waypoints",
+        "/home/seonho/HumanoidScene/docs/assets/rl_v2_staged_base_hold_candidates_20261004.json",
+        "--demo-dataset",
+        "/home/seonho/HumanoidScene/examples/demos/v2_grasp_quest_success.hdf5",
+        "--training-manifest",
+        "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_180711/training_manifest.json",
+        "--training",
+        "--native-seed",
+        "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+        "--native-seed",
+        "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+        "--stop-on-validation-regression",
+        "--minimum-validation-region-success-rate",
+        "0",
+        "--validation-regression-significance",
+        "0.05"
+      ],
+      "gpu": 0,
+      "parallel_envs": 128,
+      "source_commit": "c92f3e1f3d95d137427a924e6c4d171e0c18d205",
+      "source_SHA256": {
+        "scripts/rl/train_batched_staged_goal.py": "3017721ef14cf116979bf5af1c41b27d3ce0003001cc5b1de8ad147ec28e6518",
+        "scripts/rl/prepare_contact_reward_sac.py": "9a2a5aaaab34d258a46757e1c6aa328370e29ee4b91569ab84d50d4184fbde01",
+        "src/kuavo_isaaclab_scene/rl/multi_box/experiments/staged_goal_sac.py": "1beda6981849eb8106c0cd3d19f34741c8812261d7ede44cefb5ab2f5c2a28b9",
+        "src/kuavo_isaaclab_scene/rl/multi_box/managers/v2_grasp.py": "88651bcbe2d5b709fcd2cc41525b3bd20391153a149ca29ee6f8456641b90cef",
+        "src/kuavo_isaaclab_scene/rl/multi_box/rewards/contact_profile.py": "e4c0204c7418b7067dfa40cd1248ab978f464af8fb505572efcedf00474a1beb",
+        "src/kuavo_isaaclab_scene/rl/multi_box/debug/layout_guard_storage.py": "2b4eb6a826ac4eb99a297d0d494f5fb313f2ef598708b6e4fa0c8ec36dc5a33b"
+      },
+      "source_uncommitted_at_launch": true,
+      "initialization_directory": "/home/seonho/HumanoidScene/artifacts/rl/pose_students/contact_reward_fresh_sac_initial_20261005_180711",
+      "initial_Drive_verified": true,
+      "actual_TRAIN_actor_inputs_exactly_equal": 498,
+      "old_reward_Q_replay_optimizer_imported": false,
+      "first_training_block_waves": 13,
+      "TRAIN_waves": 8,
+      "DEV_waves": 5,
+      "independent_FINAL_unused": true,
+      "original_randomization_and_four_regions_unchanged": true,
+      "purpose": "Opt-in opposing-pad tactile progress and terminal success weighting, literal inherited actor, fresh Q/replay/optimizers."
+    },
+    "first_training_block_waves": 13,
+    "TRAIN_waves": 8,
+    "DEV_waves": 5,
+    "independent_FINAL_unused": true,
+    "original_randomization_and_four_regions_unchanged": true,
+    "purpose": "Opt-in opposing-pad tactile progress and terminal success weighting, literal inherited actor, fresh Q/replay/optimizers."
+  },
+  "actual_run_directory": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/contact_reward_fresh_sac_pgs128_gpu0_20261005_183700/batch_sac_20261005_183701_e3b40a",
+  "writer_PID": 3265933,
+  "snapshot_phase": "training",
+  "actual_run_folder_created": true,
+  "GPU0_actual_training_effect_not_yet_known": true,
+  "first_block": {
+    "total_waves": 13,
+    "TRAIN": 8,
+    "DEV": 5,
+    "FINAL": 0,
+    "number_of_regions": 4,
+    "parallel_envs": 128
+  },
+  "single_video_profile_wiring_added": true,
+  "single_video_GPU_validation_not_performed": true
+}

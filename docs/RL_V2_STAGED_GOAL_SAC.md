@@ -9,6 +9,9 @@
 이 실험의 [현재 물리 결과·영상](RL_V2_FOUR_REGION_SAC_20261004.md)은 별도로 갱신한다.
 실행 코드나 서비스의 존재가 학습 완료 또는 일반화 성공을 뜻하지 않는다.
 
+2026-10-05의 선택적 [접촉 보상 SAC](RL_V2_CONTACT_REWARD_SAC.md)는 기존 actor의
+실제 동작을 보존하고 Q/replay를 새로 시작한다. 기본 보상과 이전 실행은 유지한다.
+
 ## 파지 중 관측·닫힘·접촉 진단
 
 `train_batched_staged_goal.py --grasp-observation-audit`는 기존 정책의 입력·제어·

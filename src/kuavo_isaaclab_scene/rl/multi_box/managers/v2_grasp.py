@@ -207,7 +207,12 @@ class V2GraspReward(ManagerTermBase):
 
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
-        self.model = MultiBoxRewardModel()
+        from ..rewards.contact_profile import configured_reward_weights,ContactProgressReward
+        profile=cfg.params.get('reward_profile')
+        self.model = MultiBoxRewardModel(configured_reward_weights(profile) if profile else None)
+        self.contact_progress=(ContactProgressReward(env.num_envs,env.device,
+            discount=self.model.weights.discount,config=profile['contact_shaping'])
+            if profile and 'contact_shaping' in profile else None)
         self.previous = {
             name: torch.zeros(env.num_envs, device=env.device)
             for name in ("approach", "front_staging", "alignment", "capture", "jaw_gap", "proof_lift")
@@ -225,8 +230,9 @@ class V2GraspReward(ManagerTermBase):
         self.lift_armed[ids] = False
         for value in self.previous.values():
             value[ids] = 0.0
+        if self.contact_progress is not None:self.contact_progress.reset(env_ids)
 
-    def __call__(self, env) -> torch.Tensor:
+    def __call__(self, env, reward_profile=None) -> torch.Tensor:
         grasp = privileged_grasp_step(env)
         safety = grasp_safety_step(env)
         settling = reset_settling_step(env)
@@ -295,6 +301,12 @@ class V2GraspReward(ManagerTermBase):
         self.initialized |= settling.ready
         trainable = (settling.ready & ~settling.just_ready
                      & ~grasp.invalid_box_pose & ~grasp.invalid_flap_pose)
+        if self.contact_progress is not None:
+            terminal=grasp.success.success | safety.unsafe | task_time_out(env)
+            contact_reward=self.contact_progress.step(grasp.contacts,trainable=trainable,terminated=terminal)
+            terms=dict(breakdown.terms,contact_quality_progress=contact_reward)
+            breakdown=RewardBreakdown(terms,torch.stack(tuple(terms.values())).sum(0))
+            env._multi_box_contact_quality=self.contact_progress.last_quality
         if not bool(trainable.all()):
             terms = {
                 name: torch.where(trainable, value, torch.zeros_like(value))

@@ -201,9 +201,12 @@ def main():
         contract=json.loads(args.training_manifest.read_text())
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import require_current_lift_contract,frozen_prior_lift_contract
         require_current_lift_contract(contract)
-        if contract.get('reward_profile',{}).get('weights')!=asdict(MultiBoxRewardWeights()):
-            raise ValueError('Current physical reward weights differ from checkpoint input manifest')
+        from kuavo_isaaclab_scene.rl.multi_box.rewards.contact_profile import (
+            configured_reward_weights,frozen_actor_reward_contract,learning_termination_mask)
+        reward_weights=configured_reward_weights(contract['reward_profile'])
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
+        if 'contact_shaping' in contract['reward_profile']:
+            cfg.rewards.grasp.params=dict(reward_profile=contract['reward_profile'])
         from kuavo_isaaclab_scene.rl.multi_box.scene.reset_replication import (
             configure_independent_scene_probe,verify_independent_scene_probe)
         replication_probe=configure_independent_scene_probe(cfg,enabled=args.reset_independent_scene_probe)
@@ -298,10 +301,12 @@ def main():
                 physics_dt_s=cfg.sim.dt,control_dt_s=cfg.sim.dt*cfg.decimation,
                 all_iteration_counts_and_limits_unchanged=True,
                 success_and_safety_unchanged=True,Q_import_eligible=False)
-        profile=dict(weights=asdict(MultiBoxRewardWeights()),approach_scale_m=GRASP_APPROACH_REWARD_SCALE_M,
+        profile=dict(weights=asdict(reward_weights),approach_scale_m=GRASP_APPROACH_REWARD_SCALE_M,
             assignment_scale_m=GRASP_ASSIGNMENT_SCALE_M,capture_scale_m=GRASP_CAPTURE_REWARD_SCALE_M,
             front_stage_clearance_m=FRONT_STAGE_CLEARANCE_M,front_stage_lane_tolerance_m=FRONT_STAGE_LANE_TOLERANCE_M,
             front_stage_scale_m=FRONT_STAGE_REWARD_SCALE_M,geometry_profile='rack_front_lane_then_opposing_flap_reach_v3')
+        if 'contact_shaping' in contract['reward_profile']:
+            profile['contact_shaping']=contract['reward_profile']['contact_shaping']
         thresholds=dict(rack_contact_force_n=float(cfg.multi_box.rack_contact_force),
             obstacle_contact_force_n=float(cfg.task.obstacle_contact_force),workspace_radius_m=float(cfg.multi_box.workspace_radius),
             max_box_lift_height_m=float(cfg.multi_box.max_box_lift_height),
@@ -367,7 +372,7 @@ def main():
         if pilot_class is None:
             raise ValueError('Batched learner requires the separately initialized staged checkpoint')
         warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,
-                            frozen_prior_lift_contract(contract),output,training=False,device=env.device)
+                            frozen_prior_lift_contract(frozen_actor_reward_contract(contract)),output,training=False,device=env.device)
         templates=json.loads(args.waypoints.read_text())
         if templates['physical_action_contract']!=contract['action_contract']:raise ValueError('Waypoint travel differs')
         projection=GraspActionProjector(list(actions.items()))
@@ -580,6 +585,9 @@ def main():
                         'box_drop','box_lift_limit','box_speed_limit')},
                     box_pose=g.box_pose_world.clone(),box_velocity=g.box_velocity_world.clone(),
                     logical=g.target_logical_id.clone(),pool=g.target_pool_id.clone())
+                if 'contact_shaping' in contract['reward_profile']:
+                    from kuavo_isaaclab_scene.rl.multi_box.rewards.contact_profile import opposing_pad_contact_quality
+                    buffer['contact_quality']=opposing_pad_contact_quality(g.contacts)
                 if grasp_audit is not None:grasp_audit.finish(g,s)
                 return result
             env.termination_manager.compute=capture_before_reset
@@ -610,7 +618,7 @@ def main():
                             raise ValueError('Actual vector reward differs from current breakdown')
                         if previous is not None:
                             added=observe_measured_held_rows(pilot,stages,ids,previous,terminal,
-                                reward,terminated,clocks,active)
+                                reward,learning_termination_mask(contract['reward_profile'],terminated,truncated),clocks,active)
                             if added and pilot.training and pilot.success_bank is not None:
                                 measured_goal_batches.append((ids[active[ids]].detach().cpu(),pilot.history[-1]))
                         # One transfer per field, rather than per environment.
@@ -643,6 +651,7 @@ def main():
                                 target_logical_id=int(bc['logical'][i]),target_pool_id=int(bc['pool'][i]),
                                 unsafe_causes={k:bool(v[i]) for k,v in bc['causes'].items()},
                                 staged_base=stages.stages[i].report())
+                            if 'contact_quality' in bc:last[i]['contact_quality']=float(bc['contact_quality'][i])
                         active&=~(terminated|truncated)
                         if step%30==0:
                             progress=dict(wave=wave_index,split=wave['split'],step=step+1,

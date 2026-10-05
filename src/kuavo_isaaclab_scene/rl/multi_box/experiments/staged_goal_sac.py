@@ -95,7 +95,7 @@ def copy_remaining_actor(source, destination):
         output.bias[21:].fill_(math.log(destination.config.initial_policy_std))
 
 
-def initialize_staged_actor_only(pilot, source):
+def initialize_staged_actor_only(pilot, source,*,allow_contact_reward_change=False):
     """Reuse matching held-goal behavior after a lift/solver contract change.
 
     Source Q, normalizer, entropy, optimizer, counters, and replay stay out.
@@ -109,6 +109,9 @@ def initialize_staged_actor_only(pilot, source):
     def actor_contract(value):
         value=deepcopy(value)
         physical=frozen_prior_lift_contract(value['physical_contract'])
+        if allow_contact_reward_change:
+            from ..rewards.contact_profile import frozen_actor_reward_contract
+            physical=frozen_actor_reward_contract(physical)
         physical.pop('physics_dynamics',None)  # Dynamics may change only for fresh Q.
         value['physical_contract']=physical
         return value
@@ -123,12 +126,25 @@ def initialize_staged_actor_only(pilot, source):
             raise ValueError('Actor-only migration contains malformed tensors')
     with torch.no_grad():
         for key in names:current[key].copy_(source['model'][key])
+    preserve_jaw_prior=bool(getattr(pilot,'validated_jaw_prior_confidence',0.))
     if pilot.frozen_actor_prior is not None:
-        pilot.frozen_actor_prior.load_state_dict({key:current[key] for key in names})
+        if preserve_jaw_prior:
+            # Confident categorical logits subtract their original frozen
+            # network. Re-anchoring it to the learned actor changes executed
+            # jaw signs, even when every actor tensor was copied exactly.
+            saved_prior=source.get('frozen_actor_prior',{})
+            expected=pilot.frozen_actor_prior.state_dict()
+            if set(saved_prior)!=set(expected) or any(saved_prior[k].shape!=v.shape
+                    or not torch.isfinite(saved_prior[k]).all() for k,v in expected.items()):
+                raise ValueError('Confident jaw actor migration requires its original finite controller prior')
+            pilot.frozen_actor_prior.load_state_dict(saved_prior)
+        else:pilot.frozen_actor_prior.load_state_dict({key:current[key] for key in names})
     return dict(actor_only=True,source_actor_updates=source['actor_updates'],
                 source_critic_updates_not_imported=source['critic_updates'],
                 destination_actor_updates=0,destination_critic_updates=0,
-                actual_replay_rows=0,optimizer_states_imported=False)
+                actual_replay_rows=0,optimizer_states_imported=False,
+                contact_reward_change=allow_contact_reward_change,
+                original_confident_jaw_controller_prior_preserved=preserve_jaw_prior)
 
 
 class StagedGoalSACPilot:

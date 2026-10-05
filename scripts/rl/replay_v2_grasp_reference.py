@@ -224,7 +224,9 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import (
             VRJointTracker, select_reference_episode, settle_reference_scene,configure_vr_torso_up_diagnostic,
         )
-        from kuavo_isaaclab_scene.rl.multi_box.rewards import MultiBoxRewardWeights
+        from kuavo_isaaclab_scene.rl.multi_box.rewards.contact_profile import (
+            configured_reward_weights, frozen_actor_reward_contract, learning_termination_mask,
+        )
         from kuavo_isaaclab_scene.rl.multi_box.geometry.grasp import GRASP_ASSIGNMENT_SCALE_M
         from kuavo_isaaclab_scene.rl.multi_box.state.isaac_privileged_grasp import (
             GRASP_APPROACH_REWARD_SCALE_M, GRASP_CAPTURE_REWARD_SCALE_M,
@@ -240,11 +242,13 @@ def main():
         require_current_lift_contract(contract)
         if (contract.get('task_family') != 'multi_box_v2' or contract.get('skill') != 'grasp'
                 or contract.get('robot_model') != 's63' or contract.get('gripper') != 'leju-twofinger'
-                or contract.get('flap_pose_source', 'nominal') != 'nominal'
-                or contract.get('reward_profile', {}).get('weights') != asdict(MultiBoxRewardWeights())):
+                or contract.get('flap_pose_source', 'nominal') != 'nominal'):
             raise ValueError('Reference replay needs the current nominal v2 grasp contract/rewards')
+        reward_weights = configured_reward_weights(contract['reward_profile'])
         cfg = MultiBoxGraspAssemblyEnvCfg(num_envs=1)
         cfg.episode_length_s = 30.
+        if 'contact_shaping' in contract['reward_profile']:
+            cfg.rewards.grasp.params = dict(reward_profile=contract['reward_profile'])
         cfg.multi_box = replace(cfg.multi_box, self_collision_enabled=contract['self_collision']['enabled'],
                                 flap_pose_source=args.flap_pose_source)
         cfg.sim.device = args.device or 'cuda:0'
@@ -253,11 +257,13 @@ def main():
             configure_staged_physics(cfg,contract)
         elif contract.get('physics_dynamics'):
             raise ValueError('Explicit changed dynamics require the matching staged goal controller')
-        profile = dict(weights=asdict(MultiBoxRewardWeights()), approach_scale_m=GRASP_APPROACH_REWARD_SCALE_M,
+        profile = dict(weights=asdict(reward_weights), approach_scale_m=GRASP_APPROACH_REWARD_SCALE_M,
             assignment_scale_m=GRASP_ASSIGNMENT_SCALE_M, capture_scale_m=GRASP_CAPTURE_REWARD_SCALE_M,
             front_stage_clearance_m=FRONT_STAGE_CLEARANCE_M, front_stage_lane_tolerance_m=FRONT_STAGE_LANE_TOLERANCE_M,
             front_stage_scale_m=FRONT_STAGE_REWARD_SCALE_M,
             geometry_profile='rack_front_lane_then_opposing_flap_reach_v3')
+        if 'contact_shaping' in contract['reward_profile']:
+            profile['contact_shaping'] = contract['reward_profile']['contact_shaping']
         thresholds = dict(rack_contact_force_n=float(cfg.multi_box.rack_contact_force),
             obstacle_contact_force_n=float(cfg.task.obstacle_contact_force), workspace_radius_m=float(cfg.multi_box.workspace_radius),
             max_box_lift_height_m=float(cfg.multi_box.max_box_lift_height),
@@ -348,7 +354,7 @@ def main():
                 validate_goal_feedback_rates(base._scale,upper._scale,head._scale,height.cfg.speed_m_s,env.step_dt)
                 pose_sac=PoseGoalSACPilot(pose_state if staged_resume else args.pose_student_checkpoint,
                                         args.pose_student_native_seed,
-                                        frozen_prior_lift_contract(contract) if staged_resume else contract,
+                                        frozen_prior_lift_contract(frozen_actor_reward_contract(contract)) if staged_resume else contract,
                                         args.output_dir,training=args.pose_student_training,device=env.device)
                 controller_name='learned_pose_goal_SAC_NO_live_reference'
             else:
@@ -779,7 +785,8 @@ def main():
                             torch.cat((terminal['policy'],terminal['critic']),-1),policy_step+1)
                         goal_collector.append(staged_previous,following,reward,terminated)
                     staged_goal_sac.observe(staged_previous,terminal['policy'],
-                        torch.cat((terminal['policy'],terminal['critic']),-1),reward,terminated,policy_step)
+                        torch.cat((terminal['policy'],terminal['critic']),-1),reward,
+                        learning_termination_mask(contract['reward_profile'],terminated,truncated),policy_step)
                     if staged_goal_sac.training and staged_goal_sac.critic_updates%1024==0:
                         staged_goal_sac.save()
                 if residual:
