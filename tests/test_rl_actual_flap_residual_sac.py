@@ -201,7 +201,8 @@ def test_train_jaw_behavior_activation_preserves_models_replay_and_frozen_eval(t
     assert frozen.jaw_behavior==new.jaw_behavior and frozen.jaw_behavior_sampler.report()==new.jaw_behavior_sampler.report()
 
 
-def test_jaw_saturation_activation_preserves_physical_contract_state_and_frozen_actions(tmp_path):
+@pytest.mark.parametrize('variant', ('logit4-soft', 'logit4-soft-strong'))
+def test_jaw_saturation_activation_preserves_physical_contract_state_and_frozen_actions(tmp_path, variant):
     _,old,warm,physical,stage,_=pilots(tmp_path)
     raw=torch.zeros(64,464);raw[:,144]=1;critic=torch.zeros(64,530);extra=torch.zeros(64,38)
     previous=old.act(raw,critic,0,supplemental=extra)[1]
@@ -209,7 +210,7 @@ def test_jaw_saturation_activation_preserves_physical_contract_state_and_frozen_
     old.directory.mkdir();old.save(final=True)
     checkpoint=next(old.directory.glob('checkpoint_*.pt'))
     new=ActualFlapResidualSACPilot(warm,physical,tmp_path/'saturation',stage,
-        checkpoint=checkpoint,jaw_saturation='logit4-soft')
+        checkpoint=checkpoint,jaw_saturation=variant)
     assert new.contract==old.contract and new.replay.size==64
     assert (new.actor_updates,new.critic_updates)==(old.actor_updates,old.critic_updates)
     for key,value in old.agent.state_dict().items():assert torch.equal(value,new.agent.state_dict()[key])
@@ -231,6 +232,10 @@ def test_jaw_saturation_activation_preserves_physical_contract_state_and_frozen_
     assert restored.agent.jaw_saturation_config==new.jaw_saturation
     with pytest.raises(ValueError,match='differs from checkpoint'):
         ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_saturation',stage,checkpoint=saved,jaw_saturation='off')
+    other='logit4-soft-strong' if variant=='logit4-soft' else 'logit4-soft'
+    with pytest.raises(ValueError,match='differs from checkpoint'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_saturation_variant',stage,
+            checkpoint=saved,jaw_saturation=other)
     # Wrong actor-objective provenance must fail even though physical Q coordinates match.
     experience=saved.parent/'staged_goal_experience.pt'
     state=torch.load(experience,weights_only=True);state.pop('jaw_saturation_origin');torch.save(state,experience)
@@ -238,10 +243,11 @@ def test_jaw_saturation_activation_preserves_physical_contract_state_and_frozen_
         ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_replay_saturation',stage,checkpoint=saved)
 
 
-def test_jaw_saturation_penalty_reaches_actual_actor_update_and_skips_critic_only(tmp_path):
+@pytest.mark.parametrize('variant', ('logit4-soft', 'logit4-soft-strong'))
+def test_jaw_saturation_penalty_reaches_actual_actor_update_and_skips_critic_only(tmp_path, variant):
     _,pilot,*_=pilots(tmp_path)
     from kuavo_isaaclab_scene.rl.multi_box.experiments.jaw_saturation import jaw_saturation_config
-    agent=pilot.agent;agent.jaw_saturation_config=jaw_saturation_config('logit4-soft')
+    agent=pilot.agent;agent.jaw_saturation_config=jaw_saturation_config(variant)
     raw=torch.zeros(8,518);raw[:,144]=1
     with torch.no_grad():agent.actor.network[-1].bias[19].sub_(2.)
     labels=agent.act(raw,True)

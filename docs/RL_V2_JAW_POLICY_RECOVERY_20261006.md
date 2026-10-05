@@ -128,3 +128,5 @@ python scripts/rl/audit_jaw_recovery_checkpoint.py \
 관측된 성공 증가3건은 중간 선반에 한정되고 unsafe도 늘었다. 한 차례 비교에서 통계적으로 확실한 개선이나 네 구역 일반화 성공을 주장하지 않는다. 고정 TRAIN 상태 분석에서 위 오른쪽 열림 포화가 심해진 결과와 모순되지 않는다. 이 실행의 물리 평가는 끝났으며 원래 manager의 종료 후 로그/HDF/replay Drive 검증은 별도로 진행한다. Soft 복구 실행은 계속 실제 TRAIN 중이고 자신의 초기9/128 대비 최종 전체 DEV는 아직 완료 전이다. 독립 FINAL은 사용하지 않았다.
 
 기존 행동 탐색 분석은 [TRAIN jaw coverage 기록](RL_V2_TRAIN_JAW_COVERAGE_20261006.md), 단단한 flap 설정과 비교 배경은 [actual-flap SAC 기록](RL_V2_ACTUAL_FLAP_RESIDUAL_SAC.md)을 참고한다.
+
+이후 실제 GPU actor332회 뒤의 출력·persisted actor 손실과 계수10배 후보의 전체 SAC CPU 비교는 [복구 신호 강도 기록](RL_V2_JAW_RECOVERY_STRENGTH_20261006.md)에 이어서 기록한다. 기존 weak 실행을 유지하며 CPU 복제 모델을 물리 성공으로 해석하지 않는다.

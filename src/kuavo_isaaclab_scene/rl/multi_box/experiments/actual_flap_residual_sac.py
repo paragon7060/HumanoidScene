@@ -146,9 +146,11 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         self.jaw_behavior_origin = deepcopy(saved.get('jaw_behavior_origin')) if stored_jaw else None
         self._saved_jaw_behavior = stored_jaw
         self.jaw_behavior_sampler = None
-        from .jaw_saturation import jaw_saturation_config, VARIANT as SATURATION_VARIANT
+        from .jaw_saturation import jaw_saturation_config, VARIANTS as SATURATION_VARIANTS
         stored_saturation = saved.get('jaw_saturation') if saved else None
-        if stored_saturation is not None and stored_saturation != jaw_saturation_config(SATURATION_VARIANT):
+        if stored_saturation is not None and (not isinstance(stored_saturation, dict)
+                or stored_saturation.get('variant') not in SATURATION_VARIANTS
+                or stored_saturation != jaw_saturation_config(stored_saturation['variant'])):
             raise ValueError('Saved jaw saturation penalty configuration differs')
         requested_saturation = jaw_saturation_config(jaw_saturation)
         if stored_saturation is not None and jaw_saturation is not None and requested_saturation != stored_saturation:

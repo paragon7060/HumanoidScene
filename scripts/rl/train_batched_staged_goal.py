@@ -29,7 +29,7 @@ def main():
         help='Opt-in actual-flap learner objective: real completed successful and failed TRAIN n-step credit')
     parser.add_argument('--jaw-behavior', choices=('policy', 'joint-epsilon10'), default=None,
         help='Actual-flap TRAIN collection only: 10 percent uniform joint jaws with unchanged production gate')
-    parser.add_argument('--jaw-saturation-penalty', choices=('off', 'logit4-soft'), default=None,
+    parser.add_argument('--jaw-saturation-penalty', choices=('off', 'logit4-soft', 'logit4-soft-strong'), default=None,
         help='Opt-in actual-flap TRAIN actor loss for saturated near-jaw logits; no clipping or prescribed jaws')
     parser.add_argument('--stop-on-validation-regression',action='store_true')
     parser.add_argument('--minimum-validation-region-success-rate',type=float,default=0.)

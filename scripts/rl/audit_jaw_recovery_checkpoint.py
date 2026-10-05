@@ -146,7 +146,10 @@ def main():
         results.append(dict(checkpoint_basename=path.name,checkpoint_bytes=len(payload),
             checkpoint_SHA256=hashlib.sha256(payload).hexdigest(),actor_updates=state['actor_updates'],
             critic_updates=state['critic_updates'],jaw_saturation=state.get('jaw_saturation'),
-            jaw_behavior=state.get('jaw_behavior'),all_restored_model_tensors_match_checkpoint=True,groups=summaries))
+            jaw_behavior=state.get('jaw_behavior'),
+            latest_actor_update_metrics=state.get('latest_actor_metrics',{}),
+            latest_actor_metrics_may_predate_checkpoint_Q_update=True,
+            all_restored_model_tensors_match_checkpoint=True,groups=summaries))
     if signature!=(source.stat().st_size,source.stat().st_mtime_ns):raise ValueError('TRAIN source changed')
     report=dict(recorded_at=datetime.now().astimezone().isoformat(),source_basename=source.name,
         source_bytes=entry['bytes'],fresh_source_MD5_verified=entry['MD5'],retained_TRAIN_paths=len(episodes),

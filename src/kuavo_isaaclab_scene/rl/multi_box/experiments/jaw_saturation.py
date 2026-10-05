@@ -8,14 +8,16 @@ import torch
 
 
 VARIANT = 'logit4-soft'
+VARIANTS = (VARIANT, 'logit4-soft-strong')
 
 
 def jaw_saturation_config(variant):
     if variant in (None, 'off'):
         return None
-    if variant != VARIANT:
+    if variant not in VARIANTS:
         raise ValueError('Unknown jaw saturation penalty variant')
-    return dict(variant=VARIANT, format_version=1, logit_limit=4., weight=.0001,
+    return dict(variant=variant, format_version=1, logit_limit=4.,
+        weight=.0001 if variant == VARIANT else .001,
         scope='actual_flap_TRAIN_actor_updates_only',
         loss='mean_rows_sum_eligible_jaws_relu_abs_logit_minus_limit_squared_over_active_count',
         eligible_jaws='unchanged_production_nominal_near_gate',
@@ -25,7 +27,8 @@ def jaw_saturation_config(variant):
 
 
 def jaw_saturation_penalty(logits, near, config):
-    if config != jaw_saturation_config(VARIANT):
+    if not isinstance(config, dict) or config.get('variant') not in VARIANTS \
+            or config != jaw_saturation_config(config['variant']):
         raise ValueError('Jaw saturation penalty configuration differs')
     if logits.ndim != 2 or logits.shape[1] != 2 or not len(logits) \
             or near.shape != logits.shape or near.dtype != torch.bool \

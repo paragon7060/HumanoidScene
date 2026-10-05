@@ -7,13 +7,14 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.jaw_saturation import (
 )
 
 
-def test_recovery_gradient_when_the_binary_policy_gradient_is_saturated():
+@pytest.mark.parametrize('variant', ('logit4-soft', 'logit4-soft-strong'))
+def test_recovery_gradient_when_the_binary_policy_gradient_is_saturated(variant):
     logits = torch.tensor([[-34., 34.], [-3., 3.], [-34., 34.]], requires_grad=True)
     near = torch.tensor([[True, True], [True, True], [False, False]])
     # Even a predicted closing advantage gives virtually no local signal.
     q_gradient = torch.autograd.grad(-logits[0, 0].sigmoid(), logits, retain_graph=True)[0]
     assert q_gradient[0, 0].abs() < 1e-12
-    loss, metrics = jaw_saturation_penalty(logits, near, jaw_saturation_config('logit4-soft'))
+    loss, metrics = jaw_saturation_penalty(logits, near, jaw_saturation_config(variant))
     gradient = torch.autograd.grad(loss, logits)[0]
     assert gradient[0, 0] < -1e-5 and gradient[0, 1] > 1e-5
     assert gradient[1:].eq(0).all()
@@ -24,10 +25,11 @@ def test_recovery_gradient_when_the_binary_policy_gradient_is_saturated():
     assert torch.equal(logits.detach(), torch.tensor([[-34., 34.], [-3., 3.], [-34., 34.]]))
 
 
-def test_far_hands_cannot_create_a_penalty_or_gradient():
+@pytest.mark.parametrize('variant', ('logit4-soft', 'logit4-soft-strong'))
+def test_far_hands_cannot_create_a_penalty_or_gradient(variant):
     logits = torch.tensor([[-50., 50.]], requires_grad=True)
     loss, metrics = jaw_saturation_penalty(logits, torch.zeros_like(logits, dtype=torch.bool),
-        jaw_saturation_config('logit4-soft'))
+        jaw_saturation_config(variant))
     assert loss == 0 and torch.autograd.grad(loss, logits)[0].eq(0).all()
     assert metrics['jaw_saturation_active_hands'] == metrics['jaw_active_abs_logit_max'] == 0
 
