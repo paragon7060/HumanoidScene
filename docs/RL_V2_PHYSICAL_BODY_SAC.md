@@ -860,3 +860,26 @@ env8(seed121002, 원래 주변5/9 유지)를 각각1개 환경에서 재현한�
 그대로 복사하고 각 사례의 박스를 제거하지 않는다. 배치 크기와 함께 world origin 및
 constructor solver history도 달라지므로 실제 rack-relative link pose를 대조하기 전에는
 배치 solver를 원인으로 확정하지 않는다. 학습·보상·randomization 설정은 유지한다.
+
+### 14:02 · 같은 실패 layout이 단일 환경에서는 안정: 초기 지지대 frame으로 비교
+
+[닫힌 두 단일 환경 비교](assets/rl_v2_single_environment_reset_comparison_20261005.json)는
+각각 exit0·writer 종료·MainPID0·최종 Drive 검증을 마쳤다. Env100의 원래 target4와
+env8의 원래4/5/9를 모두 유지했으며 두 사례 모두 초기 유효1/1, 최초 failure0이었다.
+첫12개 tick의 target4 Body normal은약5.1N으로 유지됐다. 원래 DEV128에서 tick5는
+env100이17.22N/root speed0.139m/s, env8이60.37N/0.642m/s였고 단일 환경에서는
+각각5.09N/0.00301m/s와5.09N/0.00139m/s였다. 파지 action/학습 update는0이다.
+
+![같은 요청 layout 두 사례의 단일 환경 초기 충격 비교. 파지 성공 결과가 아님](assets/rl_v2_single_environment_reset_comparison_20261005.png)
+
+초기 실제 deck02 fixed Base frame에서 모든 active 박스의Body/네flap link pose를
+비교했다. Env100의 최대 위치 오차2.42µm/회전1.24e-7rad, env8 전체의 최대 위치
+오차4.31µm/회전5.49e-8rad였고 joint position과 초기 link velocity 차이는0이었다.
+최종 guard의 rack pose는 failed layout의 부분 respawn 이후 상태여서 초기 frame으로
+쓰면 안 된다. 비교는 `support_roots_before_neutral_hold`의 실제 초기 Base pose를 쓴다.
+
+같은 요청 layout과 거의 같은 지지대 상대 초기 박스 상태가 작은 배치에서는 안정한
+것은 새 단서다. World origin·rack의 world pose·constructor solver history는 다르므로
+GPU 배치 solver 오류를 확정하지 않는다. 다음에는 world 배치와 reset history를 따로
+맞춘 비교로 분리한다. Randomization을 줄이거나 성공/안전 기준을 완화한 학습 결과가
+아니며 기존 SAC 다섯 실행과 독립 FINAL은 보존한다.
