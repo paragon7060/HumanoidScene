@@ -979,3 +979,25 @@ GPU 배치 solver 오류라고 확정하지 않는다.
 나머지 원래 환경은 제외하는 비교이며 원래289개 전체 배치를 유지했다고 쓰지 않는다.
 같은 PGS/D0·steps1·actor/Q0·TRAIN/Q import 불가·독립FINAL 제외이며, 기본 학습
 환경 수·randomization·안전·성공 조건은 바꾸지 않는다.
+
+### 15:10 · 작은 배치에서도 실패 사례가 바뀜: 같은16개 row 순서 대조
+
+[닫힌 2/16 환경 비교](assets/rl_v2_matched_world_state_subbatches_20261005.json)는 둘 다
+exit0·writer 종료·MainPID0·최종 Drive 검증을 완료했다. 선택 layout의 원래 박스
+전부와 세 support 전체 q/v를 유지했고, 실제 joint 상태 차이는모두0이었다.
+모든 active 박스 Body/네flap의 world pose 차이도 비교 파일에 기록했다.
+
+2개 환경/4개 박스는 초기 유효2/2·최초 selected failure0이다. 16개 환경/43개
+박스는초기 유효12/16이었다. 실패한 원래 사례는env8/20/32/100으로 바뀌었다.
+Env8/32는최초0.0667s에실패했고20/100은2.033s에실패했으므로 모두 같은
+초기 impulse 실패로 묶지 않는다. 원래env32는DEV128에서유효했으나 이번에는
+tick5 Body normal이약68.9N이었다. 반대로 원래 ML10개 중 다수는이번에유효했다.
+
+![좌표와 passive q/v를 맞춰도 배치 구성이 바뀌면 초기 충격 사례가 바뀜](assets/rl_v2_matched_world_state_subbatches_20261005.png)
+
+측정한 초기 상태가 맞는 상황에서도 배치 구성에 따라 최초 실패 사례가 달라진다.
+환경 수뿐 아니라 constructor/contact solver 이력·row 배치도 분리해야 한다.
+다음은같은16개 layout과43개 박스·각layout의world frame·전체support q/v를
+유지한 채 요청row의 순서만 뒤집는 frozen 대조다. 생성/접촉 이력을 bitwise로
+맞춘 것은아니며 engine 오류로 확정하지 않는다. 일반 학습 설정과 독립FINAL을
+바꾸지 않고 기존 SAC 다섯 실행은 유지한다.
