@@ -76,6 +76,14 @@ Q 수치는 모델의 예측이며 실제 안전 파지의 증거가 아니다. 
 
 닫은 뒤에도 접촉이 없는 실제 TRAIN의 위치 오차는 [정밀 포착 진단](RL_V2_PRECISE_CAPTURE_AUDIT_20261006.md)에 별도로 기록했다. 새 soft 손실의 실제 효과와 구분하며, 기존 실행과 성공/안전 조건은 유지한다.
 
+## 실제 TRAIN 두 wave와 새 실행의 초기 기준선
+
+10% joint-jaw 비교의 TRAIN1/2는 각128건을 완료해 **3/128,4/128** 성공했다. 모두 중간 오른쪽이며 나머지 세 구역의 TRAIN 성공은0이다.7건 모두 actual 양손 unique pinch·stable hands·서로 다른 flap·hold0.2667s·roller clearance22.2–47.0mm·안전 위반 없음으로 확인했다. 원래 초기 무효45/30건을 분모에서 빼지 않았다. Actor1940/Q9808, online88,794행을 확보했고 학습 후 greedy DEV에 진입했다. 원래 source1204/Q6864에서 진행한 실제 SAC update이며, 탐색 TRAIN 성공을 greedy 정책의 일반화 성공으로 해석하지 않는다. [완료된 두 TRAIN과 물리 증거](assets/rl_v2_joint_jaw_completed_TRAIN_pair_20261006.json).
+
+추가 logit4-soft 비교는 전체 초기 frozen DEV에서 **9/128**(중간 왼쪽2·중간 오른쪽7·위쪽0) 성공했다. 초기 무효31·unsafe70·timeout18을 포함해128개 전부를 기록했다. 이때 actor1204/Q6864/replay224621/online0/jaw sampler0, 새 학습·penalty update0회다. 저장 완료된 초기 DEV checkpoint의 **actor/Q/target/normalizer tensor54개 모두 source와 정확히 같다**. 별도 비교의 초기6/128과 차이는 새 학습 효과가 아니다. 이번 실행의 학습 후 전체 DEV는 자신의9/128 기준선과 비교한다. [전체 초기 DEV와 물리 증거](assets/rl_v2_jaw_recovery_completed_initial_DEV_20261006.json).
+
+같은 immutable 실제 TRAIN에서 production의 moving-fingertip capture 점수도 검사했다. 안전한 양손 닫힘 상태에서 두 손 모두 접촉 없는151개 표본 중98개는 capture potential≥0.8이었다. 이는 positive reward를 매 step 지급한다는 뜻이 아니며, 보관한 경로의 상관된 상태 표본이다. [점수·접촉 분포 그림과 해석 한계](RL_V2_PRECISE_CAPTURE_AUDIT_20261006.md#실제-움직이는-손가락으로-계산된-capture-점수도-확인). 실제 물리 비교는 계속하고, reward·success·safety·randomization을 바꾸거나 active HDF/replay를 읽지 않았다.
+
 - `src/kuavo_isaaclab_scene/rl/multi_box/experiments/jaw_saturation.py`: 선택형 손실·통계.
 - `src/kuavo_isaaclab_scene/rl/algorithms/hybrid_goal_sac.py`: 일반 SAC의 기본 비활성 actor hook.
 - `src/kuavo_isaaclab_scene/rl/multi_box/experiments/actual_flap_residual_sac.py`: 설정/출처/checkpoint/replay 복원 연결.

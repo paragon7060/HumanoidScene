@@ -43,3 +43,15 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/audit_closed
 ```
 
 도구를 실제69경로 입력으로 실행해 최초 분석의 groups·paths·nominal axes와 정확히 일치함을 확인했고 compile도 통과했다. 학습 optimizer update와 새 물리 rollout은0회다. [전체 수치와 경로별 결과](assets/rl_v2_actual_TRAIN_closed_jaw_panel_geometry_20261006.json).
+
+## 실제 움직이는 손가락으로 계산된 capture 점수도 확인
+
+같은 immutable69경로의 post-action critic에 저장된 production potential을 별도로 검사했다. 앞선 rigid TCP proxy와 달리 이 값은 실제 움직이는 calibrated fingertips와 실제 PhysX flap pose로 계산된다. 힘·region·opposed로 다시 계산한 unique pinch 및 opposing bilateral flag가 저장된 critic flag와 일치한다. Source signature는 유지됐고 새 rollout·optimizer update·reward relabeling은0회다.
+
+![완료된 실제 TRAIN 성공의 지역 분포와 저장된 capture 상태 점수의 접촉별 분포. 학습 후 greedy DEV는 완료 전이다.](assets/rl_v2_actual_TRAIN_capture_contact_specificity_20261006.png)
+
+양손 모두 production near gate에서4번 이상 연속 닫힘 명령을 받았고 실제 closure≥95%인 안전한 실패 경로의 **두 손 모두 접촉 없는 상태151개**를 찾았다. 그중 **98개(64.9%)**는 capture potential≥0.8이다. 위 왼쪽 표본103개 중94개가 이 조건이며, capture 중앙값은0.847이다. 같은 조건의 actual opposing bilateral unique pinch 상태200개는 모두 capture≥0.95였다. 보관한69경로의 상관된 시간 표본이며 전체 실패율·독립적인151번 시도·전체 지역 성능을 뜻하지 않는다. 위 오른쪽에는 양손이 이 닫힘 조건을 만족한 실패/접촉 표본 자체가 없어 여기서 정밀 포착 문제를 평가할 수 없다.
+
+Capture는 `mean_hands(exp(-actual_capture_error / 0.10m))`라는 **상태 점수**다. 실제 capture 보상은 `0.5 * (gamma * next_potential - previous_potential)`이므로 점수0.8을 매 step 받는다는 뜻이 아니다.0.8/0.95도 진단용 구간이며 새 success·termination 조건이 아니다. 이 데이터는 넓은 falloff와 양손 평균이 접촉 이전의 오차를 어느 정도 구분하는지 보여준다. 실제 개별 손 capture error는 이 저장 포맷에 없으므로 평균 점수에서 두 손의 error를 역추정하거나 새 보상으로 replay를 재라벨링하지 않았다.
+
+현재 jaw 확률 복구 비교의 실제 TRAIN·전체 DEV를 먼저 판단한다. 닫힘 회복 후에도 접촉이 늘지 않으면 실제 움직이는 fingertips 기준의 더 좁은 capture falloff와 약한 손 점수를 새 matching-reward 비교 후보로 삼는다. 이번 점검은 실행 중 reward·정책·안전 기준을 변경하지 않았다. [전체 저장 점수·경로별 결과](assets/rl_v2_actual_TRAIN_stored_capture_contact_specificity_20261006.json).
