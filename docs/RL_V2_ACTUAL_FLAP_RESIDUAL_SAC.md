@@ -209,7 +209,22 @@ Writer가 종료한 뒤 영상은H264/avc1/yuv420p/faststart와 전체 decode를
 
 GPU3 새 학습 writer는 유지한다. 10/06 00:26 실제 대조에서 actor1002/Q6054,
 held TRAIN replay192,912행, 유한 손실·백업 정상이며 wave5 TRAIN이 진행 중이었다.
-최신 전체 DEV는 여전히9/128이고 다음 전체 DEV6/9/12에서 네 영역을 다시 판단한다.
+당시 최신 전체 DEV는9/128이었고 다음 전체 DEV6/9/12에서 네 영역을 다시 판단한다.
+
+### 10/06 00:40 두 번째 후속 전체 DEV6:6/128
+
+Actor1002/Q6054의 전체 원본 DEV128은6/128이다. 중간 왼쪽3/32,
+중간 오른쪽3/32, 위왼쪽0/32, 위오른쪽0/32로8→9→6/128이며 개선이 없다.
+초기 유효98/무효30개이고 무효도 분모128에 남긴다. 나머지는 성공6·unsafe63·
+timeout29다. 겹칠 수 있는 원인은 rack50, speed17, lift limit8, drop3,
+workspace2, obstacle1이다. 같은 requested layout ID라도 reset된 실제 물리 상태가
+같다고 가정하지 않는다. 통계 회귀 stop rule 미발동은 성능 개선을 뜻하지 않는다.
+
+[전체 원본 결과와 고정 기준 비교](assets/rl_v2_actual_flap_firm_second_post_DEV6_20261006.json)를
+남겼다. Flap 강성·감쇠 및 실제 관측 추가가 양손 파지 일반화를 해결했다고
+표현하지 않는다. 이른 동결 영상의 대향 pad 접촉 부족과 위 선반 실패를 다음
+TRAIN/DEV9/12에서도 판단한다. 현재 GPU3 학습은 이어가며 DEV/FINAL 데이터를
+학습으로 가져오지 않고 독립 FINAL은 사용하지 않는다.
 
 ## 검증 및 실행
 
