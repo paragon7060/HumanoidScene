@@ -461,7 +461,10 @@ class StagedGoalSACPilot:
                 self.reset_exploration(len(raw))
             ids=(torch.arange(len(raw),device=raw.device) if exploration_ids is None else exploration_ids)
             offset=self.arm_behavior.offset(ao,index,ids) if self.arm_behavior is not None else None
-            action=self.goal_exploration.act(self.agent,ao,ids,body_latent_offset=offset)
+            # This optional collection distribution never runs in frozen
+            # evaluation or collection-only frozen behavior diagnostics.
+            behavior=getattr(self,'jaw_behavior_sampler',None) if self.training else None
+            action=self.goal_exploration.act(self.agent,ao,ids,body_latent_offset=offset,jaw_behavior=behavior)
         else:
             action=self.agent.act(ao,deterministic=deterministic)
         physical = held_goal_coordinates(self.coordinates, raw, self.center+self.scale*action, self.stage)

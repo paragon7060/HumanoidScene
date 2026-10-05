@@ -27,6 +27,8 @@ def main():
     parser.add_argument('--training',action=argparse.BooleanOptionalAction,default=False)
     parser.add_argument('--measured-train-credit', choices=('one-step', 'measured-nstep16'), default=None,
         help='Opt-in actual-flap learner objective: real completed successful and failed TRAIN n-step credit')
+    parser.add_argument('--jaw-behavior', choices=('policy', 'joint-epsilon10'), default=None,
+        help='Actual-flap TRAIN collection only: 10 percent uniform joint jaws with unchanged production gate')
     parser.add_argument('--stop-on-validation-regression',action='store_true')
     parser.add_argument('--minimum-validation-region-success-rate',type=float,default=0.)
     parser.add_argument('--validation-regression-significance',type=float,default=0.,
@@ -392,6 +394,10 @@ def main():
             from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
             if pilot_class is not ActualFlapResidualSACPilot or not args.training:
                 raise ValueError('Measured TRAIN credit is explicitly for actual-flap correction training')
+        if args.jaw_behavior is not None:
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
+            if pilot_class is not ActualFlapResidualSACPilot or not args.training:
+                raise ValueError('Joint jaw behavior is explicitly for actual-flap TRAIN collection')
         warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,
                             frozen_prior_lift_contract(frozen_actor_reward_contract(contract)),output,training=False,device=env.device)
         if warm.coordinates.exact_projected_base:
@@ -458,12 +464,18 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.geometry.projected_base import projected_base_safety_contract
         coordinate_safety = projected_base_safety_contract() if warm.coordinates.exact_projected_base else None
         meta['controller_coordinate_safety'] = coordinate_safety
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.jaw_behavior_exploration import jaw_behavior_config
+        collection_jaw_behavior = (jaw_behavior_config(args.jaw_behavior)
+            if args.jaw_behavior is not None else state.get('jaw_behavior'))
+        meta['TRAIN_jaw_behavior'] = collection_jaw_behavior
+        meta['frozen_evaluation_uses_learned_policy_without_behavior_mixture'] = True
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         if args.grasp_observation_audit:
             from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_observation_audit import GraspObservationAudit
             grasp_audit=GraspObservationAudit(env,output)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
+            'TRAIN_jaw_behavior':collection_jaw_behavior,
             'controller_coordinate_safety':coordinate_safety,
             'initialized_physics':initialized_physics,
             'startup_world_frame_probe':world_frame_audit,
@@ -589,6 +601,8 @@ def main():
             if pilot is None:
                 pilot_options = ({'measured_train_credit': args.measured_train_credit}
                     if args.measured_train_credit is not None else {})
+                if args.jaw_behavior is not None:
+                    pilot_options['jaw_behavior'] = args.jaw_behavior
                 pilot=pilot_class(warm,contract,output,stages.stages[0],checkpoint=args.checkpoint,
                     training=args.training,device=env.device, **pilot_options)
                 (output/'agent.yaml').write_text(json.dumps(pilot.contract,indent=2)+'\n')
@@ -724,6 +738,8 @@ def main():
                     layout=wave['layouts'][i]['layout'],result=last[i],complete=bool(not active[i]),
                     initial_layout_valid=bool(valid_layout[i]),initial_settling_steps=settled,
                     initial_layout_guard=layout_guard_references[i],executed_transition_rows=len(samples)))
+                if wave['split']=='train' and getattr(pilot,'jaw_behavior',None) is not None:
+                    outcomes[-1]['collection_jaw_behavior']=pilot.jaw_behavior
             if wave['split']!='train' and updates_before!=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size):
                 raise ValueError('Evaluation modified optimizer counters or replay')
             pilot.training=args.training

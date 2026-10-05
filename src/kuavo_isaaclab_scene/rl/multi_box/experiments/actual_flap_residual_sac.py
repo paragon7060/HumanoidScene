@@ -105,7 +105,7 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
     correction_radius=.15
 
     def __init__(self,*args,body_anchor_state=None,checkpoint=None,device='cpu',
-                 measured_train_credit=None,**kwargs):
+                 measured_train_credit=None,jaw_behavior=None,**kwargs):
         saved=torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
         if saved is not None and saved.get('artifact_type')!=self.artifact_type:
             raise ValueError('Old observation/control replay cannot resume an actual-flap correction learner')
@@ -126,6 +126,19 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         self.measured_train_credit = deepcopy(stored if stored is not None else requested)
         self.measured_credit_bank = None
         self.latest_measured_credit_collection = {}
+        from .jaw_behavior_exploration import jaw_behavior_config, VARIANT as JAW_VARIANT
+        stored_jaw = saved.get('jaw_behavior') if saved else None
+        if stored_jaw is not None and stored_jaw != jaw_behavior_config(JAW_VARIANT):
+            raise ValueError('Saved TRAIN jaw behavior configuration differs')
+        if stored_jaw is not None and not isinstance(saved.get('jaw_behavior_statistics'), dict):
+            raise ValueError('Saved TRAIN jaw behavior statistics are missing')
+        requested_jaw = jaw_behavior_config(jaw_behavior)
+        if stored_jaw is not None and jaw_behavior is not None and requested_jaw != stored_jaw:
+            raise ValueError('Requested TRAIN jaw behavior differs from checkpoint')
+        self.jaw_behavior = deepcopy(stored_jaw if stored_jaw is not None else requested_jaw)
+        self.jaw_behavior_origin = deepcopy(saved.get('jaw_behavior_origin')) if stored_jaw else None
+        self._saved_jaw_behavior = stored_jaw
+        self.jaw_behavior_sampler = None
         if not checkpoint:
             # Defaults are specific to this opt-in contract. Existing pilot
             # construction and all ordinary RL settings remain unchanged.
@@ -137,6 +150,20 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
                 raise ValueError('Correction controller requires its explicit independent-jaw/frozen-anchor contract')
             kwargs.update(required)
         super().__init__(*args,checkpoint=checkpoint,device=device,**kwargs)
+        if self.jaw_behavior is not None:
+            if not self.exploration_correlation:
+                raise ValueError('TRAIN joint jaw behavior requires correlated goal collection')
+            if stored_jaw is not None and not isinstance(self.jaw_behavior_origin, dict):
+                raise ValueError('Saved TRAIN jaw behavior origin is missing')
+            if self.jaw_behavior_origin is None:
+                self.jaw_behavior_origin = dict(source_checkpoint=str(checkpoint) if checkpoint else None,
+                    actor_updates_at_activation=self.actor_updates,critic_updates_at_activation=self.critic_updates,
+                    old_replay_rows_at_activation=self.replay.size,
+                    old_replay_kept_with_original_behavior=True,old_rows_not_relabelled=True,
+                    source_checkpoint_behavior='policy',scope='future_real_TRAIN_collection')
+            from .jaw_behavior_exploration import JointJawBehaviorExploration
+            self.jaw_behavior_sampler = JointJawBehaviorExploration(self.jaw_behavior,
+                saved.get('jaw_behavior_statistics') if stored_jaw else None)
         if saved is None:
             source=self.body_anchor_state
             self.prior_schedule_actor_origin=-max(0.,source['source_actor_updates']-
@@ -240,12 +267,19 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def checkpoint_extras(self):
         result = dict(body_anchor_state=self.body_anchor_state)
+        if self.jaw_behavior is not None:
+            result.update(jaw_behavior=self.jaw_behavior,jaw_behavior_origin=self.jaw_behavior_origin,
+                jaw_behavior_statistics=self.jaw_behavior_sampler.report())
         if self.measured_train_credit is not None:
             result.update(measured_train_credit=self.measured_train_credit,
                 measured_train_credit_bank_report=self.measured_credit_bank.report())
         return result
 
     def restore_experience_extras(self, state):
+        if state.get('jaw_behavior') != self._saved_jaw_behavior:
+            raise ValueError('TRAIN jaw behavior checkpoint/replay provenance differs')
+        if self._saved_jaw_behavior is not None and state.get('jaw_behavior_origin') != self.jaw_behavior_origin:
+            raise ValueError('TRAIN jaw behavior replay origin differs')
         stored = state.get('measured_train_credit')
         if stored is not None and stored != self.measured_train_credit:
             raise ValueError('Measured TRAIN credit replay configuration differs')
@@ -253,10 +287,14 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
             self.measured_credit_bank.restore(state['measured_train_credit_bank'])
 
     def experience_extras(self):
-        if self.measured_train_credit is None:
-            return {}
-        return dict(measured_train_credit=self.measured_train_credit,
-            measured_train_credit_bank=self.measured_credit_bank.state())
+        result = {}
+        if self.jaw_behavior is not None:
+            result.update(jaw_behavior=self.jaw_behavior,jaw_behavior_origin=self.jaw_behavior_origin,
+                jaw_behavior_statistics=self.jaw_behavior_sampler.report())
+        if self.measured_train_credit is not None:
+            result.update(measured_train_credit=self.measured_train_credit,
+                measured_train_credit_bank=self.measured_credit_bank.state())
+        return result
 
     def critic_auxiliary_options(self):
         bank = self.measured_credit_bank
@@ -273,6 +311,9 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def report(self):
         result = super().report()
+        if self.jaw_behavior is not None:
+            result.update(jaw_behavior=self.jaw_behavior,jaw_behavior_origin=self.jaw_behavior_origin,
+                jaw_behavior_statistics=self.jaw_behavior_sampler.report())
         if self.measured_train_credit is not None:
             result.update(measured_train_credit=self.measured_train_credit,
                 measured_train_credit_bank=self.measured_credit_bank.report(),

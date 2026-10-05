@@ -32,10 +32,14 @@ class CorrelatedGoalExploration:
         return value
 
     @torch.no_grad()
-    def act(self, agent, observation, ids, *, body_latent_offset=None):
+    def act(self, agent, observation, ids, *, body_latent_offset=None, jaw_behavior=None):
         if hasattr(agent,'act_with_latent_noise'):
             options={} if body_latent_offset is None else dict(body_latent_offset=body_latent_offset)
+            if jaw_behavior is not None:
+                return jaw_behavior.act(agent,observation,self.sample_noise(ids),**options)
             return agent.act_with_latent_noise(observation,self.sample_noise(ids),**options)
+        if jaw_behavior is not None:
+            raise ValueError('Joint jaw behavior requires an explicit hybrid goal agent')
         if body_latent_offset is not None:
             raise ValueError('Episode-arm behavior requires an explicit hybrid goal agent')
         normalized=agent.actor_normalizer(agent.actor_features(observation))

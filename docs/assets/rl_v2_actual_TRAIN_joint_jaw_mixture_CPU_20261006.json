@@ -1,0 +1,50 @@
+{
+  "recorded_at": "2026-10-06T04:25:19.061950+09:00",
+  "checkpoint": "artifacts/rl/pose_students/actual_flap_measured_train_credit16_20261006_023500/checkpoint_00006864.pt",
+  "checkpoint_sha256": "731dd3281326722e5f56838d13774b61d23e696182faa1a6e9bd5d8fae5a20f0",
+  "source": "572 safe production-both-near states from6 actual upper-right failed TRAIN episodes",
+  "fixed_recorded_states": 572,
+  "repeated_stationary_independent_noise_draws": 64,
+  "config": {
+    "variant": "joint-epsilon10",
+    "format_version": 1,
+    "uniform_joint_fraction": 0.1,
+    "scope": "actual_flap_real_TRAIN_collection_only",
+    "noise_source": "existing_correlated_two_jaw_gaussians_no_extra_rng",
+    "learned_branch_left_uniform": "conditional_rescale_after_mixture_selection",
+    "branches": [
+      "open_open",
+      "open_close",
+      "close_open",
+      "close_close"
+    ],
+    "projection": "unchanged_production_nominal_near_gate",
+    "body_policy_actor_Q_targets_and_eval_unchanged": true
+  },
+  "behavior_statistics": {
+    "rows": 36608,
+    "uniform_joint_rows": 3623,
+    "projected_branch_counts": [
+      30394,
+      4377,
+      921,
+      916
+    ]
+  },
+  "original_policy_branch_counts": [
+    32766,
+    3842,
+    0,
+    0
+  ],
+  "body_goals_bitwise_equal_with_same_noise": true,
+  "extra_rng_draws": 0,
+  "model_and_normalizer_tensors_bitwise_unchanged": true,
+  "feedback_correlated_live_state_distribution_not_established": true,
+  "CPU_only": true,
+  "optimizer_updates": 0,
+  "physical_rollouts": 0,
+  "physical_success_not_verified": true,
+  "DEV_or_FINAL_imported": false,
+  "goal_not_complete": true
+}

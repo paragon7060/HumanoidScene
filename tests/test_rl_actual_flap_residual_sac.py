@@ -158,3 +158,44 @@ def test_bound_coordinates_have_finite_inactive_entropy_and_no_double_projection
         (per_dim-torch.log(torch.tensor(.15))).sum(-1))
     torch.testing.assert_close(agent.body_entropy_target(normalized,per_dim,raw),
         (per_dim+torch.log(torch.tensor(.15))).sum(-1))
+
+
+def test_train_jaw_behavior_activation_preserves_models_replay_and_frozen_eval(tmp_path):
+    _,old,warm,physical,stage,_=pilots(tmp_path)
+    raw=torch.zeros(64,464);raw[:,144]=1;critic=torch.zeros(64,530);extra=torch.zeros(64,38)
+    previous=old.act(raw,critic,0,supplemental=extra)[1]
+    old.observe(previous,raw,critic,torch.ones(64),torch.ones(64,dtype=torch.bool),0,supplemental=extra)
+    old.directory.mkdir();old.save(final=True)
+    checkpoint=next(old.directory.glob('checkpoint_*.pt'))
+    state=torch.load(checkpoint,weights_only=True)
+    new=ActualFlapResidualSACPilot(warm,physical,tmp_path/'behavior',stage,
+        checkpoint=checkpoint,jaw_behavior='joint-epsilon10')
+    assert new.contract==old.contract and new.actor_updates==old.actor_updates and new.critic_updates==old.critic_updates
+    for key,value in state['model'].items():assert torch.equal(value,new.agent.state_dict()[key])
+    for key,value in old.replay.data.items():assert torch.equal(value[:64],new.replay.data[key][:64])
+    for before,after in zip(old.agent.optimizers,new.agent.optimizers):
+        b,a=before.state_dict(),after.state_dict()
+        assert b['param_groups']==a['param_groups'] and b['state'].keys()==a['state'].keys()
+        for pid,values in b['state'].items():
+            for key,value in values.items():
+                assert torch.equal(value,a['state'][pid][key]) if isinstance(value,torch.Tensor) else value==a['state'][pid][key]
+    assert new.jaw_behavior_origin['old_replay_rows_at_activation']==64
+    assert new.jaw_behavior_sampler.report()['rows']==0
+    new.anchor=old.anchor;new.training=old.training=False
+    assert torch.equal(new.act(raw,critic,0,supplemental=extra)[0],old.act(raw,critic,0,supplemental=extra)[0])
+    assert new.jaw_behavior_sampler.report()['rows']==0
+    # Explicit frozen TRAIN behavior is still the learned policy, without the new mixture.
+    new.act(raw,critic,0,supplemental=extra,sample_frozen_train_behavior=True)
+    assert new.jaw_behavior_sampler.report()['rows']==0
+    new.training=True;new.reset_exploration(64)
+    new.act(raw,critic,1,supplemental=extra)
+    assert new.jaw_behavior_sampler.report()['rows']==64
+    new.directory.mkdir();new.save(final=True)
+    saved=next(new.directory.glob('checkpoint_*.pt'))
+    restored=ActualFlapResidualSACPilot(warm,physical,tmp_path/'restored_behavior',stage,checkpoint=saved)
+    assert restored.jaw_behavior==new.jaw_behavior and restored.jaw_behavior_origin==new.jaw_behavior_origin
+    assert restored.jaw_behavior_sampler.report()==new.jaw_behavior_sampler.report()
+    with pytest.raises(ValueError,match='differs from checkpoint'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_behavior',stage,checkpoint=saved,jaw_behavior='policy')
+    frozen=ActualFlapResidualSACPilot(warm,physical,tmp_path/'frozen_behavior',stage,checkpoint=saved,training=False)
+    assert frozen.jaw_behavior==new.jaw_behavior and frozen.jaw_behavior_sampler.report()==new.jaw_behavior_sampler.report()
