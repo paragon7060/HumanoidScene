@@ -116,3 +116,41 @@ Actor1204/Q6864·replay224,621행·online0·measured bank31,447행·jaw sampler0
 분석·구현·검사·launch 기록22개와 영수증을 기존 Drive에 업로드해 각각 크기/MD5를
 검증했다. 활성 로그·인증·계정별 remote 별칭은 복사하지 않았다. 학습의 완료 및
 성공률 개선과 이 분석 자료 백업의 완료를 구분한다.
+
+## 후속 진단: 닫혔지만 양쪽 패드가 닿지 않는 경우
+
+같은 immutable 실제 TRAIN69경로에서 recorded action에 대응하는 **next critic의 실제
+접촉**을 분류했다. 안전한 성공 terminal도 포함하고 current/next unsafe row는 제외했다.
+Post flap assignment가 무효인 행은 perceived 중점 거리 통계에서 제외하고 별도로 센다.
+Production near 조건에서4회 이상 연속 닫힘 명령을 보낸 이후의 값은 actuator 지연을
+줄여 보는 진단이며 새 성공 조건이 아니다. 이 표본은 whole failure rate가 아니다.
+
+![실행한 닫힘 뒤 실제 패드 접촉 단계](assets/rl_v2_actual_TRAIN_pad_contact_bottlenecks_20261006.png)
+
+| 실패 TRAIN의 손 | 조건부 post-action 행 | 접촉 없음 | 한쪽 패드만 | opposed/region 유효지만5N 미만 | qualified 한 손 pinch |
+|---|---:|---:|---:|---:|---:|
+| 중간 왼쪽 L | 841 | 407 | 146 | 73 | 184 |
+| 중간 왼쪽 R | 466 | 354 | 79 | 17 | 14 |
+| 중간 오른쪽 L | 434 | 151 | 107 | 39 | 125 |
+| 중간 오른쪽 R | 258 | 138 | 52 | 18 | 48 |
+| 위 왼쪽 L | 201 | 195 | 6 | 0 | 0 |
+| 위 왼쪽 R | 1095 | 868 | 98 | 22 | 106 |
+| 위 오른쪽 L | 0 | 0 | 0 | 0 | 0 |
+| 위 오른쪽 R | 87 | 61 | 26 | 0 | 0 |
+
+표의 나머지 행은 opposed 또는 graspable region을 만족하지 못한 접촉이다. 한 손
+pinch 수를 양손 동시 성공으로 해석하지 않는다. `in_region`은 positive contact도
+요구하므로 없다는 사실이 곧 geometric aperture의 불가능을 뜻하지 않는다.
+
+위 왼쪽 실패 `wave5/env110/seed120259`의 L은 조건부167행 중164행이 접촉 없음,
+3행이 한쪽 패드만이었다. Actual closure 중앙값은0.9857로 실제 그리퍼가 닫혔다.
+현재 이 표본의 실패를 motor가 닫히지 않아서 생겼다거나5N threshold만 과도해서
+생겼다고 설명할 수 없다. 이전 양손 닫힘 구간에서는 alignment potential 중앙값0.979,
+capture potential0.849였지만 실제 left pinch는0이었다. 점수는 geometric potential이며
+접촉 성공 flag가 아니다. 넓은10cm capture falloff·양손 평균 점수에서 정밀 포착을
+덜 구분하는 가능성은 후속 실제 TRAIN과 비교할 대상으로 남긴다.
+
+현재 reward/안전/성공 threshold는 바꾸지 않는다. 위 오른쪽의 닫힘 탐색은 새 비교로
+검사하고, 충분히 닫힌 손에서도 실제 두 패드 접촉이 생기지 않으면 reach 이후의
+정밀 포착·weaker hand 신호와 실제 fingertip/flap 기하를 다음으로 점검한다.
+[post-action 패드·실제 closure·거리·potential 원본](assets/rl_v2_actual_TRAIN_pad_contact_bottlenecks_20261006.json).
