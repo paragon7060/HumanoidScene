@@ -824,3 +824,23 @@ link pose를 비교하는 읽기 전용 진단을 추가했다. Quaternion 부�
 성공·안전·Q/replay를 바꾸지 않는다. 실제 같은128개 환경과8개 flap reporter를 쓰는
 frozen DEV/steps1 비교로 경로 순서와 teleport 직후 읽기값을 확인한다. 환경 순서 오류·
 quat convention/부호·nonfinite 보존·shape 계약을 포함한 관련101개 CPU 검사가 통과했다.
+
+### 13:45 · 실제 실행과 저장 공간 확인
+
+View 감사는 `physical_body_reset_view_identity_pgs128_gpu2_20261005_134003` 관리 폴더에서
+코드 `7c5faf2`와 `CUDA_VISIBLE_DEVICES=2`로 시작했다. 이전 flap writer 종료·MainPID0·
+최종 Drive 검증과 immutable CP0의 원격 MD5를 확인하고 같은 DEV128 waves를 복사했다.
+입력 manifest와 waves도 Drive 검증을 마쳤다. 초기화 중이며 결과 판정은 아직 하지 않았다.
+
+13:43 호스트 확인에서 기존 GPU0 두 실행과 GPU3 세 실행 모두 writer가 살아 있고
+console의 actual rows 및 actor/Q counter가 진행했다. 최근 완료 DEV는 각각
+5/128·6/128·5/128·6/128·5/128이며 네 지역 일반화 성공은 아직 부족하다.
+다섯 실행의 최근 Drive 검증은13:37~13:41이고 backup error는없었다.
+
+로컬 여유 약17.6GiB에서 공간 부족을 예방하기 위해 종료된 TGS 비교 세 실행의
+replay와 HDF 여섯 파일만 offload했다. 각 파일의 소유 UID·writer/supervisor 종료·
+다른 reader 없음·active command에서 사용하지 않음을 확인하고 원격 크기/MD5를
+재검증했다. 복구할 원래 run/file 이름·크기·MD5·원래 exit1을 receipt에 남기고
+receipt도 Drive 검증했다. 확보량7,221,383,048bytes(약6.73GiB), 직후 여유24.43GiB다.
+종료된 실패 비교를 학습 완료로 기록하지 않는다. 각 실행의 최신 체크포인트 두 개·
+로그·원래 TRAIN 성공 corpus·calibration·활성 SAC replay/HDF는 보존했다.
