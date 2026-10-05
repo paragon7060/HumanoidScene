@@ -373,3 +373,18 @@ TRAIN/독립FINAL, 일부 사례, 혼합 wave 구성, 중복 seed와 다른 물�
 이미 실행되던 GPU3 관리자의 exit1 기록은 그대로 보존하며, 정상 종료 요청과
 실제 writer 종료 증거를 따로 기록한다. 이 수정은 새 관리자부터 적용된다.
 접촉 진단·접촉 보상·실제 CPU 자식 프로세스 종료/백업 순서 검사55개가 통과했다.
+
+GPU3 새 진단은21:11에 시작했으며 실제 본인 writer와
+`CUDA_VISIBLE_DEVICES=3`, frozen actor986/Q5990을 확인했다.
+초기128개 중100개가 물리 settling guard를 통과했으며, 나머지28개도
+최종 결과의128개 분모에 남긴다. 전체 grasp 결과는 아직 종료되지 않았다.
+N1 진단은 그림 생성 시점에서 첫 중간 선반 사례2개가 완료되어 모두 성공했으나
+위 선반과 나머지126개는 이 성적에 포함되지 않았다.
+
+![원본 첫 DEV 사례의 실제 pad 힘, flap 방향 차이, rack clearance와 bilateral hold. 전체128개 성적을 뜻하지 않는다.](assets/rl_v2_full_contact_first_case_20261005.png)
+
+[그림의501개 실제 측정과 원본 outcome](assets/rl_v2_full_contact_first_case_20261005.json)을
+보관했다. 성공 직전 네 pad의 힘이5N에 도달하고 양손 pinch 및 proof lift와
+0.25초 hold를 충족하는 시점을 확인할 수 있다.
+[Notion 진행 페이지](https://app.notion.com/p/3ec63918d42a81389724c8cc53084726)에도
+기본 PNG 이미지로 첨부하고 새 기록과 기존61개 PNG 보존을 다시 읽어 검증했다.
