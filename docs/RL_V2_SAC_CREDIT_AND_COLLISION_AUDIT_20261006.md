@@ -63,6 +63,23 @@ Actual 중점12cm 안에 있지만 nominal 닫기 gate가 닫힌 손 사례는48
 성공 경험이다. 원래 VR2개는 초기 frozen actor에 도움을 준 자료이며 DEV/FINAL 성공을
 이 bank로 옮기지 않는다. 상단 성공 자료가 부족하고 접근·대향 접촉의 재현이 남아 있다.
 
+### 성공 경로 전체의 credit 확인
+
+추가로 동일 checkpoint의 실제 성공 TRAIN15개 경로를 끝까지 확인했다.
+모든 next actor/critic 관측이 다음 current 관측과 연결되고 마지막 행만 absorbing
+terminal인 것을 확인한 뒤 실제 reward를 gamma0.999로 역산했다. 위 왼쪽 성공590행은
+시작 상태의 recorded action Q−0.324에 비해 해당 실제 행동 경로의 관측 discounted
+return6.842였고, terminal에서는 Q7.330/target6.997이었다. 끝의 보상 fitting이
+앞선 성공 행동 경로의 가치까지 전달됐다는 증거는 부족하다.
+
+다만 성공 경로의 행동 정책은 탐색을 포함한 당시 정책이며, 관측 return은 현재
+정책 Q의 unbiased label이 아니다. 이것만으로 critic이 틀렸다고 단정하거나
+replay reward를 덮어쓰지 않는다. 다음 단계는 현재 학습의 후속 checkpoint에서도
+경로 credit을 확인하고, 실제 TRAIN의 연속 transition을 사용하는 n-step 학습을
+검토하는 것이다. 현재 hybrid learner는 critic auxiliary target을 지원하지 않으므로
+기존 native demo 옵션을 억지로 연결하지 않는다. [실제 경로 continuity·Q·return](assets/rl_v2_actual_TRAIN_success_path_credit_20261006.json)을
+남겼으며 optimizer/labels/physics/DEV/FINAL import는 변경하지 않았다.
+
 ## 이어가는 작업
 
 GPU3는 초기 전체 DEV를 마친 뒤 original TRAIN7부터 이어갔다. 01:39:35 KST에
