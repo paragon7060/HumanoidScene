@@ -323,10 +323,12 @@ def restore_batched_inferred_scene(env,actors,*,capture_reset_diagnostics=False,
     env._multi_box_reset_settling.reset(ids);env.episode_length_buf[:]=0
     if capture_reset_diagnostics:
         from ..scene.reset_diagnostics import passive_roller_snapshot, startup_normal_contact_snapshot
+        from ..scene.reset_view_identity import startup_tensor_view_identity_snapshot
         from ..debug.contact_sensors import BELT_CONTACT_SENSOR_NAMES, CONTACT_SENSOR_NAMES, V2_OBSTACLE_SENSOR_NAME
         env._batched_reset_box_diagnostics=dict(before_neutral_hold=
             measured_initial_box_failures(env,actors,names,failures_only=False,include_link_states=True),
             neutral_hold_trace=[],neutral_normal_contact_trace=[],
+            tensor_view_identity_before_neutral_hold=startup_tensor_view_identity_snapshot(env,names,BELT_CONTACT_SENSOR_NAMES),
             passive_rollers_before_velocity_probe=passive_roller_snapshot(env))
     if zero_passive_roller_velocity_probe:
         from ..scene.reset_diagnostics import zero_passive_roller_velocities

@@ -800,3 +800,27 @@ Body/4flap이다. Source 범위만 줄여 초기화 비용을 낮추며 박스�
 옵션은 `--reset-flap-contact-physical-pools 4 5`이고 기본 진단은 전체72개다.
 단일 source·명시적 pool identity·filter 전체 범위·매크로 변환·입력 보존을 포함한
 관련97개 CPU 검사가 통과했다. Frozen DEV/steps1 제한과 Q import 금지는 유지한다.
+
+### 13:37 · 초기 flap 접촉은 0: 실제 view 순서·위치 읽기값 감사 추가
+
+[닫힌 flap source 진단](assets/rl_v2_reset_flap_source_contacts_20261005.json)은
+exit0·writer 종료·최종 Drive 검증을 마쳤다. 초기 유효99/128, 최초 selected failure는
+11개(기존 ML10개와 UL1개)였다. 이 숫자는 초기 물리 상태 판정이며 파지 성공률이 아니다.
+기존 ML10개에서 target4의 총40개 flap source는 첫12개 physics tick 동안 모두
+net normal0·다른 박스 pair normal0을 보고했다. 동시에 Body는 tick5에서 약63N,
+tick6에서 약71N을 받았고 root 속도가 상승했다. 이후 tick60에서 flap net normal38.29N과
+다른 박스 pair26.63N이 측정돼 reporter가 항상0인 것은 아니다.
+
+![flap 접촉이 보고되지 않은 초기 구간에도 박스 몸통 충격과 가속이 발생](assets/rl_v2_reset_flap_source_contacts_20261005.png)
+
+측정된 초기 flap normal contact만으로 Body 충격을 설명할 수 없다. Tangential force는
+이 진단의 측정 대상이 아니며 실제 PhysX row와 환경 ID의 대응도 독립 확인해야 한다.
+이를 위해 reset 후 첫 neutral physics tick 전에 실제 root/contact source view의
+`prim_paths`에서 환경 순서를 읽고, contact source의 xyzw pose와 Articulation의 wxyz
+link pose를 비교하는 읽기 전용 진단을 추가했다. Quaternion 부호 동치와 유효성을
+확인하며 환경 origin도 기록한다. Pose 불일치 자체를 solver 원인으로 단정하지 않는다.
+
+이 읽기는 `--reset-failure-diagnostics`에서만 수행한다. 일반 학습의 물리·관측·보상·
+성공·안전·Q/replay를 바꾸지 않는다. 실제 같은128개 환경과8개 flap reporter를 쓰는
+frozen DEV/steps1 비교로 경로 순서와 teleport 직후 읽기값을 확인한다. 환경 순서 오류·
+quat convention/부호·nonfinite 보존·shape 계약을 포함한 관련101개 CPU 검사가 통과했다.
