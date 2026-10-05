@@ -388,3 +388,51 @@ N1 진단은 그림 생성 시점에서 첫 중간 선반 사례2개가 완료�
 0.25초 hold를 충족하는 시점을 확인할 수 있다.
 [Notion 진행 페이지](https://app.notion.com/p/3ec63918d42a81389724c8cc53084726)에도
 기본 PNG 이미지로 첨부하고 새 기록과 기존61개 PNG 보존을 다시 읽어 검증했다.
+
+## 10/05 21:50 — 전체 접촉 진단 완료; 다음은 실제 flap 자세와 양손 교정
+
+GPU0 실제 SAC의 DEV9는 actor1740/Q9006에서8/128로 종료됐다.
+DEV 이력은`6 → 6 → 5 → 8 /128`, 영역별 성공은 중간 좌2/우5,
+위 좌0/우1이다. 초기보다2건 늘었으나 공통 유효 배치에서 성공5건을 잃고
+7건을 얻었고, 위 선반 성적이 여전히 낮아 일반화 개선으로 확정하지 않는다.
+실제 held TRAIN295975행이 학습 replay에 들어갔고 DEV 데이터는0행이다.
+
+GPU3의 전체 원본 DEV128 frozen 접촉 진단은 정상 완료됐다.
+actor986/Q5990은 변하지 않았고 TRAIN replay0행, 독립FINAL0 wave다.
+성공6/128은 중간 좌2/우4, 위 좌·우0이다. 초기 유효100개 중 안전 위반66,
+timeout28, 성공6이며 초기 무효28개도128개 분모에 남긴다.
+61016개의 action 전/종료 전 실제 contact/geometry 기록을 분석했다.
+
+| 영역 | 왼손 파지 경험 | 오른손 파지 경험 | 동시 양손 파지 | 안정 양손 | 실제 성공 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 중간왼쪽 |18|4|4|3|2|
+| 중간오른쪽 |21|13|11|8|4|
+| 위왼쪽 |5|23|2|0|0|
+| 위오른쪽 |1|6|0|0|0|
+
+모두 영역당 원본32개가 분모이며, 파지 경험은 unsafe 종료 step 이전 실제 flag다.
+위 왼쪽은 반대쪽 손이 부족하고, 동시에 잡은 두 사례도 안정 조건에 도달하지
+못했다. 안전한 held 구간에서 nominal 양손 closing gate가 열렸을 때,
+실제/nominal flap normal 차이의95백분위는 중간 좌9.6°/우7.2°,
+위 좌31.1°/우4.9°다. 위 왼쪽의 방향 정보 차이는 다음 실험의 근거지만
+인과적 단독 원인으로 확정하지 않는다. 보상 계산은 이미 실제 flap 방향을 쓰고,
+현재 actor의 관계 관측은 nominal flap 기준이라 학습에 필요한 정보가 다를 수 있다.
+
+![전체 원본 DEV128의 실제 종료 결과, 손별 파지와 안정 조건, 실제/nominal flap 방향 차이](assets/rl_v2_full_DEV128_contact_gap_20261005.png)
+
+[전체 분석 데이터와 replay 검사](assets/rl_v2_full_DEV128_contact_gap_20261005.json)를
+보관했다. 실제 TRAIN replay와 model을 CPU에서 읽기만 한 검사에서,
+현재 actor/critic 입력의 최대 절댓값은22.05/90.40, critic variance 최대2.03으로
+유한하다. 종료 후 next 관측에는 매우 큰 유한 값도 있지만,1e6보다 큰 next actor8행,
+next critic15행 모두 terminal이고 bootstrapped 행은0이다.
+Actor normalizer는 초기와 정확히 같고, critic normalizer는 current state만 갱신하며
+HybridGoalSAC는 terminal next state를 network에 전달하지 않는다.
+따라서 이 데이터가 현재 정규화나 bootstrap을 오염시킨다는 가설은 지지되지 않는다.
+
+다음 수정은 nominal 관측으로 검증된 기존 body/jaw prior를 보존하면서,
+추가 actual flap 관계를 actor에게 제공하고 학습 가능한 bounded body correction을
+확장하는 방향이다. 종료 전 extra 관측도 실제 전이와 같은 시점에 기록해야 한다.
+새 관측/제어 계약에는 기존 Q/replay/optimizer를 가져오지 않고 실제 새 TRAIN으로
+학습한다. 이 수정은 아직 적용하지 않았으며 GPU0의 기존 학습은 계속 진행한다.
+DEV9 actor/checkpoint는 자동 보존 정리 전에 별도 입력 폴더로 복사하고
+기존 Drive에서 크기·MD5를 검증해 다음 실험에 사용할 수 있게 보존했다.
