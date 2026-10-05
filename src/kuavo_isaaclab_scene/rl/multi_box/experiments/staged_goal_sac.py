@@ -323,6 +323,7 @@ class StagedGoalSACPilot:
                     if 'successful_train_transitions' not in saved:
                         raise ValueError('Actual successful TRAIN replay is missing from continuation')
                     self.success_bank.restore(saved['successful_train_transitions'])
+                self.restore_experience_extras(saved)
             elif self.success_bank is not None:
                 self.success_bank.restore(state['successful_train_transitions'])
         self.frozen_actor_prior=None
@@ -352,6 +353,15 @@ class StagedGoalSACPilot:
         return prior
 
     def checkpoint_extras(self):
+        return {}
+
+    def restore_experience_extras(self, state):
+        pass
+
+    def experience_extras(self):
+        return {}
+
+    def critic_auxiliary_options(self):
         return {}
 
     def _validated_jaw_logits(self,normalized):
@@ -505,7 +515,7 @@ class StagedGoalSACPilot:
                         success_goal_weight=self.success_bank.config['actor_goal_mse_weight']/self.radius**2,
                         success_jaw_weight=self.success_bank.config['actor_jaw_nll_weight'])
                 self.latest = self.agent.update(actual, teacher=teacher, teacher_weight=weight,
-                                                update_actor=update_actor,**success_options)
+                    update_actor=update_actor, **success_options, **self.critic_auxiliary_options())
                 if self.success_bank is not None:
                     self.latest.update(successful_train_rows_in_Q_batch=success_rows,
                         successful_train_replay_fraction=self.success_replay_fraction)
@@ -572,7 +582,8 @@ class StagedGoalSACPilot:
             rows = {k:(torch.cat([b[k] for b in recent]).detach().cpu()
                        if recent else v[:0].detach().cpu().clone())
                     for k,v in self.replay.data.items()}
-            experience=dict(goal_contract=self.contract,executed_goal_transitions=rows)
+            experience=dict(goal_contract=self.contract,executed_goal_transitions=rows,
+                **self.experience_extras())
             if self.source_experience_collection_contract is not None:
                 experience['source_experience_collection_contract']=self.source_experience_collection_contract
             if self.success_bank is not None:

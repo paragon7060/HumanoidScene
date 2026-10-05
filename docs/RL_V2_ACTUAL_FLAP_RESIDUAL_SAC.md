@@ -7,6 +7,8 @@
 
 10/06 재개 후 전체 평가·동일 성공 transition의 Q fitting·상단 오른쪽 충돌과
 동결 yaw 진단은 [후속 SAC 분석](RL_V2_SAC_CREDIT_AND_COLLISION_AUDIT_20261006.md)에 기록했다.
+완료된yaw비교·후속전체DEV7/128·성공/실패 TRAIN n-step 보조 Q 옵션은
+[실제 연속 동작 credit 기록](RL_V2_MEASURED_TRAIN_CREDIT_20261006.md)에 이어서 남겼다.
 
 ## 변경 이유와 현재 증거
 

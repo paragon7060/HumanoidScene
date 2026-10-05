@@ -25,6 +25,8 @@ def main():
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--native-seed',type=Path,action='append',required=True)
     parser.add_argument('--training',action=argparse.BooleanOptionalAction,default=False)
+    parser.add_argument('--measured-train-credit', choices=('one-step', 'measured-nstep16'), default=None,
+        help='Opt-in actual-flap learner objective: real completed successful and failed TRAIN n-step credit')
     parser.add_argument('--stop-on-validation-regression',action='store_true')
     parser.add_argument('--minimum-validation-region-success-rate',type=float,default=0.)
     parser.add_argument('--validation-regression-significance',type=float,default=0.,
@@ -386,6 +388,10 @@ def main():
             raise ValueError('Batched learner requires the separately initialized staged checkpoint')
         if bool(pilot_class.supplemental_observation_dim)!=bool(supplemental):
             raise ValueError('Staged policy and current measured supplemental perception differ')
+        if args.measured_train_credit is not None:
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
+            if pilot_class is not ActualFlapResidualSACPilot or not args.training:
+                raise ValueError('Measured TRAIN credit is explicitly for actual-flap correction training')
         warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,
                             frozen_prior_lift_contract(frozen_actor_reward_contract(contract)),output,training=False,device=env.device)
         if warm.coordinates.exact_projected_base:
@@ -579,8 +585,10 @@ def main():
             stage_seed[~valid_layout]=actors[~valid_layout]
             stages=BatchedBaseStages(warm.coordinates,templates,stage_seed)
             if pilot is None:
+                pilot_options = ({'measured_train_credit': args.measured_train_credit}
+                    if args.measured_train_credit is not None else {})
                 pilot=pilot_class(warm,contract,output,stages.stages[0],checkpoint=args.checkpoint,
-                    training=args.training,device=env.device)
+                    training=args.training,device=env.device, **pilot_options)
                 (output/'agent.yaml').write_text(json.dumps(pilot.contract,indent=2)+'\n')
             if args.base_waypoint_probe:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.waypoint_probe import apply_waypoint_probe
@@ -649,7 +657,8 @@ def main():
                         if previous is not None:
                             added=observe_measured_held_rows(pilot,stages,ids,previous,terminal,
                                 reward,learning_termination_mask(contract['reward_profile'],terminated,truncated),clocks,active)
-                            if added and pilot.training and pilot.success_bank is not None:
+                            if added and pilot.training and (pilot.success_bank is not None
+                                    or getattr(pilot, 'measured_credit_bank', None) is not None):
                                 measured_goal_batches.append((ids[active[ids]].detach().cpu(),pilot.history[-1]))
                         # One transfer per field, rather than per environment.
                         # Scene collection remains exactly the executed tensor.
@@ -719,6 +728,9 @@ def main():
             if pilot.success_bank is not None:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import add_completed_training_wave
                 add_completed_training_wave(pilot.success_bank,wave,outcomes[-n:],measured_goal_batches,source_run=output.name)
+            if getattr(pilot, 'measured_credit_bank', None) is not None:
+                pilot.add_measured_training_wave(wave, outcomes[-n:], measured_goal_batches,
+                    source_run=output.name)
             if args.training:pilot.save(final=True)
             regression=baseline_failed=False
             if guard is not None and wave['split']=='validation':

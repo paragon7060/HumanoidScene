@@ -1,6 +1,8 @@
 # SAC 성공 보상 학습과 지역별 충돌: 2026-10-06
 
 Randomization을 유지한 네 영역의 안정적인 양손 파지 성공은 아직 달성하지 못했다.
+후속 동일 경로Q, 완료된yaw진단, GPU3전체DEV7/128과 새 보조 Q는
+[실제 TRAIN n-step 기록](RL_V2_MEASURED_TRAIN_CREDIT_20261006.md)에 이어서 남겼다.
 GPU3의 firmer dynamic flap 학습과 GPU0의 nominal 비교 학습은 유지한다.
 이전 goal turn은 안전 처리 수정·실제2-env 검증·SAC 상태 복원과 재개를 완료한
 progress였다. 이번 기록은 새 전체 평가와 실제 TRAIN 데이터의 읽기 전용 진단이다.

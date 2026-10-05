@@ -36,6 +36,18 @@ class AbsoluteGoalJawProjector:
 
 
 class BoundedCorrectionHybridSAC(HybridGoalSAC):
+    def update(self, *args, **kwargs):
+        result = super().update(*args, **kwargs)
+        if getattr(self, 'measured_train_credit_enabled', False):
+            result = {k.replace('native_nstep_', 'measured_nstep_'): v for k, v in result.items()}
+        return result
+
+    def validate_critic_auxiliary(self, batch, weight):
+        if not getattr(self, 'measured_train_credit_enabled', False):
+            return super().validate_critic_auxiliary(batch, weight)
+        from .measured_train_credit import validate_measured_credit_batch
+        validate_measured_credit_batch(self, batch, weight)
+
     def anchor_and_scale(self,raw):
         if raw is None or getattr(self,'executed_body_anchor',None) is None:
             raise ValueError('Bounded correction needs a measured raw state and frozen executed actor')
@@ -92,7 +104,8 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
     supplemental_observation_dim=SUPPLEMENTAL_DIM
     correction_radius=.15
 
-    def __init__(self,*args,body_anchor_state=None,checkpoint=None,device='cpu',**kwargs):
+    def __init__(self,*args,body_anchor_state=None,checkpoint=None,device='cpu',
+                 measured_train_credit=None,**kwargs):
         saved=torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
         if saved is not None and saved.get('artifact_type')!=self.artifact_type:
             raise ValueError('Old observation/control replay cannot resume an actual-flap correction learner')
@@ -101,6 +114,18 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
             body_anchor_state=saved.get('body_anchor_state')
         if body_anchor_state is None:raise ValueError('A validated nominal body actor snapshot is required')
         self.body_anchor_state=deepcopy(body_anchor_state)
+        from .measured_train_credit import measured_credit_config, VARIANT
+        stored = saved.get('measured_train_credit') if saved else None
+        if stored is not None and stored != measured_credit_config(VARIANT):
+            raise ValueError('Saved measured TRAIN credit configuration differs')
+        requested = measured_credit_config(measured_train_credit)
+        if stored is not None and measured_train_credit is not None and requested != stored:
+            raise ValueError('Requested measured TRAIN credit differs from checkpoint')
+        # This opt-in changes only the learner objective, not the physical
+        # replay contract or existing model/optimizer coordinates.
+        self.measured_train_credit = deepcopy(stored if stored is not None else requested)
+        self.measured_credit_bank = None
+        self.latest_measured_credit_collection = {}
         if not checkpoint:
             # Defaults are specific to this opt-in contract. Existing pilot
             # construction and all ordinary RL settings remain unchanged.
@@ -162,6 +187,11 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         self.agent.action_projector=AbsoluteGoalJawProjector()
         self.agent.correction_radius=self.correction_radius
         self.agent.executed_body_anchor=self.executed_body_anchor
+        if self.measured_train_credit is not None:
+            from .measured_train_credit import MeasuredTrainCreditBank
+            self.measured_credit_bank = MeasuredTrainCreditBank(self.actor_dim, self.critic_dim,
+                self.agent.config.gamma, self.measured_train_credit)
+        self.agent.measured_train_credit_enabled = self.measured_train_credit is not None
         with torch.no_grad():
             old=self.body_anchor['actor'].state_dict();new=self.agent.actor.state_dict()
             prefix=self.warm_start.actor_dim
@@ -208,4 +238,43 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
             extra_features_location='after_nominal_features_before_last_six_held_context',
             old_observation_control_Q_replay_imported=False)
 
-    def checkpoint_extras(self):return dict(body_anchor_state=self.body_anchor_state)
+    def checkpoint_extras(self):
+        result = dict(body_anchor_state=self.body_anchor_state)
+        if self.measured_train_credit is not None:
+            result.update(measured_train_credit=self.measured_train_credit,
+                measured_train_credit_bank_report=self.measured_credit_bank.report())
+        return result
+
+    def restore_experience_extras(self, state):
+        stored = state.get('measured_train_credit')
+        if stored is not None and stored != self.measured_train_credit:
+            raise ValueError('Measured TRAIN credit replay configuration differs')
+        if stored is not None:
+            self.measured_credit_bank.restore(state['measured_train_credit_bank'])
+
+    def experience_extras(self):
+        if self.measured_train_credit is None:
+            return {}
+        return dict(measured_train_credit=self.measured_train_credit,
+            measured_train_credit_bank=self.measured_credit_bank.state())
+
+    def critic_auxiliary_options(self):
+        bank = self.measured_credit_bank
+        if bank is None or not bank.size:
+            return {}
+        return dict(critic_auxiliary=bank.sample(self.measured_train_credit['batch_size'], self.device),
+            critic_auxiliary_weight=self.measured_train_credit['critic_weight'])
+
+    def add_measured_training_wave(self, wave, outcomes, batches, *, source_run):
+        if self.measured_credit_bank is not None:
+            from .measured_train_credit import add_measured_training_wave
+            self.latest_measured_credit_collection = add_measured_training_wave(
+                self.measured_credit_bank, wave, outcomes, batches, source_run=source_run)
+
+    def report(self):
+        result = super().report()
+        if self.measured_train_credit is not None:
+            result.update(measured_train_credit=self.measured_train_credit,
+                measured_train_credit_bank=self.measured_credit_bank.report(),
+                measured_train_credit_collection=self.latest_measured_credit_collection)
+        return result

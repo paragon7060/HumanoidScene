@@ -1,0 +1,797 @@
+{
+  "created_at": "2026-10-06T02:19:54.028650+09:00",
+  "parent": "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/firm_flap_upper_right_yaw_DEV4x3_gpu3_20261006_014055",
+  "source_actor_updates": 1204,
+  "source_critic_updates": 6864,
+  "unique_DEV_initial_cases": 4,
+  "physical_attempts": 12,
+  "by_candidate": {
+    "original_yaw": {
+      "requested": 4,
+      "valid": 4,
+      "success": 0,
+      "unsafe": 3,
+      "timeout": 1,
+      "initial_invalid": 0
+    },
+    "yaw_minus5deg": {
+      "requested": 4,
+      "valid": 1,
+      "success": 0,
+      "unsafe": 1,
+      "timeout": 0,
+      "initial_invalid": 3
+    },
+    "yaw_plus5deg": {
+      "requested": 4,
+      "valid": 1,
+      "success": 0,
+      "unsafe": 0,
+      "timeout": 1,
+      "initial_invalid": 3
+    }
+  },
+  "outcomes": [
+    {
+      "candidate": "original_yaw",
+      "seed": 121300,
+      "initial_layout_valid": true,
+      "complete": true,
+      "result": {
+        "steps": 810,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": true,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 3.0269846320152283e-05,
+        "flap_distances": [
+          0.0910099446773529,
+          0.04519907757639885
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          12.778975486755371,
+          -8.019914627075195,
+          1.6721422672271729,
+          0.742750883102417,
+          -0.021258512511849403,
+          -0.03916563093662262,
+          0.668083131313324
+        ],
+        "box_velocity_world": [
+          0.0031806989572942257,
+          0.0005549848428927362,
+          -0.0014571903739124537,
+          0.01180332899093628,
+          -0.020310044288635254,
+          0.011267589405179024
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.6125430464744568,
+            0.624739944934845
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 76,
+          "position_error_m": 1.588170198374428e-05,
+          "yaw_error_rad": 3.0994415283203125e-06,
+          "linear_speed_mps": 0.01093789841979742,
+          "angular_speed_radps": 0.8856049180030823,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false,
+          "waypoint_probe": {
+            "name": "original_yaw",
+            "offset_xy_yaw": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "contact_quality": 0.0
+      }
+    },
+    {
+      "candidate": "yaw_minus5deg",
+      "seed": 121300,
+      "initial_layout_valid": false,
+      "complete": true,
+      "result": {
+        "steps": 0,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": true,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "flap_distances": null,
+        "original_layout_replaced_during_settling": true,
+        "replay_rows": 0
+      }
+    },
+    {
+      "candidate": "yaw_plus5deg",
+      "seed": 121300,
+      "initial_layout_valid": false,
+      "complete": true,
+      "result": {
+        "steps": 0,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": true,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "flap_distances": null,
+        "original_layout_replaced_during_settling": true,
+        "replay_rows": 0
+      }
+    },
+    {
+      "candidate": "original_yaw",
+      "seed": 121301,
+      "initial_layout_valid": true,
+      "complete": true,
+      "result": {
+        "steps": 437,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.001033911481499672,
+        "flap_distances": [
+          0.10351844131946564,
+          0.035836730152368546
+        ],
+        "rack_peak_force_n": 76.88134765625,
+        "rack_peak_body": "zarm_r4_link",
+        "box_pose_world": [
+          4.300341606140137,
+          -8.141473770141602,
+          1.6600148677825928,
+          0.7889237403869629,
+          -0.028897691518068314,
+          -0.02692117914557457,
+          0.6132205724716187
+        ],
+        "box_velocity_world": [
+          0.005214206408709288,
+          -0.001982994843274355,
+          -0.009760579094290733,
+          0.04851434379816055,
+          -0.12407220155000687,
+          -0.024407370015978813
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.6059108376502991,
+            0.626186192035675
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 73,
+          "position_error_m": 0.0010902514914050698,
+          "yaw_error_rad": 0.00014925003051757812,
+          "linear_speed_mps": 0.007789756637066603,
+          "angular_speed_radps": 0.8471760749816895,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false,
+          "waypoint_probe": {
+            "name": "original_yaw",
+            "offset_xy_yaw": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "contact_quality": 0.0
+      }
+    },
+    {
+      "candidate": "yaw_minus5deg",
+      "seed": 121301,
+      "initial_layout_valid": false,
+      "complete": true,
+      "result": {
+        "steps": 0,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": true,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "flap_distances": null,
+        "original_layout_replaced_during_settling": true,
+        "replay_rows": 0
+      }
+    },
+    {
+      "candidate": "yaw_plus5deg",
+      "seed": 121301,
+      "initial_layout_valid": false,
+      "complete": true,
+      "result": {
+        "steps": 0,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": true,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "flap_distances": null,
+        "original_layout_replaced_during_settling": true,
+        "replay_rows": 0
+      }
+    },
+    {
+      "candidate": "original_yaw",
+      "seed": 121302,
+      "initial_layout_valid": true,
+      "complete": true,
+      "result": {
+        "steps": 419,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 2.384185791015625e-07,
+        "flap_distances": [
+          0.21089871227741241,
+          0.11391209065914154
+        ],
+        "rack_peak_force_n": 23.053327560424805,
+        "rack_peak_body": "r_twofinger_base",
+        "box_pose_world": [
+          -3.4537413120269775,
+          -8.14391040802002,
+          1.6591739654541016,
+          0.6784969568252563,
+          -0.030493784695863724,
+          -0.03262224793434143,
+          0.7332445979118347
+        ],
+        "box_velocity_world": [
+          6.937990838196129e-05,
+          -4.241603164700791e-05,
+          -0.0002035278594121337,
+          0.0005231742979958653,
+          0.004571024794131517,
+          0.0002581172448117286
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.6069537401199341,
+            0.626213014125824
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 76,
+          "position_error_m": 0.0006064892513677478,
+          "yaw_error_rad": 0.0007103681564331055,
+          "linear_speed_mps": 0.009938915260136127,
+          "angular_speed_radps": 0.7743890285491943,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false,
+          "waypoint_probe": {
+            "name": "original_yaw",
+            "offset_xy_yaw": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "contact_quality": 0.0
+      }
+    },
+    {
+      "candidate": "yaw_minus5deg",
+      "seed": 121302,
+      "initial_layout_valid": false,
+      "complete": true,
+      "result": {
+        "steps": 0,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": true,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "flap_distances": null,
+        "original_layout_replaced_during_settling": true,
+        "replay_rows": 0
+      }
+    },
+    {
+      "candidate": "yaw_plus5deg",
+      "seed": 121302,
+      "initial_layout_valid": false,
+      "complete": true,
+      "result": {
+        "steps": 0,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": true,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "flap_distances": null,
+        "original_layout_replaced_during_settling": true,
+        "replay_rows": 0
+      }
+    },
+    {
+      "candidate": "original_yaw",
+      "seed": 121303,
+      "initial_layout_valid": true,
+      "complete": true,
+      "result": {
+        "steps": 412,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 1.1920928955078125e-07,
+        "flap_distances": [
+          0.2097047120332718,
+          0.11288011074066162
+        ],
+        "rack_peak_force_n": 20.293418884277344,
+        "rack_peak_body": "r_twofinger_base",
+        "box_pose_world": [
+          -11.428674697875977,
+          -8.075831413269043,
+          1.6591250896453857,
+          0.6960774064064026,
+          -0.031122632324695587,
+          -0.03201352059841156,
+          0.7165771126747131
+        ],
+        "box_velocity_world": [
+          9.762428817339242e-05,
+          8.868623262969777e-05,
+          -0.00018089255900122225,
+          -0.0017513628117740154,
+          0.0047029717825353146,
+          0.0003082812181673944
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.6112944483757019,
+            0.6267580986022949
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 69,
+          "position_error_m": 0.0006797437672503293,
+          "yaw_error_rad": 0.0005229711532592773,
+          "linear_speed_mps": 0.011632796376943588,
+          "angular_speed_radps": 0.7580516934394836,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false,
+          "waypoint_probe": {
+            "name": "original_yaw",
+            "offset_xy_yaw": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "contact_quality": 0.0
+      }
+    },
+    {
+      "candidate": "yaw_minus5deg",
+      "seed": 121303,
+      "initial_layout_valid": true,
+      "complete": true,
+      "result": {
+        "steps": 452,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -3.5762786865234375e-07,
+        "flap_distances": [
+          0.14449135959148407,
+          0.143638476729393
+        ],
+        "rack_peak_force_n": 110.04350280761719,
+        "rack_peak_body": "r_twofinger_base",
+        "box_pose_world": [
+          -11.566469192504883,
+          -0.13801711797714233,
+          1.6591285467147827,
+          0.7129306197166443,
+          -0.03188902884721756,
+          -0.031252678483724594,
+          0.699811577796936
+        ],
+        "box_velocity_world": [
+          5.0828373787226155e-05,
+          5.878710362594575e-05,
+          -0.00013671335182152689,
+          -0.0010202869307249784,
+          0.004180358722805977,
+          2.4893712179618888e-05
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.6112556457519531,
+            0.6267099976539612
+          ],
+          "base_target_yaw_rack_rad": -1.6196036513204195,
+          "stable_steps": 15,
+          "manipulation_start": 69,
+          "position_error_m": 0.002590721473097801,
+          "yaw_error_rad": 0.00011277198791503906,
+          "linear_speed_mps": 0.028511619195342064,
+          "angular_speed_radps": 0.6522617936134338,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false,
+          "waypoint_probe": {
+            "name": "yaw_minus5deg",
+            "offset_xy_yaw": [
+              0.0,
+              0.0,
+              -0.08726646259971647
+            ]
+          }
+        },
+        "contact_quality": 0.0
+      }
+    },
+    {
+      "candidate": "yaw_plus5deg",
+      "seed": 121303,
+      "initial_layout_valid": true,
+      "complete": true,
+      "result": {
+        "steps": 810,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": true,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.3502077460289e-05,
+        "flap_distances": [
+          0.011554261669516563,
+          0.04049016535282135
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          -11.527416229248047,
+          7.80984354019165,
+          1.66360342502594,
+          0.7951921224594116,
+          -0.02920958399772644,
+          -0.033717453479766846,
+          0.6047141551971436
+        ],
+        "box_velocity_world": [
+          0.00237631774507463,
+          -0.00010406844376120716,
+          -0.0007685308810323477,
+          -0.00886960793286562,
+          -0.009645541198551655,
+          -0.0038736758287996054
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.6112315058708191,
+            0.6267619132995605
+          ],
+          "base_target_yaw_rack_rad": -1.4450707261209867,
+          "stable_steps": 15,
+          "manipulation_start": 69,
+          "position_error_m": 9.825369488680735e-06,
+          "yaw_error_rad": 1.0728836059570312e-05,
+          "linear_speed_mps": 0.008981474675238132,
+          "angular_speed_radps": 0.7902284860610962,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false,
+          "waypoint_probe": {
+            "name": "yaw_plus5deg",
+            "offset_xy_yaw": [
+              0.0,
+              0.0,
+              0.08726646259971647
+            ]
+          }
+        },
+        "contact_quality": 0.0
+      }
+    }
+  ],
+  "initial_invalid_in_each_denominator": true,
+  "matching_requested_seeds_do_not_guarantee_identical_reset_physics": true,
+  "only_seed_121303_has_all_three_candidates_valid": true,
+  "default_waypoint_changed": false,
+  "flap_and_box_dynamics_unchanged": true,
+  "no_optimizer_or_replay_updates": true,
+  "evaluation_import_allowed": false,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true,
+  "writer_exit_code": 0,
+  "closed_logs_final_Drive_size_MD5_verified": true
+}
