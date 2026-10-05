@@ -338,8 +338,16 @@ def main():
             observation,settled,valid_layout,layout_guard=settle_batched_layouts(env,actors,allow_partial=True,
                 capture_reset_diagnostics=args.reset_failure_diagnostics)
             if args.reset_failure_diagnostics:
-                (output/f'reset_failure_diagnostics_wave_{wave_index:04d}.json').write_text(json.dumps(
+                diagnostic_name=f'reset_failure_diagnostics_wave_{wave_index:04d}.json'
+                (output/diagnostic_name).write_text(json.dumps(
                     dict(wave=wave_index,split=wave['split'],layouts=wave['layouts'],guard=layout_guard),indent=2)+'\n')
+                # Complete link/physics traces live once in the closed audit
+                # file, rather than being copied into all 128 outcome rows.
+                captured=layout_guard['reset_failure_diagnostics']
+                layout_guard['reset_failure_diagnostics']=dict(file=diagnostic_name,
+                    first_selected_failure_count=len(captured['first_invalid_before_respawn']),
+                    neutral_hold_trace_steps=[x['physics_step'] for x in captured['neutral_hold_trace']],
+                    complete_trace_in_diagnostic_file=True)
             # An invalid requested case remains a failed attempt in the
             # denominator. Its replacement never supplies a snapshot/action
             # or transition to this layout's replay.

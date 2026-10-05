@@ -101,8 +101,11 @@ def test_neutral_settling_uses_new_support_every_physics_step_without_replay():
         action_manager=SimpleNamespace(action=torch.ones(2,24),process_action=process,apply_action=apply),
         scene=SimpleNamespace(write_data_to_sim=write,update=lambda dt:None),
         sim=SimpleNamespace(step=step))
-    settle_neutral_wave_controllers(env,steps=5)
+    observed=[]
+    settle_neutral_wave_controllers(env,steps=5,
+        diagnostic_callback=lambda index:observed.append((index,state.applied,state.position)))
     assert state.position==0. and state.applied==5 and state.processed==1
+    assert observed==[(index,index,0.) for index in range(1,6)]
 
 
 def test_development_guard_detects_regional_loss_even_when_total_success_rises():

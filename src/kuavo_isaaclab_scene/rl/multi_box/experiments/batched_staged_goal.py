@@ -37,7 +37,7 @@ def reset_wave_controller_state(env, assets, ids):
     return audit
 
 
-def settle_neutral_wave_controllers(env, steps=60):
+def settle_neutral_wave_controllers(env, steps=60,*,diagnostic_callback=None):
     """Hold the newly installed neutral pose with current support every substep.
 
     No rewards, transitions or policy actions are collected here. Managers
@@ -46,11 +46,13 @@ def settle_neutral_wave_controllers(env, steps=60):
     the articulation writer recomputes joint gravity compensation as usual.
     """
     env.action_manager.process_action(torch.zeros_like(env.action_manager.action))
-    for _ in range(steps):
+    for index in range(steps):
         env.action_manager.apply_action()
         env.scene.write_data_to_sim()
         env.sim.step(render=False)
         env.scene.update(env.physics_dt)
+        if diagnostic_callback is not None:
+            diagnostic_callback(index+1)
 
 
 class DevelopmentSuccessGuard:
@@ -320,11 +322,19 @@ def restore_batched_inferred_scene(env,actors,*,capture_reset_diagnostics=False)
     env._multi_box_reset_settling.reset(ids);env.episode_length_buf[:]=0
     if capture_reset_diagnostics:
         env._batched_reset_box_diagnostics=dict(before_neutral_hold=
-            measured_initial_box_failures(env,actors,names,failures_only=False))
-    settle_neutral_wave_controllers(env)
+            measured_initial_box_failures(env,actors,names,failures_only=False,include_link_states=True),
+            neutral_hold_trace=[])
+    def capture_hold_step(index):
+        if index in (1,2,4,8,16,32):
+            env._batched_reset_box_diagnostics['neutral_hold_trace'].append(dict(
+                physics_step=index,elapsed_s=index*env.physics_dt,
+                boxes=measured_initial_box_failures(env,actors,names,
+                    failures_only=False,include_link_states=True)))
+    settle_neutral_wave_controllers(env,
+        diagnostic_callback=capture_hold_step if capture_reset_diagnostics else None)
     if capture_reset_diagnostics:
         env._batched_reset_box_diagnostics['after_neutral_hold']=\
-            measured_initial_box_failures(env,actors,names,failures_only=False)
+            measured_initial_box_failures(env,actors,names,failures_only=False,include_link_states=True)
     composer=robot.permanent_wrench_composer
     env._batched_reset_control_audit['after_neutral_hold']=dict(
         force_n=composer.composed_force_as_torch[ids].flatten(1).norm(dim=1).tolist(),
@@ -375,7 +385,7 @@ def wait_for_original_surrounding_boxes(env,observation,expected,names,invalid_b
     return observation,steps,failed,stable_ticks
 
 
-def measured_initial_box_failures(env,actors,names,*,failures_only=True):
+def measured_initial_box_failures(env,actors,names,*,failures_only=True,include_link_states=False):
     """Read why an original box fails geometry/stability; never alter its state.
 
     A replaced case is explicitly labelled. Its parked old asset must not be
@@ -413,7 +423,7 @@ def measured_initial_box_failures(env,actors,names,*,failures_only=True):
             chosen=selected&~(footprint&on_shelf&stable&same_pool) if failures_only else selected
             for i in torch.where(chosen)[0].tolist():
                 asset=env.scene[names[pool]];joints=getattr(asset.data,'joint_pos',None)
-                failures.append(dict(environment=i,logical_id=logical,original_pool_id=pool,
+                sample=dict(environment=i,logical_id=logical,original_pool_id=pool,
                     original_asset_still_active=bool(same_pool[i]),finite=bool(finite[i]),
                     invalid_box_pose=bool(invalid_box[i]),invalid_rack_pose=bool(invalid_rack[i]),
                     footprint_in_region=bool(footprint[i]),on_assigned_shelf=bool(on_shelf[i]),
@@ -423,7 +433,13 @@ def measured_initial_box_failures(env,actors,names,*,failures_only=True):
                     angular_speed_radps=float(velocity[i,3:].norm()) if finite[i] else None,
                     box_pose_world=finite_list(pose[i]),box_velocity_world=finite_list(velocity[i]),
                     joint_names=list(getattr(asset,'joint_names',[])),
-                    joint_positions_rad=None if joints is None else finite_list(joints[i])))
+                    joint_positions_rad=None if joints is None else finite_list(joints[i]))
+                if include_link_states:
+                    sample.update(body_names=list(asset.body_names),
+                        body_link_pose_world=[finite_list(row) for row in asset.data.body_link_pose_w[i]],
+                        body_link_velocity_world=[finite_list(row) for row in asset.data.body_link_vel_w[i]],
+                        joint_velocities_radps=finite_list(asset.data.joint_vel[i]))
+                failures.append(sample)
     return failures
 
 

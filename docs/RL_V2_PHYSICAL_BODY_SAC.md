@@ -483,10 +483,12 @@ DEV만 허용하며 TRAIN/독립 FINAL 및 900-step 평가와 함께 쓸 수 없
 물리·randomization·충돌·성공 조건은 바꾸지 않으며, 파지 성공률을 측정하는
 실행이 아니다. 자료는 Q/replay 학습에 가져오지 않는다.
 
-각 wave의 `reset_failure_diagnostics_wave_<index>.json` 및 기존 `metrics.json`의
-`initial_layout_guard.reset_failure_diagnostics`에 기록한다. 60 physics-step
+각 wave의 `reset_failure_diagnostics_wave_<index>.json`에 전체 증거를 기록한다.
+기존 `metrics.json`의 `initial_layout_guard.reset_failure_diagnostics`에는 그 파일명과
+요약만 기록해 같은 link/physics trace를128번 복제하지 않는다. 60 physics-step
 neutral hold는 `env.step`이 아니므로 settling failure/partial respawn은 그 hold
-중에는 발생하지 않는다. 그 사이 발생한 물리 움직임은 전/후 snapshot으로 확인한다.
+중에는 발생하지 않는다. 그 사이 발생한 물리 움직임은 전/후 및1/2/4/8/16/32번째
+physics tick의 root·flap link pose/velocity·joint velocity snapshot으로 확인한다.
 이후 첫 selected failure는 cumulative counter·elapsed·geometry/timeout/invalid
 pose flags와 함께 기록한다. 주변 박스의 최종 guard sample은 실패 직전 궤적과
 구분한다. 닫힌 진단 JSON도 기존 Drive 관리자의 최종 업로드·MD5 검증에 포함한다.
@@ -499,3 +501,31 @@ original→packed→original 진단의 valid51→52→51/64에서도 packing만�
 CPU reset/respawn/기존 batched 회귀 검사27개와 Drive 검사13개를 통과했다.
 첫-step grace·timeout·nonfinite quarantine과 capture off/on의 동일 reset
 판정, 재생성 후 원래 snapshot 보존, 닫힌 diagnostic의 checksum 검증을 확인했다.
+
+### 10:24 · SAC action 전에 시작되는 초기 물리 실패를 확인
+
+GPU2 frozen DEV128 startup 진단은99개 유효/29개 무효였다. 실제289개 active
+박스 모두 teleport 직후 footprint/shelf 검사를 통과했고 root velocity는0이었다.
+60 physics tick(0.5초)의 zero-action neutral hold 후에는 target logical4(중간왼쪽)
+10개, background logical5 17개, target logical9(상단왼쪽)1개가 assigned geometry를
+벗어났다. Background5 64개의 속도 중앙값0.227m/s, 최대5.82e9m/s와 flap joint의
+수치 발산도 관측했다. 이는 SAC/analytic base rollout 전에 발생한 startup 문제다.
+
+실제 첫 selected reset failure11개는 respawn **전** pose/velocity로 보존했다.
+전부 geometry 이탈이며 timeout이나 invalid quaternion이 첫 원인은 아니었다.
+이전 정책의 action 탐색만으로 이 초기 물리 문제를 설명하지 않는다. 다만 초기
+footprint/shelf 검사는 모든 articulated flap의 contact-free 상태를 증명하지 않으며,
+endpoint 두 장만으로 interpenetration·stale link/contact cache 중 어느 메커니즘인지
+확정하지 않는다. 후속1/2/4/8/16/32-tick link trace로 실패 시작점을 좁힌다.
+
+![SAC action 전 원래 박스의 초기 물리 이탈](assets/rl_v2_reset_physics_onset_20261005.png)
+
+[측정 snapshot·원래 layout·첫 respawn 직전 증거](assets/rl_v2_reset_physics_onset_20261005.json).
+진단은 `physical_body_reset_failure_diagnostic_pgs128_gpu2_20261005_101019`이며
+writer가 정상 exit0으로 종료한 후 전체 데이터·diagnostic JSON·로그의 기존 Drive
+최종 크기/MD5 검증을 완료했다. Frozen 한 step이므로 파지 성능이나 새 FINAL 결과가
+아니다. 박스·base randomization과 성공/안전 조건은 유지했다.
+
+이 시점에 GPU0 gain0.5 및 gain2의 학습 후 DEV wave3은 모두1/128이었다(초기7/128).
+GPU3 native-nstep10 분기는 첫 frozen DEV가 아직 진행 중이며, 초기 actor/Q0의
+결과를 학습 개선으로 보고하지 않는다. 기존 다섯 SAC 실행은 중단하지 않았다.

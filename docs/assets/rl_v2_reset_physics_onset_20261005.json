@@ -1,0 +1,4160 @@
+{
+  "captured_at": "2026-10-05T01:24:23.061339+00:00",
+  "source_commit": "60e07cb272a5dd217d63fabaf06fae29d61fcfd3",
+  "source_run": "artifacts/rl/drive_runs/physical_body_reset_failure_diagnostic_pgs128_gpu2_20261005_101019/batch_sac_20261005_101223_7e9cc5",
+  "source_file": "reset_failure_diagnostics_wave_0000.json",
+  "source_SHA256": "16760d1c96bbd7256d48a79ce5ae3e7978eb43d8b13866f275009c9297fffbed",
+  "gpu": 2,
+  "num_declared_DEV_cases": 128,
+  "num_measured_original_boxes": 289,
+  "initial_valid_cases": 99,
+  "initial_invalid_cases": 29,
+  "original_before_hold": {
+    "rows": 289,
+    "bad_geometry_by_logical": {},
+    "not_stable_by_logical": {}
+  },
+  "original_after_hold": {
+    "rows": 289,
+    "bad_geometry_by_logical": {
+      "4": 10,
+      "5": 17,
+      "9": 1
+    },
+    "not_stable_by_logical": {
+      "4": 10,
+      "5": 64,
+      "6": 46,
+      "9": 52
+    }
+  },
+  "neutral_hold_physics_steps": 60,
+  "physics_dt_s": 0.008333333333333333,
+  "neutral_hold_seconds": 0.5,
+  "before_SAC_or_analytic_base_rollout": true,
+  "actor_updates": 0,
+  "critic_updates": 0,
+  "no_optimizer_or_replay_import": true,
+  "selected_failures_before_respawn": [
+    {
+      "environment": 8,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "type_id": 0,
+      "region_id": 1,
+      "invalid_count": 2,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": false,
+      "on_assigned_shelf": false,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        44.84037780761719,
+        23.917665481567383,
+        1.3090660572052002,
+        -0.2840752601623535,
+        -0.794838547706604,
+        -0.47560039162635803,
+        -0.24766339361667633
+      ],
+      "box_velocity_world": [
+        0.9646413922309875,
+        -1.0044463872909546,
+        1.1595938205718994,
+        4.113050937652588,
+        15.579795837402344,
+        3.2841708660125732
+      ],
+      "rack_pose_world": [
+        44.33928680419922,
+        24.408428192138672,
+        -1.1920928955078125e-07,
+        0.6103793382644653,
+        -2.5756655475106527e-08,
+        -2.6148065046527336e-08,
+        0.7921093702316284
+      ],
+      "robot_pose_world": [
+        43.57709503173828,
+        23.91254425048828,
+        4.6193599700927734e-06,
+        0.9988174438476562,
+        -3.483658517211552e-08,
+        1.6845227719386457e-06,
+        0.04861650988459587
+      ],
+      "rack_local_root_xyz_m": [
+        -0.6022700071334839,
+        -0.35945942997932434,
+        1.3090661764144897
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        -1.5720692090326338e-06,
+        -0.0679863914847374,
+        6.256745450627932e-07,
+        -0.0014354961458593607
+      ]
+    },
+    {
+      "environment": 24,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "type_id": 0,
+      "region_id": 1,
+      "invalid_count": 1,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": false,
+      "on_assigned_shelf": true,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        29.843647003173828,
+        -23.677431106567383,
+        1.2620333433151245,
+        0.37783145904541016,
+        -0.44251394271850586,
+        -0.6139736175537109,
+        0.5333488583564758
+      ],
+      "box_velocity_world": [
+        2.4669971466064453,
+        0.20711345970630646,
+        -1.6186082363128662,
+        -5.94815731048584,
+        19.083202362060547,
+        3.9940714836120605
+      ],
+      "rack_pose_world": [
+        28.459840774536133,
+        -23.493602752685547,
+        -1.1920928955078125e-07,
+        0.6780871152877808,
+        1.9575761844858874e-10,
+        6.929398721489122e-10,
+        0.7349815964698792
+      ],
+      "robot_pose_world": [
+        27.692441940307617,
+        -23.54490852355957,
+        4.872679710388184e-06,
+        0.9814512729644775,
+        -8.981072596725426e-08,
+        2.4682087769178906e-06,
+        -0.19171132147312164
+      ],
+      "rack_local_root_xyz_m": [
+        -0.29448556900024414,
+        -1.3645479679107666,
+        1.262033462524414
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        -0.35742226243019104,
+        -0.08357932418584824,
+        -3.039073988020391e-07,
+        0.0006652989541180432
+      ]
+    },
+    {
+      "environment": 28,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "type_id": 0,
+      "region_id": 1,
+      "invalid_count": 1,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": false,
+      "on_assigned_shelf": true,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        29.434545516967773,
+        7.781741619110107,
+        1.2563471794128418,
+        0.46123823523521423,
+        0.6362330913543701,
+        0.5325115919113159,
+        0.3144806921482086
+      ],
+      "box_velocity_world": [
+        2.6158206462860107,
+        -1.195691704750061,
+        -0.7220974564552307,
+        7.03898286819458,
+        21.016878128051758,
+        -2.156869649887085
+      ],
+      "rack_pose_world": [
+        28.419281005859375,
+        8.480988502502441,
+        -1.1920928955078125e-07,
+        0.7855700254440308,
+        3.260777065028364e-11,
+        5.168482655748541e-11,
+        0.6187727451324463
+      ],
+      "robot_pose_world": [
+        27.605152130126953,
+        8.34814739227295,
+        4.589557647705078e-06,
+        0.9884837865829468,
+        7.370874186563015e-07,
+        1.9384904135222314e-06,
+        -0.1513262689113617
+      ],
+      "rack_local_root_xyz_m": [
+        -0.44197678565979004,
+        -1.1508104801177979,
+        1.2563472986221313
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        -0.250010222196579,
+        0.3696894943714142,
+        -0.17582613229751587,
+        -0.05981658026576042
+      ]
+    },
+    {
+      "environment": 34,
+      "logical_id": 9,
+      "original_pool_id": 15,
+      "type_id": 0,
+      "region_id": 3,
+      "invalid_count": 1,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": true,
+      "on_assigned_shelf": false,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        20.577056884765625,
+        -31.75612449645996,
+        2.004746437072754,
+        0.48770248889923096,
+        -0.871633768081665,
+        0.048937175422906876,
+        0.0024323821999132633
+      ],
+      "box_velocity_world": [
+        0.0686434805393219,
+        0.021255379542708397,
+        -2.171428918838501,
+        -4.088988780975342,
+        -2.250020742416382,
+        -0.2509895861148834
+      ],
+      "rack_pose_world": [
+        20.396484375,
+        -31.52226448059082,
+        -1.1920928955078125e-07,
+        0.6634714007377625,
+        6.373319927366339e-11,
+        -3.830218087141901e-10,
+        0.7482017278671265
+      ],
+      "robot_pose_world": [
+        19.772348403930664,
+        -31.99222755432129,
+        4.425644874572754e-06,
+        0.9972410202026367,
+        -6.328195212290666e-08,
+        3.5431482956482796e-06,
+        0.07423056662082672
+      ],
+      "rack_local_root_xyz_m": [
+        -0.25377970933914185,
+        -0.15130376815795898,
+        2.004746437072754
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        2.7511686084835674e-07,
+        -0.00011323303624521941,
+        -6.08889862974138e-08,
+        -0.0005677304579876363
+      ]
+    },
+    {
+      "environment": 68,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "type_id": 0,
+      "region_id": 1,
+      "invalid_count": 1,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": false,
+      "on_assigned_shelf": true,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        -2.467299699783325,
+        -23.784866333007812,
+        1.2647640705108643,
+        0.48865261673927307,
+        -0.4436192810535431,
+        -0.3150959312915802,
+        0.6820080876350403
+      ],
+      "box_velocity_world": [
+        2.094933032989502,
+        0.13676542043685913,
+        -1.0323987007141113,
+        -1.9238896369934082,
+        19.296262741088867,
+        -4.9720940589904785
+      ],
+      "rack_pose_world": [
+        -3.634849786758423,
+        -23.54088592529297,
+        0.0,
+        0.7370415925979614,
+        1.3397440934426186e-09,
+        6.100863564340031e-11,
+        0.6758474707603455
+      ],
+      "robot_pose_world": [
+        -4.4759087562561035,
+        -23.46912384033203,
+        4.76837158203125e-06,
+        0.9975417256355286,
+        7.073213623698393e-07,
+        2.193311956943944e-06,
+        -0.0700736716389656
+      ],
+      "rack_local_root_xyz_m": [
+        -0.1421198844909668,
+        -1.1842727661132812,
+        1.2647640705108643
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        2.3329515386194544e-07,
+        -0.3217606842517853,
+        -5.163438459021563e-07,
+        0.0008526093442924321
+      ]
+    },
+    {
+      "environment": 84,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "type_id": 0,
+      "region_id": 1,
+      "invalid_count": 1,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": false,
+      "on_assigned_shelf": false,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        -10.688246726989746,
+        16.04952049255371,
+        1.1919403076171875,
+        -0.7808005809783936,
+        0.5414535999298096,
+        0.21476559340953827,
+        0.2259514480829239
+      ],
+      "box_velocity_world": [
+        1.5428909063339233,
+        -0.4506808817386627,
+        -1.1949236392974854,
+        -0.8497288823127747,
+        3.318614959716797,
+        -7.029723644256592
+      ],
+      "rack_pose_world": [
+        -11.699132919311523,
+        16.539064407348633,
+        -1.1920928955078125e-07,
+        0.6747912168502808,
+        -8.437537335481693e-10,
+        5.441475048328925e-10,
+        0.7380086779594421
+      ],
+      "robot_pose_world": [
+        -12.50490665435791,
+        16.07721519470215,
+        4.5299530029296875e-06,
+        0.9927796721458435,
+        -4.4983774927231934e-08,
+        2.236802629340673e-06,
+        -0.11995189636945724
+      ],
+      "rack_local_root_xyz_m": [
+        -0.5778733491897583,
+        -0.9631232619285583,
+        1.191940426826477
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        -0.16142863035202026,
+        -0.26651161909103394,
+        -5.982657603453845e-05,
+        -0.0013667517341673374
+      ]
+    },
+    {
+      "environment": 88,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "type_id": 0,
+      "region_id": 1,
+      "invalid_count": 1,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": false,
+      "on_assigned_shelf": true,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        -19.190120697021484,
+        -40.055606842041016,
+        1.1621148586273193,
+        -0.7320863008499146,
+        0.6533253788948059,
+        0.14808182418346405,
+        -0.12364151328802109
+      ],
+      "box_velocity_world": [
+        -0.22658444941043854,
+        -0.6393350958824158,
+        -0.6412288546562195,
+        0.7820696234703064,
+        9.248437881469727,
+        -3.979895830154419
+      ],
+      "rack_pose_world": [
+        -19.6885929107666,
+        -39.53489303588867,
+        -2.384185791015625e-07,
+        0.6451647877693176,
+        -8.927429628879935e-11,
+        1.95051960694137e-10,
+        0.7640435099601746
+      ],
+      "robot_pose_world": [
+        -20.41402816772461,
+        -39.74517822265625,
+        4.500150680541992e-06,
+        0.9997172355651855,
+        4.481493398600378e-09,
+        2.5852859835140407e-06,
+        0.02377641573548317
+      ],
+      "rack_local_root_xyz_m": [
+        -0.5968616008758545,
+        -0.4041951894760132,
+        1.1621150970458984
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        2.2481360701931408e-06,
+        -0.0048778848722577095,
+        3.874819043403477e-08,
+        3.816788739641197e-05
+      ]
+    },
+    {
+      "environment": 100,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "type_id": 0,
+      "region_id": 1,
+      "invalid_count": 1,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": false,
+      "on_assigned_shelf": false,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        -26.655092239379883,
+        -31.721784591674805,
+        1.3168518543243408,
+        0.17035430669784546,
+        -0.528115451335907,
+        -0.7294794321060181,
+        0.3999163806438446
+      ],
+      "box_velocity_world": [
+        2.504462957382202,
+        0.5506693720817566,
+        -0.6107826828956604,
+        -4.788108825683594,
+        12.160867691040039,
+        2.180175542831421
+      ],
+      "rack_pose_world": [
+        -27.636493682861328,
+        -31.525468826293945,
+        -2.384185791015625e-07,
+        0.7235627174377441,
+        -4.98660071568402e-11,
+        -4.186235247338743e-10,
+        0.6902586817741394
+      ],
+      "robot_pose_world": [
+        -28.47909927368164,
+        -31.534948348999023,
+        4.723668098449707e-06,
+        0.9754955768585205,
+        9.915996912468472e-08,
+        2.322160753465141e-06,
+        -0.22001859545707703
+      ],
+      "rack_local_root_xyz_m": [
+        -0.1498878002166748,
+        -0.9895566701889038,
+        1.31685209274292
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        -0.15662559866905212,
+        -0.3642174303531647,
+        -0.00013758966815657914,
+        0.020963193848729134
+      ]
+    },
+    {
+      "environment": 116,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "type_id": 0,
+      "region_id": 1,
+      "invalid_count": 1,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": false,
+      "on_assigned_shelf": true,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        -34.40050506591797,
+        8.013692855834961,
+        1.252500295639038,
+        0.754198431968689,
+        -0.5189923644065857,
+        -0.36544379591941833,
+        0.16817384958267212
+      ],
+      "box_velocity_world": [
+        2.4946558475494385,
+        -0.543644905090332,
+        -1.3327863216400146,
+        5.115261554718018,
+        12.376595497131348,
+        3.555856704711914
+      ],
+      "rack_pose_world": [
+        -35.642906188964844,
+        8.508820533752441,
+        -1.1920928955078125e-07,
+        0.7487103939056396,
+        -4.3978998220950416e-10,
+        2.570831325598988e-10,
+        0.6628972291946411
+      ],
+      "robot_pose_world": [
+        -36.40501022338867,
+        8.355676651000977,
+        4.9173831939697266e-06,
+        0.9784823656082153,
+        5.270011911306938e-07,
+        2.4151695470209233e-06,
+        -0.20633012056350708
+      ],
+      "rack_local_root_xyz_m": [
+        -0.34098386764526367,
+        -1.2932292222976685,
+        1.2525004148483276
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        -0.05580354481935501,
+        0.11727634072303772,
+        -0.08095639199018478,
+        -0.0022456238511949778
+      ]
+    },
+    {
+      "environment": 120,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "type_id": 0,
+      "region_id": 1,
+      "invalid_count": 1,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": false,
+      "on_assigned_shelf": false,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        -35.15089416503906,
+        40.01896286010742,
+        1.3211175203323364,
+        -0.4268975555896759,
+        0.5753398537635803,
+        0.6542169451713562,
+        -0.2423689067363739
+      ],
+      "box_velocity_world": [
+        -0.04621223360300064,
+        -0.2129930704832077,
+        0.2420824021100998,
+        1.0422472953796387,
+        1.5190374851226807,
+        0.8423088192939758
+      ],
+      "rack_pose_world": [
+        -35.63240432739258,
+        40.34693145751953,
+        -1.1920928955078125e-07,
+        0.7274234294891357,
+        -2.707056800943519e-10,
+        3.096732592577922e-10,
+        0.686188817024231
+      ],
+      "robot_pose_world": [
+        -36.44675827026367,
+        40.075836181640625,
+        4.723668098449707e-06,
+        0.9751458168029785,
+        1.7996417511767504e-07,
+        2.4018092972255545e-06,
+        -0.22156374156475067
+      ],
+      "rack_local_root_xyz_m": [
+        -0.29934394359588623,
+        -0.499808669090271,
+        1.321117639541626
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        -1.1847915649414062,
+        -0.14589963853359222,
+        -0.011985030956566334,
+        -0.011819438077509403
+      ]
+    },
+    {
+      "environment": 124,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "type_id": 0,
+      "region_id": 1,
+      "invalid_count": 1,
+      "common_step_counter": 41,
+      "elapsed_s": 0.06666667014360428,
+      "sample_phase": "first_invalid_before_partial_respawn",
+      "left_region": true,
+      "timed_out": false,
+      "footprint_in_region": false,
+      "on_assigned_shelf": true,
+      "stable": false,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "nonfinite_box_velocity": false,
+      "box_pose_world": [
+        -42.594242095947266,
+        -16.1585693359375,
+        1.2777758836746216,
+        0.6200002431869507,
+        0.5666807293891907,
+        0.16460373997688293,
+        0.5170862078666687
+      ],
+      "box_velocity_world": [
+        1.6357272863388062,
+        -1.2994996309280396,
+        -0.008633144199848175,
+        10.790600776672363,
+        22.058616638183594,
+        6.1282148361206055
+      ],
+      "rack_pose_world": [
+        -43.50265884399414,
+        -15.50713062286377,
+        -2.384185791015625e-07,
+        0.7578389644622803,
+        1.4641537982029718e-10,
+        -6.81385503575882e-10,
+        0.6524417400360107
+      ],
+      "robot_pose_world": [
+        -44.33344650268555,
+        -15.718168258666992,
+        4.544854164123535e-06,
+        0.9978315234184265,
+        7.887083484092727e-07,
+        1.663840976107167e-06,
+        -0.0658196285367012
+      ],
+      "rack_local_root_xyz_m": [
+        -0.5091755390167236,
+        -0.9951551556587219,
+        1.2777761220932007
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        0.06228576600551605,
+        -0.1246790885925293,
+        -8.353450539289042e-05,
+        0.002506677992641926
+      ]
+    }
+  ],
+  "selected_failure_region_counts": {
+    "shelf_2_left": 10,
+    "shelf_3_left": 1
+  },
+  "first_target_failure_elapsed_after_neutral_hold_s": [
+    0.06666667014360428,
+    0.06666667014360428,
+    0.06666667014360428,
+    0.06666667014360428,
+    0.06666667014360428,
+    0.06666667014360428,
+    0.06666667014360428,
+    0.06666667014360428,
+    0.06666667014360428,
+    0.06666667014360428,
+    0.06666667014360428
+  ],
+  "final_original_failure_counts_by_logical": {
+    "5": 17
+  },
+  "background5_neutral_speed_mps": {
+    "median": 0.22716978192329407,
+    "maximum": 5816056320.0
+  },
+  "neutral_displacements": [
+    {
+      "environment": 8,
+      "logical_id": 4,
+      "before": {
+        "environment": 8,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.27679967880249023,
+          -0.11671234667301178,
+          1.0491187572479248
+        ],
+        "shelf_clearance_m": 0.010017991065979004,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          44.5226936340332,
+          24.170516967773438,
+          1.0491186380386353,
+          0.6111328601837158,
+          -0.02730264700949192,
+          -0.03529130667448044,
+          0.7902694940567017
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 8,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": true,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.5281468629837036,
+          -0.3271872401237488,
+          1.1839016675949097
+        ],
+        "shelf_clearance_m": 0.0031583309173583984,
+        "linear_speed_mps": 0.794849157333374,
+        "angular_speed_radps": 14.052001953125,
+        "box_pose_world": [
+          44.790279388427734,
+          23.981115341186523,
+          1.1839015483856201,
+          -0.6074469089508057,
+          -0.6161434650421143,
+          -0.20309856534004211,
+          -0.45839551091194153
+        ],
+        "box_velocity_world": [
+          0.4801121652126312,
+          -0.5828896760940552,
+          0.2480265200138092,
+          7.304705619812012,
+          10.743165016174316,
+          5.355787754058838
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          7.393598480121e-07,
+          -0.0027773999609053135,
+          3.879924861394102e-07,
+          -0.0010002206545323133
+        ]
+      },
+      "requested_layout": {
+        "seed": 121002,
+        "split": "holdout",
+        "lateral_m": -0.03654012084007263,
+        "yaw_rad": -0.0034424623008817434,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.09621196240186691,
+        "base_outward_m": 0.21281374990940094,
+        "base_yaw_rad": 0.07691812515258789,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 24,
+      "logical_id": 4,
+      "before": {
+        "environment": 24,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.2658858299255371,
+          -0.11671224236488342,
+          1.0491188764572144
+        ],
+        "shelf_clearance_m": 0.009978175163269043,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          28.597551345825195,
+          -23.749244689941406,
+          1.0491187572479248,
+          0.6798967123031616,
+          -0.030373435467481613,
+          -0.03268586844205856,
+          0.7319492101669312
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 24,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.312267541885376,
+          -1.1335574388504028,
+          1.380104899406433
+        ],
+        "shelf_clearance_m": 0.2234940528869629,
+        "linear_speed_mps": 3.014410972595215,
+        "angular_speed_radps": 20.386653900146484,
+        "box_pose_world": [
+          29.61483383178711,
+          -23.713726043701172,
+          1.3801047801971436,
+          0.06251373887062073,
+          -0.6761698722839355,
+          -0.7340341210365295,
+          0.008954115211963654
+        ],
+        "box_velocity_world": [
+          2.9797046184539795,
+          0.19728398323059082,
+          -0.4112340807914734,
+          -4.232830047607422,
+          19.42158317565918,
+          4.527792453765869
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -0.35742226243019104,
+          -0.08357928693294525,
+          -3.55837016741134e-07,
+          0.0006652093143202364
+        ]
+      },
+      "requested_layout": {
+        "seed": 121006,
+        "split": "holdout",
+        "lateral_m": -0.02562624216079712,
+        "yaw_rad": -0.006778092589229345,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.19958145916461945,
+        "base_outward_m": 0.11846783012151718,
+        "base_yaw_rad": -0.22892913222312927,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 28,
+      "logical_id": 4,
+      "before": {
+        "environment": 28,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.27633628249168396,
+          -0.11671285331249237,
+          1.0491187572479248
+        ],
+        "shelf_clearance_m": 0.009959936141967773,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          28.468017578125,
+          8.185001373291016,
+          1.0491186380386353,
+          0.787339985370636,
+          -0.03517129272222519,
+          -0.027457157149910927,
+          0.6149023175239563
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 28,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": true,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.41879916191101074,
+          -1.016923427581787,
+          1.223559021949768
+        ],
+        "shelf_clearance_m": 0.028215885162353516,
+        "linear_speed_mps": 2.0850179195404053,
+        "angular_speed_radps": 22.31669807434082,
+        "box_pose_world": [
+          29.309812545776367,
+          7.835636138916016,
+          1.2235589027404785,
+          0.7875702381134033,
+          0.1260432004928589,
+          0.21834732592105865,
+          0.5622904896736145
+        ],
+        "box_velocity_world": [
+          1.8262455463409424,
+          -0.9332245588302612,
+          -0.3757912814617157,
+          7.475107669830322,
+          20.769210815429688,
+          -3.285984754562378
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -0.25000888109207153,
+          0.3631294369697571,
+          -0.17591853439807892,
+          -0.0633583515882492
+        ]
+      },
+      "requested_layout": {
+        "seed": 121007,
+        "split": "holdout",
+        "lateral_m": -0.03607639670372009,
+        "yaw_rad": -0.008278606459498405,
+        "distractors": [
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.13081426918506622,
+        "base_outward_m": 0.10977514088153839,
+        "base_yaw_rad": 0.16998225450515747,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 68,
+      "logical_id": 4,
+      "before": {
+        "environment": 68,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.26336759328842163,
+          -0.11671282351016998,
+          1.0491187572479248
+        ],
+        "shelf_clearance_m": 0.009903430938720703,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -3.5413448810577393,
+          -23.813358306884766,
+          1.0491187572479248,
+          0.7317743301391602,
+          -0.03268994018435478,
+          -0.03036896325647831,
+          0.6800849437713623
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 68,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.1547527313232422,
+          -1.0035231113433838,
+          1.3739289045333862
+        ],
+        "shelf_clearance_m": 0.15706348419189453,
+        "linear_speed_mps": 2.812021493911743,
+        "angular_speed_radps": 20.05599594116211,
+        "box_pose_world": [
+          -2.6484646797180176,
+          -23.781824111938477,
+          1.3739289045333862,
+          0.11126508563756943,
+          -0.6798007488250732,
+          -0.6446349620819092,
+          0.33156707882881165
+        ],
+        "box_velocity_world": [
+          2.795436382293701,
+          0.24031876027584076,
+          -0.18774129450321198,
+          -1.3615063428878784,
+          19.360143661499023,
+          -5.057082653045654
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          2.479572174252098e-07,
+          -0.3217606246471405,
+          -5.165776428839308e-07,
+          0.0008525916491635144
+        ]
+      },
+      "requested_layout": {
+        "seed": 121017,
+        "split": "holdout",
+        "lateral_m": -0.02310723252594471,
+        "yaw_rad": 0.013380391523241997,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.18780386447906494,
+        "base_outward_m": 0.1935524344444275,
+        "base_yaw_rad": 0.18367063999176025,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 84,
+      "logical_id": 4,
+      "before": {
+        "environment": 84,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.2748204171657562,
+          -0.11671310663223267,
+          1.0491187572479248
+        ],
+        "shelf_clearance_m": 0.009874343872070312,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -11.558341026306152,
+          16.275766372680664,
+          1.0491186380386353,
+          0.6682711839675903,
+          -0.02985426038503647,
+          -0.03316082805395126,
+          0.7425784468650818
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 84,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": true,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.5285863876342773,
+          -0.8815804719924927,
+          1.2710473537445068
+        ],
+        "shelf_clearance_m": 0.010812163352966309,
+        "linear_speed_mps": 1.9936434030532837,
+        "angular_speed_radps": 6.458724021911621,
+        "box_pose_world": [
+          -10.773865699768066,
+          16.091327667236328,
+          1.2710472345352173,
+          -0.7733950614929199,
+          0.48326927423477173,
+          0.3978564441204071,
+          0.10010472685098648
+        ],
+        "box_velocity_world": [
+          1.6889369487762451,
+          -0.609162449836731,
+          -0.8666180372238159,
+          1.98725163936615,
+          2.5295939445495605,
+          -5.6006340980529785
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -0.16142861545085907,
+          -0.2665424346923828,
+          -5.984497329336591e-05,
+          -0.0013996395282447338
+        ]
+      },
+      "requested_layout": {
+        "seed": 121021,
+        "split": "holdout",
+        "lateral_m": -0.0345597043633461,
+        "yaw_rad": 0.01580789126455784,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.19899407029151917,
+        "base_outward_m": 0.19324077665805817,
+        "base_yaw_rad": -0.09255117177963257,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 88,
+      "logical_id": 4,
+      "before": {
+        "environment": 88,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.26358410716056824,
+          -0.11671224236488342,
+          1.0491187572479248
+        ],
+        "shelf_clearance_m": 0.009943723678588867,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -19.529373168945312,
+          -39.77519989013672,
+          1.0491185188293457,
+          0.6481935381889343,
+          -0.028957681730389595,
+          -0.033946603536605835,
+          0.7601673603057861
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 88,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.5399268865585327,
+          -0.44429099559783936,
+          1.2510333061218262
+        ],
+        "shelf_clearance_m": 0.053792357444763184,
+        "linear_speed_mps": 1.5844337940216064,
+        "angular_speed_radps": 5.568210601806641,
+        "box_pose_world": [
+          -19.16012954711914,
+          -39.992759704589844,
+          1.251033067703247,
+          -0.6371116042137146,
+          0.6610143184661865,
+          0.38823145627975464,
+          -0.08015704900026321
+        ],
+        "box_velocity_world": [
+          -0.30226412415504456,
+          -0.8820633888244629,
+          -1.2810273170471191,
+          1.1420267820358276,
+          3.186171054840088,
+          -4.421431541442871
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          3.793057032908109e-07,
+          -0.0005758178303949535,
+          1.3357932004964823e-07,
+          -0.00012074664846295491
+        ]
+      },
+      "requested_layout": {
+        "seed": 121022,
+        "split": "holdout",
+        "lateral_m": -0.02332213521003723,
+        "yaw_rad": -0.009638131596148014,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.1032492145895958,
+        "base_outward_m": 0.099827840924263,
+        "base_yaw_rad": 0.11660370230674744,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 100,
+      "logical_id": 4,
+      "before": {
+        "environment": 100,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.278762549161911,
+          -0.11671364307403564,
+          1.0491188764572144
+        ],
+        "shelf_clearance_m": 0.01000213623046875,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -27.533035278320312,
+          -31.809417724609375,
+          1.0491186380386353,
+          0.72447669506073,
+          -0.03236405551433563,
+          -0.030715977773070335,
+          0.6878538131713867
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 100,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.21172785758972168,
+          -0.7790372967720032,
+          1.3476685285568237
+        ],
+        "shelf_clearance_m": 0.22444236278533936,
+        "linear_speed_mps": 2.6250054836273193,
+        "angular_speed_radps": 16.92885398864746,
+        "box_pose_world": [
+          -26.868289947509766,
+          -31.773643493652344,
+          1.3476682901382446,
+          -0.1155770942568779,
+          -0.6857160925865173,
+          -0.7179649472236633,
+          -0.031008420512080193
+        ],
+        "box_velocity_world": [
+          2.5452189445495605,
+          0.48861825466156006,
+          0.41685402393341064,
+          -2.9685044288635254,
+          16.373207092285156,
+          3.113223075866699
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -0.07313980907201767,
+          -0.36424311995506287,
+          -1.4490336752714938e-06,
+          0.020933134481310844
+        ]
+      },
+      "requested_layout": {
+        "seed": 121025,
+        "split": "holdout",
+        "lateral_m": -0.03850255161523819,
+        "yaw_rad": -0.0047455052845180035,
+        "distractors": [],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.13988037407398224,
+        "base_outward_m": 0.1906423717737198,
+        "base_yaw_rad": -0.15919901430606842,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 116,
+      "logical_id": 4,
+      "before": {
+        "environment": 116,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.27321258187294006,
+          -0.11671099066734314,
+          1.0491187572479248
+        ],
+        "shelf_clearance_m": 0.009899735450744629,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -35.560150146484375,
+          8.223482131958008,
+          1.0491186380386353,
+          0.752357542514801,
+          -0.033609069883823395,
+          -0.02934848703444004,
+          0.6572421193122864
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 116,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.3308147192001343,
+          -1.0940508842468262,
+          1.3567191362380981
+        ],
+        "shelf_clearance_m": 0.09136831760406494,
+        "linear_speed_mps": 2.9284400939941406,
+        "angular_speed_radps": 13.848697662353516,
+        "box_pose_world": [
+          -34.59698486328125,
+          8.047914505004883,
+          1.3567190170288086,
+          0.47573456168174744,
+          -0.6965048909187317,
+          -0.527238667011261,
+          -0.10284348577260971
+        ],
+        "box_velocity_world": [
+          2.8035504817962646,
+          -0.6572023630142212,
+          -0.5328696966171265,
+          3.84424090385437,
+          12.356239318847656,
+          4.9327073097229
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -0.05580354854464531,
+          0.11727631092071533,
+          -0.08095648884773254,
+          -0.002245558425784111
+        ]
+      },
+      "requested_layout": {
+        "seed": 121029,
+        "split": "holdout",
+        "lateral_m": -0.03295274078845978,
+        "yaw_rad": -0.01331563014537096,
+        "distractors": [],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.055303193628787994,
+        "base_outward_m": 0.0873585045337677,
+        "base_yaw_rad": -0.05684829503297806,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 120,
+      "logical_id": 4,
+      "before": {
+        "environment": 120,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.26808586716651917,
+          -0.11671237647533417,
+          1.0491188764572144
+        ],
+        "shelf_clearance_m": 0.009960770606994629,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -35.531517028808594,
+          40.0724983215332,
+          1.0491187572479248,
+          0.7237343788146973,
+          -0.032330967485904694,
+          -0.030750885605812073,
+          0.6886345744132996
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 120,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.2857300043106079,
+          -0.49939972162246704,
+          1.3257125616073608
+        ],
+        "shelf_clearance_m": 0.1496180295944214,
+        "linear_speed_mps": 0.29715922474861145,
+        "angular_speed_radps": 3.467233896255493,
+        "box_pose_world": [
+          -35.150508880615234,
+          40.03257751464844,
+          1.3257124423980713,
+          -0.36461618542671204,
+          0.619101345539093,
+          0.6658773422241211,
+          -0.2009371519088745
+        ],
+        "box_velocity_world": [
+          -0.1658887267112732,
+          -0.24647630751132965,
+          -0.005828517954796553,
+          0.7580111026763916,
+          3.242358684539795,
+          0.9665606617927551
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -0.8586423993110657,
+          -0.15403610467910767,
+          -0.011950986459851265,
+          -0.011451304890215397
+        ]
+      },
+      "requested_layout": {
+        "seed": 121030,
+        "split": "holdout",
+        "lateral_m": -0.027824006974697113,
+        "yaw_rad": 0.008630583062767982,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.12907469272613525,
+        "base_outward_m": 0.1465795785188675,
+        "base_yaw_rad": -0.1511484533548355,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 124,
+      "logical_id": 4,
+      "before": {
+        "environment": 124,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.2755443751811981,
+          -0.11671625077724457,
+          1.0491187572479248
+        ],
+        "shelf_clearance_m": 0.009895086288452148,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -43.42819595336914,
+          -15.79696273803711,
+          1.0491185188293457,
+          0.7524860501289368,
+          -0.033614758402109146,
+          -0.02934184856712818,
+          0.6570951342582703
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 124,
+        "logical_id": 4,
+        "original_pool_id": 4,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.46430695056915283,
+          -0.9668319225311279,
+          1.2611720561981201
+        ],
+        "shelf_clearance_m": 0.07578790187835693,
+        "linear_speed_mps": 1.687059760093689,
+        "angular_speed_radps": 25.319211959838867,
+        "box_pose_world": [
+          -42.61558151245117,
+          -16.109989166259766,
+          1.261171817779541,
+          0.7795377373695374,
+          -0.11639536917209625,
+          -0.25457239151000977,
+          0.5603265762329102
+        ],
+        "box_velocity_world": [
+          1.344970703125,
+          -0.9462157487869263,
+          -0.3766966164112091,
+          9.17413330078125,
+          23.043895721435547,
+          5.086913108825684
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.06228583678603172,
+          -0.12467896193265915,
+          -8.343740046257153e-05,
+          0.00250665913335979
+        ]
+      },
+      "requested_layout": {
+        "seed": 121031,
+        "split": "holdout",
+        "lateral_m": -0.035285189747810364,
+        "yaw_rad": 0.014052988961338997,
+        "distractors": [],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.14315025508403778,
+        "base_outward_m": 0.13961870968341827,
+        "base_yaw_rad": 0.2548224627971649,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 5,
+      "logical_id": 5,
+      "before": {
+        "environment": 5,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.2399998903274536,
+          -0.7299975752830505,
+          1.1119412183761597
+        ],
+        "shelf_clearance_m": 0.01799750328063965,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          45.142921447753906,
+          0.2815714180469513,
+          1.1119410991668701,
+          0.6744808554649353,
+          -0.03012160211801529,
+          -0.03291122987866402,
+          0.736943244934082
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 5,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.575154185295105,
+          -0.5923586487770081,
+          1.3364126682281494
+        ],
+        "shelf_clearance_m": 0.15218734741210938,
+        "linear_speed_mps": 0.9557985663414001,
+        "angular_speed_radps": 14.025529861450195,
+        "box_pose_world": [
+          45.03542709350586,
+          -0.06443115323781967,
+          1.3364125490188599,
+          -0.7777743339538574,
+          -0.4064325988292694,
+          -0.2744963765144348,
+          -0.39310458302497864
+        ],
+        "box_velocity_world": [
+          -0.1726258248090744,
+          0.8476995229721069,
+          -0.40639474987983704,
+          13.524170875549316,
+          0.10173995047807693,
+          -3.7150981426239014
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0014666239731013775,
+          0.09451697021722794,
+          0.08333344012498856,
+          0.24552543461322784
+        ]
+      },
+      "requested_layout": {
+        "seed": 121101,
+        "split": "holdout",
+        "lateral_m": -0.02035597339272499,
+        "yaw_rad": -0.007235746365040541,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.19286563992500305,
+        "base_outward_m": 0.17683112621307373,
+        "base_yaw_rad": 0.08348860591650009,
+        "target_region": "shelf_2_right",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 11,
+      "logical_id": 5,
+      "before": {
+        "environment": 11,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000072479248047,
+          -0.7299973964691162,
+          1.1119413375854492
+        ],
+        "shelf_clearance_m": 0.0179976224899292,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          37.054542541503906,
+          -39.95328903198242,
+          1.1119410991668701,
+          0.7541572451591492,
+          -0.03367997333407402,
+          -0.029259497299790382,
+          0.6551768183708191
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 11,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.6836799383163452,
+          -1.2694724798202515,
+          0.9697042107582092
+        ],
+        "shelf_clearance_m": -0.2574186325073242,
+        "linear_speed_mps": 2.8233067989349365,
+        "angular_speed_radps": 8.541725158691406,
+        "box_pose_world": [
+          37.52670669555664,
+          -40.468017578125,
+          0.9697039723396301,
+          -0.28263238072395325,
+          -0.09931958466768265,
+          -0.4827810227870941,
+          -0.8229076862335205
+        ],
+        "box_velocity_world": [
+          1.4755399227142334,
+          0.06566108018159866,
+          -2.406144618988037,
+          4.721512317657471,
+          3.218790292739868,
+          -6.348841667175293
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          4.794674168806523e-07,
+          0.1813116818666458,
+          0.24593277275562286,
+          -0.09361549466848373
+        ]
+      },
+      "requested_layout": {
+        "seed": 121302,
+        "split": "holdout",
+        "lateral_m": -0.03887534886598587,
+        "yaw_rad": 0.01393122412264347,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0007888133404776454,
+        "base_lateral_m": -0.038947295397520065,
+        "base_outward_m": 0.07845466583967209,
+        "base_yaw_rad": -0.031147759407758713,
+        "target_region": "shelf_3_right",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 24,
+      "logical_id": 5,
+      "before": {
+        "environment": 24,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.2400001883506775,
+          -0.7299991250038147,
+          1.1119412183761597
+        ],
+        "shelf_clearance_m": 0.017997384071350098,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          29.206771850585938,
+          -23.674137115478516,
+          1.1119410991668701,
+          0.6774119734764099,
+          -0.03025255724787712,
+          -0.032790862023830414,
+          0.7342497110366821
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 24,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.7365574836730957,
+          -1.3082160949707031,
+          0.9304921627044678
+        ],
+        "shelf_clearance_m": -0.2892851233482361,
+        "linear_speed_mps": 2.9129226207733154,
+        "angular_speed_radps": 9.658468246459961,
+        "box_pose_world": [
+          29.82303810119629,
+          -24.122600555419922,
+          0.9304920434951782,
+          -0.41511401534080505,
+          0.28298941254615784,
+          -0.019901065155863762,
+          -0.8644079566001892
+        ],
+        "box_velocity_world": [
+          1.636527419090271,
+          0.09634578973054886,
+          -2.4078235626220703,
+          8.569828987121582,
+          4.1008687019348145,
+          -1.739801287651062
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.00040642308886162937,
+          -0.26542237401008606,
+          0.009381391108036041,
+          -0.09090276807546616
+        ]
+      },
+      "requested_layout": {
+        "seed": 121006,
+        "split": "holdout",
+        "lateral_m": -0.02562624216079712,
+        "yaw_rad": -0.006778092589229345,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.19958145916461945,
+        "base_outward_m": 0.11846783012151718,
+        "base_yaw_rad": -0.22892913222312927,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 39,
+      "logical_id": 5,
+      "before": {
+        "environment": 39,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000036716461182,
+          -0.7299987077713013,
+          1.1119413375854492
+        ],
+        "shelf_clearance_m": 0.0179976224899292,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          21.22673988342285,
+          8.339516639709473,
+          1.1119410991668701,
+          0.6572694182395935,
+          -0.029353028163313866,
+          -0.033598460257053375,
+          0.7523340582847595
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 39,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.7791329622268677,
+          -0.6592590808868408,
+          1.3952668905258179
+        ],
+        "shelf_clearance_m": 0.19448888301849365,
+        "linear_speed_mps": 0.62613844871521,
+        "angular_speed_radps": 8.916207313537598,
+        "box_pose_world": [
+          21.22903060913086,
+          7.795767784118652,
+          1.3952666521072388,
+          -0.39738303422927856,
+          0.625133216381073,
+          -0.6567792892456055,
+          -0.1411951333284378
+        ],
+        "box_velocity_world": [
+          -0.2773614823818207,
+          -0.24173355102539062,
+          0.5066407322883606,
+          6.8417439460754395,
+          -4.163930892944336,
+          -3.91803240776062
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -6.71137684093992e-07,
+          0.0014231271343305707,
+          4.416534920892445e-06,
+          0.2159409075975418
+        ]
+      },
+      "requested_layout": {
+        "seed": 121309,
+        "split": "holdout",
+        "lateral_m": -0.020825566723942757,
+        "yaw_rad": -0.008516443893313408,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0036550506483763456,
+        "base_lateral_m": 0.003425331087782979,
+        "base_outward_m": 0.043615248054265976,
+        "base_yaw_rad": -0.0418366976082325,
+        "target_region": "shelf_3_right",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 43,
+      "logical_id": 5,
+      "before": {
+        "environment": 43,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000126123428345,
+          -0.7300002574920654,
+          1.1119414567947388
+        ],
+        "shelf_clearance_m": 0.0179976224899292,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          21.018951416015625,
+          40.11964416503906,
+          1.1119410991668701,
+          0.7704549431800842,
+          -0.03440779075026512,
+          -0.02839999459683895,
+          0.6359314918518066
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 43,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.6616096496582031,
+          -0.8581230044364929,
+          1.3496865034103394
+        ],
+        "shelf_clearance_m": 0.15000760555267334,
+        "linear_speed_mps": 0.5534085035324097,
+        "angular_speed_radps": 4.671326637268066,
+        "box_pose_world": [
+          21.06482696533203,
+          39.681392669677734,
+          1.3496861457824707,
+          0.005404237657785416,
+          0.814944863319397,
+          -0.5137720108032227,
+          -0.2680932283401489
+        ],
+        "box_velocity_world": [
+          0.5065500140190125,
+          -0.15717121958732605,
+          0.1580040156841278,
+          0.6695599555969238,
+          3.2162270545959473,
+          3.3209733963012695
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          1.7370642808600678e-06,
+          -0.004232419189065695,
+          -0.07736595720052719,
+          0.22456756234169006
+        ]
+      },
+      "requested_layout": {
+        "seed": 121310,
+        "split": "holdout",
+        "lateral_m": -0.03478337451815605,
+        "yaw_rad": -0.012840179726481438,
+        "distractors": [
+          5
+        ],
+        "depth_m": 0.005141586065292358,
+        "base_lateral_m": 0.024344835430383682,
+        "base_outward_m": 0.09247520565986633,
+        "base_yaw_rad": -0.06495210528373718,
+        "target_region": "shelf_3_right",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 53,
+      "logical_id": 5,
+      "before": {
+        "environment": 53,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.2400018572807312,
+          -0.7299994230270386,
+          1.1119412183761597
+        ],
+        "shelf_clearance_m": 0.01799750328063965,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          13.090431213378906,
+          32.33256912231445,
+          1.1119409799575806,
+          0.6506446003913879,
+          -0.029057035222649574,
+          -0.03385462239384651,
+          0.7580704689025879
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 53,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.8014644384384155,
+          -0.5765683650970459,
+          1.4232053756713867
+        ],
+        "shelf_clearance_m": 0.19347894191741943,
+        "linear_speed_mps": 0.4893868565559387,
+        "angular_speed_radps": 6.021725654602051,
+        "box_pose_world": [
+          13.023911476135254,
+          31.75433349609375,
+          1.4232051372528076,
+          -0.37987929582595825,
+          0.4340943694114685,
+          -0.6801249384880066,
+          -0.45242002606391907
+        ],
+        "box_velocity_world": [
+          -0.4025772511959076,
+          -0.1582639515399933,
+          0.2288745939731598,
+          4.512177467346191,
+          3.361013650894165,
+          -2.1459319591522217
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -0.06709539145231247,
+          0.07756510376930237,
+          -5.101519491290674e-07,
+          0.2988419830799103
+        ]
+      },
+      "requested_layout": {
+        "seed": 121113,
+        "split": "holdout",
+        "lateral_m": -0.03584448993206024,
+        "yaw_rad": 0.0024657605681568384,
+        "distractors": [
+          5
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.07044904679059982,
+        "base_outward_m": 0.20821541547775269,
+        "base_yaw_rad": -0.2234209179878235,
+        "target_region": "shelf_2_right",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 56,
+      "logical_id": 5,
+      "before": {
+        "environment": 56,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.23999929428100586,
+          -0.7299999594688416,
+          1.1119413375854492
+        ],
+        "shelf_clearance_m": 0.01799750328063965,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          5.242331504821777,
+          -31.688583374023438,
+          1.1119409799575806,
+          0.6526342034339905,
+          -0.029145995154976845,
+          -0.033778153359889984,
+          0.7563585042953491
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 56,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.7431182861328125,
+          -0.5853926539421082,
+          1.349603533744812
+        ],
+        "shelf_clearance_m": 0.21303153038024902,
+        "linear_speed_mps": 0.5451111197471619,
+        "angular_speed_radps": 7.21044397354126,
+        "box_pose_world": [
+          5.172958850860596,
+          -32.207454681396484,
+          1.3496031761169434,
+          -0.20130719244480133,
+          0.7214867472648621,
+          -0.6613423228263855,
+          -0.03947852551937103
+        ],
+        "box_velocity_world": [
+          -0.267088919878006,
+          -0.2289123684167862,
+          -0.4164237976074219,
+          2.7240958213806152,
+          2.0977418422698975,
+          6.337924003601074
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -0.010587056167423725,
+          -0.0004815938009414822,
+          -1.257599478776683e-06,
+          0.18559129536151886
+        ]
+      },
+      "requested_layout": {
+        "seed": 121014,
+        "split": "holdout",
+        "lateral_m": -0.03298059105873108,
+        "yaw_rad": 0.008836755529046059,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.10284524410963058,
+        "base_outward_m": 0.2285490483045578,
+        "base_yaw_rad": 0.1456442028284073,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 68,
+      "logical_id": 5,
+      "before": {
+        "environment": 68,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000012874603271,
+          -0.7300002574920654,
+          1.1119412183761597
+        ],
+        "shelf_clearance_m": 0.017997384071350098,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -2.9283337593078613,
+          -23.843103408813477,
+          1.1119412183761597,
+          0.736307680606842,
+          -0.032882705330848694,
+          -0.030152561143040657,
+          0.6751746535301208
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 68,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": true,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.9914958477020264,
+          -1.111694574356079,
+          1.210477352142334
+        ],
+        "shelf_clearance_m": -0.017143607139587402,
+        "linear_speed_mps": 2.1623384952545166,
+        "angular_speed_radps": 16.9647274017334,
+        "box_pose_world": [
+          -2.6130433082580566,
+          -24.624786376953125,
+          1.210477352142334,
+          -0.5448156595230103,
+          -0.1048394963145256,
+          -0.3890352249145508,
+          -0.7354155778884888
+        ],
+        "box_velocity_world": [
+          1.238206386566162,
+          -1.1549710035324097,
+          -1.3448400497436523,
+          12.228086471557617,
+          10.340656280517578,
+          -5.598812580108643
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -3.7733393583039287e-06,
+          0.01035147812217474,
+          -3.995893678165885e-07,
+          0.0596897192299366
+        ]
+      },
+      "requested_layout": {
+        "seed": 121017,
+        "split": "holdout",
+        "lateral_m": -0.02310723252594471,
+        "yaw_rad": 0.013380391523241997,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.18780386447906494,
+        "base_outward_m": 0.1935524344444275,
+        "base_yaw_rad": 0.18367063999176025,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 69,
+      "logical_id": 5,
+      "before": {
+        "environment": 69,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000054597854614,
+          -0.7299995422363281,
+          1.1119413375854492
+        ],
+        "shelf_clearance_m": 0.0179976224899292,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -2.8244099617004395,
+          -15.731205940246582,
+          1.1119410991668701,
+          0.6464805006980896,
+          -0.02887118235230446,
+          -0.03401343896985054,
+          0.7616248726844788
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 69,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          102602144.0,
+          -360124800.0,
+          -722536576.0
+        ],
+        "shelf_clearance_m": -754766464.0,
+        "linear_speed_mps": 5816056320.0,
+        "angular_speed_radps": 708103.0625,
+        "box_pose_world": [
+          338672064.0,
+          159744496.0,
+          -722536576.0,
+          0.35159099102020264,
+          -0.441602498292923,
+          -0.7459965348243713,
+          -0.3533555567264557
+        ],
+        "box_velocity_world": [
+          2441614080.0,
+          1128321664.0,
+          -5156735488.0,
+          708103.0625,
+          47.77791976928711,
+          -77.65674591064453
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          29092990.0,
+          -13317257216.0,
+          11160901632.0,
+          -718285184.0
+        ]
+      },
+      "requested_layout": {
+        "seed": 121117,
+        "split": "holdout",
+        "lateral_m": -0.033773720264434814,
+        "yaw_rad": 0.007162588182836771,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.16354405879974365,
+        "base_outward_m": 0.23088528215885162,
+        "base_yaw_rad": -0.2585878074169159,
+        "target_region": "shelf_2_right",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 82,
+      "logical_id": 5,
+      "before": {
+        "environment": 82,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000012874603271,
+          -0.7299994826316833,
+          1.1119412183761597
+        ],
+        "shelf_clearance_m": 0.01799750328063965,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -10.900496482849121,
+          0.08424554765224457,
+          1.1119410991668701,
+          0.7821097373962402,
+          -0.03492819145321846,
+          -0.027757491916418076,
+          0.6215415000915527
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 82,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.8234176635742188,
+          -1.3765616416931152,
+          0.771207332611084
+        ],
+        "shelf_clearance_m": -0.4904187321662903,
+        "linear_speed_mps": 3.8781001567840576,
+        "angular_speed_radps": 15.07155990600586,
+        "box_pose_world": [
+          -10.40239143371582,
+          -0.6301143169403076,
+          0.7712072134017944,
+          -0.932375431060791,
+          -0.25910601019859314,
+          -0.2095804512500763,
+          0.14005766808986664
+        ],
+        "box_velocity_world": [
+          1.6647369861602783,
+          -2.0892343521118164,
+          -2.811300754547119,
+          14.500055313110352,
+          4.007099628448486,
+          -0.9184034466743469
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          1.0517071586946258e-06,
+          -0.07771912217140198,
+          -6.456936318954831e-08,
+          -0.026921868324279785
+        ]
+      },
+      "requested_layout": {
+        "seed": 121220,
+        "split": "holdout",
+        "lateral_m": -0.020846862345933914,
+        "yaw_rad": -0.0007231730851344764,
+        "distractors": [
+          5,
+          6
+        ],
+        "depth_m": 0.0023995263036340475,
+        "base_lateral_m": 0.005474557634443045,
+        "base_outward_m": 0.08368763327598572,
+        "base_yaw_rad": 0.0006104256608523428,
+        "target_region": "shelf_3_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 84,
+      "logical_id": 5,
+      "before": {
+        "environment": 84,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000144004821777,
+          -0.7299999594688416,
+          1.1119413375854492
+        ],
+        "shelf_clearance_m": 0.01799750328063965,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -10.950614929199219,
+          16.36522102355957,
+          1.1119412183761597,
+          0.674119234085083,
+          -0.030105479061603546,
+          -0.032925963401794434,
+          0.7372738122940063
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 84,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.7305545806884766,
+          -0.7213333249092102,
+          1.3561444282531738
+        ],
+        "shelf_clearance_m": 0.2268543243408203,
+        "linear_speed_mps": 0.5279363393783569,
+        "angular_speed_radps": 7.072803974151611,
+        "box_pose_world": [
+          -10.915433883666992,
+          15.8758544921875,
+          1.3561443090438843,
+          -0.12438925355672836,
+          0.23707595467567444,
+          -0.9604447484016418,
+          -0.07660302519798279
+        ],
+        "box_velocity_world": [
+          0.26392123103141785,
+          -0.40696603059768677,
+          0.20842504501342773,
+          2.360020637512207,
+          -1.1218281984329224,
+          -6.572393894195557
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          6.074282055124058e-07,
+          -0.006466804072260857,
+          -0.08842276781797409,
+          0.08543909341096878
+        ]
+      },
+      "requested_layout": {
+        "seed": 121021,
+        "split": "holdout",
+        "lateral_m": -0.0345597043633461,
+        "yaw_rad": 0.01580789126455784,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.19899407029151917,
+        "base_outward_m": 0.19324077665805817,
+        "base_yaw_rad": -0.09255117177963257,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 85,
+      "logical_id": 5,
+      "before": {
+        "environment": 85,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000132083892822,
+          -0.7300001978874207,
+          1.1119413375854492
+        ],
+        "shelf_clearance_m": 0.01799750328063965,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -10.98755168914795,
+          24.045137405395508,
+          1.1119410991668701,
+          0.7732713222503662,
+          -0.03453351557254791,
+          -0.028246959671378136,
+          0.6325040459632874
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 85,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.4573366641998291,
+          -0.6571629047393799,
+          1.3517439365386963
+        ],
+        "shelf_clearance_m": 0.16280627250671387,
+        "linear_speed_mps": 1.2227272987365723,
+        "angular_speed_radps": 7.590487957000732,
+        "box_pose_world": [
+          -11.102036476135254,
+          23.846559524536133,
+          1.3517436981201172,
+          0.26468855142593384,
+          0.5619319081306458,
+          -0.7218373417854309,
+          0.30516108870506287
+        ],
+        "box_velocity_world": [
+          -0.3793698847293854,
+          -1.0605112314224243,
+          0.4758743643760681,
+          7.438164710998535,
+          -1.0843822956085205,
+          1.055144190788269
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -0.250004380941391,
+          -0.016568806022405624,
+          -2.679767021618318e-06,
+          0.08519744127988815
+        ]
+      },
+      "requested_layout": {
+        "seed": 121121,
+        "split": "holdout",
+        "lateral_m": -0.0364953875541687,
+        "yaw_rad": 0.006512104999274015,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.08859372138977051,
+        "base_outward_m": 0.1818440705537796,
+        "base_yaw_rad": 0.20894038677215576,
+        "target_region": "shelf_2_right",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 88,
+      "logical_id": 5,
+      "before": {
+        "environment": 88,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.2399999499320984,
+          -0.7300001382827759,
+          1.1119412183761597
+        ],
+        "shelf_clearance_m": 0.017997384071350098,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -18.92870330810547,
+          -39.649208068847656,
+          1.1119409799575806,
+          0.644522488117218,
+          -0.028783800080418587,
+          -0.03408759832382202,
+          0.7632827162742615
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 88,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.3852478265762329,
+          -0.7024186849594116,
+          1.281794786453247
+        ],
+        "shelf_clearance_m": 0.06306600570678711,
+        "linear_speed_mps": 1.1296465396881104,
+        "angular_speed_radps": 8.001157760620117,
+        "box_pose_world": [
+          -18.931562423706055,
+          -39.79702377319336,
+          1.281794548034668,
+          0.3528501093387604,
+          0.5808415412902832,
+          -0.5760161876678467,
+          0.45423030853271484
+        ],
+        "box_velocity_world": [
+          -0.04412867873907089,
+          -1.0253827571868896,
+          0.471957802772522,
+          7.906066417694092,
+          0.9171194434165955,
+          0.8194710612297058
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          1.398174021005616e-07,
+          -0.0003521930775605142,
+          -7.414869287458714e-07,
+          0.07774246484041214
+        ]
+      },
+      "requested_layout": {
+        "seed": 121022,
+        "split": "holdout",
+        "lateral_m": -0.02332213521003723,
+        "yaw_rad": -0.009638131596148014,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.1032492145895958,
+        "base_outward_m": 0.099827840924263,
+        "base_yaw_rad": 0.11660370230674744,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 92,
+      "logical_id": 5,
+      "before": {
+        "environment": 92,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000048637390137,
+          -0.7299989461898804,
+          1.1119412183761597
+        ],
+        "shelf_clearance_m": 0.01799750328063965,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -18.77960968017578,
+          -7.798719882965088,
+          1.1119412183761597,
+          0.7113692760467529,
+          -0.03176908195018768,
+          -0.03132392093539238,
+          0.7014009356498718
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 92,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.40439653396606445,
+          -0.6630886793136597,
+          1.2978594303131104
+        ],
+        "shelf_clearance_m": 0.08654367923736572,
+        "linear_speed_mps": 0.9356447458267212,
+        "angular_speed_radps": 4.927135467529297,
+        "box_pose_world": [
+          -18.848833084106445,
+          -7.962155342102051,
+          1.2978594303131104,
+          0.3631863594055176,
+          0.5879453420639038,
+          -0.6044512987136841,
+          0.3963009715080261
+        ],
+        "box_velocity_world": [
+          -0.05264352262020111,
+          -0.8655735850334167,
+          0.3513433337211609,
+          4.899906635284424,
+          -0.21361969411373138,
+          0.4711093604564667
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -6.591566830138618e-07,
+          0.1554780900478363,
+          2.9595471460197587e-06,
+          0.20922596752643585
+        ]
+      },
+      "requested_layout": {
+        "seed": 121023,
+        "split": "holdout",
+        "lateral_m": -0.03400053828954697,
+        "yaw_rad": 0.009314882569015026,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.04744083806872368,
+        "base_outward_m": 0.18807773292064667,
+        "base_yaw_rad": -0.23083309829235077,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 101,
+      "logical_id": 5,
+      "before": {
+        "environment": 101,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000060558319092,
+          -0.7299989461898804,
+          1.1119414567947388
+        ],
+        "shelf_clearance_m": 0.01799774169921875,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -26.81124496459961,
+          -23.882266998291016,
+          1.1119410991668701,
+          0.7225187420845032,
+          -0.03226708248257637,
+          -0.030810734257102013,
+          0.689910352230072
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 101,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -1.1848185062408447,
+          -0.6284946799278259,
+          1.3220314979553223
+        ],
+        "shelf_clearance_m": 0.18076622486114502,
+        "linear_speed_mps": 2.190704822540283,
+        "angular_speed_radps": 14.63489818572998,
+        "box_pose_world": [
+          -26.95624351501465,
+          -24.821393966674805,
+          1.3220311403274536,
+          -0.6754301190376282,
+          -0.1474602222442627,
+          0.012195771560072899,
+          -0.7224269509315491
+        ],
+        "box_velocity_world": [
+          -0.35296258330345154,
+          -2.0264179706573486,
+          -0.7538135647773743,
+          14.560847282409668,
+          1.4485176801681519,
+          0.2525065839290619
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -2.5501940115191246e-08,
+          -0.08327848464250565,
+          0.06784306466579437,
+          -0.08354245871305466
+        ]
+      },
+      "requested_layout": {
+        "seed": 121125,
+        "split": "holdout",
+        "lateral_m": -0.024394892156124115,
+        "yaw_rad": -0.017130473628640175,
+        "distractors": [
+          5
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.04431264474987984,
+        "base_outward_m": 0.0778091624379158,
+        "base_yaw_rad": -0.07514455914497375,
+        "target_region": "shelf_2_right",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 103,
+      "logical_id": 5,
+      "before": {
+        "environment": 103,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.24000012874603271,
+          -0.7299993634223938,
+          1.1119413375854492
+        ],
+        "shelf_clearance_m": 0.0179976224899292,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -26.900062561035156,
+          -7.882176399230957,
+          1.1119412183761597,
+          0.7790004014968872,
+          -0.03478938341140747,
+          -0.02793141081929207,
+          0.625434160232544
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 103,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.3116416931152344,
+          -1.243516445159912,
+          0.9706244468688965
+        ],
+        "shelf_clearance_m": -0.31238389015197754,
+        "linear_speed_mps": 2.724703073501587,
+        "angular_speed_radps": 9.577838897705078,
+        "box_pose_world": [
+          -26.414161682128906,
+          -8.063097953796387,
+          0.9706243276596069,
+          -0.7377653121948242,
+          -0.04300801828503609,
+          0.6234931945800781,
+          -0.2551644444465637
+        ],
+        "box_velocity_world": [
+          1.0072729587554932,
+          -0.27485233545303345,
+          -2.516716957092285,
+          3.1026744842529297,
+          5.063316345214844,
+          7.514735221862793
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -2.3197934240215545e-07,
+          -0.15006966888904572,
+          -2.2208025995951175e-07,
+          0.0011435477063059807
+        ]
+      },
+      "requested_layout": {
+        "seed": 121325,
+        "split": "holdout",
+        "lateral_m": -0.024984151124954224,
+        "yaw_rad": -0.004272436257451773,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": -0.0014506173320114613,
+        "base_lateral_m": -0.016625508666038513,
+        "base_outward_m": 0.042631641030311584,
+        "base_yaw_rad": 0.017562340945005417,
+        "target_region": "shelf_3_right",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 117,
+      "logical_id": 5,
+      "before": {
+        "environment": 117,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.23999881744384766,
+          -0.7299985885620117,
+          1.1119413375854492
+        ],
+        "shelf_clearance_m": 0.0179976224899292,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          -34.84320068359375,
+          16.152366638183594,
+          1.1119410991668701,
+          0.6825103163719177,
+          -0.03048025071620941,
+          -0.03257933631539345,
+          0.7295130491256714
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 117,
+        "logical_id": 5,
+        "original_pool_id": 5,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": false,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.7509438991546631,
+          -0.6664376258850098,
+          1.3475914001464844
+        ],
+        "shelf_clearance_m": 0.12713003158569336,
+        "linear_speed_mps": 0.6137433052062988,
+        "angular_speed_radps": 5.4086432456970215,
+        "box_pose_world": [
+          -34.872642517089844,
+          15.638325691223145,
+          1.3475911617279053,
+          -0.3729563355445862,
+          0.5834745168685913,
+          -0.600986659526825,
+          -0.39909395575523376
+        ],
+        "box_velocity_world": [
+          -0.1553446501493454,
+          0.3147816061973572,
+          -0.503449559211731,
+          5.213746070861816,
+          1.3136460781097412,
+          0.5870340466499329
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          -0.07065707445144653,
+          0.0069283898919820786,
+          4.381322924018605e-06,
+          0.22299504280090332
+        ]
+      },
+      "requested_layout": {
+        "seed": 121129,
+        "split": "holdout",
+        "lateral_m": -0.022057821974158287,
+        "yaw_rad": -0.013835904188454151,
+        "distractors": [
+          5,
+          6
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.040779974311590195,
+        "base_outward_m": 0.09425655007362366,
+        "base_yaw_rad": -0.23488840460777283,
+        "target_region": "shelf_2_right",
+        "align_initial_base_to_region": true
+      }
+    },
+    {
+      "environment": 34,
+      "logical_id": 9,
+      "before": {
+        "environment": 34,
+        "logical_id": 9,
+        "original_pool_id": 15,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": true,
+        "stable_at_guard": true,
+        "rack_local_root_xyz_m": [
+          -0.2661653161048889,
+          -0.11091232299804688,
+          1.6591176986694336
+        ],
+        "shelf_clearance_m": 0.010370492935180664,
+        "linear_speed_mps": 0.0,
+        "angular_speed_radps": 0.0,
+        "box_pose_world": [
+          20.538436889648438,
+          -31.773252487182617,
+          1.659117579460144,
+          0.6692951917648315,
+          -0.029893042519688606,
+          -0.03312285989522934,
+          0.7416558265686035
+        ],
+        "box_velocity_world": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "after": {
+        "environment": 34,
+        "logical_id": 9,
+        "original_pool_id": 15,
+        "original_asset_still_active": true,
+        "finite": true,
+        "invalid_box_pose": false,
+        "invalid_rack_pose": false,
+        "footprint_in_region": true,
+        "on_assigned_shelf": false,
+        "stable_at_guard": false,
+        "rack_local_root_xyz_m": [
+          -0.25967225432395935,
+          -0.14889942109584808,
+          2.1169281005859375
+        ],
+        "shelf_clearance_m": 0.34086036682128906,
+        "linear_speed_mps": 1.5027509927749634,
+        "angular_speed_radps": 4.675716876983643,
+        "box_pose_world": [
+          20.575374603271484,
+          -31.76226234436035,
+          2.1169281005859375,
+          0.5963000655174255,
+          -0.7950057983398438,
+          0.08064623922109604,
+          0.07673343271017075
+        ],
+        "box_velocity_world": [
+          0.09111513942480087,
+          -0.009239292703568935,
+          -1.4999576807022095,
+          -4.06930685043335,
+          -2.3028388023376465,
+          0.0019417817238718271
+        ],
+        "joint_names": [
+          "joint_front",
+          "joint_back",
+          "joint_right",
+          "joint_left"
+        ],
+        "joint_positions_rad": [
+          1.9974064002781233e-07,
+          -0.00011323746730340645,
+          -6.50316991368527e-08,
+          -0.0005677314475178719
+        ]
+      },
+      "requested_layout": {
+        "seed": 121208,
+        "split": "holdout",
+        "lateral_m": -0.026432186365127563,
+        "yaw_rad": -0.0174187533557415,
+        "distractors": [],
+        "depth_m": 0.005800097715109587,
+        "base_lateral_m": -0.05229902267456055,
+        "base_outward_m": 0.03155643120408058,
+        "base_yaw_rad": 0.02102913148701191,
+        "target_region": "shelf_3_left",
+        "align_initial_base_to_region": true
+      }
+    }
+  ],
+  "frozen_diagnostic_steps": 1,
+  "policy_success_claim": false,
+  "new_FINAL_used": false,
+  "physics_success_safety_and_randomization_unchanged": true,
+  "scope_limitations": [
+    "Footprint/shelf validation does not prove full articulated collision-free spawning.",
+    "Neutral hold includes normal zero-action robot support controllers; it is not policy action.",
+    "No initial interpenetration or stale-link mechanism is established by these two endpoint snapshots.",
+    "Final parked/replaced assets cannot stand in for original pre-respawn trajectories."
+  ],
+  "writer_exit_code": 0,
+  "final_Drive_verified": true,
+  "launch_parent": "physical_body_reset_failure_diagnostic_pgs128_gpu2_20261005_101019",
+  "launch_unit": "humanoid-rl-physical-body-reset-failure-diagnostic-gpu2-20261005_101019.service"
+}
