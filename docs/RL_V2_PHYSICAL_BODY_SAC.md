@@ -930,3 +930,31 @@ rack·support pose를 읽어 같은 값을 다시 쓴다. 입력 pose override�
 갱신 전후 실제 backend `get_link_transforms()`의 roller center 이동도 기록해
 root pose와 child link가 일관되지 않았는지 확인한다. 아직 기본학습 reset에는
 적용하지 않으며 TRAIN/Q/독립FINAL에는사용하지않는다. 관련111개검사통과.
+
+### 14:48 · 원래 DEV128 지지대 갱신 대조는 최초 충격을 해소하지 못함
+
+[닫힌 128환경 비교](assets/rl_v2_current_world_support_FK128_20261005.json)는 exit0·
+writer 종료·MainPID0·최종 Drive 검증을 마쳤다. 원래 요청128개 환경·289개 박스를
+유지하고 실제 root placement와 현재 passive q/v는 바꾸지 않았다. 지지대 갱신
+전후 실제 backend roller center 이동은 최대3.82µm였다. 같은 ML10개 최초 실패가
+남았고 UL의 env34를 포함해 최초 selected failure11개, 초기 유효97/128이었다.
+원래 닫힌 view 감사의99/128보다 개선되지 않았다. Actor/Q update는0이다.
+
+![원래 배치에서 지지대 갱신만으로 초기 충격이 사라지지 않음](assets/rl_v2_current_world_support_FK128_20261005.png)
+
+Cold repeat이므로 constructor/contact solver history가 앞선 실행과 bitwise로
+동일하지는 않다. 측정한 큰 child translation 오류를 원인으로 확정하거나 기본
+학습 reset에 이 갱신을 추가할 근거는 없다. 성공·안전·randomization은 유지한다.
+
+다음 frozen 단일 환경 비교에는 `probe_type: original_world_frame_and_passive_state`를
+추가했다. 원래 world frame과 세 지지대의 측정된 joint 이름·q/v를 함께 맞춘다.
+182개 실제 joint의 이름/순서/폭·유한값을 쓰기 전에 검증하고, physics step 없이
+적용 후 실제 읽기값이 요청 상태와 정확히 같은지 확인한다. 현재 상태를 보존했다는
+표시는 요청 q/v로 바뀐 경우 false이며, 상태 변화량을 별도로 기록한다. 이 모드는
+명시적인 frozen DEV/steps1 진단에서만 허용하고 TRAIN/Q/독립FINAL에서는 거부한다.
+일반 학습의 제어·보상·물리·reset 기본값은 변경하지 않는다. 실제 backend DOF 읽기값도
+검증하며 TRAIN/FINAL 거부·미적용 상태 거부를 포함한 관련120개 검사 통과.
+
+14:40 기준 GPU3 retention의 완료 DEV21은8/128(기준4/128)으로 늘었으나, 다른 네
+실행과 네 영역 전체의 일관된 일반화 개선은 아직 입증하지 못했다. SAC 다섯 writer와
+Drive 업로드는 계속 실행 중이며 목표는 active다.

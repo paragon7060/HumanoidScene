@@ -485,6 +485,7 @@ def main():
                 if world_frame_audit is not None:
                     captured['startup_world_frame_probe']=world_frame_audit
                     captured['initial_world_placement_changed']=world_frame_audit['world_root_placements_changed']
+                    captured['initial_passive_joint_state_changed']=world_frame_audit['initial_passive_joint_state_changed']
                     captured['initial_rack_relative_requested_layout_unchanged']=True
                     captured['physical_state_unchanged']=False
                     captured['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
