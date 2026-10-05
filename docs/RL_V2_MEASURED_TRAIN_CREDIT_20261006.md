@@ -105,3 +105,41 @@ Notion은 새 native PNG를 포함한95개 미디어를 확인했고 기존94개
 안정적인 개선을 확인하지 못했다. GPU3 기존 writer는actor2282/Q11176으로 TRAIN을
 계속했고 새 n-step 실행은첫DEV91step/Q6864로 아직 optimizer를 갱신하지 않았다.
 이 시점의 초기 평가와 새 보조 Q의 향후 학습 효과를 구분한다.
+
+## 03:13 KST: 성공 동작과 현재 jaw 선택 대조
+
+Immutable checkpoint actor2319/Q11322를 CPU에서 읽고 이전 실제 성공 TRAIN15경로의
+같은 state에서 recorded goal과 현재 deterministic goal을 비교했다. 중간 왼쪽5경로의
+평균 body goal 차이는0.01136, 중간 오른쪽9경로는0.01238, 위 왼쪽1경로는0.00680이다.
+이는 normalized19D goal 차이이며 cm나 관절각 오차로 해석하지 않는다.
+[같은 성공 상태의 현재 행동 비교](assets/rl_v2_actual_TRAIN_current_policy_success_actions_Q11322_20261006.json).
+
+양쪽 손이 production 접근 gate 안에 있는1,286행 중 recorded/current jaw가 다른 행은
+101개다(중간 왼쪽28/384·오른쪽69/688·위 왼쪽4/214). 현재 body를 고정한 네 jaw 조합의
+learned min-Q 최고값과 현재 jaw의 차이가0.05를 넘는 행은685개다. Learned Q가 더 높다고
+실제로 안전하게 파지할 수 있다는 뜻은 아니며, critic의 privileged 입력으로 배포 동작을
+고르는 제어기를 추가하지 않았다.
+
+두 jaw를 함께 바꿔야 더 높은 Q가 되면서 현재 factorized 확률의 두 expected-Q gradient가
+그 방향과 반대인 후보는2/1,286행이었다. 이는 네 branch Q의 읽기 전용 국소 진단이며
+Bernoulli 구조가 주원인이라는 증거가 부족하다. 새 joint categorical 구조를 지금 도입하지
+않고 actor·gripper loss를 유지한다. 위 왼쪽 성공 경로에서도 후반 일부 상태는 Q가 조기
+닫힘을 선호했지만 실제 성공 행동은 아직 열림이었다. 같은 경로 마지막8행은 현재·recorded·
+최고 Q 모두 양손 닫힘이었다. Q 대조를 물리 반사실 성공이나 올바른 닫힘 시점의 label로
+오인하지 않는다. [네 jaw 분기·확률·gradient·단계별 원본](assets/rl_v2_actual_TRAIN_four_jaw_choices_Q11322_20261006.json).
+
+03:12:56의 실제 소유 PID·run 경로·CUDA 대조에서 기존 GPU3는 TRAIN5/361step,
+actor2475/Q11946·새 held TRAIN157,772행으로 계속 갱신했다. GPU0 대조도
+actor4178/Q18758로 진행한다. 새 n-step GPU3는 초기 DEV0/661step으로 actor1204/Q6864,
+replay224,621행·online0을 그대로 유지했다. 초기 DEV 중 optimizer를 갱신하지 않는 것이
+의도된 동작이다. 아직 새 보조 Q의 실제 update나 후속 성능을 확인한 단계는 아니다.
+
+새 실행의 reset 기록은18개 physical box asset과 마지막 reset의11개 환경 ID에 대해
+PhysX property readback을 통과했다. 강성1.5–2.5·감쇠0.15–0.25·정마찰0.45–0.65·
+동마찰0.30–0.40·초기±1° 계약을 확인했으며 이 마지막 기록을 전체128개 reset으로
+표현하지 않는다. Dynamic flap과 원래 box/base/background randomization을 유지한다.
+
+새 n-step 초기 입력 manifest/waves/checkpoint/replay4개는03:06:38 KST에 기존 Drive에서
+각 크기·MD5 검증까지 마쳤다. 약2.16GiB replay도 포함하며 로컬 원본은 삭제하지 않았다.
+이 시점 로컬 여유14.63GiB, 세 실행의 backup error는 없고300초 checkpoint 백업을
+계속한다. 목표와 독립 FINAL의 상태는 변하지 않는다.
