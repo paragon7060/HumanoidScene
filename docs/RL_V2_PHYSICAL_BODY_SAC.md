@@ -958,3 +958,24 @@ Cold repeat이므로 constructor/contact solver history가 앞선 실행과 bitw
 14:40 기준 GPU3 retention의 완료 DEV21은8/128(기준4/128)으로 늘었으나, 다른 네
 실행과 네 영역 전체의 일관된 일반화 개선은 아직 입증하지 못했다. SAC 다섯 writer와
 Drive 업로드는 계속 실행 중이며 목표는 active다.
+
+### 14:58 · World frame과 전체 passive q/v를 맞춰도 단일 환경은 안정
+
+[전체 관절 상태를 맞춘 두 닫힌 비교](assets/rl_v2_matched_passive_world_comparison_20261005.json)는
+exit0·writer 종료·MainPID0·최종 Drive 검증을 완료했다. Env100의 원래 target4와
+env8의 원래4/5/9를 모두 유지했고, 두 사례 모두 초기 유효1/1·최초 selected failure0이다.
+세 support마다182개 joint의 실제 초기 q/v 차이는 모두0이었다. 모든 active 박스
+Body/네flap의 world 위치 오차는 최대0.36µm이고 첫12개 tick Body normal은약5.1N이다.
+Actor/Q update0이며 학습 파지 성공 결과가 아니다.
+
+앞선 단일 환경 비교에서 남았던 상단 roller q/v 차이를 없애도 초기 충격은 없다.
+따라서 측정된 초기 좌표·passive 관절 상태 차이만으로 원래 DEV128의 최초 충격을
+설명할 수 없다. 환경 수와 constructor/contact solver 이력은 여전히 다르므로
+GPU 배치 solver 오류라고 확정하지 않는다.
+
+다음 frozen DEV 비교는 원래 row에서2개와16개 환경을 선택해 실제 world frame·
+전체 passive q/v를 동일하게 맞춘다. 2개는원래env8/100,16개는같은 ML10개 실패와
+유효한 ML6개 대조를 포함한다. 각 선택 layout의 모든 원래 active 박스를 유지하지만
+나머지 원래 환경은 제외하는 비교이며 원래289개 전체 배치를 유지했다고 쓰지 않는다.
+같은 PGS/D0·steps1·actor/Q0·TRAIN/Q import 불가·독립FINAL 제외이며, 기본 학습
+환경 수·randomization·안전·성공 조건은 바꾸지 않는다.
