@@ -35,9 +35,11 @@ def compare_contact_source_poses(sensor_pose_xyzw, articulation_pose_wxyz):
 
 def startup_tensor_view_identity_snapshot(env, asset_names, body_sensor_names):
     root_views={}
+    root_states={}
     for group in (env.scene.articulations,env.scene.rigid_objects):
         for name,asset in group.items():
             root_views[name]=environment_view_order(asset.root_physx_view.prim_paths,env.num_envs)
+            root_states[name]=asset.data.root_state_w.detach().cpu().tolist()
     specs=[dict(asset_name=asset,sensor_name=sensor,source_body='Body')
         for asset,sensor in zip(asset_names,body_sensor_names,strict=True)]
     specs+=list(getattr(env,'_reset_flap_contact_reporters',()))
@@ -53,6 +55,7 @@ def startup_tensor_view_identity_snapshot(env, asset_names, body_sensor_names):
         contact_views[spec['sensor_name']]=dict(asset=spec['asset_name'],body=spec['source_body'],**paths,**poses)
     return dict(environment_origins_world_m=env.scene.env_origins.detach().cpu().tolist(),
         root_views=root_views,contact_source_views=contact_views,
+        initial_root_states_world=root_states,
         all_root_environment_orders_match_scene=all(r['matches_scene_row_order'] for r in root_views.values()),
         all_contact_source_environment_orders_match_scene=all(r['matches_scene_row_order'] for r in contact_views.values()),
         all_contact_source_poses_agree=all(r['source_poses_agree'] for r in contact_views.values()),

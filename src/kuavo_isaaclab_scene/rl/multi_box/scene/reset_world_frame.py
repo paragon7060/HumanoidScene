@@ -1,0 +1,102 @@
+"""Bounded frozen reset comparison with a measured original world frame."""
+
+import math
+
+import torch
+
+from .reset_diagnostics import validate_reset_diagnostic_request
+
+SUPPORT_NAMES=tuple(f'rack_roller_deck_{i:02d}' for i in (1,2,3))
+
+
+def _finite_vector(value,size):
+    if not isinstance(value,list) or len(value)!=size or not all(
+            isinstance(x,(int,float)) and not isinstance(x,bool) and math.isfinite(x) for x in value):
+        raise ValueError('World frame requires finite numeric origin3 and wxyz pose7')
+    if size==7 and abs(math.sqrt(sum(x*x for x in value[3:]))-1)>1e-4:
+        raise ValueError('World-frame quaternion must already be unit length')
+
+
+def validate_world_frame_rows(probe,num_envs):
+    if not isinstance(probe,dict) or probe.get('probe_type')!='original_world_frame' \
+            or not isinstance(probe.get('samples'),list) or len(probe['samples'])!=num_envs:
+        raise ValueError('One explicit original world frame per environment is required')
+    for row in probe['samples']:
+        _finite_vector(row.get('environment_origin_world_m'),3)
+        _finite_vector(row.get('rack_pose_world_wxyz'),7)
+        supports=row.get('fixed_support_root_poses_world_wxyz',{})
+        if set(supports)!=set(SUPPORT_NAMES):
+            raise ValueError('All three original fixed-support poses are required')
+        for pose in supports.values():_finite_vector(pose,7)
+    return probe
+
+
+def validate_reset_world_frame_request(waves,probe,*,reset_enabled,training,steps,other_probe=False):
+    if not reset_enabled or other_probe:
+        raise ValueError('World frame requires an otherwise unchanged frozen reset diagnostic')
+    validate_reset_diagnostic_request(waves,enabled=True,training=training,steps=steps)
+    if len(waves)!=1:
+        raise ValueError('World-frame comparison requires exactly one frozen DEV wave')
+    validate_world_frame_rows(probe,len(waves[0]['layouts']))
+    if [s.get('layout_seed') for s in probe['samples']]!=[r['layout']['seed'] for r in waves[0]['layouts']]:
+        raise ValueError('World frames must match the requested layout seeds in scene row order')
+    return probe
+
+
+def apply_startup_world_frame(env,probe):
+    """Move world placement only; retain current passive DOFs and solver history.
+
+    Active boxes/robot are restored from the unchanged neutral layout next.
+    Changing origins also relocates all inactive boxes when they are parked.
+    This is a frozen comparison, never a default training reset or Q input.
+    """
+    from .reset_kinematics import refresh_teleported_articulations
+    validate_world_frame_rows(probe,env.num_envs)
+    for name in SUPPORT_NAMES:
+        if not env.scene[name].is_fixed_base:
+            raise ValueError('Original support frame requires all three fixed Bases')
+    old_origins=env.scene.env_origins.clone()
+    origins=old_origins.new_tensor([s['environment_origin_world_m'] for s in probe['samples']])
+    delta=origins-old_origins
+    assets=dict(env.scene.rigid_objects)|dict(env.scene.articulations)
+    requested={'rack':old_origins.new_tensor([s['rack_pose_world_wxyz'] for s in probe['samples']])}
+    requested.update({name:old_origins.new_tensor([
+        s['fixed_support_root_poses_world_wxyz'][name] for s in probe['samples']]) for name in SUPPORT_NAMES})
+    # Validate all required assets and tensor shapes before the first mutation.
+    if not set(requested)<=set(assets):raise ValueError('World-frame assets are missing')
+    moves={name:asset.data.root_pose_w.clone() for name,asset in assets.items()
+        if name in requested or name.startswith('conveyor_')}
+    for name,pose in moves.items():
+        if pose.shape!=(env.num_envs,7):raise ValueError('World-frame root view shape mismatch')
+        if name in requested:pose.copy_(requested[name])
+        else:pose[:,:3]+=delta
+    ids=torch.arange(env.num_envs,device=env.device)
+    before={name:assets[name].data.root_pose_w.detach().cpu().tolist() for name in moves}
+    placement_changed=bool((delta.norm(dim=-1)>1e-5).any()) or any(
+        bool(((pose[:,:3]-pose.new_tensor(before[name])[:,:3]).norm(dim=-1)>1e-5).any()) or
+        bool((torch.nn.functional.cosine_similarity(pose[:,3:],pose.new_tensor(before[name])[:,3:],dim=-1).abs()<1-1e-5).any())
+        for name,pose in moves.items())
+    passive={name:(assets[name].data.joint_pos.clone(),assets[name].data.joint_vel.clone()) for name in SUPPORT_NAMES}
+    env.scene.env_origins.copy_(origins)
+    for name,pose in moves.items():assets[name].write_root_pose_to_sim(pose,env_ids=ids)
+    refresh_teleported_articulations(env,[assets[name] for name in moves if name in env.scene.articulations],ids)
+    env.sim.forward();env.scene.update(env.step_dt)
+    after={name:assets[name].data.root_pose_w.detach().cpu().tolist() for name in moves}
+    errors={name:float((assets[name].data.root_pose_w[:,:3]-pose[:,:3]).norm(dim=-1).max())
+        for name,pose in moves.items()}
+    if any(value>1e-5 for value in errors.values()):raise ValueError('Requested original root frame was not applied')
+    quat_dots={name:float(torch.nn.functional.cosine_similarity(
+        assets[name].data.root_pose_w[:,3:],pose[:,3:],dim=-1).abs().min()) for name,pose in moves.items()}
+    if any(value<1-1e-5 for value in quat_dots.values()):raise ValueError('Requested original root rotation was not applied')
+    for name,(q,v) in passive.items():
+        if not torch.equal(q,assets[name].data.joint_pos) or not torch.equal(v,assets[name].data.joint_vel):
+            raise ValueError('World-frame comparison changed current passive joint state')
+    return dict(probe_type='original_world_frame',frozen_only=True,Q_import_eligible=False,
+        requested=probe,original_origins_world_m=old_origins.cpu().tolist(),
+        applied_origins_world_m=env.scene.env_origins.cpu().tolist(),roots_before=before,roots_after=after,
+        maximum_root_position_errors_m=errors,minimum_root_absolute_quaternion_dots=quat_dots,
+        passive_joint_positions_velocities_retained=True,support_FK_refresh_without_physics_step=True,
+        world_root_placements_requested=True,world_root_placements_changed=placement_changed,
+        initial_rack_relative_requested_layout_unchanged=True,
+        physics_parameters_success_and_safety_unchanged=True,
+        constructor_and_contact_solver_history_not_matched=True)

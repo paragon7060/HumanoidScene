@@ -53,6 +53,8 @@ def main():
     parser.add_argument('--steps',type=int,default=900)
     parser.add_argument('--reset-failure-diagnostics',action='store_true',
         help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
+    parser.add_argument('--reset-world-frame-probe',type=Path,default=None,
+        help='Frozen DEV reset only: original measured world origins/rack/support poses; passive DOF history retained')
     parser.add_argument('--zero-passive-roller-velocities-probe',action='store_true',
         help='Frozen reset diagnostic only: preserve roller angles/poses but remove inherited angular velocities')
     parser.add_argument('--rear5-support-gap-probe-m',type=float,default=None,
@@ -77,6 +79,18 @@ def main():
     try:validate_reset_diagnostic_request(waves,enabled=args.reset_failure_diagnostics,
         training=args.training,steps=args.steps)
     except ValueError as error:parser.error(str(error))
+    world_frame_probe=None
+    if args.reset_world_frame_probe:
+        from kuavo_isaaclab_scene.rl.multi_box.scene.reset_world_frame import validate_reset_world_frame_request
+        try:
+            world_frame_probe=json.loads(args.reset_world_frame_probe.read_text())
+            validate_reset_world_frame_request(waves,world_frame_probe,reset_enabled=args.reset_failure_diagnostics,
+                training=args.training,steps=args.steps,other_probe=any((args.contact_stability_probe,
+                    args.tgs_zero_velocity_probe,args.contact_last_probe,args.pgs_probe,args.gripper_drive_probe,
+                    args.centered_world_probe,args.packed_background_probe,args.base_waypoint_probe,
+                    args.reset_solver_probe,args.passive_bearing_probe_layer,args.zero_passive_roller_velocities_probe,
+                    args.rear5_support_gap_probe_m is not None)))
+        except (OSError,ValueError) as error:parser.error(str(error))
     if args.reset_contact_pair_diagnostics and not args.reset_failure_diagnostics:
         parser.error('Contact pair diagnostics require frozen reset diagnostics')
     if args.reset_flap_contact_pair_diagnostics and not args.reset_contact_pair_diagnostics:
@@ -337,6 +351,11 @@ def main():
         from kuavo_isaaclab_scene.rl.runners.train_asymmetric_sac import _settle_initial_resets
         initial,_=env.reset(seed=42)
         _settle_initial_resets(env,initial)
+        world_frame_audit=None
+        if world_frame_probe is not None:
+            from kuavo_isaaclab_scene.rl.multi_box.scene.reset_world_frame import apply_startup_world_frame
+            world_frame_audit=apply_startup_world_frame(env,world_frame_probe)
+            print('[FROZEN ORIGINAL WORLD FRAME] '+json.dumps(world_frame_audit),flush=True)
         output.mkdir(parents=True,exist_ok=False)
         # Read initialized PhysX properties, rather than treating USD's unset
         # mass/density attributes as the runtime masses used by the solver.
@@ -367,6 +386,7 @@ def main():
                                if args.base_waypoint_probe else pilot_class.artifact_type),training_contract=contract,
             contact_stability_probe=solver_probe,
             startup_flap_contact_reporters=flap_contact_reporters,
+            startup_world_frame_probe=world_frame_audit,
             sim_device=str(env.device),multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             current_reward_verified_against_breakdown=True,
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
@@ -382,6 +402,7 @@ def main():
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
             'initialized_physics':initialized_physics,
+            'startup_world_frame_probe':world_frame_audit,
             'centered_world_probe':dict(enabled=args.centered_world_probe,frozen_only=args.centered_world_probe,
                 Q_import_eligible=not args.centered_world_probe,environment_origins=env.scene.env_origins.tolist()),
             'base_waypoint_probe':dict(enabled=args.base_waypoint_probe,frozen_only=args.base_waypoint_probe,
@@ -460,12 +481,18 @@ def main():
                     layout_guard['reset_failure_diagnostics']['initial_box_pose_changed']=True
                     layout_guard['reset_failure_diagnostics']['physical_state_unchanged']=False
                     layout_guard['reset_failure_diagnostics']['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
+                captured=layout_guard['reset_failure_diagnostics']
+                if world_frame_audit is not None:
+                    captured['startup_world_frame_probe']=world_frame_audit
+                    captured['initial_world_placement_changed']=world_frame_audit['world_root_placements_changed']
+                    captured['initial_rack_relative_requested_layout_unchanged']=True
+                    captured['physical_state_unchanged']=False
+                    captured['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
                 diagnostic_name=f'reset_failure_diagnostics_wave_{wave_index:04d}.json'
                 (output/diagnostic_name).write_text(json.dumps(
                     dict(wave=wave_index,split=wave['split'],layouts=wave['layouts'],guard=layout_guard),indent=2)+'\n')
                 # Complete link/physics traces live once in the closed audit
                 # file, rather than being copied into all 128 outcome rows.
-                captured=layout_guard['reset_failure_diagnostics']
                 layout_guard['reset_failure_diagnostics']=dict(file=diagnostic_name,
                     first_selected_failure_count=len(captured['first_invalid_before_respawn']),
                     neutral_hold_trace_steps=[x['physics_step'] for x in captured['neutral_hold_trace']],

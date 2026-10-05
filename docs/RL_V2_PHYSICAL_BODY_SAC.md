@@ -883,3 +883,27 @@ env100이17.22N/root speed0.139m/s, env8이60.37N/0.642m/s였고 단일 환경�
 GPU 배치 solver 오류를 확정하지 않는다. 다음에는 world 배치와 reset history를 따로
 맞춘 비교로 분리한다. Randomization을 줄이거나 성공/안전 기준을 완화한 학습 결과가
 아니며 기존 SAC 다섯 실행과 독립 FINAL은 보존한다.
+
+### 14:16 · 원래 world frame 비교와 같은 좌표 대조 추가
+
+Frozen DEV/steps1 전용 `--reset-world-frame-probe /absolute/path/frame.json`를 추가했다.
+요청 layout seed와 환경 row를 엄격히 맞추고 원래 env origin·rack pose·세 fixed support
+Base pose를 적용한다. Conveyor의 일곱 rigid root도 origin 차이만큼 옮기며 모든 inactive
+박스는 새 origin에 원래대로 parking한다. Active 박스·robot은 변경하지 않은 neutral
+layout에서 다음 reset helper가 복원한다. 원래 active box를 제거하지 않는다.
+
+세 지지대의 현재 joint position/velocity는 유지하고 실제 root 위치·회전 읽기값과
+DOF 상태 보존을 확인한다. Root teleport 뒤 support FK refresh가 추가되므로, 새 좌표로
+옮기는 비교 외에 같은 원래 단일 환경 좌표를 다시 쓰는 sham 대조도 실행한다.
+이로써 root setter/FK 호출의 효과를 좌표 배치와 혼동하지 않는다. Constructor와 contact
+solver history를 원래 DEV128과 같게 만든 것은 아니며, 그 한계는 각 manifest에 남긴다.
+
+TRAIN/독립FINAL·다른 물리 probe·여러 wave와 혼합하면 시작 전에 거부한다. 일반학습의
+물리·관측·보상·randomization·성공·안전은 변경하지 않는다. 진단은 Q import 불가다.
+입력 origin3/단위 quaternion pose7/세 support/seed 정합성·frozen 제한·mutation 전
+거부·passive DOF 보존·같은 좌표 대조를 포함한 관련109개 CPU 검사가 통과했다.
+추후 초기 frame을 최종 guard와 혼동하지 않도록 모든 실제 root state도 첫 neutral
+physics tick 전에 읽어 기록한다.
+
+GPU3 arm-bias 실행의 완료 DEV15는3/128(ML2/MR1/UL0/UR0)으로 DEV12의6/128보다
+낮았다. 현재 SAC 일반화의 개선은 아직 입증하지 못했으며 초기화 진단과 구분한다.
