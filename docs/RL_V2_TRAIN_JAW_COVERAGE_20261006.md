@@ -154,3 +154,15 @@ capture potential0.849였지만 실제 left pinch는0이었다. 점수는 geomet
 검사하고, 충분히 닫힌 손에서도 실제 두 패드 접촉이 생기지 않으면 reach 이후의
 정밀 포착·weaker hand 신호와 실제 fingertip/flap 기하를 다음으로 점검한다.
 [post-action 패드·실제 closure·거리·potential 원본](assets/rl_v2_actual_TRAIN_pad_contact_bottlenecks_20261006.json).
+
+## 추가 진단: body correction 범위가0으로 막혔는지 확인
+
+같은69경로·immutable actor1204/Q6864에서 frozen executed body anchor와
+`min(0.15, 1 - abs(anchor))`의19개 좌표별 실제 radius를 CPU로 읽었다. 안전한
+전체33,508행과 그중 양손 near6,506행에서 **radius가 정확히0인 좌표는 없었다**.
+이 표본에는 관절 또는 upright torsoXZ가 한계값에 고정되어 correction 자체가
+불가능하다는 증거가 없다. 원래21-D remaining action에는 base가 포함되지 않으며
+첫17개가 joint goal, 다음2개가 upright torsoXZ, 마지막2개가 binary jaw다.
+현재 bounded distribution/entropy 계산은 변경하지 않는다. 이 확인은 radius0
+고착을 배제하는 진단이며 충분한 물리 탐색 범위나 일반화를 입증하지 않는다.
+[좌표·지역·경로별 radius 원본](assets/rl_v2_actual_TRAIN_body_correction_bounds_20261006.json).
