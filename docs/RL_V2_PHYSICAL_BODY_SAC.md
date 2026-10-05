@@ -613,3 +613,34 @@ ML32개의 tick5 최대 normal force5.12N/root speed0.00287m/s, tick60 속도0.0
 독립 FINAL·TRAIN·다른 물리 probe 조합에서는 거부하며 기본값은 비활성이다.
 Data collection은 matching TRAIN Q로 사용할 수 없다. Initial gap/지지계 constraint/
 contact cache 중 어느 경로인지 아직 구분되지 않았으므로 기본 reset을 바꾸지 않는다.
+
+### 11:25 · Native-nstep10의 첫 TRAIN 및 actor118 CPU 감사
+
+첫 TRAIN은128개 중 성공2(중간오른쪽2)·invalid reset42·unsafe58·timeout26으로 끝났다.
+Actor118/Q1496에서 두 번째 TRAIN을 계속한다. 초기 frozen DEV11/128과 다른 TRAIN
+배치이므로 직접 성능 변화로 비교하지 않는다. 보강 후 DEV 개선은 아직 평가 전이다.
+
+[안정적인 checkpoint1496의 CPU 감사](assets/rl_v2_physical_body_credit10_actor118_TRAIN_20261005.json)는
+실제 성공 TRAIN bank13개(원래13개와 같은 episode 수, MR 중복 case 교체)만 읽고,
+optimizer/온라인 runtime은 변경하지 않았다. Normalized physical command MSE는
+MR0.00954→0.01228, ML0.18453→0.15784, UR0.00221→0.00552, UL0.01177→0.00998이다.
+두 영역은 성공 명령과 가까워졌고 두 영역은 멀어져 retention 개선도 아직 균일하지 않다.
+Current-policy soft Q는 성공 native 명령에0.69–1.31, 실제 behavior discounted return은
+6.07–7.26이다. 두 값은 동일한 정책/entropy 정의의 값이 아니므로 equality 검사나
+정확한 Q 오류로 확정하지 않는다. 이 CPU 수치는 물리 파지 성능이 아니며 진단 자료를
+Q에 다시 넣지 않는다.
+
+### 11:29 · Rear5 초기 gap0도 실패: 기본 설정에 적용하지 않음
+
+[모든 주변 박스를 복원한 gap0 대조](assets/rl_v2_reset_rear5_zero_gap_20261005.json)도
+정상 exit0·writer 종료·최종 Drive 검증을 완료했다. 원래289개 박스를 유지했고
+rear5의 bare-shelf clearance는 실측0.009997m(roller 상승분0.010m)로 낮아졌다.
+하지만 유효99/128·최초 selected failure11개가 남았다. 중간왼쪽 target4는 첫 physics
+tick부터 최대21.10N·0.183m/s로 튀기 시작했고,12tick에2.03m/s에 도달했다.
+
+주변5 제외는 초기 불안정을 해소했지만 주변5의8mm 초기 낙하만 제거하면 해소되지
+않았다. Rear5/지지계 접촉은 강한 원인 후보이나 초기 높이를 해결책으로 채택하지 않는다.
+모든 기본 SAC 학습은 원래 박스·초기 pose·동적 물리·randomization을 유지한다.
+다음에는 실제 contact pair와 support link의 움직임을 분리해 stale/phantom contact와
+shared support constraint/solver 문제를 구분한다. Cold 반복 결과로 독립 파지 성능을
+주장하거나 실패 판정을 완화하지 않는다.
