@@ -29,6 +29,24 @@ def validate_rear5_support_gap_diagnostic_request(waves, *, gap_m, reset_enabled
         raise ValueError('Rear5 support gap must be finite and between0 and the default spawn clearance')
 
 
+def configure_reset_solver_probe(cfg, waves, *, solver, reset_enabled, training, steps, other_probe=False):
+    """Change only the solver for a frozen startup audit, never a training MDP."""
+    if solver is None:
+        return None
+    if solver not in ('PGS', 'TGS') or not reset_enabled or other_probe:
+        raise ValueError('Reset solver probe requires an otherwise unchanged frozen reset diagnostic')
+    validate_reset_diagnostic_request(waves, enabled=True, training=training, steps=steps)
+    original = cfg.sim.physx.solver_type
+    if original not in (0, 1):
+        raise ValueError('Unknown source physics solver')
+    cfg.sim.physx.solver_type = {'PGS': 0, 'TGS': 1}[solver]
+    return dict(name='reset_solver_only', source_solver={0: 'PGS', 1: 'TGS'}[original],
+                requested_solver=solver, frozen_only=True, Q_import_eligible=False,
+                physics_dt_s=cfg.sim.dt, control_dt_s=cfg.sim.dt * cfg.decimation,
+                all_iteration_counts_and_limits_unchanged=True,
+                box_base_poses_randomization_success_and_safety_unchanged=True)
+
+
 def _finite_values(values):
     return [float(v) if math.isfinite(float(v)) else None for v in values]
 

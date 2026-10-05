@@ -664,3 +664,30 @@ null로 보존한다. Contact 상대의 실제 body-link pose/velocity를 같은
 측정하지 않는다. Fixed support Base의 실제 pose/velocity와 모든 roller center의 처음
 대비 이동량도 기록해 contact identity 오류와 shared-support motion을 구분한다.
 Pair 순서/환경 identity/nonfinite/기본 reset과 관련한70개 검사 통과.
+
+### 12:01 · 접촉 상대 실측: 앞·뒤의 별도 롤러, 고정 지지대
+
+[실측 접촉 상대 자료](assets/rl_v2_reset_contact_pairs_20261005.json)와
+[그림](assets/rl_v2_reset_contact_pairs_20261005.png)의 원본 DEV128 진단은
+exit0·writer 종료·최종 Drive 크기/MD5 검증을 완료했다. 원래289개 박스와
+randomized base/box, 구동·물리·안전 조건을 유지했으며 actor/Q 업데이트는0이다.
+유효 초기 환경은98/128, 최초 selected failure는중간왼쪽 target4의10개였다.
+이 숫자는 초기 상태 유효성이고 파지 성공률이 아니다.
+
+앞쪽 target4의 큰 접촉은 physics tick5(41.7ms)에 발생했다. 예시 env8은
+`RollerDeck_02/Roller_r05_c03`에서개별 normal59.25N을 받았고,
+뒤쪽 box5는같은 tick에별도 rear rollers r21/r22/r23에 처음 닿았다.
+실패10개 target4의 최대 속도는tick4의0.00427m/s에서tick5의0.74471m/s로
+증가했다. 기록한상위3개 접촉은롤러/랙이며 직접box4–box5 접촉은없었다.
+상위3개만 기록했으므로 모든 미소접촉의 부재를 증명하지는 않는다.
+
+세 support 모두실제 `is_fixed_base=True`, Base의위치 이동/속도는0이다.
+전체60tick에서 roller 중심 이동은최대약5.4µm로 지지대가 흔들린 설명과
+맞지 않는다. 뒤박스 최초 접촉과 앞롤러 충격이동시에 나타나며,
+뒤박스만 제외한대조에서는충격이사라졌다는증거로 shared-articulation/contact
+solver 상호작용을조사한다. 엔진 원인이나 에너지 전달경로를 확정하지않는다.
+
+다음 `--reset-solver-probe TGS`는frozen DEV/steps1에서PGS→TGS만바꾼다.
+시간간격·iteration·질량·마찰·모든박스·초기배치·보상·성공·안전은유지한다.
+진단artifact에원본/실제solver와Q import불가를명시하며 기본SAC는변경하지않는다.
+TRAIN/독립FINAL/다른물리대조와혼합을거부하는78개검사통과.

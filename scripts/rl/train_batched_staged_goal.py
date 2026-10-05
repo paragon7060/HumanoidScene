@@ -40,6 +40,8 @@ def main():
         help='Frozen-only PGS/TGS solver comparison; preserves timestep, iterations and safety')
     probes.add_argument('--gripper-drive-probe',action='store_true',
         help='Frozen-only original/soft_2nm motor-drive comparison; never supplies matching Q replay')
+    probes.add_argument('--reset-solver-probe',choices=('PGS','TGS'),default=None,
+        help='Frozen DEV reset --steps 1 only: change just the physics solver; no TRAIN/FINAL or matching Q replay')
     parser.add_argument('--centered-world-probe',action='store_true',
         help='Frozen-only shared origins with GPU environment collision IDs; no Q/replay training')
     parser.add_argument('--packed-background-probe',action='store_true',
@@ -71,15 +73,17 @@ def main():
     except ValueError as error:parser.error(str(error))
     if args.reset_contact_pair_diagnostics and not args.reset_failure_diagnostics:
         parser.error('Contact pair diagnostics require frozen reset diagnostics')
+    if args.reset_solver_probe and not args.reset_failure_diagnostics:
+        parser.error('Reset solver probe requires frozen reset diagnostics')
     try:validate_rear5_support_gap_diagnostic_request(waves,gap_m=args.rear5_support_gap_probe_m,
         reset_enabled=args.reset_failure_diagnostics,training=args.training,steps=args.steps,
         other_probe=any((args.zero_passive_roller_velocities_probe,args.contact_stability_probe,
             args.tgs_zero_velocity_probe,args.contact_last_probe,args.pgs_probe,
-            args.gripper_drive_probe,args.centered_world_probe,args.packed_background_probe,args.base_waypoint_probe)))
+            args.gripper_drive_probe,args.reset_solver_probe,args.centered_world_probe,args.packed_background_probe,args.base_waypoint_probe)))
     except ValueError as error:parser.error(str(error))
     if args.zero_passive_roller_velocities_probe and (not args.reset_failure_diagnostics or
             args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or
-            args.pgs_probe or args.gripper_drive_probe or args.centered_world_probe or
+            args.pgs_probe or args.gripper_drive_probe or args.reset_solver_probe or args.centered_world_probe or
             args.packed_background_probe or args.base_waypoint_probe):
         parser.error('Passive roller velocity probe requires an otherwise unchanged frozen reset diagnostic')
     from kuavo_isaaclab_scene.rl.multi_box.experiments.gripper_drive_probe import validate_gripper_drive_probe
@@ -173,10 +177,15 @@ def main():
         cfg.sim.device=args.device or 'cuda:0'
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import configure_staged_physics
         configure_staged_physics(cfg,contract)
+        from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import configure_reset_solver_probe
+        reset_solver_probe=configure_reset_solver_probe(cfg,waves,solver=args.reset_solver_probe,
+            reset_enabled=args.reset_failure_diagnostics,training=args.training,steps=args.steps,
+            other_probe=any((args.zero_passive_roller_velocities_probe,args.rear5_support_gap_probe_m is not None,
+                args.centered_world_probe,args.packed_background_probe,args.base_waypoint_probe)))
         if contract.get('physics_dynamics') and (args.contact_stability_probe or args.tgs_zero_velocity_probe
                                                or args.contact_last_probe or args.pgs_probe):
             raise ValueError('Frozen dynamics probes require the original TGS source contract')
-        solver_probe=None
+        solver_probe=reset_solver_probe
         if args.gripper_drive_probe:
             solver_probe=dict(frozen_only=True,name='four_claw_motor_drive_comparison',
                 Q_import_eligible=False,success_and_safety_unchanged=True,
@@ -248,8 +257,13 @@ def main():
                 Q_import_eligible=False,success_and_safety_unchanged=True)),flush=True)
         if contract.get('physics_dynamics'):
             actual=env.sim.stage.GetPrimAtPath(cfg.sim.physics_prim_path).GetAttribute('physxScene:solverType').Get()
-            if actual!=contract['physics_dynamics']['solver']:raise ValueError('Checkpoint solver was not applied')
-            print('[TRAINING PHYSICS CONTRACT] '+json.dumps(contract['physics_dynamics']|dict(actual_USD_solver=actual)),flush=True)
+            expected=args.reset_solver_probe or contract['physics_dynamics']['solver']
+            if actual!=expected:raise ValueError('Requested physics solver was not applied')
+            if reset_solver_probe:
+                reset_solver_probe['actual_USD_solver']=actual
+                print('[FROZEN RESET SOLVER PROBE] '+json.dumps(reset_solver_probe),flush=True)
+            else:
+                print('[TRAINING PHYSICS CONTRACT] '+json.dumps(contract['physics_dynamics']|dict(actual_USD_solver=actual)),flush=True)
         if args.contact_last_probe:
             value=env.sim.stage.GetPrimAtPath(cfg.sim.physics_prim_path).GetAttribute(
                 'physxScene:solveArticulationContactLast').Get()
@@ -337,7 +351,8 @@ def main():
             manifest=json.loads((output/'manifest.json').read_text())
             manifest['reset_failure_diagnostics']=dict(enabled=True,frozen_only=True,
                 Q_import_eligible=False,first_failure_before_respawn=True,
-                physics_randomization_success_safety_unchanged=True,
+                physics_randomization_success_safety_unchanged=reset_solver_probe is None,
+                reset_solver_probe=reset_solver_probe,
                 initial_passive_roller_velocity_changed=args.zero_passive_roller_velocities_probe,
                 zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe,
                 rear5_initial_support_gap_probe_m=args.rear5_support_gap_probe_m,
@@ -383,6 +398,13 @@ def main():
                 capture_reset_diagnostics=args.reset_failure_diagnostics,
                 zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe)
             if args.reset_failure_diagnostics:
+                if reset_solver_probe:
+                    captured=layout_guard['reset_failure_diagnostics']
+                    captured['reset_solver_probe']=reset_solver_probe
+                    captured['physics_parameters_unchanged']=False
+                    captured['physical_state_unchanged']=False
+                    captured['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
+                    captured['box_base_poses_randomization_success_and_safety_unchanged']=True
                 layout_guard['reset_failure_diagnostics']['rear5_initial_support_gap_probe_m']=args.rear5_support_gap_probe_m
                 if args.rear5_support_gap_probe_m is not None:
                     layout_guard['reset_failure_diagnostics']['initial_box_pose_changed']=True

@@ -1,0 +1,3217 @@
+{
+  "artifact_type": "closed_frozen_DEV_startup_contact_pair_audit",
+  "source_run": "artifacts/rl/drive_runs/physical_body_reset_contact_pair_pgs128_gpu2_20261005_114411/batch_sac_20261005_114427_4d9b06",
+  "source_commit": "1c0f2f74eb6f0a69aae9f5d5cda972710f6e12ff",
+  "writer_stopped": true,
+  "training_exit_code": 0,
+  "final_Drive_size_and_MD5_verified": true,
+  "actor_updates": 0,
+  "critic_updates": 0,
+  "TRAIN_Q_import": false,
+  "no_FINAL_used": true,
+  "no_grasp_success_claim": true,
+  "initial_active_box_count": 289,
+  "valid_original_layouts": 98,
+  "attempts": 128,
+  "first_selected_failure_count": 10,
+  "failed_target4_environment_ids": [
+    8,
+    24,
+    28,
+    68,
+    84,
+    88,
+    100,
+    116,
+    120,
+    124
+  ],
+  "reported_pairs_are_normal_only": true,
+  "top_three_pairs_are_not_exhaustive": true,
+  "filter_axis_checked_against_ordered_config_paths": true,
+  "default_physics_randomization_success_safety_unchanged": true,
+  "findings": [
+    "All ten first selected failures are middle-left target4.",
+    "Rear5 first normal contact is at physics tick5; front target4 receives its large roller impulse at tick5.",
+    "The example front source contacts Roller_r05_c03, while rear5 contacts distinct rear rows21..23.",
+    "All three support Bases are fixed, with zero measured Base translation and micrometre-scale roller-center drift.",
+    "Reported top normal pairs do not show direct box4-box5 contact; top3 alone cannot exclude every smaller pair.",
+    "This narrows the hypothesis to shared-articulation/contact solver interaction; engine root cause is not yet established."
+  ],
+  "initial_environment_8": [
+    {
+      "environment": 8,
+      "logical_id": 4,
+      "original_pool_id": 4,
+      "original_asset_still_active": true,
+      "finite": true,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "footprint_in_region": true,
+      "on_assigned_shelf": true,
+      "stable_at_guard": true,
+      "rack_local_root_xyz_m": [
+        -0.27679818868637085,
+        -0.11671294271945953,
+        1.0491187572479248
+      ],
+      "shelf_clearance_m": 0.010017871856689453,
+      "linear_speed_mps": 0.0,
+      "angular_speed_radps": 0.0,
+      "box_pose_world": [
+        44.52067565917969,
+        24.106124877929688,
+        1.0491187572479248,
+        0.6113296151161194,
+        -0.0273114200681448,
+        -0.03528440743684769,
+        0.7901174426078796
+      ],
+      "box_velocity_world": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "body_names": [
+        "Body",
+        "flap_front",
+        "flap_back",
+        "flap_right",
+        "flap_left"
+      ],
+      "body_link_pose_world": [
+        [
+          44.52067565917969,
+          24.106124877929688,
+          1.0491187572479248,
+          0.6113296151161194,
+          -0.0273114200681448,
+          -0.03528440743684769,
+          0.7901174426078796
+        ],
+        [
+          44.41679000854492,
+          24.079181671142578,
+          1.2208846807479858,
+          0.6113294959068298,
+          -0.02731141448020935,
+          -0.03528439998626709,
+          0.7901172637939453
+        ],
+        [
+          44.5933837890625,
+          24.12498664855957,
+          1.237214207649231,
+          0.6113294959068298,
+          -0.02731141448020935,
+          -0.03528439998626709,
+          0.7901172637939453
+        ],
+        [
+          44.47202682495117,
+          24.229549407958984,
+          1.2290470600128174,
+          0.6113294363021851,
+          -0.0273114126175642,
+          -0.03528439626097679,
+          0.7901172637939453
+        ],
+        [
+          44.53814697265625,
+          23.974618911743164,
+          1.2290517091751099,
+          0.6113294363021851,
+          -0.0273114126175642,
+          -0.03528439626097679,
+          0.7901172637939453
+        ]
+      ],
+      "body_link_velocity_world": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "joint_velocities_radps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "environment": 8,
+      "logical_id": 5,
+      "original_pool_id": 5,
+      "original_asset_still_active": true,
+      "finite": true,
+      "invalid_box_pose": false,
+      "invalid_rack_pose": false,
+      "footprint_in_region": true,
+      "on_assigned_shelf": true,
+      "stable_at_guard": true,
+      "rack_local_root_xyz_m": [
+        -0.23999834060668945,
+        -0.7299988865852356,
+        1.1119412183761597
+      ],
+      "shelf_clearance_m": 0.01799750328063965,
+      "linear_speed_mps": 0.0,
+      "angular_speed_radps": 0.0,
+      "box_pose_world": [
+        45.10442352294922,
+        24.2977294921875,
+        1.1119412183761597,
+        0.6099684238433838,
+        -0.027240589261054993,
+        -0.03533279895782471,
+        0.7911688685417175
+      ],
+      "box_velocity_world": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "joint_names": [
+        "joint_front",
+        "joint_back",
+        "joint_right",
+        "joint_left"
+      ],
+      "joint_positions_rad": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "body_names": [
+        "Body",
+        "flap_front",
+        "flap_back",
+        "flap_right",
+        "flap_left"
+      ],
+      "body_link_pose_world": [
+        [
+          45.10442352294922,
+          24.2977294921875,
+          1.1119412183761597,
+          0.6099684238433838,
+          -0.027240589261054993,
+          -0.03533279895782471,
+          0.7911688685417175
+        ],
+        [
+          45.000633239746094,
+          24.270427703857422,
+          1.2837082147598267,
+          0.609968364238739,
+          -0.027240585535764694,
+          -0.03533279523253441,
+          0.791168749332428
+        ],
+        [
+          45.17707061767578,
+          24.31683921813965,
+          1.300035834312439,
+          0.609968364238739,
+          -0.027240585535764694,
+          -0.03533279523253441,
+          0.791168749332428
+        ],
+        [
+          45.05535125732422,
+          24.420984268188477,
+          1.2918720245361328,
+          0.609968364238739,
+          -0.027240587398409843,
+          -0.03533279523253441,
+          0.7911688089370728
+        ],
+        [
+          45.12234878540039,
+          24.166282653808594,
+          1.2918720245361328,
+          0.609968364238739,
+          -0.027240587398409843,
+          -0.03533279523253441,
+          0.7911688089370728
+        ]
+      ],
+      "body_link_velocity_world": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "joint_velocities_radps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "trace": [
+    {
+      "physics_step": 1,
+      "elapsed_s": 0.008333333333333333,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 5.242357871408195,
+      "max_target4_pair_normal_n": 1.805832862854004,
+      "max_target4_linear_speed_mps": 0.006921575863408499,
+      "target4_top_pair_assets": {
+        "rack": 10,
+        "rack_roller_deck_02": 20
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 0,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.2649612623790745e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.826321062661009e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.0025399522855877876,
+            -0.00021043707965873182,
+            -0.00034110434353351593,
+            0.0218951515853405,
+            0.005673569161444902,
+            -0.01576378382742405
+          ],
+          "normal_contact_force_world_n": [
+            0.3231619596481323,
+            0.08535636216402054,
+            5.0961408615112305
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.0005148403579369187,
+          "maximum_link_linear_speed_mps": 0.006298694759607315,
+          "maximum_link_angular_speed_radps": 0.02777126058936119,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RackBody",
+              "normal_force_world_n": [
+                0.7593904137611389,
+                0.19696305692195892,
+                0.0702195018529892
+              ],
+              "normal_force_magnitude_n": 0.7876541614532471,
+              "target_asset": "rack",
+              "target_body": null,
+              "target_pose_world": [
+                44.33738708496094,
+                24.344125747680664,
+                0.0,
+                0.6105765104293823,
+                -2.5102069756144374e-08,
+                -2.5657447721982862e-08,
+                0.791957437992096
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r02_c05",
+              "normal_force_world_n": [
+                -0.06711138784885406,
+                -0.01739240437746048,
+                0.7745629549026489
+              ],
+              "normal_force_magnitude_n": 0.7776594161987305,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r02_c05",
+              "target_pose_world": [
+                44.465267181396484,
+                24.191640853881836,
+                1.030555009841919,
+                0.6099845767021179,
+                -0.026876749470829964,
+                -0.03486088290810585,
+                0.7911896109580994
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.0596647672355175,
+                0.22682175040245056,
+                -1.3843358681597806e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r04_c05",
+              "normal_force_world_n": [
+                -0.06423423439264297,
+                -0.016606858000159264,
+                0.7422742247581482
+              ],
+              "normal_force_magnitude_n": 0.745233416557312,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r04_c05",
+              "target_pose_world": [
+                44.52801513671875,
+                24.208147048950195,
+                1.0363620519638062,
+                0.6099900007247925,
+                -0.02675475738942623,
+                -0.03470265120267868,
+                0.7911966443061829
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.059169456362724304,
+                0.2249387502670288,
+                -1.3728438386095831e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -3.4046305271567823e-12,
+            2.0704096423407314e-11,
+            -0.08175000548362732,
+            1.6113644862869592e-09,
+            -1.0268454975204122e-09,
+            4.057729846573821e-11
+          ],
+          "normal_contact_force_world_n": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 4.092606444270643e-16,
+          "maximum_link_linear_speed_mps": 0.08175000548362732,
+          "maximum_link_angular_speed_radps": 1.911165892209965e-09,
+          "strongest_normal_pairs": [],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 2,
+      "elapsed_s": 0.016666666666666666,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 5.2045814416602845,
+      "max_target4_pair_normal_n": 1.5778450965881348,
+      "max_target4_linear_speed_mps": 0.008434772825526977,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 26,
+        "rack": 4
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 0,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.266627001925372e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.82214057026431e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.002873767865821719,
+            0.0007733347592875361,
+            0.0001277681440114975,
+            0.00728982500731945,
+            -0.003736103419214487,
+            -0.02220911532640457
+          ],
+          "normal_contact_force_world_n": [
+            0.02801201120018959,
+            0.004124945029616356,
+            5.13175630569458
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.0002569396165199578,
+          "maximum_link_linear_speed_mps": 0.005297211464494467,
+          "maximum_link_angular_speed_radps": 0.023732177913188934,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r03_c03",
+              "normal_force_world_n": [
+                -0.058720339089632034,
+                -0.015309756621718407,
+                0.6787238121032715
+              ],
+              "normal_force_magnitude_n": 0.6814311742782593,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r03_c03",
+              "target_pose_world": [
+                44.55769348144531,
+                23.967788696289062,
+                1.033458948135376,
+                0.6102261543273926,
+                -0.020679516717791557,
+                -0.026822669431567192,
+                0.7915029525756836
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.010525157675147057,
+                0.04001244157552719,
+                -3.367949530375114e-10
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r02_c05",
+              "normal_force_world_n": [
+                -0.05594087019562721,
+                -0.014683802612125874,
+                0.6467587947845459
+              ],
+              "normal_force_magnitude_n": 0.6493396162986755,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r02_c05",
+              "target_pose_world": [
+                44.465267181396484,
+                24.191640853881836,
+                1.030555009841919,
+                0.6100319027900696,
+                -0.02578072063624859,
+                -0.033439263701438904,
+                0.791251003742218
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.10195452719926834,
+                0.3875906765460968,
+                -2.7724085249758446e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r04_c05",
+              "normal_force_world_n": [
+                -0.051472973078489304,
+                -0.013472863472998142,
+                0.5951312184333801
+              ],
+              "normal_force_magnitude_n": 0.5975049138069153,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r04_c05",
+              "target_pose_world": [
+                44.52801513671875,
+                24.208147048950195,
+                1.0363620519638062,
+                0.6100403666496277,
+                -0.025580471381545067,
+                -0.033179525285959244,
+                0.7912619709968567
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.09989811480045319,
+                0.3797732889652252,
+                -2.502300366913346e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            5.4386554287910727e-11,
+            4.4800638893116584e-11,
+            -0.16350001096725464,
+            3.189415176407806e-09,
+            -1.0690438534410873e-09,
+            7.998234019535033e-11
+          ],
+          "normal_contact_force_world_n": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 6.89140076655468e-16,
+          "maximum_link_linear_speed_mps": 0.16350001096725464,
+          "maximum_link_angular_speed_radps": 3.364761802515659e-09,
+          "strongest_normal_pairs": [],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 3,
+      "elapsed_s": 0.025,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 5.126601075085625,
+      "max_target4_pair_normal_n": 1.7899290323257446,
+      "max_target4_linear_speed_mps": 0.007100226936119045,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 30
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 0,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.266627001925372e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.823999122687383e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.002678453689441085,
+            0.0008889364544302225,
+            0.00024538906291127205,
+            0.0021596725564450026,
+            -4.716269177151844e-05,
+            -0.021256940439343452
+          ],
+          "normal_contact_force_world_n": [
+            -0.05234789848327637,
+            -0.020511534065008163,
+            5.104837894439697
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.00022819580044597387,
+          "maximum_link_linear_speed_mps": 0.005565048661082983,
+          "maximum_link_angular_speed_radps": 0.021373987197875977,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r03_c03",
+              "normal_force_world_n": [
+                -0.07268768548965454,
+                -0.01777668669819832,
+                0.834272027015686
+              ],
+              "normal_force_magnitude_n": 0.8376212120056152,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r03_c03",
+              "target_pose_world": [
+                44.55769348144531,
+                23.967788696289062,
+                1.033458948135376,
+                0.6102633476257324,
+                -0.01955077424645424,
+                -0.025358619168400764,
+                0.7915511727333069
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.016519516706466675,
+                0.06280071288347244,
+                -6.329993751386098e-10
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r04_c05",
+              "normal_force_world_n": [
+                -0.06880144774913788,
+                -0.01995260640978813,
+                0.8065729737281799
+              ],
+              "normal_force_magnitude_n": 0.8097479343414307,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r04_c05",
+              "target_pose_world": [
+                44.52801513671875,
+                24.208147048950195,
+                1.0363620519638062,
+                0.6100780963897705,
+                -0.024664178490638733,
+                -0.031991034746170044,
+                0.7913109660148621
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.08847171813249588,
+                0.33633461594581604,
+                -3.700618256274879e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r02_c05",
+              "normal_force_world_n": [
+                -0.06935751438140869,
+                -0.01824282668530941,
+                0.8011831641197205
+              ],
+              "normal_force_magnitude_n": 0.804386556148529,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r02_c05",
+              "target_pose_world": [
+                44.465267181396484,
+                24.191640853881836,
+                1.030555009841919,
+                0.6100926995277405,
+                -0.02429940551519394,
+                -0.03151790052652359,
+                0.7913298606872559
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.09883476793766022,
+                0.37573057413101196,
+                -2.9691282765753613e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            1.1217755890857717e-10,
+            6.889783882302325e-11,
+            -0.24525001645088196,
+            4.767458428034388e-09,
+            -1.1112436526516944e-09,
+            1.1938296184954567e-10
+          ],
+          "normal_contact_force_world_n": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 5.518301066749151e-16,
+          "maximum_link_linear_speed_mps": 0.24525001645088196,
+          "maximum_link_angular_speed_radps": 4.896710592561249e-09,
+          "strongest_normal_pairs": [],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 4,
+      "elapsed_s": 0.03333333333333333,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 5.114988486469516,
+      "max_target4_pair_normal_n": 1.5559824705123901,
+      "max_target4_linear_speed_mps": 0.004272326280841313,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 30
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 0,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.266627001925372e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.823999122687383e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.002216650638729334,
+            0.0007240771083161235,
+            0.00017283439228776842,
+            0.0014217073330655694,
+            0.0011946539161726832,
+            -0.01750621758401394
+          ],
+          "normal_contact_force_world_n": [
+            -0.1057935431599617,
+            -0.03291068226099014,
+            5.08860445022583
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.00016575028712395579,
+          "maximum_link_linear_speed_mps": 0.004753430373966694,
+          "maximum_link_angular_speed_radps": 0.017604636028409004,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r03_c03",
+              "normal_force_world_n": [
+                -0.07480349391698837,
+                -0.0195767804980278,
+                0.8612810373306274
+              ],
+              "normal_force_magnitude_n": 0.8647449612617493,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r03_c03",
+              "target_pose_world": [
+                44.55769348144531,
+                23.967788696289062,
+                1.033458948135376,
+                0.6102914810180664,
+                -0.018650976940989494,
+                -0.02419152297079563,
+                0.7915877103805542
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.006420524325221777,
+                0.024408159777522087,
+                -1.0947678180661669e-10
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r04_c05",
+              "normal_force_world_n": [
+                -0.06896509975194931,
+                -0.018326228484511375,
+                0.7968789339065552
+              ],
+              "normal_force_magnitude_n": 0.8000675439834595,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r04_c05",
+              "target_pose_world": [
+                44.52801513671875,
+                24.208147048950195,
+                1.0363620519638062,
+                0.6101354360580444,
+                -0.023201508447527885,
+                -0.030093856155872345,
+                0.791385293006897
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.08145161718130112,
+                0.30964699387550354,
+                -3.972226991777461e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r02_c05",
+              "normal_force_world_n": [
+                -0.06881964951753616,
+                -0.018100779503583908,
+                0.7946577072143555
+              ],
+              "normal_force_magnitude_n": 0.797837495803833,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r02_c05",
+              "target_pose_world": [
+                44.465267181396484,
+                24.191640853881836,
+                1.030555009841919,
+                0.6101402044296265,
+                -0.023075833916664124,
+                -0.029930848628282547,
+                0.7913914918899536
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                -0.0805477723479271,
+                0.3062107563018799,
+                -3.12468695362611e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            1.6996838658744906e-10,
+            9.299570141729774e-11,
+            -0.3270000219345093,
+            6.345495240367427e-09,
+            -1.1534451171968385e-09,
+            1.5877917036721811e-10
+          ],
+          "normal_contact_force_world_n": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 2.4995539932824457e-16,
+          "maximum_link_linear_speed_mps": 0.3270000219345093,
+          "maximum_link_angular_speed_radps": 6.45143050093111e-09,
+          "strongest_normal_pairs": [],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 5,
+      "elapsed_s": 0.041666666666666664,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 65.08062936538654,
+      "max_target4_pair_normal_n": 59.250423431396484,
+      "max_target4_linear_speed_mps": 0.7447087388442274,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 23,
+        "rack": 6
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 64,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.2649612623790745e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.82214057026431e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.006403695326298475,
+            -0.041499290615320206,
+            0.6183047890663147,
+            -0.7659000754356384,
+            7.228550434112549,
+            0.10370086133480072
+          ],
+          "normal_contact_force_world_n": [
+            2.6517770290374756,
+            0.6560522317886353,
+            59.73229217529297
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.0022765109315514565,
+          "maximum_link_linear_speed_mps": 1.5862648487091064,
+          "maximum_link_angular_speed_radps": 7.270096302032471,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r05_c03",
+              "normal_force_world_n": [
+                -5.048813819885254,
+                -1.349403738975525,
+                59.019500732421875
+              ],
+              "normal_force_magnitude_n": 59.250423431396484,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r05_c03",
+              "target_pose_world": [
+                44.62044143676758,
+                23.984294891357422,
+                1.0392650365829468,
+                0.6067677736282349,
+                -0.06809180974960327,
+                -0.08831950277090073,
+                0.7870171666145325
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                5.742866039276123,
+                -21.83209991455078,
+                1.5084091842254566e-07
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RackBody",
+              "normal_force_world_n": [
+                7.700591087341309,
+                2.00545597076416,
+                0.7127920389175415
+              ],
+              "normal_force_magnitude_n": 7.989307403564453,
+              "target_asset": "rack",
+              "target_body": null,
+              "target_pose_world": [
+                44.33738708496094,
+                24.344125747680664,
+                0.0,
+                0.6105765104293823,
+                -2.5102069756144374e-08,
+                -2.5657447721982862e-08,
+                0.791957437992096
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.0141328489407897,
+            -0.004023200832307339,
+            -0.1356355994939804,
+            0.009736965410411358,
+            -0.016736652702093124,
+            -0.0017706310609355569
+          ],
+          "normal_contact_force_world_n": [
+            -1.834678292274475,
+            -0.4825575351715088,
+            21.196529388427734
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.0009695879998616874,
+          "maximum_link_linear_speed_mps": 0.13859260082244873,
+          "maximum_link_angular_speed_radps": 0.01944413036108017,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r22_c04",
+              "normal_force_world_n": [
+                -0.40365925431251526,
+                -0.10617843270301819,
+                4.6637115478515625
+              ],
+              "normal_force_magnitude_n": 4.682352066040039,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r22_c04",
+              "target_pose_world": [
+                45.12326431274414,
+                24.240642547607422,
+                1.088621973991394,
+                0.6098608374595642,
+                -0.029552079737186432,
+                -0.038330961018800735,
+                0.7910290956497192
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.3923577070236206,
+                -1.4915881156921387,
+                9.103445108848973e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r21_c04",
+              "normal_force_world_n": [
+                -0.38628554344177246,
+                -0.10159480571746826,
+                4.462286472320557
+              ],
+              "normal_force_magnitude_n": 4.480126857757568,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r21_c04",
+              "target_pose_world": [
+                45.09189224243164,
+                24.232389450073242,
+                1.0857189893722534,
+                0.609976053237915,
+                -0.02707059308886528,
+                -0.03511231020092964,
+                0.7911785840988159
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.35137704014778137,
+                -1.3357954025268555,
+                8.152613695244781e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r23_c04",
+              "normal_force_world_n": [
+                -0.3638290464878082,
+                -0.09569495171308517,
+                4.203375816345215
+              ],
+              "normal_force_magnitude_n": 4.220177173614502,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r23_c04",
+              "target_pose_world": [
+                45.15463638305664,
+                24.2488956451416,
+                1.0915250778198242,
+                0.6098535060882568,
+                -0.029703395441174507,
+                -0.0385272279381752,
+                0.7910196185112
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.3972903788089752,
+                -1.5103398561477661,
+                9.217893115476272e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 6,
+      "elapsed_s": 0.05,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 65.71722318305719,
+      "max_target4_pair_normal_n": 83.01437377929688,
+      "max_target4_linear_speed_mps": 1.2393018472205006,
+      "target4_top_pair_assets": {
+        "rack": 8,
+        "rack_roller_deck_02": 21
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 64,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 5.394796517066425e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.82214057026431e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.4052354395389557,
+            -0.024381697177886963,
+            0.995927095413208,
+            -0.19568058848381042,
+            9.532915115356445,
+            0.15809783339500427
+          ],
+          "normal_contact_force_world_n": [
+            27.362762451171875,
+            7.017703056335449,
+            39.57142639160156
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.004648025147616863,
+          "maximum_link_linear_speed_mps": 2.4425864219665527,
+          "maximum_link_angular_speed_radps": 9.536378860473633,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RackBody",
+              "normal_force_world_n": [
+                45.086795806884766,
+                11.84134292602539,
+                1.285232424736023
+              ],
+              "normal_force_magnitude_n": 46.6335563659668,
+              "target_asset": "rack",
+              "target_body": null,
+              "target_pose_world": [
+                44.33738708496094,
+                24.344125747680664,
+                0.0,
+                0.6105765104293823,
+                -2.5102069756144374e-08,
+                -2.5657447721982862e-08,
+                0.791957437992096
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r06_c03",
+              "normal_force_world_n": [
+                -17.43198013305664,
+                -4.588892459869385,
+                25.86543083190918
+              ],
+              "normal_force_magnitude_n": 31.527009963989258,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r06_c03",
+              "target_pose_world": [
+                44.651817321777344,
+                23.9925479888916,
+                1.0421689748764038,
+                0.6072520017623901,
+                -0.06362834572792053,
+                -0.08253009617328644,
+                0.7876452803611755
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                2.9731063842773438,
+                -11.302573204040527,
+                1.3914731766817567e-07
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r05_c03",
+              "normal_force_world_n": [
+                -0.29205241799354553,
+                -0.23474809527397156,
+                12.420762062072754
+              ],
+              "normal_force_magnitude_n": 12.426412582397461,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r05_c03",
+              "target_pose_world": [
+                44.62044143676758,
+                23.984294891357422,
+                1.0392650365829468,
+                0.6027396321296692,
+                -0.09751172363758087,
+                -0.12647902965545654,
+                0.7817924618721008
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                1.6344547271728516,
+                -6.213552474975586,
+                -8.387792149733286e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.028665540739893913,
+            -0.007631105370819569,
+            -0.0031223127152770758,
+            -0.005595570430159569,
+            0.029547493904829025,
+            -0.0006898215506225824
+          ],
+          "normal_contact_force_world_n": [
+            -1.5122900009155273,
+            -0.43515920639038086,
+            17.478147506713867
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.000227770593483001,
+          "maximum_link_linear_speed_mps": 0.031387411057949066,
+          "maximum_link_angular_speed_radps": 0.030307728797197342,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r21_c04",
+              "normal_force_world_n": [
+                -0.5767039656639099,
+                -0.17774301767349243,
+                6.678560733795166
+              ],
+              "normal_force_magnitude_n": 6.705770015716553,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r21_c04",
+              "target_pose_world": [
+                45.09189224243164,
+                24.232389450073242,
+                1.0857189893722534,
+                0.6096257567405701,
+                -0.03405837342143059,
+                -0.04417591542005539,
+                0.7907242178916931
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.5348864793777466,
+                -2.033428192138672,
+                2.2798475995955414e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r24_c04",
+              "normal_force_world_n": [
+                -0.41104912757873535,
+                -0.10883433371782303,
+                4.734658718109131
+              ],
+              "normal_force_magnitude_n": 4.753714084625244,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r24_c04",
+              "target_pose_world": [
+                45.186012268066406,
+                24.25714874267578,
+                1.0944290161132812,
+                0.6095331311225891,
+                -0.035678304731845856,
+                -0.04627706855535507,
+                0.7906040549278259
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.5231415033340454,
+                -1.9887783527374268,
+                1.5585994717071117e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r20_c04",
+              "normal_force_world_n": [
+                -0.26443004608154297,
+                -0.08221632242202759,
+                3.079108238220215
+              ],
+              "normal_force_magnitude_n": 3.0915353298187256,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r20_c04",
+              "target_pose_world": [
+                45.060516357421875,
+                24.224138259887695,
+                1.0828150510787964,
+                0.609565258026123,
+                -0.03512496128678322,
+                -0.0455593466758728,
+                0.7906457185745239
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.5142034888267517,
+                -1.9547977447509766,
+                1.9712514287562044e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 7,
+      "elapsed_s": 0.058333333333333334,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 22.19149591211111,
+      "max_target4_pair_normal_n": 28.765865325927734,
+      "max_target4_linear_speed_mps": 1.3403489678408829,
+      "target4_top_pair_assets": {
+        "rack": 8,
+        "rack_roller_deck_02": 19
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 64,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.2649612623790745e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.82214057026431e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.5158666372299194,
+            -0.04336079582571983,
+            1.1206090450286865,
+            -0.27058902382850647,
+            10.559961318969727,
+            0.293313592672348
+          ],
+          "normal_contact_force_world_n": [
+            7.56671142578125,
+            1.9905574321746826,
+            15.553126335144043
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.0008586345356889069,
+          "maximum_link_linear_speed_mps": 2.7292041778564453,
+          "maximum_link_angular_speed_radps": 10.567593574523926,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RackBody",
+              "normal_force_world_n": [
+                19.990304946899414,
+                5.258388042449951,
+                1.4710377627125126e-06
+              ],
+              "normal_force_magnitude_n": 20.670339584350586,
+              "target_asset": "rack",
+              "target_body": null,
+              "target_pose_world": [
+                44.33738708496094,
+                24.344125747680664,
+                0.0,
+                0.6105765104293823,
+                -2.5102069756144374e-08,
+                -2.5657447721982862e-08,
+                0.791957437992096
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r06_c03",
+              "normal_force_world_n": [
+                -12.423593521118164,
+                -3.2678306102752686,
+                15.55312442779541
+              ],
+              "normal_force_magnitude_n": 20.172359466552734,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r06_c03",
+              "target_pose_world": [
+                44.65181350708008,
+                23.9925479888916,
+                1.0421689748764038,
+                0.6062830090522766,
+                -0.07228024303913116,
+                -0.0937521681189537,
+                0.7863884568214417
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                2.200413465499878,
+                -8.365099906921387,
+                1.9570542519886658e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.032682113349437714,
+            -0.02160627767443657,
+            0.016502605751156807,
+            0.22030065953731537,
+            0.09366405755281448,
+            0.017740624025464058
+          ],
+          "normal_contact_force_world_n": [
+            -0.9061025977134705,
+            -0.2634793519973755,
+            10.472028732299805
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 6.517070141853765e-05,
+          "maximum_link_linear_speed_mps": 0.07347241044044495,
+          "maximum_link_angular_speed_radps": 0.24005122482776642,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r21_c04",
+              "normal_force_world_n": [
+                -0.34873083233833313,
+                -0.10764168202877045,
+                4.03609561920166
+              ],
+              "normal_force_magnitude_n": 4.052563190460205,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r21_c04",
+              "target_pose_world": [
+                45.09189224243164,
+                24.232389450073242,
+                1.0857189893722534,
+                0.6091437339782715,
+                -0.04180257394909859,
+                -0.05422064661979675,
+                0.790099024772644
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.6279144883155823,
+                -2.3870809078216553,
+                2.5635312539407096e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r20_c04",
+              "normal_force_world_n": [
+                -0.19592343270778656,
+                -0.061011455953121185,
+                2.280111074447632
+              ],
+              "normal_force_magnitude_n": 2.2893261909484863,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r20_c04",
+              "target_pose_world": [
+                45.060516357421875,
+                24.224138259887695,
+                1.0828150510787964,
+                0.6091497540473938,
+                -0.041715655475854874,
+                -0.0541079044342041,
+                0.7901067733764648
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.6143642663955688,
+                -2.335569381713867,
+                2.6838995026423618e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r23_c04",
+              "normal_force_world_n": [
+                -0.1808333843946457,
+                -0.04769647866487503,
+                2.0805439949035645
+              ],
+              "normal_force_magnitude_n": 2.088932514190674,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r23_c04",
+              "target_pose_world": [
+                45.15463638305664,
+                24.2488956451416,
+                1.0915250778198242,
+                0.6091446876525879,
+                -0.041788771748542786,
+                -0.054202742874622345,
+                0.7901002764701843
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.6141478419303894,
+                -2.334747791290283,
+                3.3978320601590895e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 8,
+      "elapsed_s": 0.06666666666666667,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 21.223146508373148,
+      "max_target4_pair_normal_n": 16.139188766479492,
+      "max_target4_linear_speed_mps": 1.3598286180865289,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 18,
+        "rack": 5
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 63,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.933906555175781e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.82214057026431e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.5298871994018555,
+            -0.1098673865199089,
+            1.1735470294952393,
+            -0.1668650060892105,
+            13.381814956665039,
+            0.6747478246688843
+          ],
+          "normal_contact_force_world_n": [
+            3.496005058288574,
+            0.9196761846542358,
+            9.669621467590332
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.003570014610886574,
+          "maximum_link_linear_speed_mps": 3.1416068077087402,
+          "maximum_link_angular_speed_radps": 13.401451110839844,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r05_c03",
+              "normal_force_world_n": [
+                1.2708287239074707,
+                0.3343504071235657,
+                9.669621467590332
+              ],
+              "normal_force_magnitude_n": 9.758502960205078,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r05_c03",
+              "target_pose_world": [
+                44.62044143676758,
+                23.984294891357422,
+                1.0392650365829468,
+                0.5945850610733032,
+                -0.13882412016391754,
+                -0.1800638884305954,
+                0.7712154388427734
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                4.256459712982178,
+                -16.18136978149414,
+                4.286187049729051e-07
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RackBody",
+              "normal_force_world_n": [
+                2.2251763343811035,
+                0.5853257775306702,
+                1.6374529820950556e-07
+              ],
+              "normal_force_magnitude_n": 2.300872802734375,
+              "target_asset": "rack",
+              "target_body": null,
+              "target_pose_world": [
+                44.33738708496094,
+                24.344125747680664,
+                0.0,
+                0.6105765104293823,
+                -2.5102069756144374e-08,
+                -2.5657447721982862e-08,
+                0.791957437992096
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.03673915937542915,
+            -0.03528686985373497,
+            0.038142554461956024,
+            0.4513736069202423,
+            0.1329762488603592,
+            0.03263455256819725
+          ],
+          "normal_contact_force_world_n": [
+            -0.9055458307266235,
+            -0.28445330262184143,
+            10.608353614807129
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 9.800314728636295e-06,
+          "maximum_link_linear_speed_mps": 0.13980300724506378,
+          "maximum_link_angular_speed_radps": 0.47169384360313416,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r21_c04",
+              "normal_force_world_n": [
+                -0.3905910551548004,
+                -0.12843629717826843,
+                4.549933433532715
+              ],
+              "normal_force_magnitude_n": 4.568473815917969,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r21_c04",
+              "target_pose_world": [
+                45.09189224243164,
+                24.232389450073242,
+                1.085719108581543,
+                0.6085357069969177,
+                -0.04987893998622894,
+                -0.06469621509313583,
+                0.7893103361129761
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.7361894249916077,
+                -2.7986998558044434,
+                3.570522721929592e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r24_c04",
+              "normal_force_world_n": [
+                -0.2219979465007782,
+                -0.06397385895252228,
+                2.5684711933135986
+              ],
+              "normal_force_magnitude_n": 2.578840970993042,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r24_c04",
+              "target_pose_world": [
+                45.186012268066406,
+                24.25714874267578,
+                1.0944290161132812,
+                0.6086246967315674,
+                -0.048781078308820724,
+                -0.06327222287654877,
+                0.7894257307052612
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.6934552788734436,
+                -2.6362431049346924,
+                1.9875830759019664e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r20_c04",
+              "normal_force_world_n": [
+                -0.1707591712474823,
+                -0.05665067210793495,
+                2.000432252883911
+              ],
+              "normal_force_magnitude_n": 2.0085060596466064,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r20_c04",
+              "target_pose_world": [
+                45.060516357421875,
+                24.224138259887695,
+                1.0828150510787964,
+                0.608565092086792,
+                -0.04951896518468857,
+                -0.06422930210828781,
+                0.7893484830856323
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.7411386370658875,
+                -2.8175158500671387,
+                3.9811553165236546e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 9,
+      "elapsed_s": 0.075,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 29.181272795243267,
+      "max_target4_pair_normal_n": 32.19805145263672,
+      "max_target4_linear_speed_mps": 1.7445289493403715,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 23,
+        "rack": 3
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 63,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.266627001925372e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.82214057026431e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.6077911257743835,
+            -0.16526421904563904,
+            1.405530571937561,
+            -0.8147419095039368,
+            14.817413330078125,
+            1.4173667430877686
+          ],
+          "normal_contact_force_world_n": [
+            4.956672191619873,
+            1.3041365146636963,
+            20.670373916625977
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.0016616852954030037,
+          "maximum_link_linear_speed_mps": 3.4845197200775146,
+          "maximum_link_angular_speed_radps": 14.90764331817627,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r05_c03",
+              "normal_force_world_n": [
+                4.956672191619873,
+                1.3041365146636963,
+                20.670373916625977
+              ],
+              "normal_force_magnitude_n": 21.29633140563965,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r05_c03",
+              "target_pose_world": [
+                44.62044143676758,
+                23.984294891357422,
+                1.0392650365829468,
+                0.5758543014526367,
+                -0.20296648144721985,
+                -0.26326069235801697,
+                0.7469204664230347
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                7.4780402183532715,
+                -28.42853355407715,
+                2.2614442229951237e-07
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.041426654905080795,
+            -0.04965073987841606,
+            0.05886475741863251,
+            0.6815698146820068,
+            0.18443182110786438,
+            0.033179618418216705
+          ],
+          "normal_contact_force_world_n": [
+            -0.8823009133338928,
+            -0.31573453545570374,
+            10.538907051086426
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 5.9057550970464945e-05,
+          "maximum_link_linear_speed_mps": 0.20657947659492493,
+          "maximum_link_angular_speed_radps": 0.7068617939949036,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r21_c04",
+              "normal_force_world_n": [
+                -0.2632196843624115,
+                -0.09712205827236176,
+                3.09944748878479
+              ],
+              "normal_force_magnitude_n": 3.1121201515197754,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r21_c04",
+              "target_pose_world": [
+                45.09189224243164,
+                24.232389450073242,
+                1.0857189893722534,
+                0.6077935695648193,
+                -0.058228228241205215,
+                -0.07552578300237656,
+                0.7883477210998535
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.8461814522743225,
+                -3.2168478965759277,
+                4.8075239789113766e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r22_c04",
+              "normal_force_world_n": [
+                -0.2195463329553604,
+                -0.07463229447603226,
+                2.6829426288604736
+              ],
+              "normal_force_magnitude_n": 2.6929447650909424,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r22_c04",
+              "target_pose_world": [
+                45.12326431274414,
+                24.240642547607422,
+                1.088621973991394,
+                0.6078404188156128,
+                -0.0577373243868351,
+                -0.07488905638456345,
+                0.7884085178375244
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.8197437524795532,
+                -3.116342544555664,
+                1.5774043404803706e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r20_c04",
+              "normal_force_world_n": [
+                -0.17310898005962372,
+                -0.06444533914327621,
+                2.050405502319336
+              ],
+              "normal_force_magnitude_n": 2.058708906173706,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r20_c04",
+              "target_pose_world": [
+                45.060516357421875,
+                24.224138259887695,
+                1.0828150510787964,
+                0.6077352166175842,
+                -0.058834485709667206,
+                -0.07631213963031769,
+                0.7882720232009888
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.8675568103790283,
+                -3.2981088161468506,
+                4.9706976312791085e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 10,
+      "elapsed_s": 0.08333333333333333,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 22.3287247674803,
+      "max_target4_pair_normal_n": 24.65496826171875,
+      "max_target4_linear_speed_mps": 1.9643412134862044,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 20,
+        "rack": 3
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 63,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.2649612623790745e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.2649612623790745e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.8133630752563477,
+            -0.20186462998390198,
+            1.5212774276733398,
+            -0.5081674456596375,
+            15.813704490661621,
+            2.841348886489868
+          ],
+          "normal_contact_force_world_n": [
+            11.587403297424316,
+            3.0481038093566895,
+            13.086108207702637
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.002099330071359873,
+          "maximum_link_linear_speed_mps": 3.773127555847168,
+          "maximum_link_angular_speed_radps": 16.075489044189453,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r05_c03",
+              "normal_force_world_n": [
+                11.587403297424316,
+                3.0481038093566895,
+                13.086108207702637
+              ],
+              "normal_force_magnitude_n": 17.742748260498047,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r05_c03",
+              "target_pose_world": [
+                44.62044143676758,
+                23.984294891357422,
+                1.0392650365829468,
+                0.5467957258224487,
+                -0.2716946303844452,
+                -0.3524055778980255,
+                0.709229588508606
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                7.2301459312438965,
+                -27.486148834228516,
+                5.379221761359076e-07
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.04618768021464348,
+            -0.06472736597061157,
+            0.07906656712293625,
+            0.9120088219642639,
+            0.24985644221305847,
+            0.021368514746427536
+          ],
+          "normal_contact_force_world_n": [
+            -0.8738993406295776,
+            -0.36943402886390686,
+            10.478516578674316
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.00034466065699234605,
+          "maximum_link_linear_speed_mps": 0.2737700939178467,
+          "maximum_link_angular_speed_radps": 0.9459052681922913,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r21_c04",
+              "normal_force_world_n": [
+                -0.269949346780777,
+                -0.11607865989208221,
+                3.224179267883301
+              ],
+              "normal_force_magnitude_n": 3.237542152404785,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r21_c04",
+              "target_pose_world": [
+                45.09189224243164,
+                24.232391357421875,
+                1.0857189893722534,
+                0.6067897081375122,
+                -0.06789512932300568,
+                -0.08806438744068146,
+                0.7870457172393799
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.9778083562850952,
+                -3.7172389030456543,
+                4.610543058447547e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r23_c04",
+              "normal_force_world_n": [
+                -0.21445845067501068,
+                -0.08781709522008896,
+                2.5487635135650635
+              ],
+              "normal_force_magnitude_n": 2.559277057647705,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r23_c04",
+              "target_pose_world": [
+                45.15463638305664,
+                24.2488956451416,
+                1.0915250778198242,
+                0.6069225668907166,
+                -0.06669741123914719,
+                -0.08651087433099747,
+                0.7872179746627808
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.9183326959609985,
+                -3.491136312484741,
+                2.7397168977927322e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r20_c04",
+              "normal_force_world_n": [
+                -0.19537439942359924,
+                -0.0847695991396904,
+                2.3479740619659424
+              ],
+              "normal_force_magnitude_n": 2.3576130867004395,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r20_c04",
+              "target_pose_world": [
+                45.060516357421875,
+                24.224138259887695,
+                1.0828150510787964,
+                0.6067100167274475,
+                -0.06860420852899551,
+                -0.08898411691188812,
+                0.7869423031806946
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.9998019337654114,
+                -3.800851583480835,
+                4.654893714928221e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 11,
+      "elapsed_s": 0.09166666666666666,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 17.286243189520132,
+      "max_target4_pair_normal_n": 19.98027992248535,
+      "max_target4_linear_speed_mps": 2.022668418165734,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 5,
+        "rack": 2
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 63,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 5.394796517066425e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.2649612623790745e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.9747793078422546,
+            -0.33905866742134094,
+            1.6570727825164795,
+            -1.0154350996017456,
+            17.47299575805664,
+            3.718609094619751
+          ],
+          "normal_contact_force_world_n": [
+            7.087193489074707,
+            1.864795207977295,
+            13.310592651367188
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.0005967695033177733,
+          "maximum_link_linear_speed_mps": 4.076726913452148,
+          "maximum_link_angular_speed_radps": 17.89317512512207,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r05_c03",
+              "normal_force_world_n": [
+                7.087193489074707,
+                1.864795207977295,
+                13.310592651367188
+              ],
+              "normal_force_magnitude_n": 15.194659233093262,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r05_c03",
+              "target_pose_world": [
+                44.62044143676758,
+                23.984294891357422,
+                1.0392650365829468,
+                0.4976653456687927,
+                -0.3537411689758301,
+                -0.4588252604007721,
+                0.6455042958259583
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                10.364052772521973,
+                -39.40000915527344,
+                9.426328801964701e-07
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.04754692316055298,
+            -0.07993058115243912,
+            0.098983034491539,
+            1.138352870941162,
+            0.32940682768821716,
+            0.05037499591708183
+          ],
+          "normal_contact_force_world_n": [
+            -0.7691023945808411,
+            -0.42168161273002625,
+            10.441171646118164
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.00033529766369611025,
+          "maximum_link_linear_speed_mps": 0.34201157093048096,
+          "maximum_link_angular_speed_radps": 1.1861342191696167,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r21_c04",
+              "normal_force_world_n": [
+                -0.22801467776298523,
+                -0.11772259324789047,
+                2.796032667160034
+              ],
+              "normal_force_magnitude_n": 2.807783365249634,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r21_c04",
+              "target_pose_world": [
+                45.09189224243164,
+                24.232389450073242,
+                1.0857189893722534,
+                0.6055195331573486,
+                -0.07841990143060684,
+                -0.10171569883823395,
+                0.7853981852531433
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                1.030584454536438,
+                -3.9178709983825684,
+                6.754197556801955e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r23_c04",
+              "normal_force_world_n": [
+                -0.21257011592388153,
+                -0.106867216527462,
+                2.575148582458496
+              ],
+              "normal_force_magnitude_n": 2.586116075515747,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r23_c04",
+              "target_pose_world": [
+                45.15463638305664,
+                24.2488956451416,
+                1.0915250778198242,
+                0.6057104468345642,
+                -0.07693161815404892,
+                -0.09978530555963516,
+                0.7856457829475403
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                0.9927020072937012,
+                -3.7738587856292725,
+                -2.158846434952011e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r20_c04",
+              "normal_force_world_n": [
+                -0.1705644279718399,
+                -0.08788105845451355,
+                2.078995704650879
+              ],
+              "normal_force_magnitude_n": 2.0878310203552246,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r20_c04",
+              "target_pose_world": [
+                45.060516357421875,
+                24.224138259887695,
+                1.0828150510787964,
+                0.6056228280067444,
+                -0.07761786878108978,
+                -0.10067541152238846,
+                0.7855321764945984
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                1.0332647562026978,
+                -3.92806339263916,
+                -1.087009948719242e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 12,
+      "elapsed_s": 0.1,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 20.677774399625708,
+      "max_target4_pair_normal_n": 20.67777442932129,
+      "max_target4_linear_speed_mps": 2.127650853163801,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 5,
+        "rack": 1
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 62,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.932099843950709e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.82214057026431e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            1.0144412517547607,
+            -0.38554978370666504,
+            1.7116148471832275,
+            -0.30177661776542664,
+            21.09604835510254,
+            4.269611358642578
+          ],
+          "normal_contact_force_world_n": [
+            0.991962194442749,
+            0.26094090938568115,
+            4.288379192352295
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.0013143504038453102,
+          "maximum_link_linear_speed_mps": 4.408926486968994,
+          "maximum_link_angular_speed_radps": 21.52598762512207,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r05_c03",
+              "normal_force_world_n": [
+                0.991962194442749,
+                0.26094090938568115,
+                4.288379192352295
+              ],
+              "normal_force_magnitude_n": 4.409339427947998,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r05_c03",
+              "target_pose_world": [
+                44.62044143676758,
+                23.984294891357422,
+                1.0392650365829468,
+                0.4033565819263458,
+                -0.45837441086769104,
+                -0.5945413708686829,
+                0.5231797099113464
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                15.426762580871582,
+                -58.6464729309082,
+                1.6687032484696829e-06
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.0497809574007988,
+            -0.0961962565779686,
+            0.1187179684638977,
+            1.3758745193481445,
+            0.4049433469772339,
+            0.08832702040672302
+          ],
+          "normal_contact_force_world_n": [
+            -0.5526155233383179,
+            -0.46882370114326477,
+            10.46623706817627
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 9.092125401366502e-05,
+          "maximum_link_linear_speed_mps": 0.41306179761886597,
+          "maximum_link_angular_speed_radps": 1.4370360374450684,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r22_c04",
+              "normal_force_world_n": [
+                -0.5611004829406738,
+                -0.3671341836452484,
+                7.124964237213135
+              ],
+              "normal_force_magnitude_n": 7.156447410583496,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r22_c04",
+              "target_pose_world": [
+                45.12326431274414,
+                24.240642547607422,
+                1.0886220932006836,
+                0.6041746735572815,
+                -0.08818484842777252,
+                -0.11438147723674774,
+                0.7836537957191467
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                1.0524907112121582,
+                -4.001150608062744,
+                4.220447280545159e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r19_c04",
+              "normal_force_world_n": [
+                0.11514462530612946,
+                -0.031785305589437485,
+                1.9919439554214478
+              ],
+              "normal_force_magnitude_n": 1.9955222606658936,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r19_c04",
+              "target_pose_world": [
+                45.029144287109375,
+                24.215885162353516,
+                1.0799120664596558,
+                0.6042659282684326,
+                -0.0875571146607399,
+                -0.11356725543737411,
+                0.7837721705436707
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                1.2812637090682983,
+                -4.870854377746582,
+                8.161516262816804e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r23_c04",
+              "normal_force_world_n": [
+                -0.08740105479955673,
+                -0.05730581656098366,
+                1.1060277223587036
+              ],
+              "normal_force_magnitude_n": 1.1109546422958374,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r23_c04",
+              "target_pose_world": [
+                45.15463638305664,
+                24.2488956451416,
+                1.0915249586105347,
+                0.6042236685752869,
+                -0.08784801512956619,
+                -0.11394457519054413,
+                0.7837173938751221
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                1.043656349182129,
+                -3.9675681591033936,
+                -7.152027858836618e-09
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 16,
+      "elapsed_s": 0.13333333333333333,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 10.104189803524056,
+      "max_target4_pair_normal_n": 10.1041898727417,
+      "max_target4_linear_speed_mps": 2.4393022839901684,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 5
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 61,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 4.266627001925372e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.82214057026431e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            1.4345314502716064,
+            -0.4497331380844116,
+            1.5221730470657349,
+            -0.06162085756659508,
+            20.71879005432129,
+            5.654347896575928
+          ],
+          "normal_contact_force_world_n": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 1.1389239489290048e-06,
+          "maximum_link_linear_speed_mps": 3.5590438842773438,
+          "maximum_link_angular_speed_radps": 21.476587295532227,
+          "strongest_normal_pairs": [],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.05947497859597206,
+            -0.14976383745670319,
+            0.17630186676979065,
+            2.083178997039795,
+            0.5631060600280762,
+            0.20942310988903046
+          ],
+          "normal_contact_force_world_n": [
+            -0.6834160685539246,
+            -1.076277256011963,
+            10.450613975524902
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.00040193391032516956,
+          "maximum_link_linear_speed_mps": 0.624509871006012,
+          "maximum_link_angular_speed_radps": 2.1680872440338135,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r24_c04",
+              "normal_force_world_n": [
+                -0.28204238414764404,
+                -0.44304975867271423,
+                4.29979944229126
+              ],
+              "normal_force_magnitude_n": 4.331756591796875,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r24_c04",
+              "target_pose_world": [
+                45.186012268066406,
+                24.25714874267578,
+                1.0944290161132812,
+                0.5964571833610535,
+                -0.1305464506149292,
+                -0.16932721436023712,
+                0.7736437320709229
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                1.204504370689392,
+                -4.579047203063965,
+                4.493331928756561e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r19_c04",
+              "normal_force_world_n": [
+                -0.19586743414402008,
+                -0.3136722445487976,
+                3.0435495376586914
+              ],
+              "normal_force_magnitude_n": 3.0659337043762207,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r19_c04",
+              "target_pose_world": [
+                45.029144287109375,
+                24.215885162353516,
+                1.0799119472503662,
+                0.5949769020080566,
+                -0.13713514804840088,
+                -0.1778731793165207,
+                0.7717236876487732
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                1.1985279321670532,
+                -4.556328773498535,
+                6.20382323290869e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r20_c04",
+              "normal_force_world_n": [
+                -0.1785014271736145,
+                -0.2772814631462097,
+                2.6968064308166504
+              ],
+              "normal_force_magnitude_n": 2.7168939113616943,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r20_c04",
+              "target_pose_world": [
+                45.060516357421875,
+                24.224138259887695,
+                1.0828150510787964,
+                0.5955862998962402,
+                -0.13446372747421265,
+                -0.1744081676006317,
+                0.7725141644477844
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                1.2040221691131592,
+                -4.577216148376465,
+                -7.517076738849937e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 32,
+      "elapsed_s": 0.26666666666666666,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 0.0,
+      "max_target4_pair_normal_n": 0,
+      "max_target4_linear_speed_mps": 2.42184444893544,
+      "target4_top_pair_assets": {},
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 53,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 5.394796517066425e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 5.394796517066425e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            2.075990676879883,
+            -0.4806115925312042,
+            -0.08759509772062302,
+            2.8532040119171143,
+            16.290651321411133,
+            5.150968074798584
+          ],
+          "normal_contact_force_world_n": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 2.3943159703776473e-06,
+          "maximum_link_linear_speed_mps": 3.8453705310821533,
+          "maximum_link_angular_speed_radps": 17.32219886779785,
+          "strongest_normal_pairs": [],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.033259518444538116,
+            -0.8179703950881958,
+            0.2806943953037262,
+            7.812760353088379,
+            2.0820422172546387,
+            0.7316464185714722
+          ],
+          "normal_contact_force_world_n": [
+            0.724113941192627,
+            -4.813634872436523,
+            5.831957817077637
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 0.0002175696863560006,
+          "maximum_link_linear_speed_mps": 2.324486494064331,
+          "maximum_link_angular_speed_radps": 8.118470191955566,
+          "strongest_normal_pairs": [
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r19_c04",
+              "normal_force_world_n": [
+                0.2655370235443115,
+                -1.7657692432403564,
+                2.139299154281616
+              ],
+              "normal_force_magnitude_n": 2.7865843772888184,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r19_c04",
+              "target_pose_world": [
+                45.029144287109375,
+                24.215885162353516,
+                1.0799119472503662,
+                0.462726354598999,
+                -0.39835646748542786,
+                -0.516694188117981,
+                0.6001861691474915
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                2.581491231918335,
+                -9.813810348510742,
+                8.088529312999526e-08
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r21_c04",
+              "normal_force_world_n": [
+                0.16946253180503845,
+                -1.124582290649414,
+                1.362679362297058
+              ],
+              "normal_force_magnitude_n": 1.7749078273773193,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r21_c04",
+              "target_pose_world": [
+                45.09189224243164,
+                24.232389450073242,
+                1.0857189893722534,
+                0.4602307975292206,
+                -0.40123701095581055,
+                -0.5204304456710815,
+                0.5969492793083191
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                2.5788276195526123,
+                -9.803686141967773,
+                4.96340248901106e-07
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            },
+            {
+              "target_path": "/World/envs/env_.*/Workcell/Racks/Rack/RollerDeck_02/Roller_r24_c04",
+              "normal_force_world_n": [
+                0.16845449805259705,
+                -1.1213607788085938,
+                1.3583544492721558
+              ],
+              "normal_force_magnitude_n": 1.7694501876831055,
+              "target_asset": "rack_roller_deck_02",
+              "target_body": "Roller_r24_c04",
+              "target_pose_world": [
+                45.186012268066406,
+                24.25714874267578,
+                1.0944290161132812,
+                0.4669690430164337,
+                -0.3933745324611664,
+                -0.5102322697639465,
+                0.6056892275810242
+              ],
+              "target_velocity_world": [
+                0.0,
+                0.0,
+                0.0,
+                2.5835869312286377,
+                -9.821771621704102,
+                5.333156991582655e-07
+              ],
+              "target_pose_resolution": "measured_live_body_link_or_rigid_root"
+            }
+          ],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    },
+    {
+      "physics_step": 60,
+      "elapsed_s": 0.5,
+      "failed_target4_count": 10,
+      "max_target4_net_normal_n": 15.410152368506388,
+      "max_target4_pair_normal_n": 15.410152435302734,
+      "max_target4_linear_speed_mps": 4.67923381886073,
+      "target4_top_pair_assets": {
+        "rack_roller_deck_02": 1
+      },
+      "rear5_count": 64,
+      "rear5_with_reported_normal_pairs": 47,
+      "supports": {
+        "rack_roller_deck_01": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 0.0,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_02": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 5.396113465394592e-06,
+          "max_base_velocity_mps": 0.0
+        },
+        "rack_roller_deck_03": {
+          "is_fixed_base": true,
+          "max_base_translation_m": 0.0,
+          "max_center_displacement_m": 3.82214057026431e-06,
+          "max_base_velocity_mps": 0.0
+        }
+      },
+      "example_environment_8": [
+        {
+          "environment": 8,
+          "logical_id": 4,
+          "original_pool_id": 4,
+          "source_body": "Body",
+          "box_velocity_world": [
+            -0.7666401267051697,
+            -0.2540578544139862,
+            -1.210180640220642,
+            -6.293393135070801,
+            6.496001720428467,
+            -2.064164161682129
+          ],
+          "normal_contact_force_world_n": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 7.739655529803713e-07,
+          "maximum_link_linear_speed_mps": 2.451204776763916,
+          "maximum_link_angular_speed_radps": 9.277155876159668,
+          "strongest_normal_pairs": [],
+          "nonfinite_filter_count": 0
+        },
+        {
+          "environment": 8,
+          "logical_id": 5,
+          "original_pool_id": 5,
+          "source_body": "Body",
+          "box_velocity_world": [
+            0.60012286901474,
+            -1.9068670272827148,
+            -0.4118419885635376,
+            13.289298057556152,
+            3.3834238052368164,
+            0.6116292476654053
+          ],
+          "normal_contact_force_world_n": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_absolute_flap_joint_speed_radps": 1.7623493704377324e-06,
+          "maximum_link_linear_speed_mps": 2.7191874980926514,
+          "maximum_link_angular_speed_radps": 13.726875305175781,
+          "strongest_normal_pairs": [],
+          "nonfinite_filter_count": 0
+        }
+      ]
+    }
+  ]
+}

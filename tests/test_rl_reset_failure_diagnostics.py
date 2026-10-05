@@ -218,6 +218,41 @@ def test_pair_reporter_extension_keeps_previous_filters_and_collision_config():
     assert scene.collision_rules==['unchanged']
 
 
+@pytest.mark.parametrize('change',[
+    {'waves':[dict(split='train')]},{'waves':[dict(split='holdout')]},
+    {'training':True},{'steps':900},{'reset_enabled':False},{'other_probe':True},
+    {'solver':'unknown'},
+])
+def test_reset_solver_probe_rejects_training_final_and_combined_changes_before_mutation(change):
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import configure_reset_solver_probe
+    cfg=SimpleNamespace(sim=SimpleNamespace(dt=1/120,physx=SimpleNamespace(solver_type=0)),decimation=4)
+    args=dict(waves=[dict(split='validation')],solver='TGS',reset_enabled=True,training=False,steps=1)
+    args.update(change)
+    with pytest.raises(ValueError):configure_reset_solver_probe(cfg,**args)
+    assert cfg.sim.physx.solver_type==0
+    args['solver']=None
+    assert configure_reset_solver_probe(cfg,**args) is None
+    assert cfg.sim.physx.solver_type==0
+
+
+def test_reset_solver_probe_preserves_timestep_iterations_and_safety_and_marks_no_Q_import():
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import configure_reset_solver_probe
+    cfg=SimpleNamespace(sim=SimpleNamespace(dt=1/120,physx=SimpleNamespace(solver_type=0,
+        min_position_iteration_count=32,min_velocity_iteration_count=8)),decimation=4,
+        rack_contact_force=10.,obstacle_contact_force=5.)
+    before=json.dumps(vars(cfg.sim.physx),sort_keys=True)
+    record=configure_reset_solver_probe(cfg,[dict(split='validation')],solver='TGS',
+        reset_enabled=True,training=False,steps=1)
+    assert cfg.sim.physx.solver_type==1
+    assert cfg.sim.dt==1/120 and cfg.decimation==4
+    assert cfg.sim.physx.min_position_iteration_count==32 and cfg.sim.physx.min_velocity_iteration_count==8
+    assert cfg.rack_contact_force==10. and cfg.obstacle_contact_force==5.
+    assert record['source_solver']=='PGS' and record['requested_solver']=='TGS'
+    assert record['frozen_only'] is True and record['Q_import_eligible'] is False
+    cfg.sim.physx.solver_type=0
+    assert json.dumps(vars(cfg.sim.physx),sort_keys=True)==before
+
+
 def test_pair_matrix_identity_is_not_the_vector_sum_and_nonfinite_pairs_are_preserved():
     from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import strongest_normal_contact_pairs
     matrix=torch.tensor([[[9.,0.,0.],[-8.,0.,0.],[0.,0.,1.],[0.,0.,0.]],
