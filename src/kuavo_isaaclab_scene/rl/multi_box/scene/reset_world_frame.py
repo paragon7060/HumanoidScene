@@ -18,10 +18,14 @@ def _finite_vector(value,size):
 
 
 def validate_world_frame_rows(probe,num_envs):
-    if not isinstance(probe,dict) or probe.get('probe_type')!='original_world_frame' \
+    if not isinstance(probe,dict) or probe.get('probe_type') not in ('original_world_frame','current_world_frame') \
             or not isinstance(probe.get('samples'),list) or len(probe['samples'])!=num_envs:
         raise ValueError('One explicit original world frame per environment is required')
     for row in probe['samples']:
+        if probe['probe_type']=='current_world_frame':
+            if set(row)!={'layout_seed'}:
+                raise ValueError('Current-world control accepts seeds only, never supplied poses')
+            continue
         _finite_vector(row.get('environment_origin_world_m'),3)
         _finite_vector(row.get('rack_pose_world_wxyz'),7)
         supports=row.get('fixed_support_root_poses_world_wxyz',{})
@@ -56,12 +60,14 @@ def apply_startup_world_frame(env,probe):
         if not env.scene[name].is_fixed_base:
             raise ValueError('Original support frame requires all three fixed Bases')
     old_origins=env.scene.env_origins.clone()
-    origins=old_origins.new_tensor([s['environment_origin_world_m'] for s in probe['samples']])
+    live=probe['probe_type']=='current_world_frame'
+    origins=old_origins.clone() if live else old_origins.new_tensor([s['environment_origin_world_m'] for s in probe['samples']])
     delta=origins-old_origins
     assets=dict(env.scene.rigid_objects)|dict(env.scene.articulations)
-    requested={'rack':old_origins.new_tensor([s['rack_pose_world_wxyz'] for s in probe['samples']])}
-    requested.update({name:old_origins.new_tensor([
-        s['fixed_support_root_poses_world_wxyz'][name] for s in probe['samples']]) for name in SUPPORT_NAMES})
+    requested=({name:assets[name].data.root_pose_w.clone() for name in ('rack',*SUPPORT_NAMES)} if live else
+        {'rack':old_origins.new_tensor([s['rack_pose_world_wxyz'] for s in probe['samples']])}|
+        {name:old_origins.new_tensor([s['fixed_support_root_poses_world_wxyz'][name] for s in probe['samples']])
+            for name in SUPPORT_NAMES})
     # Validate all required assets and tensor shapes before the first mutation.
     if not set(requested)<=set(assets):raise ValueError('World-frame assets are missing')
     moves={name:asset.data.root_pose_w.clone() for name,asset in assets.items()
@@ -77,6 +83,7 @@ def apply_startup_world_frame(env,probe):
         bool((torch.nn.functional.cosine_similarity(pose[:,3:],pose.new_tensor(before[name])[:,3:],dim=-1).abs()<1-1e-5).any())
         for name,pose in moves.items())
     passive={name:(assets[name].data.joint_pos.clone(),assets[name].data.joint_vel.clone()) for name in SUPPORT_NAMES}
+    link_before={name:assets[name].root_physx_view.get_link_transforms().clone() for name in SUPPORT_NAMES}
     env.scene.env_origins.copy_(origins)
     for name,pose in moves.items():assets[name].write_root_pose_to_sim(pose,env_ids=ids)
     refresh_teleported_articulations(env,[assets[name] for name in moves if name in env.scene.articulations],ids)
@@ -91,11 +98,14 @@ def apply_startup_world_frame(env,probe):
     for name,(q,v) in passive.items():
         if not torch.equal(q,assets[name].data.joint_pos) or not torch.equal(v,assets[name].data.joint_vel):
             raise ValueError('World-frame comparison changed current passive joint state')
-    return dict(probe_type='original_world_frame',frozen_only=True,Q_import_eligible=False,
+    link_shifts={name:(assets[name].root_physx_view.get_link_transforms()[...,:3]-pose[...,:3])
+        .norm(dim=-1).max(dim=-1).values.cpu().tolist() for name,pose in link_before.items()}
+    return dict(probe_type=probe['probe_type'],frozen_only=True,Q_import_eligible=False,
         requested=probe,original_origins_world_m=old_origins.cpu().tolist(),
         applied_origins_world_m=env.scene.env_origins.cpu().tolist(),roots_before=before,roots_after=after,
         maximum_root_position_errors_m=errors,minimum_root_absolute_quaternion_dots=quat_dots,
         passive_joint_positions_velocities_retained=True,support_FK_refresh_without_physics_step=True,
+        actual_backend_support_link_maximum_center_shift_m=link_shifts,
         world_root_placements_requested=True,world_root_placements_changed=placement_changed,
         initial_rack_relative_requested_layout_unchanged=True,
         physics_parameters_success_and_safety_unchanged=True,

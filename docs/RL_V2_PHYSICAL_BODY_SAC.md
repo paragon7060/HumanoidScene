@@ -907,3 +907,26 @@ physics tick 전에 읽어 기록한다.
 
 GPU3 arm-bias 실행의 완료 DEV15는3/128(ML2/MR1/UL0/UR0)으로 DEV12의6/128보다
 낮았다. 현재 SAC 일반화의 개선은 아직 입증하지 못했으며 초기화 진단과 구분한다.
+
+### 14:29 · 원래 world 좌표에서도 단일 환경은 안정, 상단 roller 상태는 다름
+
+[네 실행의 닫힌 world-frame 비교](assets/rl_v2_original_world_frame_comparison_20261005.json)는
+모두 exit0·writer 종료·MainPID0·최종 Drive 검증을 마쳤다. 원래 world 위치·방향을
+맞춘 env100/8과 각각 같은 좌표를 다시 쓰는 대조 모두 초기 유효1/1·최초 failure0이었다.
+원래 좌표 비교의 모든 active 박스 Body/네flap world 위치 오차는최대0.36µm,
+회전은최대1.05e-7rad였다. 첫12개 tick Body normal은약5.1N으로 유지됐다.
+
+![원래 world 좌표와 같은 좌표 대조에서도 단일 환경 초기 충격은 작음](assets/rl_v2_original_world_frame_comparison_20261005.png)
+
+하단·중간 deck의 초기 joint position/velocity는원래DEV128과 같았으나 상단deck은
+최대 약6.28rad/18.5rad/s 차이가 있었다. 이는 constructor에서 물리적으로 남은
+passive 상태의 차이이며 전체 solver 초기 이력까지 맞췄다고 주장하지 않는다.
+좌표 배치만으로 최초 충격을 설명하기는 어렵지만 배치 solver 오류로 확정하지 않는다.
+
+다음은 원래DEV128/289개 박스를 유지한 지지대 갱신 대조다. Frame JSON의
+`probe_type: current_world_frame`은 sample에 layout seed만 받으며 실제 현재origin·
+rack·support pose를 읽어 같은 값을 다시 쓴다. 입력 pose override는거부한다.
+현재 passive joint position/velocity도 그대로 유지하고 support FK를 갱신한다.
+갱신 전후 실제 backend `get_link_transforms()`의 roller center 이동도 기록해
+root pose와 child link가 일관되지 않았는지 확인한다. 아직 기본학습 reset에는
+적용하지 않으며 TRAIN/Q/독립FINAL에는사용하지않는다. 관련111개검사통과.
