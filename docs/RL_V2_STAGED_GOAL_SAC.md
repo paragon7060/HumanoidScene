@@ -177,6 +177,10 @@ warm-start의 오래된 actor16910 같은 값은 새 SAC의 학습량이 아니�
 
 ## 여러 초기 배치의 병렬 wave 실행 (실험 경로)
 
+선택 사례의 frozen 파지 진단과 별도로 원래 DEV128 전체를 한 장면씩 기록하는
+[full distribution audit](RL_V2_CONTACT_REWARD_SAC.md#원래-dev128-전체를-한-장면씩-진단)도
+지원한다. 이는 TRAIN/Q 데이터가 아니고 N128과 같은 물리 이력이라고 가정하지 않는다.
+
 `train_batched_staged_goal.py`는 환경마다 실제 base 정지 시점, box anchor,
 held waypoint, 경과 시간을 따로 유지하며 하나의 SAC를 공유한다. 종료한 환경은
 다음 중립 whole-wave reset까지 replay/normalizer에서 제외한다. Auto-reset 뒤의

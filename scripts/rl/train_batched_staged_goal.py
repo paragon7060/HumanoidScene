@@ -57,6 +57,8 @@ def main():
         help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
+    parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
+        help='With frozen grasp audit: replay all128 DEV cases as one scene,32 per region; never imports Q rows')
     parser.add_argument('--reset-world-frame-probe',type=Path,default=None,
         help='Frozen DEV reset only: original measured world origins/rack/support poses; passive DOF history retained')
     parser.add_argument('--zero-passive-roller-velocities-probe',action='store_true',
@@ -80,6 +82,7 @@ def main():
     waves=json.loads(args.waves_json.read_text())
     from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_observation_audit import validate_grasp_observation_audit
     try:validate_grasp_observation_audit(waves,enabled=args.grasp_observation_audit,
+        full_distribution=args.full_distribution_grasp_observation_audit,
         training=args.training,steps=args.steps,other_probe=any((args.reset_failure_diagnostics,
             args.contact_stability_probe,args.tgs_zero_velocity_probe,args.contact_last_probe,args.pgs_probe,
             args.gripper_drive_probe,args.centered_world_probe,args.packed_background_probe,args.base_waypoint_probe,
@@ -441,6 +444,7 @@ def main():
             'startup_scene_replication_probe':replication_probe,
             'initial_layout_guard_storage':'whole_wave_initial_layout_guard_reference_v1',
             'grasp_observation_audit':dict(enabled=args.grasp_observation_audit,
+                full_original_DEV_distribution=args.full_distribution_grasp_observation_audit,
                 frozen_only=True,Q_import_eligible=False,actor_input_and_physics_unchanged=True),
             'centered_world_probe':dict(enabled=args.centered_world_probe,frozen_only=args.centered_world_probe,
                 Q_import_eligible=not args.centered_world_probe,environment_origins=env.scene.env_origins.tolist()),
@@ -484,6 +488,7 @@ def main():
         development_checks=[]
         for wave_index,wave in enumerate(waves):
             if stopped['value']:break
+            if grasp_audit is not None:grasp_audit.begin_wave(wave_index,wave['layouts'])
             if drive_probe is not None:
                 drive_audits.append(dict(wave=wave_index,**drive_probe.apply(wave['gripper_drive_probe'])))
                 (output/'gripper_drive_audit.json').write_text(json.dumps(drive_audits,indent=2)+'\n')

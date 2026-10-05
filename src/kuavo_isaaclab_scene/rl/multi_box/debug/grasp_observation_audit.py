@@ -21,10 +21,29 @@ from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
 AUDIT_SOURCE='grasp_observation_audit_NOT_matching_Q_replay'
 
 
-def validate_grasp_observation_audit(waves,*,enabled,training,steps,other_probe=False):
+def validate_grasp_observation_audit(waves,*,enabled,training,steps,other_probe=False,
+                                    full_distribution=False):
+    if full_distribution and not enabled:
+        raise ValueError('Full distribution capture requires the explicit frozen grasp audit')
     if not enabled:return
-    if training or other_probe or not 31<=steps<=900 or len(waves)!=1:
-        raise ValueError('Grasp observation audit requires one frozen DEV wave,31..900steps and unchanged physics')
+    if training or other_probe or not 31<=steps<=900:
+        raise ValueError('Grasp observation audit requires frozen DEV,31..900steps and unchanged physics')
+    if full_distribution:
+        # Same complete DEV distribution, serialized in one physics scene.
+        # This cannot silently turn a selected small diagnostic into a broad
+        # result, or mix TRAIN/independent FINAL rows into a frozen audit.
+        if len(waves)!=128 or any(w.get('split')!='validation'
+                or len(w.get('layouts',[]))!=1
+                or w.get('background_placement','original')!='original' for w in waves):
+            raise ValueError('Full DEV audit requires128 frozen single-case waves with original backgrounds')
+        rows=[w['layouts'][0].get('layout',{}) for w in waves]
+        regions=('shelf_2_left','shelf_2_right','shelf_3_left','shelf_3_right')
+        if len({r.get('seed') for r in rows})!=128 or any(
+                sum(r.get('target_region')==region for r in rows)!=32 for region in regions):
+            raise ValueError('Full DEV audit requires distinct seeds and32 original cases in each region')
+        return
+    if len(waves)!=1:
+        raise ValueError('Selected grasp audit requires one frozen DEV wave')
     wave=waves[0]
     if wave.get('split')!='validation' or not 1<=len(wave.get('layouts',[]))<=16:
         raise ValueError('Grasp observation audit is limited to1..16 DEV layouts; TRAIN/FINAL excluded')
@@ -81,6 +100,18 @@ class GraspObservationAudit:
         self.stream=gzip.open(self.path,'wt',encoding='utf8')
         self.pending=None;self.frames=self.rows=self.invalid_rows=0
         self.completed_step=None
+        self.current_wave=None
+        self.layout_metadata=None
+        self.waves_started=0
+
+    def begin_wave(self,index,layouts):
+        # Local step numbers restart for every scene reset. Clear both the
+        # old packet and its deduplication key before settling the new scene.
+        self.pending=None
+        self.completed_step=None
+        self.current_wave=index
+        self.layout_metadata=[r['layout'] for r in layouts]
+        self.waves_started=getattr(self,'waves_started',0)+1
 
     @torch.no_grad()
     def measure(self,raw=None):
@@ -157,6 +188,10 @@ class GraspObservationAudit:
                 physical_jaw_command=packet['action'][i],normalized_goal_jaws=packet['goals'].get(i),
                 before=packet['before'][i],after=after[i],success=success[i],
                 unsafe_causes={k:v[i] for k,v in causes.items()})
+            if getattr(self,'current_wave',None) is not None:
+                layout=self.layout_metadata[i]
+                record.update(wave=self.current_wave,layout_seed=layout['seed'],
+                              target_region=layout['target_region'])
             self.stream.write(json.dumps(record,allow_nan=False)+'\n')
             self.rows+=1;self.invalid_rows+=int(not record['after']['measurement_valid'])
         self.frames+=1;self.completed_step=packet['step']
@@ -165,5 +200,6 @@ class GraspObservationAudit:
         self.stream.close()
         (self.path.parent/'grasp_observation_audit_summary.json').write_text(json.dumps(dict(
             source=AUDIT_SOURCE,frames=self.frames,rows=self.rows,invalid_measurement_rows=self.invalid_rows,
+            waves_started=getattr(self,'waves_started',0),
             collection_only=True,Q_import_eligible=False,policy_observations_unchanged=True,
             no_sensors_or_physics_steps_added=True,terminal_capture_before_reset=True),indent=2)+'\n')

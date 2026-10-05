@@ -268,3 +268,73 @@ python3 scripts/rl/summarize_batched_staged_run.py \
 
 이번 지표 도구는 GPU0/3의 실제 완료 snapshot을 읽어 결과를 대조하고 Python
 compile을 확인했다. 학습 코드와 활성 writer의 설정을 다시 바꾸지는 않았다.
+
+## 20:15: 두 번째 학습 후 DEV와 actor 영향 점검
+
+![실제 actor 변화와 두 번째 학습 후 DEV](assets/rl_v2_contact_reward_actor_effect_20261005.png)
+
+[실제 TRAIN 입력의 CPU 진단·완료 DEV·후속 입력 증거](assets/rl_v2_contact_reward_actor_effect_20261005.json).
+GPU0 actor986/Q5990에서 고정한 다음 DEV는5/128(ML0/MR4/UL1/UR0)이었다.
+기존6→6→5로 개선이 없다. 초기 유효98개 중 성공5/unsafe63/timeout30이고
+초기화 실패30개도 원래 분모128에 남는다. Rack 충돌45, box speed21, lift limit10,
+drop4, workspace3은 중복 가능한 원인 수다. 마지막 양손 pinch6건 중 실제 성공은5건이다.
+네 TRAIN의 실제 성공은 총23건이지만 위오른쪽 TRAIN 성공은0건이다. 저장소는
+지역별 용량 때문에 오래된 성공을 제거하므로 누적 성공 건수와 같지 않다.
+해당 시각 저장소에는16에피소드/6949행(ML5/MR9/UL2/UR0), 실제 TRAIN replay198232행이
+있고 평가 전이는0행이다. 기존 GPU3의 다음 DEV도10/128(ML3/MR7/UL0/UR0)으로
+9→8→11→6→10→10이며 상단 성공이 없어 지속적인 네 영역 개선은 없다.
+
+새 Q5990와 원래 초기 actor0를 같은 실제 TRAIN 입력으로 CPU에서 대조했다.
+무작위4096행의 실행되는 normalized body 목표는 평균 절대값0.00837만큼 바뀌었고,
+gripper의 deterministic 결정35개가 달랐다. Body 좌표의 약10.0%는 projector 경계에서
+Q gradient가0이며 나머지는 Q→목표 gradient가 통과했다. 성공 경로354행에서는
+차단 비율0.58%였다. 관측 입력·정규화·원래 frozen jaw 기준을 그대로 복원했으며
+optimizer/replay를 수정하지 않았다. 이것은 실제 몸의 안전한 동작을 보증하는 검사가 아니다.
+
+안전한 TRAIN 성공16건의 마지막 실제 state/action에서 평균 minQ6.83, target6.99,
+MAE0.40/RMSE0.56이었다. 평균만 같다고 완전히 수렴했다고 주장하지 않는다.
+성공의 보상 신호가 연결되고 actor 출력도 바뀌지만, 아직 실제 DEV 성공률은 개선되지
+않았다. 따라서 학습이 전혀 작동하지 않거나 projector가 모든 움직임을 막는다는
+설명만으로 현재 결과를 설명할 수 없다. Box/접촉 물리와 실패하는 손의 geometry를
+함께 확인하며 같은 학습을 이어간다.
+
+첫 학습 블록 이후 사용할 원래 wave12..24(8TRAIN/5DEV/FINAL0)를 준비했다.
+각 wave128개/구역32개, 원래 layout과 DR을 정확히 보존한다. 현재 writer가 종료한 뒤
+같은 새 보상 checkpoint와 그 실행의 실제 Q/replay를 확인해 재개한다. 아직 새 학습을
+중복 실행한 것은 아니다.
+
+### 원래 DEV128 전체를 한 장면씩 진단
+
+병렬 물리 환경의 영향과 실제 flap/pad geometry를 확인하기 위해, 같은 actor986/Q5990를
+고정해 원래 DEV128 전체를 N1 장면128회로 재생할 입력을 준비하고 Drive 크기/MD5를
+검증했다. 사례를 골라 줄이지 않으며 box/base/background DR, 중립 reset, 성공·안전
+조건과 물리 설정을 유지한다. N1의 world 구성과 물리 이력은 N128과 다르므로 같은
+초기 상태의 인과 비교나 N128 성능 향상으로 해석하지 않는다. 결과는 실제 outcome으로
+따로 확인해야 한다. 기존 두 학습은 계속 진행한다.
+
+`--grasp-observation-audit --full-distribution-grasp-observation-audit --no-training`은
+서로 다른128개 DEV seed를 한 장면씩 실행하면서 실제/nominal flap 자세, pad 힘·영역,
+closing gate와 움직임을 기록한다. 4영역 각32개, original 주변 배치만 허용한다.
+TRAIN/독립FINAL, 중복 seed, 불균형/일부 사례만의 목록, 다른 physics probe와의 결합은
+거부한다. 기존 한 wave/최대16개 선택 진단은 그대로다. 모든 진단 전이는 Q/replay나
+성공 actor 보조 손실의 입력으로 사용하지 않는다.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python scripts/rl/batched_staged_goal_with_drive.py \
+  --gpu 0 --experiment-dir /absolute/path/to/unique-full-DEV128-N1-run \
+  --checkpoint /absolute/path/to/verified-frozen-input/checkpoint_00005990.pt \
+  --training-manifest /absolute/path/to/verified-frozen-input/training_manifest.json \
+  --waves-json /absolute/path/to/verified-frozen-input/waves.json \
+  --waypoints /absolute/path/to/HumanoidScene/docs/assets/rl_v2_staged_base_hold_candidates_20261004.json \
+  --demo-dataset /absolute/path/to/HumanoidScene/examples/demos/v2_grasp_quest_success.hdf5 \
+  --native-seed /absolute/path/to/current-middle-calibration.hdf5 \
+  --native-seed /absolute/path/to/current-upper-calibration.hdf5 \
+  --no-training --grasp-observation-audit --full-distribution-grasp-observation-audit
+```
+
+원래 layout의 내부 split은 legacy `holdout`이고 wave split은`validation`이다.
+독립FINAL은 별도 outer`holdout` wave 및 겹치지 않는 seed 집합으로 구분한다.
+기존 row를 새 split으로 다시 라벨링하지 않는다. Wave마다 audit packet/중복 검사를
+새로 시작하고 각 기록에 원래 wave/seed/region을 붙여 같은 local step의 다른 사례가
+누락되지 않게 한다. 위 guard와 접촉 보상 관련 CPU32개
+검사가 통과했고 독립FINAL을 학습/진단에 가져오지 않는다.
