@@ -51,6 +51,8 @@ def main():
         help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
     parser.add_argument('--zero-passive-roller-velocities-probe',action='store_true',
         help='Frozen reset diagnostic only: preserve roller angles/poses but remove inherited angular velocities')
+    parser.add_argument('--rear5-support-gap-probe-m',type=float,default=None,
+        help='Frozen reset diagnostic only: keep dynamic background5, change its initial support gap (default0.008m)')
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
@@ -60,9 +62,16 @@ def main():
             or args.centered_world_probe or args.packed_background_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
-    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import validate_reset_diagnostic_request
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import (
+        validate_reset_diagnostic_request,validate_rear5_support_gap_diagnostic_request)
     try:validate_reset_diagnostic_request(waves,enabled=args.reset_failure_diagnostics,
         training=args.training,steps=args.steps)
+    except ValueError as error:parser.error(str(error))
+    try:validate_rear5_support_gap_diagnostic_request(waves,gap_m=args.rear5_support_gap_probe_m,
+        reset_enabled=args.reset_failure_diagnostics,training=args.training,steps=args.steps,
+        other_probe=any((args.zero_passive_roller_velocities_probe,args.contact_stability_probe,
+            args.tgs_zero_velocity_probe,args.contact_last_probe,args.pgs_probe,
+            args.gripper_drive_probe,args.centered_world_probe,args.packed_background_probe,args.base_waypoint_probe)))
     except ValueError as error:parser.error(str(error))
     if args.zero_passive_roller_velocities_probe and (not args.reset_failure_diagnostics or
             args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or
@@ -312,7 +321,9 @@ def main():
                 Q_import_eligible=False,first_failure_before_respawn=True,
                 physics_randomization_success_safety_unchanged=True,
                 initial_passive_roller_velocity_changed=args.zero_passive_roller_velocities_probe,
-                zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe)
+                zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe,
+                rear5_initial_support_gap_probe_m=args.rear5_support_gap_probe_m,
+                initial_box_pose_changed=args.rear5_support_gap_probe_m is not None)
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         if args.packed_background_probe:
             manifest=json.loads((output/'manifest.json').read_text())
@@ -340,6 +351,9 @@ def main():
             actors=torch.stack([layout_reset_observation(sources[r['episode_index']],
                 GraspLayout(**r['layout']).validate(),cfg.multi_box,
                 roller_clearance_m=resolve_rack_roller_settings().box_clearance_m) for r in wave['layouts']]).to(env.device)
+            if args.rear5_support_gap_probe_m is not None:
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import rear5_support_gap_reset_observation
+                actors=torch.stack([rear5_support_gap_reset_observation(actor,args.rear5_support_gap_probe_m) for actor in actors])
             if wave.get('background_placement','original')=='packed':
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import packed_background_reset_observation
                 actors=torch.stack([packed_background_reset_observation(actor,cfg.multi_box,
@@ -348,6 +362,11 @@ def main():
                 capture_reset_diagnostics=args.reset_failure_diagnostics,
                 zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe)
             if args.reset_failure_diagnostics:
+                layout_guard['reset_failure_diagnostics']['rear5_initial_support_gap_probe_m']=args.rear5_support_gap_probe_m
+                if args.rear5_support_gap_probe_m is not None:
+                    layout_guard['reset_failure_diagnostics']['initial_box_pose_changed']=True
+                    layout_guard['reset_failure_diagnostics']['physical_state_unchanged']=False
+                    layout_guard['reset_failure_diagnostics']['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
                 diagnostic_name=f'reset_failure_diagnostics_wave_{wave_index:04d}.json'
                 (output/diagnostic_name).write_text(json.dumps(
                     dict(wave=wave_index,split=wave['split'],layouts=wave['layouts'],guard=layout_guard),indent=2)+'\n')

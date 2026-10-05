@@ -595,3 +595,21 @@ GPU3 native-nstep10은 첫 TRAIN631step에서 actor33/Q1156회에 도달했다.
 실제 nstep batch64행/평균 horizon9/terminal18·bootstrap46행, nstep loss0.0289와
 body/jaw 유지 weight10/0.1이 기록되어 보강 코드 실행을 확인했다. 후속 DEV 개선은
 아직 평가 전이다.
+
+### 11:20 · Rear5 제외 대조에서는128/128 초기화 유효
+
+[동일 DEV의 주변5 제외 실측](assets/rl_v2_reset_without_rear5_20261005.json)은 정상
+exit0·writer 종료·Drive 최종 크기/MD5 검증까지 완료됐다. 원래64개 환경의 주변5만
+제외하고 selected target/base/다른 background의 요청 pose를 유지했다.
+유효 환경은 원본100/128에서128/128로 늘었고 최초 selected failure는11개에서0개다.
+ML32개의 tick5 최대 normal force5.12N/root speed0.00287m/s, tick60 속도0.000381m/s로
+원본의 비정상 contact impulse가 사라졌다. 주변5와 support의 접촉이 강한 원인 후보다.
+
+이는 background 구성을 바꾼 초기화 진단이며 파지 성공/학습 일반화가 아니다.
+기본 학습에서는 주변5를 유지한다. 다음 단일 변수 검사는 모든 원래 주변 박스를
+복원하고 주변5만 초기 support gap8mm에서0mm로 바꾼다:
+`--reset-failure-diagnostics --rear5-support-gap-probe-m 0 --no-training --steps 1`.
+동적 박스에 제약을 추가하지 않고 selected target/base/다른 박스 pose를 그대로 둔다.
+독립 FINAL·TRAIN·다른 물리 probe 조합에서는 거부하며 기본값은 비활성이다.
+Data collection은 matching TRAIN Q로 사용할 수 없다. Initial gap/지지계 constraint/
+contact cache 중 어느 경로인지 아직 구분되지 않았으므로 기본 reset을 바꾸지 않는다.

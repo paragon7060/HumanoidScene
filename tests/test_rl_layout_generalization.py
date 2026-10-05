@@ -62,6 +62,27 @@ def test_native_multi_box_seed_uses_selected_target_and_replaces_only_background
     validate_layout_footprints(moved)
 
 
+def test_rear5_support_gap_probe_preserves_target_robot_other_boxes_and_source_rows():
+    from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import rear5_support_gap_reset_observation
+    from kuavo_isaaclab_scene.workcell.rack_box_layout import RACK_SURFACE_CLEARANCE_M
+    original=layout_reset_observation(rack_seed(),GraspLayout(1,'probe',-.025,.007,(5,6,9),
+        base_lateral_m=.13,base_outward_m=.15,base_yaw_rad=.2),MultiBoxSpec(),roller_clearance_m=.01)
+    before=original.clone();changed=rear5_support_gap_reset_observation(original,0.)
+    positions=slice(86+5*22+12,86+5*22+15)
+    delta=changed[positions]-original[positions]
+    rotation=_rotation_matrix(original[71:77])
+    torch.testing.assert_close(rotation.T@delta,original.new_tensor([0.,0.,-RACK_SURFACE_CLEARANCE_M]),atol=2e-7,rtol=0)
+    unchanged=changed.clone();unchanged[positions]=before[positions]
+    torch.testing.assert_close(unchanged,before,atol=0,rtol=0)
+    torch.testing.assert_close(original,before,atol=0,rtol=0)
+    assert torch.equal(rear5_support_gap_reset_observation(original,RACK_SURFACE_CLEARANCE_M),original)
+    absent=layout_reset_observation(rack_seed(),GraspLayout(2,'probe',-.025,distractors=(6,)),MultiBoxSpec())
+    assert torch.equal(rear5_support_gap_reset_observation(absent,0.),absent)
+    wrong=original.clone();wrong[400:412]=0;wrong[405]=1
+    with pytest.raises(ValueError,match='selected target'):rear5_support_gap_reset_observation(wrong,0.)
+
+
 @pytest.mark.parametrize('bad', ['missing','ambiguous','weighted','inactive','unmasked'])
 def test_layout_reset_rejects_invalid_selected_target_even_with_other_boxes(bad):
     from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec

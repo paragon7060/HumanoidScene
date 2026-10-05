@@ -237,6 +237,27 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
     return base_reset_observation(actor,layout.base_lateral_m,layout.base_outward_m,layout.base_yaw_rad)
 
 
+def rear5_support_gap_reset_observation(source, gap_m):
+    """Frozen reset probe: change only background5's initial support gap.
+
+    This creates a new initial state, never modifies recorded transitions or
+    constrains the dynamic box. The CLI restricts it to frozen DEV startup.
+    """
+    from ....workcell.rack_box_layout import RACK_SURFACE_CLEARANCE_M
+    if not math.isfinite(gap_m) or not 0 <= gap_m <= RACK_SURFACE_CLEARANCE_M:
+        raise ValueError('Rear5 support gap must be finite and within the default spawn clearance')
+    if source.shape!=(464,) or not bool(torch.isfinite(source).all()):
+        raise ValueError('Rear5 support gap needs one finite464-D reset observation')
+    selected=torch.where(source[400:412]>.5)[0]
+    if len(selected)!=1 or int(selected[0])==5:
+        raise ValueError('Rear5 support gap cannot move the selected target')
+    actor=source.clone();tokens=actor[86:350].reshape(12,22)
+    if tokens[5,0]>.5:
+        rotation=_rotation_matrix(actor[71:77])
+        tokens[5,12:15]+=rotation@actor.new_tensor([0.,0.,gap_m-RACK_SURFACE_CLEARANCE_M])
+    return actor
+
+
 def packed_background_reset_observation(source,spec,*,roller_clearance_m=0.):
     """Frozen diagnostic: fill empty depth slots without moving the target.
 

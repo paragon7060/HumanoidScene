@@ -188,3 +188,18 @@ def test_startup_normal_contact_trace_rejects_ambiguous_box_sources():
         _multi_box_active=torch.tensor([[True]]),_multi_box_pool_ids=torch.tensor([[0]]))
     with pytest.raises(ValueError,match='one box-body reporter'):
         startup_normal_contact_snapshot(env,['box'],['contact'],[])
+
+
+@pytest.mark.parametrize('change',[
+    {'waves':[dict(split='train')]},{'waves':[dict(split='holdout')]},
+    {'training':True},{'steps':900},{'reset_enabled':False},{'other_probe':True},
+    {'gap_m':float('nan')},{'gap_m':-.001},{'gap_m':.009},
+])
+def test_rear5_support_gap_cannot_mix_with_training_final_or_other_physics_probes(change):
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import validate_rear5_support_gap_diagnostic_request
+    args=dict(waves=[dict(split='validation')],gap_m=0.,reset_enabled=True,
+        training=False,steps=1,other_probe=False)
+    args.update(change)
+    with pytest.raises(ValueError):validate_rear5_support_gap_diagnostic_request(**args)
+    args['gap_m']=None
+    validate_rear5_support_gap_diagnostic_request(**args)  # existing training path stays opt-in

@@ -18,6 +18,17 @@ def validate_reset_diagnostic_request(waves, *, enabled, training, steps):
         raise ValueError('Reset diagnostics require frozen DEV waves and --steps 1; no TRAIN or FINAL')
 
 
+def validate_rear5_support_gap_diagnostic_request(waves, *, gap_m, reset_enabled, training, steps, other_probe):
+    if gap_m is None:
+        return
+    from ....workcell.rack_box_layout import RACK_SURFACE_CLEARANCE_M
+    if not reset_enabled or other_probe:
+        raise ValueError('Rear5 support-gap probe requires an otherwise unchanged reset diagnostic')
+    validate_reset_diagnostic_request(waves, enabled=True, training=training, steps=steps)
+    if not math.isfinite(gap_m) or not 0 <= gap_m <= RACK_SURFACE_CLEARANCE_M:
+        raise ValueError('Rear5 support gap must be finite and between0 and the default spawn clearance')
+
+
 def _finite_values(values):
     return [float(v) if math.isfinite(float(v)) else None for v in values]
 

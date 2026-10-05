@@ -1,0 +1,123 @@
+{
+  "measured_at": "2026-10-05T02:20:16.693050+00:00",
+  "source_run": "artifacts/rl/drive_runs/physical_body_reset_without_rear5_pgs128_gpu2_20261005_111225/batch_sac_20261005_111242_564950",
+  "source_commit": "f4097a9144600afcb2c855140b56fcf479b6d749",
+  "source_SHA256": "3d1fffaf9ca80be30eb01fc1ac3fcacbd442b6e0a4e875a119b599f0ecea5bee",
+  "comparison_original_report": "rl_v2_reset_contact_onset_20261005.json",
+  "declared_DEV_cases": 128,
+  "original_valid_cases": 128,
+  "original_requested_boxes": 225,
+  "first_selected_failure_count": 0,
+  "removed_background_logical_id": 5,
+  "removed_background_case_count": 64,
+  "original_selected_box_base_other_background_requested_poses_preserved": true,
+  "dynamic_physics_and_success_safety_parameters_unchanged": true,
+  "initial_background_configuration_changed": true,
+  "default_training_changed": false,
+  "normal_contact_trace": [
+    {
+      "physics_step": 1,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.269378335295391,
+      "maximum_root_speed_mps": 0.007118695049758859
+    },
+    {
+      "physics_step": 2,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.294391068966195,
+      "maximum_root_speed_mps": 0.008504313859753395
+    },
+    {
+      "physics_step": 3,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.135615833290268,
+      "maximum_root_speed_mps": 0.007043262595015805
+    },
+    {
+      "physics_step": 4,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.195254980863706,
+      "maximum_root_speed_mps": 0.004679852331327331
+    },
+    {
+      "physics_step": 5,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.119709476899195,
+      "maximum_root_speed_mps": 0.0028699429833332984
+    },
+    {
+      "physics_step": 6,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.106842324454819,
+      "maximum_root_speed_mps": 0.0013934155448169763
+    },
+    {
+      "physics_step": 7,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.113744996689028,
+      "maximum_root_speed_mps": 0.0016179476260281857
+    },
+    {
+      "physics_step": 8,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.125924304375922,
+      "maximum_root_speed_mps": 0.0015337137355440095
+    },
+    {
+      "physics_step": 9,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.122503952976704,
+      "maximum_root_speed_mps": 0.001363578077351117
+    },
+    {
+      "physics_step": 10,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.1223654920871375,
+      "maximum_root_speed_mps": 0.0013343621297111385
+    },
+    {
+      "physics_step": 11,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.122140274321423,
+      "maximum_root_speed_mps": 0.0011038541159107517
+    },
+    {
+      "physics_step": 12,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.119834614320017,
+      "maximum_root_speed_mps": 0.0009383744990530936
+    },
+    {
+      "physics_step": 16,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.113204792555845,
+      "maximum_root_speed_mps": 0.0005710171070648358
+    },
+    {
+      "physics_step": 32,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.113440048787081,
+      "maximum_root_speed_mps": 0.0005765997546426797
+    },
+    {
+      "physics_step": 60,
+      "middle_left_cases": 32,
+      "maximum_body_normal_force_n": 5.104826373458439,
+      "maximum_root_speed_mps": 0.00038105625182975286
+    }
+  ],
+  "writer_exit_code": 0,
+  "final_Drive_verified": true,
+  "actor_updates": 0,
+  "critic_updates": 0,
+  "TRAIN_Q_import": false,
+  "independent_FINAL_used": false,
+  "policy_success_claim": false,
+  "interpretation": "Removing rear5 from the original64 scenes eliminates first selected-box reset failures and abnormal ML contact impulses; valid layouts increase100 to128. Rear5/support interaction is now a strong physical cause candidate.",
+  "limitations": [
+    "Background configuration differs; this is not learned task success or generalization.",
+    "Cold physical repeats are not bitwise paired.",
+    "Removing the box does not identify whether initial gap, support constraints, or solver/contact cache causes the effect."
+  ],
+  "next_measurement": "Restore every original background and change only rear5 initial support clearance from8mm to0mm in frozen DEV."
+}
