@@ -9,7 +9,18 @@ from .reset_diagnostics import _finite_values, strongest_normal_contact_pairs, a
 FLAP_NAMES=('flap_front','flap_back','flap_right','flap_left')
 
 
-def add_startup_flap_contact_reporters(scene, body_sensor_names, box_paths):
+def resolve_startup_flap_contact_paths(records, env_regex_ns):
+    """Match InteractiveScene's expansion of sensor configuration paths."""
+    if not isinstance(env_regex_ns,str) or not env_regex_ns.startswith('/'):
+        raise ValueError('Flap contact attribution requires the actual scene environment namespace')
+    resolved=deepcopy(records)
+    for record in resolved:
+        record['source_path']=record['source_path'].replace('{ENV_REGEX_NS}',env_regex_ns)
+        record['other_box_paths']=[p.replace('{ENV_REGEX_NS}',env_regex_ns) for p in record['other_box_paths']]
+    return resolved
+
+
+def add_startup_flap_contact_reporters(scene, body_sensor_names, box_paths, *, physical_pools=None):
     """One source per reporter, as required by PhysX filtered contact views.
 
     Only frozen diagnostics call this. Existing body/finger reporters, actual
@@ -17,6 +28,10 @@ def add_startup_flap_contact_reporters(scene, body_sensor_names, box_paths):
     """
     if len(body_sensor_names)!=len(box_paths):
         raise ValueError('Flap reporters require ordered physical-pool geometry')
+    pools=set(range(len(box_paths))) if physical_pools is None else set(physical_pools)
+    if not pools or any(type(p)!=int or not 0<=p<len(box_paths) for p in pools) \
+            or (physical_pools is not None and len(pools)!=len(physical_pools)):
+        raise ValueError('Flap source pools must be distinct valid physical-pool IDs')
     records=[]
     for pool,(body_sensor,paths) in enumerate(zip(body_sensor_names,box_paths,strict=True)):
         if set(paths['flaps'])!=set(FLAP_NAMES):
@@ -24,6 +39,7 @@ def add_startup_flap_contact_reporters(scene, body_sensor_names, box_paths):
         source_paths=list(paths['flaps'].values())
         if len(set(source_paths))!=4 or any(p.rsplit('/',1)[-1]!=flap for flap,p in paths['flaps'].items()):
             raise ValueError('Flap source paths must identify distinct literal rigid bodies')
+        if pool not in pools:continue
         for flap in FLAP_NAMES:
             name=f'reset_flap_pair_{pool}_{flap}'
             if hasattr(scene,name):raise ValueError('Startup flap reporter already exists')

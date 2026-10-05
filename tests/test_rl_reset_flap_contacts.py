@@ -7,6 +7,7 @@ import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.scene.reset_flap_contacts import (
     FLAP_NAMES,add_startup_flap_contact_reporters,startup_flap_contact_snapshot,
+    resolve_startup_flap_contact_paths,
 )
 
 
@@ -96,3 +97,29 @@ def test_duplicate_or_grouped_flap_source_is_rejected():
     _,cfg,_,_=setup()
     bad=[dict(asset_name='box',body='/box/Body',flaps={f:'/box/(flap_front|flap_back)' for f in FLAP_NAMES})]
     with pytest.raises(ValueError,match='literal'):add_startup_flap_contact_reporters(cfg,['body0'],bad)
+
+
+def test_scene_namespace_expansion_matches_compiled_filter_axis_and_preserves_input():
+    env,_,records,lookup=setup();original=deepcopy(records)
+    for r in records:
+        r['source_path']=r['source_path'].replace('/World/envs/env_.*','{ENV_REGEX_NS}')
+        r['other_box_paths']=[p.replace('/World/envs/env_.*','{ENV_REGEX_NS}') for p in r['other_box_paths']]
+    unresolved=deepcopy(records)
+    resolved=resolve_startup_flap_contact_paths(records,'/World/envs/env_.*')
+    assert resolved==original and records==unresolved
+    assert len(startup_flap_contact_snapshot(env,resolved,lookup))==12
+    with pytest.raises(ValueError,match='namespace'):resolve_startup_flap_contact_paths(records,'relative/path')
+
+
+def test_focused_sources_keep_other_box_filters_and_literal_pool_identity():
+    _,cfg,_,_=setup()
+    paths=[dict(asset_name=f'box{i}',body=f'/box{i}/Body',flaps={f:f'/box{i}/{f}' for f in FLAP_NAMES}) for i in range(2)]
+    # Start from existing body configs, without reusing prior flap reporters.
+    fresh=SimpleNamespace(body0=cfg.body0,body1=cfg.body1)
+    records=add_startup_flap_contact_reporters(fresh,['body0','body1'],paths,physical_pools=[1])
+    assert len(records)==4 and all(r['pool']==1 for r in records)
+    assert all(r['other_box_paths']==[paths[0]['body'],*paths[0]['flaps'].values()] for r in records)
+    assert not hasattr(fresh,'reset_flap_pair_0_flap_front')
+    for bad in ([],[1,1],[-1],[2]):
+        with pytest.raises(ValueError,match='distinct valid'):
+            add_startup_flap_contact_reporters(fresh,['body0','body1'],paths,physical_pools=bad)

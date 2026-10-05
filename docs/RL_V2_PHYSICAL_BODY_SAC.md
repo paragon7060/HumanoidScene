@@ -784,3 +784,19 @@ velocity, environment/logical/physical pool identity를함께기록한다. Norma
 Batch contact 처리·reset의숨은상태·view/environment ordering 가능성도구분해야한다.
 현재의flap source 진단은이전기록의측정공백을메우며, 직접접촉이없다면다음에는
 PhysX 실제prim ordering과teleport후contact cache를확인한다. 아직엔진오류로확정하지않는다.
+
+### 13:10 · 진단의 환경 경로 변환 오류 수정
+
+첫 flap 진단은 정상 학습 결과를 얻기 전에 exit1로 끝났다. Isaac의
+InteractiveScene은 sensor 경로의 `{ENV_REGEX_NS}`를 `/World/envs/env_.*`로 바꾼다.
+별도로 보관한 진단 target 목록에는 원래 매크로가 남아 있어 filter index 조회가
+실패했다. 진단 목록도 실제 `env.scene.env_regex_ns`로 변환하도록 수정했다.
+이 오류는 추가 진단 코드의 경로 문제이며 기존 SAC 다섯 실행과 물리 제어에는
+영향을 주지 않았다. 실패 writer 종료와 최종 Drive 로그·체크섬 검증을 완료했다.
+
+재시도는 원래 128개 환경·289개 박스를 유지하며 현재 조사하는 physical pool4/5의
+네 flap씩 총8개 reporter만 생성한다. Filter target은 여전히 모든 다른18개 pool의
+Body/4flap이다. Source 범위만 줄여 초기화 비용을 낮추며 박스를 제거하지 않는다.
+옵션은 `--reset-flap-contact-physical-pools 4 5`이고 기본 진단은 전체72개다.
+단일 source·명시적 pool identity·filter 전체 범위·매크로 변환·입력 보존을 포함한
+관련97개 CPU 검사가 통과했다. Frozen DEV/steps1 제한과 Q import 금지는 유지한다.

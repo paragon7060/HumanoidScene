@@ -61,6 +61,8 @@ def main():
         help='Frozen reset diagnostic only: extend existing box reporters to rack/rollers/other box bodies and measure support motion')
     parser.add_argument('--reset-flap-contact-pair-diagnostics',action='store_true',
         help='Frozen reset pair audit only: add one-source reporters for all four flaps; collision rules unchanged')
+    parser.add_argument('--reset-flap-contact-physical-pools',type=int,nargs='+',default=None,
+        help='Optional focused source pools for the frozen flap audit; other-box target filters remain exhaustive')
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
@@ -79,6 +81,8 @@ def main():
         parser.error('Contact pair diagnostics require frozen reset diagnostics')
     if args.reset_flap_contact_pair_diagnostics and not args.reset_contact_pair_diagnostics:
         parser.error('Flap pair diagnostics require frozen reset and contact pair diagnostics')
+    if args.reset_flap_contact_physical_pools is not None and not args.reset_flap_contact_pair_diagnostics:
+        parser.error('Flap source-pool selection requires frozen flap contact diagnostics')
     if args.reset_solver_probe and not args.reset_failure_diagnostics:
         parser.error('Reset solver probe requires frozen reset diagnostics')
     if args.passive_bearing_probe_layer and (not args.reset_failure_diagnostics
@@ -186,7 +190,8 @@ def main():
             pair_filter_manifest=extend_startup_contact_pair_filters(cfg.scene,BELT_CONTACT_SENSOR_NAMES,targets)
             if args.reset_flap_contact_pair_diagnostics:
                 from kuavo_isaaclab_scene.rl.multi_box.scene.reset_flap_contacts import add_startup_flap_contact_reporters
-                flap_contact_reporters=add_startup_flap_contact_reporters(cfg.scene,BELT_CONTACT_SENSOR_NAMES,box_paths)
+                flap_contact_reporters=add_startup_flap_contact_reporters(cfg.scene,BELT_CONTACT_SENSOR_NAMES,box_paths,
+                    physical_pools=args.reset_flap_contact_physical_pools)
         if args.centered_world_probe:
             if not str(args.device).startswith('cuda') or not cfg.scene.replicate_physics or not cfg.scene.filter_collisions:
                 raise ValueError('Shared-origin probe requires replicated GPU physics with environment collision IDs')
@@ -274,6 +279,9 @@ def main():
         class WaveEnv(TerminalObservationMixin,ManagerBasedRLEnv):pass
         env=WaveEnv(cfg);env.enable_numerical_dynamics_recovery()
         env._reset_contact_pair_diagnostics=args.reset_contact_pair_diagnostics
+        if flap_contact_reporters:
+            from kuavo_isaaclab_scene.rl.multi_box.scene.reset_flap_contacts import resolve_startup_flap_contact_paths
+            flap_contact_reporters=resolve_startup_flap_contact_paths(flap_contact_reporters,env.scene.env_regex_ns)
         env._reset_flap_contact_reporters=flap_contact_reporters
         if args.passive_bearing_probe_layer:
             from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import verify_passive_bearing_drives
