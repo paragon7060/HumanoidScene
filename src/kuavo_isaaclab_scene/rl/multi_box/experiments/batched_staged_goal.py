@@ -334,9 +334,10 @@ def restore_batched_inferred_scene(env,actors,*,capture_reset_diagnostics=False,
     if capture_reset_diagnostics:
         env._batched_reset_box_diagnostics['passive_rollers_before_neutral_hold']=passive_roller_snapshot(env)
         if getattr(env,'_reset_contact_pair_diagnostics',False):
-            from ..scene.reset_diagnostics import support_root_snapshot
+            from ..scene.reset_diagnostics import support_root_snapshot,startup_support_dynamics_snapshot
             env._reset_support_initial_centers=None
             env._batched_reset_box_diagnostics['support_roots_before_neutral_hold']=support_root_snapshot(env)
+            env._batched_reset_box_diagnostics['support_dynamics_before_neutral_hold']=startup_support_dynamics_snapshot(env)
     def capture_hold_step(index):
         if index <= 12 or index in (16,32,60):
             env._batched_reset_box_diagnostics['neutral_normal_contact_trace'].append(dict(

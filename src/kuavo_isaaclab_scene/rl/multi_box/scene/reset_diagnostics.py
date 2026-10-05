@@ -133,6 +133,50 @@ def support_root_snapshot(env):
     return result
 
 
+def summarize_branch_mass_matrix(matrix):
+    """Measure cross-DOF inertia without inverting or changing live dynamics."""
+    if matrix.ndim != 3 or matrix.shape[-1] != matrix.shape[-2] or matrix.shape[-1] < 1:
+        raise ValueError('Expected a batch of square generalized mass matrices')
+    diagonal=matrix.diagonal(dim1=-2,dim2=-1)
+    offdiag=matrix.clone()
+    offdiag.diagonal(dim1=-2,dim2=-1).zero_()
+    # A positive diagonal is required before reporting normalized coupling.
+    valid_diagonal=torch.isfinite(diagonal).all(-1)&(diagonal>0).all(-1)
+    finite_matrix=torch.isfinite(matrix).all((-1,-2))
+    scales=(diagonal[...,None]*diagonal[...,None,:]).clamp_min(torch.finfo(matrix.dtype).tiny).sqrt()
+    coupling=(offdiag.abs()/scales).amax((-1,-2))
+    coupling=torch.where(valid_diagonal&finite_matrix,coupling,torch.full_like(coupling,float('nan')))
+    return dict(matrix_shape=list(matrix.shape),
+        diagonal_min=_finite_values(diagonal.amin(-1).cpu().tolist()),
+        diagonal_max=_finite_values(diagonal.amax(-1).cpu().tolist()),
+        maximum_absolute_off_diagonal=_finite_values(offdiag.abs().amax((-1,-2)).cpu().tolist()),
+        maximum_normalized_off_diagonal=_finite_values(coupling.cpu().tolist()),
+        nonfinite_entry_count=(~torch.isfinite(matrix)).sum((-1,-2)).cpu().tolist(),
+        invalid_diagonal_count=(~torch.isfinite(diagonal)|(diagonal<=0)).sum(-1).cpu().tolist())
+
+
+def startup_support_dynamics_snapshot(env):
+    """Read the installed PhysX support mass, inertia, drives and mass matrix once."""
+    result={}
+    for name,asset in env.scene.articulations.items():
+        if not name.startswith('rack_roller_deck_'):
+            continue
+        view=asset.root_physx_view
+        inertia=view.get_inertias().detach().cpu()
+        # Per-environment coupling summaries are retained; body parameters
+        # from env0 include ordering so differing dimensions are visible.
+        result[name]=dict(is_fixed_base=bool(asset.is_fixed_base),body_names=list(asset.body_names),
+            joint_names=list(asset.joint_names),
+            environment0_body_mass_kg=_finite_values(view.get_masses()[0].cpu().tolist()),
+            environment0_body_inertias_kg_m2=[_finite_values(row) for row in inertia[0].tolist()],
+            environment0_joint_armature_kg_m2=_finite_values(view.get_dof_armatures()[0].cpu().tolist()),
+            environment0_joint_damping=_finite_values(view.get_dof_dampings()[0].cpu().tolist()),
+            environment0_joint_stiffness=_finite_values(view.get_dof_stiffnesses()[0].cpu().tolist()),
+            generalized_mass=summarize_branch_mass_matrix(view.get_generalized_mass_matrices().detach()),
+            measurement_only=True,physics_parameters_written=False)
+    return result
+
+
 def passive_roller_snapshot(env):
     """Measure the support's hidden dynamic state separately from box roots."""
     result = {}

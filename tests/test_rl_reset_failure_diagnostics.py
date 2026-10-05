@@ -300,3 +300,44 @@ def test_support_snapshot_detects_fixed_base_or_roller_center_motion_without_phy
     assert result['maximum_link_center_displacement_m'][1]==pytest.approx(.2)
     assert result['base_velocity_world'][1][2]==pytest.approx(.3)
     assert pose[1,2,0]==pytest.approx(.2)
+
+
+def test_mass_matrix_summary_distinguishes_independent_branches_from_coupling_without_writes():
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import summarize_branch_mass_matrix
+    matrix=torch.tensor([[[4.e-6,0.],[0.,9.e-6]],[[4.e-6,3.e-6],[3.e-6,9.e-6]]])
+    before=matrix.clone()
+    result=summarize_branch_mass_matrix(matrix)
+    assert result['matrix_shape']==[2,2,2]
+    assert result['maximum_normalized_off_diagonal']==pytest.approx([0.,.5])
+    assert result['maximum_absolute_off_diagonal']==pytest.approx([0.,3.e-6])
+    assert result['invalid_diagonal_count']==[0,0]
+    assert torch.equal(matrix,before)
+
+
+def test_mass_matrix_summary_retains_nonfinite_and_invalid_inertia_without_inventing_coupling():
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import summarize_branch_mass_matrix
+    matrix=torch.tensor([[[1.,float('nan')],[0.,1.]],[[0.,1.],[1.,2.]]])
+    result=summarize_branch_mass_matrix(matrix)
+    assert result['maximum_normalized_off_diagonal']==[None,None]
+    assert result['nonfinite_entry_count']==[1,0]
+    assert result['invalid_diagonal_count']==[0,1]
+    json.dumps(result,allow_nan=False)
+    assert torch.isnan(matrix[0,0,1]) and matrix[1,0,0]==0.
+    with pytest.raises(ValueError):summarize_branch_mass_matrix(torch.zeros(2,3,4))
+
+
+def test_support_dynamics_audit_reads_actual_view_parameters_and_keeps_other_assets_untouched():
+    from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import startup_support_dynamics_snapshot
+    view=SimpleNamespace(get_masses=lambda:torch.tensor([[1.,.05,.05]]),
+        get_inertias=lambda:torch.eye(3).reshape(1,1,9).expand(1,3,9),
+        get_dof_armatures=lambda:torch.zeros(1,2),get_dof_dampings=lambda:torch.full((1,2),.00002),
+        get_dof_stiffnesses=lambda:torch.zeros(1,2),
+        get_generalized_mass_matrices=lambda:torch.diag(torch.tensor([4.e-6,9.e-6]))[None])
+    asset=SimpleNamespace(body_names=['Base','r0','r1'],joint_names=['r0_joint','r1_joint'],
+        is_fixed_base=True,root_physx_view=view)
+    env=SimpleNamespace(scene=SimpleNamespace(articulations={'rack_roller_deck_02':asset,'robot':None}))
+    result=startup_support_dynamics_snapshot(env)['rack_roller_deck_02']
+    assert result['environment0_body_mass_kg']==pytest.approx([1.,.05,.05])
+    assert result['generalized_mass']['maximum_normalized_off_diagonal']==[0.]
+    assert result['physics_parameters_written'] is False
+    assert result['environment0_joint_stiffness']==[0.,0.]

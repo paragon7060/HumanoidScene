@@ -691,3 +691,22 @@ solver 상호작용을조사한다. 엔진 원인이나 에너지 전달경로�
 시간간격·iteration·질량·마찰·모든박스·초기배치·보상·성공·안전은유지한다.
 진단artifact에원본/실제solver와Q import불가를명시하며 기본SAC는변경하지않는다.
 TRAIN/독립FINAL/다른물리대조와혼합을거부하는78개검사통과.
+
+### 12:10 · TGS 대조도 실패: 실제 관성·독립 branch coupling 확인으로 전환
+
+[Solver만 TGS로 바꾼 원래 DEV128 대조](assets/rl_v2_reset_solver_tgs_20261005.json)는
+writer 종료·exit0·최종 Drive 크기/MD5 검증을 완료했다. 실제 USD solver=TGS를
+확인했으며 나머지 물리·모든 박스·초기배치·randomization·성공·안전은 유지했다.
+초기 유효100/128, 최초 selected failure11개가 남았다. 같은 tick5에서 앞 target4의
+큰 롤러 impulse가 재현됐으므로 solver 변경을 해결책으로 적용하지 않는다.
+이 결과는 파지 성공률이 아니며 TRAIN/독립 FINAL/Q import에 사용하지 않았다.
+
+기존 접촉 진단 옵션에서만 지지계의 실제 PhysX mass/inertia, armature, damping,
+stiffness와 generalized mass matrix를 한 번 읽도록 보강했다. 고정 Base 아래 별도
+롤러 DOF 간 관성 coupling을 대각선/비대각선 값으로 구분한다. 행렬을 역산하거나
+물리 파라미터를 쓰지 않고 nonfinite/비양수 inertia는 그대로 진단에 남긴다.
+일반 SAC 실행에는 추가 읽기·계산이 없다. 관련 검사81개 통과.
+
+기존 GPU3 success-retention의 완료된 DEV18은5/128(MR3/ML1/UL1/UR0),
+초기불량28개였다. DEV15의4/128에서 한 건 늘었지만 초기4/128·최고7/128와
+비교해 안정적인 네 영역 일반화 개선을 입증하지 못했다. 기존 학습은 유지한다.
