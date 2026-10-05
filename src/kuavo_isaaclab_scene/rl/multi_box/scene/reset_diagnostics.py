@@ -22,6 +22,36 @@ def _finite_values(values):
     return [float(v) if math.isfinite(float(v)) else None for v in values]
 
 
+def passive_roller_snapshot(env):
+    """Measure the support's hidden dynamic state separately from box roots."""
+    result = {}
+    for name, asset in env.scene.articulations.items():
+        if not name.startswith('rack_roller_deck_'):
+            continue
+        velocity = asset.data.joint_vel.detach().cpu()
+        result[name] = dict(joint_names=list(asset.joint_names),
+            joint_positions_rad=[_finite_values(row) for row in asset.data.joint_pos.detach().cpu().tolist()],
+            joint_velocities_radps=[_finite_values(row) for row in velocity.tolist()],
+            maximum_absolute_joint_speed_radps=_finite_values(velocity.abs().amax(-1).tolist()))
+    return result
+
+
+def zero_passive_roller_velocities(env, env_ids):
+    """Frozen diagnostic only: preserve poses/angles, remove inherited spin."""
+    matched = []
+    for name, asset in env.scene.articulations.items():
+        if not name.startswith('rack_roller_deck_'):
+            continue
+        velocity = torch.zeros_like(asset.data.joint_vel[env_ids])
+        asset.write_joint_velocity_to_sim(velocity, env_ids=env_ids)
+        asset.set_joint_velocity_target(velocity, env_ids=env_ids)
+        asset.set_joint_effort_target(velocity, env_ids=env_ids)
+        matched.append(name)
+    if not matched:
+        raise ValueError('Passive roller reset probe requires the live rack roller decks')
+    return matched
+
+
 class ResetFailureCapture:
     """Keep only the first selected-box failure per requested environment.
 

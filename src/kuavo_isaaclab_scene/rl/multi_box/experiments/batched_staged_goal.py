@@ -255,7 +255,8 @@ class BatchedBaseStages:
         return result
 
 
-def restore_batched_inferred_scene(env,actors,*,capture_reset_diagnostics=False):
+def restore_batched_inferred_scene(env,actors,*,capture_reset_diagnostics=False,
+                                  zero_passive_roller_velocity_probe=False):
     """Whole-wave reset from neutral source observations, never success states.
 
     Every scene has its own dynamic boxes, rack-relative sampled layout and
@@ -321,9 +322,15 @@ def restore_batched_inferred_scene(env,actors,*,capture_reset_diagnostics=False)
     env._multi_box_privileged_grasp_counter=-1;env._multi_box_grasp_safety_counter=-1
     env._multi_box_reset_settling.reset(ids);env.episode_length_buf[:]=0
     if capture_reset_diagnostics:
+        from ..scene.reset_diagnostics import passive_roller_snapshot
         env._batched_reset_box_diagnostics=dict(before_neutral_hold=
             measured_initial_box_failures(env,actors,names,failures_only=False,include_link_states=True),
-            neutral_hold_trace=[])
+            neutral_hold_trace=[],passive_rollers_before_velocity_probe=passive_roller_snapshot(env))
+    if zero_passive_roller_velocity_probe:
+        from ..scene.reset_diagnostics import zero_passive_roller_velocities
+        zero_passive_roller_velocities(env,ids)
+    if capture_reset_diagnostics:
+        env._batched_reset_box_diagnostics['passive_rollers_before_neutral_hold']=passive_roller_snapshot(env)
     def capture_hold_step(index):
         if index in (1,2,4,8,16,32):
             env._batched_reset_box_diagnostics['neutral_hold_trace'].append(dict(
@@ -335,6 +342,7 @@ def restore_batched_inferred_scene(env,actors,*,capture_reset_diagnostics=False)
     if capture_reset_diagnostics:
         env._batched_reset_box_diagnostics['after_neutral_hold']=\
             measured_initial_box_failures(env,actors,names,failures_only=False,include_link_states=True)
+        env._batched_reset_box_diagnostics['passive_rollers_after_neutral_hold']=passive_roller_snapshot(env)
     composer=robot.permanent_wrench_composer
     env._batched_reset_control_audit['after_neutral_hold']=dict(
         force_n=composer.composed_force_as_torch[ids].flatten(1).norm(dim=1).tolist(),
@@ -404,7 +412,8 @@ def measured_initial_box_failures(env,actors,names,*,failures_only=True,include_
     rows=torch.arange(env.num_envs,device=env.device)
     failures=[]
     def finite_list(value):
-        return [float(v) if math.isfinite(float(v)) else None for v in value]
+        values=value.detach().cpu().tolist() if isinstance(value,torch.Tensor) else value
+        return [float(v) if math.isfinite(float(v)) else None for v in values]
     for cell in logical_cells(env.cfg.multi_box):
         logical=cell.logical_id;active=tokens[:,logical,0]>.5
         for kind,name in enumerate(('small','medium')):
@@ -436,17 +445,19 @@ def measured_initial_box_failures(env,actors,names,*,failures_only=True,include_
                     joint_positions_rad=None if joints is None else finite_list(joints[i]))
                 if include_link_states:
                     sample.update(body_names=list(asset.body_names),
-                        body_link_pose_world=[finite_list(row) for row in asset.data.body_link_pose_w[i]],
-                        body_link_velocity_world=[finite_list(row) for row in asset.data.body_link_vel_w[i]],
+                        body_link_pose_world=[finite_list(row) for row in asset.data.body_link_pose_w[i].detach().cpu().tolist()],
+                        body_link_velocity_world=[finite_list(row) for row in asset.data.body_link_vel_w[i].detach().cpu().tolist()],
                         joint_velocities_radps=finite_list(asset.data.joint_vel[i]))
                 failures.append(sample)
     return failures
 
 
-def settle_batched_layouts(env, actors, *, allow_partial=False,capture_reset_diagnostics=False):
+def settle_batched_layouts(env, actors, *, allow_partial=False,capture_reset_diagnostics=False,
+                           zero_passive_roller_velocity_probe=False):
     """Reject replaced/unsettled targets and every invalid surrounding box."""
     from ..scene.spawn import physical_asset_names
-    observation=restore_batched_inferred_scene(env,actors,capture_reset_diagnostics=capture_reset_diagnostics)
+    observation=restore_batched_inferred_scene(env,actors,capture_reset_diagnostics=capture_reset_diagnostics,
+        zero_passive_roller_velocity_probe=zero_passive_roller_velocity_probe)
     invalid_before=env._multi_box_reset_settling.invalid_count.clone()
     names=physical_asset_names();settling=env._multi_box_reset_settling
     expected=actors[:,86:350].reshape(-1,12,22)[:,:,0]>.5
@@ -500,6 +511,8 @@ def settle_batched_layouts(env, actors, *, allow_partial=False,capture_reset_dia
     if capture_reset_diagnostics:
         guard['reset_failure_diagnostics']=dict(**env._batched_reset_box_diagnostics,
             first_invalid_before_respawn=captured,final_guard_is_not_pre_respawn_trajectory=True,
-            physical_state_safety_and_randomization_unchanged=True)
+            physical_state_unchanged=not zero_passive_roller_velocity_probe,
+            passive_roller_velocity_probe=zero_passive_roller_velocity_probe,
+            box_base_poses_randomization_physics_parameters_success_and_safety_unchanged=True)
     print('[BATCH LAYOUT GUARD] '+str(guard),flush=True)
     return env.observation_manager.compute(),steps+tick,valid,guard

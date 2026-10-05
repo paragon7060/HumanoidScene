@@ -49,6 +49,8 @@ def main():
     parser.add_argument('--steps',type=int,default=900)
     parser.add_argument('--reset-failure-diagnostics',action='store_true',
         help='Frozen DEV --steps 1: measure original boxes before/after neutral hold and before partial respawn')
+    parser.add_argument('--zero-passive-roller-velocities-probe',action='store_true',
+        help='Frozen reset diagnostic only: preserve roller angles/poses but remove inherited angular velocities')
     add_robot_model_cli_args(parser);add_gripper_cli_args(parser)
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
@@ -62,6 +64,11 @@ def main():
     try:validate_reset_diagnostic_request(waves,enabled=args.reset_failure_diagnostics,
         training=args.training,steps=args.steps)
     except ValueError as error:parser.error(str(error))
+    if args.zero_passive_roller_velocities_probe and (not args.reset_failure_diagnostics or
+            args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or
+            args.pgs_probe or args.gripper_drive_probe or args.centered_world_probe or
+            args.packed_background_probe or args.base_waypoint_probe):
+        parser.error('Passive roller velocity probe requires an otherwise unchanged frozen reset diagnostic')
     from kuavo_isaaclab_scene.rl.multi_box.experiments.gripper_drive_probe import validate_gripper_drive_probe
     try:validate_gripper_drive_probe(waves,enabled=args.gripper_drive_probe,training=args.training)
     except ValueError as error:parser.error(str(error))
@@ -303,7 +310,9 @@ def main():
             manifest=json.loads((output/'manifest.json').read_text())
             manifest['reset_failure_diagnostics']=dict(enabled=True,frozen_only=True,
                 Q_import_eligible=False,first_failure_before_respawn=True,
-                physics_randomization_success_safety_unchanged=True)
+                physics_randomization_success_safety_unchanged=True,
+                initial_passive_roller_velocity_changed=args.zero_passive_roller_velocities_probe,
+                zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe)
             (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
         if args.packed_background_probe:
             manifest=json.loads((output/'manifest.json').read_text())
@@ -336,7 +345,8 @@ def main():
                 actors=torch.stack([packed_background_reset_observation(actor,cfg.multi_box,
                     roller_clearance_m=resolve_rack_roller_settings().box_clearance_m) for actor in actors])
             observation,settled,valid_layout,layout_guard=settle_batched_layouts(env,actors,allow_partial=True,
-                capture_reset_diagnostics=args.reset_failure_diagnostics)
+                capture_reset_diagnostics=args.reset_failure_diagnostics,
+                zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe)
             if args.reset_failure_diagnostics:
                 diagnostic_name=f'reset_failure_diagnostics_wave_{wave_index:04d}.json'
                 (output/diagnostic_name).write_text(json.dumps(

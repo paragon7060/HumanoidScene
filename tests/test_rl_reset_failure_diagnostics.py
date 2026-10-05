@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import (
-    ResetFailureCapture, validate_reset_diagnostic_request,
+    ResetFailureCapture, validate_reset_diagnostic_request, zero_passive_roller_velocities,
 )
 from kuavo_isaaclab_scene.rl.multi_box.scene.reset_settling import IsaacResetSettling
 from kuavo_isaaclab_scene.rl.multi_box.scene.spawn import logical_cells, physical_asset_names
@@ -113,3 +113,28 @@ def test_diagnostic_mode_cannot_collect_training_or_inspect_independent_final(wa
 
 def test_frozen_dev_startup_capture_is_allowed():
     validate_reset_diagnostic_request([dict(split='validation')],enabled=True,training=False,steps=1)
+
+
+def test_passive_roller_probe_removes_spin_only_in_selected_environment():
+    class Asset:
+        def __init__(self):
+            self.data=SimpleNamespace(joint_pos=torch.tensor([[1.,2.],[3.,4.]]),
+                joint_vel=torch.tensor([[5.,6.],[7.,8.]]))
+            self.velocity_target=torch.full((2,2),9.)
+            self.effort_target=torch.full((2,2),10.)
+        def write_joint_velocity_to_sim(self,value,env_ids):self.data.joint_vel[env_ids]=value
+        def set_joint_velocity_target(self,value,env_ids):self.velocity_target[env_ids]=value
+        def set_joint_effort_target(self,value,env_ids):self.effort_target[env_ids]=value
+    roller,box=Asset(),Asset()
+    env=SimpleNamespace(scene=SimpleNamespace(articulations=dict(rack_roller_deck_02=roller,mb_s2_small_5=box)))
+    assert zero_passive_roller_velocities(env,torch.tensor([1]))==['rack_roller_deck_02']
+    assert roller.data.joint_pos.tolist()==[[1.,2.],[3.,4.]]
+    assert roller.data.joint_vel.tolist()==[[5.,6.],[0.,0.]]
+    assert roller.velocity_target.tolist()==[[9.,9.],[0.,0.]]
+    assert roller.effort_target.tolist()==[[10.,10.],[0.,0.]]
+    assert box.data.joint_vel.tolist()==[[5.,6.],[7.,8.]]
+
+
+def test_passive_roller_probe_rejects_a_scene_without_roller_decks():
+    with pytest.raises(ValueError,match='live rack roller'):
+        zero_passive_roller_velocities(SimpleNamespace(scene=SimpleNamespace(articulations={})),torch.tensor([0]))

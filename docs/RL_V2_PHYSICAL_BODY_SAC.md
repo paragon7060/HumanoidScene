@@ -529,3 +529,21 @@ writer가 정상 exit0으로 종료한 후 전체 데이터·diagnostic JSON·�
 이 시점에 GPU0 gain0.5 및 gain2의 학습 후 DEV wave3은 모두1/128이었다(초기7/128).
 GPU3 native-nstep10 분기는 첫 frozen DEV가 아직 진행 중이며, 초기 actor/Q0의
 결과를 학습 개선으로 보고하지 않는다. 기존 다섯 SAC 실행은 중단하지 않았다.
+
+### 10:37 · 첫 tick/link 추적 완료, passive roller 초기 상태 분리
+
+두 번째 GPU2 진단도 정상 종료·Drive 최종 검증을 완료했다.
+Teleport 직후 모든 flap 링크는 root에서0.224m 이내였고 link/joint velocity는0이었다.
+일부 중간왼쪽 target은4tick까지 속도0.005m/s 미만이다가8tick에1.3–1.4m/s로
+튄 뒤16tick부터 assigned geometry를 벗어났다. 단순히 원래 flap이 parked pose에
+남은 것과는 다른 양상이며, stale contact/초기 접촉 등은 아직 구분되지 않았다.
+
+설치된 IsaacLab의 `Articulation.reset()`은 actuator/external wrench를 초기화하고
+joint velocity를0으로 쓰지는 않는다. 현재 batched restore는 robot/boxes만
+물리 joint state를 다시 쓴다. Rack roller의 회전이 wave 사이에 남을 수 있으므로,
+`--reset-failure-diagnostics --zero-passive-roller-velocities-probe --no-training --steps 1`
+으로 한 요소만 분리한다. 각182-DOF deck의 실제 q/qvel을 probe 전·후 및 hold 후에
+기록하고, roller angle/root pose·박스/base 배치·고유 물리/안전 조건을 보존한다.
+Zero-spin은 initial support velocity를 바꾼 frozen 진단이다. 기본 학습 설정은
+바꾸지 않고 TRAIN/독립 FINAL/Q replay에서는 사용하지 않는다. 이 가설의 효과는
+새 결과가 나오기 전까지 확정하지 않는다.
