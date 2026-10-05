@@ -844,3 +844,19 @@ replay와 HDF 여섯 파일만 offload했다. 각 파일의 소유 UID·writer/s
 receipt도 Drive 검증했다. 확보량7,221,383,048bytes(약6.73GiB), 직후 여유24.43GiB다.
 종료된 실패 비교를 학습 완료로 기록하지 않는다. 각 실행의 최신 체크포인트 두 개·
 로그·원래 TRAIN 성공 corpus·calibration·활성 SAC replay/HDF는 보존했다.
+
+### 13:50 · 실제 view 순서와 초기 pose 읽기값은 정상
+
+[닫힌 view 감사](assets/rl_v2_reset_view_identity_20261005.json)는 exit0·writer 종료·
+MainPID0·최종 Drive 검증을 완료했다. 실제30개 root view와26개 contact source view
+모두128개 환경의 순서가 맞았고,26×128개 source pose 비교의 최대 위치 오차0m,
+quaternion 절대 unit dot 최솟값1, invalid pose row0이었다. 초기 유효99/128이며
+최초 selected failure는 같은 ML10개였다. Actor/Q update0이고 파지 성공 평가가 아니다.
+
+단순 환경 row 혼선이나 측정된 초기 source pose 읽기값 차이로 충격을 설명할 수 없다.
+이는 모든 미래 force filter index나 solver 내부 cache 상태가 정상이라는 증명은 아니다.
+다음 GPU2 frozen 비교는 원래 실패 env100(seed121025, target4만 active)과
+env8(seed121002, 원래 주변5/9 유지)를 각각1개 환경에서 재현한다. 원래 요청 layout은
+그대로 복사하고 각 사례의 박스를 제거하지 않는다. 배치 크기와 함께 world origin 및
+constructor solver history도 달라지므로 실제 rack-relative link pose를 대조하기 전에는
+배치 solver를 원인으로 확정하지 않는다. 학습·보상·randomization 설정은 유지한다.
