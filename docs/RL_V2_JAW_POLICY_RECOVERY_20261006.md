@@ -74,6 +74,8 @@ Q 수치는 모델의 예측이며 실제 안전 파지의 증거가 아니다. 
 
 ## 코드
 
+닫은 뒤에도 접촉이 없는 실제 TRAIN의 위치 오차는 [정밀 포착 진단](RL_V2_PRECISE_CAPTURE_AUDIT_20261006.md)에 별도로 기록했다. 새 soft 손실의 실제 효과와 구분하며, 기존 실행과 성공/안전 조건은 유지한다.
+
 - `src/kuavo_isaaclab_scene/rl/multi_box/experiments/jaw_saturation.py`: 선택형 손실·통계.
 - `src/kuavo_isaaclab_scene/rl/algorithms/hybrid_goal_sac.py`: 일반 SAC의 기본 비활성 actor hook.
 - `src/kuavo_isaaclab_scene/rl/multi_box/experiments/actual_flap_residual_sac.py`: 설정/출처/checkpoint/replay 복원 연결.
