@@ -388,6 +388,8 @@ def main():
             raise ValueError('Staged policy and current measured supplemental perception differ')
         warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,
                             frozen_prior_lift_contract(frozen_actor_reward_contract(contract)),output,training=False,device=env.device)
+        if warm.coordinates.exact_projected_base:
+            env.enable_projected_base_safety()
         templates=json.loads(args.waypoints.read_text())
         if templates['physical_action_contract']!=contract['action_contract']:raise ValueError('Waypoint travel differs')
         projection=GraspActionProjector(list(actions.items()))
@@ -447,12 +449,16 @@ def main():
             episode_layouts=[dict(wave=i,environment=j,**row) for i,w in enumerate(waves) for j,row in enumerate(w['layouts'])])
         if supplemental:
             meta.update(supplemental_actor_obs_dim=SUPPLEMENTAL_DIM,supplemental_perception=supplemental)
+        from kuavo_isaaclab_scene.rl.multi_box.geometry.projected_base import projected_base_safety_contract
+        coordinate_safety = projected_base_safety_contract() if warm.coordinates.exact_projected_base else None
+        meta['controller_coordinate_safety'] = coordinate_safety
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         if args.grasp_observation_audit:
             from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_observation_audit import GraspObservationAudit
             grasp_audit=GraspObservationAudit(env,output)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
+            'controller_coordinate_safety':coordinate_safety,
             'initialized_physics':initialized_physics,
             'startup_world_frame_probe':world_frame_audit,
             'startup_scene_replication_probe':replication_probe,
@@ -604,7 +610,7 @@ def main():
                     clearance=g.rack_clearance_m.clone(),force=force.max(-1).values.clone(),
                     body=force.argmax(-1).clone(),base_pose=env.scene['robot'].data.root_pose_w.clone(),
                     causes={k:getattr(s,k).clone() for k in ('invalid_box_pose','invalid_flap_pose',
-                        'robot_rack_collision','self_collision','obstacle_collision','workspace_limit',
+                        'robot_rack_collision','self_collision','obstacle_collision','workspace_limit','base_projection_invalid',
                         'box_drop','box_lift_limit','box_speed_limit')},
                     box_pose=g.box_pose_world.clone(),box_velocity=g.box_velocity_world.clone(),
                     logical=g.target_logical_id.clone(),pool=g.target_pool_id.clone())

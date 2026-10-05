@@ -226,6 +226,51 @@ workspace2, obstacle1이다. 같은 requested layout ID라도 reset된 실제 �
 TRAIN/DEV9/12에서도 판단한다. 현재 GPU3 학습은 이어가며 DEV/FINAL 데이터를
 학습으로 가져오지 않고 독립 FINAL은 사용하지 않는다.
 
+### 10/06 유한한 base 전도 때문에 전체 배치가 종료된 문제와 재개
+
+첫 firmer-flap 실행은00:48경 `Base-plane projection is singular or near vertical`
+예외로 종료했다. OOM이 아니다. 유한한 quaternion이라도 base가 거의 수직으로
+기울면 기존 절대 goal 제어기의 rack 평면 좌표 변환을 역산할 수 없다. 한 환경의
+예외가128개 전체 writer를 중단시켰다. 직전 저장은actor1204/Q6864와 실제 TRAIN
+replay224,625행이다. 이 종료는 파지 성공이나 정상 학습 완료가 아니다.
+
+Projected-base 제어기를 사용하는 실행에 한해 측정된 평면 변환 determinant의
+절댓값이0.1001 미만이면 기존 workspace 안전 실패와 penalty로 처리한다.
+Decoder의 기존0.1 기준에 float32 회전 계산 여유0.0001을 둔다. 실패 전의 유한한
+terminal 관측을 보존하고 해당 환경만 reset하며, 실제 실패 transition은 Q에 남긴다.
+자세를 upright로 덮어쓰거나 NaN quarantine으로 숨기지 않는다. 이 수정은
+base가 기울어지는 물리 원인 전체를 해결했다는 의미는 아니다.
+
+실제2-env read-cache fault injection에서 env0만 실패/reset되고 env1은 계속
+진행했으며 기존 workspace penalty와 terminal 관측 보존을 확인했다. 잘못된
+자세를 PhysX에 쓰지 않았고 optimizer/Q 갱신이나 파지 성능 평가도 하지 않았다.
+CPU 회귀 테스트77개와 후속 replay 필터·float32 여유 테스트를 통과했다.
+
+원본 모델·Q·optimizer·탐색 일정과 성공 TRAIN bank6,346행을 유지한다. 재개 입력은
+현재 또는 다음 상태가 기존 decoder의 지원 범위를 벗어난 과거4행만 제외해
+224,621행이며 나머지 실제 action/reward/terminated label은 변경하지 않았다.
+원본 checkpoint와 replay는 보존한다. [원인·2-env 결과·재개 내역](assets/rl_v2_firm_flap_projected_base_resume_20261006.json)을
+기록했다. 독립 FINAL과 DEV 데이터를 학습에 가져오지 않는다.
+
+재개 block은 원래 DEV0과 TRAIN/DEV7–18의13개 wave다. 환경128개,
+각 wave마다 네 영역32개, TRAIN8/DEV5개이며 실패한 부분 TRAIN7은 추가 실제
+rollout으로 다시 실행한다. 기존 부분 TRAIN7 replay는 보존했다. Flap profile,
+박스/base/background randomization 및 파지 성공 기준은 유지한다. 새 고유
+GPU3 관리자는300초 Drive 백업·체크섬 검증 후 최근2개 checkpoint 보호와
+writer 종료 후 로그 검증을 기존 연결로 수행한다. 이전 writer의 닫힌 대용량
+백업은 CPU에서 별도로 유지하며, 전송 중인 rclone을 중단하지 않는다.
+
+```bash
+PYTHONPATH=src:scripts/rl CUDA_VISIBLE_DEVICES='' python scripts/rl/prepare_projected_base_guard_resume.py \
+  --checkpoint /absolute/path/to/closed-run/checkpoint_00006864.pt \
+  --output-dir /absolute/path/to/unique-guarded-resume-input
+```
+
+생성된 동일 checkpoint와 필터된 replay를 matching training manifest 및 원래
+TRAIN/DEV waves와 함께 `batched_staged_goal_with_drive.py --gpu 3 --training`에
+전달한다. 실행 중인 writer의 입력을 수정하거나 checkpoint를 새 정책으로
+해석하지 않는다.
+
 ## 검증 및 실행
 
 실제 source TRAIN 관측405개에서 새 초기 몸 명령 오차0, 그리퍼 변경0,

@@ -39,6 +39,7 @@ class V2GraspSafetyStep:
     self_collision: torch.Tensor
     obstacle_collision: torch.Tensor
     workspace_limit: torch.Tensor
+    base_projection_invalid: torch.Tensor
     box_drop: torch.Tensor
     box_lift_limit: torch.Tensor
     box_speed_limit: torch.Tensor
@@ -114,8 +115,16 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
 
     base_offset = env.scene["robot"].data.root_pos_w - env.scene.env_origins
     base_distance = base_offset[:, :2].norm(dim=-1)
+    minimum = getattr(env, '_base_plane_min_abs_determinant', None)
+    if minimum is None:
+        base_projection_invalid = torch.zeros_like(settling.ready)
+    else:
+        from ..geometry.projected_base import planar_projection_determinant, outside_projected_base_domain
+        determinant = planar_projection_determinant(
+            env.scene['robot'].data.root_quat_w, env.scene['rack'].data.root_quat_w)
+        base_projection_invalid = outside_projected_base_domain(determinant,minimum)
     workspace_limit = settling.ready & (
-        base_distance > float(env.cfg.multi_box.workspace_radius))
+        (base_distance > float(env.cfg.multi_box.workspace_radius)) | base_projection_invalid)
 
     origin_z = env.scene.env_origins[:, 2]
     finite = torch.isfinite(grasp.box_pose_world).all(-1) \
@@ -138,6 +147,7 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
         self_collision=self_collision,
         obstacle_collision=obstacle_collision,
         workspace_limit=workspace_limit,
+        base_projection_invalid=base_projection_invalid,
         box_drop=box_drop,
         box_lift_limit=box_lift_limit,
         box_speed_limit=box_speed_limit,

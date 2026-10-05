@@ -259,6 +259,7 @@ def main():
             from kuavo_isaaclab_scene.rl.multi_box.managers.v2_observations import ActualFlapRelationsCfg
             setattr(cfg.observations, SUPPLEMENTAL_GROUP, ActualFlapRelationsCfg())
         from kuavo_isaaclab_scene.rl.multi_box.scene.flap_dynamics import configure_flap_dynamics
+        from kuavo_isaaclab_scene.rl.multi_box.geometry.projected_base import projected_base_safety_contract
         configure_flap_dynamics(cfg, contract)
         if 'contact_shaping' in contract['reward_profile']:
             cfg.rewards.grasp.params = dict(reward_profile=contract['reward_profile'])
@@ -299,6 +300,8 @@ def main():
 
         env = ReplayEnv(cfg)
         env.enable_numerical_dynamics_recovery()
+        if args.staged_goal_sac:
+            env.enable_projected_base_safety()
         dims = {key: list(value) for key, value in env.observation_manager.group_obs_dim.items()}
         actions = {name: env.action_manager.get_term(name).action_dim
                    for name in env.action_manager.active_terms}
@@ -573,6 +576,7 @@ def main():
                     meta['staged_goal_contract']=staged_goal_sac.contract
                 meta['initial_layout_guard']=staged_layout_guard
                 manifest.update(artifact_type=staged_goal_sac.artifact_type,
+                    controller_coordinate_safety=projected_base_safety_contract(),
                     **staged_metadata,training=staged_goal_sac.training,
                     initial_layout_guard=staged_layout_guard,
                     wave_reset_controller_contract=staged_layout_guard['controller_reset']['contract'])
@@ -669,7 +673,7 @@ def main():
                 base_pose_world=env.scene['robot'].data.root_pose_w[0].tolist(),
                 unsafe_causes={key: bool(getattr(safety, key)[0]) for key in (
                     'invalid_box_pose', 'invalid_flap_pose', 'robot_rack_collision',
-                    'self_collision', 'obstacle_collision', 'workspace_limit',
+                    'self_collision', 'obstacle_collision', 'workspace_limit', 'base_projection_invalid',
                     'box_drop', 'box_lift_limit', 'box_speed_limit')},
                 **{key: bool(env.termination_manager.get_term(key)[0]) for key in counts})
             if staged_base:

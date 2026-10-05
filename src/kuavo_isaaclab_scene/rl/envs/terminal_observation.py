@@ -4,6 +4,16 @@
 class TerminalObservationMixin:
     """Place before ManagerBasedRLEnv in the MRO; PPO's environment is unchanged."""
 
+    def enable_projected_base_safety(self):
+        """Opt in to measured workspace failure at the goal decoder's boundary.
+
+        A finite tipped base is a physical terminal transition, not a NaN
+        quarantine. The shared v2 safety/reward manager captures it before
+        ordinary partial reset; healthy environments continue.
+        """
+        from ..multi_box.geometry.projected_base import BASE_PLANE_SAFETY_MIN_ABS_DETERMINANT
+        self._base_plane_min_abs_determinant = BASE_PLANE_SAFETY_MIN_ABS_DETERMINANT
+
     def enable_numerical_dynamics_recovery(self):
         """Opt in to per-environment respawn; corrupted transitions stay excluded."""
         import torch

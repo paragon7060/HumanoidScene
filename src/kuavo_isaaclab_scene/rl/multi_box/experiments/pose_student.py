@@ -5,6 +5,7 @@ SAC success, and its goal labels must never enter the ordinary delta-action Q.
 Episode elapsed time is an input; recorded commands/goals are not runtime inputs.
 """
 import torch
+from ..geometry.projected_base import BASE_PLANE_MIN_ABS_DETERMINANT
 
 from ...algorithms.asymmetric_sac import ActorFeatures,AsymmetricSAC
 from ...algorithms.sac import SACConfig
@@ -102,7 +103,7 @@ class PoseGoalCoordinates:
             # Solve that measured2x2 map; do not relabel old actions to fit it.
             m=rotation[:,:2,:2]
             determinant=m[:,0,0]*m[:,1,1]-m[:,0,1]*m[:,1,0]
-            if not torch.isfinite(determinant).all() or (determinant.abs()<.1).any():
+            if not torch.isfinite(determinant).all() or (determinant.abs()<BASE_PLANE_MIN_ABS_DETERMINANT).any():
                 raise ValueError('Base-plane projection is singular or near vertical')
             dx,dy=displacement[:,0],displacement[:,1]
             action[:,0]=(m[:,1,1]*dx-m[:,0,1]*dy)/determinant*2/.15
