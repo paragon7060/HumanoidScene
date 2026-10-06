@@ -148,6 +148,8 @@ pad pinch도0이다. 다만 선택한 후보에도 손 중점 거리·닫힘 축
 [닫힌 HDF 접촉/닫힘 분석](assets/rl_v2_CPU_TRAIN_workplace_contact_analysis_20261006.json)을
 보존했다. 중점 거리는 기존 terminal의 최근접 표면 거리와 다른 측정이다.
 
+![원래 TRAIN4개씩의 후보 결과. R=랙 충돌, T=timeout, I=초기 무효](assets/rl_v2_CPU_TRAIN_workplace_matrix_20261006.png)
+
 지역별 제어 계약 `TRAIN_measured_region_workplace_candidates_v1`은 네 영역의
 측정·실패·초기 무효 분모를 보존한다. 성공0인 상단 오른쪽은
 `measured_success=false`와 `unproven_grasp_candidate=true`로 강제 표시한다.
@@ -178,3 +180,20 @@ Q/replay·성공 bank에 넣지 않는다. Box/base/background와 동적 flap ra
 실제 checkpoint 초기화에서 actor/normalizer9개 tensor의 완전 일치, fresh Q/replay/
 success bank/네 optimizer/critic normalizer를 확인했다. 관련 검사는
 54 passed·GPU integration1 skipped다. 실제 GPU 학습 시작과 성공률은 별도로 확인한다.
+
+### 16:17 KST 실제 시작 확인
+
+Main8f3390b에서 GPU3 실행을 시작했다. 새 입력7개와 별도 receipt는 기존 Drive
+크기/MD5 검증을 마쳤다. 실제 writer3438616의 소유자·run·CUDA_VISIBLE_DEVICES=3과
+manifest의 sim_device=cpu / learner_device=cuda:0 / fresh TRAIN1536 계약을 확인했다.
+현재 원래 DEV128의 학습 전 평가를 준비 중이며 actor 개선을 주장하지 않는다.
+
+학습 checkpoint는300초 간격 검증 후 최신2개를 보호하고 종료 후 닫힌 로그/
+HDF/replay도 동일 supervisor가 검증한다. 이전 GPU 장기 학습의 원래 대용량
+업로더와 다른 사용자·GPU0 프로세스는 유지했다. 실제 상태는 별도
+[시작 근거](assets/rl_v2_CPU_region_workplace_SAC_start_20261006.json)에 기록한다.
+
+[Notion 중간 보고](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)는
+CPU 추가학습 정책7개·기존 actor CPU baseline6개·이번 TRAIN 진단6개를 구분한
+native 영상19개와 그림/사진10개를 첨부했다. 기존 native block을 보존하고
+추가한 영상이 escaped text가 아니라 실제 video block인지 재조회해 확인했다.
