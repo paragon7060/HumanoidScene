@@ -97,6 +97,13 @@ warmup을 기다리는0회였고 첫 학습 후 전체 DEV4 결과는 아직 없
 [초기화·실행 근거](assets/rl_v2_precision25_learned689_initial_20261006.json),
 [학습 전 전체 평가](assets/rl_v2_precision25_initial_DEV_before_training_20261006.json).
 
+정밀 보상의 첫 새 TRAIN128도 완료했다. 실제 양손 파지·들기 성공은7/128,
+구역별5/1/1/0이다. 초기 무효0·근거 없는 성공 flag0을 확인했다.
+이 묶음은 다른 시작 조건에서 탐색을 수행한 TRAIN이며 초기 greedy DEV29/128과
+비교해 학습 성능의 개선·퇴보를 판단하지 않는다. 예정된 Q warmup 뒤 actor
+업데이트와 첫 학습 후 DEV4를 확인한다.
+[첫 실제 TRAIN 근거](assets/rl_v2_precision25_first_TRAIN128_20261006.json).
+
 ## 두 번째 전체 평가와 닫기 명령 변화
 
 주 학습은 새 TRAIN768사례·held TRAIN436,973전이 이후
