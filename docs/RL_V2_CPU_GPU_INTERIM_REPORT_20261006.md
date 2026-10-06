@@ -20,7 +20,7 @@ platform 간 bitwise 동일성을 보장하지 않는다.
 | --- | --- | --- |
 | 정책 | 각 실행의 network/normalizer178개 tensor 불변 | 학습 업데이트가 차이를 만든 것은 아님 |
 | 초기 rack/support | Actual root 위치10µm 이하·roller q/v 동일 | 요청값뿐 아니라 실제 상태를 확인 |
-| Asset 속성190개 | 154개 동일,18개 pool의 stiffness/damping36개 다름 | Flap 범위는 같지만 추첨 값은 다름 |
+| 기록한 Asset 속성190개 | 154개 동일,18개 pool의 stiffness/damping36개 다름 | env0 물성 및 전체 질량 범위 대조. Flap 범위는 같지만 추첨 값은 다름 |
 | GPU 접촉 버퍼 경고 | 검사한 닫힌 로그에 overflow 관련 일치0 | 버퍼 부족이 원인이라는 증거 없음 |
 | Constructor/contact 이력 | Bitwise 일치시키지 않음 | Backend만의 인과 효과 또는 엔진 결함 미확정 |
 | Clone collision filtering | IsaacLab2.3.2가 CPU에는 별도 filtering 호출, GPU에는 env ID 사용 | 초기화 처리 경로도 같지 않음 |
@@ -61,3 +61,11 @@ Actor 관측으로 flap 움직임을 추정하거나 물리를 다시 재생하�
 decode를 검사한다. 기존 Drive 인증과300초 checkpoint 검증/최근2개 보호·
 종료 후 로그/HDF/replay 백업을 재사용하며 영상·실제 판정 JSON도 보관한다.
 Notion에는 외부 Drive 공유 링크 대신 native video/image로 첨부한다.
+
+[Humanoid 하위 중간 보고 페이지](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)에
+전체 결과 그래프·영역별 표·물리 차이·수정 방법을 기록했다. 원래128개 요청을
+유지하는 별도6-case CPU baseline 녹화는12:56 KST에 시작했다. 이 녹화는 기존
+GPU 학습 actor1204/Q6864의 평가이며 새 CPU 물리 학습 성과로 표시하지 않는다.
+CPU 물리·GPU3 learner의 별도 실행은12:43 KST 시작,128env·fresh TRAIN256개,
+현재 학습 전 DEV 기준 성능을 측정 중이다. 영상과 학습 후 결과는 실제 완료
+판정을 읽고 이 페이지에 추가한다.
