@@ -272,3 +272,31 @@ Gripper epsilon30 탐색은 중간 양쪽에서 실제 닫힘을 만들고 있�
 상단 손은 아직 접근 중(최근접 표면 거리 약20–24cm)이므로 그리퍼 파지 구간의
 탐색은 이후 확인한다. 현재 TRAIN 중간 통계를 성공률로 해석하지 않는다.
 [완료된 기준 평가·모델 불변·실제 Q 학습 근거](assets/rl_v2_CPU_region_v2_initial_DEV_and_TRAIN_20261006.json).
+
+### 실제 모델 업데이트와 첫 두 TRAIN 묶음
+
+완료된 새 TRAIN128 두 묶음은 각각16/128·10/128 성공이었다. 첫 묶음의
+중간왼쪽/중간오른쪽/상단왼쪽/상단오른쪽은8/6/2/0, 둘째는8/0/2/0이다.
+둘째 중간오른쪽32개는 모두 rack 충돌이다. 두 묶음의 seed와 초기 조건이 달라
+이를 actor 개선·퇴보의 인과 비교로 사용하지 않는다. 모든26개 성공의 실제
+양손 pinch·stable·서로 다른 flap·0.25초 hold·8mm proof lift·안전 조건을 확인했고
+unsupported success는0이다. 초기 무효도128개 분모에 유지했다.
+
+새로 저장된 checkpoint3072의 actor256/Q3072를 CPU로 읽어 primary model54개가
+유한하고 actor weight/bias6개 묶음이 실제로 바뀐 것을 확인했다. Normalizer와
+body anchor·jaw reference·warm start는 bitwise 동일했다. 읽기 전후 SHA가 같았으며
+활성 HDF/replay는 열지 않았다. 저장된 초기 checkpoint2048의 actor0은 예정된
+Q warmup까지의 상태였고, 후속 실제 actor 학습과 구분한다.
+
+Checkpoint3186의 actor285를 같은 실제 TRAIN 성공 상태19개 경로에서 초기 actor와
+대조했다. Bank 보존 한도로26개 전체 성공 중19개 경로가 남아 있으며, 이19개를
+전체 훈련 분모로 사용하지 않는다. 마지막16행의 양손 닫힘은 중간왼쪽144/144,
+중간오른쪽96/96으로 학습 전후 모두 유지됐다. 상단왼쪽은60/64에서64/64로 늘었다.
+이 상태들에서는 단순한 마지막 그리퍼 닫기 망각이 확인되지 않았지만, 실제
+새 rollout의 경로·접촉 또는 상단오른쪽까지 설명하는 증거는 아니다. Body goal의
+평균 변화는 정규화 좌표로0.00249–0.00558이며 미터 단위 거리가 아니다. Q가 새
+명령을 조금 더 선호하는 결과도 실제 성공률이나 참 return의 증명으로 쓰지 않는다.
+
+같은 writer가 세 번째 TRAIN을 수행 중이다. 새 정책의 전체 고정 DEV 결과는 아직
+없고, 학습 전15/128과 같은 원래128개 평가로 비교할 때까지 개선을 주장하지 않는다.
+[실제 모델 변경·성공 상태 대조·완료 TRAIN 판정](assets/rl_v2_region_sac_first_model_learning_20261006.json).
