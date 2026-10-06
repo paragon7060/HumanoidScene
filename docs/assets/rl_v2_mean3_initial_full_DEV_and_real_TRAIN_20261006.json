@@ -1,0 +1,181 @@
+{
+  "recorded_at": "2026-10-06T22:48:33.434470+09:00",
+  "source_commit": "6237874b11bb687872f45f5c9e04e191c99f9afb",
+  "run_directory_name": "batch_sac_20261006_220756_428d5c",
+  "experiment_directory_name": "CPU_precision25_armbias20_mean3_fresh_SAC128_learner_gpu3_20261006_220756",
+  "initial_original_DEV_requested128": true,
+  "initial_full_DEV": {
+    "wave": 0,
+    "split": "validation",
+    "by_region": {
+      "shelf_2_left": {
+        "attempts": 32,
+        "initial_valid": 30,
+        "complete": 32,
+        "task_success_flags": 13,
+        "supported_successes": 13,
+        "unsafe": 17,
+        "timeout": 0
+      },
+      "shelf_2_right": {
+        "attempts": 32,
+        "initial_valid": 29,
+        "complete": 32,
+        "task_success_flags": 8,
+        "supported_successes": 8,
+        "unsafe": 21,
+        "timeout": 0
+      },
+      "shelf_3_left": {
+        "attempts": 32,
+        "initial_valid": 29,
+        "complete": 32,
+        "task_success_flags": 8,
+        "supported_successes": 8,
+        "unsafe": 6,
+        "timeout": 15
+      },
+      "shelf_3_right": {
+        "attempts": 32,
+        "initial_valid": 29,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 23,
+        "timeout": 6
+      }
+    },
+    "supported_successes": 29,
+    "attempts": 128,
+    "initial_valid": 117,
+    "unsupported_success_environments": [],
+    "safety_causes_on_valid_completed_attempts": {
+      "robot_rack_collision": 67
+    },
+    "simultaneous_safety_cause_sets": {
+      "robot_rack_collision": 67
+    },
+    "end_pinching_hand_counts": {
+      "2": 30,
+      "0": 79,
+      "1": 8
+    },
+    "end_contact_quality": {
+      "count": 117,
+      "mean": 0.30368047644997126,
+      "median": 0.0625,
+      "p90": 1.0,
+      "maximum": 1.0
+    },
+    "end_matched_flap_surface_distance_m": [
+      {
+        "count": 117,
+        "mean": 0.05058159106152339,
+        "median": 0.035645492374897,
+        "p90": 0.12533302307128907,
+        "maximum": 0.2373603731393814
+      },
+      {
+        "count": 117,
+        "mean": 0.054350557739042446,
+        "median": 0.029755523428320885,
+        "p90": 0.15577771961688996,
+        "maximum": 0.4120374023914337
+      }
+    ],
+    "end_flap_surface_distance_by_outcome_m": {
+      "supported_success": [
+        {
+          "count": 29,
+          "mean": 0.0006362491142775478,
+          "median": 0.0005344313103705645,
+          "p90": 0.001242023380473256,
+          "maximum": 0.0020037887152284384
+        },
+        {
+          "count": 29,
+          "mean": 0.001437398564905442,
+          "median": 0.0,
+          "p90": 0.003253693878650665,
+          "maximum": 0.020732857286930084
+        }
+      ],
+      "safe_timeout": [
+        {
+          "count": 21,
+          "mean": 0.05692709285566317,
+          "median": 0.06627364456653595,
+          "p90": 0.0997200682759285,
+          "maximum": 0.15121051669120789
+        },
+        {
+          "count": 21,
+          "mean": 0.03052786133429479,
+          "median": 0.016564585268497467,
+          "p90": 0.07100129872560501,
+          "maximum": 0.15072765946388245
+        }
+      ],
+      "unsafe": [
+        {
+          "count": 67,
+          "mean": 0.0702108355211233,
+          "median": 0.0490543395280838,
+          "p90": 0.14052055180072784,
+          "maximum": 0.2373603731393814
+        },
+        {
+          "count": 67,
+          "mean": 0.08472008371739578,
+          "median": 0.05348867177963257,
+          "p90": 0.17190752029418943,
+          "maximum": 0.4120374023914337
+        }
+      ]
+    },
+    "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+    "end_contact_statistics_are_not_ever_contact_rates": true
+  },
+  "identical_requested_DEV_layouts_to_armbias20_comparison": true,
+  "flap_draws_and_contact_history_not_asserted_identical": true,
+  "initial_transferred_policy_result_not_new_mean3_training_gain": true,
+  "actual_TRAIN_progress": {
+    "wave": 1,
+    "step": 271,
+    "actor_updates": 0,
+    "Q_updates": 416,
+    "actual_held_TRAIN_rows": 24127,
+    "body_behavior_statistics": {
+      "episodes_drawn": 127,
+      "biased_episodes": 30,
+      "held_collection_rows": 24057,
+      "biased_episode_rows": 5726
+    },
+    "actor_body_regularization": {
+      "variant": "mean3-soft",
+      "format_version": 1,
+      "mean_limit": 3.0,
+      "weight": 0.001,
+      "scope": "actual_flap_TRAIN_actor_updates_only",
+      "loss": "mean_rows_sum_active_body_relu_abs_mean_minus_limit_squared_over_active_count",
+      "active_coordinates": "positive_available_affine_goal_radius",
+      "symmetric_positive_negative": true,
+      "hard_mean_clipping": false,
+      "physical_goal_envelope_and_projection_unchanged": true,
+      "reward_success_labels_Q_targets_and_behavior_distribution_unchanged": true
+    },
+    "Q_loss": 0.0009061305900104344
+  },
+  "Q_warmup2048_actor_collection_warmup32768_preserved": true,
+  "body_auxiliary_loss_waits_for_actual_actor_updates": true,
+  "fresh_unique_TRAIN_requested1536": true,
+  "fresh_TRAIN_seed_origin": 2220600000,
+  "randomization_box_base_background_firm_dynamic_flaps_success_safety_preserved": true,
+  "writer_owner_run_and_CUDA3_verified": true,
+  "last_backup_verified_at": "2026-10-06T22:45:31.725415+09:00",
+  "backup_error_present": false,
+  "existing_connection_300s_keep2": true,
+  "no_active_HDF_replay_read": true,
+  "no_other_users_processes_files_touched": true,
+  "goal_not_complete": true
+}
