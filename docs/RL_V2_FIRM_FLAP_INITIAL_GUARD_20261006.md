@@ -224,6 +224,30 @@ body-anchor actor의 실제 tensor가 bit-identical인지 확인한다. 초기 �
 128개 분모에 유지하고 성공·unsafe 원인·거리·pad 품질은 닫힌 metrics에 기록한다.
 이 옵션으로 CPU 학습이나 GPU Q/replay의 CPU 재개를 허용하지 않는다.
 
+## 동일 정책 CPU/GPU 파지 비교 실행 및 balanced 학습 종료
+
+11:54 KST에 CPU·11:56 KST에 GPU frozen 평가를 각각 고유 private RAM 폴더로
+시작했다. 원래 DEV128·각 구역32·source actor1204/Q6864 checkpoint·요청된
+GPU 초기 world/support q/v가 같다. 두 실제 writer는 `CUDA_VISIBLE_DEVICES=0`,
+Kit renderer GPU0이며 학습과 replay 추가는 꺼져 있다. CPU는 실제 초기
+유효127/128로 control step61까지 재생했고 actor/Q1204/6864·replay0·새 온라인
+TRAIN0을 확인했다. **전체 파지 결과는 아직 미확인**이다. GPU도 실제 writer가
+실행 중이다. Constructor/contact 이력과 flap 추첨은 bitwise로 맞추지 않았다.
+
+GPU3의 balanced jaw 비교는 예정된4wave를 정상 종료했다. 같은 전체 원래
+DEV의 성공은8→4/128이며 영역별 ML2→1, MR6→3, UL0→0, UR0→0이다.
+최종 unsafe84 중 robot–rack68건이며 peak body는 오른손 gripper base37·
+왼손14·오른쪽 forearm8건 등이다. 초기 무효30→32개도 분모에 유지했다.
+균형화가 파지 일반화를 개선했다고 판단하지 않는다.
+
+![정상 종료된 strong 및 balanced SAC의 전체 원래 DEV 성공 수](assets/rl_v2_closed_jaw_pair_full_DEV_20261006.png)
+
+[Balanced 전체 배치·영역·안전 원인 JSON](assets/rl_v2_balanced_jaw_recovery_final_DEV_20261006.json).
+Balanced의 원래 supervisor는 닫힌 대용량 자료를 최종 업로드 중이며 검증 완료로
+표시하지 않는다. 앞선 strong 실행은 최종 Drive 검증과 supervisor MainPID0을
+추가로 확인했다. GPU3의30% joint 탐색 장기 실행은 실제 TRAIN을 계속한다.
+새 CPU/GPU 두 실행은 학습 작업으로 세지 않으며 독립 FINAL도 사용하지 않았다.
+
 ## Strong SAC의 학습 후 전체 DEV는 개선되지 않음
 
 Strong saturation penalty 비교는 예정된4wave를 정상 exit0으로 마쳤다.
