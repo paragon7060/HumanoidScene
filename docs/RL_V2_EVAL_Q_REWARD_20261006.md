@@ -141,4 +141,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/export_eval_
 
 MP4와 preview PNG, control step별 Q·r·G trace JSON, 검증 JSON을 출력한다.
 현재 실제-flap bounded held-base 정책(518/577/21차원)용이며 Isaac/GPU를 사용하지 않는다.
+동일한 차원을 사용하는 [표준편차 축소 정책](RL_V2_GAUSSIAN_SERVO_20261007.md)도
+저장된 고유 계약과 자기 Q 입력 변환을 복원해 표시한다. 그 형식을 지원하는 것은
+영상이 이미 생성됐다는 뜻이 아니며, 위4개는 대표30/128 정책의 영상 그대로다.
 [검증 근거](assets/rl_v2_eval_matching_Q_evidence_20261006.json)에 수치와 SHA256을 기록했다.

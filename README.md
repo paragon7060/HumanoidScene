@@ -56,6 +56,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 실제 TRAIN 성공의 파지 직전 학습을 보강 | [실제 성공15개 연결·actor tail64-half·새 Q와 평가 분리](docs/RL_V2_SUCCESS_ACTOR_TAIL_20261007.md) |
 | 제어 제한을 반영한 Q 행동 입력 | [실제 servo 명령을 평가하는 별도 SAC 옵션](docs/RL_V2_SERVO_CRITIC_20261007.md) |
 | 종료 시 접근·정렬 보상과 Q 종료 조건 정합성 | [실제 TRAIN 진단·선택형 종료 보상 수정](docs/RL_V2_ABSORBING_GEOMETRY_20261007.md) |
+| 목표 잡음과 실제 제어 변화 | [실제 TRAIN 진단·표준편차 축소 SAC 비교](docs/RL_V2_GAUSSIAN_SERVO_20261007.md) |
 | 단단한 flap과 초기 배치 실패 분리 | [실제 범위·원래 박스 identity·frozen 리셋 진단](docs/RL_V2_FIRM_FLAP_INITIAL_GUARD_20261006.md) |
 | 접근 후 그리퍼 닫힘 탐색 | [실제 실패 TRAIN 진단·10% joint jaw 행동 탐색·평가 보존](docs/RL_V2_TRAIN_JAW_COVERAGE_20261006.md) |
 | 접근 후 그리퍼 확률 복구 | [실제 TRAIN 경사 분석·선택형 SAC actor 손실·물리 비교](docs/RL_V2_JAW_POLICY_RECOVERY_20261006.md) |

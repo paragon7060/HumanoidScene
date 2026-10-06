@@ -6,6 +6,7 @@ from .physical_body_sac import PhysicalBodySACPilot
 from .actual_flap_residual_sac import ActualFlapResidualSACPilot
 from .actual_flap_reanchored_sac import ReanchoredActualFlapSACPilot
 from .actual_flap_servo_critic_sac import ServoCriticReanchoredSACPilot
+from .gentle_servo_critic_sac import GentleServoCriticSACPilot
 
 
 def staged_policy_class(artifact_type):
@@ -13,6 +14,7 @@ def staged_policy_class(artifact_type):
         StagedGoalSACPilot, StagedHybridGoalSACPilot, PhysicalBodySACPilot,ActualFlapResidualSACPilot,
         ReanchoredActualFlapSACPilot,
         ServoCriticReanchoredSACPilot,
+        GentleServoCriticSACPilot,
     )}.get(artifact_type)
 
 

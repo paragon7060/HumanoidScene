@@ -28,6 +28,7 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_reanchored_sac im
     ReanchoredActualFlapSACPilot, actual_actor_snapshot, source_actual_body_goal,
 )
 from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_servo_critic_sac import ServoCriticReanchoredSACPilot
+from kuavo_isaaclab_scene.rl.multi_box.experiments.gentle_servo_critic_sac import GentleServoCriticSACPilot
 from kuavo_isaaclab_scene.rl.multi_box.experiments.servo_critic import BodyServoCriticEncoder
 from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent, pose_clock
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import (
@@ -47,7 +48,11 @@ def restored_agent(state):
     contract = state['goal_contract']
     if (contract['actor_dim'], contract['critic_dim'], state['action_dim']) != (518, 577, 21):
         raise ValueError('This exporter requires the actual-flap bounded held-base SAC contract')
-    servo_critic = state.get('artifact_type') == ServoCriticReanchoredSACPilot.artifact_type
+    gentle = state.get('artifact_type') == GentleServoCriticSACPilot.artifact_type
+    if gentle:
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.body_policy_spread import validate_quarter_policy_state
+        validate_quarter_policy_state(state)
+    servo_critic = gentle or state.get('artifact_type') == ServoCriticReanchoredSACPilot.artifact_type
     reanchored = servo_critic or state.get('artifact_type') == ReanchoredActualFlapSACPilot.artifact_type
     if not reanchored and state.get('artifact_type') != ActualFlapResidualSACPilot.artifact_type:
         raise ValueError('Unknown actual-flap controller for Q video restoration')

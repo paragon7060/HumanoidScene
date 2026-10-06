@@ -1,0 +1,1219 @@
+{
+  "recorded_at": "2026-10-07T07:33:14.043660+09:00",
+  "source_commit": "c3f445f54d402fda0bc74c1922d57100c1a32e28",
+  "actual_closed_checkpoint_SHA256": "3b6a97974bdc278b80f53de9b2211469632d9ffddee5667594e62d72ff2b3f55",
+  "actor_updates": 690,
+  "critic_updates": 4806,
+  "sampled_successful_TRAIN_episodes": 22,
+  "sampled_actual_TRAIN_states": 704,
+  "episode_counts": [
+    {
+      "region": "shelf_2_right",
+      "origin": "seed_TRAIN",
+      "episodes": 3
+    },
+    {
+      "region": "shelf_2_right",
+      "origin": "current_run_TRAIN",
+      "episodes": 3
+    },
+    {
+      "region": "shelf_2_left",
+      "origin": "seed_TRAIN",
+      "episodes": 8
+    },
+    {
+      "region": "shelf_2_left",
+      "origin": "current_run_TRAIN",
+      "episodes": 1
+    },
+    {
+      "region": "shelf_3_right",
+      "origin": "seed_TRAIN",
+      "episodes": 1
+    },
+    {
+      "region": "shelf_3_left",
+      "origin": "seed_TRAIN",
+      "episodes": 3
+    },
+    {
+      "region": "shelf_3_left",
+      "origin": "current_run_TRAIN",
+      "episodes": 3
+    }
+  ],
+  "groups": [
+    {
+      "region": "shelf_2_right",
+      "origin": "seed_TRAIN",
+      "phase": "first16",
+      "states": 48,
+      "active_coordinates": 912,
+      "clipped_active_fraction": 0.4682017543859649,
+      "zero_Q_goal_gradient_active_fraction": 0.4682017543859649,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 48,
+          "mean": 0.37819283828139305,
+          "median": 0.3703732341527939,
+          "p90": 0.43518135249614714,
+          "maximum": 0.44295534491539
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.13796426340316734,
+          "median": 0.13309383392333984,
+          "p90": 0.19224912971258165,
+          "maximum": 0.20619216561317444
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.03243337296104679,
+          "median": 0.03359883651137352,
+          "p90": 0.040464657172560696,
+          "maximum": 0.04653234779834747
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 48,
+          "mean": 0.02597858717975517,
+          "median": 0.02590151596814394,
+          "p90": 0.02765954751521349,
+          "maximum": 0.028682662174105644
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 48,
+          "mean": 0.37169174818942946,
+          "median": 0.38130883872509,
+          "p90": 0.42016512155532837,
+          "maximum": 0.4385172724723816
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 48,
+          "mean": 16.895833333333332,
+          "median": 17.0,
+          "p90": 18.300000000000004,
+          "maximum": 19
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 48,
+          "mean": 0.002609007516487812,
+          "median": 0.002823239774443209,
+          "p90": 0.0031366997864097357,
+          "maximum": 0.0033025883603841066
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 48,
+          "mean": 0.6658248746146759,
+          "median": 0.6538062393665314,
+          "p90": 0.8976732075214386,
+          "maximum": 1.113069772720337
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 48,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 48,
+          "mean": 1.2474947422742844,
+          "median": 1.3561972379684448,
+          "p90": 1.3996389031410217,
+          "maximum": 1.4282798767089844
+        }
+      }
+    },
+    {
+      "region": "shelf_2_right",
+      "origin": "seed_TRAIN",
+      "phase": "last16",
+      "states": 48,
+      "active_coordinates": 912,
+      "clipped_active_fraction": 0.38048245614035087,
+      "zero_Q_goal_gradient_active_fraction": 0.38048245614035087,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 48,
+          "mean": 0.6730472855269909,
+          "median": 0.6817987263202667,
+          "p90": 0.7153549611568452,
+          "maximum": 0.7224963307380676
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.474250469977657,
+          "median": 0.4636247754096985,
+          "p90": 0.6421676874160769,
+          "maximum": 0.7383803725242615
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.061813423953329526,
+          "median": 0.058288075029850006,
+          "p90": 0.09369806200265887,
+          "maximum": 0.11288740485906601
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 48,
+          "mean": 0.010780713132893046,
+          "median": 0.01081422297284007,
+          "p90": 0.011402253154665231,
+          "maximum": 0.012246762402355671
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 48,
+          "mean": 0.1761429652882119,
+          "median": 0.16896001249551773,
+          "p90": 0.2411221280694008,
+          "maximum": 0.2607196271419525
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 48,
+          "mean": 16.25,
+          "median": 17.0,
+          "p90": 19.0,
+          "maximum": 19
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 48,
+          "mean": 0.0011699587527497595,
+          "median": 0.0013552490272559226,
+          "p90": 0.0016064631985500456,
+          "maximum": 0.0016963077941909432
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 48,
+          "mean": 0.6211984710146984,
+          "median": 0.6143351495265961,
+          "p90": 0.7530687928199769,
+          "maximum": 0.8192429542541504
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 48,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 48,
+          "mean": 8.397827138503393,
+          "median": 8.349433422088623,
+          "p90": 8.911123847961425,
+          "maximum": 9.513558387756348
+        }
+      }
+    },
+    {
+      "region": "shelf_2_right",
+      "origin": "current_run_TRAIN",
+      "phase": "first16",
+      "states": 48,
+      "active_coordinates": 912,
+      "clipped_active_fraction": 0.41885964912280704,
+      "zero_Q_goal_gradient_active_fraction": 0.41885964912280704,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 48,
+          "mean": 0.29817180956403416,
+          "median": 0.30714163184165955,
+          "p90": 0.34775234162807467,
+          "maximum": 0.3624177873134613
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.16043273669977984,
+          "median": 0.1493799388408661,
+          "p90": 0.23802515268325808,
+          "maximum": 0.26045843958854675
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.04349731634526203,
+          "median": 0.039669767022132874,
+          "p90": 0.06511217206716538,
+          "maximum": 0.07175058126449585
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 48,
+          "mean": 0.026300428435206413,
+          "median": 0.026269634254276752,
+          "p90": 0.027508636005222797,
+          "maximum": 0.028038477525115013
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 48,
+          "mean": 0.41103691297272843,
+          "median": 0.4115617722272873,
+          "p90": 0.44868570268154145,
+          "maximum": 0.49469923973083496
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 48,
+          "mean": 17.645833333333332,
+          "median": 18.0,
+          "p90": 19.0,
+          "maximum": 19
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 48,
+          "mean": 0.0022427863708192794,
+          "median": 0.002162260003387928,
+          "p90": 0.0027370776515454054,
+          "maximum": 0.002950308844447136
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 48,
+          "mean": 0.6286219836523136,
+          "median": 0.5872248709201813,
+          "p90": 0.7968078076839448,
+          "maximum": 1.2108129262924194
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 48,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 48,
+          "mean": 0.8928562570363283,
+          "median": 1.132452130317688,
+          "p90": 1.2548402667045593,
+          "maximum": 1.2802590131759644
+        }
+      }
+    },
+    {
+      "region": "shelf_2_right",
+      "origin": "current_run_TRAIN",
+      "phase": "last16",
+      "states": 48,
+      "active_coordinates": 912,
+      "clipped_active_fraction": 0.33223684210526316,
+      "zero_Q_goal_gradient_active_fraction": 0.33223684210526316,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 48,
+          "mean": 0.640058676401774,
+          "median": 0.6431896388530731,
+          "p90": 0.6726625144481659,
+          "maximum": 0.6922802925109863
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.8478475709756216,
+          "median": 0.8320629596710205,
+          "p90": 1.213580620288849,
+          "maximum": 1.522261619567871
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.11357337073422968,
+          "median": 0.10371142998337746,
+          "p90": 0.1676578611135483,
+          "maximum": 0.24991291761398315
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 48,
+          "mean": 0.010702638033156594,
+          "median": 0.01081670681014657,
+          "p90": 0.011323088500648738,
+          "maximum": 0.011681592091917992
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 48,
+          "mean": 0.20518428087234497,
+          "median": 0.2080189734697342,
+          "p90": 0.2240155056118965,
+          "maximum": 0.24520114064216614
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 48,
+          "mean": 17.375,
+          "median": 17.0,
+          "p90": 19.0,
+          "maximum": 19
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 48,
+          "mean": 0.0009674608627392445,
+          "median": 0.0009364522411487997,
+          "p90": 0.0012176642776466906,
+          "maximum": 0.0013547972775995731
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 48,
+          "mean": 0.5343717771271864,
+          "median": 0.515606552362442,
+          "p90": 0.6495244324207307,
+          "maximum": 0.7191235423088074
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 48,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 48,
+          "mean": 8.530945777893066,
+          "median": 8.48092794418335,
+          "p90": 10.012430763244629,
+          "maximum": 10.173418045043945
+        }
+      }
+    },
+    {
+      "region": "shelf_2_left",
+      "origin": "seed_TRAIN",
+      "phase": "first16",
+      "states": 128,
+      "active_coordinates": 2432,
+      "clipped_active_fraction": 0.4136513157894737,
+      "zero_Q_goal_gradient_active_fraction": 0.4136513157894737,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 128,
+          "mean": 0.25794515456072986,
+          "median": 0.24970100820064545,
+          "p90": 0.32162977457046504,
+          "maximum": 0.3438587188720703
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 128,
+          "mean": 0.18343248777091503,
+          "median": 0.17908116430044174,
+          "p90": 0.2552983194589615,
+          "maximum": 0.29102879762649536
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 128,
+          "mean": 0.045754052604024764,
+          "median": 0.044532252475619316,
+          "p90": 0.06346285343170166,
+          "maximum": 0.07760077714920044
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 128,
+          "mean": 0.026423367889947258,
+          "median": 0.02639318909496069,
+          "p90": 0.027734611183404922,
+          "maximum": 0.028867579996585846
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 128,
+          "mean": 0.43913395213894546,
+          "median": 0.43907564878463745,
+          "p90": 0.4868056356906891,
+          "maximum": 0.5171027183532715
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 128,
+          "mean": 18.1484375,
+          "median": 18.0,
+          "p90": 19.0,
+          "maximum": 19
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 128,
+          "mean": 0.0019325449175084941,
+          "median": 0.0019263607100583613,
+          "p90": 0.002540947217494249,
+          "maximum": 0.002884923480451107
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 128,
+          "mean": 0.641260041622445,
+          "median": 0.6379610896110535,
+          "p90": 0.8123659491539001,
+          "maximum": 0.9583168029785156
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 128,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 128,
+          "mean": 0.7732215016148984,
+          "median": 0.8599013984203339,
+          "p90": 0.9685394406318665,
+          "maximum": 1.0425776243209839
+        }
+      }
+    },
+    {
+      "region": "shelf_2_left",
+      "origin": "seed_TRAIN",
+      "phase": "last16",
+      "states": 128,
+      "active_coordinates": 2432,
+      "clipped_active_fraction": 0.32976973684210525,
+      "zero_Q_goal_gradient_active_fraction": 0.32976973684210525,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 128,
+          "mean": 0.604146356228739,
+          "median": 0.6092763245105743,
+          "p90": 0.643098384141922,
+          "maximum": 0.6684985160827637
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 128,
+          "mean": 0.8999304557219148,
+          "median": 0.8185283541679382,
+          "p90": 1.2714339733123778,
+          "maximum": 3.5243027210235596
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 128,
+          "mean": 0.10017500189132988,
+          "median": 0.08997145667672157,
+          "p90": 0.15934576392173758,
+          "maximum": 0.3774079382419586
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 128,
+          "mean": 0.010646702750818804,
+          "median": 0.010652040131390095,
+          "p90": 0.0114786172285676,
+          "maximum": 0.012177087366580963
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 128,
+          "mean": 0.19054081197828054,
+          "median": 0.2012905478477478,
+          "p90": 0.235708324611187,
+          "maximum": 0.2613798975944519
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 128,
+          "mean": 16.328125,
+          "median": 16.0,
+          "p90": 18.0,
+          "maximum": 19
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 128,
+          "mean": 0.0012307953256822657,
+          "median": 0.0013130573788657784,
+          "p90": 0.0019114056834951042,
+          "maximum": 0.0022792648524045944
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 128,
+          "mean": 0.4417155252303928,
+          "median": 0.44408735632896423,
+          "p90": 0.5691976964473724,
+          "maximum": 0.7424122095108032
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 128,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 128,
+          "mean": 8.175799738615751,
+          "median": 7.989947319030762,
+          "p90": 8.984341239929199,
+          "maximum": 9.4932861328125
+        }
+      }
+    },
+    {
+      "region": "shelf_2_left",
+      "origin": "current_run_TRAIN",
+      "phase": "first16",
+      "states": 16,
+      "active_coordinates": 304,
+      "clipped_active_fraction": 0.3782894736842105,
+      "zero_Q_goal_gradient_active_fraction": 0.3782894736842105,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 16,
+          "mean": 0.21486468985676765,
+          "median": 0.21458306163549423,
+          "p90": 0.21740904450416565,
+          "maximum": 0.21757671236991882
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 16,
+          "mean": 0.22676377464085817,
+          "median": 0.2382504791021347,
+          "p90": 0.2496713176369667,
+          "maximum": 0.2696109414100647
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 16,
+          "mean": 0.05600990215316415,
+          "median": 0.05569375120103359,
+          "p90": 0.058830831199884415,
+          "maximum": 0.0667753741145134
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 16,
+          "mean": 0.026634039939381182,
+          "median": 0.026579270139336586,
+          "p90": 0.027824077755212784,
+          "maximum": 0.028234481811523438
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 16,
+          "mean": 0.4514225609600544,
+          "median": 0.4467635154724121,
+          "p90": 0.48756612837314606,
+          "maximum": 0.49786385893821716
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 16,
+          "mean": 18.5,
+          "median": 19.0,
+          "p90": 19.0,
+          "maximum": 19
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 16,
+          "mean": 0.001284023659536615,
+          "median": 0.0012969697709195316,
+          "p90": 0.0014168147463351488,
+          "maximum": 0.001495189848355949
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 16,
+          "mean": 0.7056578695774078,
+          "median": 0.7318443357944489,
+          "p90": 0.8372578918933868,
+          "maximum": 0.9246315956115723
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 16,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 16,
+          "mean": 0.5745759718120098,
+          "median": 0.5730741620063782,
+          "p90": 0.609656810760498,
+          "maximum": 0.639795184135437
+        }
+      }
+    },
+    {
+      "region": "shelf_2_left",
+      "origin": "current_run_TRAIN",
+      "phase": "last16",
+      "states": 16,
+      "active_coordinates": 304,
+      "clipped_active_fraction": 0.21710526315789475,
+      "zero_Q_goal_gradient_active_fraction": 0.21710526315789475,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 16,
+          "mean": 0.541503794491291,
+          "median": 0.5367297530174255,
+          "p90": 0.5895903706550598,
+          "maximum": 0.5975849032402039
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 16,
+          "mean": 1.000526987016201,
+          "median": 0.9520029723644257,
+          "p90": 1.2129073739051819,
+          "maximum": 1.4277418851852417
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 16,
+          "mean": 0.14964589476585388,
+          "median": 0.13713527470827103,
+          "p90": 0.18649398535490036,
+          "maximum": 0.21866632997989655
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 16,
+          "mean": 0.011010487214662135,
+          "median": 0.010940113104879856,
+          "p90": 0.011895648669451475,
+          "maximum": 0.012114114128053188
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 16,
+          "mean": 0.24137101229280233,
+          "median": 0.23501771688461304,
+          "p90": 0.27864255011081696,
+          "maximum": 0.28563594818115234
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 16,
+          "mean": 18.25,
+          "median": 19.0,
+          "p90": 19.0,
+          "maximum": 19
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 16,
+          "mean": 0.0011524596557137556,
+          "median": 0.0010829042876139283,
+          "p90": 0.00167456257622689,
+          "maximum": 0.0018006202299147844
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 16,
+          "mean": 0.43337326869368553,
+          "median": 0.4303921163082123,
+          "p90": 0.5091209262609482,
+          "maximum": 0.5686788558959961
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 16,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 16,
+          "mean": 7.835403025150299,
+          "median": 7.844485759735107,
+          "p90": 7.999448537826538,
+          "maximum": 8.060211181640625
+        }
+      }
+    },
+    {
+      "region": "shelf_3_right",
+      "origin": "seed_TRAIN",
+      "phase": "first16",
+      "states": 16,
+      "active_coordinates": 304,
+      "clipped_active_fraction": 0.5098684210526315,
+      "zero_Q_goal_gradient_active_fraction": 0.5098684210526315,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 16,
+          "mean": 0.3800528980791569,
+          "median": 0.37558504939079285,
+          "p90": 0.39776933193206787,
+          "maximum": 0.4164362847805023
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 16,
+          "mean": 0.0806879629381001,
+          "median": 0.08044467866420746,
+          "p90": 0.0981857068836689,
+          "maximum": 0.10620724409818649
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 16,
+          "mean": 0.0219178709667176,
+          "median": 0.021977702155709267,
+          "p90": 0.025545923970639706,
+          "maximum": 0.030157502740621567
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 16,
+          "mean": 0.025039970641955733,
+          "median": 0.024951030500233173,
+          "p90": 0.02610603626817465,
+          "maximum": 0.0266561321914196
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 16,
+          "mean": 0.3358390578068793,
+          "median": 0.3561997562646866,
+          "p90": 0.3955191969871521,
+          "maximum": 0.4212202727794647
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 16,
+          "mean": 15.8125,
+          "median": 16.0,
+          "p90": 17.0,
+          "maximum": 17
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 16,
+          "mean": 0.0019444668287178501,
+          "median": 0.0019602434476837516,
+          "p90": 0.002235692460089922,
+          "maximum": 0.002481922972947359
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 16,
+          "mean": 0.35207040701061487,
+          "median": 0.3705729842185974,
+          "p90": 0.5144881308078766,
+          "maximum": 0.5441966652870178
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 16,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 16,
+          "mean": 0.8948816023766994,
+          "median": 0.8957382440567017,
+          "p90": 0.9539295136928558,
+          "maximum": 0.9569661617279053
+        }
+      }
+    },
+    {
+      "region": "shelf_3_right",
+      "origin": "seed_TRAIN",
+      "phase": "last16",
+      "states": 16,
+      "active_coordinates": 304,
+      "clipped_active_fraction": 0.42105263157894735,
+      "zero_Q_goal_gradient_active_fraction": 0.42105263157894735,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 16,
+          "mean": 0.5484654381871223,
+          "median": 0.5569176375865936,
+          "p90": 0.5673218369483948,
+          "maximum": 0.5718867182731628
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 16,
+          "mean": 0.33480534609407187,
+          "median": 0.33862727880477905,
+          "p90": 0.41931183636188507,
+          "maximum": 0.500700056552887
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 16,
+          "mean": 0.08874512603506446,
+          "median": 0.08762030676007271,
+          "p90": 0.11511396616697311,
+          "maximum": 0.13706433773040771
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 16,
+          "mean": 0.012383601162582636,
+          "median": 0.012404521461576223,
+          "p90": 0.012807644437998533,
+          "maximum": 0.013226323761045933
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 16,
+          "mean": 0.2197424378246069,
+          "median": 0.2217721939086914,
+          "p90": 0.24358990043401718,
+          "maximum": 0.24648746848106384
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 16,
+          "mean": 16.375,
+          "median": 17.0,
+          "p90": 17.0,
+          "maximum": 17
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 16,
+          "mean": 0.0008375702745979652,
+          "median": 0.0008682237239554524,
+          "p90": 0.0009335775976069272,
+          "maximum": 0.0009410305065102875
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 16,
+          "mean": 0.5791042149066925,
+          "median": 0.5735172927379608,
+          "p90": 0.6742748916149139,
+          "maximum": 0.7434028387069702
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 16,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 16,
+          "mean": 8.196166664361954,
+          "median": 7.628749847412109,
+          "p90": 9.985402584075928,
+          "maximum": 10.046475410461426
+        }
+      }
+    },
+    {
+      "region": "shelf_3_left",
+      "origin": "seed_TRAIN",
+      "phase": "first16",
+      "states": 48,
+      "active_coordinates": 912,
+      "clipped_active_fraction": 0.5307017543859649,
+      "zero_Q_goal_gradient_active_fraction": 0.5307017543859649,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 48,
+          "mean": 0.3138737417757511,
+          "median": 0.31674031913280487,
+          "p90": 0.3363213390111923,
+          "maximum": 0.3513312041759491
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.09677667628663282,
+          "median": 0.09582605957984924,
+          "p90": 0.12698863297700883,
+          "maximum": 0.13783884048461914
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.026829655728458118,
+          "median": 0.026679448783397675,
+          "p90": 0.035217193886637695,
+          "maximum": 0.03777175396680832
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 48,
+          "mean": 0.02591314174545308,
+          "median": 0.025739227421581745,
+          "p90": 0.027525663562119006,
+          "maximum": 0.02846393547952175
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 48,
+          "mean": 0.37821961753070354,
+          "median": 0.38034357130527496,
+          "p90": 0.4080184519290925,
+          "maximum": 0.46132850646972656
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 48,
+          "mean": 17.1875,
+          "median": 17.0,
+          "p90": 18.0,
+          "maximum": 18
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 48,
+          "mean": 0.0024751390713693886,
+          "median": 0.002450997242704034,
+          "p90": 0.00299895154312253,
+          "maximum": 0.003310202853754163
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 48,
+          "mean": 0.6592459697276354,
+          "median": 0.6821562349796295,
+          "p90": 0.8034692645072938,
+          "maximum": 1.0526973009109497
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 48,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 48,
+          "mean": 0.7784090464313825,
+          "median": 0.8097399771213531,
+          "p90": 1.045230746269226,
+          "maximum": 1.084919810295105
+        }
+      }
+    },
+    {
+      "region": "shelf_3_left",
+      "origin": "seed_TRAIN",
+      "phase": "last16",
+      "states": 48,
+      "active_coordinates": 912,
+      "clipped_active_fraction": 0.48135964912280704,
+      "zero_Q_goal_gradient_active_fraction": 0.48135964912280704,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 48,
+          "mean": 0.5332119694600502,
+          "median": 0.5382580757141113,
+          "p90": 0.619620966911316,
+          "maximum": 0.6288302540779114
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.28821432155867416,
+          "median": 0.2860407382249832,
+          "p90": 0.42918020784854904,
+          "maximum": 0.5166974067687988
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.06497021624818444,
+          "median": 0.06254206784069538,
+          "p90": 0.09493828043341637,
+          "maximum": 0.10673838108778
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 48,
+          "mean": 0.012280910566914827,
+          "median": 0.01217680424451828,
+          "p90": 0.013262320775538683,
+          "maximum": 0.013719395734369755
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 48,
+          "mean": 0.18204926528657475,
+          "median": 0.18230364471673965,
+          "p90": 0.21964060813188555,
+          "maximum": 0.264522910118103
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 48,
+          "mean": 13.104166666666666,
+          "median": 13.0,
+          "p90": 15.0,
+          "maximum": 16
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 48,
+          "mean": 0.0018852429784601554,
+          "median": 0.0017228214419446886,
+          "p90": 0.0027055282378569247,
+          "maximum": 0.0029079557862132788
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 48,
+          "mean": 0.6279082875698805,
+          "median": 0.6265169978141785,
+          "p90": 0.7458419263362885,
+          "maximum": 0.8792319297790527
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 48,
+          "mean": 0.020833333333333332,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 1
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 48,
+          "mean": 8.610844453175863,
+          "median": 8.64634084701538,
+          "p90": 9.750540924072267,
+          "maximum": 10.134320259094238
+        }
+      }
+    },
+    {
+      "region": "shelf_3_left",
+      "origin": "current_run_TRAIN",
+      "phase": "first16",
+      "states": 48,
+      "active_coordinates": 912,
+      "clipped_active_fraction": 0.4594298245614035,
+      "zero_Q_goal_gradient_active_fraction": 0.4594298245614035,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 48,
+          "mean": 0.3381084141631921,
+          "median": 0.3023070693016052,
+          "p90": 0.4875421077013016,
+          "maximum": 0.5097922682762146
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.16536499575401345,
+          "median": 0.16982156038284302,
+          "p90": 0.22975437045097352,
+          "maximum": 0.25463610887527466
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.04013671869567285,
+          "median": 0.03830903209745884,
+          "p90": 0.05838075540959837,
+          "maximum": 0.06691944599151611
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 48,
+          "mean": 0.025260685787846644,
+          "median": 0.025298383086919785,
+          "p90": 0.026978600397706033,
+          "maximum": 0.02788601815700531
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 48,
+          "mean": 0.40408025806148845,
+          "median": 0.42659561336040497,
+          "p90": 0.48949402272701265,
+          "maximum": 0.5124866366386414
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 48,
+          "mean": 17.1875,
+          "median": 18.0,
+          "p90": 19.0,
+          "maximum": 19
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 48,
+          "mean": 0.002776167881772077,
+          "median": 0.002116924151778221,
+          "p90": 0.004792289715260268,
+          "maximum": 0.005249483976513147
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 48,
+          "mean": 0.6459551099687815,
+          "median": 0.6606487929821014,
+          "p90": 0.9114424705505373,
+          "maximum": 1.0007258653640747
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 48,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 48,
+          "mean": 0.7771997799475988,
+          "median": 0.49415382742881775,
+          "p90": 1.3903865814208984,
+          "maximum": 1.416431188583374
+        }
+      }
+    },
+    {
+      "region": "shelf_3_left",
+      "origin": "current_run_TRAIN",
+      "phase": "last16",
+      "states": 48,
+      "active_coordinates": 912,
+      "clipped_active_fraction": 0.4956140350877193,
+      "zero_Q_goal_gradient_active_fraction": 0.4956140350877193,
+      "saturated_pre_tanh_active_fraction": 0.0,
+      "same_motor_all20_Gaussian_states": 0,
+      "distributions": {
+        "pre_tanh_abs_max": {
+          "count": 48,
+          "mean": 0.5316996332257986,
+          "median": 0.5511378943920135,
+          "p90": 0.619795286655426,
+          "maximum": 0.6322711706161499
+        },
+        "active_Q_goal_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.38209473186482984,
+          "median": 0.35507330298423767,
+          "p90": 0.5871704518795015,
+          "maximum": 0.6365864872932434
+        },
+        "active_Q_pre_tanh_gradient_abs_mean": {
+          "count": 48,
+          "mean": 0.09497658846278985,
+          "median": 0.08677510544657707,
+          "p90": 0.1590585544705391,
+          "maximum": 0.1673036813735962
+        },
+        "active_Gaussian_goal_std_mean": {
+          "count": 48,
+          "mean": 0.012329181636838863,
+          "median": 0.01240432308986783,
+          "p90": 0.013178348261862993,
+          "maximum": 0.014108272269368172
+        },
+        "active_Gaussian_servo_std_mean": {
+          "count": 48,
+          "mean": 0.19766767773156366,
+          "median": 0.2081674039363861,
+          "p90": 0.2690078645944596,
+          "maximum": 0.302321195602417
+        },
+        "Gaussian_effective_servo_coordinates_gt1e_minus4": {
+          "count": 48,
+          "mean": 14.1875,
+          "median": 14.0,
+          "p90": 16.0,
+          "maximum": 17
+        },
+        "learned_greedy_vs_recorded_TRAIN_goal_MSE": {
+          "count": 48,
+          "mean": 0.0027405016141225738,
+          "median": 0.00186115998076275,
+          "p90": 0.005323820002377033,
+          "maximum": 0.005683530122041702
+        },
+        "learned_greedy_vs_recorded_TRAIN_servo_MSE": {
+          "count": 48,
+          "mean": 0.6291459429388245,
+          "median": 0.6394268274307251,
+          "p90": 0.7799260020256044,
+          "maximum": 0.9400391578674316
+        },
+        "learned_greedy_jaw_disagreements": {
+          "count": 48,
+          "mean": 0.0,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0
+        },
+        "learned_same_past_state_Qmin": {
+          "count": 48,
+          "mean": 8.216128567854563,
+          "median": 8.142191886901855,
+          "p90": 9.529219913482667,
+          "maximum": 9.877140045166016
+        }
+      }
+    }
+  ],
+  "source_actual_model_and_file_unchanged": true,
+  "no_model_normalizer_or_optimizer_updates": true,
+  "no_live_HDF_or_replay_read": true,
+  "past_TRAIN_same_state_policy_diagnostic_NOT_new_physical_rollout_or_DEV_success": true,
+  "Gaussian_marginal_noise_NOT_AR_trajectory_or_episode_bias": true,
+  "includes_success_bank_states_only_NOT_representative_all_failed_TRAIN": true,
+  "no_current_comparison_or_reward_change": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}
