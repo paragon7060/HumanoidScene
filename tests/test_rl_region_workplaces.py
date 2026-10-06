@@ -10,7 +10,8 @@ from test_rl_workplace_results import fixture
 from test_rl_staged_base_hold import Coordinates,scene
 from test_rl_actual_flap_residual_sac import pilots
 from kuavo_isaaclab_scene.rl.multi_box.experiments.region_workplaces import (
-    build_region_workplaces,validate_region_workplaces)
+    build_region_workplaces,validate_region_workplaces,validate_requested_region_stages)
+from kuavo_isaaclab_scene.rl.multi_box.spec import DEFAULT_RACK_REGIONS
 from kuavo_isaaclab_scene.rl.multi_box.experiments.workplace_results import summarize_workplace_results
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_base_hold import StagedBaseHoldDiagnostic
 from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot,actor_anchor_state
@@ -30,7 +31,7 @@ def test_safe_candidate_does_not_become_a_success_or_drop_invalid_denominators()
     right=regional['regions']['shelf_3_right']
     assert right['unproven_grasp_candidate'] and not right['template']['measured_success']
     assert right['TRAIN_evidence']['requested']==4 and right['TRAIN_evidence']['time_out']==4
-    raw,_=scene();raw[:,94:98]=0.;raw[:,97]=1.
+    raw,_=scene();raw[:,94:98]=0.;raw[:,96]=1.
     stage=StagedBaseHoldDiagnostic(Coordinates(),changed,raw)
     expected=source['shelves']['upper']['base_minus_initial_box_xy_rack_m'][0]+.01
     assert stage.target_xy[0,0]==pytest.approx(expected)
@@ -39,14 +40,39 @@ def test_safe_candidate_does_not_become_a_success_or_drop_invalid_denominators()
     assert stage.report()['region_workplace_candidate']['unproven_grasp_candidate']
 
 
-@pytest.mark.parametrize('kind',['fake_success','wrong_geometry','unsafe_candidate','lost_denominator','heldout_source'])
+@pytest.mark.parametrize('region_spec',DEFAULT_RACK_REGIONS)
+def test_production_observation_id_selects_the_requested_region_not_report_order(region_spec):
+    _,changed,*_=workplaces()
+    raw,_=scene();raw[:,94:98]=0.
+    region_id=next(i for i,entry in enumerate(DEFAULT_RACK_REGIONS) if entry.name==region_spec.name)
+    raw[:,94+region_id]=1.
+    stage=StagedBaseHoldDiagnostic(Coordinates(),changed,raw)
+    assert stage.report()['region_workplace_candidate']['region']==region_spec.name
+    assert stage.template==changed['region_workplaces']['regions'][region_spec.name]['template']
+    assert stage.target_xy[0].tolist()==pytest.approx(stage.template['base_minus_initial_box_xy_rack_m'])
+
+
+def test_stage_collection_checks_original_requested_regions_before_ANY_replay():
+    _,changed,*_=workplaces();stages=[];layouts=[]
+    for region_id,region in enumerate(DEFAULT_RACK_REGIONS):
+        raw,_=scene();raw[:,94:98]=0.;raw[:,94+region_id]=1.
+        stages.append(StagedBaseHoldDiagnostic(Coordinates(),changed,raw))
+        layouts.append(dict(layout=dict(target_region=region.name)))
+    validate_requested_region_stages(stages,layouts)
+    wrong=deepcopy(layouts);wrong[0],wrong[1]=wrong[1],wrong[0]
+    with pytest.raises(ValueError,match='original requested layout'):
+        validate_requested_region_stages(stages,wrong)
+
+
+@pytest.mark.parametrize('kind',['fake_success','wrong_geometry','unsafe_candidate','lost_denominator','heldout_source','wrong_id_order'])
 def test_regional_evidence_cannot_silently_change_geometry_scope_or_success(kind):
     _,changed,*_=workplaces();regional=changed['region_workplaces'];right=regional['regions']['shelf_3_right']
     if kind=='fake_success':right['template']['measured_success']=True
     elif kind=='wrong_geometry':right['template']['base_minus_initial_box_xy_rack_m'][0]+=.1
     elif kind=='unsafe_candidate':right['TRAIN_evidence'].update(unsafe=1,time_out=3)
     elif kind=='lost_denominator':right['TRAIN_evidence']['requested']=3
-    else:regional['source_shelf_templates']['upper']['source_split']='holdout'
+    elif kind=='heldout_source':regional['source_shelf_templates']['upper']['source_split']='holdout'
+    else:regional['perceived_region_names_by_id'].reverse()
     with pytest.raises(ValueError):validate_region_workplaces(regional)
 
 

@@ -150,7 +150,7 @@ pad pinch도0이다. 다만 선택한 후보에도 손 중점 거리·닫힘 축
 
 ![원래 TRAIN4개씩의 후보 결과. R=랙 충돌, T=timeout, I=초기 무효](assets/rl_v2_CPU_TRAIN_workplace_matrix_20261006.png)
 
-지역별 제어 계약 `TRAIN_measured_region_workplace_candidates_v1`은 네 영역의
+지역별 제어 계약 `TRAIN_measured_region_workplace_candidates_v2`는 네 영역의
 측정·실패·초기 무효 분모를 보존한다. 성공0인 상단 오른쪽은
 `measured_success=false`와 `unproven_grasp_candidate=true`로 강제 표시한다.
 예전 two-shelf actor/normalizer9개는 명시적 actor-only 초기화에서만 가져오고,
@@ -204,3 +204,25 @@ native 영상19개와 그림/사진10개를 첨부했다. 기존 native block을
 정정된 TRAIN 영상6개·그림·보고·Notion 검증 등 닫힌26개 파일과 별도 receipt는
 고유 폴더에 Drive 크기/MD5 검증을 마쳤다.
 [보고 자료 보관 확인](assets/rl_v2_CPU_region_workplace_report_storage_20261006.json).
+
+### 좌우 ID 매핑 수정 · 첫 실행 중단
+
+위16:21 시작 기록의 진입 제어에는 좌우 매핑 오류가 있었다. 내부 stage template와
+선택 목표끼리의 일치는 원래 요청 영역과의 일치를 보장하지 못했다. 실제 관측
+region ID는 [중간오른쪽, 중간왼쪽, 상단오른쪽, 상단왼쪽]이며, 보고서 나열
+순서 [중간왼쪽, 중간오른쪽, 상단왼쪽, 상단오른쪽]와 다르다. 새 제어에서
+보고서 순서를 ID로 사용해 유효117개 모두 반대쪽 진입 후보를 선택했다.
+
+TRAIN 수집 전 actor/Q update0·replay0을 확인하고 소유한 writer3438616만
+SIGTERM으로 중단했다. Run status는 interrupted·completed_waves0이며 관리자의
+exit1은 이 수동 중단으로 기록됐다. 원래 supervisor는 종료 백업을 계속한다.
+이 불완전한 DEV 결과는 새 제어의 기준 성능으로 사용할 수 없다.
+이전 two-shelf CPU/GPU 평가와 원래16×8 TRAIN 후보 비교는 영향을 받지 않는다.
+[원래 요청/실제 적용117개 대조와 중단 근거](assets/rl_v2_CPU_region_v1_mapping_bug_stop_20261006.json).
+
+v2 계약은 실제 spec의 DEFAULT_RACK_REGIONS 순서를 perceived_region_names_by_id로
+명시하고 검증한다. 네 영역을 production ID로 해석하는 검사와 좌우가 바뀐
+요청을 거부하는 검사를 추가했다. 실제 collector도 매 wave 물리 rollout/Q 수집
+전에 원래 layout.target_region과 관측에서 고른 stage region의 일치를 검사한다.
+v1 Q/제어를 resume하지 않고 원래 CPU 초기 actor9개만 다시 보존해 fresh Q/replay를
+만든다. Box/base/background/flap randomization과 성공/안전 조건은 유지한다.

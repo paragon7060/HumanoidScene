@@ -28,11 +28,10 @@ class StagedBaseHoldDiagnostic:
         self.region_workplace=None
         if regional is not None:
             from .region_workplaces import validate_region_workplaces
-            from .physics_backend_eval import REGIONS
             validate_region_workplaces(regional)
             if regional['source_shelf_templates']!=templates['shelves'] or token[0,8:12].sum()<.5:
                 raise ValueError('Regional target requires the original shelf templates and perceived region')
-            region=REGIONS[int(token[0,8:12].argmax())]
+            region=regional['perceived_region_names_by_id'][int(token[0,8:12].argmax())]
             self.region_workplace=dict(region=region,**regional['regions'][region])
             template=regional['regions'][region]['template']
         if template.get('source_split') != 'train' or not template.get('measured_success'):

@@ -4,12 +4,15 @@ import math
 import re
 
 from .physics_backend_eval import REGIONS
+from ..spec import DEFAULT_RACK_REGIONS
 
-FORMAT='TRAIN_measured_region_workplace_candidates_v1'
+PERCEIVED_REGION_NAMES = tuple(region.name for region in DEFAULT_RACK_REGIONS)
+FORMAT='TRAIN_measured_region_workplace_candidates_v2'
 
 
 def validate_region_workplaces(contract):
     if contract.get('name')!=FORMAT or set(contract.get('regions',{}))!=set(REGIONS) \
+            or contract.get('perceived_region_names_by_id')!=list(PERCEIVED_REGION_NAMES) \
             or set(contract.get('source_shelf_templates',{}))!={'middle','upper'} \
             or not re.fullmatch(r'[0-9a-f]{64}',contract.get('source_results_SHA256','')) \
             or contract.get('source_unique_TRAIN_cases')!=16 \
@@ -63,6 +66,7 @@ def build_region_workplaces(waypoints, results, selections, *, results_SHA256):
         regions[region]=dict(template=template,TRAIN_evidence=evidence,
             unproven_grasp_candidate=evidence['success']==0)
     contract=dict(name=FORMAT,source_shelf_templates=source,regions=regions,source_results_SHA256=results_SHA256,
+        perceived_region_names_by_id=list(PERCEIVED_REGION_NAMES),
         source_unique_TRAIN_cases=16,source_candidate_requests=128,
         source_all178_tensors_and_initial_counters_frozen=True,source_Q_replay_rows_imported=0,
         fresh_matching_Q_replay_required=True,source_flap_draws_contact_history_not_matched=True,
@@ -76,3 +80,12 @@ def frozen_anchor_templates(templates):
     if isinstance(templates,dict) and templates.get('name')==FORMAT:
         return validate_region_workplaces(templates)['source_shelf_templates']
     return templates
+
+
+def validate_requested_region_stages(stages, layouts):
+    """Check semantic requests against decoded perception before collection."""
+    if len(stages)!=len(layouts):raise ValueError('One stage is required for every requested layout')
+    if not any(stage.region_workplace is not None for stage in stages):return
+    for stage,row in zip(stages,layouts):
+        if stage.region_workplace is None or stage.region_workplace['region']!=row['layout']['target_region']:
+            raise ValueError('Perceived workplace region differs from the original requested layout')

@@ -697,6 +697,8 @@ def main():
             stage_seed=observation['policy'].clone()
             stage_seed[~valid_layout]=actors[~valid_layout]
             stages=BatchedBaseStages(warm.coordinates,templates,stage_seed)
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.region_workplaces import validate_requested_region_stages
+            validate_requested_region_stages(stages.stages,wave['layouts'])
             if pilot is None:
                 pilot_options = ({'measured_train_credit': args.measured_train_credit}
                     if args.measured_train_credit is not None else {})
