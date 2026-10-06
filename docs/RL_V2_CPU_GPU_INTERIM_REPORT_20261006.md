@@ -23,6 +23,7 @@ platform 간 bitwise 동일성을 보장하지 않는다.
 | 기록한 Asset 속성190개 | 154개 동일,18개 pool의 stiffness/damping36개 다름 | env0 물성 및 전체 질량 범위 대조. Flap 범위는 같지만 추첨 값은 다름 |
 | GPU 접촉 버퍼 경고 | 검사한 닫힌 로그에 overflow 관련 일치0 | 버퍼 부족이 원인이라는 증거 없음 |
 | Constructor/contact 이력 | Bitwise 일치시키지 않음 | Backend만의 인과 효과 또는 엔진 결함 미확정 |
+| 정책 추론 장치 | CPU 평가의 NN은 CPU, GPU 평가의 NN은 CUDA | Weight 불변만으로 추론의 bitwise 일치까지 보장하지 않음 |
 | Clone collision filtering | IsaacLab2.3.2가 CPU에는 별도 filtering 호출, GPU에는 env ID 사용 | 초기화 처리 경로도 같지 않음 |
 
 [실제 속성·로그 검사 JSON](assets/rl_v2_CPU_GPU_physics_property_audit_20261006.json).
@@ -31,6 +32,8 @@ GPU 버퍼는 CPU처럼 모두 동적으로 증가하지 않으며 부족하면 
 [IsaacLab2.3.2 PhysX 설명](https://isaac-sim.github.io/IsaacLab/v2.3.2/source/api/lab/isaaclab.sim.html#isaaclab.sim.PhysxCfg).
 
 ## 바꾼 설정과 학습 방법
+
+![기존 backend 평가와 새 CPU 물리·GPU3 학습의 구분](assets/rl_v2_CPU_PhysX_interim_workflow_20261006.png)
 
 Flap stiffness1.5–2.5Nm/rad·damping0.15–0.25Nm·s/rad·static friction0.45–0.65·
 dynamic friction0.30–0.40·시작 각도±1°를 사용한다. Episode 중 고정하지 않으며
@@ -69,3 +72,30 @@ GPU 학습 actor1204/Q6864의 평가이며 새 CPU 물리 학습 성과로 표�
 CPU 물리·GPU3 learner의 별도 실행은12:43 KST 시작,128env·fresh TRAIN256개,
 현재 학습 전 DEV 기준 성능을 측정 중이다. 영상과 학습 후 결과는 실제 완료
 판정을 읽고 이 페이지에 추가한다.
+
+닫힌 CPU 학습 checkpoint를 평가하려면 아래처럼 별도 고유 실행 폴더와
+원래 DEV128 wave를 사용한다. TRAIN wave나 축소된 성공 사례 wave는 이 옵션에서
+거부한다. 실제 CPU TRAIN actor update가0인 초기화 모델을 CPU 학습 후 모델로
+표시하지 않는다.
+
+```bash
+conda activate env_isaaclab_232
+CUDA_VISIBLE_DEVICES=0 python scripts/rl/batched_staged_goal_with_drive.py \
+  --gpu 0 --physics-device cpu \
+  --experiment-dir /absolute/path/to/unique-cpu-eval \
+  --checkpoint /absolute/path/to/CPU-learned-checkpoint.pt \
+  --training-manifest /absolute/path/to/CPU-training_manifest.json \
+  --waves-json /absolute/path/to/original-DEV128.json \
+  --waypoints /absolute/path/to/staged-waypoints.json \
+  --demo-dataset /absolute/path/to/quest-success.hdf5 \
+  --native-seed /absolute/path/to/closed-middle-TRAIN-transitions.hdf5 \
+  --native-seed /absolute/path/to/closed-upper-TRAIN-transitions.hdf5 \
+  --no-training --frozen-physics-backend-eval --steps 900 \
+  --eval-video-env-indices 0 5 42 3 2 4
+```
+
+GPU0은 Kit renderer 격리를 위한 번호이고 이 평가의 물리/NN 추론은 CPU다.
+실제 CPU 물리 학습에서는 `--gpu 3 --physics-device cpu --learner-device cuda:0
+--cpu-physics-training --training`을 사용하며 CPU 계약으로 새 Q/replay를
+초기화한 checkpoint와 fresh TRAIN/DEV wave가 필요하다. GPU 학습의 Q/replay는
+CPU 학습에 이어 붙이지 않는다.
