@@ -48,8 +48,10 @@ GPU 버퍼는 CPU처럼 모두 동적으로 증가하지 않으며 부족하면 
 ![기존 backend 평가와 새 CPU 물리·GPU3 학습의 구분](assets/rl_v2_CPU_PhysX_interim_workflow_20261006.png)
 
 Flap stiffness1.5–2.5Nm/rad·damping0.15–0.25Nm·s/rad·static friction0.45–0.65·
-dynamic friction0.30–0.40·시작 각도±1°를 사용한다. Episode 중 고정하지 않으며
-box/base/background randomization은 유지한다. 양손 서로 다른 flap의 실제
+dynamic friction0.30–0.40·시작 각도±1°를 사용한다.
+이 마찰은 flap hinge joint 계수이고 그리퍼·랙의 접촉 재질은 변경하지 않는다.
+Episode 중 고정하지 않으며 box/base/background randomization은 유지한다.
+양손 서로 다른 flap의 실제
 접촉/안정 유지와8mm roller-clearance proof lift가 성공 조건이다.
 Rack10N·robot-only obstacle5N·self-collision OFF는 유지한다.
 
@@ -109,6 +111,25 @@ GPU DEV 초기 월드를 가져오지 않았다. 앞선 matched-world30과 직�
 `CUDA_VISIBLE_DEVICES=3`도 확인했다. 학습 전 actor/normalizer9개 tensor는 초기화
 후와 동일하고 actor/Q update는0이다. 이제 fresh TRAIN을 수집한다.
 [실제 초기 평가·GPU learner 장치 확인 JSON](assets/rl_v2_CPU_initial_DEV_GPU_learner_20261006.json).
+
+13:54 KST에 CPU TRAIN에서 actor256회/Q3072회 추가 학습한 체크포인트의
+별도 전체 DEV128 영상 평가를 시작했다. CPU 초기 actor0과 비교해 actor의
+파라미터6개 묶음이 모두 바뀌었고 현재 SAC agent의 저장 모델54개 tensor는
+모두 유한했다. Frozen 평가 전체 네트워크/normalizer178개와는 검사 범위가
+다르다. 저장된
+모델의 원래 storage tag는cuda:0이며 실제 학습은GPU3에서 이루어졌다.
+[실제 CPU 추가 학습 모델 검증](assets/rl_v2_actual_CPU_learned_checkpoint_20261006.json).
+처음부터 CPU에서 학습한 모델이 아니라 기존 GPU actor를 초기값으로 두고
+CPU 물리의 fresh TRAIN에서 추가 학습한 모델이다. 기존 GPU Q/replay는 가져오지
+않았다. 영상 평가는CPU 물리·CPU NN이며 학습 시CUDA NN과 bitwise 추론까지
+일치시킨 것은 아니다. 원래DEV128 요청·영역별32개 분모를 유지하고 GPU DEV
+초기 월드도 가져오지 않는다. 아직 닫히지 않은 전체 영상 결과는 성과로 쓰지
+않으며 같은 CPU 학습 실행의 초기23/128과 학습 후 DEV를 별도로 확인한다.
+
+현재 base 접근은 측정된 template로 수행한 뒤 hold하는 제어기다. 실제 양손
+파지/proof lift를 평가하지만 base 접근 자체를 SAC가 학습했다는 뜻은 아니다.
+기존 baseline 영상·이미지·정확한 소스/증거61개와 별도 receipt, 새 CPU 추가
+학습 체크포인트·평가 입력5개와 receipt는 기존 Drive 연결로 크기/MD5 검증했다.
 
 닫힌 CPU 학습 checkpoint를 평가하려면 아래처럼 별도 고유 실행 폴더와
 원래 DEV128 wave를 사용한다. TRAIN wave나 축소된 성공 사례 wave는 이 옵션에서
