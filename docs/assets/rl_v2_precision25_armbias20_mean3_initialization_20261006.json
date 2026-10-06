@@ -1,0 +1,155 @@
+{
+  "created_utc": "2026-10-06T13:00:18.704047+00:00",
+  "actual_TRAIN_input_rows": 538,
+  "greedy_goals_bit_identical": true,
+  "greedy_body_error_max": 0.0,
+  "executed_jaw_disagreement_count": 0,
+  "model_anchor_and_prior_tensors_bit_identical": 72,
+  "all_command_network_and_normalizer_tensors_bit_identical": 178,
+  "all_original_checkpoint_and_replay_fields_bit_identical": true,
+  "four_optimizer_states_preserved": true,
+  "new_actor_Q_updates_initially0": true,
+  "no_historical_Q_replay_optimizer_or_success_bank_import": true,
+  "only_future_TRAIN_arm_behavior_enabled": false,
+  "source_files_unchanged": true,
+  "initialized_not_trained": true,
+  "goal_not_complete": true,
+  "future_TRAIN_arm_behavior_enabled": true,
+  "additional_TRAIN_actor_body_regularization": {
+    "variant": "mean3-soft",
+    "format_version": 1,
+    "mean_limit": 3.0,
+    "weight": 0.001,
+    "scope": "actual_flap_TRAIN_actor_updates_only",
+    "loss": "mean_rows_sum_active_body_relu_abs_mean_minus_limit_squared_over_active_count",
+    "active_coordinates": "positive_available_affine_goal_radius",
+    "symmetric_positive_negative": true,
+    "hard_mean_clipping": false,
+    "physical_goal_envelope_and_projection_unchanged": true,
+    "reward_success_labels_Q_targets_and_behavior_distribution_unchanged": true
+  },
+  "initial_actor_model_and_four_optimizers_preserved": true,
+  "run_directory_name": "batch_sac_20261006_220756_428d5c",
+  "experiment_directory_name": "CPU_precision25_armbias20_mean3_fresh_SAC128_learner_gpu3_20261006_220756",
+  "source_commit": "6237874b11bb687872f45f5c9e04e191c99f9afb",
+  "checkpoint_source_actor": 689,
+  "writer_owner_run_and_CUDA3_verified": true,
+  "TRAIN_body_behavior": {
+    "variant": "ramped-arm-bias20",
+    "format_version": 1,
+    "scope": "actual_flap_real_TRAIN_collection_only",
+    "episode_fraction": 0.2,
+    "arm_goal_columns": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "latent_bias_std": 0.8,
+    "max_abs_latent_bias": 1.6,
+    "ramp_held_steps": 90,
+    "actor_observation_dim": 518,
+    "held_phase_column": -6,
+    "unselected_episodes_keep_original_behavior_distribution": true,
+    "actor_Q_targets_and_greedy_evaluation_unchanged": true,
+    "affine_goal_radius_and_physical_projection_unchanged": true,
+    "base_head_torso_bias_zero": true,
+    "privileged_inputs": false,
+    "scene_curriculum": false,
+    "active_episode_biases_reset_between_waves": true
+  },
+  "TRAIN_actor_body_regularization": {
+    "variant": "mean3-soft",
+    "format_version": 1,
+    "mean_limit": 3.0,
+    "weight": 0.001,
+    "scope": "actual_flap_TRAIN_actor_updates_only",
+    "loss": "mean_rows_sum_active_body_relu_abs_mean_minus_limit_squared_over_active_count",
+    "active_coordinates": "positive_available_affine_goal_radius",
+    "symmetric_positive_negative": true,
+    "hard_mean_clipping": false,
+    "physical_goal_envelope_and_projection_unchanged": true,
+    "reward_success_labels_Q_targets_and_behavior_distribution_unchanged": true
+  },
+  "input_Drive_files": [
+    {
+      "file": "checkpoint_00000000.pt",
+      "bytes": 15203369,
+      "size_MD5_verified": true
+    },
+    {
+      "file": "initialization_verification.json",
+      "bytes": 2346,
+      "size_MD5_verified": true
+    },
+    {
+      "file": "manifest.json",
+      "bytes": 50406,
+      "size_MD5_verified": true
+    },
+    {
+      "file": "staged_goal_experience.pt",
+      "bytes": 20180,
+      "size_MD5_verified": true
+    },
+    {
+      "file": "status.json",
+      "bytes": 62,
+      "size_MD5_verified": true
+    },
+    {
+      "file": "training_manifest.json",
+      "bytes": 23458,
+      "size_MD5_verified": true
+    },
+    {
+      "file": "training_waves.json",
+      "bytes": 1191840,
+      "size_MD5_verified": true
+    },
+    {
+      "file": "waypoints.json",
+      "bytes": 8088,
+      "size_MD5_verified": true
+    }
+  ],
+  "existing_Drive_connection_reused": true,
+  "fresh_TRAIN_seed_origin": 2220600000,
+  "fresh_TRAIN_requested": 1536,
+  "original_DEV_requested": 128,
+  "independent_FINAL_unused": true,
+  "initial_evaluation_progress": {
+    "wave": 0,
+    "split": "validation",
+    "step": 31,
+    "actor_updates": 0,
+    "Q_updates": 0,
+    "replay_size": 0,
+    "body_statistics": {
+      "episodes_drawn": 0,
+      "biased_episodes": 0,
+      "held_collection_rows": 0,
+      "biased_episode_rows": 0
+    }
+  },
+  "actual_DEV_progress_observed": true,
+  "only_additional_actor_regularization_changed_from_armbias20_comparison": true,
+  "existing_three_learners_preserved": true,
+  "precision_reward_and_original_physical_conditions_preserved": true,
+  "checkpoint_upload_interval_s": 300,
+  "local_checkpoint_keep": 2,
+  "managed_final_closed_logs_HDF_replay_media_backup": true,
+  "already_finished_or_new_success_claimed": false,
+  "active_HDF_and_replay_not_read": true,
+  "recorded_at": "2026-10-06T22:16:32.341833+09:00"
+}

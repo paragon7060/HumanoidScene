@@ -99,5 +99,16 @@ resume provenance를 검증했다.
 managed/batched TRAIN 실행에도 같은 인자를 전달한다.
 보조 손실 없는 기존 checkpoint로의 묵시적인 변경이나 mismatched replay 재개는 허용하지 않는다.
 
+2026-10-06 22:07 KST에 실제 비교 실행을 시작했다.
+실행 입력8개는 기존 Drive 연결에서 크기와 MD5를 확인했다.
+초기538개 실제 TRAIN 관측의 greedy 목표와178개 모델·normalizer tensor,
+네 optimizer 및 원본 checkpoint/replay 필드를 그대로 보존했다.
+실행 manifest의 `ramped-arm-bias20`·`mean3-soft`와 실제 writer의
+`CUDA_VISIBLE_DEVICES=3`을 확인했다. 첫 DEV0 step31에서 actor·Q 업데이트·
+replay가 모두0이고 팔 탐색의 에피소드·전이 통계도 모두0이었다.
+기존 세 학습의 소유 프로세스·실행 폴더·GPU 제한도 확인했고 종료하지 않았다.
+백업 오류 없이 첫 주기 업로드가 확인됐으며, 원래 입력 검증과 실제 초기 상태는
+[실행 검증](assets/rl_v2_precision25_armbias20_mean3_initialization_20261006.json)에 있다.
+
 이 옵션의 실제 학습 개선을 확인한 상태는 아니다. 판단은 같은 전체128개
 개발 평가의 실제 양손 파지·랙 충돌·구역별 성능과 출력 포화 통계를 함께 사용한다.
