@@ -1,0 +1,419 @@
+{
+  "recorded_at": "2026-10-07T02:10:48.785630+09:00",
+  "source_commit": "88ba2a5d2a8a744d9949f5664c0aee3bd3b6b7df",
+  "variant": "reanchored_actual_flap_radius30",
+  "full_first_TRAIN_wave": {
+    "wave": 1,
+    "split": "train",
+    "by_region": {
+      "shelf_2_left": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 3,
+        "supported_successes": 3,
+        "unsafe": 25,
+        "timeout": 4
+      },
+      "shelf_2_right": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 3,
+        "supported_successes": 3,
+        "unsafe": 29,
+        "timeout": 0
+      },
+      "shelf_3_left": {
+        "attempts": 32,
+        "initial_valid": 31,
+        "complete": 32,
+        "task_success_flags": 1,
+        "supported_successes": 1,
+        "unsafe": 11,
+        "timeout": 19
+      },
+      "shelf_3_right": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 1,
+        "supported_successes": 1,
+        "unsafe": 29,
+        "timeout": 2
+      }
+    },
+    "supported_successes": 8,
+    "attempts": 128,
+    "initial_valid": 127,
+    "unsupported_success_environments": [],
+    "safety_causes_on_valid_completed_attempts": {
+      "robot_rack_collision": 94
+    },
+    "simultaneous_safety_cause_sets": {
+      "robot_rack_collision": 94
+    },
+    "end_pinching_hand_counts": {
+      "0": 109,
+      "1": 9,
+      "2": 9
+    },
+    "end_contact_quality": {
+      "count": 127,
+      "mean": 0.10777866802899423,
+      "median": 0.0,
+      "p90": 0.25,
+      "maximum": 1.0
+    },
+    "end_matched_flap_surface_distance_m": [
+      {
+        "count": 127,
+        "mean": 0.09571037130195677,
+        "median": 0.06449934840202332,
+        "p90": 0.186871138215065,
+        "maximum": 0.5648675560951233
+      },
+      {
+        "count": 127,
+        "mean": 0.09740989783588122,
+        "median": 0.05800044536590576,
+        "p90": 0.21094951033592227,
+        "maximum": 0.971791684627533
+      }
+    ],
+    "end_flap_surface_distance_by_outcome_m": {
+      "supported_success": [
+        {
+          "count": 8,
+          "mean": 0.0028256745426915586,
+          "median": 0.0005310814594849944,
+          "p90": 0.007358087343163787,
+          "maximum": 0.016281042248010635
+        },
+        {
+          "count": 8,
+          "mean": 0.0013441092160064727,
+          "median": 0.0,
+          "p90": 0.003624199121259152,
+          "maximum": 0.006990368943661451
+        }
+      ],
+      "safe_timeout": [
+        {
+          "count": 25,
+          "mean": 0.053967939894646405,
+          "median": 0.042833440005779266,
+          "p90": 0.10822184979915621,
+          "maximum": 0.1663818061351776
+        },
+        {
+          "count": 25,
+          "mean": 0.16726143325679005,
+          "median": 0.05806633457541466,
+          "p90": 0.5765060544013978,
+          "maximum": 0.971791684627533
+        }
+      ],
+      "unsafe": [
+        {
+          "count": 94,
+          "mean": 0.11471716235788103,
+          "median": 0.0845300480723381,
+          "p90": 0.2211568802595139,
+          "maximum": 0.5648675560951233
+        },
+        {
+          "count": 94,
+          "mean": 0.08700817361711821,
+          "median": 0.06339136324822903,
+          "p90": 0.17909113466739657,
+          "maximum": 0.6539366841316223
+        }
+      ]
+    },
+    "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+    "end_contact_statistics_are_not_ever_contact_rates": true
+  },
+  "actual_upper_right_success": {
+    "wave": 1,
+    "split": "train",
+    "environment": 47,
+    "layout": {
+      "seed": 2250700311,
+      "split": "train",
+      "lateral_m": -0.03229584917426109,
+      "yaw_rad": 0.0017276258440688252,
+      "distractors": [
+        5,
+        9
+      ],
+      "depth_m": 0.002495615277439356,
+      "base_lateral_m": 0.0538216196000576,
+      "base_outward_m": 0.059401579201221466,
+      "base_yaw_rad": -0.05738931894302368,
+      "target_region": "shelf_3_right",
+      "align_initial_base_to_region": true
+    },
+    "result": {
+      "steps": 663,
+      "success": true,
+      "unsafe": false,
+      "invalid_reset": false,
+      "time_out": false,
+      "pinching": [
+        true,
+        true
+      ],
+      "stable_hands": [
+        true,
+        true
+      ],
+      "proof_lift": true,
+      "opposing_flaps": true,
+      "hold_time_s": 0.2666666805744171,
+      "rack_clearance_m": 0.03348170965909958,
+      "flap_distances": [
+        0.0035339638125151396,
+        0.006990368943661451
+      ],
+      "rack_peak_force_n": 0.0,
+      "rack_peak_body": "base_link",
+      "box_pose_world": [
+        12.494697570800781,
+        -16.164264678955078,
+        1.7613157033920288,
+        0.6955673098564148,
+        -0.2688315212726593,
+        -0.2262442409992218,
+        0.6266812086105347
+      ],
+      "box_velocity_world": [
+        0.09665504842996597,
+        -0.05502944067120552,
+        0.07006541639566422,
+        -0.18250133097171783,
+        -0.1695760190486908,
+        -0.07812965661287308
+      ],
+      "target_logical_id": 6,
+      "target_pool_id": 12,
+      "unsafe_causes": {
+        "invalid_box_pose": false,
+        "invalid_flap_pose": false,
+        "robot_rack_collision": false,
+        "self_collision": false,
+        "obstacle_collision": false,
+        "workspace_limit": false,
+        "base_projection_invalid": false,
+        "box_drop": false,
+        "box_lift_limit": false,
+        "box_speed_limit": false
+      },
+      "staged_base": {
+        "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+        "phase": "held_grasp",
+        "shelf": "upper",
+        "base_target_xy_rack_m": [
+          -0.5234495997428894,
+          0.6268294453620911
+        ],
+        "base_target_yaw_rack_rad": -1.5323371887207031,
+        "stable_steps": 15,
+        "manipulation_start": 73,
+        "position_error_m": 0.0007881624042056501,
+        "yaw_error_rad": 0.00249636173248291,
+        "linear_speed_mps": 0.012916769832372665,
+        "angular_speed_radps": 0.7758125066757202,
+        "template": {
+          "source_split": "train",
+          "measured_success": false,
+          "box_size_m": [
+            0.26600000262260437,
+            0.1850000023841858,
+            0.12999999523162842
+          ],
+          "base_minus_initial_box_xy_rack_m": [
+            0.044481288790702816,
+            0.7435594499111176
+          ],
+          "base_yaw_rack_rad": -1.5323371887207031
+        },
+        "old_goal_replay_eligible": false,
+        "region_workplace_candidate": {
+          "region": "shelf_3_right",
+          "template": {
+            "source_split": "train",
+            "measured_success": false,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "base_minus_initial_box_xy_rack_m": [
+              0.044481288790702816,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031
+          },
+          "TRAIN_evidence": {
+            "candidate": "right9",
+            "requested": 4,
+            "success": 0,
+            "unsafe": 0,
+            "initial_invalid": 1,
+            "time_out": 3,
+            "numerical_failure": 0,
+            "other_terminal": 0,
+            "offset_xy_yaw": [
+              0.09,
+              0.0,
+              0.0
+            ],
+            "unsafe_causes": {},
+            "unique_TRAIN_seeds": [
+              2150600300,
+              2150600301,
+              2150600302,
+              2150600303
+            ]
+          },
+          "unproven_grasp_candidate": true
+        }
+      },
+      "contact_quality": 1.0
+    },
+    "complete": true,
+    "initial_layout_valid": true,
+    "initial_settling_steps": 59,
+    "initial_layout_guard": {
+      "storage": "whole_wave_initial_layout_guard_reference_v1",
+      "file": "initial_layout_guard_wave_0001.json",
+      "wave": 1,
+      "environment": 47
+    },
+    "executed_transition_rows": 663,
+    "collection_jaw_behavior": {
+      "variant": "joint-epsilon30",
+      "format_version": 1,
+      "uniform_joint_fraction": 0.3,
+      "scope": "actual_flap_real_TRAIN_collection_only",
+      "noise_source": "existing_correlated_two_jaw_gaussians_no_extra_rng",
+      "learned_branch_left_uniform": "conditional_rescale_after_mixture_selection",
+      "branches": [
+        "open_open",
+        "open_close",
+        "close_open",
+        "close_close"
+      ],
+      "projection": "unchanged_production_nominal_near_gate",
+      "body_policy_actor_Q_targets_and_eval_unchanged": true,
+      "coverage_region_order": [
+        "shelf_2_right",
+        "shelf_2_left",
+        "shelf_3_right",
+        "shelf_3_left"
+      ]
+    },
+    "collection_body_behavior": {
+      "variant": "ramped-arm-bias20",
+      "format_version": 1,
+      "scope": "actual_flap_real_TRAIN_collection_only",
+      "episode_fraction": 0.2,
+      "arm_goal_columns": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "latent_bias_std": 0.8,
+      "max_abs_latent_bias": 1.6,
+      "ramp_held_steps": 90,
+      "actor_observation_dim": 518,
+      "held_phase_column": -6,
+      "unselected_episodes_keep_original_behavior_distribution": true,
+      "actor_Q_targets_and_greedy_evaluation_unchanged": true,
+      "affine_goal_radius_and_physical_projection_unchanged": true,
+      "base_head_torso_bias_zero": true,
+      "privileged_inputs": false,
+      "scene_curriculum": false,
+      "active_episode_biases_reset_between_waves": true
+    },
+    "actor_body_regularization": {
+      "variant": "mean3-soft",
+      "format_version": 1,
+      "mean_limit": 3.0,
+      "weight": 0.001,
+      "scope": "actual_flap_TRAIN_actor_updates_only",
+      "loss": "mean_rows_sum_active_body_relu_abs_mean_minus_limit_squared_over_active_count",
+      "active_coordinates": "positive_available_affine_goal_radius",
+      "symmetric_positive_negative": true,
+      "hard_mean_clipping": false,
+      "physical_goal_envelope_and_projection_unchanged": true,
+      "reward_success_labels_Q_targets_and_behavior_distribution_unchanged": true
+    },
+    "actor_jaw_regularization": {
+      "variant": "logit4-soft-strong",
+      "format_version": 1,
+      "logit_limit": 4.0,
+      "weight": 0.001,
+      "scope": "actual_flap_TRAIN_actor_updates_only",
+      "loss": "mean_rows_sum_eligible_jaws_relu_abs_logit_minus_limit_squared_over_active_count",
+      "eligible_jaws": "unchanged_production_nominal_near_gate",
+      "symmetric_open_close": true,
+      "reward_or_success_labels_used": false,
+      "hard_logit_clipping": false,
+      "probability_floor": false,
+      "Q_target_and_behavior_distribution_unchanged": true
+    }
+  },
+  "actual_bilateral_contact_hold_lift_no_unsafe_verified": true,
+  "finite_normalized_box_pose_and_safe_velocities_verified": true,
+  "current_successful_TRAIN_bank": {
+    "rows": 3651,
+    "by_region": {
+      "shelf_2_right": {
+        "episodes": 3,
+        "rows": 1230
+      },
+      "shelf_2_left": {
+        "episodes": 3,
+        "rows": 1236
+      },
+      "shelf_3_right": {
+        "episodes": 1,
+        "rows": 590
+      },
+      "shelf_3_left": {
+        "episodes": 1,
+        "rows": 595
+      }
+    },
+    "TRAIN_only": true,
+    "evaluation_rows": 0
+  },
+  "upper_right_success_rows_at_least590_preserved": true,
+  "actual_TRAIN_bank_balances_available_regions_when_sampling": true,
+  "per_region_capacity4096_prevents_other_regions_evicting_this_success": true,
+  "first_TRAIN_discovery_before_new_actor_updates": true,
+  "stochastic_exploration_success_not_greedy_DEV_improvement": true,
+  "exact_exploration_component_that_generated_success_not_attributed": true,
+  "different_TRAIN_seeds_and_flap_draws_do_not_prove_controller_change_is_sole_cause": true,
+  "box_base_background_dynamic_flap_randomization_and_success_safety_unchanged": true,
+  "held_base_approach_controller_not_learned_navigation": true,
+  "new_manual_demo_or_scripted_IK_not_used": true,
+  "no_active_HDF_or_replay_read": true,
+  "writer_alive_owner_run_CUDA3_verified": true,
+  "independent_FINAL_unused": true,
+  "greedy_original_DEV_baseline23_still_only_initial": true,
+  "goal_not_complete": true
+}

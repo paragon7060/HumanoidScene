@@ -237,6 +237,13 @@ Q warmup을 기다리는 단계로 actor는 아직0회이며, 새 학습 후 성
 현재 배치의 평균 최대0.051·포화0개이며 실제 성공 경험과 n-step16도 연결됐다.
 새 학습 후 전체 평가의 개선은 아직 확인 전이다.
 [실제 actor 갱신](assets/rl_v2_reanchored30_first_real_actor_updates_20261007.json).
+첫 TRAIN128개의 stochastic 탐색에서는 **상단 오른쪽 성공1건**도 확인했다.
+전체 성공8/128(3/3/1/1)로, 어려웠던 구역에서도 실제 양손 파지0.267초·
+3.35cm 들기와 안전 조건을 충족한 경로가 생겼다. Base 시작점도 구역 기준
+좌우+5.38cm·바깥쪽+5.94cm·yaw−3.29°로 바뀐 조건이다. 새 actor 갱신 전의
+탐색 결과이며 greedy 평가 개선으로 세지 않는다. 성공590행을 구역별 보관·
+균형 샘플링해 학습에 유지하며 다음 전체 평가에서 재현 여부를 확인한다.
+[상단 오른쪽 실제 TRAIN 성공](assets/rl_v2_reanchored30_first_upper_right_TRAIN_success_20261007.json).
 
 설정과 원자료는 [관측·동작·SAC 설정](RL_V2_ACTUAL_FLAP_RESIDUAL_SAC.md),
 [대표 평가와 영상 판정](assets/rl_v2_CPU_baseline_video_evidence_20261006.json),
