@@ -62,8 +62,14 @@ GPU3에서 같은128환경·원래 DEV128요청·별도의 새 TRAIN1,536조건�
 **10/07 00:55 KST에 GPU3 비교 실행을 시작했다.** 입력8개의 기존 Drive
 크기·MD5 검증 후 고유 RAM 실행 폴더를 만들었다. Writer2701747의 소유자·
 실행 폴더·`CUDA_VISIBLE_DEVICES=3`을 확인했고 기존 비교 writer3개는 유지했다.
-현재 초기 환경 준비 단계이며 새 학습의 전체 평가나 성능 개선은 아직 확인 전이다.
+실행 시작 시에는 초기 환경 준비 단계였으며, 새 학습의 전체 평가나 성능 개선은 아직 확인 전이다.
 Source commit은`88ba2a5`다. [실행 시작 근거](assets/rl_v2_reanchored30_GPU3_startup_20261007.json).
+
+초기화 후 실제 DEV0 평가151step까지 진행했다. 새 controller·반경0.30·38차원
+실제 flap 관측·정밀 capture25mm가 연결됐고 actor/Q 업데이트·온라인 전이·replay·
+성공 bank는 모두0이었다. TRAIN용 팔·jaw 탐색의 카운터도0으로 평가에 들어가지 않았다.
+이는 실제 제어 진입 확인이며 전체128건 결과나 새 학습 성능은 아직 아니다.
+[첫 실제 평가 제어 확인](assets/rl_v2_reanchored30_first_actual_DEV_progress_20261007.json).
 
 ## 사용법
 

@@ -77,7 +77,7 @@ base 접근 중에는 held-grasp critic의 학습 범위를 벗어나므로 `Q: 
 ## 실제 사용한 reward
 
 대표 평가와 정상 종료한 GPU3 주 학습의 `physical_contract.reward_profile`은 동일하다.
-현재 세 비교 학습에서는 포획 거리 스케일만10cm→2.5cm,
+현재 비교 학습에서는 포획 거리 스케일만10cm→2.5cm,
 양손 합성만 평균→약한 손을 반영한 식으로 바꿨다. 가중치는 같다.
 팔 탐색과 출력 포화 완화는 별도의 행동 샘플링·actor 손실 변경이며 보상 항목은 아니다.
 [비교 설정](RL_V2_LEARNED_WORKPLACE_PRECISION_20261006.md)에 따로 기록했다.
