@@ -4,8 +4,10 @@
 출력 포화 완화는29→24→12→18→7/128이었다. 마지막7건은 중간 좌3·우4이며
 상단 양쪽은0건이다. 랙 충돌73·박스 낙하6·시간 초과41·초기화 무효1건을
 원래128개 분모에 포함했다. 실제 양손 접촉·유지·들기 조건으로 확인한 반복 DEV이며
-독립 FINAL은 사용하지 않았다. Writer는 exit0으로 끝났고 원래 관리자가 최종
-백업을 진행한다. [마지막 평가](assets/rl_v2_mean3_final_full_DEV_after1536_20261007.json).
+독립 FINAL은 사용하지 않았다. Writer는 exit0으로 끝났고 원래 관리자가
+10/07 05:36 KST에 닫힌 로그를 포함한 최종 Drive 체크섬 검증을 완료했다.
+[마지막 평가](assets/rl_v2_mean3_final_full_DEV_after1536_20261007.json),
+[종료·백업 근거](assets/rl_v2_mean3_final_backup_verified_20261007.json).
 
 ## 새로 확인한 문제
 
@@ -94,6 +96,14 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_serv
 학습은 기존 `batched_staged_goal_with_drive.py`와 GPU3 마스크를 재사용한다.
 고유 실행 폴더·기존 Drive 연결·300초마다 checksum 검증·최신2개 보존·종료 후
 닫힌 로그 검증을 유지한다. 준비 파일의 존재만으로 실행 중이라고 판단하지 않는다.
+
+**10/07 05:31 KST에 GPU3의 별도 비교 실행을 시작했다.** Code `c3f445f`를
+main에 push하고 입력8개의 기존 Drive 크기·MD5 검증을 마친 뒤 실행했다.
+실제 writer438071의 소유자·고유 run·`CUDA_VISIBLE_DEVICES=3`을 확인했다.
+확인 시점은 초기 장면 준비 단계이며 새 Q·actor 갱신과 전체 초기 평가는 아직
+확인 전이다. 별도 TRAIN1,536조건과 원래 DEV128요청, 독립 FINAL 미사용을
+유지한다. 기존 writer2701747·3847594도 유지했고 어떤 프로세스에도 signal을
+보내지 않았다. [실행·입력 백업 근거](assets/rl_v2_servo_critic_actual_start_20261007.json).
 
 코드: [encoder](../src/kuavo_isaaclab_scene/rl/multi_box/experiments/servo_critic.py),
 [새 pilot](../src/kuavo_isaaclab_scene/rl/multi_box/experiments/actual_flap_servo_critic_sac.py),
