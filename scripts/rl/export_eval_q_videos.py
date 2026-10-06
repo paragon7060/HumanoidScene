@@ -264,6 +264,11 @@ def main():
                 Q_is_success_probability=False, approach_Q_unavailable=True,
                 observed_return_is_retrospective=True, entropy_backup=state['config']['entropy_backup'],
                 discount=state['config']['gamma'], reward_scale=state['config']['reward_scale'],
+                source_critic_physics=state['goal_contract']['physical_contract']['physics_dynamics'],
+                evaluation_physics_device=record['simulation_device'],
+                backend_transfer_diagnostic=json.loads((run/'manifest.json').read_text()).get(
+                    'frozen_physics_backend_evaluation') is not None,
+                casewise_return_difference_is_not_a_critic_learning_error=True,
                 Q_min_first=float(q[0]), Q_min_last=float(q[-1]),
                 Q_min_range=[float(q.min()),float(q.max())], observed_return_first=float(observed[0]),
                 actual_Q_mean_absolute_return_error=float(np.abs(q-observed).mean()),
