@@ -21,28 +21,37 @@ def agent(probability):
 
 
 @pytest.mark.parametrize('probability', [[0.,1.],[.2,.7]])
-def test_joint_mixture_distribution_and_exact_body_with_no_extra_rng(probability):
+@pytest.mark.parametrize('variant,epsilon', [('joint-epsilon10',.1),('joint-epsilon30',.3)])
+def test_joint_mixture_distribution_and_exact_body_with_no_extra_rng(probability,variant,epsilon):
     torch.manual_seed(47)
     count=200000
-    obs=torch.ones(count,2);noise=torch.randn(count,21)
+    obs=torch.zeros(count,98);obs[:,:2]=1
+    region=torch.arange(count)%4;obs[:,94:98].scatter_(1,region[:,None],1)
+    noise=torch.randn(count,21)
     state=torch.random.get_rng_state().clone()
-    sampler=JointJawBehaviorExploration(jaw_behavior_config(VARIANT))
+    sampler=JointJawBehaviorExploration(jaw_behavior_config(variant))
     action=sampler.act(agent(probability),obs,noise)
     assert torch.equal(state,torch.random.get_rng_state())
     assert torch.equal(action[:,:19],torch.tanh(.2+.05*noise[:,:19]))
     p,q=probability
-    expected=torch.tensor([(1-p)*(1-q),(1-p)*q,p*(1-q),p*q])*.9+.025
+    expected=torch.tensor([(1-p)*(1-q),(1-p)*q,p*(1-q),p*q])*(1-epsilon)+epsilon/4
     index=(action[:,19]>0).long()*2+(action[:,20]>0).long()
     observed=torch.bincount(index,minlength=4)/count
     torch.testing.assert_close(observed,expected,atol=.0025,rtol=0)
-    assert sampler.report()['uniform_joint_rows']/count==pytest.approx(.1,abs=.0025)
+    assert sampler.report()['uniform_joint_rows']/count==pytest.approx(epsilon,abs=.0025)
     assert sampler.report()['rows']==count
+    if variant=='joint-epsilon30':
+        stats=sampler.report()
+        assert stats['projected_branch_counts_by_region']==torch.bincount(region*4+index,minlength=16).reshape(4,4).tolist()
+        restored=JointJawBehaviorExploration(jaw_behavior_config(variant),stats)
+        assert restored.report()==stats
 
 
-def test_far_jaws_remain_open_and_projected_counts_are_real_commands():
+@pytest.mark.parametrize('variant', ('joint-epsilon10','joint-epsilon30'))
+def test_far_jaws_remain_open_and_projected_counts_are_real_commands(variant):
     torch.manual_seed(8)
-    obs=torch.zeros(1024,2);obs[512:,1]=1
-    sampler=JointJawBehaviorExploration(jaw_behavior_config(VARIANT))
+    obs=torch.zeros(1024,98);obs[512:,1]=1;obs[:,94]=1
+    sampler=JointJawBehaviorExploration(jaw_behavior_config(variant))
     action=sampler.act(agent([1.,1.]),obs,torch.randn(1024,21))
     assert action[:512,19:21].eq(-1).all() and action[:,19].eq(-1).all()
     assert sampler.report()['projected_branch_counts'][2:]==[0,0]

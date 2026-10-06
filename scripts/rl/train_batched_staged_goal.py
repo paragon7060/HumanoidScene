@@ -27,8 +27,8 @@ def main():
     parser.add_argument('--training',action=argparse.BooleanOptionalAction,default=False)
     parser.add_argument('--measured-train-credit', choices=('one-step', 'measured-nstep16'), default=None,
         help='Opt-in actual-flap learner objective: real completed successful and failed TRAIN n-step credit')
-    parser.add_argument('--jaw-behavior', choices=('policy', 'joint-epsilon10'), default=None,
-        help='Actual-flap TRAIN collection only: 10 percent uniform joint jaws with unchanged production gate')
+    parser.add_argument('--jaw-behavior', choices=('policy', 'joint-epsilon10', 'joint-epsilon30'), default=None,
+        help='Actual-flap TRAIN collection only: 10 or 30 percent correlated uniform joint jaws with unchanged production gate')
     parser.add_argument('--jaw-saturation-penalty', choices=('off', 'logit4-soft', 'logit4-soft-strong'), default=None,
         help='Opt-in actual-flap TRAIN actor loss for saturated near-jaw logits; no clipping or prescribed jaws')
     parser.add_argument('--success-jaw-balance', choices=('off', 'region-hand-class'), default=None,

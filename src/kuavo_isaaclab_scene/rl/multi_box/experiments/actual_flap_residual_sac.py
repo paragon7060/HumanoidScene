@@ -143,9 +143,10 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         self.measured_train_credit = deepcopy(stored if stored is not None else requested)
         self.measured_credit_bank = None
         self.latest_measured_credit_collection = {}
-        from .jaw_behavior_exploration import jaw_behavior_config, VARIANT as JAW_VARIANT
+        from .jaw_behavior_exploration import jaw_behavior_config, VARIANTS as JAW_VARIANTS
         stored_jaw = saved.get('jaw_behavior') if saved else None
-        if stored_jaw is not None and stored_jaw != jaw_behavior_config(JAW_VARIANT):
+        if stored_jaw is not None and (not isinstance(stored_jaw,dict) or stored_jaw.get('variant') not in JAW_VARIANTS \
+                or stored_jaw != jaw_behavior_config(stored_jaw['variant'])):
             raise ValueError('Saved TRAIN jaw behavior configuration differs')
         if stored_jaw is not None and not isinstance(saved.get('jaw_behavior_statistics'), dict):
             raise ValueError('Saved TRAIN jaw behavior statistics are missing')

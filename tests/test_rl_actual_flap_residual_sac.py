@@ -193,16 +193,18 @@ def test_bound_coordinates_have_finite_inactive_entropy_and_no_double_projection
         (per_dim+torch.log(torch.tensor(.15))).sum(-1))
 
 
-def test_train_jaw_behavior_activation_preserves_models_replay_and_frozen_eval(tmp_path):
+@pytest.mark.parametrize('variant', ('joint-epsilon10','joint-epsilon30'))
+def test_train_jaw_behavior_activation_preserves_models_replay_and_frozen_eval(tmp_path,variant):
     _,old,warm,physical,stage,_=pilots(tmp_path)
     raw=torch.zeros(64,464);raw[:,144]=1;critic=torch.zeros(64,530);extra=torch.zeros(64,38)
+    raw[:,94]=1
     previous=old.act(raw,critic,0,supplemental=extra)[1]
     old.observe(previous,raw,critic,torch.ones(64),torch.ones(64,dtype=torch.bool),0,supplemental=extra)
     old.directory.mkdir();old.save(final=True)
     checkpoint=next(old.directory.glob('checkpoint_*.pt'))
     state=torch.load(checkpoint,weights_only=True)
     new=ActualFlapResidualSACPilot(warm,physical,tmp_path/'behavior',stage,
-        checkpoint=checkpoint,jaw_behavior='joint-epsilon10')
+        checkpoint=checkpoint,jaw_behavior=variant)
     assert new.contract==old.contract and new.actor_updates==old.actor_updates and new.critic_updates==old.critic_updates
     for key,value in state['model'].items():assert torch.equal(value,new.agent.state_dict()[key])
     for key,value in old.replay.data.items():assert torch.equal(value[:64],new.replay.data[key][:64])
@@ -230,6 +232,9 @@ def test_train_jaw_behavior_activation_preserves_models_replay_and_frozen_eval(t
     assert restored.jaw_behavior_sampler.report()==new.jaw_behavior_sampler.report()
     with pytest.raises(ValueError,match='differs from checkpoint'):
         ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_behavior',stage,checkpoint=saved,jaw_behavior='policy')
+    other='joint-epsilon30' if variant=='joint-epsilon10' else 'joint-epsilon10'
+    with pytest.raises(ValueError,match='differs from checkpoint'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_behavior_variant',stage,checkpoint=saved,jaw_behavior=other)
     frozen=ActualFlapResidualSACPilot(warm,physical,tmp_path/'frozen_behavior',stage,checkpoint=saved,training=False)
     assert frozen.jaw_behavior==new.jaw_behavior and frozen.jaw_behavior_sampler.report()==new.jaw_behavior_sampler.report()
 
