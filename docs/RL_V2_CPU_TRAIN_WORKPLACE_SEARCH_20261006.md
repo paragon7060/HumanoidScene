@@ -62,3 +62,28 @@ GPU의 기존 사용자 프로세스는 유지한다. 출력은 소유자 전용
 skip했다. 실제 물리 성공은 테스트 통과만으로 판단하지 않고 종료 측정으로 판정한다.
 
 [이전 실제 CPU/GPU 평가·학습 결과·영상](RL_V2_CPU_GPU_INTERIM_REPORT_20261006.md).
+
+## 실행 중 확인한 근거
+
+GPU3의 기존 장기 SAC는 새 TRAIN1536개와 전체 DEV5회를 모두 수행하고 exit0으로
+종료했다. DEV 성공은9→4→3→2→4/128이었고 마지막 중간왼쪽1·중간오른쪽3·
+상단0/0, unsafe84·timeout12·초기 무효28이었다. Actor5715/Q24906까지의 학습은
+일반화 개선으로 이어지지 않았다. 종료 백업은 원래 supervisor가 처리한다.
+
+별도로 종료된 CPU 학습의 실제 성공 TRAIN bank22개 경로에서 학습 전/후
+actor를 동일한 관측에 적용했다. 마지막16개 상태의 양손 닫힘은 중간좌우 모두
+144→144, 상단왼쪽61→64였다. 이 성공 상태들에서는 그리퍼가 파지를 잊거나
+actor normalizer가 변했다는 증거가 없었다. 평균 body goal 변화는 normalized
+좌표에서 중간좌0.00338·중간우0.00378·상단좌0.00611이었다. 이 수치는 meter나
+radian이 아니며 작은 출력 차이도 폐루프 동작/충돌을 바꿀 수 있다.
+
+학습된 Q는 같은 실제 TRAIN 상태에서 대체로 학습 후 actor의 행동을 더 높게
+평가했다. Q 선호는 실제 성공 또는 그 원인의 증명이 아니다. 상단오른쪽 성공
+TRAIN 경로가 bank에 없어 이 영역의 성공 동작 보존을 대조할 수 없었다.
+[실제 CPU TRAIN actor/Q 진단](assets/rl_v2_CPU_TRAIN_actor_regression_audit_20261006.json).
+
+새16사례×8접근위치의 CPU 진단은 GPU0 renderer 격리로 시작했다. 실제 writer의
+소유자·실행 폴더·CUDA_VISIBLE_DEVICES=0을 확인했고 첫 rollout31steps에서
+actor/Q update0·replay0·training=false였다. 입력2개와 별도 receipt는 기존
+Drive 크기/MD5 검증을 마쳤다. 아직 닫힌 전체 진단 결과가 아니므로 좋은
+접근 위치를 찾았거나 학습에 성공했다고 판단하지 않는다.
