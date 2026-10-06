@@ -135,6 +135,15 @@ balance3173061은 유지한다. 새 실제 TRAIN 효과와 전체 DEV 성능은 
 Manifest 확인은 configuration 검증이며 모든 reset의 PhysX readback 확인과 구분한다.
 [실제 시작 증거](assets/rl_v2_joint30_long_actual_GPU3_startup_20261006.json).
 
+**첫 전체 DEV 진입:** 원래128건 중 유효99·무효29를 유지한다.128환경×18asset×
+4hinge의 각 물성9,216값 모두 요청 범위 안임을 확인했다. Reset setter가 실제
+PhysX readback으로 검증한 cache를 읽었으며 추가 simulation/pose write/재추첨은
+없다. 초기 무효 환경의 현재 값은 replacement에 해당하므로 원래 실패의 물성으로
+사용하지 않는다. 초기 각도±1°는 계약 확인이며 이 네 물성 cache에서 초기 각도를
+역추정하지 않는다. Actor1204/Q6864/replay224621/online TRAIN0/jaw sampler0으로
+초기 평가 중 학습·탐색 카운터가 변하지 않았다. 아직 전체 DEV 완료나 새 TRAIN
+성공은 아니다. [실제 물성·평가 증거](assets/rl_v2_joint30_initial_DEV_profile_20261006.json).
+
 수치 원본:
 [실제 strong 첫76회](assets/rl_v2_strong_jaw_recovery_GPU_Q7168_fixed_TRAIN_20261006.json),
 [CPU1024 actor](assets/rl_v2_longer_success_jaw_actual_mixed_TRAIN_CPU_20261006.json),
