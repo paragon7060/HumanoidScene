@@ -1,0 +1,113 @@
+# 접근 실패 진단과 종료 보상 수정
+
+종료된 실제 TRAIN 기록에서 **중간 선반은 접근한 뒤 실패하고, 상단 선반은
+충분히 접근하기 전에 실패하는 경우가 많았다.** 또한 Q는 시간 초과를 종료로
+처리하지만 접근·포획 등의 보상 점수는 종료 위치에 남는 불일치를 확인했다.
+보상 가중치를 높이는 대신 종료 처리와 정렬 계산을 고치는 선택형 설정을 구현했다.
+아직 이 설정의 물리 성능은 측정하지 않았다.
+
+대표 성능은 [간단 중간 보고](RL_V2_GRASP_INTERIM_SUMMARY_20261006.md),
+동일 평가 정책의 Q 표시 영상4개와 보상 가중치는
+[Q 영상·보상 설명](RL_V2_EVAL_Q_REWARD_20261006.md)에 있다.
+그 영상은 기존 대표30/128 정책이며 이 새 보상으로 학습한 영상이 아니다.
+
+## 실패가 발생한 단계
+
+정상 종료하고 최종 Drive 검증을 마친 출력 포화 비교의 TRAIN1,536요청 중
+실제 기록1,533경로·파지 단계828,418동작을 읽었다. 나머지3요청은 초기화 무효이며
+제외 사유를 기록했다. DEV/FINAL은 읽지 않았고 실행 중인 HDF도 읽지 않았다.
+움직이는 flap의 실제 자세를 사용해 두 손의 표면 거리를 재구성했으며 마지막
+거리와 기존 privileged 측정의 최대 차이는0.0006mm 미만이었다.
+
+| 구역 | 랙 충돌 TRAIN 경로 | 충돌 전에 양손 모두 표면2.5cm 이내였던 경로 |
+| --- | ---: | ---: |
+| 중간 왼쪽 | 265 | 192 · 72.5% |
+| 중간 오른쪽 | 92 | 73 · 79.3% |
+| 상단 왼쪽 | 292 | 24 · 8.2% |
+| 상단 오른쪽 | 371 | 9 · 2.4% |
+
+가깝다는 것은 실제 finger pad 접촉·유지·들기에 성공했다는 뜻이 아니다.
+중간은 접근 이후 닫기·접촉·들기의 연속 동작을, 상단은 팔·그리퍼 몸체가
+랙을 피하며 양손을 접근시키는 동작을 함께 봐야 한다. 이 수치는 탐색 중 TRAIN의
+진단이며 greedy 평가 성공률이나 단일 실패 원인의 증명은 아니다.
+
+![위: 랙 충돌 전에 양손이 실제 flap에 접근했던 비율. 아래: 안전한 시간 초과에서 남아 있던 접근·포획·적격 들기의 가중 잠재값. TRAIN 진단이며 새 정책의 성능이 아니다.](assets/rl_v2_closed_TRAIN_approach_terminal_20261007.png)
+
+[거리 재구성·구역별 근거](assets/rl_v2_closed_TRAIN_hand_approach_20261007.json)
+
+## 종료 보상의 불일치
+
+기존 접촉 보상은 `gamma * 새 접촉 점수 - 이전 점수`로 계산하고 종료 점수를0으로
+처리한다. 그러나 접근·진입·포획·적격 들기에는 같은 종료 처리가 없었다.
+안전한 시간 초과336경로의 마지막 관측에서도 이 점수가 남아 있음을 확인했다.
+
+| 구역 | 안전한 시간 초과 | 마지막에 남은 가중 잠재값의 평균 하한 |
+| --- | ---: | ---: |
+| 중간 왼쪽 | 59 | 0.463 |
+| 중간 오른쪽 | 175 | 0.399 |
+| 상단 왼쪽 | 90 | 1.442 |
+| 상단 오른쪽 | 12 | 1.865 |
+
+하한은 `2 * 접근 + 0.5 * 포획 + 0.4 * 적격 들기`만 합산한 값이다.
+진입·정렬은 포함하지 않았다. 기존 Q는 시간 초과 뒤를 더하지 않으므로,
+실패했지만 가까운 위치로 끝난 경로에도 종료 위치에 따른 기하 보상 차이가 남는다.
+이 차이가 학습 실패의 유일한 원인이라고 단정하지 않는다. 과거 보상·return을
+바꾸거나 기존 replay를 소급 재라벨링하지 않았다.
+
+기존 정렬 항목은 `0.5 * 현재 근접도 * (새 정렬도 - 이전 정렬도)`였다.
+근접도가 바뀌면 접근·정렬·이탈·정렬 해제의 반복에서 양의 보상이 남을 수 있다.
+이는 실제 정책이 반복 악용했다는 관측이 아니라 계산식의 문제다.
+
+[종료 잠재값·할인 경계 진단](assets/rl_v2_closed_TRAIN_terminal_geometry_20261007.json)
+
+## 수정한 계산
+
+새 프로필 이름은 `absorbing_geometric_potentials_v1`이다.
+
+| 항목 | 새 처리 |
+| --- | --- |
+| 접근·진입·포획·jaw gap·적격 들기 | 성공·안전 위반·시간 초과에서 다음 잠재값0 |
+| 정렬 | `Phi = 평균 근접도 * 평균 정렬도`, 보상은 `0.5 * (0.999 * Phi_next - Phi_prev)` |
+| 마지막 flap 배정 변경·접촉 소실 | 마지막 저장 잠재값을 사용하며 종료 자세로 재기준화하지 않음 |
+| 일반 reset·진행 중 배정 변경 | 기존 가짜 진행 방지 처리 유지, 선택 env의 저장 정렬값 초기화 |
+| 거리 비용·실제 관측 | 종료 시에도 측정된 거리·자세 사용 |
+| 기존 실행 | 프로필을 지정하지 않으면 기존 계산 유지 |
+
+가중치와 실제 거리 정의는 유지한다. 접근2·진입1·정렬0.5·포획0.5·접촉1·들기0.4,
+한 손 파지 이벤트0.5·양손 파지2·성공8이다. 닫기 명령만의 보상은0이다.
+랙10N/감점−6, 주변 로봇–장애물5N/감점−4, 파괴적 실패−12도 유지한다.
+박스·base·배경·단단한 동적 flap의 기존 무작위화와 양손 실제 파지·0.25초 유지·
+8mm proof lift 성공 기준을 바꾸지 않는다. Box 고정·curriculum은 추가하지 않는다.
+
+## 코드와 확인
+
+- [프로필·frozen actor 입력 호환성](../src/kuavo_isaaclab_scene/rl/multi_box/rewards/absorbing_geometry.py)
+- [보상 계산](../src/kuavo_isaaclab_scene/rl/multi_box/rewards/model.py), [실제 reward manager](../src/kuavo_isaaclab_scene/rl/multi_box/managers/v2_grasp.py)
+- [초기화 도구](../scripts/rl/prepare_absorbing_geometry_actor.py), [실행 중 reward manager 계약 확인](../scripts/rl/train_batched_staged_goal.py)
+
+관련62개 테스트가 통과했다. 실제 production manager의 호출·부분 reset·세 종류
+종료·마지막 배정/접촉 변화와 정렬 반복의 계산을 포함한다. 실제 full trainer도
+새 계약으로 복원했다. 과거 TRAIN698관측에서 초기 몸체 목표와 binary jaws가
+비트 단위로 같고 모델 tensor가 그대로임을 확인했다.
+
+**보상이 바뀌므로 기존 Q·optimizer·replay·성공/n-step 보상 라벨을 가져오지 않는다.**
+이전 보상으로 학습한 Q와 체크포인트는 새 full trainer/초기화 도구가 거부한다.
+기존 성공15경로6,899전이의 라벨도 제거했으며 모든 보상 bank는0에서 시작한다.
+이는 두 VR 시연을 다시 수집하거나 실행 중 따라 재생하는 기능이 아니다.
+성공 경험과 n-step16 보강에는 앞으로 실제로 수집한 TRAIN만 사용한다.
+
+[실제 trainer 복원 근거](assets/rl_v2_absorbing_geometry_initial_restore_20261007.json)
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_absorbing_geometry_actor.py \
+  --initial-checkpoint /absolute/path/to/closed-fresh-servo-inputs/checkpoint_00000000.pt \
+  --training-manifest /absolute/path/to/closed-fresh-servo-inputs/training_manifest.json \
+  --waypoints /absolute/path/to/closed-fresh-servo-inputs/waypoints.json \
+  --output-dir /absolute/path/to/unique-new-reward-inputs
+```
+
+같은 초기 동작을 보존하는 미학습 servo-Q 입력 전용이며, 학습된 Q의 일반 resume가 아니다.
+새 실행은 TRAIN1,536조건과 구역별32개인 원래 DEV128요청을 반복해 비교한다.
+초기화 무효도 원래 분모에 유지하고 독립 FINAL은 아직 사용하지 않는다.
+현재는 초기화·복원·실행 계획을 준비한 단계이며,
+이 보상 수정으로 성공률이 개선됐다는 결과는 아니다.

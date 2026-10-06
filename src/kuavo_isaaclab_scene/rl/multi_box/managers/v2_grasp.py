@@ -219,7 +219,9 @@ class V2GraspReward(ManagerTermBase):
         super().__init__(cfg, env)
         from ..rewards.contact_profile import configured_reward_weights,ContactProgressReward
         profile=cfg.params.get('reward_profile')
-        self.model = MultiBoxRewardModel(configured_reward_weights(profile) if profile else None)
+        from ..rewards.absorbing_geometry import configured_geometry_shaping
+        self.model = MultiBoxRewardModel(configured_reward_weights(profile) if profile else None,
+            geometry_shaping=configured_geometry_shaping(profile))
         self.contact_progress=(ContactProgressReward(env.num_envs,env.device,
             discount=self.model.weights.discount,config=profile['contact_shaping'])
             if profile and 'contact_shaping' in profile else None)
@@ -232,12 +234,14 @@ class V2GraspReward(ManagerTermBase):
         self.previous_assignment = torch.full(
             (env.num_envs, 2), -1, dtype=torch.long, device=env.device)
         self.lift_armed = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+        self.previous_gated_alignment = torch.zeros(env.num_envs, device=env.device)
 
     def reset(self, env_ids=None) -> None:
         ids = slice(None) if env_ids is None else env_ids
         self.initialized[ids] = False
         self.previous_assignment[ids] = -1
         self.lift_armed[ids] = False
+        self.previous_gated_alignment[ids] = 0.0
         for value in self.previous.values():
             value[ids] = 0.0
         if self.contact_progress is not None:self.contact_progress.reset(env_ids)
@@ -267,6 +271,22 @@ class V2GraspReward(ManagerTermBase):
             for name in self.previous
         }
         previous["proof_lift"] = lift_previous
+        geometry_terminal = (grasp.success.success | safety.unsafe | task_time_out(env)
+            if self.model.geometry_shaping is not None or self.contact_progress is not None
+            else torch.zeros_like(safety.unsafe))
+        previous_gated_alignment = None
+        if self.model.geometry_shaping is not None:
+            # The absorbing endpoint uses the last stored potentials, even
+            # when the final contact or flap assignment changes eligibility.
+            # Rebasing to the terminal pose would leave an endpoint bias.
+            previous = {
+                name: torch.where(self.initialized & geometry_terminal, self.previous[name], value)
+                for name, value in previous.items()
+            }
+            gated_alignment = current['alignment'] * current['alignment_proximity']
+            previous_gated_alignment = torch.where(
+                self.initialized & (~assignment_changed | geometry_terminal),
+                self.previous_gated_alignment, self.model.weights.discount * gated_alignment)
         action_rate = (
             env.action_manager.action - env.action_manager.prev_action
         ).square().mean(-1).clamp(0, 1)
@@ -302,18 +322,21 @@ class V2GraspReward(ManagerTermBase):
                 normalized_action_rate=action_rate,
                 normalized_joint_limit=joint_limit,
             ),
+            previous_gated_alignment=previous_gated_alignment,
+            geometry_terminated=geometry_terminal,
         ))
         for name, value in current.items():
             if name in self.previous:
                 self.previous[name].copy_(value)
         self.previous_assignment.copy_(grasp.assigned_flap_index)
         self.lift_armed.copy_(bilateral_eligible)
+        if self.model.geometry_shaping is not None:
+            self.previous_gated_alignment.copy_(gated_alignment)
         self.initialized |= settling.ready
         trainable = (settling.ready & ~settling.just_ready
                      & ~grasp.invalid_box_pose & ~grasp.invalid_flap_pose)
         if self.contact_progress is not None:
-            terminal=grasp.success.success | safety.unsafe | task_time_out(env)
-            contact_reward=self.contact_progress.step(grasp.contacts,trainable=trainable,terminated=terminal)
+            contact_reward=self.contact_progress.step(grasp.contacts,trainable=trainable,terminated=geometry_terminal)
             terms=dict(breakdown.terms,contact_quality_progress=contact_reward)
             breakdown=RewardBreakdown(terms,torch.stack(tuple(terms.values())).sum(0))
             env._multi_box_contact_quality=self.contact_progress.last_quality

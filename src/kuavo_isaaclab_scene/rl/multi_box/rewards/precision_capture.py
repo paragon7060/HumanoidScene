@@ -20,6 +20,8 @@ def frozen_capture_actor_contract(contract):
     Never use the returned contract for current Q, replay, or reward labels.
     Observation/action/terminal fields and the reviewed contact reward remain.
     """
+    from .absorbing_geometry import frozen_geometry_actor_contract
+    contract = frozen_geometry_actor_contract(contract)
     profile = contract.get('reward_profile', {})
     if 'precision_capture' not in profile:
         return contract

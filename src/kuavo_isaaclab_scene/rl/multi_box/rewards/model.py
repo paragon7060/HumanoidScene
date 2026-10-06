@@ -48,6 +48,8 @@ class GraspRewardInput:
     bilateral_pinch_event: torch.Tensor
     success_event: torch.Tensor
     common: CommonRewardInput
+    previous_gated_alignment: torch.Tensor | None = None
+    geometry_terminated: torch.Tensor | None = None
 
 
 @dataclass(frozen=True)
@@ -117,9 +119,13 @@ def _sum(terms: dict[str, torch.Tensor]) -> RewardBreakdown:
 
 
 class MultiBoxRewardModel:
-    def __init__(self, weights=None):
+    def __init__(self, weights=None, *, geometry_shaping=None):
         self.weights = weights or MultiBoxRewardWeights()
         self.weights.validate()
+        from .absorbing_geometry import absorbing_geometry_contract
+        if geometry_shaping is not None and geometry_shaping != absorbing_geometry_contract():
+            raise ValueError('Unknown absorbing geometric shaping identity')
+        self.geometry_shaping = geometry_shaping
 
     def _common(self, value: CommonRewardInput) -> dict[str, torch.Tensor]:
         w = self.weights.common
@@ -136,6 +142,19 @@ class MultiBoxRewardModel:
 
     def grasp(self, value: GraspRewardInput) -> RewardBreakdown:
         w, gamma = self.weights.grasp, self.weights.discount
+        current = {name: getattr(value, name) for name in (
+            'approach', 'front_staging', 'capture', 'jaw_gap', 'proof_lift')}
+        alignment_progress = None
+        if self.geometry_shaping is not None:
+            terminal = value.geometry_terminated
+            previous = value.previous_gated_alignment
+            if terminal is None or terminal.dtype != torch.bool or terminal.shape != value.alignment.shape \
+                    or previous is None or previous.shape != value.alignment.shape \
+                    or not previous.is_floating_point():
+                raise ValueError('Absorbing geometry needs matching terminal and previous alignment potentials')
+            current = {name: torch.where(terminal, 0., metric) for name, metric in current.items()}
+            alignment_progress = potential_progress(previous, torch.where(
+                terminal, 0., value.alignment_proximity * value.alignment), gamma)
         terms = self._common(value.common)
         unsafe = (
             value.common.robot_rack_collision_event
@@ -148,20 +167,21 @@ class MultiBoxRewardModel:
         terms["action_rate"] = -w.action_rate * value.common.normalized_action_rate
         terms.update({
             "approach_progress": w.approach_progress * potential_progress(
-                value.previous_approach, value.approach, gamma),
+                value.previous_approach, current['approach'], gamma),
             "front_staging_progress": w.front_staging_progress * potential_progress(
-                value.previous_front_staging, value.front_staging, gamma),
+                value.previous_front_staging, current['front_staging'], gamma),
             "front_distance_cost": -w.front_distance_cost * (1 - value.front_staging.clamp(0, 1)),
             "approach_distance_cost": -w.approach_distance_cost * (1 - value.approach.clamp(0, 1)),
-            "alignment_progress": w.alignment_progress * value.alignment_proximity * (
-                value.alignment - value.previous_alignment),
+            "alignment_progress": (w.alignment_progress * alignment_progress
+                if self.geometry_shaping is not None else w.alignment_progress * value.alignment_proximity * (
+                    value.alignment - value.previous_alignment)),
             "capture_progress": w.capture_progress * potential_progress(
-                value.previous_capture, value.capture, gamma),
+                value.previous_capture, current['capture'], gamma),
             "jaw_gap_progress": w.jaw_gap_progress * potential_progress(
-                value.previous_jaw_gap, value.jaw_gap, gamma),
+                value.previous_jaw_gap, current['jaw_gap'], gamma),
             "premature_close": -w.premature_close * value.premature_close,
             "proof_lift_progress": w.proof_lift_progress * potential_progress(
-                value.previous_proof_lift, value.proof_lift, gamma),
+                value.previous_proof_lift, current['proof_lift'], gamma),
             "one_hand_pinch_event": w.one_hand_pinch_event * _event(
                 value.one_hand_pinch_event) * (~unsafe),
             "bilateral_pinch_event": w.bilateral_pinch_event * _event(
