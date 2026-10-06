@@ -243,3 +243,10 @@ region ID→stage 선택을 대조했다. 네 영역 각각544요청, TRAIN1536�
 
 수정 검사64 passed·CUDA unit integration1 skipped. 실제 GPU3 writer 격리는
 별도로 확인했다. 현재 환경 초기화 단계이며 새 actor의 학습 성공은 미확인이다.
+
+16:42 KST에 v2의 첫 PhysX 평가가 시작됐다. 실제 유효117개 관측의 요청 영역과
+stage 영역이 모두 일치하고 불일치0임을 확인했다. 초기 무효11개는 원래128개
+분모에 유지한다. 첫 step의 actor/Q update0·replay0은 학습 전 평가이므로
+정상이며 개선 점수가 아니다. [실제 PhysX117개 대조](assets/rl_v2_CPU_region_v2_actual_PhysX_region_match_20261006.json).
+V2 수정·재시작·Notion 검증의 닫힌12개 보고 파일과 별도 receipt도 기존 Drive
+크기/MD5 검증을 마쳤다. 활성 학습 HDF/replay는 이 보고 복사에 포함하지 않는다.
