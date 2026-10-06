@@ -69,6 +69,8 @@ def main():
     parser.add_argument('--cpu-physics-training', action='store_true',
         help='Separate CPU PhysX PGS MDP: fresh matching Q/replay, actual TRAIN and cuda:0 learner')
     parser.add_argument('--learner-device', choices=('cpu','cuda:0'), default=None)
+    parser.add_argument('--eval-video-env-indices', type=int, nargs='+', default=None,
+        help='Record up to6 actual DEV environments before reset; complete original distribution remains evaluated')
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
@@ -219,6 +221,9 @@ def main():
         parser.error('Each parallel wave needs distinct initial cases')
     if args.robot_model!='s63' or args.gripper!='leju-twofinger' or not args.rack_rollers:
         parser.error('Current held-base checkpoint requires S63/Leju/rack rollers')
+    from selected_scene_videos import validate_video_selection
+    try:validate_video_selection(args.eval_video_env_indices,n,args.steps)
+    except ValueError as error:parser.error(str(error))
     export_robot_model_cli(args);export_gripper_cli(args);export_rack_roller_cli(args);export_base_drive_cli(args)
     app=AppLauncher(args).app
     stopped={'value':False};signal.signal(signal.SIGTERM,lambda *_:stopped.update(value=True))
@@ -708,7 +713,11 @@ def main():
             last=[None if valid_layout[i] else dict(steps=0,success=False,unsafe=False,
                 invalid_reset=True,time_out=False,pinching=[False,False],flap_distances=None,
                 original_layout_replaced_during_settling=True,replay_rows=0) for i in range(n)]
-            buffer={}
+            buffer={};scene_videos=None
+            if args.eval_video_env_indices and wave['split']=='validation':
+                from selected_scene_videos import SelectedSceneVideos
+                scene_videos=SelectedSceneVideos(env,output,wave_index,wave['layouts'],args.eval_video_env_indices,
+                    actor_updates=pilot.actor_updates,critic_updates=pilot.critic_updates)
             compute=env.termination_manager.compute
             def capture_before_reset():
                 result=compute();g=env._multi_box_privileged_grasp_step;s=env._multi_box_grasp_safety_step
@@ -731,6 +740,8 @@ def main():
                     from kuavo_isaaclab_scene.rl.multi_box.rewards.contact_profile import opposing_pad_contact_quality
                     buffer['contact_quality']=opposing_pad_contact_quality(g.contacts)
                 if grasp_audit is not None:grasp_audit.finish(g,s)
+                if scene_videos is not None:
+                    scene_videos.capture(step,active,buffer['success'],buffer['unsafe'],buffer['time_out'],buffer['distance'])
                 return result
             env.termination_manager.compute=capture_before_reset
             rollout_start=time.monotonic();wave_rows=0
@@ -809,6 +820,7 @@ def main():
                         if pilot.training and pilot.critic_updates and pilot.critic_updates%1024==0:pilot.save()
             finally:
                 env.termination_manager.compute=compute
+                if scene_videos is not None:scene_videos.close(last)
             for i,samples in enumerate(rows):
                 success=bool(last[i] and last[i]['success'])
                 if samples:

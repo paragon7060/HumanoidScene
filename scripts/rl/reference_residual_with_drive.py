@@ -36,6 +36,9 @@ def archive_pilot(source, remote_root, finished):
                 archive_file(path,destination,remote)
             for path in sorted(source.glob('flap_dynamics_wave_*.json')):
                 archive_file(path,destination,remote)
+            for pattern in ('eval_wave_*_videos.json','eval_wave_*_env_*_h264.mp4','eval_wave_*_env_*_h264.png','eval_wave_*_env_*_h264.json'):
+                for path in sorted(source.glob(pattern)):
+                    archive_file(path,destination,remote)
     return removed
 
 
