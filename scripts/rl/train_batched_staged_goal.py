@@ -494,6 +494,8 @@ def main():
             if args.success_jaw_balance is not None else state.get('success_jaw_balance'))
         meta['TRAIN_successful_jaw_balance'] = successful_jaw_balance
         meta['frozen_evaluation_uses_learned_policy_without_behavior_mixture'] = True
+        if args.reset_failure_diagnostics:
+            meta['reset_diagnostic_physics_device']=str(env.device)
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         if args.grasp_observation_audit:
             from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_observation_audit import GraspObservationAudit
@@ -521,7 +523,8 @@ def main():
             manifest=json.loads((output/'manifest.json').read_text())
             manifest['reset_failure_diagnostics']=dict(enabled=True,frozen_only=True,
                 Q_import_eligible=False,first_failure_before_respawn=True,
-                physics_randomization_success_safety_unchanged=solver_probe is None,
+                physics_device=str(env.device),
+                physics_randomization_success_safety_unchanged=solver_probe is None and str(env.device).startswith('cuda'),
                 reset_solver_probe=reset_solver_probe,
                 passive_bearing_drive_probe=solver_probe if args.passive_bearing_probe_layer else None,
                 initial_passive_roller_velocity_changed=args.zero_passive_roller_velocities_probe,
@@ -597,6 +600,14 @@ def main():
                     layout_guard['reset_failure_diagnostics']['physical_state_unchanged']=False
                     layout_guard['reset_failure_diagnostics']['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
                 captured=layout_guard['reset_failure_diagnostics']
+                if str(env.device)=='cpu':
+                    captured['reset_physics_device_diagnostic']=dict(name='frozen_DEV_reset_CPU_PhysX',
+                        physics_device='cpu',Q_import_eligible=False,
+                        constructor_and_contact_solver_history_not_matched=True,
+                        not_a_grasp_performance_evaluation=True)
+                    captured['physical_state_unchanged']=False
+                    captured['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
+                    captured['requested_box_base_layouts_and_dynamics_parameters_unchanged']=True
                 if replication_probe is not None:
                     captured['startup_scene_replication_probe']=replication_probe
                     captured['physical_state_unchanged']=False
