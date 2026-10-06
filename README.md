@@ -28,6 +28,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 하려는 작업 | 문서 |
 |---|---|
 | 양손 박스 파지의 대표 성능·학습 방법·평가 영상 | [10/06 간단 중간 보고](docs/RL_V2_GRASP_INTERIM_SUMMARY_20261006.md) |
+| 평가 영상의 Q 값·실제 보상과 보상 항목·가중치 | [Q 표시 영상과 보상 설명](docs/RL_V2_EVAL_Q_REWARD_20261006.md) |
 | 처음 설치하고 scene 실행 | [설치 및 첫 실행](docs/INSTALL.md) |
 | 목적별 문서 찾기 | [문서 목차](docs/README.md) |
 | 기능별 코드 위치·Python import 경로 | [코드 구조와 개발 위치](docs/CODE_STRUCTURE.md) |
