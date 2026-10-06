@@ -8,7 +8,7 @@ from .staged_physics import CPU_PHYSICS_BACKEND, staged_solver_contract
 
 SOURCE = 'CPU_PhysX_actual_held_TRAIN_v1'
 INCOMPATIBLE_FLAGS = frozenset('--' + name for name in (
-    'frozen-physics-backend-eval', 'reset-failure-diagnostics', 'reset-world-frame-probe',
+    'frozen-physics-backend-eval', 'cpu-workplace-probe', 'reset-failure-diagnostics', 'reset-world-frame-probe',
     'contact-stability-probe', 'tgs-zero-velocity-probe', 'contact-last-probe', 'pgs-probe',
     'gripper-drive-probe', 'centered-world-probe', 'packed-background-probe', 'base-waypoint-probe',
     'reset-solver-probe', 'passive-bearing-probe-layer', 'reset-independent-scene-probe',

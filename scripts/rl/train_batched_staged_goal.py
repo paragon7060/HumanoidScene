@@ -68,6 +68,8 @@ def main():
         help='Explicit frozen original DEV128/900steps CPU or GPU policy comparison; never supplies matching Q replay')
     parser.add_argument('--cpu-physics-training', action='store_true',
         help='Separate CPU PhysX PGS MDP: fresh matching Q/replay, actual TRAIN and cuda:0 learner')
+    parser.add_argument('--cpu-workplace-probe', action='store_true',
+        help='Frozen CPU-only search of eight base waypoints on16 fresh TRAIN cases; never supplies matching Q replay')
     parser.add_argument('--learner-device', choices=('cpu','cuda:0'), default=None)
     parser.add_argument('--eval-video-env-indices', type=int, nargs='+', default=None,
         help='Record up to6 actual DEV environments before reset; complete original distribution remains evaluated')
@@ -97,6 +99,15 @@ def main():
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
     learner_device=args.learner_device or args.device or 'cuda:0'
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_workplace_probe import (
+        INCOMPATIBLE_FLAGS as WORKPLACE_FLAGS, validate_cpu_workplace_probe)
+    try:
+        workplace_eval=validate_cpu_workplace_probe(waves,json.loads(args.training_manifest.read_text()),
+            enabled=args.cpu_workplace_probe,device=args.device or 'cuda:0',training=args.training,
+            steps=args.steps,waypoint_enabled=args.base_waypoint_probe,
+            explicit_frozen='--no-training' in sys.argv and '--training' not in sys.argv,
+            other_probe=any(s.split('=')[0] in WORKPLACE_FLAGS for s in sys.argv[1:]))
+    except (ValueError,OSError) as error:parser.error(str(error))
     from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_physics_training import (
         INCOMPATIBLE_FLAGS as CPU_TRAIN_PROBE_FLAGS, SOURCE as CPU_TRAIN_SOURCE,
         validate_cpu_physics_training, act_measured_held_rows)
@@ -120,7 +131,7 @@ def main():
                 args.reset_independent_scene_probe,args.zero_passive_roller_velocities_probe,
                 args.rear5_support_gap_probe_m is not None,args.grasp_observation_audit,
                 args.measured_train_credit,args.jaw_behavior,args.jaw_saturation_penalty,args.success_jaw_balance)))
-        if args.device=='cpu' and backend_eval is None and cpu_training is None and (args.training or '--no-training' not in sys.argv
+        if args.device=='cpu' and backend_eval is None and cpu_training is None and workplace_eval is None and (args.training or '--no-training' not in sys.argv
                 or '--training' in sys.argv or not args.reset_failure_diagnostics or args.steps!=1):
             raise ValueError('CPU requires explicit frozen reset or full backend policy evaluation')
     except ValueError as error:parser.error(str(error))
@@ -200,7 +211,8 @@ def main():
                 w.get('background_placement','original')!='original' and not args.packed_background_probe):
             parser.error('Packed background reset is an explicitly frozen diagnostic')
         if w['split'] not in ('train','validation','holdout'):parser.error('Unknown wave split')
-        if w['split']=='train' and not args.training:parser.error('Frozen runs cannot contain TRAIN waves')
+        if w['split']=='train' and not args.training and workplace_eval is None:
+            parser.error('Frozen runs cannot contain TRAIN waves outside the explicit CPU workplace search')
         expected='train' if w['split']=='train' else 'holdout'
         if any(row['layout']['split']!=expected for row in w['layouts']):parser.error('Mixed wave splits')
     training_seeds={r['layout']['seed'] for w in waves if w['split']=='train' for r in w['layouts']}
@@ -510,6 +522,7 @@ def main():
             sim_device=str(env.device),learner_device=learner_device,multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             frozen_physics_backend_evaluation=backend_eval,
             CPU_physics_training=cpu_training,
+            CPU_workplace_probe=workplace_eval,
             current_reward_verified_against_breakdown=True,
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
             wave_reset_controller_contract=WAVE_RESET_CONTROLLER_CONTRACT,
@@ -548,6 +561,7 @@ def main():
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
             'frozen_physics_backend_evaluation':backend_eval,
             'CPU_physics_training':cpu_training,
+            'CPU_workplace_probe':workplace_eval,
             'learner_device':learner_device,'sim_device':str(env.device),
             'TRAIN_jaw_behavior':collection_jaw_behavior,
             'TRAIN_actor_jaw_regularization':actor_jaw_regularization,
@@ -702,7 +716,7 @@ def main():
             pilot.reset_exploration(n)
             updates_before=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size)
             frozen_integrity=None
-            if backend_eval:
+            if backend_eval or workplace_eval:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.physics_backend_eval import (
                     frozen_network_snapshot,verify_frozen_network_snapshot)
                 frozen_integrity=frozen_network_snapshot(pilot)
@@ -714,7 +728,7 @@ def main():
                 invalid_reset=True,time_out=False,pinching=[False,False],flap_distances=None,
                 original_layout_replaced_during_settling=True,replay_rows=0) for i in range(n)]
             buffer={};scene_videos=None
-            if args.eval_video_env_indices and wave['split']=='validation':
+            if args.eval_video_env_indices and (wave['split']=='validation' or workplace_eval):
                 from selected_scene_videos import SelectedSceneVideos
                 scene_videos=SelectedSceneVideos(env,output,wave_index,wave['layouts'],args.eval_video_env_indices,
                     actor_updates=pilot.actor_updates,critic_updates=pilot.critic_updates)
@@ -843,17 +857,18 @@ def main():
                     outcomes[-1]['actor_jaw_regularization']=pilot.jaw_saturation
                 if wave['split']=='train' and getattr(pilot,'success_jaw_balance',None) is not None:
                     outcomes[-1]['successful_jaw_balance']=pilot.success_jaw_balance
-            if wave['split']!='train' and updates_before!=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size):
+            if not pilot.training and updates_before!=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size):
                 raise ValueError('Evaluation modified optimizer counters or replay')
-            if backend_eval:
-                backend_eval['frozen_network_integrity']=verify_frozen_network_snapshot(pilot,frozen_integrity)
-                backend_eval['actor_critic_updates_and_replay_size_unchanged']=True
-                backend_eval['replay_rows_imported']=pilot.replay.size
+            if backend_eval or workplace_eval:
+                frozen_eval_contract=backend_eval or workplace_eval
+                frozen_eval_contract['frozen_network_integrity']=verify_frozen_network_snapshot(pilot,frozen_integrity)
+                frozen_eval_contract['actor_critic_updates_and_replay_size_unchanged']=True
+                frozen_eval_contract['replay_rows_imported']=pilot.replay.size
             pilot.training=args.training
-            if pilot.success_bank is not None:
+            if args.training and pilot.success_bank is not None:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import add_completed_training_wave
                 add_completed_training_wave(pilot.success_bank,wave,outcomes[-n:],measured_goal_batches,source_run=output.name)
-            if getattr(pilot, 'measured_credit_bank', None) is not None:
+            if args.training and getattr(pilot, 'measured_credit_bank', None) is not None:
                 pilot.add_measured_training_wave(wave, outcomes[-n:], measured_goal_batches,
                     source_run=output.name)
             if args.training:pilot.save(final=True)
@@ -868,6 +883,7 @@ def main():
             if not stopped['value']:completed_wave_count+=1
             (output/'metrics.json').write_text(json.dumps(dict(policy=pilot.artifact_type,outcomes=outcomes,
                 frozen_physics_backend_evaluation=backend_eval,
+                CPU_workplace_probe=workplace_eval,
                 learner=pilot.report(),actual_rows=total_rows,seconds=time.monotonic()-start,
                 development_checks=development_checks),indent=2)+'\n')
             status=('interrupted' if stopped['value'] else
