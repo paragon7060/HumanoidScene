@@ -59,6 +59,12 @@ GPU3에서 같은128환경·원래 DEV128요청·별도의 새 TRAIN1,536조건�
 최신2개 및 형식별 최신 검증2개를 보호하며 종료 후 닫힌 로그·데이터도 검증한다.
 입력 백업이나 이 문서의 존재만으로 학습 시작·성공을 판단하지 않는다.
 
+**10/07 00:55 KST에 GPU3 비교 실행을 시작했다.** 입력8개의 기존 Drive
+크기·MD5 검증 후 고유 RAM 실행 폴더를 만들었다. Writer2701747의 소유자·
+실행 폴더·`CUDA_VISIBLE_DEVICES=3`을 확인했고 기존 비교 writer3개는 유지했다.
+현재 초기 환경 준비 단계이며 새 학습의 전체 평가나 성능 개선은 아직 확인 전이다.
+Source commit은`88ba2a5`다. [실행 시작 근거](assets/rl_v2_reanchored30_GPU3_startup_20261007.json).
+
 ## 사용법
 
 이전 실제-flap actor와 일치하는 manifest·waypoint·native seed를 사용한다.

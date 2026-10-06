@@ -206,6 +206,13 @@ TRAIN 조건·flap 추첨이 달라 포화 완화 효과를 입증하지 않는�
 결과는 아니다. [실제 실패·탐색 진단 그림](RL_V2_PHYSICAL_EXPLORATION_DIAGNOSIS_20261007.md)과
 [관절 목표 범위의 근거](RL_V2_LOCAL_GOAL_RANGE_DIAGNOSIS_20261007.md)에 기록했다.
 
+**학습된 초기 동작을 기준으로 더 넓게 조정하는 별도 SAC도 시작했다.**
+팔·상체 목표의 정규화 반경을0.30으로 두되 실제 TRAIN 관측538개에서 초기
+몸체·gripper 목표와 제어 명령이 그대로임을 확인했다. Q·replay는 새로 시작하고
+GPU3에서 별도의 새 TRAIN1,536조건과 원래 DEV128개로 비교한다. 박스·base·
+배경·flap 무작위화와 성공·충돌 기준은 유지한다. 아직 새 학습의 개선은 확인 전이다.
+[변경한 제어와 검증·실행 기록](RL_V2_REANCHORED_BODY_CONTROLLER_20261007.md).
+
 설정과 원자료는 [관측·동작·SAC 설정](RL_V2_ACTUAL_FLAP_RESIDUAL_SAC.md),
 [대표 평가와 영상 판정](assets/rl_v2_CPU_baseline_video_evidence_20261006.json),
 [후속 훈련 설정](RL_V2_CPU_TRAIN_WORKPLACE_SEARCH_20261006.md)에 보관한다.
