@@ -136,3 +136,18 @@ actor와 actor 정규화는 초기 모델과 정확히 같았다. Actor는 Q2,04
 은행은 이후 완료된 TRAIN의 안전한 성공·실패만 등록하며 DEV는 넣지 않는다.
 실제 Q 학습이 시작된 확인으로, 파지 성능 개선을 뜻하지 않는다.
 [첫 실제 갱신 모델·데이터 근거](assets/rl_v2_absorbing_geometry_first_actual_Q1024_20261007.json).
+
+이후 첫 TRAIN128조건을 마쳐 **실제 안전한 성공3건(중간 좌2·우1, 상단 양쪽0)**을
+확인했다. 당시 actor0·Q1,606회이며 학습 전 탐색에서 발견한 성공이다.
+같은 실행의 닫힌 체크포인트에서 성공3경로1,207행의 관측·실제 목표·보상·종료,
+실제 양손 접촉·유지·들기와 현재 TRAIN128조건의 provenance를 직접 확인했다.
+이전 성공 라벨이나 DEV를 넣지 않았다. 나머지는 랙 충돌100·시간 초과25건이었다.
+[첫 완료 TRAIN128·신규 성공 전이](assets/rl_v2_absorbing_geometry_first_complete_TRAIN128_20261007.json).
+
+**08:21 KST에 actor60회·Q2,286회·실제 TRAIN108,237행**으로 warmup을 통과했다.
+새 성공 은행1,207행의 actor 표본64개 중 파지 직전 지정 표본32개가 연결됐고,
+새 완료 TRAIN의 성공·실패62경로31,227행에서16스텝 표본64개·가중치0.1을 사용했다.
+Actor·one-step Q·16스텝 Q·성공 목표·jaw 손실은 유한하며 VR·teacher BC와 평가
+전이는0이다. 이는 실제 수집 경험을 정책이 학습하기 시작한 확인이다.
+첫 저장된 갱신 actor의 별도 tensor 검사와 학습 후 DEV128의 성능은 아직 확인 전이다.
+[실제 actor 갱신·64/32 및16스텝 신호](assets/rl_v2_absorbing_geometry_first_actual_actor_20261007.json).
