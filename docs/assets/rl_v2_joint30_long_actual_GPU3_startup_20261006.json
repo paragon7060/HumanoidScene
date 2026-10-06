@@ -1,0 +1,108 @@
+{
+  "recorded_at": "2026-10-06T09:31:58.689043+09:00",
+  "source_commit": "0d14283aebb32f83d2c5184bcdabef6d1a68c315",
+  "parent_basename": "actual_flap_joint30_long_sac_pgs128_gpu3_20261006_092414",
+  "run_basename": "batch_sac_20261006_092414_3301a4",
+  "phase": "training",
+  "actual_manifest_SHA256": "ed72b9c372f1f86f79a81896477cf899e2ebb4577340cbc29f42c8cd9c4a201d",
+  "actual_manifest_jaw_behavior": {
+    "variant": "joint-epsilon30",
+    "format_version": 1,
+    "uniform_joint_fraction": 0.3,
+    "scope": "actual_flap_real_TRAIN_collection_only",
+    "noise_source": "existing_correlated_two_jaw_gaussians_no_extra_rng",
+    "learned_branch_left_uniform": "conditional_rescale_after_mixture_selection",
+    "branches": [
+      "open_open",
+      "open_close",
+      "close_open",
+      "close_close"
+    ],
+    "projection": "unchanged_production_nominal_near_gate",
+    "body_policy_actor_Q_targets_and_eval_unchanged": true,
+    "coverage_region_order": [
+      "shelf_2_right",
+      "shelf_2_left",
+      "shelf_3_right",
+      "shelf_3_left"
+    ]
+  },
+  "actual_manifest_actor_regularization": {
+    "variant": "logit4-soft-strong",
+    "format_version": 1,
+    "logit_limit": 4.0,
+    "weight": 0.001,
+    "scope": "actual_flap_TRAIN_actor_updates_only",
+    "loss": "mean_rows_sum_eligible_jaws_relu_abs_logit_minus_limit_squared_over_active_count",
+    "eligible_jaws": "unchanged_production_nominal_near_gate",
+    "symmetric_open_close": true,
+    "reward_or_success_labels_used": false,
+    "hard_logit_clipping": false,
+    "probability_floor": false,
+    "Q_target_and_behavior_distribution_unchanged": true
+  },
+  "actual_manifest_success_jaw_balance": null,
+  "actual_manifest_flap_dynamics": {
+    "name": "firm_dynamic_flap_randomization_v1",
+    "joint_names": [
+      "joint_front",
+      "joint_back",
+      "joint_left",
+      "joint_right"
+    ],
+    "stiffness_nm_per_rad": [
+      1.5,
+      2.5
+    ],
+    "damping_nm_s_per_rad": [
+      0.15,
+      0.25
+    ],
+    "static_friction": [
+      0.45,
+      0.65
+    ],
+    "dynamic_friction": [
+      0.3,
+      0.4
+    ],
+    "initial_angle_degrees": [
+      -1.0,
+      1.0
+    ],
+    "spring_rest_angle_rad": 0.0,
+    "effort_limit_nm": 5.0,
+    "velocity_limit_rad_s": 10.0,
+    "distribution": "independent_uniform_per_environment_panel_and_reset",
+    "joint_limits_masses_geometry_contact_materials_unchanged": true,
+    "dynamic_articulation": true,
+    "in_episode_state_overwrite": false,
+    "box_base_and_background_layout_randomization_unchanged": true
+  },
+  "actual_manifest_safety_thresholds": {
+    "max_box_angular_speed_radps": 100.0,
+    "max_box_lift_height_m": 0.5,
+    "max_box_linear_speed_mps": 10.0,
+    "obstacle_contact_force_n": 5.0,
+    "rack_contact_force_n": 10.0,
+    "workspace_radius_m": 1.5
+  },
+  "self_collision_enabled": false,
+  "num_envs": 128,
+  "TRAIN_waves": 12,
+  "requested_TRAIN_cases": 1536,
+  "repeated_whole_DEV_waves": 5,
+  "original_invalid_cases_remain_in_denominator": true,
+  "original_randomization_preserved": true,
+  "independent_FINAL_unused": true,
+  "actual_new_TRAIN_improvement_unverified": true,
+  "manifest_is_config_not_per_reset_PhysX_readback": true,
+  "active_HDF_and_replay_not_read": true,
+  "other_users_files_and_processes_untouched": true,
+  "goal_not_complete": true,
+  "writer_pid": 3604512,
+  "writer_owner_run_CUDA_verified": true,
+  "supervisor_pid": 3604477,
+  "supervisor_owner_run_CUDA_verified": true,
+  "existing_strong_and_balance_writers_live": true
+}

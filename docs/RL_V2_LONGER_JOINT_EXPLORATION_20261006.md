@@ -3,6 +3,10 @@
 단단한 동적 flap을 적용했지만 네 구역의 일반화된 양손 파지는 아직 성공하지
 못했다. 약한 logit 보정의 전체 greedy DEV는 초기 **9/128 → 학습 후 3/128**이며,
 위쪽 두 구역은 모두 0건이다. 초기 무효도 128개 분모에 유지했다.
+학습 후89개 unsafe 중73개에서 robot–rack collision이 발생했다(원인은 중복
+집계 가능). 초기에는70개 unsafe 중43개였다. 최종3건은 모두 중간 오른쪽에서
+안정된 양손 opposing pinch/hold0.2667s/roller clearance17.5–41.3mm를 실제로
+만족했다. 전체 결과가 감소했으므로 이 보정으로 학습이 개선됐다고 보지 않는다.
 다음 실행은 같은 실제 checkpoint/replay에서 **30% joint-jaw 행동 탐색과
 12개의 새 TRAIN wave**를 사용한다. 기존 건강한 GPU3 비교는 유지한다.
 
@@ -123,6 +127,14 @@ checkpoint만 정리한다. Writer 종료 후 닫힌 로그/HDF/replay까지 최
 RAM 로컬 파일은 재부팅 시 사라지므로 백업 완료와 학습 완료를 구분한다.
 다른 사용자의 파일/프로세스나 기존 건강한 소유 실행을 종료하지 않는다.
 
+**09:24 KST 실제 시작:** `actual_flap_joint30_long_sac_pgs128_gpu3_20261006_092414` /
+`batch_sac_20261006_092414_3301a4`, writer3604512·supervisor3604477다.
+실제 manifest에서 firm flap 범위·30% 행동 탐색·strong actor penalty0.001·
+success jaw balance OFF·17wave·128env·안전 기준을 확인했다. 기존 strong2726960과
+balance3173061은 유지한다. 새 실제 TRAIN 효과와 전체 DEV 성능은 아직 미확인이다.
+Manifest 확인은 configuration 검증이며 모든 reset의 PhysX readback 확인과 구분한다.
+[실제 시작 증거](assets/rl_v2_joint30_long_actual_GPU3_startup_20261006.json).
+
 수치 원본:
 [실제 strong 첫76회](assets/rl_v2_strong_jaw_recovery_GPU_Q7168_fixed_TRAIN_20261006.json),
 [CPU1024 actor](assets/rl_v2_longer_success_jaw_actual_mixed_TRAIN_CPU_20261006.json),
@@ -130,3 +142,4 @@ RAM 로컬 파일은 재부팅 시 사라지므로 백업 완료와 학습 완�
 [별도 trunk prototype](assets/rl_v2_independent_jaw_trunk_actual_mixed_TRAIN_CPU_20261006.json),
 [CPU 명령 연속성](assets/rl_v2_joint30_fixed_actual_TRAIN_sequence_coverage_CPU_20261006.json),
 [실제 TRAIN 계획](assets/rl_v2_joint30_long_randomized_TRAIN_plan_20261006.json).
+[Weak 전체 DEV·실제3건 성공·안전 원인](assets/rl_v2_weak_jaw_recovery_completed_final_DEV_20261006.json).
