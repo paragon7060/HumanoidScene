@@ -717,6 +717,11 @@ def main():
             pilot.training=args.training and wave['split']=='train'
             pilot.reset_exploration(n)
             updates_before=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size)
+            if backend_eval or workplace_eval:
+                frozen_eval_contract=backend_eval or workplace_eval
+                frozen_eval_contract['initial_learner_counters']=dict(
+                    actor_updates=pilot.actor_updates,critic_updates=pilot.critic_updates,
+                    replay_size=pilot.replay.size,online_rows=pilot.online_rows)
             frozen_integrity=None
             if backend_eval or workplace_eval:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.physics_backend_eval import (

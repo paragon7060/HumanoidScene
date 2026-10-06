@@ -13,13 +13,22 @@ def summarize_workplace_results(manifest, metrics):
     frozen=metrics.get('CPU_workplace_probe') or {}
     integrity=frozen.get('frozen_network_integrity') or {}
     learner=metrics.get('learner') or {}
+    # Legacy probes used an actor-only initialization at counters0. Learned
+    # checkpoints retain their real counters; the probe must not change them.
+    initial=frozen.get('initial_learner_counters',dict(
+        actor_updates=0,critic_updates=0,replay_size=0,online_rows=0))
+    if not isinstance(initial,dict) or set(initial)!=set(('actor_updates','critic_updates','replay_size','online_rows')) \
+            or any(type(initial.get(k)) is not int or initial[k]<0
+            for k in ('actor_updates','critic_updates','replay_size','online_rows')) \
+            or initial['replay_size']!=0 or initial['online_rows']!=0:
+        raise ValueError('Frozen workplace search requires explicit nonnegative source counters and no imported replay')
     if frozen.get('source') != SOURCE or frozen.get('Q_import_eligible') is not False \
             or frozen.get('replay_rows_imported') != 0 \
             or not integrity.get('all_model_and_normalizer_tensors_bit_identical') \
             or integrity.get('compared_tensor_count')!=178 \
             or frozen.get('actor_critic_updates_and_replay_size_unchanged') is not True \
             or learner.get('training') is not False \
-            or any(learner.get(k)!=0 for k in ('actor_updates','critic_updates','replay_size','online_rows')):
+            or any(learner.get(k)!=initial[k] for k in initial):
         raise ValueError('Workplace results need frozen178 tensors and unchanged initial actor/Q/replay counters')
     outcomes=metrics.get('outcomes',[])
     if len(outcomes)!=128 or {r.get('environment') for r in outcomes}!=set(range(128)):
@@ -71,6 +80,7 @@ def summarize_workplace_results(manifest, metrics):
         physical_candidate_attempts=128,regions=summaries,promising_candidates_for_fresh_TRAIN_recheck=promising,
         all_regions_have_a_measured_success_candidate=all(v is not None for v in promising.values()),
         cases=sorted(cases,key=lambda x:x['environment']),all178_tensors_and_initial_counters_frozen=True,
+        frozen_source_actor_updates=initial['actor_updates'],frozen_source_critic_updates=initial['critic_updates'],
         failed_and_initial_invalid_requests_retained=True,not128_independent_cases=True,
         not_a_DEV_or_FINAL_generalization_score=True,flap_draws_and_contact_history_not_matched=True,
         selecting_candidates_does_not_train_or_populate_Q_replay=True,

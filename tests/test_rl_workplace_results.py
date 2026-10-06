@@ -67,3 +67,24 @@ def test_numerical_failures_remain_visible_in_the_original_denominator():
     candidate=next(x for x in summary if x['candidate']=='candidate0')
     assert candidate['requested']==4 and candidate['numerical_failure']==1
     assert candidate['success']==1 and candidate['other_terminal']==0
+
+
+def test_learned_checkpoint_keeps_source_counters_without_training_or_replay_import():
+    manifest,metrics=fixture()
+    source=dict(actor_updates=689,critic_updates=4802,replay_size=0,online_rows=0)
+    metrics['CPU_workplace_probe']['initial_learner_counters']=source
+    metrics['learner'].update(source)
+    result=summarize_workplace_results(manifest,metrics)
+    assert result['frozen_source_actor_updates']==689 and result['frozen_source_critic_updates']==4802
+    metrics['learner']['critic_updates']+=1
+    with pytest.raises(ValueError):summarize_workplace_results(manifest,metrics)
+
+
+@pytest.mark.parametrize('field',['replay_size','online_rows'])
+def test_source_replay_is_forbidden_even_when_counter_does_not_change(field):
+    manifest,metrics=fixture()
+    source=dict(actor_updates=689,critic_updates=4802,replay_size=0,online_rows=0)
+    source[field]=1
+    metrics['CPU_workplace_probe']['initial_learner_counters']=source
+    metrics['learner'].update(source)
+    with pytest.raises(ValueError):summarize_workplace_results(manifest,metrics)
