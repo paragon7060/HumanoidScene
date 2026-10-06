@@ -73,6 +73,32 @@ timeout·수치 오류를 유지한다. 전체178개 network/normalizer 불변�
 않는다. 한 영역에서 모든 후보의 성공이0이면 추천도 비워 둔다. 성공 후보가
 있어도 fresh TRAIN 재확인 대상이며 일반화 점수나 matching SAC replay가 아니다.
 
+### 진단 영상의 TRAIN 표시
+
+이 새 진단을 기존 DEV 녹화기에 연결하면서 최초 실행 영상의 상단 제목과
+일부 metadata role이 `DEV`로 표시되는 문제가 발견됐다. 원래 요청·wave·
+manifest는 TRAIN이고 정책/Q/replay 업데이트는0이다. 이 영상을 DEV 점수나
+CPU 추가 학습 정책의 동작으로 해석하지 않는다.
+
+이후 writer는 outer wave의 split과 명시적 frozen workplace flag를 녹화기에
+전달해 `TRAIN workplace probe`로 표시한다. 기존 DEV128의 개별 layout은
+역사적으로 `split=holdout`을 유지하므로 outer `validation` wave와 구분한다.
+독립 FINAL 영상이나 학습 중 TRAIN 영상을 이 경로에 섞지 않는다.
+
+이미 실행 중인 writer를 수정하거나 원본 MP4/JSON을 덮어쓰지 않는다. 정상
+종료와 전체128개/frozen178 검사 후 별도 폴더로 정확한 제목을 붙인 복사본을
+만든다. 물리를 다시 실행하거나 초기 무효 요청을 다른 사례로 바꾸지 않는다.
+
+```bash
+PYTHONPATH=src:scripts/rl python scripts/rl/export_cpu_workplace_videos.py \
+  --experiment-dir /absolute/path/to/closed-owned-workplace-run \
+  --output-dir /absolute/path/to/unique-TRAIN-workplace-media
+```
+
+기존 상단 제목 bar만 바꾸며 실제 body 자세·종료 frame·status line·frame 수·
+시간은 유지한다. 원본/복사본 SHA256과 전체 H.264 decode를 검증하고 원본은
+보존한다. 영상 scope와 실제 frame/timing/원본 보존을 포함한11개 검사를 통과했다.
+
 관련 범위 검사52개 통과, 기존 CUDA integration1개는 이 CPU 진단 검사에서
 skip했다. 실제 물리 성공은 테스트 통과만으로 판단하지 않고 종료 측정으로 판정한다.
 
@@ -97,8 +123,58 @@ radian이 아니며 작은 출력 차이도 폐루프 동작/충돌을 바꿀 �
 TRAIN 경로가 bank에 없어 이 영역의 성공 동작 보존을 대조할 수 없었다.
 [실제 CPU TRAIN actor/Q 진단](assets/rl_v2_CPU_TRAIN_actor_regression_audit_20261006.json).
 
-새16사례×8접근위치의 CPU 진단은 GPU0 renderer 격리로 시작했다. 실제 writer의
-소유자·실행 폴더·CUDA_VISIBLE_DEVICES=0을 확인했고 첫 rollout31steps에서
-actor/Q update0·replay0·training=false였다. 입력2개와 별도 receipt는 기존
-Drive 크기/MD5 검증을 마쳤다. 아직 닫힌 전체 진단 결과가 아니므로 좋은
-접근 위치를 찾았거나 학습에 성공했다고 판단하지 않는다.
+새16사례×8접근위치의 CPU 진단은 정상 종료했고, 원래 supervisor의 최종
+Drive 업로드와 크기/MD5 검증도 완료했다. 전체128개는 성공11·랙 충돌72·
+timeout30·초기 무효15이며, network/normalizer178개와 actor/Q/replay counter가
+변하지 않았다. 이 결과는 TRAIN 후보 탐색이며 DEV 점수나 새 CPU 학습의 성과가 아니다.
+
+## 닫힌 결과와 다음 SAC 실험
+
+| 영역 | 다음 진입 후보 | 원래 TRAIN4개 결과 | 해석 |
+|---|---|---|---|
+| 중간 왼쪽 | 기존 위치 | 성공3·랙 충돌1 | 성공 후보, 일반화 미검증 |
+| 중간 오른쪽 | 바깥6cm | 성공1·랙 충돌3 | 성공 후보, 충돌 위험 남음 |
+| 상단 왼쪽 | 기존 위치 | 성공1·timeout3 | 성공 후보, 실제 pinch 부족 |
+| 상단 오른쪽 | 오른쪽9cm | 성공0·timeout3·초기 무효1 | 안전 진입 탐색 후보, 파지 미검증 |
+
+상단 오른쪽은 모든 후보의 성공이0이다. 결과 JSON의 성공 추천도 `null`로
+유지한다. 오른쪽9cm는 유효3개에서 랙 충돌이 없고 손 접근이 상대적으로
+가까웠기 때문에 **실패한 안전 진입 후보**로 다음 SAC에 연결한다.
+양손 닫힘 명령은 상단 오른쪽의 전체 유효30개 경로에서0회였고 실제 opposing
+pad pinch도0이다. 다만 선택한 후보에도 손 중점 거리·닫힘 축 정렬·한쪽 pad
+접촉 문제가 남아 있어 닫힘만이 유일한 원인이라고 단정하지 않는다.
+
+[원래128개 결과](assets/rl_v2_CPU_TRAIN_workplace_search_results_20261006.json)와
+[닫힌 HDF 접촉/닫힘 분석](assets/rl_v2_CPU_TRAIN_workplace_contact_analysis_20261006.json)을
+보존했다. 중점 거리는 기존 terminal의 최근접 표면 거리와 다른 측정이다.
+
+지역별 제어 계약 `TRAIN_measured_region_workplace_candidates_v1`은 네 영역의
+측정·실패·초기 무효 분모를 보존한다. 성공0인 상단 오른쪽은
+`measured_success=false`와 `unproven_grasp_candidate=true`로 강제 표시한다.
+예전 two-shelf actor/normalizer9개는 명시적 actor-only 초기화에서만 가져오고,
+변경된 목표에 맞는 Q/replay·성공 bank·critic normalizer·네 optimizer를 새로
+만든다. 이전 제어 계약의 Q checkpoint를 새 계약에 resume하면 거부한다.
+
+```bash
+PYTHONPATH=src:scripts/rl python scripts/rl/prepare_region_workplace_actor.py \
+  --checkpoint /absolute/path/to/initial-CPU-actor.pt \
+  --training-manifest /absolute/path/to/CPU-training_manifest.json \
+  --source-waypoints docs/assets/rl_v2_staged_base_hold_candidates_20261004.json \
+  --workplace-results docs/assets/rl_v2_CPU_TRAIN_workplace_search_results_20261006.json \
+  --native-seed /absolute/path/to/closed-middle-TRAIN-transitions.hdf5 \
+  --native-seed /absolute/path/to/closed-upper-TRAIN-transitions.hdf5 \
+  --selection shelf_2_left=baseline --selection shelf_2_right=outward6 \
+  --selection shelf_3_left=baseline --selection shelf_3_right=right9 \
+  --output-dir /absolute/path/to/unique-regional-initialization
+```
+
+다음 학습은 CPU PhysX/PGS·GPU3 learner·128env, 새 TRAIN12 wave×128사례를
+사용한다. TRAIN3 wave마다 동일한 원래 DEV128을 학습 없이 평가하고 독립 FINAL은
+미사용으로 유지한다. Joint jaw exploration은 TRAIN에서만 epsilon30%,
+measured-nstep16과 soft logit saturation penalty를 사용한다. DEV/FINAL은
+Q/replay·성공 bank에 넣지 않는다. Box/base/background와 동적 flap randomization,
+원래 성공/안전 조건을 유지한다. Base 접근과 hold는 기존 측정 제어이며 자율 이동 학습이 아니다.
+
+실제 checkpoint 초기화에서 actor/normalizer9개 tensor의 완전 일치, fresh Q/replay/
+success bank/네 optimizer/critic normalizer를 확인했다. 관련 검사는
+54 passed·GPU integration1 skipped다. 실제 GPU 학습 시작과 성공률은 별도로 확인한다.

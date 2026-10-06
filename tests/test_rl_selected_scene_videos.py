@@ -2,7 +2,7 @@
 from types import SimpleNamespace
 import pytest
 import torch
-from selected_scene_videos import measured_asset_view,validate_video_selection
+from selected_scene_videos import measured_asset_view,validate_video_selection,video_scope,validate_video_layout_split
 
 
 def test_measured_view_preserves_actual_flap_and_robot_pose_and_subtracts_only_origin():
@@ -27,3 +27,19 @@ def test_video_selection_does_not_change_full_distribution_or_allow_short_policy
     assert validate_video_selection([0,5,42,3,2,4],128,900) is None
     assert validate_video_selection(None,128,1) is None
     with pytest.raises(ValueError):validate_video_selection([0],128,1)
+
+
+def test_train_workplace_media_cannot_be_published_as_dev_or_final_score():
+    scope=video_scope('train',workplace_search=True)
+    assert scope['label']=='TRAIN workplace probe' and scope['workplace_search']
+    assert video_scope('validation')['label']=='DEV'
+    for split,workplace in [('train',False),('validation',True),('holdout',False),('holdout',True)]:
+        with pytest.raises(ValueError):video_scope(split,workplace_search=workplace)
+
+
+def test_canonical_dev_inner_holdout_label_is_preserved_without_mixing_train():
+    heldout=[dict(layout=dict(split='holdout'))];training=[dict(layout=dict(split='train'))]
+    validate_video_layout_split(heldout,'validation')
+    validate_video_layout_split(training,'train')
+    with pytest.raises(ValueError):validate_video_layout_split(training,'validation')
+    with pytest.raises(ValueError):validate_video_layout_split(heldout,'train')

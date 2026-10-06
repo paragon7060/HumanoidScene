@@ -731,7 +731,8 @@ def main():
             if args.eval_video_env_indices and (wave['split']=='validation' or workplace_eval):
                 from selected_scene_videos import SelectedSceneVideos
                 scene_videos=SelectedSceneVideos(env,output,wave_index,wave['layouts'],args.eval_video_env_indices,
-                    actor_updates=pilot.actor_updates,critic_updates=pilot.critic_updates)
+                    actor_updates=pilot.actor_updates,critic_updates=pilot.critic_updates,
+                    split=wave['split'],workplace_search=bool(workplace_eval))
             compute=env.termination_manager.compute
             def capture_before_reset():
                 result=compute();g=env._multi_box_privileged_grasp_step;s=env._multi_box_grasp_safety_step

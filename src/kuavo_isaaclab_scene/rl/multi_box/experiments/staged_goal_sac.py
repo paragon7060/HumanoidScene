@@ -95,7 +95,7 @@ def copy_remaining_actor(source, destination):
         output.bias[21:].fill_(math.log(destination.config.initial_policy_std))
 
 
-def initialize_staged_actor_only(pilot, source,*,allow_contact_reward_change=False):
+def initialize_staged_actor_only(pilot, source,*,allow_contact_reward_change=False,allow_workplace_change=False):
     """Reuse matching held-goal behavior after a lift/solver contract change.
 
     Source Q, normalizer, entropy, optimizer, counters, and replay stay out.
@@ -106,6 +106,14 @@ def initialize_staged_actor_only(pilot, source,*,allow_contact_reward_change=Fal
     if pilot.critic_updates or pilot.actor_updates or pilot.replay.size \
             or any(opt.state for opt in pilot.agent.optimizers):
         raise ValueError('Actor-only migration requires fresh Q, replay and optimizers')
+    if allow_workplace_change:
+        from .region_workplaces import FORMAT,validate_region_workplaces
+        destination=pilot.contract['shelf_templates']
+        if destination.get('name')!=FORMAT:
+            raise ValueError('Workplace migration requires an explicit measured regional contract')
+        validate_region_workplaces(destination)
+        if source['goal_contract']['shelf_templates']!=destination['source_shelf_templates']:
+            raise ValueError('Workplace migration must preserve the original source templates')
     def actor_contract(value):
         value=deepcopy(value)
         physical=frozen_prior_lift_contract(value['physical_contract'])
@@ -114,6 +122,7 @@ def initialize_staged_actor_only(pilot, source,*,allow_contact_reward_change=Fal
             physical=frozen_actor_reward_contract(physical)
         physical.pop('physics_dynamics',None)  # Dynamics may change only for fresh Q.
         value['physical_contract']=physical
+        if allow_workplace_change:value['shelf_templates']=destination['source_shelf_templates']
         return value
     if source.get('artifact_type')!=pilot.artifact_type \
             or actor_contract(source['goal_contract'])!=actor_contract(pilot.contract):
@@ -144,6 +153,7 @@ def initialize_staged_actor_only(pilot, source,*,allow_contact_reward_change=Fal
                 destination_actor_updates=0,destination_critic_updates=0,
                 actual_replay_rows=0,optimizer_states_imported=False,
                 contact_reward_change=allow_contact_reward_change,
+                workplace_change=allow_workplace_change,
                 original_confident_jaw_controller_prior_preserved=preserve_jaw_prior)
 
 

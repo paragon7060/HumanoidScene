@@ -1,4 +1,4 @@
-"""Record measured parallel DEV bodies before reset, without replaying physics."""
+"""Record measured frozen bodies before reset, with the original data split."""
 from pathlib import Path
 from types import SimpleNamespace
 import json
@@ -21,8 +21,29 @@ def validate_video_selection(indices, num_envs, steps):
         raise ValueError('DEV video requires1..6 distinct valid environment indices and900 steps')
 
 
+def video_scope(split, *, workplace_search=False):
+    if split == 'validation' and not workplace_search:
+        return dict(split=split,label='DEV',workplace_search=False,
+            role='frozen_DEV_policy_measured_body_poses_before_automatic_reset')
+    if split == 'train' and workplace_search:
+        return dict(split=split,label='TRAIN workplace probe',workplace_search=True,
+            role='frozen_TRAIN_workplace_search_measured_body_poses_before_automatic_reset')
+    raise ValueError('TRAIN video requires explicit frozen workplace search; DEV and FINAL must not be relabeled')
+
+
+def validate_video_layout_split(layouts, split):
+    # Canonical DEV requests historically retain layout.split='holdout'.
+    # The outer wave distinguishes that fixed DEV128 from independent FINAL.
+    allowed={'train'} if split=='train' else {'validation','holdout'}
+    if any(row['layout'].get('split') not in allowed for row in layouts):
+        raise ValueError('Video scope cannot mix TRAIN and held-out layout requests')
+
+
 class SelectedSceneVideos:
-    def __init__(self,env,output,wave_index,layouts,indices,*,actor_updates,critic_updates,capture_every=10):
+    def __init__(self,env,output,wave_index,layouts,indices,*,actor_updates,critic_updates,capture_every=10,
+                 split='validation',workplace_search=False):
+        self.scope=video_scope(split,workplace_search=workplace_search)
+        validate_video_layout_split(layouts,split)
         import cv2
         from cpu_scene_video import SceneVideo
         validate_video_selection(indices,env.num_envs,900)
@@ -39,7 +60,8 @@ class SelectedSceneVideos:
             self.records.append(dict(environment=i,wave=wave_index,region=region,raw_file=raw.name,
                 layout=layouts[i]['layout'],frames=0,actual_outcome=None,
                 actor_updates_at_start=actor_updates,critic_updates_at_start=critic_updates,
-                role='frozen_DEV_policy_measured_body_poses_before_automatic_reset',
+                role=self.scope['role'],recorded_split=split,workplace_search=workplace_search,
+                not_independent_DEV_generalization_score=workplace_search,
                 simulation_device=str(env.device),capture_every_control_steps=capture_every,
                 Q_or_replay_rows_imported=False,not_inferred_robot_or_flap_animation=True))
 
@@ -63,7 +85,7 @@ class SelectedSceneVideos:
             distance=float(distances[i].max())
             frame=self.renderer.frame(self.env,step,distance,bool(success[i]))
             self.cv2.rectangle(frame,(0,0),(960,66),(23,28,36),-1)
-            title=f'{self.env.device} PhysX | DEV env{i} {record["region"]} | actor{self.actor_updates} Q{self.critic_updates}'
+            title=f'{self.env.device} PhysX | {self.scope["label"]} env{i} {record["region"]} | actor{self.actor_updates} Q{self.critic_updates}'
             status=f'control t={(step+1)/30:.2f}s | max hand distance={distance*100:.1f}cm | success={int(success[i])} unsafe={int(unsafe[i])}'
             self.cv2.putText(frame,title,(15,24),self.cv2.FONT_HERSHEY_SIMPLEX,.50,(240,240,240),1,self.cv2.LINE_AA)
             self.cv2.putText(frame,status,(15,50),self.cv2.FONT_HERSHEY_SIMPLEX,.50,(240,240,240),1,self.cv2.LINE_AA)
@@ -99,5 +121,7 @@ class SelectedSceneVideos:
                 (self.output/record['browser_file']).with_suffix('.json').write_text(json.dumps(record,indent=2)+'\n')
         target=self.output/f'eval_wave_{self.wave:04d}_videos.json'
         target.write_text(json.dumps(dict(records=self.records,physics_not_replayed=True,
-            all_recorded_waves_frozen_DEV=True,original_full_denominator_preserved=True),indent=2)+'\n')
+            all_recorded_waves_frozen_DEV=self.scope['split']=='validation',
+            frozen_TRAIN_workplace_search=self.scope['workplace_search'],
+            recorded_split=self.scope['split'],original_full_denominator_preserved=True),indent=2)+'\n')
         self.writers.clear()

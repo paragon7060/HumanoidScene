@@ -256,6 +256,7 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def configure_controller(self,saved):
         snapshot=self.body_anchor_state;source=snapshot['source_goal_contract']
+        from .region_workplaces import frozen_anchor_templates
         from ..rewards.precision_capture import frozen_capture_actor_contract
         from .staged_physics import frozen_cpu_actor_contract
         if snapshot.get('format_version')!=1 or snapshot.get('source_Q_replay_entropy_and_optimizers_imported') is not False \
@@ -264,7 +265,7 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
                 or source['source_warm_start']!=self.warm_start.contract \
                 or source['goal_center']!=self.center.tolist() or source['goal_scale']!=self.scale.tolist() \
                 or source['action_coordinates']!=self.coordinates.name \
-                or source['shelf_templates']!=self.stage.templates \
+                or source['shelf_templates']!=frozen_anchor_templates(self.stage.templates) \
                 or source['fixed_prior_radius']!=.05 or source['actor_dim']!=self.actor_dim-SUPPLEMENTAL_DIM \
                 or source['critic_dim']!=self.critic_dim-SUPPLEMENTAL_DIM \
                 or snapshot['source_hidden']!=self.agent.config.hidden \

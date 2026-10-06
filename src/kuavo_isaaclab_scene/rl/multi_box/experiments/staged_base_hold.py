@@ -24,8 +24,20 @@ class StagedBaseHoldDiagnostic:
             raise ValueError('Staged base probe needs a perceived target')
         shelf = 'upper' if bool(token[0, 10:12].sum() > .5) else 'middle'
         template = templates['shelves'][shelf]
+        regional=templates.get('region_workplaces')
+        self.region_workplace=None
+        if regional is not None:
+            from .region_workplaces import validate_region_workplaces
+            from .physics_backend_eval import REGIONS
+            validate_region_workplaces(regional)
+            if regional['source_shelf_templates']!=templates['shelves'] or token[0,8:12].sum()<.5:
+                raise ValueError('Regional target requires the original shelf templates and perceived region')
+            region=REGIONS[int(token[0,8:12].argmax())]
+            self.region_workplace=dict(region=region,**regional['regions'][region])
+            template=regional['regions'][region]['template']
         if template.get('source_split') != 'train' or not template.get('measured_success'):
-            raise ValueError('Workplace candidates must come from successful TRAIN measurements')
+            if self.region_workplace is None or not self.region_workplace['unproven_grasp_candidate']:
+                raise ValueError('Workplace candidates require successful TRAIN or explicit safe-candidate evidence')
         size=raw.new_tensor(template['box_size_m'])
         if size.shape!=(3,) or not torch.allclose(token[0,5:8],size,atol=1e-5,rtol=0):
             raise ValueError('Staged waypoint has not been measured for this box size')
@@ -42,7 +54,7 @@ class StagedBaseHoldDiagnostic:
         self.linear_speed = self.angular_speed = None
         self.shelf = shelf
         self.template = template
-        self.templates = templates['shelves']
+        self.templates = regional if regional is not None else templates['shelves']
 
     def update(self, raw, linear_velocity, angular_velocity, step):
         _, _, xy, yaw, _ = self.coordinates.current(raw)
@@ -90,4 +102,5 @@ class StagedBaseHoldDiagnostic:
                     linear_speed_mps=self.linear_speed, angular_speed_radps=self.angular_speed,
                     template=self.template, old_goal_replay_eligible=False)
         if hasattr(self,'waypoint_probe'):result['waypoint_probe']=self.waypoint_probe
+        if self.region_workplace is not None:result['region_workplace_candidate']=self.region_workplace
         return result

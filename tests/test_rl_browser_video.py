@@ -55,3 +55,21 @@ def test_failed_export_preserves_original(tmp_path, monkeypatch):
         module.encode_browser_video(path)
     assert path.read_bytes() == b'original video'
     assert list(tmp_path.iterdir()) == [path]
+
+
+def test_train_caption_export_preserves_source_timing_and_body_frames(tmp_path):
+    cv2=pytest.importorskip('cv2');np=pytest.importorskip('numpy')
+    pytest.importorskip('imageio_ffmpeg')
+    from export_cpu_workplace_videos import caption_closed_video
+    source=tmp_path/'source.mp4';destination=tmp_path/'TRAIN.mp4'
+    writer=cv2.VideoWriter(str(source),cv2.VideoWriter_fourcc(*'mp4v'),3.,(960,96))
+    assert writer.isOpened()
+    for value in (30,120,220):writer.write(np.full((96,960,3),value,dtype=np.uint8))
+    writer.release();original=source.read_bytes()
+    result=caption_closed_video(source,destination,'CPU frozen TRAIN | not DEV score')
+    assert source.read_bytes()==original and result['frames']==3 and result['fps']==3.
+    assert result['browser_encoding']['full_decode_verified']
+    movie=cv2.VideoCapture(str(destination))
+    for value in (30,120,220):
+        ok,frame=movie.read();assert ok and abs(float(frame[66:].mean())-value)<10
+    assert not movie.read()[0];movie.release()
