@@ -73,6 +73,15 @@ CPU 물리·GPU3 learner의 별도 실행은12:43 KST 시작,128env·fresh TRAIN
 현재 학습 전 DEV 기준 성능을 측정 중이다. 영상과 학습 후 결과는 실제 완료
 판정을 읽고 이 페이지에 추가한다.
 
+13:11 KST에 새 실행의 학습 전 원래 DEV128을 확인했다. 안전 파지는23/128로
+중간왼쪽12·중간오른쪽10·상단왼쪽1·상단오른쪽0이었다. Unsafe66·timeout28·
+원래 초기 무효11도 분모에 유지했다. CPU native constructor world를 사용했고
+GPU DEV 초기 월드를 가져오지 않았다. 앞선 matched-world30과 직접적인 개선
+비교로 쓰지 않는다. 저장된 모델의 원래 storage tag는 실제 `cuda:0`이며 writer의
+`CUDA_VISIBLE_DEVICES=3`도 확인했다. 학습 전 actor/normalizer9개 tensor는 초기화
+후와 동일하고 actor/Q update는0이다. 이제 fresh TRAIN을 수집한다.
+[실제 초기 평가·GPU learner 장치 확인 JSON](assets/rl_v2_CPU_initial_DEV_GPU_learner_20261006.json).
+
 닫힌 CPU 학습 checkpoint를 평가하려면 아래처럼 별도 고유 실행 폴더와
 원래 DEV128 wave를 사용한다. TRAIN wave나 축소된 성공 사례 wave는 이 옵션에서
 거부한다. 실제 CPU TRAIN actor update가0인 초기화 모델을 CPU 학습 후 모델로
