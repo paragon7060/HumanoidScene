@@ -1,0 +1,137 @@
+{
+  "recorded_at": "2026-10-07T06:13:27.045896+09:00",
+  "source_commit": "c3f445f54d402fda0bc74c1922d57100c1a32e28",
+  "run_directory_name": "batch_sac_20261007_053147_9ade4e",
+  "writer_owner_run_CUDA3_verified": true,
+  "progress": {
+    "wave": 1,
+    "split": "train",
+    "step": 271,
+    "actual_rows": 105241
+  },
+  "critic_updates": 418,
+  "actor_updates": 0,
+  "real_online_TRAIN_rows": 24503,
+  "replay_size": 24503,
+  "critic_warmup_remaining": 1630,
+  "actor_collection_warmup_remaining": 8265,
+  "configured_actual_servo_Q_encoding": {
+    "variant": "actual_goal_to_body_servo_v1",
+    "format_version": 1,
+    "actor_observation_dim": 518,
+    "nominal_actor_observation_dim": 480,
+    "replay_action_coordinates": "original_absolute_projected_goals_and_binary_jaws",
+    "critic_action_coordinates": "decoded_body_delta_servo_and_binary_jaws",
+    "critic_action_dim": 21,
+    "controller_decoder": "physical_body_actions.goal_body_command",
+    "measured_pending_joint_and_torso_targets": true,
+    "servo_step_clipping_preserved": true,
+    "scope": "one_step_Q_measured_nstep_Q_actor_Q_and_all_target_Q_branches",
+    "actor_goal_sampler_entropy_and_actual_controller_unchanged": true,
+    "base_approach_hold_reward_success_safety_randomization_unchanged": true,
+    "trained_absolute_goal_Q_and_optimizers_compatible": false
+  },
+  "latest_real_Q_metrics": {
+    "q_loss": 0.11959782987833023,
+    "actor_loss": 0.0,
+    "actor_updated": false,
+    "demo_bc_loss": 0.0,
+    "demo_bc_weight": 0.0,
+    "teacher_bc_loss": 0.0,
+    "teacher_bc_weight": 0.0,
+    "discrete_prior_loss": 0.0,
+    "discrete_prior_weight": 0.0,
+    "alpha": 1.0000003385357559e-05,
+    "alpha_discrete": 0.009999999776482582,
+    "bootstrapped_rows": 256,
+    "policy_logp_mean": 42.415435791015625,
+    "policy_action_std_mean": 0.3692409098148346,
+    "entropy_bonus_mean": -5.155972030479461e-05,
+    "q_value_mean": -0.2224915623664856,
+    "target_value_mean": -0.2313883900642395,
+    "policy_gaussian_std_mean": 0.10957051813602448,
+    "success_goal_loss": 0.0,
+    "success_jaw_loss": 0.0,
+    "success_goal_weight": 0.0,
+    "success_jaw_weight": 0.0,
+    "one_step_q_loss": 0.041547223925590515,
+    "measured_nstep_q_loss": 0.7805060744285583,
+    "measured_nstep_weight": 0.1,
+    "measured_nstep_rows": 64,
+    "measured_nstep_target_mean": 0.16131284832954407,
+    "measured_nstep_bootstrapped_rows": 63,
+    "measured_nstep_terminal_rows": 1,
+    "measured_nstep_horizon_mean": 15.921875,
+    "successful_train_rows_in_Q_batch": 51,
+    "successful_train_replay_fraction": 0.2,
+    "successful_train_actor_rows": 0,
+    "successful_train_actor_designated_tail_rows": 0
+  },
+  "actual_success_bank": {
+    "rows": 6899,
+    "by_region": {
+      "shelf_2_right": {
+        "episodes": 3,
+        "rows": 1230
+      },
+      "shelf_2_left": {
+        "episodes": 8,
+        "rows": 3291
+      },
+      "shelf_3_right": {
+        "episodes": 1,
+        "rows": 590
+      },
+      "shelf_3_left": {
+        "episodes": 3,
+        "rows": 1788
+      }
+    },
+    "TRAIN_only": true,
+    "evaluation_rows": 0
+  },
+  "actual_measured_credit_bank": {
+    "rows": 6899,
+    "by_region": {
+      "shelf_2_right": {
+        "episodes": 3,
+        "successes": 3,
+        "failures": 0,
+        "rows": 1230
+      },
+      "shelf_2_left": {
+        "episodes": 8,
+        "successes": 8,
+        "failures": 0,
+        "rows": 3291
+      },
+      "shelf_3_right": {
+        "episodes": 1,
+        "successes": 1,
+        "failures": 0,
+        "rows": 590
+      },
+      "shelf_3_left": {
+        "episodes": 3,
+        "successes": 3,
+        "failures": 0,
+        "rows": 1788
+      }
+    },
+    "TRAIN_only": true,
+    "evaluation_rows": 0
+  },
+  "actual_one_step_Q_and_nstep16_auxiliary_updated": true,
+  "actual_online_Q_paths_passed_servo_encoder_state_validation": true,
+  "actual_actor_updates_NOT_yet_started": true,
+  "first_updated_model_checkpoint_NOT_yet_matched_or_tensor_checked": true,
+  "own_full_initial_DEV23_of128_recorded": true,
+  "new_physical_gain_NOT_yet_evaluated": true,
+  "no_ongoing_VR_or_teacher_BC": true,
+  "evaluation_rows_NOT_imported": true,
+  "original_randomization_reward_success_safety_preserved": true,
+  "independent_FINAL_unused": true,
+  "no_active_HDF_or_replay_read": true,
+  "no_process_signals_sent": true,
+  "goal_not_complete": true
+}
