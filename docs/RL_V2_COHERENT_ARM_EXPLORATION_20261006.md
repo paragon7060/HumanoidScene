@@ -95,6 +95,14 @@ flap 물성 추첨을 사용하므로 팔 탐색의 인과적 개선을 입증�
 별도 fresh Q·replay로 시작했다. [두 번째 전체 평가 근거](assets/rl_v2_armbias20_full_DEV_after768_20261007.json).
 [첫 전체 평가 근거](assets/rl_v2_armbias20_first_learned_DEV_after384_20261006.json).
 
+새 TRAIN1,152조건 이후 세 번째 전체 평가는 **22/128(중간 좌10·우8,
+상단 좌4·우0)**이었다. 전체 흐름은29→21→18→22/128로 시작 성능29건을
+넘지 못했다. 실제 양손 파지·유지·들기22건을 확인했고 초기 무효1건도 분모에
+남겼다. 나머지는 랙 충돌60·박스 낙하5·과도한 들기1·시간 초과39건이다.
+상단 오른쪽32건은 모두 랙 충돌이었다. 비교 학습은 마지막 TRAIN 배치를
+계속하며, 소수 상승을 안정적인 일반화 개선으로 해석하지 않는다.
+[세 번째 전체 평가 근거](assets/rl_v2_armbias20_full_DEV_after1152_20261007.json).
+
 ## 구현과 사용
 
 - sampler: `src/kuavo_isaaclab_scene/rl/multi_box/experiments/body_behavior_exploration.py`
