@@ -27,6 +27,18 @@ platform 간 bitwise 동일성을 보장하지 않는다.
 | Clone collision filtering | IsaacLab2.3.2가 CPU에는 별도 filtering 호출, GPU에는 env ID 사용 | 초기화 처리 경로도 같지 않음 |
 
 [실제 속성·로그 검사 JSON](assets/rl_v2_CPU_GPU_physics_property_audit_20261006.json).
+닫힌 HDF의 행동 전 초기 상태도 추가로 대조했다. CPU127개·GPU96개의 초기
+유효 snapshot 중 공통96개에서18 pool ×4 hinge의 각 물성6912개 값이 전부
+달랐다. Stiffness·damping·static/dynamic friction 네 항목 모두 같은 범위의
+다른 추첨이었다. 초기 무효 요청은 전체 성공률 분모128에서 제외하지 않았다.
+현재 `randomize_flap_dynamics`는 `torch.empty(..., device=env.device).uniform_()`로
+물리 장치의 전역 RNG를 사용한다. 같은 seed만으로 CPU/CUDA 난수를 일치시키지
+못한다. [PyTorch 재현성](https://docs.pytorch.org/docs/2.9/notes/randomness.html),
+[실제 per-layout flap 대조 JSON](assets/rl_v2_CPU_GPU_pre_action_flap_audit_20261006.json).
+Backend만의 효과를 분리하려면 동일 per-layout 물성 tensor·동일 NN 추론 장치·
+동일 scene 생성 순서를 사용하는 별도 frozen 비교가 필요하다. 현재 학습의
+randomization 범위나 성공·안전 기준은 이 분석 때문에 변경하지 않았다.
+
 GPU 버퍼는 CPU처럼 모두 동적으로 증가하지 않으며 부족하면 접촉이 누락될 수
 있지만, 그 일반적 가능성을 이번 원인으로 판정하지 않는다.
 [IsaacLab2.3.2 PhysX 설명](https://isaac-sim.github.io/IsaacLab/v2.3.2/source/api/lab/isaaclab.sim.html#isaaclab.sim.PhysxCfg).
@@ -66,12 +78,28 @@ decode를 검사한다. 기존 Drive 인증과300초 checkpoint 검증/최근2�
 Notion에는 외부 Drive 공유 링크 대신 native video/image로 첨부한다.
 
 [Humanoid 하위 중간 보고 페이지](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)에
-전체 결과 그래프·영역별 표·물리 차이·수정 방법을 기록했다. 원래128개 요청을
-유지하는 별도6-case CPU baseline 녹화는12:56 KST에 시작했다. 이 녹화는 기존
-GPU 학습 actor1204/Q6864의 평가이며 새 CPU 물리 학습 성과로 표시하지 않는다.
-CPU 물리·GPU3 learner의 별도 실행은12:43 KST 시작,128env·fresh TRAIN256개,
-현재 학습 전 DEV 기준 성능을 측정 중이다. 영상과 학습 후 결과는 실제 완료
-판정을 읽고 이 페이지에 추가한다.
+전체 결과 그래프·영역별 표·물리 차이·수정 방법과 native MP46개를 기록했다.
+원래128개 요청을 유지한 별도6-case CPU baseline 녹화는 정상 종료했다.
+전체 결과30/128뿐 아니라128개 outcome·terminal dictionary가 이전 CPU baseline과
+모두 일치했고 network/normalizer178개 tensor와 업데이트 수는 불변이었다.
+원래 supervisor의 종료 후 Drive 업로드·체크섬 검증도 완료했다. 이 녹화는
+기존 GPU 학습 actor1204/Q6864의 CPU 평가이며 새 CPU 학습 성과로 표시하지 않는다.
+[실제 영상·전체 재현 확인 JSON](assets/rl_v2_CPU_baseline_video_evidence_20261006.json).
+
+| 영상 | 실제 종료 | 판정과 원인 |
+| --- | --- | --- |
+| Env0·중간 왼쪽 | 16.90s | 양손 안정0.267s·proof lift clearance3.05cm 성공 |
+| Env5·중간 오른쪽 | 16.87s | 양손 안정0.267s·clearance3.21cm 성공 |
+| Env42·위쪽 왼쪽 | 21.60s | 양손 안정0.267s·clearance5.09cm 성공 |
+| Env3·위쪽 오른쪽 | 14.80s | 오른쪽 gripper base–rack17.25N으로 실패 |
+| Env4·다른 중간 왼쪽 시작점 | 18.93s | 오른쪽 gripper base–rack38.15N으로 실패 |
+| Env2·위쪽 왼쪽 | 28.57s | 손 거리4.75cm/0.334cm이나 실제 양손 pinch 없이 timeout |
+
+Notion 영상은 H.264/avc1·yuv420p·faststart 및 전체 decode 검사를 통과하고,
+fetch에서 native `notion-file-block` video6개와 이미지4개를 확인했다. 사용자
+브라우저에서의 재생을 직접 검사한 것은 아니다. CPU 물리·GPU3 learner의 별도
+실행은12:43 KST 시작,128env·fresh TRAIN256개다. 실제 actor update가 시작됐으며
+학습 후 정책 영상과 닫힌 DEV 결과는 초기 baseline과 별도로 추가한다.
 
 13:11 KST에 새 실행의 학습 전 원래 DEV128을 확인했다. 안전 파지는23/128로
 중간왼쪽12·중간오른쪽10·상단왼쪽1·상단오른쪽0이었다. Unsafe66·timeout28·
