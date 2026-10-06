@@ -22,7 +22,10 @@ from browser_video import encode_browser_video
 from kuavo_isaaclab_scene.rl.algorithms.common import ObservationNormalizer
 from kuavo_isaaclab_scene.rl.algorithms.sac import SACConfig, SquashedActor
 from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import (
-    AbsoluteGoalJawProjector, BoundedCorrectionHybridSAC,
+    AbsoluteGoalJawProjector, BoundedCorrectionHybridSAC, ActualFlapResidualSACPilot,
+)
+from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_reanchored_sac import (
+    ReanchoredActualFlapSACPilot, actual_actor_snapshot, source_actual_body_goal,
 )
 from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent, pose_clock
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import (
@@ -42,26 +45,36 @@ def restored_agent(state):
     contract = state['goal_contract']
     if (contract['actor_dim'], contract['critic_dim'], state['action_dim']) != (518, 577, 21):
         raise ValueError('This exporter requires the actual-flap bounded held-base SAC contract')
+    reanchored = state.get('artifact_type') == ReanchoredActualFlapSACPilot.artifact_type
+    if not reanchored and state.get('artifact_type') != ActualFlapResidualSACPilot.artifact_type:
+        raise ValueError('Unknown actual-flap controller for Q video restoration')
+    snapshot = state['body_anchor_state']
+    nominal_snapshot = snapshot['nominal_body_anchor'] if reanchored else snapshot
     prior = PoseStudent(state['frozen_warm_start']['bc_prior'], 'cpu')
     nominal_width = contract['actor_dim'] - 38
     prefix = nominal_width - 6
     if prefix != prior.agent.actor_obs_dim + 2:
         raise ValueError('Frozen prior feature width differs')
-    radius = state['body_anchor_state']['source_goal_contract']['fixed_prior_radius']
+    radius = nominal_snapshot['source_goal_contract']['fixed_prior_radius']
     projector = StagedGoalProjector(prior, prior.agent.actor_obs_dim, True, radius)
     anchor = torch.nn.ModuleDict(dict(
         actor=SquashedActor(nominal_width, 21, state['config']['hidden']),
         actor_normalizer=ObservationNormalizer(nominal_width),
     ))
-    anchor.load_state_dict(state['body_anchor_state']['model'])
+    anchor.load_state_dict(nominal_snapshot['model'])
     anchor.requires_grad_(False)
+    actual_anchor = actual_actor_snapshot(snapshot, 'cpu') if reanchored else None
 
     @torch.no_grad()
     def body_anchor(raw):
         nominal = torch.cat((raw[:, :prefix], raw[:, -6:]), -1).clone()
         nominal[:, -1] = radius
         command = anchor['actor'](anchor['actor_normalizer'](nominal), deterministic=True)[0]
-        return projector(nominal, command)[:, :19]
+        nominal_goal = projector(nominal, command)[:, :19]
+        if actual_anchor is not None:
+            return source_actual_body_goal(raw, nominal_goal, actual_anchor,
+                snapshot['source_goal_contract']['fixed_prior_radius'])
+        return nominal_goal
 
     agent = BoundedCorrectionHybridSAC(518, 577, 21, SACConfig(**state['config']), 'cpu',
         action_projector=AbsoluteGoalJawProjector(),

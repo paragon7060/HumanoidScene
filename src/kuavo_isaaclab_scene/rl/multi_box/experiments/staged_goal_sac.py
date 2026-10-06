@@ -161,6 +161,7 @@ class StagedGoalSACPilot:
     artifact_type = 'staged_base_hold_remaining_goal_sac_v1'
     agent_class = AsymmetricSAC
     supplemental_observation_dim = 0
+    maximum_fixed_prior_radius = .15
 
     def __init__(self, warm_start, physical_contract, directory, stage, *,
                  checkpoint=None, training=True, device='cpu', free_grippers=False,
@@ -248,8 +249,8 @@ class StagedGoalSACPilot:
             raise ValueError('Validated actor anchoring requires normalized prior loss')
         self.anchor_prior_to_initial_policy=anchor_prior_to_initial_policy
         if fixed_prior_radius is not None and (not math.isfinite(fixed_prior_radius)
-                or not .05<=fixed_prior_radius<=.15):
-            raise ValueError('Fixed goal radius must be within0.05..0.15')
+                or not .05<=fixed_prior_radius<=self.maximum_fixed_prior_radius):
+            raise ValueError(f'Fixed goal radius must be within0.05..{self.maximum_fixed_prior_radius}')
         if validated_jaw_prior_confidence and (not anchor_prior_to_initial_policy
                 or self.agent_class is AsymmetricSAC):
             raise ValueError('Confident binary jaws require the hybrid validated actor snapshot')

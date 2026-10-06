@@ -4,11 +4,13 @@ from .staged_goal_sac import StagedGoalSACPilot
 from .staged_hybrid_goal_sac import StagedHybridGoalSACPilot
 from .physical_body_sac import PhysicalBodySACPilot
 from .actual_flap_residual_sac import ActualFlapResidualSACPilot
+from .actual_flap_reanchored_sac import ReanchoredActualFlapSACPilot
 
 
 def staged_policy_class(artifact_type):
     return {cls.artifact_type: cls for cls in (
         StagedGoalSACPilot, StagedHybridGoalSACPilot, PhysicalBodySACPilot,ActualFlapResidualSACPilot,
+        ReanchoredActualFlapSACPilot,
     )}.get(artifact_type)
 
 

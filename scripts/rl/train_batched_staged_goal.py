@@ -460,27 +460,27 @@ def main():
             raise ValueError('Staged policy and current measured supplemental perception differ')
         if args.measured_train_credit is not None:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
-            if pilot_class is not ActualFlapResidualSACPilot or not args.training:
+            if not issubclass(pilot_class, ActualFlapResidualSACPilot) or not args.training:
                 raise ValueError('Measured TRAIN credit is explicitly for actual-flap correction training')
         if args.jaw_behavior is not None:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
-            if pilot_class is not ActualFlapResidualSACPilot or not args.training:
+            if not issubclass(pilot_class, ActualFlapResidualSACPilot) or not args.training:
                 raise ValueError('Joint jaw behavior is explicitly for actual-flap TRAIN collection')
         if args.body_behavior is not None:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
-            if pilot_class is not ActualFlapResidualSACPilot or not args.training:
+            if not issubclass(pilot_class, ActualFlapResidualSACPilot) or not args.training:
                 raise ValueError('Body behavior is explicitly for actual-flap TRAIN collection')
         if args.body_saturation_penalty is not None:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
-            if pilot_class is not ActualFlapResidualSACPilot or not args.training:
+            if not issubclass(pilot_class, ActualFlapResidualSACPilot) or not args.training:
                 raise ValueError('Body saturation penalty is explicitly for actual-flap TRAIN actor updates')
         if args.jaw_saturation_penalty is not None:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
-            if pilot_class is not ActualFlapResidualSACPilot or not args.training:
+            if not issubclass(pilot_class, ActualFlapResidualSACPilot) or not args.training:
                 raise ValueError('Jaw saturation penalty is explicitly for actual-flap TRAIN actor updates')
         if args.success_jaw_balance is not None:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
-            if pilot_class is not ActualFlapResidualSACPilot or not args.training:
+            if not issubclass(pilot_class, ActualFlapResidualSACPilot) or not args.training:
                 raise ValueError('Successful jaw balance is explicitly for actual-flap TRAIN actor updates')
         warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,
                             frozen_prior_lift_contract(frozen_actor_reward_contract(contract)),output,training=False,device=learner_device)

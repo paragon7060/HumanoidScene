@@ -44,11 +44,11 @@ axis 오차24.44°→7.66°로 줄었다. 다른 바깥쪽 후보는 넓힌 계�
 
 ## 실제 학습에 연결할 때 유지할 조건
 
-범위를 넓히거나 learned actual-flap body anchor로 바꾸는 제어기는 아직 구현·
-실행하지 않았다. 현재의 팔 탐색·출력 포화 완화 비교는 그대로 진행한다.
-다음 변경은 초기 greedy 실행을 보존하는 별도의 versioned controller여야 한다.
-원래 actor689의 실제 body goal을 frozen actor-only anchor로 사용하고 새 correction은
-0에서 시작하는 방법을 검토할 수 있다. Jaw logits와 기준 prior의 대응도 보존해야 한다.
+별도의 [학습된 body anchor·반경0.30 제어 옵션](RL_V2_REANCHORED_BODY_CONTROLLER_20261007.md)을
+구현했다. Actor689의 실제 body goal을 frozen actor-only anchor로 사용하고 새
+correction mean19개는0에서 시작한다. 실제 TRAIN 관측538개에서 초기 greedy 목표·
+jaw·decode 명령 보존과 저장 후 복원을 확인했다. 새 학습의 물리 성공은 아직 검증 전이다.
+기존 팔 탐색·출력 포화 완화 비교와 구분해 새 Q·replay·optimizer에서 비교한다.
 
 몸체 목표 범위·controller가 달라지면 Q·target Q·critic 정규화·optimizer·replay·
 성공 bank는 새로 시작한다. 이전 requested goal을 다른 의미의 action으로
