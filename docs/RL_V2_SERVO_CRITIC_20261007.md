@@ -105,6 +105,18 @@ main에 push하고 입력8개의 기존 Drive 크기·MD5 검증을 마친 뒤 �
 유지한다. 기존 writer2701747·3847594도 유지했고 어떤 프로세스에도 signal을
 보내지 않았다. [실행·입력 백업 근거](assets/rl_v2_servo_critic_actual_start_20261007.json).
 
+**이후 실제 초기 DEV에 진입했다.** 진행 JSON에서 새 servo Q 계약과 성공 TRAIN
+15궤적/6,899행, 같은 크기의 n-step 은행, 평가 전이0개를 확인했다. Actor·Q 갱신과
+온라인 replay는0이므로 새 학습의 개선을 뜻하지 않는다. 전체 초기128조건 완료 후
+자신의 기준 성능을 기록하고 학습 후 평가와 비교한다.
+[실제 평가 진입·Q 계약·은행 연결](assets/rl_v2_servo_critic_first_actual_DEV_20261007.json).
+
+기존 tail 표본 비교의 첫 학습 후 DEV는 **23→14/128(중간 좌9·우5, 상단 양쪽0)**이었다.
+모든128조건이 유효했고 랙 충돌85·과도한 들기2·시간 초과27건이었다. 파지 직전 구간을
+더 자주 학습한 것만으로 초기 성능을 넘지 못했다. 새 Q 입력 비교와 구분해서 기록하며
+성공·무작위화·충돌 기준을 완화하지 않는다.
+[기존 tail의 첫 학습 후 전체 평가](assets/rl_v2_success_actor_tail_first_full_DEV_after384_20261007.json).
+
 코드: [encoder](../src/kuavo_isaaclab_scene/rl/multi_box/experiments/servo_critic.py),
 [새 pilot](../src/kuavo_isaaclab_scene/rl/multi_box/experiments/actual_flap_servo_critic_sac.py),
 [공통 hybrid Q 배선](../src/kuavo_isaaclab_scene/rl/algorithms/hybrid_goal_sac.py),
