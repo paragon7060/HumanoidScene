@@ -58,7 +58,10 @@ base 접근 중에는 held-grasp critic의 학습 범위를 벗어나므로 `Q: 
 
 ## 실제 사용한 reward
 
-대표 평가와 현재 재학습의 `physical_contract.reward_profile`은 동일하다.
+대표 평가와 GPU3 주 학습의 `physical_contract.reward_profile`은 동일하다.
+별도로 시작한 정밀 보상 비교에서는 포획 거리 스케일만10cm→2.5cm,
+양손 합성만 평균→약한 손을 반영한 식으로 바꿨다. 가중치는 같다.
+[비교 설정](RL_V2_LEARNED_WORKPLACE_PRECISION_20261006.md)에 따로 기록했다.
 파일의 일반 기본값보다 **실행 폴더 agent.yaml의 reward_profile**이 실제 사용값이다.
 접촉 프로필은 [contact_profile.py](../src/kuavo_isaaclab_scene/rl/multi_box/rewards/contact_profile.py)의
 `contact_reward_weights()`가 기본값의 파지 이벤트·성공·파괴적 실패 가중치를 수정한다.
