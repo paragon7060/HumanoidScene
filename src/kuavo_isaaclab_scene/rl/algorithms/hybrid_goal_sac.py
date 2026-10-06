@@ -140,6 +140,10 @@ class HybridGoalSAC(AsymmetricSAC):
         """Optional subclass objective; ordinary hybrid SAC stays unchanged."""
         return None
 
+    def actor_body_regularization(self, normalized, raw):
+        """Optional subclass objective; default adds no loss or extra forward."""
+        return None
+
     def validate_critic_auxiliary(self,batch,weight):
         if batch is not None or weight:
             raise ValueError('This hybrid learner does not support auxiliary critic targets')
@@ -254,6 +258,11 @@ class HybridGoalSAC(AsymmetricSAC):
             regularization = self.actor_jaw_regularization(logits, near)
             if regularization is not None:
                 extra_loss, extra_statistics = regularization
+                actor_loss = actor_loss+extra_loss
+                report.update(extra_statistics)
+            body_regularization = self.actor_body_regularization(ao, batch['actor_obs'])
+            if body_regularization is not None:
+                extra_loss, extra_statistics = body_regularization
                 actor_loss = actor_loss+extra_loss
                 report.update(extra_statistics)
             optimize(self.actor_optimizer,actor_loss,self.actor.parameters())

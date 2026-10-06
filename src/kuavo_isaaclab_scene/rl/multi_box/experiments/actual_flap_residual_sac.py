@@ -52,6 +52,15 @@ class BoundedCorrectionHybridSAC(HybridGoalSAC):
         from .jaw_saturation import jaw_saturation_penalty
         return jaw_saturation_penalty(logits, near, config)
 
+    def actor_body_regularization(self, normalized, raw):
+        config = getattr(self, 'body_saturation_config', None)
+        if config is None:
+            return None
+        from .body_saturation import body_saturation_penalty
+        mean = self.parameters_at(normalized)[0]
+        active = self.anchor_and_scale(raw)[1] > 1e-8
+        return body_saturation_penalty(mean, active, config)
+
     def update(self, *args, **kwargs):
         result = super().update(*args, **kwargs)
         if getattr(self, 'measured_train_credit_enabled', False):
@@ -122,7 +131,7 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def __init__(self,*args,body_anchor_state=None,checkpoint=None,device='cpu',
                  measured_train_credit=None,jaw_behavior=None,jaw_saturation=None,
-                 success_jaw_balance=None,body_behavior=None,**kwargs):
+                 success_jaw_balance=None,body_behavior=None,body_saturation=None,**kwargs):
         saved=torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
         if saved is not None and saved.get('artifact_type')!=self.artifact_type:
             raise ValueError('Old observation/control replay cannot resume an actual-flap correction learner')
@@ -174,6 +183,18 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         self._body_behavior_statistics = body_behavior_statistics(
             saved.get('body_behavior_statistics') if stored_body else None)
         self.body_behavior_sampler = None
+        from .body_saturation import body_saturation_config, VARIANT as BODY_SATURATION_VARIANT
+        stored_body_saturation = saved.get('body_saturation') if saved else None
+        if stored_body_saturation is not None and stored_body_saturation != body_saturation_config(BODY_SATURATION_VARIANT):
+            raise ValueError('Saved body saturation penalty configuration differs')
+        requested_body_saturation = body_saturation_config(body_saturation)
+        if stored_body_saturation is not None and body_saturation is not None and requested_body_saturation != stored_body_saturation:
+            raise ValueError('Requested body saturation penalty differs from checkpoint')
+        self.body_saturation = deepcopy(stored_body_saturation if stored_body_saturation is not None else requested_body_saturation)
+        self._saved_body_saturation = stored_body_saturation
+        self.body_saturation_origin = deepcopy(saved.get('body_saturation_origin')) if stored_body_saturation else None
+        if stored_body_saturation is not None and not isinstance(self.body_saturation_origin, dict):
+            raise ValueError('Saved body saturation penalty origin is missing')
         from .jaw_saturation import jaw_saturation_config, VARIANTS as SATURATION_VARIANTS
         stored_saturation = saved.get('jaw_saturation') if saved else None
         if stored_saturation is not None and (not isinstance(stored_saturation, dict)
@@ -211,6 +232,12 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
                 raise ValueError('Correction controller requires its explicit independent-jaw/frozen-anchor contract')
             kwargs.update(required)
         super().__init__(*args,checkpoint=checkpoint,device=device,**kwargs)
+        if self.body_saturation is not None and self.body_saturation_origin is None:
+            self.body_saturation_origin = dict(source_checkpoint=str(checkpoint) if checkpoint else None,
+                actor_updates_at_activation=self.actor_updates,critic_updates_at_activation=self.critic_updates,
+                old_replay_rows_at_activation=self.replay.size,
+                model_Q_normalizers_and_four_optimizer_states_kept=True,old_replay_kept_without_relabeling=True,
+                scope='future_real_TRAIN_actor_updates')
         if self.body_behavior is not None:
             if not self.exploration_correlation or self.episode_arm_exploration is not None:
                 raise ValueError('TRAIN body behavior requires correlated collection without the old480-D arm sampler')
@@ -327,6 +354,7 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
                 self.agent.config.gamma, self.measured_train_credit)
         self.agent.measured_train_credit_enabled = self.measured_train_credit is not None
         self.agent.jaw_saturation_config = self.jaw_saturation
+        self.agent.body_saturation_config = self.body_saturation
         self.agent.success_jaw_balance_config = self.success_jaw_balance
         with torch.no_grad():
             old=self.body_anchor['actor'].state_dict();new=self.agent.actor.state_dict()
@@ -376,6 +404,8 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def checkpoint_extras(self):
         result = dict(body_anchor_state=self.body_anchor_state, **self.body_behavior_extras())
+        if self.body_saturation is not None:
+            result.update(body_saturation=self.body_saturation,body_saturation_origin=self.body_saturation_origin)
         if self.success_jaw_balance is not None:
             result.update(success_jaw_balance=self.success_jaw_balance,
                 success_jaw_balance_origin=self.success_jaw_balance_origin)
@@ -390,6 +420,10 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         return result
 
     def restore_experience_extras(self, state):
+        if state.get('body_saturation') != self._saved_body_saturation:
+            raise ValueError('Body saturation checkpoint/replay provenance differs')
+        if self._saved_body_saturation is not None and state.get('body_saturation_origin') != self.body_saturation_origin:
+            raise ValueError('Body saturation replay origin differs')
         if state.get('body_behavior') != self._saved_body_behavior:
             raise ValueError('TRAIN body behavior checkpoint/replay provenance differs')
         if self._saved_body_behavior is not None and state.get('body_behavior_origin') != self.body_behavior_origin:
@@ -414,6 +448,8 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def experience_extras(self):
         result = self.body_behavior_extras()
+        if self.body_saturation is not None:
+            result.update(body_saturation=self.body_saturation,body_saturation_origin=self.body_saturation_origin)
         if self.success_jaw_balance is not None:
             result.update(success_jaw_balance=self.success_jaw_balance,
                 success_jaw_balance_origin=self.success_jaw_balance_origin)
@@ -443,6 +479,8 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
     def report(self):
         result = super().report()
         result.update(self.body_behavior_extras())
+        if self.body_saturation is not None:
+            result.update(body_saturation=self.body_saturation,body_saturation_origin=self.body_saturation_origin)
         if self.success_jaw_balance is not None:
             result.update(success_jaw_balance=self.success_jaw_balance,
                 success_jaw_balance_origin=self.success_jaw_balance_origin)

@@ -32,6 +32,8 @@ def main():
         help='Actual-flap TRAIN collection only: 10 or 30 percent correlated uniform joint jaws with unchanged production gate')
     parser.add_argument('--body-behavior', choices=('off', 'ramped-arm-bias20'), default=None,
         help='Actual-flap TRAIN collection only: ramp one coherent wider arm bias in20 percent of episodes')
+    parser.add_argument('--body-saturation-penalty', choices=('off', 'mean3-soft'), default=None,
+        help='Actual-flap TRAIN actor loss only: soft recovery of body means beyond abs3; no clipping')
     parser.add_argument('--jaw-saturation-penalty', choices=('off', 'logit4-soft', 'logit4-soft-strong'), default=None,
         help='Opt-in actual-flap TRAIN actor loss for saturated near-jaw logits; no clipping or prescribed jaws')
     parser.add_argument('--success-jaw-balance', choices=('off', 'region-hand-class'), default=None,
@@ -132,7 +134,8 @@ def main():
                 args.base_waypoint_probe,args.reset_solver_probe,args.passive_bearing_probe_layer,
                 args.reset_independent_scene_probe,args.zero_passive_roller_velocities_probe,
                 args.rear5_support_gap_probe_m is not None,args.grasp_observation_audit,
-                args.measured_train_credit,args.jaw_behavior,args.body_behavior,args.jaw_saturation_penalty,args.success_jaw_balance)))
+                args.measured_train_credit,args.jaw_behavior,args.body_behavior,args.body_saturation_penalty,
+                args.jaw_saturation_penalty,args.success_jaw_balance)))
         if args.device=='cpu' and backend_eval is None and cpu_training is None and workplace_eval is None and (args.training or '--no-training' not in sys.argv
                 or '--training' in sys.argv or not args.reset_failure_diagnostics or args.steps!=1):
             raise ValueError('CPU requires explicit frozen reset or full backend policy evaluation')
@@ -467,6 +470,10 @@ def main():
             from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
             if pilot_class is not ActualFlapResidualSACPilot or not args.training:
                 raise ValueError('Body behavior is explicitly for actual-flap TRAIN collection')
+        if args.body_saturation_penalty is not None:
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
+            if pilot_class is not ActualFlapResidualSACPilot or not args.training:
+                raise ValueError('Body saturation penalty is explicitly for actual-flap TRAIN actor updates')
         if args.jaw_saturation_penalty is not None:
             from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
             if pilot_class is not ActualFlapResidualSACPilot or not args.training:
@@ -552,6 +559,10 @@ def main():
         collection_body_behavior = (body_behavior_config(args.body_behavior)
             if args.body_behavior is not None else state.get('body_behavior'))
         meta['TRAIN_body_behavior'] = collection_body_behavior
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.body_saturation import body_saturation_config
+        actor_body_regularization = (body_saturation_config(args.body_saturation_penalty)
+            if args.body_saturation_penalty is not None else state.get('body_saturation'))
+        meta['TRAIN_actor_body_regularization'] = actor_body_regularization
         from kuavo_isaaclab_scene.rl.multi_box.experiments.jaw_saturation import jaw_saturation_config
         actor_jaw_regularization = (jaw_saturation_config(args.jaw_saturation_penalty)
             if args.jaw_saturation_penalty is not None else state.get('jaw_saturation'))
@@ -575,6 +586,7 @@ def main():
             'learner_device':learner_device,'sim_device':str(env.device),
             'TRAIN_jaw_behavior':collection_jaw_behavior,
             'TRAIN_body_behavior':collection_body_behavior,
+            'TRAIN_actor_body_regularization':actor_body_regularization,
             'TRAIN_actor_jaw_regularization':actor_jaw_regularization,
             'TRAIN_successful_jaw_balance':successful_jaw_balance,
             'controller_coordinate_safety':coordinate_safety,
@@ -717,6 +729,8 @@ def main():
                     pilot_options['jaw_behavior'] = args.jaw_behavior
                 if args.body_behavior is not None:
                     pilot_options['body_behavior'] = args.body_behavior
+                if args.body_saturation_penalty is not None:
+                    pilot_options['body_saturation'] = args.body_saturation_penalty
                 if args.jaw_saturation_penalty is not None:
                     pilot_options['jaw_saturation'] = args.jaw_saturation_penalty
                 if args.success_jaw_balance is not None:
@@ -876,6 +890,8 @@ def main():
                     outcomes[-1]['collection_jaw_behavior']=pilot.jaw_behavior
                 if wave['split']=='train' and getattr(pilot,'body_behavior',None) is not None:
                     outcomes[-1]['collection_body_behavior']=pilot.body_behavior
+                if wave['split']=='train' and getattr(pilot,'body_saturation',None) is not None:
+                    outcomes[-1]['actor_body_regularization']=pilot.body_saturation
                 if wave['split']=='train' and getattr(pilot,'jaw_saturation',None) is not None:
                     outcomes[-1]['actor_jaw_regularization']=pilot.jaw_saturation
                 if wave['split']=='train' and getattr(pilot,'success_jaw_balance',None) is not None:

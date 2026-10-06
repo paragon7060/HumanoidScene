@@ -243,6 +243,53 @@ def test_serialized_body_behavior_activation_keeps_tensors_and_restores(tmp_path
         enable_body_behavior(changed,actual,source_checkpoint=checkpoint)
 
 
+def test_body_mean_regularization_keeps_existing_learning_eval_and_validates_resume(tmp_path):
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.body_saturation import enable_body_saturation
+    _,old,warm,physical,stage,_=pilots(tmp_path)
+    raw=torch.zeros(64,464);raw[:,144]=1;critic=torch.zeros(64,530);extra=torch.zeros(64,38)
+    executed=old.act(raw,critic,0,supplemental=extra)[1]
+    old.observe(executed,raw,critic,torch.zeros(64),torch.ones(64,dtype=torch.bool),0,supplemental=extra)
+    old.directory.mkdir();old.save(final=True);checkpoint=next(old.directory.glob('checkpoint_*.pt'))
+    new=ActualFlapResidualSACPilot(warm,physical,tmp_path/'mean_regularized',stage,
+        checkpoint=checkpoint,body_saturation='mean3-soft')
+    assert new.contract==old.contract and new.replay.size==64
+    for key,value in old.agent.state_dict().items():assert torch.equal(value,new.agent.state_dict()[key])
+    for key,value in old.replay.data.items():assert torch.equal(value[:64],new.replay.data[key][:64])
+    for before,after in zip(old.agent.optimizers,new.agent.optimizers):
+        b,a=before.state_dict(),after.state_dict()
+        assert b['param_groups']==a['param_groups'] and b['state'].keys()==a['state'].keys()
+        for pid,values in b['state'].items():
+            for key,value in values.items():
+                assert torch.equal(value,a['state'][pid][key]) if isinstance(value,torch.Tensor) else value==a['state'][pid][key]
+    new.anchor=old.anchor;new.training=old.training=False
+    assert torch.equal(new.act(raw,critic,0,supplemental=extra)[0],old.act(raw,critic,0,supplemental=extra)[0])
+    normalized=new.agent.actor_normalizer(executed[0])
+    with torch.no_grad():new.agent.actor.network[-1].bias[:19].fill_(10.)
+    loss,report=new.agent.actor_body_regularization(normalized,executed[0])
+    assert loss>0 and report['body_saturation_saturated_coordinates']>0
+    assert torch.autograd.grad(loss,new.agent.actor.network[-1].bias)[0][:19].gt(0).all()
+    batch=dict(actor_obs=executed[0],critic_obs=executed[1],action=executed[2],next_actor_obs=executed[0],
+        next_critic_obs=executed[1],reward=torch.zeros(64),terminated=torch.ones(64,dtype=torch.bool))
+    report=new.agent.update(batch)
+    assert report['actor_updated'] and report['body_saturation_loss']>0
+    assert old.agent.actor_body_regularization(normalized,executed[0]) is None
+    new.directory.mkdir();new.save(final=True);saved=next(new.directory.glob('checkpoint_*.pt'))
+    restored=ActualFlapResidualSACPilot(warm,physical,tmp_path/'restored_body_mean',stage,checkpoint=saved)
+    assert restored.body_saturation==new.body_saturation and restored.body_saturation_origin==new.body_saturation_origin
+    with pytest.raises(ValueError,match='differs from checkpoint'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'invalid_body_mean',stage,checkpoint=saved,body_saturation='off')
+    original=torch.load(checkpoint,weights_only=True)
+    original_experience=torch.load(checkpoint.parent/'staged_goal_experience.pt',weights_only=True)
+    changed,actual=enable_body_saturation(original,original_experience,source_checkpoint=checkpoint)
+    assert changed['model'] is original['model'] and actual['executed_goal_transitions'] is original_experience['executed_goal_transitions']
+    with pytest.raises(ValueError,match='without body regularization'):
+        enable_body_saturation(changed,actual,source_checkpoint=checkpoint)
+    experience=saved.parent/'staged_goal_experience.pt';state=torch.load(experience,weights_only=True)
+    state.pop('body_saturation_origin');torch.save(state,experience)
+    with pytest.raises(ValueError,match='replay origin'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'invalid_body_mean_origin',stage,checkpoint=saved)
+
+
 def test_actual_midpoint_relations_track_panel_rotation_and_mask_invalid_pose():
     panels=torch.zeros(2,2,7);panels[:,:,3]=1
     tcp=panels.clone();tcp[:,:,:3]=.1

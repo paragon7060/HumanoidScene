@@ -11,6 +11,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('checkpoint', 'training-manifest', 'waypoints', 'verification-inputs-checkpoint', 'output-dir'):
         parser.add_argument('--'+name, type=Path, required=True)
+    parser.add_argument('--body-saturation-penalty', choices=('mean3-soft',), default=None)
     args = parser.parse_args()
     experience = args.checkpoint.parent/'staged_goal_experience.pt'
     sources = [args.checkpoint, experience, args.training_manifest, args.waypoints,
@@ -35,6 +36,10 @@ def main():
             or source['model']['critic_normalizer.count']:
         raise ValueError('Controlled comparison requires fresh counters, optimizers, replay and success bank')
     destination, updated = enable_body_behavior(source, actual, source_checkpoint=args.checkpoint)
+    if args.body_saturation_penalty is not None:
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.body_saturation import enable_body_saturation
+        destination, updated = enable_body_saturation(destination, updated,
+            source_checkpoint=args.checkpoint, variant=args.body_saturation_penalty)
     # This closed historical checkpoint supplies measured states for identity
     # checks only. Its Q, replay and optimizers never enter the new learner.
     verification = torch.load(args.verification_inputs_checkpoint, map_location='cpu', weights_only=True)
@@ -81,11 +86,16 @@ def main():
         no_historical_Q_replay_optimizer_or_success_bank_import=True,
         only_future_TRAIN_arm_behavior_enabled=True,source_files_unchanged=True,
         initialized_not_trained=True,goal_not_complete=True)
+    if args.body_saturation_penalty is not None:
+        proof.update(only_future_TRAIN_arm_behavior_enabled=False,future_TRAIN_arm_behavior_enabled=True,
+            additional_TRAIN_actor_body_regularization=destination['body_saturation'],
+            initial_actor_model_and_four_optimizers_preserved=True)
     for name, value in (
         ('training_manifest.json',physical), ('waypoints.json',json.loads(args.waypoints.read_text())),
         ('initialization_verification.json',proof),
         ('manifest.json',dict(artifact_type=destination['artifact_type'],training_contract=physical,
-            goal_contract=goal,TRAIN_body_behavior=destination['body_behavior'],initialization_verification=proof)),
+            goal_contract=goal,TRAIN_body_behavior=destination['body_behavior'],
+            TRAIN_actor_body_regularization=destination.get('body_saturation'),initialization_verification=proof)),
         ('status.json',dict(status='complete',initialized_not_trained=True))):
         (args.output_dir/name).write_text(json.dumps(value,indent=2)+'\n')
     print(json.dumps(dict(output_dir=str(args.output_dir.resolve()),verification=proof)))

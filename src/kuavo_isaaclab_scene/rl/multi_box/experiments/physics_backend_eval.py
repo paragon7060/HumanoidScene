@@ -12,6 +12,7 @@ INCOMPATIBLE_FLAGS = frozenset('--' + name for name in (
     'zero-passive-roller-velocities-probe', 'rear5-support-gap-probe-m', 'grasp-observation-audit',
     'full-distribution-grasp-observation-audit', 'cpu-workplace-probe', 'measured-train-credit', 'jaw-behavior',
     'jaw-saturation-penalty', 'success-jaw-balance', 'stop-on-validation-regression', 'body-behavior',
+    'body-saturation-penalty',
 ))
 
 
