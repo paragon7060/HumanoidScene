@@ -226,3 +226,20 @@ v2 계약은 실제 spec의 DEFAULT_RACK_REGIONS 순서를 perceived_region_name
 전에 원래 layout.target_region과 관측에서 고른 stage region의 일치를 검사한다.
 v1 Q/제어를 resume하지 않고 원래 CPU 초기 actor9개만 다시 보존해 fresh Q/replay를
 만든다. Box/base/background/flap randomization과 성공/안전 조건은 유지한다.
+
+### v2 재시작 확인
+
+Source main c5f1173에서 writer3630370을 GPU3에 시작했다. 실제 소유자·고유 run·
+CUDA_VISIBLE_DEVICES=3을 확인했다. V2 초기 입력7개와 별도 receipt의 Drive
+크기/MD5 검증은 완료했다. 원래 v1 supervisor의 종료 백업도 완료했으며 exit1과
+중단 사유는 보존한다. [실제 v2 시작 근거](assets/rl_v2_CPU_region_v2_SAC_start_20261006.json).
+
+Production layout_reset_observation을 사용해 계획된17wave×128=2176요청의
+region ID→stage 선택을 대조했다. 네 영역 각각544요청, TRAIN1536·DEV640이며
+모두 원래 요청과 일치했다. DEV640은 동일128개를5회 반복하는 계획이며 독립
+640개가 아니다. 이 CPU-only preflight는 물리 성공 검증이 아니고 checkpoint/
+입력/Q/replay를 변경하지 않았다. [전체 계획 입력 대조](assets/rl_v2_CPU_region_v2_layout_preflight_20261006.json).
+실제 collector에서도 PhysX 후 관측과 요청을 매 wave 다시 검사한다.
+
+수정 검사64 passed·CUDA unit integration1 skipped. 실제 GPU3 writer 격리는
+별도로 확인했다. 현재 환경 초기화 단계이며 새 actor의 학습 성공은 미확인이다.

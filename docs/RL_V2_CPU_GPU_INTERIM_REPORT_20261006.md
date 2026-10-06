@@ -246,3 +246,14 @@ Notion 하위 중간 보고에는 native 영상19개·이미지10개를 확인�
 진단6개는 기존7개 CPU 추가학습 정책 영상과 구분한다. 초기 진단 영상의 잘못된
 DEV 제목은 원본을 보존하고 기존 제목 bar만 TRAIN으로 바꾼 H.264 복사본을
 첨부했으며 실제 body 자세·frame/timing·원본 SHA와 전체 decode를 검증했다.
+
+지역별 진입 첫 실행은 관측 ID와 보고서 영역 순서의 좌우 매핑 오류를 발견해
+TRAIN 전에 중단했다. 유효117개가 반대쪽 후보를 택했고 actor/Q update0·replay0이었다.
+그 불완전한 DEV를 기준 성능으로 사용하지 않는다. 기존 CPU 학습 정책7개 영상과
+baseline·원래 TRAIN16×8 진단 결과는 영향을 받지 않는다.
+
+실제 spec 순서를 계약v2에 명시하고 collector에서 요청 영역과 실제 stage를
+물리 rollout/Q 수집 전에 대조하도록 수정했다. 검사64개와 전체 계획2176요청의
+production 입력 대조가 통과했다. GPU3 writer3630370으로 새 Q/replay에서 다시
+시작했고 기존 v1 supervisor의 종료 Drive 검증도 완료했다.
+[좌우 오류 근거·수정·실제 v2 시작](RL_V2_CPU_TRAIN_WORKPLACE_SEARCH_20261006.md).
