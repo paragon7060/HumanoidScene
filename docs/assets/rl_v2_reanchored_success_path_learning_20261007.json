@@ -1,0 +1,86 @@
+{
+  "recorded_at": "2026-10-07T02:26:26.087955+09:00",
+  "checkpoint_SHA256": "9c52a9707d874367763433cf51a0883b160d0ce9faa7c228cb7406defbebffa1",
+  "source_initial_checkpoint_SHA256": "3e294eebee7715c32f582119816c8bc6ef9fc56264db6d507e9541c843dbd545",
+  "actor_updates": 290,
+  "critic_updates": 3206,
+  "goal_contract": "frozen_learned_actual_flap_actor_plus_bounded_correction_v2",
+  "row_count590_verified": true,
+  "success_case": {
+    "seed": 2250700311,
+    "environment": 47,
+    "wave": 1,
+    "region": "shelf_3_right"
+  },
+  "actual_safe_bilateral_hold_and_lift_verified": true,
+  "initial_actor_at_same_successful_TRAIN_states": {
+    "body_normalized_goal_MSE": 0.0009111594990827143,
+    "active_pre_tanh_mean_abs_median": 0.0,
+    "active_pre_tanh_mean_abs_max": 0.0,
+    "active_coordinates_over3": 0,
+    "active_coordinates": 11210,
+    "jaw_by_hand": [
+      {
+        "near_rows": 204,
+        "actual_close_near_rows": 24,
+        "deterministic_mismatches_on_near_rows": 2,
+        "actual_command_NLL_on_near_rows": 0.036914270371198654,
+        "mean_close_probability_on_actual_close_near_rows": 0.7896527647972107
+      },
+      {
+        "near_rows": 227,
+        "actual_close_near_rows": 25,
+        "deterministic_mismatches_on_near_rows": 15,
+        "actual_command_NLL_on_near_rows": 0.16744306683540344,
+        "mean_close_probability_on_actual_close_near_rows": 0.9309424757957458
+      }
+    ]
+  },
+  "learned_actor_at_same_successful_TRAIN_states": {
+    "body_normalized_goal_MSE": 0.0010377083672210574,
+    "active_pre_tanh_mean_abs_median": 0.057225558906793594,
+    "active_pre_tanh_mean_abs_max": 0.376008540391922,
+    "active_coordinates_over3": 0,
+    "active_coordinates": 11210,
+    "jaw_by_hand": [
+      {
+        "near_rows": 204,
+        "actual_close_near_rows": 24,
+        "deterministic_mismatches_on_near_rows": 0,
+        "actual_command_NLL_on_near_rows": 0.015069029293954372,
+        "mean_close_probability_on_actual_close_near_rows": 0.961289644241333
+      },
+      {
+        "near_rows": 227,
+        "actual_close_near_rows": 25,
+        "deterministic_mismatches_on_near_rows": 0,
+        "actual_command_NLL_on_near_rows": 0.07175768911838531,
+        "mean_close_probability_on_actual_close_near_rows": 0.9836385846138
+      }
+    ]
+  },
+  "matching_current_critic_at_actual_stored_goals": {
+    "first": -0.2308688759803772,
+    "last": 6.8401336669921875,
+    "mean": -0.006085451692342758
+  },
+  "matching_current_critic_at_counterfactual_greedy_goals": {
+    "first": -0.2218087911605835,
+    "last": 6.838850021362305,
+    "mean": -0.0010581420501694083
+  },
+  "actual_single_stochastic_path_discounted_return": {
+    "gamma": 0.999,
+    "first": 6.682488918304443,
+    "last": 6.9943389892578125
+  },
+  "same_recorded_training_states_not_a_new_physical_rollout": true,
+  "single_behavior_path_return_not_expected_current_policy_return": true,
+  "greedy_goal_predictions_are_counterfactual_not_executed_poses": true,
+  "source_recorded_goal_labels_not_inverted_or_relabelled": true,
+  "immutable_checkpoints_only_no_active_HDF_or_replay_file_read": true,
+  "no_GPU_Isaac_or_optimizer_updates": true,
+  "models_and_initial_checkpoint_unchanged": true,
+  "greedy_evaluation_generalization_success_unproven": true,
+  "goal_not_complete": true
+}
