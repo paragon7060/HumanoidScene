@@ -1,5 +1,10 @@
 # 단단한 flap · CPU/GPU 물리와 SAC 중간 보고
 
+CPU 추가 학습은 현재 개선되지 않았다. 같은 실행에서 학습 전23/128에서
+fresh TRAIN256개 후 actor289/Q3204는12/128로 감소했다. 별도 cold CPU 영상
+평가의 actor256/Q3072도11/128이었다. 아래의 기존 정책 CPU30/GPU4 대조와
+구분한다. 상단 좌우의 추가 학습 후 파지는 모두0/32다.
+
 같은 기존 GPU 학습 actor1204의 전체 원래 DEV128 재생에서 안전 양손 파지와
 proof lift는 CPU30/128·GPU4/128이었다. **CPU에서 새로 학습한 정책의 성과가
 아니다.** 상단오른쪽은 두 실행 모두0/32이며 독립 FINAL도 사용하지 않았다.
@@ -130,6 +135,51 @@ CPU 물리의 fresh TRAIN에서 추가 학습한 모델이다. 기존 GPU Q/repl
 파지/proof lift를 평가하지만 base 접근 자체를 SAC가 학습했다는 뜻은 아니다.
 기존 baseline 영상·이미지·정확한 소스/증거61개와 별도 receipt, 새 CPU 추가
 학습 체크포인트·평가 입력5개와 receipt는 기존 Drive 연결로 크기/MD5 검증했다.
+
+## 실제 CPU 추가 학습 결과와 영상
+
+![CPU 학습 전·후와 학습 정책의 별도 실제 영상 평가](assets/rl_v2_CPU_actual_learning_and_video_20261006.png)
+
+| 원래 DEV128 | 중간 왼쪽 /32 | 중간 오른쪽 /32 | 상단 왼쪽 /32 | 상단 오른쪽 /32 | 전체 성공 |
+| --- | --- | --- | --- | --- | --- |
+| CPU 초기 actor0·CUDA NN | 12 | 10 | 1 | 0 | 23/128 |
+| CPU TRAIN256개 후 actor289·CUDA NN | 7 | 5 | 0 | 0 | 12/128 |
+| CPU actor256·CPU NN·cold 영상 평가 | 6 | 5 | 0 | 0 | 11/128 |
+
+학습 후 warm CPU 평가의 rack 실패84·timeout31·초기 무효1도 분모128에
+유지했다. 초기 무효는11→1로 줄었지만 실제 파지도 감소했다. 학습 후에는
+TRAIN을 거친 solver/reset 이력과 flap 추첨이 달라진다. 별도 cold 영상 평가의
+공통 유효117개에서는 항목별8424개 hinge 강성·감쇠·두 마찰 값 차이0, 기록된
+base/rack pose·pool 배정·원래 초기 무효11개 flag도 동일했다. NN 추론 장치는
+CUDA→CPU이며 constructor contact cache·전체 link/q/v까지 bitwise로 대조한
+것은 아니다. [시작 상태 대조](assets/rl_v2_CPU_initial_vs_learned_video_start_audit_20261006.json),
+[실제 전체 결과와 영상 판정](assets/rl_v2_CPU_actual_learning_and_video_20261006.json).
+
+Actor256의 normalizer mean/var/count3개는 초기와 동일하고 actor weight/bias6개만
+변했다. 이 모델에서는 normalizer drift가 확인되지 않았다. CPU 물리 전환만으로
+SAC가 개선된 것은 아니며 fresh Q 신뢰도·actor 변화·보상/제어의 영향을 구분해야
+한다. 상단 오른쪽은 rack 충돌, 상단 왼쪽은 실제 양손 pinch 실패가 계속된다.
+
+Notion에 실제 CPU 추가 학습 actor256의 MP45개와 비교 그래프·실제 종료 자세를
+추가했다. 전체 frozen network/normalizer178개 tensor와 update/replay 수가 불변임을
+확인했다. 처음 선택한6개 중 Env2는 원래 초기 무효라 동작 영상은5개이며, 다른
+후보로 바꾸지 않고128개 실패 분모에 유지했다. 영상5개는 모두 실패지만 전체
+평가에서는11개가 성공했다. H.264/avc1·yuv420p·faststart·전체 decode를 검증했다.
+
+| 실제 CPU 추가 학습 영상 | 종료 | 판정 |
+| --- | --- | --- |
+| Env0·중간 왼쪽 | 20.63s | 오른쪽 gripper base–rack153.84N, 실패 |
+| Env4·다른 중간 왼쪽 시작점 | 19.87s | 오른쪽 gripper base–rack25.66N, 실패 |
+| Env5·중간 오른쪽 | 17.53s | zarm_r4_link–rack11.23N, 실패 |
+| Env3·상단 오른쪽 | 14.93s | 오른쪽 gripper base–rack107.36N, 실패 |
+| Env42·상단 왼쪽 | 25.47s | 손 거리3.65cm/3.06cm, 양손 pinch 없이 timeout |
+
+추가 성공 예시를 위해 같은 actor256/checkpoint·전체 원래DEV128을 다시
+평가하면서 측정됐던 중간 좌우 Env16/25를 녹화한다. 후보가 새 평가에서도
+성공했는지 실제 terminal 판정으로 확인한 후 첨부한다. 성공 subset을 전체
+성공률로 쓰거나 Q/성공 bank에 넣지 않는다. 원래 CPU 학습·첫 영상 실행은
+exit0으로 종료했고 원래 supervisor가 종료 로그/HDF/replay를 Drive에 업로드
+중이다. 전체 최종 체크섬 완료는 실제 상태 확인 후 별도로 기록한다.
 
 닫힌 CPU 학습 checkpoint를 평가하려면 아래처럼 별도 고유 실행 폴더와
 원래 DEV128 wave를 사용한다. TRAIN wave나 축소된 성공 사례 wave는 이 옵션에서

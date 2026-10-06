@@ -1,0 +1,688 @@
+{
+  "recorded_at": "2026-10-06T14:31:42.961293+09:00",
+  "groups": [
+    {
+      "label": "CPU initial actor0 / CUDA NN",
+      "wave": 0,
+      "split": "validation",
+      "requested": 128,
+      "regions": {
+        "shelf_2_left": {
+          "requested": 32,
+          "success": 12,
+          "unsafe": 18,
+          "timeout": 0,
+          "initial_invalid": 2
+        },
+        "shelf_2_right": {
+          "requested": 32,
+          "success": 10,
+          "unsafe": 19,
+          "timeout": 0,
+          "initial_invalid": 3
+        },
+        "shelf_3_left": {
+          "requested": 32,
+          "success": 1,
+          "unsafe": 1,
+          "timeout": 27,
+          "initial_invalid": 3
+        },
+        "shelf_3_right": {
+          "requested": 32,
+          "success": 0,
+          "unsafe": 28,
+          "timeout": 1,
+          "initial_invalid": 3
+        }
+      },
+      "success": 23,
+      "unsafe": 66,
+      "timeout": 28,
+      "initial_invalid": 11
+    },
+    {
+      "label": "CPU actor289 after2 TRAIN / CUDA NN",
+      "wave": 3,
+      "split": "validation",
+      "requested": 128,
+      "regions": {
+        "shelf_2_left": {
+          "requested": 32,
+          "success": 7,
+          "unsafe": 24,
+          "timeout": 1,
+          "initial_invalid": 0
+        },
+        "shelf_2_right": {
+          "requested": 32,
+          "success": 5,
+          "unsafe": 27,
+          "timeout": 0,
+          "initial_invalid": 0
+        },
+        "shelf_3_left": {
+          "requested": 32,
+          "success": 0,
+          "unsafe": 1,
+          "timeout": 30,
+          "initial_invalid": 1
+        },
+        "shelf_3_right": {
+          "requested": 32,
+          "success": 0,
+          "unsafe": 32,
+          "timeout": 0,
+          "initial_invalid": 0
+        }
+      },
+      "success": 12,
+      "unsafe": 84,
+      "timeout": 31,
+      "initial_invalid": 1
+    },
+    {
+      "label": "CPU actor256 recorded / CPU NN",
+      "wave": 0,
+      "split": "validation",
+      "requested": 128,
+      "regions": {
+        "shelf_2_left": {
+          "requested": 32,
+          "success": 6,
+          "unsafe": 23,
+          "timeout": 1,
+          "initial_invalid": 2
+        },
+        "shelf_2_right": {
+          "requested": 32,
+          "success": 5,
+          "unsafe": 24,
+          "timeout": 0,
+          "initial_invalid": 3
+        },
+        "shelf_3_left": {
+          "requested": 32,
+          "success": 0,
+          "unsafe": 1,
+          "timeout": 28,
+          "initial_invalid": 3
+        },
+        "shelf_3_right": {
+          "requested": 32,
+          "success": 0,
+          "unsafe": 29,
+          "timeout": 0,
+          "initial_invalid": 3
+        }
+      },
+      "success": 11,
+      "unsafe": 77,
+      "timeout": 29,
+      "initial_invalid": 11
+    }
+  ],
+  "source_actor256_checkpoint_SHA256": "e30fa29b52b168b46dd16fce9ed19a9d6ea566c7f702c5777274d91f8792e1a5",
+  "source_actor_updates": 256,
+  "source_critic_updates": 3072,
+  "actor_weights_actually_changed": true,
+  "source_RUN_replay_dynamics_CPU_PhysX_v1": true,
+  "learned_video_frozen_178_tensors_and_counters_unchanged": true,
+  "requested_video_cases": 6,
+  "recorded_actual_video_cases": 5,
+  "not_recorded_initial_invalid_cases": [
+    {
+      "environment": 2,
+      "region": "shelf_3_left",
+      "frames": 0,
+      "actual_outcome": {
+        "steps": 0,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": true,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "flap_distances": null,
+        "original_layout_replaced_during_settling": true,
+        "replay_rows": 0
+      }
+    }
+  ],
+  "initial_invalid_requests_not_replaced_or_removed": true,
+  "all_four_regions_recorded": true,
+  "actual_recorded_media": [
+    {
+      "environment": 0,
+      "region": "shelf_2_left",
+      "frames": 63,
+      "last_control_step": 619,
+      "actual_outcome": {
+        "steps": 619,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0034706685692071915,
+        "flap_distances": [
+          0.11030756682157516,
+          0.3533956706523895
+        ],
+        "rack_peak_force_n": 153.84231567382812,
+        "rack_peak_body": "r_twofinger_base",
+        "box_pose_world": [
+          44.416290283203125,
+          -39.907901763916016,
+          1.1683800220489502,
+          0.6649347543716431,
+          -0.4292222857475281,
+          0.13031509518623352,
+          0.5972001552581787
+        ],
+        "box_velocity_world": [
+          -0.04223905876278877,
+          0.044187407940626144,
+          0.01718389242887497,
+          -0.38900625705718994,
+          -0.3867064416408539,
+          0.7453432679176331
+        ],
+        "target_logical_id": 4,
+        "target_pool_id": 4,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.2661820650100708,
+            0.5832257866859436
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 92,
+          "position_error_m": 0.0023464770056307316,
+          "yaw_error_rad": 0.021574020385742188,
+          "linear_speed_mps": 0.011443672701716423,
+          "angular_speed_radps": 0.05133160576224327,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        },
+        "contact_quality": 0.0
+      },
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      }
+    },
+    {
+      "environment": 3,
+      "region": "shelf_3_right",
+      "frames": 46,
+      "last_control_step": 448,
+      "actual_outcome": {
+        "steps": 448,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -8.344650268554688e-07,
+        "flap_distances": [
+          0.16399972140789032,
+          0.14719869196414948
+        ],
+        "rack_peak_force_n": 107.35577392578125,
+        "rack_peak_body": "r_twofinger_base",
+        "box_pose_world": [
+          44.457332611083984,
+          -16.115442276000977,
+          1.6593087911605835,
+          0.6774656176567078,
+          -0.030822649598121643,
+          -0.03227373585104942,
+          0.7341994643211365
+        ],
+        "box_velocity_world": [
+          -4.2774350731633604e-05,
+          -6.979441968724132e-05,
+          -0.00012785173021256924,
+          0.0007075934554450214,
+          0.0009708688012324274,
+          -0.00042725689127109945
+        ],
+        "target_logical_id": 6,
+        "target_pool_id": 12,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.6125656366348267,
+            0.624693751335144
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 76,
+          "position_error_m": 0.0018884992459788918,
+          "yaw_error_rad": 0.0006166696548461914,
+          "linear_speed_mps": 0.019216587767004967,
+          "angular_speed_radps": 0.6564220786094666,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        },
+        "contact_quality": 0.0
+      },
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      }
+    },
+    {
+      "environment": 4,
+      "region": "shelf_2_left",
+      "frames": 61,
+      "last_control_step": 596,
+      "actual_outcome": {
+        "steps": 596,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.015979060903191566,
+        "flap_distances": [
+          0.10168435424566269,
+          0.1642553061246872
+        ],
+        "rack_peak_force_n": 25.66181755065918,
+        "rack_peak_body": "r_twofinger_base",
+        "box_pose_world": [
+          44.52586364746094,
+          -7.9029860496521,
+          1.1039398908615112,
+          0.6982583403587341,
+          -0.2708485424518585,
+          -0.09895884245634079,
+          0.6551973819732666
+        ],
+        "box_velocity_world": [
+          0.03634940832853317,
+          -0.003986926283687353,
+          -0.03801768273115158,
+          0.09673210978507996,
+          0.28108492493629456,
+          1.0204838514328003
+        ],
+        "target_logical_id": 4,
+        "target_pool_id": 4,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.2727932929992676,
+            0.582200825214386
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 73,
+          "position_error_m": 0.0016446661902591586,
+          "yaw_error_rad": 0.010804414749145508,
+          "linear_speed_mps": 0.018763583153486252,
+          "angular_speed_radps": 0.03149958327412605,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        },
+        "contact_quality": 0.0
+      },
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      }
+    },
+    {
+      "environment": 5,
+      "region": "shelf_2_right",
+      "frames": 54,
+      "last_control_step": 526,
+      "actual_outcome": {
+        "steps": 526,
+        "success": false,
+        "unsafe": true,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0007147882133722305,
+        "flap_distances": [
+          0.007512359879910946,
+          0.03908686339855194
+        ],
+        "rack_peak_force_n": 11.230913162231445,
+        "rack_peak_body": "zarm_r4_link",
+        "box_pose_world": [
+          44.44969177246094,
+          -0.2083073854446411,
+          1.0504246950149536,
+          0.669725239276886,
+          -0.03219432383775711,
+          -0.03185335546731949,
+          0.7412267327308655
+        ],
+        "box_velocity_world": [
+          -0.06905477494001389,
+          -0.030475730076432228,
+          -0.0013691950589418411,
+          0.001312553184106946,
+          -0.12356472760438919,
+          -0.5569436550140381
+        ],
+        "target_logical_id": 1,
+        "target_pool_id": 1,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.5807753205299377,
+            0.5827071070671082
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 97,
+          "position_error_m": 0.0007614997448399663,
+          "yaw_error_rad": 0.0037083623465150595,
+          "linear_speed_mps": 0.00442971708253026,
+          "angular_speed_radps": 0.0501861609518528,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        },
+        "contact_quality": 0.05303645879030228
+      },
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      }
+    },
+    {
+      "environment": 42,
+      "region": "shelf_3_left",
+      "frames": 78,
+      "last_control_step": 764,
+      "actual_outcome": {
+        "steps": 764,
+        "success": false,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": true,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "proof_lift": false,
+        "opposing_flaps": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.002529272809624672,
+        "flap_distances": [
+          0.03651908412575722,
+          0.030649445950984955
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          20.71025276184082,
+          32.212093353271484,
+          1.6750764846801758,
+          0.6795044541358948,
+          -0.029939835891127586,
+          -0.03361097723245621,
+          0.7322893142700195
+        ],
+        "box_velocity_world": [
+          0.010642923414707184,
+          0.0007023698417469859,
+          0.001883598743006587,
+          0.006503975484520197,
+          -0.009408154524862766,
+          0.0004966691485606134
+        ],
+        "target_logical_id": 9,
+        "target_pool_id": 15,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "upper",
+          "base_target_xy_rack_m": [
+            -0.30950337648391724,
+            0.6267210245132446
+          ],
+          "base_target_yaw_rack_rad": -1.5323371887207031,
+          "stable_steps": 15,
+          "manipulation_start": 54,
+          "position_error_m": 0.00019892687851097435,
+          "yaw_error_rad": 6.330013275146484e-05,
+          "linear_speed_mps": 0.009528628550469875,
+          "angular_speed_radps": 0.8207809925079346,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.04551871120929718,
+              0.7435594499111176
+            ],
+            "base_yaw_rack_rad": -1.5323371887207031,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5",
+            "source_sha256": "21b180a0f0801110d3d3820d30e288e3f1dcade7cd3d5143175eb8bf30edc60a",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        },
+        "contact_quality": 0.0
+      },
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      }
+    }
+  ],
+  "CPU_initial_vs_learned_video_start_JSON_audit": "rl_v2_CPU_initial_vs_learned_video_start_audit_20261006.json",
+  "common117_original_valid_start_flap_parameters_8424_each_field_identical": true,
+  "CPU_post_TRAIN_warm_reset_history_and_invalid_count_differ": true,
+  "CPU_video_inference_device_CPU_vs_initial_CUDA_differs": true,
+  "original_GPU_actor_CPU30_matched_GPU_world_is_not_CPU_training_baseline": true,
+  "same_randomization_ranges_success_and_safety_preserved": true,
+  "staged_base_approach_not_learned_navigation": true,
+  "independent_FINAL_unused": true,
+  "all_four_regions_generalization_not_achieved": true,
+  "goal_not_complete": true
+}
