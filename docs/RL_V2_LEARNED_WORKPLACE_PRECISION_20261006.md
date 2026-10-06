@@ -78,3 +78,14 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_actu
 대표 성능·영상은 [중간 보고](RL_V2_GRASP_INTERIM_SUMMARY_20261006.md)를 참고한다.
 새 비교는 원래128개 DEV 요청과 별도의 새 TRAIN 배치를 사용하며,
 독립 FINAL은 학습·선택에 사용하지 않는다. 현재 GPU3 주 학습은 계속 유지한다.
+
+정밀 보상 비교는 **10/06 19:36 KST에 GPU3에서 시작**했다.
+`CUDA_VISIBLE_DEVICES=3`으로 제한했고 별도128환경·새 TRAIN1,536조건·
+반복 DEV128요청을 사용한다. 기존 주 학습은 같은 GPU에서 계속 진행한다.
+초기 actor의538실제 TRAIN 관측 동작 동일성과45개 fresh learning tensor
+보존, 초기 replay·bank·optimizer가 비어 있음을 검증했다. 입력7개는 기존
+Drive 연결로 크기·MD5를 검증했고 관리자가300초마다 checkpoint를 업로드한다.
+검증된 오래된 checkpoint만 정리하며 로컬의 최근2개를 보호한다.
+종료 후에는 닫힌 로그·데이터·영상을 업로드하고 검증한다.
+초기 개발 평가 준비 단계로, 이 비교의 새 Q·actor 업데이트나 성능 향상을
+아직 보고하지 않는다. [초기화·실행 근거](assets/rl_v2_precision25_learned689_initial_20261006.json).
