@@ -71,6 +71,22 @@ Source commit은`88ba2a5`다. [실행 시작 근거](assets/rl_v2_reanchored30_G
 이는 실제 제어 진입 확인이며 전체128건 결과나 새 학습 성능은 아직 아니다.
 [첫 실제 평가 제어 확인](assets/rl_v2_reanchored30_first_actual_DEV_progress_20261007.json).
 
+**전체 초기 DEV0는23/128(중간 좌12·우6, 상단 좌5·우0)**이었다.
+23건 모두 실제 양손 파지·유지·들기와 안전 조건을 확인했다. 초기화 무효11건도
+원래128개 분모에 남겼다. 나머지는 랙 충돌69·시간 초과25건이며, 상단 오른쪽은
+초기 유효29건 중 랙 충돌24·시간 초과5건이었다. Actor·Q 업데이트와 replay는
+평가 종료까지0이었다. 원래 DEV128 배치 요청과 보상·flap 물성 범위는 같지만
+flap의 실제 추첨과 solver 이력까지 일치한 비교라고 가정하지 않는다.
+다른 초기 평가29/128을 이 실행의 기준으로 사용하지 않으며, 새 학습의 개선은
+**자신의 초기23/128**과 비교한다. [전체 초기 평가](assets/rl_v2_reanchored30_full_initial_DEV_20261007.json).
+
+이후 실제 TRAIN1 step421에서 **Q720회·held TRAIN42,917전이**를 확인했다.
+127에피소드 중21개에 추가 팔 탐색이 적용됐고 실제 수집6,840행에 반영됐다.
+반경0.30·정밀 보상·body mean3·그리퍼 탐색·실제 n-step16 설정은 연결됐다.
+Q warmup2,048회 중1,328회가 남아 actor는 아직0회다. 이전 Q·replay를 가져오지
+않았으며, 이 수집·Q 업데이트 확인을 물리 성공률 개선으로 세지 않는다.
+[첫 실제 TRAIN·Q warmup](assets/rl_v2_reanchored30_first_real_TRAIN_Q_20261007.json).
+
 ## 사용법
 
 이전 실제-flap actor와 일치하는 manifest·waypoint·native seed를 사용한다.

@@ -81,7 +81,10 @@ base 접근 중에는 held-grasp critic의 학습 범위를 벗어나므로 `Q: 
 양손 합성만 평균→약한 손을 반영한 식으로 바꿨다. 가중치는 같다.
 팔 탐색과 출력 포화 완화는 별도의 행동 샘플링·actor 손실 변경이며 보상 항목은 아니다.
 [비교 설정](RL_V2_LEARNED_WORKPLACE_PRECISION_20261006.md)에 따로 기록했다.
-파일의 일반 기본값보다 **실행 폴더 agent.yaml의 reward_profile**이 실제 사용값이다.
+파일의 일반 기본값보다 **이 실행의 agent.yaml → physical_contract.reward_profile**이
+실제 사용값이다. 제어 반경·body controller도 agent.yaml의 전체 learner 계약과
+checkpoint의 goal_contract를 기준으로 확인한다. manifest.json에 상속된 일반
+goal_contract만으로 새 실제-flap controller의 반경을 추정하지 않는다.
 접촉 프로필은 [contact_profile.py](../src/kuavo_isaaclab_scene/rl/multi_box/rewards/contact_profile.py)의
 `contact_reward_weights()`가 기본값의 파지 이벤트·성공·파괴적 실패 가중치를 수정한다.
 조합 식은 [model.py](../src/kuavo_isaaclab_scene/rl/multi_box/rewards/model.py),

@@ -218,8 +218,14 @@ TRAIN 조건·flap 추첨이 달라 포화 완화 효과를 입증하지 않는�
 GPU3에서 별도의 새 TRAIN1,536조건과 원래 DEV128개로 비교한다. 박스·base·
 배경·flap 무작위화와 성공·충돌 기준은 유지한다. 아직 새 학습의 개선은 확인 전이다.
 [변경한 제어와 검증·실행 기록](RL_V2_REANCHORED_BODY_CONTROLLER_20261007.md).
-새 실행의 DEV0 실제151step에서 반경0.30·actual-flap 관측 연결과 actor/Q/replay0을
-확인했다. 평가에는 TRAIN용 탐색이 들어가지 않았으며 전체 초기128건 결과는 아직 대기 중이다.
+새 실행의 전체 초기 평가가 **23/128(12/6/5/0)**으로 완료됐다. 실제 양손 파지·유지·
+들기23건을 확인했고, 실패는 랙 충돌69·시간 초과25·초기화 무효11건이다.
+이때 actor·Q 업데이트와 replay는0이었다. 원래128개 배치와 보상·flap 범위는 같지만
+실제 flap 추첨·reset 물리는 같은 비교라고 단정하지 않는다. 새 학습의 개선은
+자신의23/128을 기준으로 판단한다. [전체 초기 평가](assets/rl_v2_reanchored30_full_initial_DEV_20261007.json).
+이후 실제 TRAIN에서 Q720회·42,917전이가 수집됐고 팔 탐색도 실제로 적용됐다.
+Q warmup을 기다리는 단계로 actor는 아직0회이며, 새 학습 후 성능은 확인 전이다.
+[실제 TRAIN 연결](assets/rl_v2_reanchored30_first_real_TRAIN_Q_20261007.json).
 
 설정과 원자료는 [관측·동작·SAC 설정](RL_V2_ACTUAL_FLAP_RESIDUAL_SAC.md),
 [대표 평가와 영상 판정](assets/rl_v2_CPU_baseline_video_evidence_20261006.json),
