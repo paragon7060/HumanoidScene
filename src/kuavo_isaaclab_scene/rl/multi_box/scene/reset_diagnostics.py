@@ -11,8 +11,14 @@ from ..geometry.pose import (
 )
 
 
-def validate_reset_diagnostic_request(waves, *, enabled, training, steps):
+def validate_reset_diagnostic_request(waves, *, enabled, training, steps,
+                                      frozen_backend_evaluation=False, physics_device=None):
     if not enabled:
+        return
+    if frozen_backend_evaluation:
+        from ..experiments.physics_backend_eval import validate_frozen_backend_policy_eval
+        validate_frozen_backend_policy_eval(waves, enabled=True, device=physics_device,
+            training=training, steps=steps)
         return
     if training or steps != 1 or not waves or any(w['split'] != 'validation' for w in waves):
         raise ValueError('Reset diagnostics require frozen DEV waves and --steps 1; no TRAIN or FINAL')

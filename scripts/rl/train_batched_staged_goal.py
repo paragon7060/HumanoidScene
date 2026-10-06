@@ -10,6 +10,7 @@ from dataclasses import asdict,replace
 import json
 from pathlib import Path
 import signal
+import sys
 import time
 
 
@@ -63,6 +64,8 @@ def main():
     parser.add_argument('--steps',type=int,default=900)
     parser.add_argument('--reset-failure-diagnostics',action='store_true',
         help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
+    parser.add_argument('--frozen-physics-backend-eval',action='store_true',
+        help='Explicit frozen original DEV128/900steps CPU or GPU policy comparison; never supplies matching Q replay')
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
@@ -88,6 +91,22 @@ def main():
             or args.centered_world_probe or args.packed_background_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.physics_backend_eval import (
+        SOURCE as BACKEND_EVAL_SOURCE,validate_frozen_backend_policy_eval)
+    try:
+        backend_eval=validate_frozen_backend_policy_eval(waves,enabled=args.frozen_physics_backend_eval,
+            device=args.device or 'cuda:0',training=args.training,steps=args.steps,
+            explicit_frozen='--no-training' in sys.argv and '--training' not in sys.argv,
+            other_probe=any((args.contact_stability_probe,args.tgs_zero_velocity_probe,args.contact_last_probe,
+                args.pgs_probe,args.gripper_drive_probe,args.centered_world_probe,args.packed_background_probe,
+                args.base_waypoint_probe,args.reset_solver_probe,args.passive_bearing_probe_layer,
+                args.reset_independent_scene_probe,args.zero_passive_roller_velocities_probe,
+                args.rear5_support_gap_probe_m is not None,args.grasp_observation_audit,
+                args.measured_train_credit,args.jaw_behavior,args.jaw_saturation_penalty,args.success_jaw_balance)))
+        if args.device=='cpu' and backend_eval is None and (args.training or '--no-training' not in sys.argv
+                or '--training' in sys.argv or not args.reset_failure_diagnostics or args.steps!=1):
+            raise ValueError('CPU requires explicit frozen reset or full backend policy evaluation')
+    except ValueError as error:parser.error(str(error))
     from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_observation_audit import validate_grasp_observation_audit
     try:validate_grasp_observation_audit(waves,enabled=args.grasp_observation_audit,
         full_distribution=args.full_distribution_grasp_observation_audit,
@@ -100,7 +119,8 @@ def main():
     from kuavo_isaaclab_scene.rl.multi_box.scene.reset_diagnostics import (
         validate_reset_diagnostic_request,validate_rear5_support_gap_diagnostic_request)
     try:validate_reset_diagnostic_request(waves,enabled=args.reset_failure_diagnostics,
-        training=args.training,steps=args.steps)
+        training=args.training,steps=args.steps,
+        frozen_backend_evaluation=backend_eval is not None,physics_device=args.device)
     except ValueError as error:parser.error(str(error))
     world_frame_probe=None
     if args.reset_world_frame_probe:
@@ -108,7 +128,9 @@ def main():
         try:
             world_frame_probe=json.loads(args.reset_world_frame_probe.read_text())
             validate_reset_world_frame_request(waves,world_frame_probe,reset_enabled=args.reset_failure_diagnostics,
-                training=args.training,steps=args.steps,other_probe=any((args.contact_stability_probe,
+                training=args.training,steps=args.steps,
+                frozen_backend_evaluation=backend_eval is not None,physics_device=args.device,
+                other_probe=any((args.contact_stability_probe,
                     args.tgs_zero_velocity_probe,args.contact_last_probe,args.pgs_probe,args.gripper_drive_probe,
                     args.centered_world_probe,args.packed_background_probe,args.base_waypoint_probe,
                     args.reset_solver_probe,args.passive_bearing_probe_layer,args.zero_passive_roller_velocities_probe,
@@ -454,7 +476,7 @@ def main():
         meta=dict(task_family='multi_box_v2',skill='grasp',robot_model='s63',gripper='leju-twofinger',
             rack_rollers=True,actor_obs_dim=464,critic_obs_dim=530,action_dim=24,
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
-            collection_source=('grasp_observation_audit_NOT_matching_Q_replay'
+            collection_source=(BACKEND_EVAL_SOURCE if backend_eval else 'grasp_observation_audit_NOT_matching_Q_replay'
                                if args.grasp_observation_audit else 'reset_failure_diagnostic_NOT_matching_Q_replay'
                                if args.reset_failure_diagnostics else 'changed_gripper_drive_frozen_probe_NOT_matching_Q_replay'
                                if args.gripper_drive_probe else 'changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
@@ -466,6 +488,7 @@ def main():
             startup_world_frame_probe=world_frame_audit,
             startup_scene_replication_probe=replication_probe,
             sim_device=str(env.device),multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
+            frozen_physics_backend_evaluation=backend_eval,
             current_reward_verified_against_breakdown=True,
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
             wave_reset_controller_contract=WAVE_RESET_CONTROLLER_CONTRACT,
@@ -502,6 +525,7 @@ def main():
             grasp_audit=GraspObservationAudit(env,output)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
+            'frozen_physics_backend_evaluation':backend_eval,
             'TRAIN_jaw_behavior':collection_jaw_behavior,
             'TRAIN_actor_jaw_regularization':actor_jaw_regularization,
             'TRAIN_successful_jaw_balance':successful_jaw_balance,
@@ -604,7 +628,7 @@ def main():
                     captured['reset_physics_device_diagnostic']=dict(name='frozen_DEV_reset_CPU_PhysX',
                         physics_device='cpu',Q_import_eligible=False,
                         constructor_and_contact_solver_history_not_matched=True,
-                        not_a_grasp_performance_evaluation=True)
+                        not_a_grasp_performance_evaluation=backend_eval is None)
                     captured['physical_state_unchanged']=False
                     captured['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
                     captured['requested_box_base_layouts_and_dynamics_parameters_unchanged']=True
@@ -654,6 +678,11 @@ def main():
             pilot.training=args.training and wave['split']=='train'
             pilot.reset_exploration(n)
             updates_before=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size)
+            frozen_integrity=None
+            if backend_eval:
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.physics_backend_eval import (
+                    frozen_network_snapshot,verify_frozen_network_snapshot)
+                frozen_integrity=frozen_network_snapshot(pilot)
             active=valid_layout.clone()
             snapshots=[capture_rl_initial_state(env,observation,env_index=i) if valid_layout[i] else None for i in range(n)]
             rows=[[] for _ in range(n)]
@@ -788,6 +817,10 @@ def main():
                     outcomes[-1]['successful_jaw_balance']=pilot.success_jaw_balance
             if wave['split']!='train' and updates_before!=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size):
                 raise ValueError('Evaluation modified optimizer counters or replay')
+            if backend_eval:
+                backend_eval['frozen_network_integrity']=verify_frozen_network_snapshot(pilot,frozen_integrity)
+                backend_eval['actor_critic_updates_and_replay_size_unchanged']=True
+                backend_eval['replay_rows_imported']=pilot.replay.size
             pilot.training=args.training
             if pilot.success_bank is not None:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import add_completed_training_wave
@@ -806,6 +839,7 @@ def main():
                 baseline_failed=check.get('baseline_failed',False)
             if not stopped['value']:completed_wave_count+=1
             (output/'metrics.json').write_text(json.dumps(dict(policy=pilot.artifact_type,outcomes=outcomes,
+                frozen_physics_backend_evaluation=backend_eval,
                 learner=pilot.report(),actual_rows=total_rows,seconds=time.monotonic()-start,
                 development_checks=development_checks),indent=2)+'\n')
             status=('interrupted' if stopped['value'] else

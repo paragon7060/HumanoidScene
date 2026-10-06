@@ -57,10 +57,12 @@ def validate_world_frame_rows(probe,num_envs):
     return probe
 
 
-def validate_reset_world_frame_request(waves,probe,*,reset_enabled,training,steps,other_probe=False):
+def validate_reset_world_frame_request(waves,probe,*,reset_enabled,training,steps,other_probe=False,
+                                       frozen_backend_evaluation=False,physics_device=None):
     if not reset_enabled or other_probe:
         raise ValueError('World frame requires an otherwise unchanged frozen reset diagnostic')
-    validate_reset_diagnostic_request(waves,enabled=True,training=training,steps=steps)
+    validate_reset_diagnostic_request(waves,enabled=True,training=training,steps=steps,
+        frozen_backend_evaluation=frozen_backend_evaluation,physics_device=physics_device)
     if len(waves)!=1:
         raise ValueError('World-frame comparison requires exactly one frozen DEV wave')
     validate_world_frame_rows(probe,len(waves[0]['layouts']))

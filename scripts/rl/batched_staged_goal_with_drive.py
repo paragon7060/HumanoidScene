@@ -15,19 +15,29 @@ from train_with_drive import supervise
 
 
 def validate_managed_physics_device(device, child):
-    """CPU dynamics is an explicit frozen DEV reset diagnostic only."""
-    if device == 'cuda:0':
-        return None
-    if device != 'cpu':
+    """CPU dynamics cannot silently become matching TRAIN or FINAL data."""
+    if device not in ('cpu', 'cuda:0'):
         raise ValueError('Managed physics device must be cuda:0 or cpu')
     parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     parser.add_argument('--training', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--reset-failure-diagnostics', action='store_true')
+    parser.add_argument('--frozen-physics-backend-eval', action='store_true')
     parser.add_argument('--steps', type=int, default=900)
     parser.add_argument('--waves-json', type=Path)
     audit, _ = parser.parse_known_args(child)
-    if audit.training or '--no-training' not in child or '--training' in child \
-            or not audit.reset_failure_diagnostics or audit.steps != 1:
+    if device == 'cuda:0' and not audit.frozen_physics_backend_eval:
+        return None
+    explicit_frozen = '--no-training' in child and '--training' not in child
+    if audit.frozen_physics_backend_eval:
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.physics_backend_eval import (
+            INCOMPATIBLE_FLAGS,validate_frozen_backend_policy_eval)
+        if audit.waves_json is None:
+            raise ValueError('Backend policy evaluation requires original DEV waves')
+        return validate_frozen_backend_policy_eval(json.loads(audit.waves_json.read_text()),
+            enabled=True, device=device, training=audit.training, steps=audit.steps,
+            explicit_frozen=explicit_frozen,
+            other_probe=any(s.split('=')[0] in INCOMPATIBLE_FLAGS for s in child))
+    if audit.training or not explicit_frozen or not audit.reset_failure_diagnostics or audit.steps != 1:
         raise ValueError('CPU dynamics requires explicit --no-training --reset-failure-diagnostics --steps 1')
     if audit.waves_json is None:
         raise ValueError('CPU dynamics requires original DEV waves')
@@ -45,7 +55,7 @@ def main():
     parser.add_argument('--experiment-dir',type=Path,required=True)
     parser.add_argument('--gpu',type=int,default=3)
     parser.add_argument('--physics-device',choices=('cuda:0','cpu'),default='cuda:0',
-        help='CPU is restricted to frozen DEV reset diagnostics; normal training retains cuda:0')
+        help='CPU requires explicit frozen DEV reset diagnostics or full backend policy evaluation; training retains cuda:0')
     parser.add_argument('--python',type=Path,default=Path.home()/'miniconda3/envs/env_isaaclab_232/bin/python')
     parser.add_argument('--remote-root',default=os.environ.get('RL_DRIVE_REMOTE_ROOT'))
     args,child=parser.parse_known_args()

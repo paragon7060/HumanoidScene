@@ -186,6 +186,44 @@ Constructor/contact warm-start와 flap 추첨은 bitwise로 맞추지 않았다.
 데이터/물리 계약과 독립적인 TRAIN 배치를 사용해야 한다. GPU의 기존 Q/replay를
 CPU 학습에 그대로 가져오거나 이 DEV의 월드 상태를 TRAIN으로 사용하지 않는다.
 
+## 전체 파지 동작을 비교하는 frozen backend 평가
+
+초기 유효127/128이 실제 파지에 도움이 되는지는 별도 동작 평가가 필요하다.
+`--frozen-physics-backend-eval`을 추가해 CPU/GPU에서 같은 정책을 최대900 control
+step 재생할 수 있게 했다. 명시적인 `--no-training`, **한 원래 DEV128 wave·각
+구역32개·중복 없는 seed·원래 주변 배치**만 허용한다. TRAIN·독립 FINAL·부분
+배치·다른 solver/drive/background/waypoint 진단과의 혼합은 시작 전에 거부한다.
+기존 기본 GPU 학습과 CPU 리셋-only 경로는 유지한다.
+
+```bash
+python scripts/rl/batched_staged_goal_with_drive.py \
+  --experiment-dir /absolute/path/to/new-unique-frozen-backend-eval \
+  --gpu 0 --physics-device cpu \
+  --checkpoint /absolute/path/to/verified-actual-flap-checkpoint.pt \
+  --training-manifest /absolute/path/to/matching-training_manifest.json \
+  --waves-json /absolute/path/to/original-DEV128-waves.json \
+  --waypoints /absolute/path/to/staged-waypoints.json \
+  --demo-dataset /absolute/path/to/quest-success.hdf5 \
+  --native-seed /absolute/path/to/closed-middle-TRAIN-transitions.hdf5 \
+  --native-seed /absolute/path/to/closed-upper-TRAIN-transitions.hdf5 \
+  --no-training --steps 900 --frozen-physics-backend-eval \
+  --reset-failure-diagnostics \
+  --reset-world-frame-probe /absolute/path/to/measured-GPU-initial-world-and-passive-state.json
+```
+
+World-frame override는 이 명시적인 frozen 평가에서만 추가로 허용하고 원래
+seed 순서·root·joint 순서·backend readback 검사를 유지한다. Flap/box/base/주변
+randomization, 동일 양손 contact/stable/proof-lift 성공과10N rack/5N obstacle
+안전 기준은 유지한다. 물리 backend와 constructor/contact 이력은 동일하지 않다.
+GPU 엔진 결함을 확정하는 실험이나 독립 FINAL 성능 증명으로 해석하지 않는다.
+
+HDF collection source는 `frozen_physics_backend_policy_eval_NOT_matching_Q_replay`로
+표시한다. Matching TRAIN seed importer는 이를 거부한다. 평가 전후 actor/Q
+update 수·replay 크기뿐 아니라 learned network, normalizer 및 frozen BC/goal/
+body-anchor actor의 실제 tensor가 bit-identical인지 확인한다. 초기 무효도 원래
+128개 분모에 유지하고 성공·unsafe 원인·거리·pad 품질은 닫힌 metrics에 기록한다.
+이 옵션으로 CPU 학습이나 GPU Q/replay의 CPU 재개를 허용하지 않는다.
+
 ## Strong SAC의 학습 후 전체 DEV는 개선되지 않음
 
 Strong saturation penalty 비교는 예정된4wave를 정상 exit0으로 마쳤다.
