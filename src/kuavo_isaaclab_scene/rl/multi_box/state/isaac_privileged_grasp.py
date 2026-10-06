@@ -112,9 +112,13 @@ class IsaacPrivilegedGraspAdapter:
         self.pose_stability = RelativePoseStabilityTracker(
             self.num_envs, self.device)
         self.success_tracker = GraspSuccessTracker(self.num_envs, self.device)
+        from ..rewards.precision_capture import configured_capture_geometry
+        capture_geometry = configured_capture_geometry(
+            env.cfg.rewards.grasp.params.get('reward_profile'))
+        self.capture_aggregation = capture_geometry['capture_aggregation']
         self.reward_scale = MetricScaleConfig(
             grasp_approach_m=GRASP_APPROACH_REWARD_SCALE_M,
-            grasp_capture_m=GRASP_CAPTURE_REWARD_SCALE_M)
+            grasp_capture_m=capture_geometry['capture_scale_m'])
         self.initial_box_z = torch.zeros(self.num_envs, device=self.device)
         from ....workcell.rack_rollers import resolve_rack_roller_settings
         rollers=resolve_rack_roller_settings()
@@ -352,6 +356,7 @@ class IsaacPrivilegedGraspAdapter:
             thickness, rack_clearance,
             approach_scale_m=self.reward_scale.grasp_approach_m,
             capture_scale_m=self.reward_scale.grasp_capture_m,
+            capture_aggregation=self.capture_aggregation,
         )
         rack_pose = self.env.scene["rack"].data.root_pose_w
         tcp_in_rack = relative_pose(rack_pose, tcp_pose)[..., :3]

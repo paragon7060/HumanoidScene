@@ -674,6 +674,12 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 병렬 환경별 메모리·처리량은 [측정 기록](docs/RL_PARALLEL_ENVS.md)을 참고한다.
 짧은 실행은 학습 수렴이나 파지 성공률 검증을 뜻하지 않는다.
 
+양손 multi-box v2의 actual-flap/held-base SAC는 별도 실험이다.
+선택형 `--precision-capture`는2.5cm 스케일과 약한 손을 반영한 capture 보상으로
+**새 Q·replay를 초기화**한다. 일반10cm/평균 설정과 성공·충돌·randomization은
+유지하며, 기존 reward의 Q/replay를 재사용하지 않는다.
+사용법과 적용 전 검증 범위는 [정밀 capture 초기화 가이드](docs/RL_V2_PRECISION_CAPTURE_PROFILE_20261006.md)를 참고한다.
+
 ## 저장소 구조
 
 ```text

@@ -61,6 +61,37 @@ def test_zero_correction_keeps_executed_source_and_jaws_with_changed_context(tmp
     assert not any(k.startswith(('q','target','optimizers')) for k in new.body_anchor_state['model'])
 
 
+def test_precision_capture_fresh_policy_keeps_executed_actor_and_rejects_old_reward_Q(tmp_path):
+    from dataclasses import asdict
+    from kuavo_isaaclab_scene.rl.multi_box.rewards.weights import MultiBoxRewardWeights
+    from kuavo_isaaclab_scene.rl.multi_box.rewards.contact_profile import with_contact_reward_profile
+    from kuavo_isaaclab_scene.rl.multi_box.rewards.precision_capture import with_precision_capture_profile
+    _,_,warm,physical,stage,source=pilots(tmp_path)
+    physical=physical|dict(reward_profile=dict(weights=asdict(MultiBoxRewardWeights()),capture_scale_m=.10))
+    physical=with_contact_reward_profile(physical)
+    source['goal_contract']['physical_contract']['reward_profile']=physical['reward_profile']
+    anchor=actor_anchor_state(source)
+    def fresh(contract,name):
+        return ActualFlapResidualSACPilot(warm,contract,tmp_path/name,stage,
+            body_anchor_state=anchor,replay_capacity=1024,exploration_correlation=.99,
+            train_success_retention=True)
+    old=fresh(physical,'contact_actual');new_contract=with_precision_capture_profile(physical)
+    new=fresh(new_contract,'precision_actual')
+    raw=torch.zeros(12,464);raw[:,144]=1.;critic=torch.zeros(12,530)
+    old.anchor=new.anchor=torch.zeros(12,2);extra=torch.randn(12,38)
+    previous,_=old.observations(raw,critic,0,extra)
+    current,_=new.observations(raw,critic,0,extra)
+    assert torch.equal(previous,current)
+    torch.testing.assert_close(old.agent.act(previous,True),new.agent.act(current,True),rtol=0,atol=0)
+    assert new.replay.size==new.actor_updates==new.critic_updates==new.success_bank.size==0
+    assert new.agent.critic_normalizer.count==0 and not any(opt.state for opt in new.agent.optimizers)
+    assert old.contract!=new.contract
+    old.directory.mkdir();old.save(final=True)
+    with pytest.raises(ValueError,match='same phase/waypoint/remaining-goal contract'):
+        ActualFlapResidualSACPilot(warm,new_contract,tmp_path/'invalid_reward_resume',stage,
+            checkpoint=next(old.directory.glob('checkpoint_*.pt')),training=False)
+
+
 def test_correction_maps_once_for_collection_branches_targets_and_success_labels(tmp_path):
     _,new,*_=pilots(tmp_path)
     raw=torch.zeros(8,518);raw[:,144]=1;raw[:,-1]=.15

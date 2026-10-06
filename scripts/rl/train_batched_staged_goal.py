@@ -327,6 +327,11 @@ def main():
             front_stage_scale_m=FRONT_STAGE_REWARD_SCALE_M,geometry_profile='rack_front_lane_then_opposing_flap_reach_v3')
         if 'contact_shaping' in contract['reward_profile']:
             profile['contact_shaping']=contract['reward_profile']['contact_shaping']
+        from kuavo_isaaclab_scene.rl.multi_box.rewards.precision_capture import configured_capture_geometry
+        capture_geometry=configured_capture_geometry(contract['reward_profile'])
+        profile['capture_scale_m']=capture_geometry['capture_scale_m']
+        if 'precision_capture' in contract['reward_profile']:
+            profile['precision_capture']=contract['reward_profile']['precision_capture']
         thresholds=dict(rack_contact_force_n=float(cfg.multi_box.rack_contact_force),
             obstacle_contact_force_n=float(cfg.task.obstacle_contact_force),workspace_radius_m=float(cfg.multi_box.workspace_radius),
             max_box_lift_height_m=float(cfg.multi_box.max_box_lift_height),

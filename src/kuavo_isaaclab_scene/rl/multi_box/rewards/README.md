@@ -1,5 +1,12 @@
 # V2 reward ratios
 
+The optional actual-flap contact experiment also supports the distinct
+`weak_hand_capture_25mm_v1` reward identity. It uses a 0.025m capture falloff and
+`0.25*(left+right)+0.5*min(left,right)` while retaining approach/front staging,
+contact, success and safety. The ordinary default stays 0.10m/mean.
+Changing this reward requires fresh Q/replay/optimizers; only the validated
+actor may migrate. See [the implementation and initialization record](../../../../../docs/RL_V2_PRECISION_CAPTURE_PROFILE_20261006.md).
+
 Dense grasp geometry scores are normalized to `[0, 1]`. Front staging, approach, capture,
 jaw gap and lift use `gamma * Phi(next) - Phi(current)`; alignment uses the
 signed change in closing-axis score multiplied by near-flap proximity. Holding

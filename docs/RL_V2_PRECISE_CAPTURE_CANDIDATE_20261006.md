@@ -77,6 +77,9 @@ score0.8을 매 step 받는 것도 아니다. 상관된 보관 TRAIN 상태이�
 
 ## 실제 적용 조건
 
+후속 [선택형 precision profile과 fresh 초기화](RL_V2_PRECISION_CAPTURE_PROFILE_20261006.md)를
+구현했다. 현재 GPU 학습에는 적용하지 않았으며 아래 적용 조건은 유지한다.
+
 30% 장기 실행과 strong/balance의 전체 post-TRAIN greedy DEV·실제 pad 접촉을
 확인한다. 닫힘 수집이 회복돼도 접촉과 전체 DEV가 늘지 않으면 다음 비교는
 **선택형2.5cm/weak-hand capture profile**로 한다. 손 접근과 front staging은

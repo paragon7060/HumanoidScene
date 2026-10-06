@@ -256,8 +256,10 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def configure_controller(self,saved):
         snapshot=self.body_anchor_state;source=snapshot['source_goal_contract']
+        from ..rewards.precision_capture import frozen_capture_actor_contract
         if snapshot.get('format_version')!=1 or snapshot.get('source_Q_replay_entropy_and_optimizers_imported') is not False \
-                or source['physical_contract']!={k:v for k,v in self.physical_contract.items() if k!='flap_dynamics'} \
+                or frozen_capture_actor_contract(source['physical_contract'])!=frozen_capture_actor_contract(
+                    {k:v for k,v in self.physical_contract.items() if k!='flap_dynamics'}) \
                 or source['source_warm_start']!=self.warm_start.contract \
                 or source['goal_center']!=self.center.tolist() or source['goal_scale']!=self.scale.tolist() \
                 or source['action_coordinates']!=self.coordinates.name \

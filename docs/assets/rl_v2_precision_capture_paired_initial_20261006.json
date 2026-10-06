@@ -1,0 +1,238 @@
+{
+  "recorded_at": "2026-10-06T10:21:52.815913+09:00",
+  "initialization_seed": 20261006,
+  "initialized_not_trained": true,
+  "GPU_training_not_started": true,
+  "goal_not_complete": true,
+  "matched_model_tensor_count": 54,
+  "all_actor_Q_target_normalizer_entropy_tensors_exactly_equal": true,
+  "frozen_body_anchor_and_original_jaw_prior_exactly_equal": true,
+  "physical_contracts_differ_only_in_precision_capture_profile": true,
+  "source_nominal_actor_updates": 1740,
+  "source_Q9006_not_imported": true,
+  "source_checkpoint_SHA256": "7d412dc7202ce0c87f9dc628c204ca757c8758f9000ca4d4d0e02a8724db71ca",
+  "related_tests_passed": 42,
+  "additional_actual_geometry_test_passed": 1,
+  "existing_GPU3_writers_preserved": [
+    2726960,
+    3173061,
+    3604512
+  ],
+  "profiles": {
+    "control": {
+      "directory_basename": "actual_flap_capture_pair_control_20261006_101654",
+      "checkpoint_bytes": 15198313,
+      "checkpoint_SHA256": "47be678013b28bc239de2a177dfb6e7ed184db4b3ae2c1cdaf7a9e8ed42ecc5a",
+      "actor_dim": 518,
+      "critic_dim": 577,
+      "actor_updates": 0,
+      "critic_updates": 0,
+      "actual_replay_rows": 0,
+      "successful_actual_TRAIN_bank_rows": 0,
+      "four_optimizer_states_empty": true,
+      "critic_normalizer_counts": {
+        "critic_normalizer.count": 0.0
+      },
+      "source_actual_TRAIN_identity": {
+        "actual_TRAIN_input_rows": 405,
+        "executed_body_error_max": 0.0,
+        "executed_jaw_disagreement_count": 0,
+        "jaw_logit_error_max": 0.0,
+        "arbitrary_actual_extra_features_cannot_change_initial_zero_body_correction": true,
+        "source_radius_preserved": 0.05,
+        "destination_radius": 0.15,
+        "comparison_only_no_source_rewards_or_replay_imported": true,
+        "all_model_tensors_finite": true,
+        "fresh_Q_replay_optimizers_and_success_bank": true
+      },
+      "reward_profile": {
+        "approach_scale_m": 0.22,
+        "assignment_scale_m": 0.08333333333333333,
+        "capture_scale_m": 0.1,
+        "front_stage_clearance_m": 0.08,
+        "front_stage_lane_tolerance_m": 0.1,
+        "front_stage_scale_m": 0.8,
+        "geometry_profile": "rack_front_lane_then_opposing_flap_reach_v3",
+        "weights": {
+          "discount": 0.999,
+          "common": {
+            "robot_rack_collision": 6.0,
+            "self_collision": 4.0,
+            "box_drop": 12.0,
+            "obstacle_collision": 4.0,
+            "workspace_limit": 12.0,
+            "base_motion": 0.002,
+            "action_rate": 0.001,
+            "joint_limit": 0.002
+          },
+          "grasp": {
+            "base_motion": 0.0002,
+            "action_rate": 0.0001,
+            "approach_progress": 2.0,
+            "front_staging_progress": 1.0,
+            "front_distance_cost": 0.002,
+            "approach_distance_cost": 0.002,
+            "alignment_progress": 0.5,
+            "capture_progress": 0.5,
+            "jaw_gap_progress": 0.0,
+            "premature_close": 0.002,
+            "proof_lift_progress": 0.4,
+            "one_hand_pinch_event": 0.5,
+            "bilateral_pinch_event": 2.0,
+            "success_event": 8.0
+          },
+          "carry": {
+            "extraction_progress": 0.6,
+            "belt_progress": 1.0,
+            "free_space_progress": 0.5,
+            "pre_place_height_progress": 0.4,
+            "grasp_loss_event": 3.0,
+            "placed_box_disturbance_event": 1.0,
+            "success_event": 4.0
+          },
+          "place": {
+            "footprint_progress": 0.8,
+            "alignment_progress": 0.8,
+            "free_space_progress": 0.6,
+            "descent_progress": 0.5,
+            "stability_progress": 0.3,
+            "support_event": 0.5,
+            "correct_release_event": 1.0,
+            "premature_release_event": 2.5,
+            "success_event": 5.0
+          },
+          "high_level": {
+            "first_placement": 5.0,
+            "displacement": 3.0,
+            "full_success_event": 12.0,
+            "failure_event": 12.0,
+            "elapsed_second": 0.01
+          }
+        },
+        "contact_shaping": {
+          "name": "opposing_pad_contact_progress_v1",
+          "min_jaw_force_n": 5.0,
+          "contact_progress_weight": 1.0,
+          "pad_force_saturates_at_success_threshold": true,
+          "score": "weaker_pad_then_weaker_hand_opposing_flaps",
+          "geometry": "filtered_contact_in_panel_region_and_opposed_jaws",
+          "terminal_potential_zero": true,
+          "time_limit_is_absorbing_for_Q": true,
+          "closing_without_contact_reward": false
+        }
+      }
+    },
+    "precision": {
+      "directory_basename": "actual_flap_capture_pair_precision_20261006_101654",
+      "checkpoint_bytes": 15198761,
+      "checkpoint_SHA256": "34c293881bda24926f2f0157240216342c5d0f606f7fe2ba9f098c99f6a73995",
+      "actor_dim": 518,
+      "critic_dim": 577,
+      "actor_updates": 0,
+      "critic_updates": 0,
+      "actual_replay_rows": 0,
+      "successful_actual_TRAIN_bank_rows": 0,
+      "four_optimizer_states_empty": true,
+      "critic_normalizer_counts": {
+        "critic_normalizer.count": 0.0
+      },
+      "source_actual_TRAIN_identity": {
+        "actual_TRAIN_input_rows": 405,
+        "executed_body_error_max": 0.0,
+        "executed_jaw_disagreement_count": 0,
+        "jaw_logit_error_max": 0.0,
+        "arbitrary_actual_extra_features_cannot_change_initial_zero_body_correction": true,
+        "source_radius_preserved": 0.05,
+        "destination_radius": 0.15,
+        "comparison_only_no_source_rewards_or_replay_imported": true,
+        "all_model_tensors_finite": true,
+        "fresh_Q_replay_optimizers_and_success_bank": true
+      },
+      "reward_profile": {
+        "approach_scale_m": 0.22,
+        "assignment_scale_m": 0.08333333333333333,
+        "capture_scale_m": 0.025,
+        "front_stage_clearance_m": 0.08,
+        "front_stage_lane_tolerance_m": 0.1,
+        "front_stage_scale_m": 0.8,
+        "geometry_profile": "rack_front_lane_then_opposing_flap_reach_v3",
+        "weights": {
+          "discount": 0.999,
+          "common": {
+            "robot_rack_collision": 6.0,
+            "self_collision": 4.0,
+            "box_drop": 12.0,
+            "obstacle_collision": 4.0,
+            "workspace_limit": 12.0,
+            "base_motion": 0.002,
+            "action_rate": 0.001,
+            "joint_limit": 0.002
+          },
+          "grasp": {
+            "base_motion": 0.0002,
+            "action_rate": 0.0001,
+            "approach_progress": 2.0,
+            "front_staging_progress": 1.0,
+            "front_distance_cost": 0.002,
+            "approach_distance_cost": 0.002,
+            "alignment_progress": 0.5,
+            "capture_progress": 0.5,
+            "jaw_gap_progress": 0.0,
+            "premature_close": 0.002,
+            "proof_lift_progress": 0.4,
+            "one_hand_pinch_event": 0.5,
+            "bilateral_pinch_event": 2.0,
+            "success_event": 8.0
+          },
+          "carry": {
+            "extraction_progress": 0.6,
+            "belt_progress": 1.0,
+            "free_space_progress": 0.5,
+            "pre_place_height_progress": 0.4,
+            "grasp_loss_event": 3.0,
+            "placed_box_disturbance_event": 1.0,
+            "success_event": 4.0
+          },
+          "place": {
+            "footprint_progress": 0.8,
+            "alignment_progress": 0.8,
+            "free_space_progress": 0.6,
+            "descent_progress": 0.5,
+            "stability_progress": 0.3,
+            "support_event": 0.5,
+            "correct_release_event": 1.0,
+            "premature_release_event": 2.5,
+            "success_event": 5.0
+          },
+          "high_level": {
+            "first_placement": 5.0,
+            "displacement": 3.0,
+            "full_success_event": 12.0,
+            "failure_event": 12.0,
+            "elapsed_second": 0.01
+          }
+        },
+        "contact_shaping": {
+          "name": "opposing_pad_contact_progress_v1",
+          "min_jaw_force_n": 5.0,
+          "contact_progress_weight": 1.0,
+          "pad_force_saturates_at_success_threshold": true,
+          "score": "weaker_pad_then_weaker_hand_opposing_flaps",
+          "geometry": "filtered_contact_in_panel_region_and_opposed_jaws",
+          "terminal_potential_zero": true,
+          "time_limit_is_absorbing_for_Q": true,
+          "closing_without_contact_reward": false
+        },
+        "precision_capture": {
+          "name": "weak_hand_capture_25mm_v1",
+          "scale_m": 0.025,
+          "aggregation": "weak-hand",
+          "score": "0.25*(left+right)+0.5*min(left,right)",
+          "geometry": "actual_calibrated_finger_straddle_and_flap_tangent_error",
+          "approach_front_contact_success_and_safety_unchanged": true,
+          "source_Q_replay_optimizer_import_allowed": false
+        }
+      }
+    }
+  }
+}

@@ -45,8 +45,14 @@ def main():
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--native-seed',type=Path,action='append',required=True)
     parser.add_argument('--firm-flaps',action='store_true')
+    parser.add_argument('--precision-capture',action='store_true',
+        help='Opt-in 2.5cm weaker-hand capture; initialize fresh actual Q/replay from the nominal actor only')
+    parser.add_argument('--initialization-seed',type=int,default=None,
+        help='Optional matched fresh-network seed; does not change layout/reset randomization')
     args=parser.parse_args()
     if args.output_dir.exists():parser.error('A unique output directory is required')
+    if args.initialization_seed is not None and not 0<=args.initialization_seed<2**32:
+        parser.error('Initialization seed must be within0..2**32-1')
     import h5py
     import torch
     from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import (
@@ -58,10 +64,14 @@ def main():
     from kuavo_isaaclab_scene.rl.multi_box.observations.flap_supplement import supplemental_perception_contract
     from kuavo_isaaclab_scene.rl.multi_box.scene.flap_dynamics import firm_flap_dynamics_contract
     torch.set_num_threads(2)
+    if args.initialization_seed is not None:torch.manual_seed(args.initialization_seed)
     source=torch.load(args.checkpoint,map_location='cpu',weights_only=True)
     physical=json.loads(args.training_manifest.read_text());require_current_lift_contract(physical)
     if physical['reward_profile'].get('contact_shaping',{}).get('name')!='opposing_pad_contact_progress_v1':
         raise ValueError('Bounded contact correction requires the reviewed contact reward')
+    if args.precision_capture:
+        from kuavo_isaaclab_scene.rl.multi_box.rewards.precision_capture import with_precision_capture_profile
+        physical=with_precision_capture_profile(physical)
     warm=PoseGoalSACPilot(source['frozen_warm_start'],args.native_seed,
         frozen_prior_lift_contract(frozen_actor_reward_contract(physical)),args.output_dir,training=False,device='cpu')
     physical=physical|dict(supplemental_perception=supplemental_perception_contract())
@@ -86,6 +96,8 @@ def main():
         source_actor_updates=source['actor_updates'],source_critic_updates_not_imported=source['critic_updates'],
         source_checkpoint_SHA256=hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(),
         source_checkpoint=str(args.checkpoint.resolve()),prior_loss_reactivated=False,
+        precision_capture=args.precision_capture,
+        initialization_seed=args.initialization_seed,
         created_utc=datetime.now(timezone.utc).isoformat())
     (args.output_dir/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (args.output_dir/'initialization_verification.json').write_text(json.dumps(identity|dict(
@@ -93,7 +105,8 @@ def main():
         fresh_Q_replay_optimizers_and_success_bank=True),indent=2)+'\n')
     (args.output_dir/'status.json').write_text(json.dumps(dict(status='complete',initialized_not_trained=True))+'\n')
     print(json.dumps(dict(directory=str(args.output_dir.resolve()),actor_dim=pilot.actor_dim,critic_dim=pilot.critic_dim,
-        fresh_actual_replay_rows=0,source_actor_updates=source['actor_updates'],identity=identity,firm_flaps=args.firm_flaps)))
+        fresh_actual_replay_rows=0,source_actor_updates=source['actor_updates'],identity=identity,
+        firm_flaps=args.firm_flaps,precision_capture=args.precision_capture)))
 
 
 if __name__=='__main__':main()

@@ -158,6 +158,7 @@ def grasp_reward_potentials(
     *,
     approach_scale_m: float = GRASP_APPROACH_REWARD_SCALE_M,
     capture_scale_m: float = 0.10,
+    capture_aggregation: str = 'mean',
 ) -> dict[str, torch.Tensor]:
     """V2 grasp shaping: reward both hands reaching different flaps.
 
@@ -172,8 +173,11 @@ def grasp_reward_potentials(
         )
     ):
         raise ValueError("Grasp reward geometry needs [env, hand, flap] and [env, hand] tensors")
-    if approach_scale_m <= 0 or capture_scale_m <= 0:
+    if (not math.isfinite(approach_scale_m) or not math.isfinite(capture_scale_m)
+            or approach_scale_m <= 0 or capture_scale_m <= 0):
         raise ValueError("Grasp reward distance scales must be positive")
+    if capture_aggregation not in ('mean', 'weak-hand'):
+        raise ValueError('Unknown capture hand aggregation')
     # The caller supplies distances for the observation-compatible, opposing
     # flap assignment. Widen only its reward falloff, not the pairing rule.
     reach = torch.exp(-matched_distance_m.clamp_min(0) / approach_scale_m)
@@ -195,7 +199,8 @@ def grasp_reward_potentials(
         "approach": approach,
         "alignment": alignment.mean(-1),
         "alignment_proximity": near.mean(-1),
-        "capture": capture.mean(-1),
+        "capture": (capture.mean(-1) if capture_aggregation == 'mean'
+                    else 0.25 * capture.sum(-1) + 0.5 * capture.amin(-1)),
         "jaw_gap": gap_score.mean(-1),
         "premature_close": premature_close.mean(-1),
         "proof_lift": (proof_lift_m / 0.008).clamp(0, 1),
