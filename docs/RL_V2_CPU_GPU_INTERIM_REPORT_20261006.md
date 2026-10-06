@@ -195,9 +195,10 @@ lateral−14.67cm/outward19.69cm/yaw3.00°로 달랐다. 접근 후 base 유지 
 
 CPU 학습 본 실행과 두 영상 실행은 exit0이다. 첫 영상 실행의 최종 Drive
 검증과 CPU 추가 학습 영상5개·판정·그래프·보고37개 및 receipt 검증은 완료했다.
-CPU 본 실행의 replay1.45GiB·HDF1.16GiB와 추가 성공 영상 실행의 종료 자료는
-원래 supervisor가 업로드·검증한다. 전체 최종 완료는 실제 상태 확인 후
-별도로 기록하며 전송 중인 원래 업로더는 유지한다.
+15:33 KST 실제 상태 확인에서 CPU 본 실행의 replay1.45GiB·HDF1.16GiB와
+추가 성공 영상 실행의 종료 자료도 원래 supervisor의 최종 업로드·크기/MD5
+검증을 완료했다. 두 실행의 `training_exit_code: 0` 및
+`final_upload_verified: true`를 확인했다. 이는 백업 완료이며 학습 성공의 뜻은 아니다.
 
 닫힌 CPU 학습 checkpoint를 평가하려면 아래처럼 별도 고유 실행 폴더와
 원래 DEV128 wave를 사용한다. TRAIN wave나 축소된 성공 사례 wave는 이 옵션에서

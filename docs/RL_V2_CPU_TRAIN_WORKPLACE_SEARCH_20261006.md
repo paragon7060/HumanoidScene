@@ -58,6 +58,21 @@ GPU의 기존 사용자 프로세스는 유지한다. 출력은 소유자 전용
 기존 Drive 연결로 닫힌 checkpoint/input 및 종료 후 로그·HDF·영상을 크기/MD5
 검증한다. 인증이나 공유 권한을 변경하지 않는다.
 
+실제 writer가 정상 종료한 뒤 전체128개 원래 요청을 집계한다. 진행 JSON의
+일부 성공이나 선택 영상만으로 후보를 고르지 않는다.
+
+```bash
+PYTHONPATH=src:scripts/rl python scripts/rl/summarize_cpu_workplace_probe.py \
+  --experiment-dir /absolute/path/to/closed-owned-workplace-run \
+  --output-json /absolute/path/to/workplace-results.json
+```
+
+집계기는 원래16개 seed와128개 후보 요청, actual terminal·초기 무효·충돌 원인·
+timeout·수치 오류를 유지한다. 전체178개 network/normalizer 불변과 actor/Q/replay
+추가0을 확인하며, 실제 양손 접촉·유지·유한한 proof lift 없이 성공을 인정하지
+않는다. 한 영역에서 모든 후보의 성공이0이면 추천도 비워 둔다. 성공 후보가
+있어도 fresh TRAIN 재확인 대상이며 일반화 점수나 matching SAC replay가 아니다.
+
 관련 범위 검사52개 통과, 기존 CUDA integration1개는 이 CPU 진단 검사에서
 skip했다. 실제 물리 성공은 테스트 통과만으로 판단하지 않고 종료 측정으로 판정한다.
 
