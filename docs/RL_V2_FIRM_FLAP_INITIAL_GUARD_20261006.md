@@ -248,6 +248,16 @@ Balanced의 원래 supervisor는 닫힌 대용량 자료를 최종 업로드 중
 추가로 확인했다. GPU3의30% joint 탐색 장기 실행은 실제 TRAIN을 계속한다.
 새 CPU/GPU 두 실행은 학습 작업으로 세지 않으며 독립 FINAL도 사용하지 않았다.
 
+두 새 실행의 **전체 wave 복원 후 중립 유지 전 실제 readback**도 대조했다.
+원래 GPU reference와 rack/세 support root의 위치 오차10µm 이하·unit quaternion
+dot1−1e−5 이상, 모든 support joint position/velocity 오차0을 확인했다.
+같은 원래289개 active 박스는 처음 모두 geometry 유효·root speed0이었으나,
+settling 뒤 초기 유효는 CPU127/128·GPU96/128이었다. Source actor/Q1204/6864,
+replay0·새 온라인 TRAIN0 및 실제 두 writer의 소유/명령/CUDA0 격리를 확인했다.
+초기 유효를 파지 성공으로 해석하지 않는다. Constructor/contact 이력과 flap
+추첨은 여전히 일치시키지 않았으며 GPU 엔진 결함을 확정하지 않는다.
+[이번 전체 평가의 실제 초기 상태 적용 검증](assets/rl_v2_frozen_backend_pair_initial_readback_20261006.json).
+
 ## Strong SAC의 학습 후 전체 DEV는 개선되지 않음
 
 Strong saturation penalty 비교는 예정된4wave를 정상 exit0으로 마쳤다.
