@@ -86,6 +86,8 @@ Notion에는 외부 Drive 공유 링크 대신 native video/image로 첨부한�
 
 [Humanoid 하위 중간 보고 페이지](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)에
 전체 결과 그래프·영역별 표·물리 차이·수정 방법과 native MP46개를 기록했다.
+현재 페이지에는 아래 CPU 추가 학습 정책7개까지 합쳐 native 영상13개·그림8개가
+있다. 기존 actor의 CPU 재생과 CPU TRAIN에서 업데이트한 actor를 구분한다.
 원래128개 요청을 유지한 별도6-case CPU baseline 녹화는 정상 종료했다.
 전체 결과30/128뿐 아니라128개 outcome·terminal dictionary가 이전 CPU baseline과
 모두 일치했고 network/normalizer178개 tensor와 업데이트 수는 불변이었다.
@@ -103,10 +105,10 @@ Notion에는 외부 Drive 공유 링크 대신 native video/image로 첨부한�
 | Env2·위쪽 왼쪽 | 28.57s | 손 거리4.75cm/0.334cm이나 실제 양손 pinch 없이 timeout |
 
 Notion 영상은 H.264/avc1·yuv420p·faststart 및 전체 decode 검사를 통과하고,
-fetch에서 native `notion-file-block` video6개와 이미지4개를 확인했다. 사용자
+baseline 기록 당시 fetch에서 native `notion-file-block` video6개와 이미지4개를 확인했다. 사용자
 브라우저에서의 재생을 직접 검사한 것은 아니다. CPU 물리·GPU3 learner의 별도
-실행은12:43 KST 시작,128env·fresh TRAIN256개다. 실제 actor update가 시작됐으며
-학습 후 정책 영상과 닫힌 DEV 결과는 초기 baseline과 별도로 추가한다.
+실행은12:43 KST 시작,128env·fresh TRAIN256개로 정상 종료했다.
+학습 후 정책 영상과 닫힌 DEV 결과는 초기 baseline과 별도로 아래 기록한다.
 
 13:11 KST에 새 실행의 학습 전 원래 DEV128을 확인했다. 안전 파지는23/128로
 중간왼쪽12·중간오른쪽10·상단왼쪽1·상단오른쪽0이었다. Unsafe66·timeout28·
@@ -114,7 +116,7 @@ fetch에서 native `notion-file-block` video6개와 이미지4개를 확인했�
 GPU DEV 초기 월드를 가져오지 않았다. 앞선 matched-world30과 직접적인 개선
 비교로 쓰지 않는다. 저장된 모델의 원래 storage tag는 실제 `cuda:0`이며 writer의
 `CUDA_VISIBLE_DEVICES=3`도 확인했다. 학습 전 actor/normalizer9개 tensor는 초기화
-후와 동일하고 actor/Q update는0이다. 이제 fresh TRAIN을 수집한다.
+후와 동일하고 actor/Q update는0이었다. 이후 fresh TRAIN256개를 수집했다.
 [실제 초기 평가·GPU learner 장치 확인 JSON](assets/rl_v2_CPU_initial_DEV_GPU_learner_20261006.json).
 
 13:54 KST에 CPU TRAIN에서 actor256회/Q3072회 추가 학습한 체크포인트의
@@ -128,8 +130,8 @@ GPU DEV 초기 월드를 가져오지 않았다. 앞선 matched-world30과 직�
 CPU 물리의 fresh TRAIN에서 추가 학습한 모델이다. 기존 GPU Q/replay는 가져오지
 않았다. 영상 평가는CPU 물리·CPU NN이며 학습 시CUDA NN과 bitwise 추론까지
 일치시킨 것은 아니다. 원래DEV128 요청·영역별32개 분모를 유지하고 GPU DEV
-초기 월드도 가져오지 않는다. 아직 닫히지 않은 전체 영상 결과는 성과로 쓰지
-않으며 같은 CPU 학습 실행의 초기23/128과 학습 후 DEV를 별도로 확인한다.
+초기 월드도 가져오지 않는다. 아래의 종료된 전체 영상 평가11/128과
+같은 CPU 학습 실행의 초기23/128·학습 후12/128을 구분한다.
 
 현재 base 접근은 측정된 template로 수행한 뒤 hold하는 제어기다. 실제 양손
 파지/proof lift를 평가하지만 base 접근 자체를 SAC가 학습했다는 뜻은 아니다.
@@ -160,7 +162,7 @@ Actor256의 normalizer mean/var/count3개는 초기와 동일하고 actor weight
 SAC가 개선된 것은 아니며 fresh Q 신뢰도·actor 변화·보상/제어의 영향을 구분해야
 한다. 상단 오른쪽은 rack 충돌, 상단 왼쪽은 실제 양손 pinch 실패가 계속된다.
 
-Notion에 실제 CPU 추가 학습 actor256의 MP45개와 비교 그래프·실제 종료 자세를
+Notion에 실제 CPU 추가 학습 actor256의 MP47개와 비교 그래프·실제 종료 자세를
 추가했다. 전체 frozen network/normalizer178개 tensor와 update/replay 수가 불변임을
 확인했다. 처음 선택한6개 중 Env2는 원래 초기 무효라 동작 영상은5개이며, 다른
 후보로 바꾸지 않고128개 실패 분모에 유지했다. 영상5개는 모두 실패지만 전체
@@ -173,13 +175,29 @@ Notion에 실제 CPU 추가 학습 actor256의 MP45개와 비교 그래프·실�
 | Env5·중간 오른쪽 | 17.53s | zarm_r4_link–rack11.23N, 실패 |
 | Env3·상단 오른쪽 | 14.93s | 오른쪽 gripper base–rack107.36N, 실패 |
 | Env42·상단 왼쪽 | 25.47s | 손 거리3.65cm/3.06cm, 양손 pinch 없이 timeout |
+| Env16·중간 왼쪽 | 16.63s | 양손 pinch·안정0.267s·proof lift·clearance2.96cm, 성공 |
+| Env25·중간 오른쪽 | 16.97s | 양손 pinch·안정0.267s·proof lift·clearance3.09cm, 성공 |
 
-추가 성공 예시를 위해 같은 actor256/checkpoint·전체 원래DEV128을 다시
-평가하면서 측정됐던 중간 좌우 Env16/25를 녹화한다. 후보가 새 평가에서도
-성공했는지 실제 terminal 판정으로 확인한 후 첨부한다. 성공 subset을 전체
-성공률로 쓰거나 Q/성공 bank에 넣지 않는다. 원래 CPU 학습·첫 영상 실행은
-exit0으로 종료했고 원래 supervisor가 종료 로그/HDF/replay를 Drive에 업로드
-중이다. 전체 최종 체크섬 완료는 실제 상태 확인 후 별도로 기록한다.
+추가 성공 예시도 같은 actor256/checkpoint·전체 원래DEV128을 다시 평가해
+녹화했다. 재평가는 exit0으로 끝났고 **128개 outcome·terminal dictionary가
+첫 cold CPU 영상 평가와 모두 동일**했다. 성공은 두 번 모두11/128이며,
+녹화 subset을 더해 성공률을 늘리거나 Q/성공 bank에 넣지 않는다.
+두 영상의 양손 pinch·stable hands·서로 다른 flap·proof lift는 모두 참이고,
+종료 시 rack force0N·모든 unsafe cause 거짓이다. Clearance는 roller 기준
+지표이며 world-Z 상승량과 동일하다는 뜻은 아니다.
+[추가 성공 영상·전체 재현 확인](assets/rl_v2_CPU_learned_success_video_evidence_20261006.json).
+
+Base 시작 offset은 Env16 lateral12.53cm/outward3.40cm/yaw11.68°, Env25
+lateral−14.67cm/outward19.69cm/yaw3.00°로 달랐다. 접근 후 base 유지 방식이며
+전체 초기 위치에 대한 자율 이동/파지 일반화를 달성한 것은 아니다.
+현재 native 영상13개·이미지8개의 첨부와 이전 native 자료의 보존을 fetch로
+확인했다. 실제 사용자 브라우저에서의 재생까지 검사한 것은 아니다.
+
+CPU 학습 본 실행과 두 영상 실행은 exit0이다. 첫 영상 실행의 최종 Drive
+검증과 CPU 추가 학습 영상5개·판정·그래프·보고37개 및 receipt 검증은 완료했다.
+CPU 본 실행의 replay1.45GiB·HDF1.16GiB와 추가 성공 영상 실행의 종료 자료는
+원래 supervisor가 업로드·검증한다. 전체 최종 완료는 실제 상태 확인 후
+별도로 기록하며 전송 중인 원래 업로더는 유지한다.
 
 닫힌 CPU 학습 checkpoint를 평가하려면 아래처럼 별도 고유 실행 폴더와
 원래 DEV128 wave를 사용한다. TRAIN wave나 축소된 성공 사례 wave는 이 옵션에서

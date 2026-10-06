@@ -1,0 +1,306 @@
+{
+  "recorded_at": "2026-10-06T14:59:10.007343+09:00",
+  "source_checkpoint_SHA256": "e30fa29b52b168b46dd16fce9ed19a9d6ea566c7f702c5777274d91f8792e1a5",
+  "actor_updates": 256,
+  "critic_updates": 3072,
+  "actual_CPU_PhysX_training_actor": true,
+  "CPU_PhysX_and_CPU_policy_inference": true,
+  "original_DEV128_repeat": {
+    "wave": 0,
+    "split": "validation",
+    "requested": 128,
+    "regions": {
+      "shelf_2_left": {
+        "requested": 32,
+        "success": 6,
+        "unsafe": 23,
+        "timeout": 1,
+        "initial_invalid": 2
+      },
+      "shelf_2_right": {
+        "requested": 32,
+        "success": 5,
+        "unsafe": 24,
+        "timeout": 0,
+        "initial_invalid": 3
+      },
+      "shelf_3_left": {
+        "requested": 32,
+        "success": 0,
+        "unsafe": 1,
+        "timeout": 28,
+        "initial_invalid": 3
+      },
+      "shelf_3_right": {
+        "requested": 32,
+        "success": 0,
+        "unsafe": 29,
+        "timeout": 0,
+        "initial_invalid": 3
+      }
+    },
+    "success": 11,
+    "unsafe": 77,
+    "timeout": 29,
+    "initial_invalid": 11
+  },
+  "all128_outcome_terminal_dictionaries_bit_identical_to_first_video_eval": true,
+  "frozen_178_network_normalizer_tensors_and_counters_unchanged": true,
+  "no_learning_policy_selection_or_Q_replay_import": true,
+  "selected_success_cases_not_added_to_success_rate": true,
+  "original_initial_invalid11_requests_retained": true,
+  "actual_success_video_cases": [
+    {
+      "environment": 16,
+      "region": "shelf_2_left",
+      "layout": {
+        "seed": 121004,
+        "split": "holdout",
+        "lateral_m": -0.033129092305898666,
+        "yaw_rad": -0.009003161452710629,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.12533214688301086,
+        "base_outward_m": 0.03403719514608383,
+        "base_yaw_rad": 0.203923761844635,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true
+      },
+      "frames": 51,
+      "last_control_step": 499,
+      "actual_outcome": {
+        "steps": 499,
+        "success": true,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.029586186632514,
+        "flap_distances": [
+          0.0009765189606696367,
+          0.0009172752033919096
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          36.5697021484375,
+          0.2297978401184082,
+          1.1080386638641357,
+          0.7240691184997559,
+          -0.015360554680228233,
+          -0.10876764357089996,
+          0.6809240579605103
+        ],
+        "box_velocity_world": [
+          0.05801055580377579,
+          0.062182433903217316,
+          0.15929116308689117,
+          0.2726978659629822,
+          -0.26136720180511475,
+          -0.07943285256624222
+        ],
+        "target_logical_id": 4,
+        "target_pool_id": 4,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.2746962606906891,
+            0.5832611918449402
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 90,
+          "position_error_m": 0.00016406734357587993,
+          "yaw_error_rad": 8.33272933959961e-05,
+          "linear_speed_mps": 0.0007144703413359821,
+          "angular_speed_radps": 0.012213112786412239,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        },
+        "contact_quality": 1.0
+      },
+      "source_checkpoint_SHA256": "e30fa29b52b168b46dd16fce9ed19a9d6ea566c7f702c5777274d91f8792e1a5",
+      "local_video_SHA256": "a8e76ccb3492af9a6bd136076565f7e2ce4b2d1a33822f0c49ec4fd5e40fe775",
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      }
+    },
+    {
+      "environment": 25,
+      "region": "shelf_2_right",
+      "layout": {
+        "seed": 121106,
+        "split": "holdout",
+        "lateral_m": -0.021099163219332695,
+        "yaw_rad": -0.001811839989386499,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.1467166393995285,
+        "base_outward_m": 0.19688324630260468,
+        "base_yaw_rad": 0.05218842998147011,
+        "target_region": "shelf_2_right",
+        "align_initial_base_to_region": true
+      },
+      "frames": 52,
+      "last_control_step": 509,
+      "actual_outcome": {
+        "steps": 509,
+        "success": true,
+        "unsafe": false,
+        "invalid_reset": false,
+        "time_out": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.030864348635077477,
+        "flap_distances": [
+          0.0013101969379931688,
+          0.0
+        ],
+        "rack_peak_force_n": 0.0,
+        "rack_peak_body": "base_link",
+        "box_pose_world": [
+          28.59333610534668,
+          -16.093826293945312,
+          1.1088411808013916,
+          0.7427930235862732,
+          -0.035896964371204376,
+          -0.10784368962049484,
+          0.6598028540611267
+        ],
+        "box_velocity_world": [
+          0.04259943217039108,
+          -0.030327726155519485,
+          0.1140126883983612,
+          0.09569412469863892,
+          -0.1778898686170578,
+          -0.0094041982665658
+        ],
+        "target_logical_id": 1,
+        "target_pool_id": 1,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        },
+        "staged_base": {
+          "name": "neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1",
+          "phase": "held_grasp",
+          "shelf": "middle",
+          "base_target_xy_rack_m": [
+            -0.5801825523376465,
+            0.5830729603767395
+          ],
+          "base_target_yaw_rack_rad": -1.5335464477539062,
+          "stable_steps": 15,
+          "manipulation_start": 99,
+          "position_error_m": 0.00011877128417836502,
+          "yaw_error_rad": 0.00044739246368408203,
+          "linear_speed_mps": 0.0008368738926947117,
+          "angular_speed_radps": 0.014828384853899479,
+          "template": {
+            "base_minus_initial_box_xy_rack_m": [
+              -0.0015573501586914062,
+              0.699979692697525
+            ],
+            "base_yaw_rack_rad": -1.5335464477539062,
+            "box_size_m": [
+              0.26600000262260437,
+              0.1850000023841858,
+              0.12999999523162842
+            ],
+            "source_dataset": "artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+            "source_sha256": "e3a4baac9125a7fbb90f8ce5fd09442afc808530bd449a4b29dd23157a9f7142",
+            "source_split": "train",
+            "measured_success": true,
+            "template_is_candidate_not_verified_neutral_start": true
+          },
+          "old_goal_replay_eligible": false
+        },
+        "contact_quality": 1.0
+      },
+      "source_checkpoint_SHA256": "e30fa29b52b168b46dd16fce9ed19a9d6ea566c7f702c5777274d91f8792e1a5",
+      "local_video_SHA256": "f60a17bbbdd985926f83f2907958b45ab93562cc595213db6f3e97a4fe4026f8",
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      }
+    }
+  ],
+  "same_checkpoint_seven_CPU_trained_videos_total": true,
+  "CPU_training_23_to12_not_improved": true,
+  "upper_regions_success_still_zero": true,
+  "staged_base_approach_then_held_pose_not_learned_navigation": true,
+  "box_base_background_randomization_and_original_success_safety_preserved": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}
