@@ -196,6 +196,13 @@ flap 성질은 다시 샘플링되며 초기화 유효 사례도117→128→127�
 TRAIN 조건·flap 추첨이 달라 포화 완화 효과를 입증하지 않는다.
 시작29/128을 넘지 못했고 상단 양쪽은 모두0/32였다. 비교 학습은 계속 진행한다.
 [포화 완화 첫 전체 평가](assets/rl_v2_mean3_first_learned_DEV_after384_20261007.json).
+새 TRAIN768조건 후 두 번째 전체 평가도 **12/128(10/2/0/0)**로 감소했다.
+흐름은29→24→12/128이며 실패는 랙 충돌62·낙하6·과도한 들기6·시간 초과41·
+초기화 무효1건이다. 작은 보조 손실만으로 해결되지 않았다.
+[포화 완화 두 번째 전체 평가](assets/rl_v2_mean3_second_full_DEV_after768_20261007.json).
+현재 SAC 목표 엔트로피가 평균 출력 포화와 함께 낮아져 실제 탐색 폭이 줄어도
+alpha를 내릴 수 있음을 확인했다. 통제된 분포 진단이며 새 성공은 아니다.
+[탐색 폭·목표 엔트로피 진단](RL_V2_ENTROPY_SPREAD_DIAGNOSIS_20261007.md).
 [출력 포화 완화와 최신 평가](RL_V2_BODY_SATURATION_RECOVERY_20261006.md)에 근거를 기록했다.
 작업 위치·보상 진단은 [추가 비교 기록](RL_V2_LEARNED_WORKPLACE_PRECISION_20261006.md)에 있다.
 후속 평가 근거는 [첫 재학습 평가](assets/rl_v2_region_sac_first_DEV_after384_20261006.json)와
@@ -226,6 +233,10 @@ GPU3에서 별도의 새 TRAIN1,536조건과 원래 DEV128개로 비교한다. �
 이후 실제 TRAIN에서 Q720회·42,917전이가 수집됐고 팔 탐색도 실제로 적용됐다.
 Q warmup을 기다리는 단계로 actor는 아직0회이며, 새 학습 후 성능은 확인 전이다.
 [실제 TRAIN 연결](assets/rl_v2_reanchored30_first_real_TRAIN_Q_20261007.json).
+이후 Q2,094회·held96,346전이로 warmup을 통과해 **actor12회**를 확인했다.
+현재 배치의 평균 최대0.051·포화0개이며 실제 성공 경험과 n-step16도 연결됐다.
+새 학습 후 전체 평가의 개선은 아직 확인 전이다.
+[실제 actor 갱신](assets/rl_v2_reanchored30_first_real_actor_updates_20261007.json).
 
 설정과 원자료는 [관측·동작·SAC 설정](RL_V2_ACTUAL_FLAP_RESIDUAL_SAC.md),
 [대표 평가와 영상 판정](assets/rl_v2_CPU_baseline_video_evidence_20261006.json),

@@ -87,6 +87,14 @@ Q warmup2,048회 중1,328회가 남아 actor는 아직0회다. 이전 Q·replay�
 않았으며, 이 수집·Q 업데이트 확인을 물리 성공률 개선으로 세지 않는다.
 [첫 실제 TRAIN·Q warmup](assets/rl_v2_reanchored30_first_real_TRAIN_Q_20261007.json).
 
+TRAIN2 step301에서는 Q2,094회·실제 held96,346행을 거쳐 **actor12회**로
+실제 정책 갱신을 시작했다. Q·수집 warmup을 모두 통과했고 actor 손실은 유한했다.
+Mean3 설정은 적용됐고 현재 배치의 최대 평균 절댓값0.051·포화 좌표0개였다.
+실제 TRAIN n-step16 신호와 실제 성공 경험의 약20% 샘플링도 연결됐다.
+이는 학습 연결 확인이며 첫 학습 후 전체 평가 성능은 아직 확인 전이다.
+목표 엔트로피 바닥의 가상 진단은 현재 실행에 적용하지 않았다.
+[첫 실제 actor 갱신](assets/rl_v2_reanchored30_first_real_actor_updates_20261007.json).
+
 ## 사용법
 
 이전 실제-flap actor와 일치하는 manifest·waypoint·native seed를 사용한다.
