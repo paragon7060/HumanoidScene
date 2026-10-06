@@ -88,8 +88,14 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_actu
 Drive 연결로 크기·MD5를 검증했고 관리자가300초마다 checkpoint를 업로드한다.
 검증된 오래된 checkpoint만 정리하며 로컬의 최근2개를 보호한다.
 종료 후에는 닫힌 로그·데이터·영상을 업로드하고 검증한다.
-초기 개발 평가를 실행 중이며, 이 비교의 새 Q·actor 업데이트나 성능 향상을
-아직 보고하지 않는다. [초기화·실행 근거](assets/rl_v2_precision25_learned689_initial_20261006.json).
+초기 개발 평가를 마쳤으며 **학습 전29/128**(구역별13/8/8/0)이다.
+초기 무효11건도128분모에 포함했고 실제 양손 파지·들기 조건을 확인했다.
+이 평가 동안 새 actor/Q 업데이트는0이다. 이전 학습 actor를 옮겨 얻은
+시작 성능이며 새 보상으로 학습한 개선이 아니다. 이후 첫 새 TRAIN에서
+held 경험5,323개·새 Q 업데이트122회를 확인했다. Actor는 예정된 수집
+warmup을 기다리는0회였고 첫 학습 후 전체 DEV4 결과는 아직 없다.
+[초기화·실행 근거](assets/rl_v2_precision25_learned689_initial_20261006.json),
+[학습 전 전체 평가](assets/rl_v2_precision25_initial_DEV_before_training_20261006.json).
 
 ## 두 번째 전체 평가와 닫기 명령 변화
 
