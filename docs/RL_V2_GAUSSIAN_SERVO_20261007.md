@@ -102,3 +102,12 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_gent
 입력8개는 기존 Drive 연결로 크기·MD5를 검증했다. TRAIN1,536조건은 기존 비교와
 seed가 겹치지 않으며, 원래 DEV128요청을 구역별32개로 반복한다. 독립 FINAL은
 남긴다. 학습 시작 여부는 별도로 실제 PID·CUDA 마스크·진행 JSON을 확인한다.
+
+**10/07 07:58 KST에 code756a2c3를 main에 push한 뒤 GPU3에서 시작했다.**
+기존 uniform 비교 writer의 exit0·run complete를 확인하고 새 고유 실행을 만들었다.
+실제 writer1422295의 소유자·실행 폴더·CUDA3 마스크를 확인했다. 초기 장면 준비
+단계이며 새 Gaussian의 실제 TRAIN 수집·Q·actor 갱신은 아직 확인 전이다.
+기존 다른 비교3개와 종료 실험의 원래 최종 Drive 업로더는 유지했다.
+체크포인트는5분마다 checksum 검증 후 최근2개를 보호하며, 종료 뒤 닫힌 로그를
+검증하는 기존 관리자를 사용한다. 다른 사용자 파일·프로세스에 손대지 않았다.
+[실제 시작·입력 백업 근거](assets/rl_v2_gentle_servo_actual_start_20261007.json).
