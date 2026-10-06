@@ -111,3 +111,11 @@ seed가 겹치지 않으며, 원래 DEV128요청을 구역별32개로 반복한�
 체크포인트는5분마다 checksum 검증 후 최근2개를 보호하며, 종료 뒤 닫힌 로그를
 검증하는 기존 관리자를 사용한다. 다른 사용자 파일·프로세스에 손대지 않았다.
 [실제 시작·입력 백업 근거](assets/rl_v2_gentle_servo_actual_start_20261007.json).
+
+**이후 초기화를 마치고 실제 첫 DEV에 진입했다.** 실행 중인 learner의 표준편차
+범위0.0075–0.03·body spread 계약, actual-servo Q 입력과 새 종료 보상 적용을
+확인했다. 실제 reward manager도 새 프로필을 확인한 뒤 초기화됐다.
+실행 manifest의 전체17개 wave가 검증한 입력과 같고 초기 DEV는 네 구역32개씩이다.
+Actor·Q·온라인 replay·성공/n-step 은행은0이며 평가 데이터를 넣지 않는다.
+전체 초기 성능과 새 표준편차를 사용한 실제 TRAIN 수집은 아직 확인 전이다.
+[실제 평가 진입·적용 계약](assets/rl_v2_gentle_servo_first_actual_DEV_20261007.json).
