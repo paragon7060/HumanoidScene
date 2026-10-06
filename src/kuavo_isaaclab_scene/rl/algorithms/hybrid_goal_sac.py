@@ -115,8 +115,16 @@ class HybridGoalSAC(AsymmetricSAC):
         projected=self.action_projector(observations,requested.reshape(n*4,21)).reshape(n,4,21)
         return projected,weights,logp,near
 
-    def branch_values(self,critic,actions,target=False):
-        n=len(critic);features=torch.cat((critic[:,None].expand(-1,4,-1),actions),-1).reshape(n*4,-1)
+    def critic_action_features(self,raw,actions):
+        """Default goal coordinates; subclasses may encode the actual servo."""
+        return actions
+
+    def branch_values(self,critic,actions,target=False,*,raw=None):
+        n=len(critic)
+        flat=actions.reshape(n*4,self.action_dim)
+        repeated=(raw[:,None].expand(-1,4,-1).reshape(n*4,-1) if raw is not None else None)
+        encoded=self.critic_action_features(repeated,flat).reshape(n,4,self.action_dim)
+        features=torch.cat((critic[:,None].expand(-1,4,-1),encoded),-1).reshape(n*4,-1)
         a,b=(self.target1,self.target2) if target else (self.q1,self.q2)
         return torch.minimum(a(features),b(features)).reshape(n,4)
 
@@ -161,7 +169,7 @@ class HybridGoalSAC(AsymmetricSAC):
             nc=self.critic_normalizer(batch['next_critic_obs'][bootstrap])
             body,continuous_logp,logits=self.continuous_sample(na,raw=next_actor)
             actions,probability,discrete_logp,_=self.enumerate_jaws(next_actor,body,logits)
-            q=self.branch_values(nc,actions,target=True)
+            q=self.branch_values(nc,actions,target=True,raw=next_actor)
             entropy=alpha*continuous_logp[:,None]+discrete_alpha*discrete_logp
             value[bootstrap]=(probability*(q-entropy if self.config.entropy_backup else q)).sum(-1)
             statistics.update(policy_logp_mean=continuous_logp.mean().item(),
@@ -195,7 +203,7 @@ class HybridGoalSAC(AsymmetricSAC):
         co=self.critic_normalizer(batch['critic_obs'])
         alpha=self.log_alpha.exp().detach();discrete_alpha=self.log_alpha_discrete.exp().detach()
         target,target_statistics=self.critic_target(batch,alpha,discrete_alpha)
-        replay=torch.cat((co,batch['action']),-1)
+        replay=torch.cat((co,self.critic_action_features(batch['actor_obs'],batch['action'])),-1)
         q1=self.q1(replay).squeeze(-1);q2=self.q2(replay).squeeze(-1)
         one_step_q_loss=F.mse_loss(q1,target)+F.mse_loss(q2,target)
         q_loss=one_step_q_loss
@@ -204,7 +212,7 @@ class HybridGoalSAC(AsymmetricSAC):
             auxiliary_target,aux_stats=self.critic_target(critic_auxiliary,alpha,discrete_alpha,
                 bootstrap_discount=critic_auxiliary['bootstrap_discount'])
             auxiliary_features=torch.cat((self.critic_normalizer(critic_auxiliary['critic_obs']),
-                                          critic_auxiliary['action']),-1)
+                self.critic_action_features(critic_auxiliary['actor_obs'],critic_auxiliary['action'])),-1)
             auxiliary_loss=(F.mse_loss(self.q1(auxiliary_features).squeeze(-1),auxiliary_target)+
                             F.mse_loss(self.q2(auxiliary_features).squeeze(-1),auxiliary_target))
             q_loss=q_loss+critic_auxiliary_weight*auxiliary_loss
@@ -232,7 +240,7 @@ class HybridGoalSAC(AsymmetricSAC):
         try:
             body,continuous_logp,logits=self.continuous_sample(ao,raw=batch['actor_obs'])
             actions,probability,discrete_logp,near=self.enumerate_jaws(batch['actor_obs'],body,logits)
-            q=self.branch_values(co,actions)
+            q=self.branch_values(co,actions,raw=batch['actor_obs'])
             scale=q.detach().abs().mean().clamp_min(1).reciprocal() if self.config.actor_q_normalize else 1.
             actor_loss=(probability*(alpha*continuous_logp[:,None]+discrete_alpha*discrete_logp-scale*q)).sum(-1).mean()
             teacher_loss=torch.zeros((),device=ao.device);discrete_prior=torch.zeros_like(teacher_loss)

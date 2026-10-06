@@ -54,6 +54,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 실제 flap 자세와 단단한 flap 무작위화 SAC | [518-D 관측·성공 actor 기준 교정·새 Q/replay·GPU3 실행](docs/RL_V2_ACTUAL_FLAP_RESIDUAL_SAC.md) |
 | 실제 성공·실패 TRAIN 연속 동작의 SAC credit | [one-step 유지·옵션형 n-step16 보조 Q·기록 연결·재개](docs/RL_V2_MEASURED_TRAIN_CREDIT_20261006.md) |
 | 실제 TRAIN 성공의 파지 직전 학습을 보강 | [실제 성공15개 연결·actor tail64-half·새 Q와 평가 분리](docs/RL_V2_SUCCESS_ACTOR_TAIL_20261007.md) |
+| 제어 제한을 반영한 Q 행동 입력 | [실제 servo 명령을 평가하는 별도 SAC 옵션](docs/RL_V2_SERVO_CRITIC_20261007.md) |
 | 단단한 flap과 초기 배치 실패 분리 | [실제 범위·원래 박스 identity·frozen 리셋 진단](docs/RL_V2_FIRM_FLAP_INITIAL_GUARD_20261006.md) |
 | 접근 후 그리퍼 닫힘 탐색 | [실제 실패 TRAIN 진단·10% joint jaw 행동 탐색·평가 보존](docs/RL_V2_TRAIN_JAW_COVERAGE_20261006.md) |
 | 접근 후 그리퍼 확률 복구 | [실제 TRAIN 경사 분석·선택형 SAC actor 손실·물리 비교](docs/RL_V2_JAW_POLICY_RECOVERY_20261006.md) |

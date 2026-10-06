@@ -36,6 +36,10 @@ class AbsoluteGoalJawProjector:
 
 
 class BoundedCorrectionHybridSAC(HybridGoalSAC):
+    def critic_action_features(self,raw,actions):
+        encoder=getattr(self,'goal_servo_critic_encoder',None)
+        return encoder(raw,actions) if encoder is not None else super().critic_action_features(raw,actions)
+
     def successful_jaw_loss(self, raw, logits, labels):
         config = getattr(self, 'success_jaw_balance_config', None)
         if config is None:
@@ -101,10 +105,15 @@ class BoundedCorrectionHybridSAC(HybridGoalSAC):
 
     @property
     def hybrid_contract(self):
-        return super().hybrid_contract|dict(body_sample_coordinates='zero_centered_bounded_actor_correction_v1',
+        result=super().hybrid_contract|dict(body_sample_coordinates='zero_centered_bounded_actor_correction_v1',
             Q_action_coordinates='actual_absolute_projected_goals',
             correction_radius=self.correction_radius,
             entropy_jacobian='per_state_symmetric_available_goal_radius_including_inactive_bounds')
+        encoder=getattr(self,'goal_servo_critic_encoder',None)
+        if encoder is not None:
+            result.update(Q_action_coordinates=encoder.contract['critic_action_coordinates'],
+                critic_action_encoding=encoder.contract)
+        return result
 
 
 def actor_anchor_state(source):

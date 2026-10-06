@@ -27,6 +27,8 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac impo
 from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_reanchored_sac import (
     ReanchoredActualFlapSACPilot, actual_actor_snapshot, source_actual_body_goal,
 )
+from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_servo_critic_sac import ServoCriticReanchoredSACPilot
+from kuavo_isaaclab_scene.rl.multi_box.experiments.servo_critic import BodyServoCriticEncoder
 from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_student import PoseStudent, pose_clock
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import (
     StagedGoalProjector, held_goal_coordinates, staged_context,
@@ -45,7 +47,8 @@ def restored_agent(state):
     contract = state['goal_contract']
     if (contract['actor_dim'], contract['critic_dim'], state['action_dim']) != (518, 577, 21):
         raise ValueError('This exporter requires the actual-flap bounded held-base SAC contract')
-    reanchored = state.get('artifact_type') == ReanchoredActualFlapSACPilot.artifact_type
+    servo_critic = state.get('artifact_type') == ServoCriticReanchoredSACPilot.artifact_type
+    reanchored = servo_critic or state.get('artifact_type') == ReanchoredActualFlapSACPilot.artifact_type
     if not reanchored and state.get('artifact_type') != ActualFlapResidualSACPilot.artifact_type:
         raise ValueError('Unknown actual-flap controller for Q video restoration')
     snapshot = state['body_anchor_state']
@@ -82,6 +85,11 @@ def restored_agent(state):
         jaw_prior_residual_gain=contract['jaw_prior_residual_gain'])
     agent.correction_radius = contract['body_correction_radius']
     agent.executed_body_anchor = body_anchor
+    if servo_critic:
+        agent.goal_servo_critic_encoder=BodyServoCriticEncoder(prior.coordinates,
+            contract['goal_center'],contract['goal_scale'])
+        if contract.get('critic_action_encoding')!=agent.goal_servo_critic_encoder.contract:
+            raise ValueError('Saved servo critic encoding contract differs')
     reference = deepcopy(anchor)
     reference.load_state_dict(state['frozen_actor_prior'])
     reference.requires_grad_(False)
@@ -137,7 +145,7 @@ def episode_values(episode, outcome, state, agent, prior):
     if not torch.allclose(reconstructed, physical[start:], atol=2e-4, rtol=1e-5):
         raise ValueError(f'Policy goals do not match the executed commands: max error {float(error.max())}')
     qc = agent.critic_normalizer(co)
-    qa = torch.cat((qc, goals), -1)
+    qa = torch.cat((qc, agent.critic_action_features(ao,goals)), -1)
     q1, q2 = agent.q1(qa).flatten(), agent.q2(qa).flatten()
     if not torch.isfinite(q1).all() or not torch.isfinite(q2).all():
         raise ValueError('Non-finite Q estimate')
