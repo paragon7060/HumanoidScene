@@ -197,3 +197,10 @@ HDF/replay도 동일 supervisor가 검증한다. 이전 GPU 장기 학습의 원
 CPU 추가학습 정책7개·기존 actor CPU baseline6개·이번 TRAIN 진단6개를 구분한
 native 영상19개와 그림/사진10개를 첨부했다. 기존 native block을 보존하고
 추가한 영상이 escaped text가 아니라 실제 video block인지 재조회해 확인했다.
+
+16:21 KST에 실제 원래 DEV128의 학습 전 평가61steps·유효117개·held3개까지
+진행했다. Actor/Q update0·replay0이며 네 영역의 stage template와 선택 목표가
+일치하고 상단 오른쪽 `measured_success=false`도 실제 진행 JSON에서 확인했다.
+정정된 TRAIN 영상6개·그림·보고·Notion 검증 등 닫힌26개 파일과 별도 receipt는
+고유 폴더에 Drive 크기/MD5 검증을 마쳤다.
+[보고 자료 보관 확인](assets/rl_v2_CPU_region_workplace_report_storage_20261006.json).

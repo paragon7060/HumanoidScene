@@ -86,8 +86,9 @@ Notion에는 외부 Drive 공유 링크 대신 native video/image로 첨부한�
 
 [Humanoid 하위 중간 보고 페이지](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)에
 전체 결과 그래프·영역별 표·물리 차이·수정 방법과 native MP46개를 기록했다.
-현재 페이지에는 아래 CPU 추가 학습 정책7개까지 합쳐 native 영상13개·그림8개가
-있다. 기존 actor의 CPU 재생과 CPU TRAIN에서 업데이트한 actor를 구분한다.
+현재 페이지에는 CPU 추가 학습 정책7개·기존 actor baseline6개·새 TRAIN 진입
+진단6개를 구분한 native 영상19개·그림10개가 있다. 진입 진단은 새 CPU 학습의
+성과가 아니다. [추가 진단·새 학습 시작 기록](RL_V2_CPU_TRAIN_WORKPLACE_SEARCH_20261006.md).
 원래128개 요청을 유지한 별도6-case CPU baseline 녹화는 정상 종료했다.
 전체 결과30/128뿐 아니라128개 outcome·terminal dictionary가 이전 CPU baseline과
 모두 일치했고 network/normalizer178개 tensor와 업데이트 수는 불변이었다.
@@ -190,7 +191,7 @@ Notion에 실제 CPU 추가 학습 actor256의 MP47개와 비교 그래프·실�
 Base 시작 offset은 Env16 lateral12.53cm/outward3.40cm/yaw11.68°, Env25
 lateral−14.67cm/outward19.69cm/yaw3.00°로 달랐다. 접근 후 base 유지 방식이며
 전체 초기 위치에 대한 자율 이동/파지 일반화를 달성한 것은 아니다.
-현재 native 영상13개·이미지8개의 첨부와 이전 native 자료의 보존을 fetch로
+CPU 추가학습 영상까지 첨부한 당시 native 영상13개·이미지8개와 이전 자료의 보존을 fetch로
 확인했다. 실제 사용자 브라우저에서의 재생까지 검사한 것은 아니다.
 
 CPU 학습 본 실행과 두 영상 실행은 exit0이다. 첫 영상 실행의 최종 Drive
@@ -226,3 +227,22 @@ GPU0은 Kit renderer 격리를 위한 번호이고 이 평가의 물리/NN 추�
 --cpu-physics-training --training`을 사용하며 CPU 계약으로 새 Q/replay를
 초기화한 checkpoint와 fresh TRAIN/DEV wave가 필요하다. GPU 학습의 Q/replay는
 CPU 학습에 이어 붙이지 않는다.
+
+## 16:21 KST 추가 진행
+
+새 CPU TRAIN16사례×8개 진입 후보 비교는 정상 종료했으며 원래 supervisor의
+최종 Drive 검증도 마쳤다. 상단 오른쪽은 전체 후보 성공0이다. 오른쪽9cm는
+유효3개에서 랙 충돌을 피했지만 양손 닫힘/pinch 없이 timeout이었고 원래 초기
+무효1개도 유지한다. 이 위치를 성공으로 표시하지 않고 새 SAC의 탐색 후보로 연결했다.
+
+지역별 진입 계약으로 actor/normalizer9개만 보존하고 Q/replay·성공 bank·
+critic normalizer·네 optimizer를 새로 만들었다. GPU3 새 실행은 실제 CPU
+물리·CUDA learner·128env에서 원래 DEV128의 학습 전 평가61steps까지 진행했다.
+Actor/Q update0·replay0이므로 아직 학습 개선이 아니다. 이어서 새 TRAIN1536개와
+TRAIN3wave마다 동일 DEV 평가를 사용한다. 원래 randomization·성공/안전 조건은
+유지하며 독립 FINAL은 미사용이다. [전체 결과·코드·54개 검사·시작 근거](RL_V2_CPU_TRAIN_WORKPLACE_SEARCH_20261006.md).
+
+Notion 하위 중간 보고에는 native 영상19개·이미지10개를 확인했다. 이번 TRAIN
+진단6개는 기존7개 CPU 추가학습 정책 영상과 구분한다. 초기 진단 영상의 잘못된
+DEV 제목은 원본을 보존하고 기존 제목 bar만 TRAIN으로 바꾼 H.264 복사본을
+첨부했으며 실제 body 자세·frame/timing·원본 SHA와 전체 decode를 검증했다.
