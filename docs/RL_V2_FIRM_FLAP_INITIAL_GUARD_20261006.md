@@ -258,6 +258,40 @@ replay0·새 온라인 TRAIN0 및 실제 두 writer의 소유/명령/CUDA0 격�
 추첨은 여전히 일치시키지 않았으며 GPU 엔진 결함을 확정하지 않는다.
 [이번 전체 평가의 실제 초기 상태 적용 검증](assets/rl_v2_frozen_backend_pair_initial_readback_20261006.json).
 
+## CPU 전체 동결 정책 평가 완료: 실제 안전 파지30/128
+
+같은 기존 SAC actor를 CPU PhysX에서 끝까지 재생한 원래 DEV128이 정상 exit0으로
+종료했다. 초기 무효1개도 분모에 유지했으며128개 모두 종료 결과가 있다.
+실제 양손 서로 다른 flap 파지·접촉/안정 유지·proof lift 성공은30개(23.4%)다.
+
+| 영역 | 원래 요청 | 안전 파지 성공 | Robot–rack 종료 | Timeout | 초기 무효 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 중간 왼쪽 | 32 | 18 | 14 | 0 | 0 |
+| 중간 오른쪽 | 32 | 10 | 22 | 0 | 0 |
+| 위쪽 왼쪽 | 32 | 2 | 0 | 29 | 1 |
+| 위쪽 오른쪽 | 32 | 0 | 26 | 6 | 0 |
+| 합계 | 128 | 30 | 62 | 35 | 1 |
+
+![같은 기존 정책의 CPU 전체 DEV 파지·실패 분포](assets/rl_v2_CPU_frozen_full_DEV_grasp_20261006.png)
+
+[닫힌 전체 결과·성공별 실제 판정·시작 상태 범위](assets/rl_v2_CPU_frozen_full_DEV_grasp_20261006.json).
+성공한 원래 base 시작 위치는 lateral−19.9~+20.0cm, outward3.3~24.5cm,
+yaw−14.9~+14.6°에 걸친다. 각 시작점에서 staged controller로 후보 위치에
+이동한 뒤 base를 유지했다. SAC가 base 이동 자체를 학습했다는 결과는 아니다.
+
+Actor1204/Q6864·새 온라인 TRAIN0·replay0을 유지했고, learned/prior network와
+normalizer의178개 tensor가 평가 전후 bit-identical이었다. 이는 새 CPU 학습
+성과가 아니라 **기존 정책의 물리 실행 결과**다. 같은 GPU 전체 counterpart는
+아직 재생 중이다. Constructor/contact 이력과 flap 추첨은 bitwise로 일치시키지
+않았으므로 엔진 결함이나 backend만의 인과 효과를 확정하지 않는다.
+
+위쪽 왼쪽은29건 timeout, 위쪽 오른쪽은26건 rack 충돌이다. 전체 rack62건의
+peak body는 오른손 gripper base35·오른쪽 forearm23·왼쪽 forearm4건이다.
+네 영역의 일반화와 독립 FINAL 검증은 아직 달성하지 않았다. 이 DEV 자료를
+TRAIN으로 재사용하지 않으며, CPU 학습을 새로 시작한다면 바뀐 물리 조건에
+맞는 새 Q/replay가 필요하다. 원래 CPU supervisor의 닫힌 자료 최종 Drive
+크기/MD5 검증과 종료(MainPID0)를 추가로 확인했다. GPU3 장기 SAC는 계속한다.
+
 ## Strong SAC의 학습 후 전체 DEV는 개선되지 않음
 
 Strong saturation penalty 비교는 예정된4wave를 정상 exit0으로 마쳤다.
