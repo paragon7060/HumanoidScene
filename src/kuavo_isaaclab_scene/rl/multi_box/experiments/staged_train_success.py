@@ -13,12 +13,27 @@ FORMAT='actual_train_success_held_goal_transitions_v1'
 KEYS=('actor_obs','critic_obs','action','next_actor_obs','next_critic_obs','reward','terminated')
 
 
-def retention_config():
-    return dict(format=FORMAT,capacity_per_region=4096,initial_replay_fraction=.2,
+def retention_config(actor_sampling=None):
+    result = dict(format=FORMAT,capacity_per_region=4096,initial_replay_fraction=.2,
         final_replay_fraction=.05,fade_actor_updates=5000,
         actor_goal_mse_weight=1.,actor_jaw_nll_weight=.05,
         source='completed_safe_opposing_bilateral_proof_lift_TRAIN_only',
         evaluation_import_allowed=False)
+    if actor_sampling in (None, 'uniform'):
+        return result
+    if actor_sampling != 'tail64-half':
+        raise ValueError('Unknown successful TRAIN actor sampling variant')
+    result['actor_sampling'] = dict(variant='tail64-half', tail_fraction=.5, tail_steps=64,
+        scope='actor_success_MSE_and_jaw_NLL_only', region_balance_preserved=True,
+        Q_replay_sampling_unchanged=True, labels_rewards_and_success_conditions_unchanged=True)
+    return result
+
+
+def validate_retention_config(config):
+    sampling = config.get('actor_sampling', {}) if isinstance(config, dict) else {}
+    variant = sampling.get('variant') if isinstance(sampling, dict) else None
+    if config != retention_config(variant):
+        raise ValueError('Unknown actual-success retention contract')
 
 
 def validate_success_outcome(split,outcome):
@@ -43,7 +58,7 @@ class TrainSuccessBank:
     def __init__(self,actor_dim,critic_dim,config=None):
         self.actor_dim,self.critic_dim=actor_dim,critic_dim
         self.config=deepcopy(config or retention_config())
-        if self.config!=retention_config():raise ValueError('Unknown actual-success retention contract')
+        validate_retention_config(self.config)
         self.episodes={region:[] for region in REGIONS}
 
     @property
@@ -74,16 +89,27 @@ class TrainSuccessBank:
         episodes.append(dict(identity=identity,outcome=evidence,rows={k:v.detach().cpu().contiguous().clone() for k,v in rows.items()}))
         while sum(len(e['rows']['reward']) for e in episodes)>self.config['capacity_per_region']:episodes.pop(0)
 
-    def sample(self,count,device):
+    def sample(self,count,device,*,tail_fraction=0.,tail_steps=64):
+        if not math.isfinite(tail_fraction) or not 0<=tail_fraction<=1 \
+                or type(tail_steps) is not int or not 1<=tail_steps<=900:
+            raise ValueError('Successful actor tail sampling requires a bounded fraction and horizon')
         available=[region for region in REGIONS if self.episodes[region]]
         if count<1 or not available:raise ValueError('Cannot sample empty successful TRAIN replay')
         selected=[]
+        tail_count=round(count*tail_fraction)
         for i in range(count):
             episodes=self.episodes[available[i%len(available)]];episode=episodes[int(torch.randint(len(episodes),()))]
-            rows=episode['rows'];j=int(torch.randint(len(rows['reward']),()))
+            rows=episode['rows'];n=len(rows['reward'])
+            low=max(0,n-tail_steps) if i<tail_count else 0
+            j=int(torch.randint(low,n,()))
             selected.append({k:v[j] for k,v in rows.items()})
         order=torch.randperm(count)
         return {k:torch.stack([s[k] for s in selected])[order].to(device) for k in KEYS}
+
+    def sample_actor(self,count,device):
+        sampling=self.config.get('actor_sampling')
+        if sampling is None:return self.sample(count,device)
+        return self.sample(count,device,tail_fraction=sampling['tail_fraction'],tail_steps=sampling['tail_steps'])
 
     def mix(self,batch,fraction,device):
         if not math.isfinite(fraction) or not 0<=fraction<=1:raise ValueError('Invalid successful replay fraction')

@@ -233,10 +233,9 @@ class StagedGoalSACPilot:
         self.arm_behavior=None
         if type(train_success_retention) is not bool or (train_success_retention and self.agent_class is AsymmetricSAC):
             raise ValueError('Actual successful TRAIN retention requires explicit hybrid goal SAC')
-        from .staged_train_success import TrainSuccessBank,retention_config
-        self.success_bank=TrainSuccessBank(self.actor_dim,self.critic_dim) if train_success_retention else None
-        if train_success_retention and saved and saved['goal_contract']['train_success_retention']!=retention_config():
-            raise ValueError('Successful TRAIN retention configuration differs')
+        from .staged_train_success import TrainSuccessBank
+        saved_retention=saved['goal_contract']['train_success_retention'] if train_success_retention and saved else None
+        self.success_bank=TrainSuccessBank(self.actor_dim,self.critic_dim,config=saved_retention) if train_success_retention else None
         if not math.isfinite(exploration_correlation) or not 0<=exploration_correlation<=.995:
             raise ValueError('Goal exploration correlation must be within0..0.995')
         self.exploration_correlation=exploration_correlation
@@ -527,15 +526,21 @@ class StagedGoalSACPilot:
                                                  *self.gripper_logit_scale).tanh()
                     teacher = dict(actor_obs=actual['actor_obs'], action=labels)
                 success_options={}
+                success_actor_rows=success_actor_tail_rows=0
                 if self.success_bank is not None and self.success_bank.size and update_actor:
-                    success_options=dict(successful_train=self.success_bank.sample(64,self.device),
+                    success_options=dict(successful_train=self.success_bank.sample_actor(64,self.device),
                         success_goal_weight=self.success_bank.config['actor_goal_mse_weight']/self.radius**2,
                         success_jaw_weight=self.success_bank.config['actor_jaw_nll_weight'])
+                    success_actor_rows=len(success_options['successful_train']['reward'])
+                    sampling=self.success_bank.config.get('actor_sampling')
+                    success_actor_tail_rows=round(success_actor_rows*sampling['tail_fraction']) if sampling else 0
                 self.latest = self.agent.update(actual, teacher=teacher, teacher_weight=weight,
                     update_actor=update_actor, **success_options, **self.critic_auxiliary_options())
                 if self.success_bank is not None:
                     self.latest.update(successful_train_rows_in_Q_batch=success_rows,
-                        successful_train_replay_fraction=self.success_replay_fraction)
+                        successful_train_replay_fraction=self.success_replay_fraction,
+                        successful_train_actor_rows=success_actor_rows,
+                        successful_train_actor_designated_tail_rows=success_actor_tail_rows)
                 if update_actor:
                     self.latest_actor = dict(self.latest, critic_update=self.critic_updates+1)
                 self.actor_updates += int(update_actor)

@@ -1,0 +1,88 @@
+# 실제 TRAIN 성공 궤적의 파지 직전 구간을 더 자주 학습
+
+새 제어의 첫 학습 후 전체 개발 평가는 **23→4/128**로 떨어졌다. 네 구역은
+중간 좌3·우0, 상단 좌1·우0이며, 유효한 시도127개 중 랙 충돌96·낙하3·
+과도한 들기1·시간 초과23건이었다. 초기화 무효1건도 원래128개 분모에 남겼다.
+[전체 평가 근거](assets/rl_v2_reanchored30_first_full_DEV_after384_20261007.json).
+상단 오른쪽을 훈련 탐색 중 잡았지만 평가에서 재현하지 못했으므로 성공한 정책으로
+보지 않는다. 반복한 개발 평가는 독립 FINAL 평가도 아니다.
+
+## 왜 바꾸는가
+
+[성공 경로의 학습 진단](RL_V2_SUCCESS_PATH_LEARNING_20261007.md)에서 실제 성공
+상태에 대한 그리퍼 명령은 개선됐지만 몸체 목표 오차는 커졌다. Actor692의
+과거 상단 오른쪽 성공 상태590개에서 목표 MSE는0.001381, 마지막64개에서는
+0.003125였다. 마지막 구간의 성공 보조 손실 경사 크기는 Q 경사의 중앙값0.70배였고
+대체로 서로 반대 방향이었다. 이는 특정 과거 상태의 부분 경사 분석이며 Q가
+틀렸다는 증명이나 새 표본 방식이 성공한다는 증거는 아니다.
+
+긴 성공 궤적 전체에서 균일하게 뽑으면 실제 접촉·닫기·들기 구간을 자주 보지
+못할 수 있다. 다음 비교에서는 **actor 성공 보조 학습만** `tail64-half`로 바꾼다.
+
+| 설정 | 기존 | 새 비교 |
+| --- | --- | --- |
+| Actor 성공 표본64개 | 성공 경로 전체에서 균일 추출 | 32개는 마지막64스텝, 32개는 전체 경로 |
+| 구역 균형 | 존재하는 네 구역을 균형 있게 추출 | 유지; 각 구역 지정 tail 표본8개 |
+| 성공 목표·그리퍼 정답 | 실제 실행한 목표·열림/닫힘 | 유지 |
+| Q 성공 표본 | 전체 성공 경로에서 추출, 비율20→5% | 유지 |
+| 보상·실패·성공 기준 | 실제 접촉·유지·들기, 기존 안전 기준 | 유지 |
+
+전체 경로에서 뽑는 나머지32개도 우연히 마지막 구간에 속할 수 있다. 정확히 절반의
+관측만 마지막 구간에 속한다는 뜻은 아니다. 구간 길이가64보다 짧으면 전체를 쓴다.
+기본 옵션은 기존 균일 추출이며 새 checkpoint의 명시된 계약만 새 방식을 선택한다.
+
+## 실제 훈련 경험을 연결하는 방법
+
+모델과 Q는 이전 새 실험의 **학습 전 초기화**에서 시작한다. 학습 후 actor692·Q4816의
+신경망·optimizer·온라인 replay는 가져오지 않는다. 해당 체크포인트 안에 닫혀 저장된
+**실제 안전한 TRAIN 성공15개, 6,899전이**만 가져온다.
+
+| 구역 | 성공 궤적 | 실제 전이 |
+| --- | ---: | ---: |
+| 중간 왼쪽 | 8 | 3,291 |
+| 중간 오른쪽 | 3 | 1,230 |
+| 상단 왼쪽 | 3 | 1,788 |
+| 상단 오른쪽 | 1 | 590 |
+
+이는 두 VR 시연의 추가 복제가 아니라 실제 정책 탐색에서 얻은 경험이다. 초기 온라인
+replay는0이며 실제 훈련에서 새 전이를 수집한다. n-step16 보조 Q의 초기 은행도
+이 성공 경로에서 구성하므로 **초기에 가져온 실패 궤적은0개**다. 새 훈련에서 생긴
+실패는 계속 수집·사용한다. 실행 중인 HDF/replay를 읽거나 성공·행동·보상을
+다시 붙이지 않으며 DEV·FINAL·가상 IK 결과는 학습에 넣지 않는다.
+
+초기 actor·Q·optimizer tensor와 직렬화된 경험이 정확히 유지됨을 확인했다.
+실제 TRAIN 관측698개에서도 초기 deterministic 몸체 목표와 그리퍼 출력이 동일했다.
+관련 고유 테스트64개가 통과했으며, 이는 데이터·표본·복원 배선 검증이지 물리 성능이 아니다.
+[초기화 검증](assets/rl_v2_success_actor_tail_initialization_20261007.json).
+
+## 실행과 비교
+
+초기화 입력은 기존 Drive 연결로 크기·MD5를 검증한 뒤 관리 실행에 사용한다.
+별도 TRAIN1,536조건, 원래 개발 평가128개로 비교하며 새 초기 평가를 자신의 기준으로
+기록한다. 구체적인 flap 추첨과 solver 이력이 같은 것으로 가정하지 않는다.
+박스·base·주변 박스·단단하지만 움직이는 flap의 무작위화와 충돌 기준을 유지한다.
+보상 식·가중치는 [Q 영상과 보상 설명](RL_V2_EVAL_Q_REWARD_20261006.md)을 참고한다.
+
+관리 진입점은 `batched_staged_goal_with_drive.py`이며 learner는
+`CUDA_VISIBLE_DEVICES=3` / `cuda:0`, 물리 장면은 기존 CPU PGS 계약이다.
+새 실험은 자신만의 RAM 실행 폴더와 기존 Drive 업로더(300초, 검증 후 최신2개 보존)를
+사용한다. 종료된 writer의 로그도 검증한다. 기존 사용자 파일·프로세스는 건드리지 않는다.
+준비·학습 시작만으로 개선을 주장하지 않으며 학습 후 전체 개발 평가와 최종 독립 평가가 필요하다.
+
+준비 예시(Isaac conda의 Python을 사용):
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_actual_success_actor_tail.py \
+  --initial-checkpoint /absolute/path/to/fresh-reanchored-checkpoint.pt \
+  --matching-train-checkpoint /absolute/path/to/protected-matching-TRAIN-checkpoint.pt \
+  --matching-train-proof /absolute/path/to/immutable-capture-proof.json \
+  --training-manifest /absolute/path/to/matching-training-manifest.json \
+  --waypoints /absolute/path/to/matching-waypoints.json \
+  --output-dir /absolute/path/to/new-unique-input-directory
+```
+
+준비 도구는 실제 owner·파일 SHA256·일치하는 제어/보상/관측 계약·성공 근거를 확인하며,
+기존 파일을 덮어쓰거나 훈련을 자동 시작하지 않는다.
+코드: [준비 도구](../scripts/rl/prepare_actual_success_actor_tail.py),
+[표본 은행](../src/kuavo_isaaclab_scene/rl/multi_box/experiments/staged_train_success.py),
+[actor 연결](../src/kuavo_isaaclab_scene/rl/multi_box/experiments/staged_goal_sac.py).
