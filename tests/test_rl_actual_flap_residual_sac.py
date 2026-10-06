@@ -175,6 +175,74 @@ def test_success_jaw_balance_preserves_model_replay_and_frozen_action_then_resto
         ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_balance_provenance',stage,checkpoint=saved)
 
 
+def test_body_behavior_preserves_existing_learning_and_eval_and_records_executed_goals(tmp_path):
+    _,old,warm,physical,stage,_=pilots(tmp_path)
+    raw=torch.zeros(64,464);raw[:,144]=1;critic=torch.zeros(64,530);extra=torch.zeros(64,38)
+    previous=old.act(raw,critic,0,supplemental=extra)[1]
+    old.observe(previous,raw,critic,torch.zeros(64),torch.ones(64,dtype=torch.bool),0,supplemental=extra)
+    old.directory.mkdir();old.save(final=True);checkpoint=next(old.directory.glob('checkpoint_*.pt'))
+    new=ActualFlapResidualSACPilot(warm,physical,tmp_path/'wide',stage,
+        checkpoint=checkpoint,body_behavior='ramped-arm-bias20')
+    assert new.contract==old.contract and new.replay.size==old.replay.size==64
+    for key,value in old.agent.state_dict().items():assert torch.equal(value,new.agent.state_dict()[key])
+    for key,value in old.replay.data.items():assert torch.equal(value[:64],new.replay.data[key][:64])
+    for before,after in zip(old.agent.optimizers,new.agent.optimizers):
+        b,a=before.state_dict(),after.state_dict()
+        assert b['param_groups']==a['param_groups'] and b['state'].keys()==a['state'].keys()
+        for pid,values in b['state'].items():
+            for key,value in values.items():
+                assert torch.equal(value,a['state'][pid][key]) if isinstance(value,torch.Tensor) else value==a['state'][pid][key]
+    new.anchor=old.anchor
+    old.training=new.training=False
+    assert torch.equal(old.act(raw,critic,0,supplemental=extra)[0],new.act(raw,critic,0,supplemental=extra)[0])
+    new.reset_exploration(64)
+    assert new.arm_behavior is None and new.body_behavior_extras()['body_behavior_statistics']['episodes_drawn']==0
+    new.training=True;new.reset_exploration(64)
+    command,executed=new.act(raw,critic,90,supplemental=extra)
+    action=executed[2];anchor,scale=new.agent.anchor_and_scale(executed[0])
+    assert (action[:,:19]-anchor).abs().le(scale+1e-6).all()
+    assert new.body_behavior_sampler.report()['biased_episodes']>0
+    assert torch.equal(new.agent.action_projector(executed[0],action),action)
+    new.observe(executed,raw,critic,torch.zeros(64),torch.ones(64,dtype=torch.bool),90,supplemental=extra)
+    assert torch.equal(new.replay.data['action'][64:128],action)
+    # Even explicit collection-only frozen noise must skip this TRAIN option.
+    new.training=False;before=new.body_behavior_sampler.report()
+    new.act(raw,critic,91,supplemental=extra,sample_frozen_train_behavior=True)
+    assert new.body_behavior_sampler.report()==before
+    new.reset_exploration(64);new.directory.mkdir();new.save(final=True)
+    saved=next(new.directory.glob('checkpoint_*.pt'))
+    restored=ActualFlapResidualSACPilot(warm,physical,tmp_path/'restored_wide',stage,checkpoint=saved)
+    assert restored.body_behavior_extras()==new.body_behavior_extras()
+    assert restored.replay.size==128 and restored.body_behavior_origin['old_replay_rows_at_activation']==64
+    with pytest.raises(ValueError,match='differs from checkpoint'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_wide',stage,checkpoint=saved,body_behavior='off')
+    experience=saved.parent/'staged_goal_experience.pt'
+    state=torch.load(experience,weights_only=True);state.pop('body_behavior_origin');torch.save(state,experience)
+    with pytest.raises(ValueError,match='replay origin'):
+        ActualFlapResidualSACPilot(warm,physical,tmp_path/'bad_wide_origin',stage,checkpoint=saved)
+
+
+def test_serialized_body_behavior_activation_keeps_tensors_and_restores(tmp_path):
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.body_behavior_exploration import enable_body_behavior
+    _,old,warm,physical,stage,_=pilots(tmp_path)
+    old.directory.mkdir();old.save(final=True)
+    checkpoint=next(old.directory.glob('checkpoint_*.pt'))
+    source=torch.load(checkpoint,weights_only=True)
+    experience=torch.load(old.directory/'staged_goal_experience.pt',weights_only=True)
+    changed,actual=enable_body_behavior(source,experience,source_checkpoint=checkpoint)
+    assert changed['goal_contract']==source['goal_contract']
+    assert changed['model'] is source['model'] and changed['optimizers'] is source['optimizers']
+    assert actual['executed_goal_transitions'] is experience['executed_goal_transitions']
+    destination=tmp_path/'fork';destination.mkdir()
+    torch.save(changed,destination/'checkpoint_00000000.pt');torch.save(actual,destination/'staged_goal_experience.pt')
+    restored=ActualFlapResidualSACPilot(warm,physical,tmp_path/'fork_run',stage,
+        checkpoint=destination/'checkpoint_00000000.pt')
+    assert restored.body_behavior['variant']=='ramped-arm-bias20' and not restored.replay.size
+    for key,value in old.agent.state_dict().items():assert torch.equal(value,restored.agent.state_dict()[key])
+    with pytest.raises(ValueError,match='unmodified'):
+        enable_body_behavior(changed,actual,source_checkpoint=checkpoint)
+
+
 def test_actual_midpoint_relations_track_panel_rotation_and_mask_invalid_pose():
     panels=torch.zeros(2,2,7);panels[:,:,3]=1
     tcp=panels.clone();tcp[:,:,:3]=.1

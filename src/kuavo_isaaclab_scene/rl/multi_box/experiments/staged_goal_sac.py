@@ -471,7 +471,9 @@ class StagedGoalSACPilot:
                 # an episode. Vector callers must reset with their full count.
                 self.reset_exploration(len(raw))
             ids=(torch.arange(len(raw),device=raw.device) if exploration_ids is None else exploration_ids)
-            offset=self.arm_behavior.offset(ao,index,ids) if self.arm_behavior is not None else None
+            use_arm_behavior=(self.arm_behavior is not None and
+                (self.training or not getattr(self.arm_behavior, 'training_only', False)))
+            offset=self.arm_behavior.offset(ao,index,ids) if use_arm_behavior else None
             # This optional collection distribution never runs in frozen
             # evaluation or collection-only frozen behavior diagnostics.
             behavior=getattr(self,'jaw_behavior_sampler',None) if self.training else None
