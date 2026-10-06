@@ -184,15 +184,21 @@ def observe_measured_held_rows(pilot,stages,ids,previous,terminal,reward,termina
     keep=measured[ids]
     if not bool(keep.any()):return 0
     valid_ids=ids[keep]
-    pilot.stage=stages.held_context(valid_ids)
-    pilot.anchor=stages.anchors[valid_ids].clone()
+    from .cpu_physics_training import set_measured_learner_context
+    device = getattr(pilot, 'device', terminal['policy'].device)
+    # Test/legacy lightweight pilots without an explicit device remain local.
+    if hasattr(pilot, 'device'):
+        set_measured_learner_context(pilot, stages, valid_ids)
+    else:
+        pilot.stage=stages.held_context(valid_ids)
+        pilot.anchor=stages.anchors[valid_ids].clone()
     options={}
     if getattr(pilot,'supplemental_observation_dim',0):
         from ..observations.flap_supplement import SUPPLEMENTAL_GROUP
-        options['supplemental']=terminal[SUPPLEMENTAL_GROUP][valid_ids]
-    pilot.observe(tuple(v[keep] for v in previous),terminal['policy'][valid_ids],
-        torch.cat((terminal['policy'],terminal['critic']),-1)[valid_ids],
-        reward[valid_ids],terminated[valid_ids],clocks[keep],**options)
+        options['supplemental']=terminal[SUPPLEMENTAL_GROUP][valid_ids].to(device)
+    pilot.observe(tuple(v[keep.to(v.device)] for v in previous),terminal['policy'][valid_ids].to(device),
+        torch.cat((terminal['policy'],terminal['critic']),-1)[valid_ids].to(device),
+        reward[valid_ids].to(device),terminated[valid_ids].to(device),clocks[keep].to(device),**options)
     return len(valid_ids)
 
 

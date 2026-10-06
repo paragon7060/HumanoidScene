@@ -29,10 +29,30 @@ def require_current_lift_contract(contract):
         raise ValueError('Current grasp requires active support clearance; old Q/replay must not resume')
 
 
-def staged_solver_contract(name):
+CPU_PHYSICS_BACKEND = 'CPU_PhysX_v1'
+
+
+def staged_solver_contract(name, *, physics_backend=None):
     if name not in ('TGS','PGS'):raise ValueError('Expected TGS or PGS')
-    return dict(solver=name,solver_type={'TGS':1,'PGS':0}[name],
+    if physics_backend not in (None, CPU_PHYSICS_BACKEND):
+        raise ValueError('Unknown staged physics backend')
+    result = dict(solver=name,solver_type={'TGS':1,'PGS':0}[name],
                 physics_dt_s=1/120,control_dt_s=1/30)
+    if physics_backend is not None:result['physics_backend']=physics_backend
+    return result
+
+
+def frozen_cpu_actor_contract(contract):
+    """Only a frozen controller may ignore the reviewed CPU backend marker.
+
+    Current Q/replay always retains this marker. Solver, timesteps, actions,
+    observations, rewards and safety remain unchanged in the actor match.
+    """
+    dynamics=contract.get('physics_dynamics',{})
+    if not isinstance(dynamics,dict) or 'physics_backend' not in dynamics:return contract
+    if dynamics!=staged_solver_contract('PGS',physics_backend=CPU_PHYSICS_BACKEND):
+        raise ValueError('Unknown CPU backend cannot bypass frozen actor compatibility')
+    return contract|dict(physics_dynamics=staged_solver_contract('PGS'))
 
 
 def configure_staged_physics(cfg, contract):
@@ -46,8 +66,11 @@ def configure_staged_physics(cfg, contract):
     if dynamics is None:
         if cfg.sim.physx.solver_type!=1:raise ValueError('Legacy staged physics requires TGS')
         return
-    if not isinstance(dynamics,dict) or dynamics!=staged_solver_contract(dynamics.get('solver')):
+    if not isinstance(dynamics,dict) or dynamics!=staged_solver_contract(
+            dynamics.get('solver'), physics_backend=dynamics.get('physics_backend')):
         raise ValueError('Staged physics dynamics contract differs')
+    if dynamics.get('physics_backend') == CPU_PHYSICS_BACKEND and str(cfg.sim.device) != 'cpu':
+        raise ValueError('CPU physics Q/replay requires actual CPU simulation')
     if not math.isclose(cfg.sim.dt,dynamics['physics_dt_s'],abs_tol=1e-12,rel_tol=0) \
             or not math.isclose(cfg.sim.dt*cfg.decimation,dynamics['control_dt_s'],abs_tol=1e-12,rel_tol=0):
         raise ValueError('Staged physics/control timestep differs')

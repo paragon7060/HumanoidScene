@@ -292,6 +292,41 @@ TRAIN으로 재사용하지 않으며, CPU 학습을 새로 시작한다면 바�
 맞는 새 Q/replay가 필요하다. 원래 CPU supervisor의 닫힌 자료 최종 Drive
 크기/MD5 검증과 종료(MainPID0)를 추가로 확인했다. GPU3 장기 SAC는 계속한다.
 
+## CPU/GPU 전체 비교 종료 및 새 CPU 물리 학습 연결
+
+GPU counterpart도 정상 exit0으로 종료했다. 동일한 기존 actor의 전체 원래
+DEV128 성공은 **CPU30/128·GPU4/128**이다. GPU 영역별 성공은ML1·MR3·UL0·UR0,
+초기 무효32·unsafe73·timeout19·numerical0이다. 각 실행에서178개 network/
+normalizer tensor는 bit-identical이었다. 두 실행의 actual 초기 rack/support
+root·roller q/v는 검증했지만 constructor/contact 이력과 flap 추첨은 동일하지
+않으므로 backend만의 인과 효과를 확정하지 않는다. 독립 FINAL도 사용하지 않았다.
+
+![닫힌 동일 정책 CPU/GPU 전체 원래 DEV128 비교](assets/rl_v2_frozen_backend_whole_pair_20261006.png)
+
+[전체 비교 JSON](assets/rl_v2_frozen_backend_whole_pair_20261006.json).
+CPU 최종 Drive 검증은 완료됐고 GPU 원래 supervisor는 닫힌 자료를 업로드 중이다.
+
+새 학습 경로는 `CPU_PhysX_v1`을 strict physics contract에 기록한다.
+`--cpu-physics-training --training --physics-device cpu --learner-device cuda:0`을
+명시해야 하며 원래128개·각 구역32·900steps·fresh TRAIN/동일 DEV만 허용한다.
+다른 physics/배치 probe·DEV world snapshot 재사용·독립 FINAL은 거부한다.
+기존 GPU Q/replay를 CPU 계약으로 resume하는 것도 거부한다.
+
+`scripts/rl/prepare_cpu_staged_actor.py`는 실제 flap actor와 frozen controller만
+초기화하고 Q·critic normalizer·replay·성공 bank·네 optimizer를 새로 만든다.
+실제 준비에서 source actor/normalizer9개 tensor의 bit-identity·actor/Q update0·
+replay0·success bank0·critic normalizer count0·optimizer state0을 확인했다.
+[초기화 검증](assets/rl_v2_CPU_PhysX_fresh_actor_20261006.json).
+기존 GPU native 경로는 frozen actor prior를 복원하는 용도로만 쓰며 새 CPU Q
+학습 데이터가 아니다. CPU DEV30건도 TRAIN으로 가져오지 않는다.
+
+CPU 환경의 관측·현재 held waypoint/anchor를 GPU learner로 옮기고 명령을 CPU로
+돌려 실제 실행한다. 다음 관측은 numerical quarantine 이후 같은 env ID·clocks·
+waypoint에 맞춰 옮긴다. Q의 action은 실제 projected goal이며 scene 기록은 실제
+executed command를 그대로 저장한다. 기존 동일 장치 경로도 유지한다.
+CPU 단위 검증과 `CUDA_VISIBLE_DEVICES=3`에서 CPU↔GPU 두 전송 검증을 통과했다.
+실제 새 물리 학습 성과는 별도 실행의 완료된 TRAIN/DEV로 판단한다.
+
 ## Strong SAC의 학습 후 전체 DEV는 개선되지 않음
 
 Strong saturation penalty 비교는 예정된4wave를 정상 exit0으로 마쳤다.

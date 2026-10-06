@@ -171,7 +171,8 @@ class StagedGoalSACPilot:
         if 'physics_dynamics' in physical_contract:
             from .staged_physics import staged_solver_contract
             dynamics=physical_contract['physics_dynamics']
-            if not isinstance(dynamics,dict) or dynamics!=staged_solver_contract(dynamics.get('solver')):
+            if not isinstance(dynamics,dict) or dynamics!=staged_solver_contract(
+                    dynamics.get('solver'), physics_backend=dynamics.get('physics_backend')):
                 raise ValueError('Staged dynamics identity differs')
             self.physical_contract['physics_dynamics']=dict(dynamics)
         if 'flap_dynamics' in physical_contract:

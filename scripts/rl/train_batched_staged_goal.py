@@ -66,6 +66,9 @@ def main():
         help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
     parser.add_argument('--frozen-physics-backend-eval',action='store_true',
         help='Explicit frozen original DEV128/900steps CPU or GPU policy comparison; never supplies matching Q replay')
+    parser.add_argument('--cpu-physics-training', action='store_true',
+        help='Separate CPU PhysX PGS MDP: fresh matching Q/replay, actual TRAIN and cuda:0 learner')
+    parser.add_argument('--learner-device', choices=('cpu','cuda:0'), default=None)
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
@@ -91,6 +94,18 @@ def main():
             or args.centered_world_probe or args.packed_background_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
+    learner_device=args.learner_device or args.device or 'cuda:0'
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_physics_training import (
+        INCOMPATIBLE_FLAGS as CPU_TRAIN_PROBE_FLAGS, SOURCE as CPU_TRAIN_SOURCE,
+        validate_cpu_physics_training, act_measured_held_rows)
+    try:
+        cpu_training=validate_cpu_physics_training(waves,json.loads(args.training_manifest.read_text()),
+            enabled=args.cpu_physics_training,physics_device=args.device or 'cuda:0',
+            learner_device=learner_device,training=args.training,steps=args.steps,
+            other_probe=any(s.split('=')[0] in CPU_TRAIN_PROBE_FLAGS for s in sys.argv[1:]))
+        if cpu_training is None and learner_device != (args.device or 'cuda:0'):
+            raise ValueError('Separate learner device requires explicit CPU physics learning')
+    except (ValueError,OSError) as error:parser.error(str(error))
     from kuavo_isaaclab_scene.rl.multi_box.experiments.physics_backend_eval import (
         SOURCE as BACKEND_EVAL_SOURCE,validate_frozen_backend_policy_eval)
     try:
@@ -103,7 +118,7 @@ def main():
                 args.reset_independent_scene_probe,args.zero_passive_roller_velocities_probe,
                 args.rear5_support_gap_probe_m is not None,args.grasp_observation_audit,
                 args.measured_train_credit,args.jaw_behavior,args.jaw_saturation_penalty,args.success_jaw_balance)))
-        if args.device=='cpu' and backend_eval is None and (args.training or '--no-training' not in sys.argv
+        if args.device=='cpu' and backend_eval is None and cpu_training is None and (args.training or '--no-training' not in sys.argv
                 or '--training' in sys.argv or not args.reset_failure_diagnostics or args.steps!=1):
             raise ValueError('CPU requires explicit frozen reset or full backend policy evaluation')
     except ValueError as error:parser.error(str(error))
@@ -415,7 +430,7 @@ def main():
         batch,_=load_v2_grasp_demonstrations(args.demo_dataset,self_collision_enabled=cfg.multi_box.self_collision_enabled)
         sources={i:select_reference_episode(batch,i)['actor_obs'][0] for i in
                  {row['episode_index'] for w in waves for row in w['layouts']}}
-        state=torch.load(args.checkpoint,map_location=env.device,weights_only=True)
+        state=torch.load(args.checkpoint,map_location=learner_device,weights_only=True)
         pilot_class=staged_policy_class(state.get('artifact_type'))
         if pilot_class is None:
             raise ValueError('Batched learner requires the separately initialized staged checkpoint')
@@ -438,7 +453,7 @@ def main():
             if pilot_class is not ActualFlapResidualSACPilot or not args.training:
                 raise ValueError('Successful jaw balance is explicitly for actual-flap TRAIN actor updates')
         warm=PoseGoalSACPilot(state['frozen_warm_start'],args.native_seed,
-                            frozen_prior_lift_contract(frozen_actor_reward_contract(contract)),output,training=False,device=env.device)
+                            frozen_prior_lift_contract(frozen_actor_reward_contract(contract)),output,training=False,device=learner_device)
         if warm.coordinates.exact_projected_base:
             env.enable_projected_base_safety()
         templates=json.loads(args.waypoints.read_text())
@@ -476,7 +491,7 @@ def main():
         meta=dict(task_family='multi_box_v2',skill='grasp',robot_model='s63',gripper='leju-twofinger',
             rack_rollers=True,actor_obs_dim=464,critic_obs_dim=530,action_dim=24,
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
-            collection_source=(BACKEND_EVAL_SOURCE if backend_eval else 'grasp_observation_audit_NOT_matching_Q_replay'
+            collection_source=(CPU_TRAIN_SOURCE if cpu_training else BACKEND_EVAL_SOURCE if backend_eval else 'grasp_observation_audit_NOT_matching_Q_replay'
                                if args.grasp_observation_audit else 'reset_failure_diagnostic_NOT_matching_Q_replay'
                                if args.reset_failure_diagnostics else 'changed_gripper_drive_frozen_probe_NOT_matching_Q_replay'
                                if args.gripper_drive_probe else 'changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
@@ -487,8 +502,9 @@ def main():
             startup_flap_contact_reporters=flap_contact_reporters,
             startup_world_frame_probe=world_frame_audit,
             startup_scene_replication_probe=replication_probe,
-            sim_device=str(env.device),multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
+            sim_device=str(env.device),learner_device=learner_device,multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             frozen_physics_backend_evaluation=backend_eval,
+            CPU_physics_training=cpu_training,
             current_reward_verified_against_breakdown=True,
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
             wave_reset_controller_contract=WAVE_RESET_CONTROLLER_CONTRACT,
@@ -526,6 +542,8 @@ def main():
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
             'frozen_physics_backend_evaluation':backend_eval,
+            'CPU_physics_training':cpu_training,
+            'learner_device':learner_device,'sim_device':str(env.device),
             'TRAIN_jaw_behavior':collection_jaw_behavior,
             'TRAIN_actor_jaw_regularization':actor_jaw_regularization,
             'TRAIN_successful_jaw_balance':successful_jaw_balance,
@@ -670,7 +688,7 @@ def main():
                 if args.success_jaw_balance is not None:
                     pilot_options['success_jaw_balance'] = args.success_jaw_balance
                 pilot=pilot_class(warm,contract,output,stages.stages[0],checkpoint=args.checkpoint,
-                    training=args.training,device=env.device, **pilot_options)
+                    training=args.training,device=learner_device, **pilot_options)
                 (output/'agent.yaml').write_text(json.dumps(pilot.contract,indent=2)+'\n')
             if args.base_waypoint_probe:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.waypoint_probe import apply_waypoint_probe
@@ -726,11 +744,9 @@ def main():
                         action=stages.approach_commands(pre['policy'],active);action[:,20:22]=-1.
                         previous=None
                         if len(ids):
-                            pilot.stage=stages.held_context(ids);pilot.anchor=stages.anchors[ids].clone()
                             clocks=stages.clocks(ids,step)
-                            perception_options=({"supplemental":pre[SUPPLEMENTAL_GROUP][ids]} if supplemental else {})
-                            command,previous=pilot.act(pre['policy'][ids],
-                                torch.cat((pre['policy'],pre['critic']),-1)[ids],clocks,exploration_ids=ids,**perception_options)
+                            command,previous=act_measured_held_rows(pilot,stages,ids,pre,clocks,
+                                supplemental_group=SUPPLEMENTAL_GROUP if supplemental else None)
                             action[ids]=command
                         if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                             raise ValueError('Generated and executed jaw projections differ')

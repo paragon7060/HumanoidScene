@@ -14,7 +14,7 @@ from reference_residual_with_drive import archive_pilot
 from train_with_drive import supervise
 
 
-def validate_managed_physics_device(device, child):
+def validate_managed_physics_device(device, child, *, learner_device=None):
     """CPU dynamics cannot silently become matching TRAIN or FINAL data."""
     if device not in ('cpu', 'cuda:0'):
         raise ValueError('Managed physics device must be cuda:0 or cpu')
@@ -22,9 +22,20 @@ def validate_managed_physics_device(device, child):
     parser.add_argument('--training', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--reset-failure-diagnostics', action='store_true')
     parser.add_argument('--frozen-physics-backend-eval', action='store_true')
+    parser.add_argument('--cpu-physics-training', action='store_true')
     parser.add_argument('--steps', type=int, default=900)
     parser.add_argument('--waves-json', type=Path)
+    parser.add_argument('--training-manifest', type=Path)
     audit, _ = parser.parse_known_args(child)
+    if audit.cpu_physics_training:
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_physics_training import (
+            INCOMPATIBLE_FLAGS, validate_cpu_physics_training)
+        if audit.waves_json is None or audit.training_manifest is None:
+            raise ValueError('CPU physics learning requires waves and its new training manifest')
+        return validate_cpu_physics_training(json.loads(audit.waves_json.read_text()),
+            json.loads(audit.training_manifest.read_text()), enabled=True, physics_device=device,
+            learner_device=learner_device, training=audit.training, steps=audit.steps,
+            other_probe=any(s.split('=')[0] in INCOMPATIBLE_FLAGS for s in child))
     if device == 'cuda:0' and not audit.frozen_physics_backend_eval:
         return None
     explicit_frozen = '--no-training' in child and '--training' not in child
@@ -55,14 +66,19 @@ def main():
     parser.add_argument('--experiment-dir',type=Path,required=True)
     parser.add_argument('--gpu',type=int,default=3)
     parser.add_argument('--physics-device',choices=('cuda:0','cpu'),default='cuda:0',
-        help='CPU requires explicit frozen DEV reset diagnostics or full backend policy evaluation; training retains cuda:0')
+        help='CPU requires explicit frozen diagnostics or a separate CPU-physics-training contract')
+    parser.add_argument('--learner-device', choices=('cuda:0','cpu'), default=None,
+        help='Managed GPU learner uses cuda:0 within CUDA_VISIBLE_DEVICES; default follows physics')
     parser.add_argument('--python',type=Path,default=Path.home()/'miniconda3/envs/env_isaaclab_232/bin/python')
     parser.add_argument('--remote-root',default=os.environ.get('RL_DRIVE_REMOTE_ROOT'))
     args,child=parser.parse_known_args()
     if args.gpu<0 or not args.python.is_file():parser.error('Valid GPU/Isaac Python required')
-    if any(s.split('=')[0] in ('--output-dir','--device','--kit_args') for s in child):
+    if any(s.split('=')[0] in ('--output-dir','--device','--learner-device','--kit_args') for s in child):
         parser.error('Managed run owns its output/device/renderer isolation')
-    try:device_audit=validate_managed_physics_device(args.physics_device,child)
+    learner_device=args.learner_device or args.physics_device
+    if '--cpu-physics-training' not in child and learner_device != args.physics_device:
+        parser.error('Separate learner device requires explicit CPU physics learning')
+    try:device_audit=validate_managed_physics_device(args.physics_device,child,learner_device=learner_device)
     except (ValueError,OSError) as error:parser.error(str(error))
     if not args.remote_root:
         remotes=subprocess.run(['bash',str(ROOT/'scripts/rl/gdrive.sh'),'listremotes'],capture_output=True,text=True,check=True).stdout.splitlines()
@@ -73,12 +89,12 @@ def main():
     parent=args.experiment_dir.expanduser().resolve();parent.mkdir(parents=True,exist_ok=False)
     run=parent/('batch_sac_'+datetime.now().strftime('%Y%m%d_%H%M%S')+'_'+uuid.uuid4().hex[:6])
     command=[str(args.python),'-u',str(ROOT/'scripts/rl/train_batched_staged_goal.py'),*child,
-        '--output-dir',str(run),'--device',args.physics_device,'--headless','--kit_args',
+        '--output-dir',str(run),'--device',args.physics_device,'--learner-device',learner_device,'--headless','--kit_args',
         f'--/renderer/activeGpu={args.gpu} --/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false']
     environment=os.environ.copy();environment.update(CUDA_VISIBLE_DEVICES=str(args.gpu),OMNI_KIT_ACCEPT_EULA='YES',
         PYTHONPATH=str(ROOT/'src')+':'+str(ROOT/'scripts/rl'),OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1')
     (parent/'launch.json').write_text(json.dumps(dict(command=command,gpu=args.gpu,run=str(run),
-        physics_device=args.physics_device,frozen_device_diagnostic=device_audit),indent=2)+'\n')
+        physics_device=args.physics_device,learner_device=learner_device,frozen_device_diagnostic=device_audit),indent=2)+'\n')
     return supervise(command,parent,environment,
         lambda source,finished:archive_pilot(source,args.remote_root,finished),
         interval=300,run_prefix='batch_sac_',require_run_status=True)
