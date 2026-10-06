@@ -63,6 +63,7 @@ def summarize_wave(rows):
     distances_by_outcome = {k: [[], []] for k in
         ('supported_success', 'safe_timeout', 'unsafe')}
     unsupported = []
+    rack_terminal = defaultdict(lambda: dict(phases=Counter(), bodies=Counter(), forces=[]))
     for outcome in rows:
         result = outcome.get('result') or {}
         region = regions[outcome['layout']['target_region']]
@@ -81,6 +82,13 @@ def summarize_wave(rows):
             cause_sets[' + '.join(flagged)] += 1
         region['unsafe'] += int(bool(result.get('unsafe')))
         region['timeout'] += int(bool(result.get('time_out')))
+        if result.get('unsafe') and 'robot_rack_collision' in flagged:
+            rack = rack_terminal[outcome['layout']['target_region']]
+            stage = (result.get('staged_base') or {}).get('phase')
+            body = result.get('rack_peak_body')
+            rack['phases'][stage if isinstance(stage, str) else 'unknown'] += 1
+            rack['bodies'][body if isinstance(body, str) else 'unknown'] += 1
+            rack['forces'].append(result.get('rack_peak_force_n'))
         hands = result.get('pinching')
         if isinstance(hands, list) and len(hands) == 2:
             pinch[str(sum(bool(x) for x in hands))] += 1
@@ -103,6 +111,12 @@ def summarize_wave(rows):
         unsupported_success_environments=unsupported,
         safety_causes_on_valid_completed_attempts=dict(causes),
         simultaneous_safety_cause_sets=dict(cause_sets),
+        rack_collision_terminal_diagnostics=dict(
+            by_region={k:dict(count=sum(v['phases'].values()),
+                phase_counts=dict(v['phases']), peak_body_counts=dict(v['bodies']),
+                peak_force_n=distribution(v['forces'])) for k,v in rack_terminal.items()},
+            valid_completed_unsafe_attempts_only=True,
+            failure_step_peak_body_not_first_contact_or_contact_history=True),
         end_pinching_hand_counts=dict(pinch),
         end_contact_quality=distribution(quality),
         end_matched_flap_surface_distance_m=[distribution(v) for v in distances],
