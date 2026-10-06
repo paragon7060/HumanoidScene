@@ -155,7 +155,36 @@ rack/세 support root pose, 실제182-DOF support q/v를 명시적으로 요청�
 최종 respawn 이후 pose를 초기 reference로 쓰지 않았다. 기존
 `--reset-world-frame-probe`의 strict seed/joint-order/실제 backend readback 검사를
 사용하며 적용이 확인되지 않으면 비교를 거부한다. Constructor/contact history와
-flap 추첨까지 bitwise로 맞추는 것은 아니다. 아직 결과는 미확인이다.
+flap 추첨까지 bitwise로 맞추는 것은 아니다. 아래에서 완료 결과를 구분한다.
+
+## 월드 좌표·롤러 상태를 맞춘 CPU128 완료
+
+위 matched CPU 진단은 정상 exit0으로 종료했고 writer 종료·supervisor MainPID0·
+닫힌 로그/HDF/diagnostic JSON의 기존 Drive 최종 크기/MD5 검증을 완료했다.
+원래 요청128개 중 **초기 유효127·무효1**이다. 289개 원래 active 박스는 모두
+중립 유지 직전 geometry 검사에 통과하고 root velocity가0이었다. Neutral hold
+후 geometry 이탈은 logical9 한 개이며 최대 root speed는0.270m/s였다.
+파지 동작이나 TRAIN/Q 업데이트는 없으므로 **127/128은 파지 성공률이 아니다.**
+
+![같은 월드·롤러 상태로 비교한 실제 초기 접촉 및 초기 유효 배치](assets/rl_v2_firm_flap_matched_CPU_reset_20261006.png)
+
+요청값뿐 아니라 **전체 wave 복원 후 실제 backend readback**을 원래 GPU의
+중립 유지 전 snapshot과 별도로 비교했다. Rack root 위치 차이는 최대3.82µm,
+세 support root 위치 차이는0이고 정규화 quaternion은 반올림 오차 내에서
+일치했다. 모든 support의 joint position/velocity도 정확히 일치했다.
+같은 GPU 실패 ML10개 요청의 CPU tick5 최대 normal force는5.137N,
+root speed는0.00116m/s로, GPU의63.96N/0.720m/s 충격이 재현되지 않았다.
+
+Constructor/contact warm-start와 flap 추첨은 bitwise로 맞추지 않았다.
+따라서 GPU 엔진 결함을 확정하지 않는다. 초기 좌표·롤러 q/v 차이만으로
+앞선 CPU 결과를 설명할 수 없다는 단서이며 물리 처리/초기화 경로를 더
+좁히기 위한 자료다. 남은 UL 원래 env34/logical9 실패도 분모에 유지한다.
+[실제 root·passive readback·원래 실패·접촉 trace·최종 백업 검증](assets/rl_v2_firm_flap_matched_CPU_reset_20261006.json).
+
+이 CPU 옵션은 frozen DEV 리셋 진단 전용이며 기존 GPU3 학습의 물리 backend를
+바꾸지 않는다. 전체 정책 평가나 CPU 물리 기반 학습을 추가한다면 명시적인
+데이터/물리 계약과 독립적인 TRAIN 배치를 사용해야 한다. GPU의 기존 Q/replay를
+CPU 학습에 그대로 가져오거나 이 DEV의 월드 상태를 TRAIN으로 사용하지 않는다.
 
 ## Strong SAC의 학습 후 전체 DEV는 개선되지 않음
 
