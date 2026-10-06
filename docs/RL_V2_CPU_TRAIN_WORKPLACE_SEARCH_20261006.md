@@ -250,3 +250,25 @@ stage 영역이 모두 일치하고 불일치0임을 확인했다. 초기 무효
 정상이며 개선 점수가 아니다. [실제 PhysX117개 대조](assets/rl_v2_CPU_region_v2_actual_PhysX_region_match_20261006.json).
 V2 수정·재시작·Notion 검증의 닫힌12개 보고 파일과 별도 receipt도 기존 Drive
 크기/MD5 검증을 마쳤다. 활성 학습 HDF/replay는 이 보고 복사에 포함하지 않는다.
+
+### v2 기준 평가 종료와 실제 TRAIN 시작
+
+원래 DEV128의 학습 전 기준 평가는 성공15·랙 충돌46·timeout56·초기 무효11로
+완료했다. 네 영역의 성공은 중간왼쪽10/32·중간오른쪽4/32·상단왼쪽1/32·상단오른쪽0/32다.
+15개 모두 실제 양손 pinch·stable hands·서로 다른 flap·hold≥0.25s·8mm proof lift와
+안전 위반 없음으로 지지하며 unsupported success는0이다. 상단오른쪽은 rack1·
+timeout28·초기 무효3으로, 안전 진입 후보에서도 파지 부족은 해결되지 않았다.
+
+기준 평가 후 저장한 checkpoint0의 primary model54개는 초기와 bitwise 동일하고
+모두 유한했다. Actor/normalizer9개도 같으며 actor/Q update0이었다. 이는 새 SAC
+학습의 개선이 아니다. 이전 two-shelf CPU23/128과도 제어 목표와 reset/contact
+이력이 달라 actor 학습 전후 비교로 쓰지 않는다.
+
+같은 writer가 fresh TRAIN으로 전환했고17:11 KST의 wave1/391step에서 실제 held
+TRAIN39735행·Q658회·actor0을 확인했다. Q loss0.000615는 유한했다. Actor는
+Q2048회 warmup와 최소32768행을 모두 만족한 뒤 업데이트한다. 최소 행 조건은
+이미 충족했고 Q warmup은1390회 남았다. TRAIN39735행에 DEV는 포함하지 않는다.
+Gripper epsilon30 탐색은 중간 양쪽에서 실제 닫힘을 만들고 있으며, 이 step의
+상단 손은 아직 접근 중(최근접 표면 거리 약20–24cm)이므로 그리퍼 파지 구간의
+탐색은 이후 확인한다. 현재 TRAIN 중간 통계를 성공률로 해석하지 않는다.
+[완료된 기준 평가·모델 불변·실제 Q 학습 근거](assets/rl_v2_CPU_region_v2_initial_DEV_and_TRAIN_20261006.json).
