@@ -92,6 +92,19 @@ Q 제어 입력·새 종료 보상을 확인했다. 초기 평가 동안 actor·
 이는 초기 정책의 기준과 critic 학습 진입이며 성능 개선이 아니다.
 [전체 초기 평가](assets/rl_v2_servo_retention_full_initial_DEV_20261007.json).
 
+첫 새 TRAIN128조건은 안전한 실제 양손 파지·유지·들기 성공 **8건**이었다.
+중간 좌5·우2, 상단 좌1·우0이며 랙90·시간 초과30건, 초기화 무효0건이다.
+실제 실행이 읽은 plan의 구역별 seed와 원래 layout 전체를 확인했다. 구역별
+seed 간격이 있으므로 연속128개 정수라고 가정하지 않았다.
+
+저장 완료된 actor0·Q1588 모델을 별도 보존해 자기 wave1의 성공8경로·3,525전이가
+은행에 들어갔고 평가 데이터가0임을 확인했다. 두 Q·두 target·critic 정규화는
+초기 입력에서 실제 바뀌었고 유한했다. Actor tensor는 동일하다. N-step 은행도
+자기 TRAIN 성공·실패의31,584행을 포함했다. 아직 actor warmup 중이므로 새
+성공 명령 유지 손실이 실제 actor minibatch에 사용됐다는 증거나 학습 후
+greedy 성공률 개선은 아니다.
+[첫 실제 TRAIN·닫힌 모델·은행 근거](assets/rl_v2_servo_retention_first_actual_TRAIN8_20261007.json).
+
 독립적인 새 TRAIN1,536조건과 원래 DEV128개를 사용한다. 네 구역은 wave마다
 32개씩이며 자신의 전체 초기 DEV부터 시작한다. 다른9개 계획과 겹치지 않는
 TRAIN seed를 사용하고 독립 FINAL은 사용하지 않았다. 초기 mean·jaw와
