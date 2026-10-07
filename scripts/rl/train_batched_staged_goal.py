@@ -29,6 +29,8 @@ def main():
     parser.add_argument('--measured-train-credit',
                         choices=('one-step', 'measured-nstep16', 'measured-nstep16-terminal25'), default=None,
         help='Opt-in actual-flap learner objective: real completed successful and failed TRAIN n-step credit')
+    parser.add_argument('--critic-episode-clock', choices=('task-remaining',), default=None,
+        help='Measured task time remaining for the critic; requires fresh matching inputs')
     parser.add_argument('--jaw-behavior', choices=('policy', 'joint-epsilon10', 'joint-epsilon30'), default=None,
         help='Actual-flap TRAIN collection only: 10 or 30 percent correlated uniform joint jaws with unchanged production gate')
     parser.add_argument('--body-behavior', choices=('off', 'ramped-arm-bias20', 'arm20-explore-rest-greedy'), default=None,
@@ -275,7 +277,14 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.rewards.contact_profile import (
             configured_reward_weights,frozen_actor_reward_contract,learning_termination_mask)
         reward_weights=configured_reward_weights(contract['reward_profile'])
+        state=torch.load(args.checkpoint,map_location=learner_device,weights_only=True)
+        from kuavo_isaaclab_scene.rl.multi_box.observations.task_timing import (
+            resolve_critic_episode_clock, TASK_TIMING_GROUP)
+        critic_episode_clock=resolve_critic_episode_clock(state,args.critic_episode_clock)
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
+        if critic_episode_clock is not None:
+            from kuavo_isaaclab_scene.rl.multi_box.managers.v2_observations import TaskTimeRemainingCfg
+            setattr(cfg.observations,TASK_TIMING_GROUP,TaskTimeRemainingCfg())
         from kuavo_isaaclab_scene.rl.multi_box.observations.flap_supplement import (
             SUPPLEMENTAL_GROUP,SUPPLEMENTAL_DIM,supplemental_perception_contract)
         supplemental=contract.get('supplemental_perception')
@@ -485,7 +494,6 @@ def main():
         batch,_=load_v2_grasp_demonstrations(args.demo_dataset,self_collision_enabled=cfg.multi_box.self_collision_enabled)
         sources={i:select_reference_episode(batch,i)['actor_obs'][0] for i in
                  {row['episode_index'] for w in waves for row in w['layouts']}}
-        state=torch.load(args.checkpoint,map_location=learner_device,weights_only=True)
         pilot_class=staged_policy_class(state.get('artifact_type'))
         if pilot_class is None:
             raise ValueError('Batched learner requires the separately initialized staged checkpoint')
@@ -762,6 +770,8 @@ def main():
                     pilot_options['jaw_behavior'] = args.jaw_behavior
                 if args.body_behavior is not None:
                     pilot_options['body_behavior'] = args.body_behavior
+                if args.critic_episode_clock is not None:
+                    pilot_options['critic_episode_clock'] = args.critic_episode_clock
                 if args.body_saturation_penalty is not None:
                     pilot_options['body_saturation'] = args.body_saturation_penalty
                 if args.jaw_saturation_penalty is not None:
@@ -876,6 +886,9 @@ def main():
                             if supplemental:
                                 r.update(actor_supplemental=pc[SUPPLEMENTAL_GROUP][i].copy(),
                                     next_actor_supplemental=tc[SUPPLEMENTAL_GROUP][i].copy())
+                            if critic_episode_clock is not None:
+                                r.update(critic_episode_remaining=pc[TASK_TIMING_GROUP][i].copy(),
+                                    next_critic_episode_remaining=tc[TASK_TIMING_GROUP][i].copy())
                             rows[i].append(r);total_rows+=1;wave_rows+=1
                             last[i]=dict(steps=step+1,success=r['success'],unsafe=r['unsafe'],
                                 invalid_reset=bool(bc['invalid_reset'][i]),time_out=bool(bc['time_out'][i]),

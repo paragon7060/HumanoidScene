@@ -83,7 +83,8 @@ class ReanchoredActualFlapSACPilot(ActualFlapResidualSACPilot):
                 or snapshot['source_Q_replay_entropy_and_optimizers_imported'] is not False \
                 or source.get('body_controller') != 'frozen_executed_nominal_actor_plus_learned_bounded_correction_v1' \
                 or source.get('body_correction_radius') != .15 or source.get('fixed_prior_radius') != .15 \
-                or source.get('actor_dim') != self.actor_dim or source.get('critic_dim') != self.critic_dim \
+                or source.get('actor_dim') != self.actor_dim \
+                or source.get('critic_dim') != self.critic_dim-int(self.critic_episode_clock is not None) \
                 or source.get('source_warm_start') != self.warm_start.contract \
                 or source.get('goal_center') != self.center.tolist() or source.get('goal_scale') != self.scale.tolist() \
                 or source.get('action_coordinates') != self.coordinates.name \

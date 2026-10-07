@@ -140,8 +140,10 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def __init__(self,*args,body_anchor_state=None,checkpoint=None,device='cpu',
                  measured_train_credit=None,jaw_behavior=None,jaw_saturation=None,
-                 success_jaw_balance=None,body_behavior=None,body_saturation=None,**kwargs):
+                 success_jaw_balance=None,body_behavior=None,body_saturation=None,critic_episode_clock=None,**kwargs):
         saved=torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
+        from ..observations.task_timing import resolve_critic_episode_clock
+        self.critic_episode_clock = resolve_critic_episode_clock(saved, critic_episode_clock)
         if saved is not None and saved.get('artifact_type')!=self.artifact_type:
             raise ValueError('Old observation/control replay cannot resume an actual-flap correction learner')
         if saved is not None:
@@ -351,7 +353,7 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
                 or source['action_coordinates']!=self.coordinates.name \
                 or source['shelf_templates']!=frozen_anchor_templates(self.stage.templates) \
                 or source['fixed_prior_radius']!=.05 or source['actor_dim']!=self.actor_dim-SUPPLEMENTAL_DIM \
-                or source['critic_dim']!=self.critic_dim-SUPPLEMENTAL_DIM \
+                or source['critic_dim']!=self.critic_dim-SUPPLEMENTAL_DIM-int(self.critic_episode_clock is not None) \
                 or snapshot['source_hidden']!=self.agent.config.hidden \
                 or self.fixed_prior_radius!=self.correction_radius or not self.free_grippers:
             raise ValueError('Frozen anchor must match nominal physical goals, .05 radius, safety and perception')
@@ -402,7 +404,7 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     @property
     def contract(self):
-        return super().contract|dict(supplemental_perception=supplemental_perception_contract(),
+        result = super().contract|dict(supplemental_perception=supplemental_perception_contract(),
             body_controller='frozen_executed_nominal_actor_plus_learned_bounded_correction_v1',
             body_correction_radius=self.correction_radius,
             body_correction_bounds='symmetric_min_radius_and_distance_to_absolute_goal_bound',
@@ -413,9 +415,14 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
             frozen_anchor_source_actor_updates=self.body_anchor_state['source_actor_updates'],
             extra_features_location='after_nominal_features_before_last_six_held_context',
             old_observation_control_Q_replay_imported=False)
+        if self.critic_episode_clock is not None:
+            result['critic_episode_clock'] = self.critic_episode_clock
+        return result
 
     def checkpoint_extras(self):
         result = dict(body_anchor_state=self.body_anchor_state, **self.body_behavior_extras())
+        if self.critic_episode_clock is not None:
+            result['critic_episode_clock'] = self.critic_episode_clock
         if self.body_saturation is not None:
             result.update(body_saturation=self.body_saturation,body_saturation_origin=self.body_saturation_origin)
         if self.success_jaw_balance is not None:
@@ -432,6 +439,8 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         return result
 
     def restore_experience_extras(self, state):
+        if state.get('critic_episode_clock') != self.critic_episode_clock:
+            raise ValueError('Critic episode clock checkpoint/replay provenance differs')
         if state.get('body_saturation') != self._saved_body_saturation:
             raise ValueError('Body saturation checkpoint/replay provenance differs')
         if self._saved_body_saturation is not None and state.get('body_saturation_origin') != self.body_saturation_origin:
@@ -460,6 +469,8 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def experience_extras(self):
         result = self.body_behavior_extras()
+        if self.critic_episode_clock is not None:
+            result['critic_episode_clock'] = self.critic_episode_clock
         if self.body_saturation is not None:
             result.update(body_saturation=self.body_saturation,body_saturation_origin=self.body_saturation_origin)
         if self.success_jaw_balance is not None:

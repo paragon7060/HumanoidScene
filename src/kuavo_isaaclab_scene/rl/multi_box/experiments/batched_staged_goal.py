@@ -196,6 +196,9 @@ def observe_measured_held_rows(pilot,stages,ids,previous,terminal,reward,termina
     if getattr(pilot,'supplemental_observation_dim',0):
         from ..observations.flap_supplement import SUPPLEMENTAL_GROUP
         options['supplemental']=terminal[SUPPLEMENTAL_GROUP][valid_ids].to(device)
+    if getattr(pilot, 'critic_episode_clock', None) is not None:
+        from ..observations.task_timing import TASK_TIMING_GROUP
+        options['critic_episode_remaining'] = terminal[TASK_TIMING_GROUP][valid_ids].to(device)
     pilot.observe(tuple(v[keep.to(v.device)] for v in previous),terminal['policy'][valid_ids].to(device),
         torch.cat((terminal['policy'],terminal['critic']),-1)[valid_ids].to(device),
         reward[valid_ids].to(device),terminated[valid_ids].to(device),clocks[keep].to(device),**options)

@@ -184,3 +184,18 @@ class ActualFlapRelationsCfg(ObservationGroupCfg):
 class V2ObservationsCfg:
     policy: V2PolicyCfg = V2PolicyCfg()
     critic: V2CriticCfg = V2CriticCfg()
+
+
+def task_time_remaining(env):
+    from ..scene.reset_settling import reset_settling_step
+    from ..observations.task_timing import task_remaining_fraction
+    return task_remaining_fraction(reset_settling_step(env).ready_steps, env.max_episode_length)
+
+
+@configclass
+class TaskTimeRemainingCfg(ObservationGroupCfg):
+    remaining = Term(func=task_time_remaining)
+
+    def __post_init__(self):
+        self.concatenate_terms = True
+        self.enable_corruption = False

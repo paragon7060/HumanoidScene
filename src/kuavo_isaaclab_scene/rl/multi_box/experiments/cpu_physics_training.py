@@ -75,6 +75,9 @@ def act_measured_held_rows(pilot, stages, ids, observation, clocks, *, supplemen
     options = {}
     if supplemental_group is not None:
         options['supplemental'] = observation[supplemental_group][ids].to(pilot.device)
+    if getattr(pilot, 'critic_episode_clock', None) is not None:
+        from ..observations.task_timing import TASK_TIMING_GROUP
+        options['critic_episode_remaining'] = observation[TASK_TIMING_GROUP][ids].to(pilot.device)
     command, previous = pilot.act(observation['policy'][ids].to(pilot.device),
         torch.cat((observation['policy'], observation['critic']), -1)[ids].to(pilot.device),
         clocks.to(pilot.device), exploration_ids=ids.to(pilot.device), **options)

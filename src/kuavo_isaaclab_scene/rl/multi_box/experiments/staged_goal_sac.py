@@ -199,7 +199,8 @@ class StagedGoalSACPilot:
         self.prior_schedule_actor_origin=0.
         self.success_schedule_actor_origin=0.
         self.actor_dim = warm_start.actor_dim+CONTEXT_DIM+self.supplemental_observation_dim
-        self.critic_dim = 533+CONTEXT_DIM+self.supplemental_observation_dim
+        self.critic_dim = 533+CONTEXT_DIM+self.supplemental_observation_dim+int(
+            getattr(self, 'critic_episode_clock', None) is not None)
         self.warmup = 2048
         self.fade = 20000
         self.latest = {}
@@ -445,8 +446,10 @@ class StagedGoalSACPilot:
         progress=min(1.,max(0,self.actor_updates-self.success_schedule_actor_origin)/config['fade_actor_updates'])
         return config['final_replay_fraction']+(config['initial_replay_fraction']-config['final_replay_fraction'])*(1-progress)
 
-    def observations(self, raw, critic, index, supplemental=None):
+    def observations(self, raw, critic, index, supplemental=None, *, critic_episode_remaining=None):
         ao, co = self.warm_start.observations(raw, critic, index, self.anchor)
+        if getattr(self, 'critic_episode_clock', None) is None and critic_episode_remaining is not None:
+            raise ValueError('This critic retains its original held-phase clock')
         context = staged_context(raw, self.stage, self.radius)
         if self.supplemental_observation_dim:
             if supplemental is None or supplemental.shape!=(len(raw),self.supplemental_observation_dim) \
@@ -455,15 +458,20 @@ class StagedGoalSACPilot:
             ao=torch.cat((ao,supplemental),-1);co=torch.cat((co,supplemental),-1)
         elif supplemental is not None:
             raise ValueError('This policy has no supplemental perception contract')
-        return torch.cat((ao, context), -1), torch.cat((co, context), -1)
+        co = torch.cat((co, context), -1)
+        if getattr(self, 'critic_episode_clock', None) is not None:
+            from ..observations.task_timing import add_critic_task_time
+            co = add_critic_task_time(co, critic_episode_remaining)
+        return torch.cat((ao, context), -1), co
 
     @torch.no_grad()
-    def act(self, raw, critic, index, *, exploration_ids=None, sample_frozen_train_behavior=False,supplemental=None):
+    def act(self, raw, critic, index, *, exploration_ids=None, sample_frozen_train_behavior=False,supplemental=None,critic_episode_remaining=None):
         if type(sample_frozen_train_behavior) is not bool or (sample_frozen_train_behavior and self.training):
             raise ValueError('Frozen TRAIN behavior is an explicit collection-only option, without optimization')
         if self.anchor is None:
             self.anchor = self.coordinates.box_anchor(raw).clone()
-        ao, co = self.observations(raw, critic, index,supplemental)
+        ao, co = self.observations(raw, critic, index,supplemental,
+            critic_episode_remaining=critic_episode_remaining)
         deterministic=(not self.training or self.replay.size<64) and not sample_frozen_train_behavior
         if self.exploration_correlation and not deterministic:
             if self.goal_exploration is None:
@@ -496,11 +504,12 @@ class StagedGoalSACPilot:
         self.arm_behavior=(EpisodeArmExploration(num_envs,self.device,self.episode_arm_exploration)
                            if self.episode_arm_exploration is not None else None)
 
-    def observe(self, previous, next_raw, next_critic, reward, terminated, index,*,supplemental=None):
+    def observe(self, previous, next_raw, next_critic, reward, terminated, index,*,supplemental=None,critic_episode_remaining=None):
         if not self.training:
             return
         ao, co, action = previous
-        na, nc = self.observations(next_raw, next_critic, index+1,supplemental)
+        na, nc = self.observations(next_raw, next_critic, index+1,supplemental,
+            critic_episode_remaining=critic_episode_remaining)
         batch = dict(actor_obs=ao, critic_obs=co, action=action, next_actor_obs=na,
                      next_critic_obs=nc, reward=reward.detach(), terminated=terminated.detach())
         self.replay.add(**batch)

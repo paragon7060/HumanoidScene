@@ -45,11 +45,15 @@ def sha256(path):
 
 
 def restored_agent(state):
+    from kuavo_isaaclab_scene.rl.multi_box.observations.task_timing import resolve_critic_episode_clock
+    if resolve_critic_episode_clock(state) != state['goal_contract'].get('critic_episode_clock'):
+        raise ValueError('Saved critic episode clock and feature contract differ')
     from kuavo_isaaclab_scene.rl.multi_box.experiments.servo_success_retention import (
         ServoRetentionGentleSACPilot,ServoRetainedCorrectionSAC,servo_success_retention_contract,
     )
     contract = state['goal_contract']
-    if (contract['actor_dim'], contract['critic_dim'], state['action_dim']) != (518, 577, 21):
+    critic_dim = 578 if state.get('critic_episode_clock') is not None else 577
+    if (contract['actor_dim'], contract['critic_dim'], state['action_dim']) != (518, critic_dim, 21):
         raise ValueError('This exporter requires the actual-flap bounded held-base SAC contract')
     retained = state.get('artifact_type') == ServoRetentionGentleSACPilot.artifact_type
     if retained and contract.get('success_body_retention')!=servo_success_retention_contract():
@@ -91,7 +95,7 @@ def restored_agent(state):
         return nominal_goal
 
     agent_class=ServoRetainedCorrectionSAC if retained else BoundedCorrectionHybridSAC
-    agent = agent_class(518, 577, 21, SACConfig(**state['config']), 'cpu',
+    agent = agent_class(518, critic_dim, 21, SACConfig(**state['config']), 'cpu',
         action_projector=AbsoluteGoalJawProjector(),
         validated_jaw_prior_confidence=contract['validated_jaw_prior_confidence'],
         jaw_prior_residual_gain=contract['jaw_prior_residual_gain'])
@@ -146,7 +150,16 @@ def episode_values(episode, outcome, state, agent, prior):
     ao = torch.cat((features, anchor, supplemental[start:], context), -1)
     co = torch.cat((critic[start:], pose_clock(raw, clock_index, horizon), anchor,
         supplemental[start:], context), -1)
-    if ao.shape[1] != 518 or co.shape[1] != 577 or not torch.isfinite(co).all():
+    clock = state.get('critic_episode_clock')
+    if clock is not None:
+        from kuavo_isaaclab_scene.rl.multi_box.observations.task_timing import (
+            critic_episode_clock_config, VARIANT, add_critic_task_time)
+        if clock != critic_episode_clock_config(VARIANT) or clock != state['goal_contract'].get('critic_episode_clock'):
+            raise ValueError('Saved measured task-clock contract differs')
+        if 'critic_episode_remaining' not in rows:
+            raise ValueError('Q export requires actual recorded pre-autoreset task time')
+        co = add_critic_task_time(co, torch.from_numpy(rows['critic_episode_remaining'][start:]))
+    if ao.shape[1] != 518 or co.shape[1] != state['goal_contract']['critic_dim'] or not torch.isfinite(co).all():
         raise ValueError('Invalid reconstructed critic observations')
     goals = agent.act(ao, deterministic=True)
     center = raw.new_tensor(state['goal_contract']['goal_center'])

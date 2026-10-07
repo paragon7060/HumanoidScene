@@ -61,6 +61,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 실제 성공 제어 명령을 유지하는 보조 손실 | [Q·성공 경사 진단·동등한 servo 목표 구간·선택형 구현](docs/RL_V2_SERVO_SUCCESS_RETENTION_20261007.md) |
 | 실제 정책 동작80%·팔 탐색20%로 TRAIN 수집 | [선택형 수집·기존 설정 유지·실제 복원·사용법](docs/RL_V2_TRAIN_POLICY_COLLECTION_20261007.md) |
 | 실패 종료 동작의 critic 학습을 보강 | [전체 평가·실제 TRAIN Q 진단·종료 표본25% 옵션](docs/RL_V2_TERMINAL_CRITIC_CREDIT_20261007.md) |
+| Critic에 실제 남은 task 시간 추가 | [기존 파지 시간 유지·새 입력578·준비 및 복원 검사](docs/RL_V2_CRITIC_TASK_TIME_20261007.md) |
 | 네 위치에서 파지한 SAC의 장기 추가 학습 | [최종19/128·상단 오른쪽3건·같은 모델/replay 복원·새 TRAIN3072](docs/RL_V2_TAIL_LONG_RESUME_20261007.md) |
 | 단단한 flap과 초기 배치 실패 분리 | [실제 범위·원래 박스 identity·frozen 리셋 진단](docs/RL_V2_FIRM_FLAP_INITIAL_GUARD_20261006.md) |
 | 접근 후 그리퍼 닫힘 탐색 | [실제 실패 TRAIN 진단·10% joint jaw 행동 탐색·평가 보존](docs/RL_V2_TRAIN_JAW_COVERAGE_20261006.md) |
