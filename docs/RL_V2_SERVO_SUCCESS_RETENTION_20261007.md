@@ -171,3 +171,11 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_serv
 물리 성능은 별도 실행에서 확인해야 한다. 독립 FINAL은 사용하지 않았다.
 대표 평가의 [Q 영상4개](RL_V2_EVAL_Q_REWARD_20261006.md)는 이전 정책과 당시 보상이며,
 새 보조 손실이나 새 보상 영상으로 소급 표시하지 않는다.
+
+## 첫 학습 후 평가의 모델 보존
+
+새 TRAIN384조건을 마친 뒤 원래 DEV128의 첫 학습 후 평가에 진입했다.
+평가와 같은 actor693·Q4818의 닫힌 체크포인트를 읽기 전용 사본으로 보존했고
+모든 모델 값의 유한성·writer 소유자·CUDA3를 확인했다. 전체128개 평가는
+아직 완료 전이며 초기23/128 대비 개선을 주장하지 않는다.
+[일치 평가 모델](assets/rl_v2_servo_retention_first_learned_DEV4_matching_model_20261007.json).
