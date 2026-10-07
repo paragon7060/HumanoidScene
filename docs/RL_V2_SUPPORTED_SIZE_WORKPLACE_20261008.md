@@ -166,3 +166,26 @@ hold의 링크·속도·기존 normal contact trace를 남긴다. 새 sensor나 
 이번 read-only trace 경로와 크기별 연결의 관련113개 검사를 통과했다.
 GPU를 노출하지 않은 실행에서 CUDA 복원2개는 제외했다. 이전135개 연결
 검사도 통과했으며, 어느 검사도 새로운 물리 파지 성공을 의미하지 않는다.
+
+## 재생성 전 기록에서 확인된 원인 범위
+
+같은 TRAIN 배치의 초기화 trace가 저장됐다. 전체900스텝 파지 진단은 아직
+진행 중이므로 그 진단의 새 성공률을 주장하지 않는다. 재생성 전 최초 실패
+27개 중medium이26개다. Medium의19개는 배정 구역·지지면 이탈이고7개는
+안정화 시간 초과다. 세부 판정은footprint 밖16개·지지면 밖7개이며 서로
+겹칠 수 있다. 이 최초 실패들은 quaternion·위치·속도가 모두 유한했다.
+
+**SAC 파지 동작 전 neutral hold에서 이미 움직임이 커졌다.** 중간 오른쪽
+medium 표본env40은 초기 속도0·정상 footprint·지지면 clearance약9.9mm에서,
+첫 물리 스텝에선속도1.64m/s·각속도15.57rad/s·기존 source-body net normal
+접촉111.4N을 기록했다. 이후 지지면에서 튀어 올라 구역을 벗어났다.
+같은small 표본env0은 첫 스텝선속도0.00117m/s·각속도0.00980rad/s·접촉5.09N이었다.
+다른medium 표본은 명목상 지지면 clearance가 음수가 되거나 흔들림이
+가라앉지 않은 기록도 있다.
+[원래 상태·neutral trace·최초 실패 근거](assets/rl_v2_medium_original_reset_causal_trace_20261008.json).
+
+이 기록은 **초기화·접촉 안정성의 병목이며 SAC가 파지 명령을 내서 만든 실패가
+아님**을 보여준다. 다만 현재net normal reporter는 다른 collider와 마찰력을
+구분하지 못하므로 초기 geometry 관통이나 접촉 상대를 아직 특정하지 않는다.
+실제 collision geometry·복원된 몸체·지지면 위치를 대조한 뒤 수정해야 한다.
+무효 조건을 약하게 하거나 박스를 고정해 문제를 숨기지 않는다.
