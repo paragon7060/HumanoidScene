@@ -89,3 +89,9 @@ actor·Q·normalizer·replay 갱신을 끈 평가이며 새 조합의 성공률�
 [실제 평가 진입·GPU3 격리](assets/rl_v2_regional_actor_actual_frozen_DEV_launch_20261008.json).
 노션에도 같은 구조·비교 그림을 네이티브 image로 첨부했고 기존39개 media와
 5개 native table의 내용·순서를 그대로 유지했다. 현재 media는40개다.
+
+GPU3에서도 실제 full trainer 복원과 같은 모델·빈 optimizer를 확인했다.
+실제 과거 TRAIN64행을 cuda:0에서 샘플링해 구역 선택과 body·jaw 손실의
+forward/backward가 유한하고 네 head 모두 학습 가능한 것을 확인했다.
+Optimizer step이나 가짜 Q 전이 저장, 기존 실행 변경은 하지 않았다.
+[실제 GPU 복원·표본·경사 검사](assets/rl_v2_regional_actor_GPU_restore_and_gradients_20261008.json).
