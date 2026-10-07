@@ -43,6 +43,25 @@ DEV128을 먼저 수행하고 이후 실제 TRAIN 경험으로 업데이트한�
 프로세스 시작 검사는 물리적 파지 성공의 증거가 아니다.**
 [실제 초기화·PID·격리·원래 조건 근거](assets/rl_v2_all6_failed_bootstrap_SAC_start_20261008.json).
 
+후속 실제 시작 검사에서 첫 DEV control step211, actor/Q/온라인 replay0을
+확인했다. S63·leju-twofinger·CUDA3·learner cuda:0, 준비본과 실제`agent.yaml`·
+progress의 전체 정책 계약, 현재 manifest의 물리·보상·성공·안전·DR 필드가
+일치했다. 격리 소스230개도 시작 시 hash와 같았다. 평가와 같은 GPU 모델
+체크포인트는 아직 저장 전이며 첫 전체 평가 결과도 미완료다.
+[실제 시작과 검증 범위](assets/rl_v2_all6_failed_bootstrap_actual_startup_20261008.json).
+
+`manifest.json` 안의 nested `goal_contract`는 기존 training 입력의 과거
+nominal 초기화 설명으로 남아 있었다. 실제 현재 정책의 출처는`agent.yaml`·
+checkpoint와 progress이며 준비본과 일치한다. 물리·보상·안전 계약의 차이가
+아니며, 현재 파일을 뒤늦게 덮어 Drive의 immutable 검증을 깨지 않았다.
+이를 구분한`verification.json`을 새 실행에 추가했고 다음 실행의 metadata
+생성은 실제 checkpoint 계약을 사용하도록 수정해야 한다.
+
+Notion 중간 보고에도 새 설정과 한계를 반영했다. 재생 가능한 H264/yuv420p
+영상2개와 실제 그림1개를 native 블록으로 추가했으며 기존51개 media의
+내용·순서와 native table5개를 모두 보존했다.
+[Notion 갱신·영상 형식·기존 자료 보존 확인](assets/rl_v2_all6_Notion_verification_20261008.json).
+
 소스는 격리 commit`8b061dbee5e2c8fbb2a9a09def81f99fc0133a27`이다. 진행 중인
 원래 접근 비교의 같은 소스 검사를 보호하기 위해 별도 worktree에서 실행한다.
 Main 통합은 해당 비교의 정상 종료와 원래 소스 검증 후 진행한다. 기존 checkout
