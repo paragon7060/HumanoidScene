@@ -98,6 +98,57 @@ DEV4 모델을 보존하는 CPU 관찰자도 실제 실행을 확인했다. 시�
 실제 manifest와 일치했다. 이는 실행 연결 확인이며 학습 후 성공률은 아니다.
 [첫 실제 평가의 계약·기억 연결](assets/rl_v2_actor_memory_conservative_first_actual_DEV_20261007.json).
 
+초기 전체 평가는 **27/128(중간 좌16·우11, 상단 양쪽0)**이었다. 유효117·초기
+무효11건을 원래 분모에 포함했다. 실제 같은 모델0의 모든 모델·정규화 tensor가
+준비 입력과 정확히 같고 유한함을 확인해 RAM에 따로 보존했다. 이 값은 학습 전
+기준이며 새 성공 기억 학습의 성능 향상으로 세지 않는다.
+[전체 초기 평가·동일 모델](assets/rl_v2_actor_memory_conservative_initial_full_DEV_20261007.json).
+
+## 상단 실패와 성공 동작 보존을 따로 확인하기
+
+완료한 학습률 축소 DEV4의 상단 오른쪽32조건은 모두 시간 초과였다. 종료 시
+왼손과 flap 거리의 중앙값은 **13.9cm**, 오른손은 **4.6cm**였다. 양손이 모두
+5cm 안에 들어온 조건은0개였고 실제 양손 파지도0개였다. 상단 왼쪽도 왼손
+중앙값9.2cm로 오른손3.2cm보다 멀었다. 이는 종료 순간 집계이며 접촉 시작이나
+전체 경로 이력이라고 해석하지 않는다.
+[완료 평가의 손 거리](assets/rl_v2_conservative_first_DEV_terminal_hand_geometry_20261007.json).
+
+검증한 과거 TRAIN27경로의 동일12,476관측에 초기 모델·학습률1e-5의705회
+모델·1e-6의702회 모델을 넣고 실제 servo decoder와 jaw gate로 비교했다. 과거
+상단 왼쪽 성공의 마지막64관측 중 양손 닫기 라벨이 있었던 관측에서, 양손을
+함께 닫는 비율은 경로 균등 평균 **91.4→54.7→92.0%**였다. 학습률을 낮춘
+모델이 닫기를 더 잘 보존했지만 실제 새로운 성공률을 뜻하는 수치는 아니다.
+
+상단 오른쪽은 과거 성공1경로뿐이다. 마지막64관측의 실제 양손 닫기24관측에
+세 모델 모두 양손을 동시에 닫지 않았다. 초기 모델의 필요한 닫기 확률은 왼손
+17.4%·오른손34.6%였고,705회 모델에서는1.9%·10.7%였다. 접근 실패에 더해
+성공했던 상태에서의 닫기 동작도 부족함을 확인했다. 현재 기억 학습 후 같은
+명령 지표와 새 전체 평가를 함께 비교한다.
+[동일 TRAIN 관측의 실제 명령 비교](assets/rl_v2_successful_TRAIN_actor_retention_same_states_20261007.json).
+
+![성공 동작 보존과 상단 왼손 접근 문제](assets/rl_v2_actor_retention_and_upper_hand_geometry_20261007.png)
+
+실제 production 손실을 CPU에서 따로 미분했다. 세 모델의 기억 손실은 이 과거
+상단 오른쪽 닫기 관측에서 양손의 닫기 확률을 높이는 경사 방향을 보였다. 모델·
+normalizer·원본 파일과 optimizer는 바꾸지 않았다. 이것은 기억 손실만의 국소
+진단이며 Q·entropy·정규화 항과 Adam을 합친 실제 SAC 갱신이나 물리 성공의
+예측으로 해석하지 않는다. 추가 가중치 변경을 하기 전에 현재 실행의 실제
+기억 표본 사용과 전체 DEV 개선을 확인한다.
+[손실 방향 확인](assets/rl_v2_actor_memory_retention_gradient_probes_20261007.json).
+
+재현 가능한 CPU 비교 도구는 다음과 같다. 입력 proof에는 보존한 모델의 경로·
+SHA256·actor/Q 갱신 수가 있어야 한다. Actor 관측·명령만 검증한 기억 파일을
+사용하며 Q·보상·평가 데이터를 넣거나 optimizer를 실행하지 않는다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src python scripts/rl/compare_actor_train_memory.py \
+  --actor-memory /absolute/path/to/verified/actor_only_successful_TRAIN.pt \
+  --matching-memory-proof /absolute/path/to/verified_physical_audit.json \
+  --checkpoint-proof /absolute/path/to/immutable_model0_proof.json \
+  --checkpoint-proof /absolute/path/to/immutable_learned_model_proof.json \
+  --output /absolute/path/to/new_unique_comparison.json
+```
+
 기존 Drive 연결로 초기 체크포인트·계약7개의 크기·MD5를 검증했다.
 학습 중300초 업로드·최신2개 보존,
 종료 후 닫힌 로그 검증을 사용한다. Raw HDF/replay는 RAM에 남으며 체크포인트·
