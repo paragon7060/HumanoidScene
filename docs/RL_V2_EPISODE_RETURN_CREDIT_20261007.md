@@ -68,9 +68,13 @@ Q·4개 optimizer·온라인 replay·성공 및 누적 보상 은행이0임을 �
 고유 실행 `batch_sac_20261007_164353_8539b9`의 실제 writer882589·supervisor882489, 서비스 실행·
 `CUDA_VISIBLE_DEVICES=3`과 새 누적 보상·남은 시간 옵션을 확인했다.
 기존6개 writer를 유지했고 새 관리자의 체크포인트·계약·로그 전용 범위와
-300초 주기·최신2개 보존도 확인했다. 첫 실제 DEV의 agent·보상 은행 적용과
-전체128개 성능은 확인 전이며 시작 성공을 성능 개선으로 세지 않는다.
+300초 주기·최신2개 보존도 확인했다. 이후 실제 첫 DEV에 진입해 agent·progress·
+초기 체크포인트의 계약 일치, bootstrap 없는 누적 보상 은행, actor518/critic578,
+servo Q·작은 표준편차·성공 명령 유지, 성공+8·종료 잠재값 및10cm 상대 낙하
+reward hook을 확인했다. Actor·Q·온라인 replay·성공·누적 보상 은행은0이다.
+전체128개 성능은 확인 전이며 시작·적용 확인을 성능 개선으로 세지 않는다.
 [실제 실행·동작 보존·옵션·백업 범위](assets/rl_v2_episode_return33_actual_launch_20261007.json).
+[실제 첫 평가·learner 은행·reward hook](assets/rl_v2_episode_return33_first_actual_DEV_20261007.json).
 
 루트 디스크의 일반 사용자 여유 공간이0이 된 것을 확인했다. 우리 소유의
 writer·supervisor가 모두 종료했고 기존 Drive의 크기·MD5가 검증된 두 과거
