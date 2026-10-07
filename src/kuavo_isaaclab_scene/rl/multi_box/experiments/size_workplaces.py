@@ -11,10 +11,22 @@ from ..spec import MultiBoxSpec
 from .region_workplaces import PERCEIVED_REGION_NAMES, validate_region_workplaces
 
 FORMAT='TRAIN_measured_supported_size_workplaces_v1'
+BOOTSTRAP_FORMAT='TRAIN_failed_supported_size_workplace_bootstrap_v1'
+FORMATS=(FORMAT,BOOTSTRAP_FORMAT)
 KINDS={region.name:tuple(k for k in ('small','medium') if k in region.allowed_box_types)
        for region in DEFAULT_RACK_REGIONS}
 TERMINALS=('success','unsafe','initial_invalid','time_out','numerical_failure','other_terminal')
 CELLS=logical_cells(MultiBoxSpec())
+
+
+def failed_bootstrap_contract():
+    return dict(name='closed_failed_TRAIN_candidate_initialization_v1',
+        failed_candidates_not_claimed_safe_or_successful=True,
+        calibration_rows_not_imported_into_Q_or_reward_banks=True,
+        fresh_actual_TRAIN_experience_required=True,
+        collision_termination_reward_and_success_rules_unchanged=True,
+        complete_all_six_supported_region_size_targets_required=True,
+        original_randomization_and_independent_FINAL_required=True)
 
 
 def _sha(value):
@@ -55,9 +67,10 @@ def _evidence(cases):
 
 
 def validate_size_workplaces(contract):
+    bootstrap=contract.get('name')==BOOTSTRAP_FORMAT
     source=contract.get('source_region_workplaces') or {}
     validate_region_workplaces(source)
-    if (contract.get('name')!=FORMAT or contract.get('source_shelf_templates')!=source['source_shelf_templates']
+    if (contract.get('name') not in FORMATS or contract.get('source_shelf_templates')!=source['source_shelf_templates']
         or contract.get('perceived_region_names_by_id')!=list(PERCEIVED_REGION_NAMES)
         or set(contract.get('regions',{}))!=set(KINDS)
         or contract.get('source_Q_replay_rows_imported')!=0
@@ -65,6 +78,10 @@ def validate_size_workplaces(contract):
         or contract.get('independent_FINAL_used') is not False
         or not _sha(contract.get('source_checkpoint_SHA256'))):
         raise ValueError('Supported size targets require their original sources and fresh Q/replay')
+    if bootstrap and contract.get('failed_candidate_bootstrap')!=failed_bootstrap_contract():
+        raise ValueError('Failed-candidate initialization needs its explicit non-success contract')
+    if not bootstrap and 'failed_candidate_bootstrap' in contract:
+        raise ValueError('Do not mix failed bootstrap with qualified size targets')
     searches=contract.get('frozen_TRAIN_searches',{})
     if set(searches)!={'discovery','confirmation'}:
         raise ValueError('Size targets need both discovery and a fresh TRAIN confirmation')
@@ -120,7 +137,14 @@ def validate_size_workplaces(contract):
             safe=(evidence['unsafe']==evidence['numerical_failure']==evidence['other_terminal']==0
                   and evidence['requested']-evidence['initial_invalid']>=3
                   and confirmed['requested']-confirmed['initial_invalid']>=1)
-            if not successful and not safe:
+            # Collision failures are useful starting observations for online
+            # learning. They remain failures, never safe/positive Q labels.
+            # Keep the full disjoint calibration requests and require a real,
+            # non-numerical attempt in each search for this exact asset.
+            failed_start=(bootstrap and evidence['numerical_failure']==0
+                and evidence['other_terminal']==0
+                and all(len(rows)>sum(r['initial_invalid'] for r in rows) for rows in cases.values()))
+            if not successful and not safe and not failed_start:
                 raise ValueError('A size target requires fresh confirmed success or measured safe attempts')
             template=entry.get('template',{})
             if (entry.get('TRAIN_evidence')!=evidence or entry.get('fresh_confirmation_evidence')!=confirmed
@@ -134,8 +158,11 @@ def validate_size_workplaces(contract):
     return contract
 
 
-def build_size_workplaces(waypoints,discovery,confirmation,selections,*,results_SHA256,checkpoint_SHA256):
+def build_size_workplaces(waypoints,discovery,confirmation,selections,*,results_SHA256,checkpoint_SHA256,
+                          bootstrap_failed_attempts=False):
     """Summaries must first come from summarize_workplace_results on closed runs."""
+    if type(bootstrap_failed_attempts) is not bool:
+        raise ValueError('Failed-candidate initialization must be an explicit boolean')
     regional=waypoints.get('region_workplaces') or {}
     validate_region_workplaces(regional)
     if set(selections)!=set(KINDS) or set(results_SHA256)!={'discovery','confirmation'}:
@@ -176,13 +203,15 @@ def build_size_workplaces(waypoints,discovery,confirmation,selections,*,results_
                 template=dict(source_split='train',measured_success=successful,box_size_m=list(BOX_DIMENSIONS_M[kind]),
                     base_minus_initial_box_xy_rack_m=[original['base_minus_initial_box_xy_rack_m'][i]+offset[i] for i in range(2)],
                     base_yaw_rack_rad=original['base_yaw_rack_rad']+offset[2]))
-    contract=dict(name=FORMAT,source_region_workplaces=deepcopy(regional),
+    contract=dict(name=BOOTSTRAP_FORMAT if bootstrap_failed_attempts else FORMAT,source_region_workplaces=deepcopy(regional),
         source_shelf_templates=deepcopy(regional['source_shelf_templates']),regions=regions,
         perceived_region_names_by_id=list(PERCEIVED_REGION_NAMES),frozen_TRAIN_searches=searches,
         source_checkpoint_SHA256=checkpoint_SHA256,source_Q_replay_rows_imported=0,
         fresh_matching_Q_replay_required=True,independent_FINAL_used=False,
         all_supported_size_generalization_unproven=True,
         original_box_base_background_firm_flap_randomization_preserved=True)
+    if bootstrap_failed_attempts:
+        contract['failed_candidate_bootstrap']=failed_bootstrap_contract()
     validate_size_workplaces(contract)
     result=deepcopy(waypoints);result.pop('region_workplaces')
     return result|dict(size_workplaces=contract)

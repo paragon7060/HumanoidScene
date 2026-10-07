@@ -57,7 +57,7 @@ class StagedBaseHoldDiagnostic:
             template=regional['regions'][region]['template']
         if template.get('source_split') != 'train' or not template.get('measured_success'):
             if self.region_workplace is None or not self.region_workplace['unproven_grasp_candidate']:
-                raise ValueError('Workplace candidates require successful TRAIN or explicit safe-candidate evidence')
+                raise ValueError('Workplace candidates require successful TRAIN or an explicit validated candidate contract')
         size=raw.new_tensor(template['box_size_m'])
         self.unmeasured_size_workplace_probe=None
         if size.shape!=(3,):

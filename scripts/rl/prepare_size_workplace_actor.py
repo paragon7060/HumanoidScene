@@ -15,13 +15,15 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.actor_train_memory import (
     ActorTrainMemory,compatibility_contract,structure_sha256)
 from kuavo_isaaclab_scene.rl.multi_box.experiments.regional_actor_servo import (
     RegionalActorMemorySACPilot,validate_regional_actor_state)
-from kuavo_isaaclab_scene.rl.multi_box.experiments.size_workplaces import validate_size_workplaces
+from kuavo_isaaclab_scene.rl.multi_box.experiments.size_workplaces import BOOTSTRAP_FORMAT,validate_size_workplaces
 
 
-def prepare(initial,experience,waypoints,*,source_checkpoint_SHA256):
+def prepare(initial,experience,waypoints,*,source_checkpoint_SHA256,allow_failed_bootstrap=False):
     require_pristine_learning_state(initial,experience,artifact_types=(RegionalActorMemorySACPilot.artifact_type,))
     validate_regional_actor_state(initial)
     typed=validate_size_workplaces(waypoints['size_workplaces'])
+    if type(allow_failed_bootstrap) is not bool or (typed['name']==BOOTSTRAP_FORMAT and not allow_failed_bootstrap):
+        raise ValueError('Failed size candidates require explicit --allow-failed-bootstrap')
     if (typed['source_checkpoint_SHA256']!=source_checkpoint_SHA256
         or typed['source_region_workplaces']!=initial['goal_contract']['shelf_templates']
         or typed['source_shelf_templates']!=waypoints['shelves']
@@ -42,6 +44,8 @@ def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     for name in ('initial-checkpoint','training-manifest','waypoints','output-dir'):
         p.add_argument('--'+name,type=Path,required=True)
+    p.add_argument('--allow-failed-bootstrap',action='store_true',
+        help='Explicitly permit the all-six failed-candidate initialization; physical success and safety remain unchanged')
     args=p.parse_args();torch.set_num_threads(1)
     paths=(args.initial_checkpoint,args.initial_checkpoint.parent/'staged_goal_experience.pt',
         args.training_manifest,args.waypoints)
@@ -52,7 +56,8 @@ def main():
     physical=json.loads(data[str(args.training_manifest)]);waypoints=json.loads(data[str(args.waypoints)])
     expected=initial['goal_contract']['physical_contract']
     if {k:physical.get(k) for k in expected}!=expected:raise ValueError('Original physical task contract differs')
-    state,replay=prepare(initial,experience,waypoints,source_checkpoint_SHA256=hashes[str(args.initial_checkpoint)])
+    state,replay=prepare(initial,experience,waypoints,source_checkpoint_SHA256=hashes[str(args.initial_checkpoint)],
+        allow_failed_bootstrap=args.allow_failed_bootstrap)
     args.output_dir.mkdir(mode=0o700,parents=True,exist_ok=False)
     torch.save(state,args.output_dir/'checkpoint_00000000.pt')
     torch.save(replay,args.output_dir/'staged_goal_experience.pt')
@@ -66,6 +71,9 @@ def main():
         old_actor_only_TRAIN_reference_memory_contract_outcomes_and_rows_unchanged=True,
         old_references_used_only_at_original_observed_held_xy_yaw=True,
         six_supported_region_size_targets_from_two_disjoint_physical_TRAIN_searches=True,
+        failed_candidate_bootstrap=state['goal_contract']['shelf_templates']['name']==BOOTSTRAP_FORMAT,
+        failed_candidates_NOT_labeled_safe_or_successful=True,
+        calibration_failure_rows_NOT_imported_into_learning=True,
         original_reward_success_safety_and_randomization_preserved=True,
         physical_full_trainer_restore_and_learning_still_required=True,
         independent_FINAL_unused=True,goal_not_complete=True)

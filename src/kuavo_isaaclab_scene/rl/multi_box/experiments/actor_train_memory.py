@@ -36,8 +36,8 @@ def compatibility_contract(goal):
     physical = {k: deepcopy(v) for k, v in goal['physical_contract'].items()
                 if k not in ('reward_profile', 'discount')}
     actor={k:deepcopy(goal.get(k)) for k in keys}
-    from .size_workplaces import FORMAT as SIZE_FORMAT,validate_size_workplaces
-    if isinstance(actor['shelf_templates'],dict) and actor['shelf_templates'].get('name')==SIZE_FORMAT:
+    from .size_workplaces import FORMATS as SIZE_FORMATS,validate_size_workplaces
+    if isinstance(actor['shelf_templates'],dict) and actor['shelf_templates'].get('name') in SIZE_FORMATS:
         typed=validate_size_workplaces(actor['shelf_templates'])
         # Old commands are actor-only references at their own original held
         # x/y/yaw observations. Keep their stored contract/outcomes untouched.

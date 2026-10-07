@@ -79,11 +79,25 @@ def build_region_workplaces(waypoints, results, selections, *, results_SHA256):
 
 def frozen_anchor_templates(templates):
     """Only actor initialization ignores target changes; Q contracts keep them."""
-    from .size_workplaces import FORMAT as SIZE_FORMAT,validate_size_workplaces
-    if isinstance(templates,dict) and templates.get('name')==SIZE_FORMAT:
+    from .size_workplaces import FORMATS as SIZE_FORMATS,validate_size_workplaces
+    if isinstance(templates,dict) and templates.get('name') in SIZE_FORMATS:
         return validate_size_workplaces(templates)['source_shelf_templates']
     if isinstance(templates,dict) and templates.get('name')==FORMAT:
         return validate_region_workplaces(templates)['source_shelf_templates']
+    return templates
+
+
+def frozen_actual_anchor_templates(templates):
+    """The learned actor keeps its original regional held-pose provenance.
+
+    A size-specific destination changes future base targets only. Its nested
+    actual-flap actor still receives measured held x/y/yaw, while its nominal
+    anchor retains the separate original shelf provenance. Q contracts use
+    the full new size contract and are never mapped through this helper.
+    """
+    from .size_workplaces import FORMATS as SIZE_FORMATS, validate_size_workplaces
+    if isinstance(templates, dict) and templates.get('name') in SIZE_FORMATS:
+        return validate_size_workplaces(templates)['source_region_workplaces']
     return templates
 
 

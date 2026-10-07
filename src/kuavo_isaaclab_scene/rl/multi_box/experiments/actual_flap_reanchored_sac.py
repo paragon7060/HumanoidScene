@@ -76,6 +76,7 @@ class ReanchoredActualFlapSACPilot(ActualFlapResidualSACPilot):
             'source_goal_contract', 'source_hidden', 'model', 'nominal_body_anchor',
             'frozen_actor_prior', 'source_Q_replay_entropy_and_optimizers_imported'}
         source = snapshot.get('source_goal_contract', {})
+        from .region_workplaces import frozen_actual_anchor_templates
         from ..rewards.precision_capture import frozen_capture_actor_contract
         from .staged_physics import frozen_cpu_actor_contract
         if set(snapshot) != required or snapshot.get('format_version') != 2 \
@@ -88,7 +89,7 @@ class ReanchoredActualFlapSACPilot(ActualFlapResidualSACPilot):
                 or source.get('source_warm_start') != self.warm_start.contract \
                 or source.get('goal_center') != self.center.tolist() or source.get('goal_scale') != self.scale.tolist() \
                 or source.get('action_coordinates') != self.coordinates.name \
-                or source.get('shelf_templates') != self.stage.templates \
+                or source.get('shelf_templates') != frozen_actual_anchor_templates(self.stage.templates) \
                 or source.get('validated_jaw_prior_confidence') != self.validated_jaw_prior_confidence \
                 or source.get('jaw_prior_residual_gain') != self.jaw_prior_residual_gain \
                 or snapshot['source_hidden'] != self.agent.config.hidden \

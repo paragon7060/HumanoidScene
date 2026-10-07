@@ -63,6 +63,8 @@ def main():
     parser.add_argument('--selections-json',type=Path,required=True,
         help='REGION -> supported BOX_TYPE -> named candidate, all six required')
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--bootstrap-failed-attempts',action='store_true',
+        help='Initialize all six targets from real closed TRAIN failures; retain failure labels and require fresh Q/replay')
     args=parser.parse_args()
     if args.output.exists():parser.error('Use a new output file')
     first,h1,waypoints=closed_probe(args.discovery_run)
@@ -71,13 +73,14 @@ def main():
         or h1['layout_generation_contract']!=h2['layout_generation_contract']):
         parser.error('Discovery and fresh confirmation must use the same immutable policy, waypoints and reset geometry')
     result=build_size_workplaces(waypoints,first,second,read_snapshot(args.selections_json),
-        results_SHA256=dict(discovery=h1['metrics'],confirmation=h2['metrics']),checkpoint_SHA256=h1['checkpoint'])
+        results_SHA256=dict(discovery=h1['metrics'],confirmation=h2['metrics']),checkpoint_SHA256=h1['checkpoint'],
+        bootstrap_failed_attempts=args.bootstrap_failed_attempts)
     result['layout_generation_contract']=h1['layout_generation_contract']
     with args.output.open('x') as stream:
         json.dump(result,stream,indent=2,allow_nan=False);stream.write('\n')
     print(json.dumps(dict(output=str(args.output.resolve()),supported_region_size_targets=6,
         measured_TRAIN_only=True,fresh_Q_and_replay_still_required=True,
-        physical_generalization_NOT_claimed=True)))
+        physical_generalization_NOT_claimed=True,failed_candidate_bootstrap=args.bootstrap_failed_attempts)))
 
 
 if __name__=='__main__':main()
