@@ -40,6 +40,19 @@ tensor가 정확히 같았다. 이는 초기 연결·학습 갱신 폭 확인이
 Raw replay/HDF는 RAM 실행 폴더에 보존하며 업로드·자동 삭제 대상으로 삼지 않는다.
 실제 실행과 첫 학습 후 전체128개 평가를 이후 근거로 구분해 기록한다.
 
+**19:37 KST에 실제로 시작했다.** 소스`1aec17a`, 실행
+`batch_sac_20261007_193730_d5822a`의 고유 관리 폴더에서 writer454955의
+소유자·실행 명령·CUDA3와 관리자·서비스를 확인했다. 기존6개 writer는 유지했다.
+초기 입력7개의 기존 Drive 크기·MD5 검증도 완료했다.
+[실제 실행·백업 범위](assets/rl_v2_return33_conservative_actual_launch_20261007.json).
+
+이후 실제 첫 초기 DEV에 진입했다. Actor 학습률1e-6·Q 학습률3e-4,
+actor518/critic578·초기 agent/progress/입력 계약의 정확한 일치와 학습 카운터0을
+확인했다. 전체 초기128개 결과와 첫 학습 후 전체 평가는 아직 확인 전이다.
+체크포인트0은 초기 전체 평가 뒤 저장되는 기존 순서를 유지하며 그 뒤 실제 모델
+tensor를 대조한다. CPU 전용 관찰자는 첫 학습DEV4와 같은 모델을 보호한다.
+[실제 첫 평가의 학습률·계약](assets/rl_v2_return33_conservative_first_actual_DEV_20261007.json).
+
 준비 명령:
 
 ```bash
