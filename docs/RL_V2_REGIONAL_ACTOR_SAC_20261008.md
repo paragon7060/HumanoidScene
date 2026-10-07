@@ -68,3 +68,24 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_regi
 현재 실제로 검증된 크기는 small 한 가지다. 중간 선반 medium 추가에는
 크기별 실제 TRAIN 작업 위치 측정이 필요하다. 구역별 분리는 크기 일반화나
 전체 작업 완료를 증명하지 않는다. Curriculum·박스 고정·안전 조건 완화는 없다.
+
+## 실제 평가 시작
+
+10/08 01:21 KST에 GPU3에서 원래 네 구역32개씩 DEV128개를 시작했다.
+실제 writer287283의 소유자·고유 run·CUDA3를 확인했고 환경 초기화를
+진행했다. 소스05124a6은 main에 push된 상태다. 별도 SAC3개는 그대로
+진행하며 이전 장기 비교는 계획을 마치고 정상 종료했다. 모델을 고정하고
+actor·Q·normalizer·replay 갱신을 끈 평가이며 새 조합의 성공률은 대기 중이다.
+대표 env0·85·90·15·3을 녹화하지만 재실행의 성공을 미리 가정하지 않는다.
+기존 Drive 백업은 인증 오류로 대기 중이므로 미검증 원본은 로컬에 보존한다.
+
+![구역별 정책 구조와 완료한 비교 결과](assets/rl_v2_regional_actor_method_20261008.png)
+
+아래 막대는 초기 actor 보강 후보의 완료한 실제 평가다. 구역별 새 조합의
+성공률이 아니다. 위 도식의 후보들은 같은 몸체 기준과 관측 정규화를 사용한다.
+
+실제 DEV0에 진입한 뒤 actor/Q/replay0·학습 비활성화와 checkpoint·agent·
+진행 계약 및 구역별 초기화 출처의 정확한 일치를 확인했다.
+[실제 평가 진입·GPU3 격리](assets/rl_v2_regional_actor_actual_frozen_DEV_launch_20261008.json).
+노션에도 같은 구조·비교 그림을 네이티브 image로 첨부했고 기존39개 media와
+5개 native table의 내용·순서를 그대로 유지했다. 현재 media는40개다.
