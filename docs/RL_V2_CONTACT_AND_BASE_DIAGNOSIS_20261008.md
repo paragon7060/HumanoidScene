@@ -168,6 +168,21 @@ drive의 값을 확인한 뒤 별도 manifest에 기록한다. 일반 학습·DE
 감소·파지 성공 개선을 의미하지 않는다.** 전체 물리 측정과 새 시작점 재확인이
 필요하며 독립FINAL은 보존한다.
 
+07:39 KST에 source`402aa2b1959ea01cc6fdc91d53326c5b3eae3425`로
+`CPU_regional_mixed_size_same_TRAIN_soft15_2_base_substeps_gpu0_20261008_073952`
+를 실제 시작했다. Writer3377345의 소유자·고유 실행 경로·CUDA0을 확인했다.
+07:43 KST에는 초기화를 마쳤고 실제 drive의 stiffness15·damping2·cap10,
+동적 unfixed root와 원래128요청·여섯 구역/크기를 확인했다. 같은 원래 checkpoint·
+TRAIN16조건·후보8개를 사용하고 대표 하위 스텝·영상도 기록한다. **아직 전체
+종료 결과·198 tensor 고정·진동 감소나 파지 개선은 미확인이다.**
+[실제 runtime 제어 계수·원래 범위·writer 확인](assets/rl_v2_soft15_2_actual_runtime_gain_20261008.json).
+
+Notion 중간 보고에도 실제 진동 그래프와 대표 성공·실패 영상을 추가했다.
+영상은H.264·yuv420p의 전체 디코딩과 원본 checksum을 확인한 뒤`video/mp4`
+형식으로 원본 첨부했다. 실제 native video block2개를 확인했고 기존47개
+자료의 상대 순서·내용과 native table5개를 보존했다. 총 native 자료는50개다.
+이 영상은 원인 진단이며 새 학습 성능이나 전체 목표 성공으로 표시하지 않았다.
+
 ## 도구와 근거
 
 `summarize_closed_contact_attempts.py`는 우리 소유의 정상 종료한 고정 정책
