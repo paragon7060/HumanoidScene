@@ -52,7 +52,7 @@ def summarize(parent):
             or run.stat().st_uid != os.getuid() or status.get('training_exit_code') != 0
             or Path('/proc', str(status['training_pid'])).exists()):
         raise ValueError('Use our normally closed physical writer; a poll timeout is not termination')
-    physical, hashes, _ = closed_probe(run)
+    physical, hashes, _ = closed_probe(run, allow_frozen_base_attitude_probe=True)
     manifest = read_snapshot(run/'manifest.json')
     contract = manifest.get('base_substep_trace')
     if not contract or contract.get('sampling') != 'before_each_physics_step_after_original_drive_apply':
@@ -132,7 +132,15 @@ def summarize(parent):
                 result['held_motion_inference_not_qualified'] = 'no_contiguous_held_substeps'
                 results.append(result)
                 continue
+            axis=int(np.argmax(np.median(np.abs(measured),axis=0)))
+            high=(np.abs(measured[:,axis])>.1)&(np.abs(next_measured[:,axis])>.1)
             result.update(
+                held_dominant_world_angular_axis='xyz'[axis],
+                held_high_speed_adjacent_substeps=int(high.sum()),
+                held_high_speed_sign_flip_fraction=(float(np.mean(
+                    measured[high,axis]*next_measured[high,axis]<0)) if high.any() else None),
+                held_angular_velocity_increment_norm_median_rad_s2=float(
+                    np.median(np.linalg.norm(next_measured-measured,axis=-1))/dt),
                 held_actual_velocity_norm_median_rad_s=float(np.median(np.linalg.norm(measured,axis=-1))),
                 held_pose_derived_velocity_norm_median_rad_s=float(np.median(np.linalg.norm(motion,axis=-1))),
                 held_actual_velocity_mean_world_rad_s=measured.mean(0).tolist(),
@@ -151,6 +159,7 @@ def summarize(parent):
         whole_original_TRAIN_requests128=True,selected_root_diagnostics_NOT_all_environment_causality=True,
         all198_model_tensors_and_initial_counters_frozen=physical['frozen_tensor_count']==198,
         source_checkpoint_SHA256=hashes['checkpoint'],source_metrics_SHA256=hashes['metrics'],
+        base_attitude_gain_probe=manifest.get('base_attitude_gain_probe'),
         selected_environments=selected,results=results,
         actual_actor_observations_cross_checked=True,original_trace_and_HDF_unchanged=True,
         commanded_torque_NOT_measured_reaction=True,causal_control_fix_NOT_proven=True,

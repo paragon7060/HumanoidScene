@@ -120,6 +120,54 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/summarize_cl
 효과·비유한 입력 거부 검사7개가 통과했다. **이 역시 분석 도구의 검사이며
 실제 실행에서 base 문제를 확인했거나 해결했다는 뜻이 아니다.**
 
+## 실제 하위 스텝에서 확인한 빠른 몸체 진동
+
+07:25 KST 확인에서 측정은 정상 종료했다. 전체128요청은 성공4·안전 위반77·
+시간 초과37·초기 무효10이며 원래 고정 정책 진단과 같았다.198개 모델 tensor와
+actor·Q·replay0 고정을 확인했고, 선택한 유효5사례의 매 스텝 각속도는 실제
+actor 관측과 정확히 같았다. Raw PhysX와 cached pose/velocity도 같았고 원본
+trace·HDF는 변경되지 않았다. 선택한env40은 원래 초기 무효라 동작 영상이나
+물리 운동의 근거로 사용하지 않는다.
+
+상단 왼쪽env16은 held 단계 실제 각속도 norm 중앙값0.735rad/s,
+오른쪽env24는0.602rad/s였다. 세계y 각속도가 양 끝에서 모두0.1rad/s보다 큰
+인접 스텝 각각2,845·1,235개는 **매번 부호가 반전됐다**. 물리 스텝120Hz에서
+교대로 방향을 바꾸는 약60Hz 진동이며 한 방향으로 계속 넘어지는 운동이
+아니다. 연속 quaternion으로 구한 각속도는 구간 끝의 실제 속도와RMS
+0.000086·0.000074rad/s 차이로 일치했다. 관측 캐시 오류로 설명되지 않는다.
+중간 선반의 성공env64는 중앙값0.00503rad/s이고 해당 고속 구간이 없었다.
+
+![정상 종료한 고정 정책의 실제120Hz 자세·각속도·명령 torque 비교](assets/rl_v2_closed_base_substeps_20261008.png)
+
+상단 두 사례의 세계y 명령 torque 최대 절대값은약1,358·1,254Nm였다.
+명령 torque는 달성된 torque나 접촉 반력이 아니다. 제어기는 전체 몸체 위치로
+추정한 관성에 기울기 PD 가속도를 곱한다. 이 추정과 실제 articulated root의
+반응 차이로 피드백이 너무 공격적일 가능성을 점검한다. **이번 결과가 모든
+파지 실패의 원인을 증명하거나 중력보상 자체의 누락을 뜻하지는 않는다.**
+
+[원래 전체 결과·198 tensor 고정·실제 actor 일치·진동 수치·영상 checksum](assets/rl_v2_closed_base_substeps_20261008.json).
+[상단 왼쪽 시간 초과 영상](assets/rl_v2_base_trace_upper_left_timeout_20261008.mp4).
+[중간 왼쪽 실제 성공 영상](assets/rl_v2_base_trace_middle_left_success_20261008.mp4).
+이 영상은 고정 정책의 TRAIN 원인 진단이며 새 SAC 학습 개선 영상이 아니다.
+
+### 기울기 제어만 낮추는 고정 정책 비교
+
+선택형`--base-attitude-gain-probe soft15_2`를 추가했다. 완전한 고정 TRAIN128
+진단에서만 stiffness120→15·damping22→2로 바꾸고 가속도 cap10은 유지한다.
+같은 동적 unfixed root에 원래 wrench 제어를 사용하며 root/joint를 teleport
+하지 않는다. 높이·평면 이동·yaw·중력보상, 물리 timestep·solver·geometry·질량,
+무작위 배치·움직이는 flap·정책·보상·성공·안전 기준은 유지한다. 실제 실행된
+drive의 값을 확인한 뒤 별도 manifest에 기록한다. 일반 학습·DEV/FINAL이나
+축소된 진단에서 옵션을 사용할 수 없다.
+
+이 비교의 정책 tensor는 고정하지만 제어 계수는 바뀐다. 따라서 원래 Q/waypoint
+준비 도구는 결과를 거부하며, 명시적으로 닫힌 root 분석에서만 읽는다. 효과를
+확인한 뒤에도 다른 제어 조건의 Q/replay를 그대로 이어 학습하지 않는다.
+관련65개 검사항목에서 범위·기본 동작 보존·실제 runtime gain 확인·기존 계약으로
+데이터가 들어가지 않는 경계를 확인했다. **도구 검사나 비교 준비는 실제 진동
+감소·파지 성공 개선을 의미하지 않는다.** 전체 물리 측정과 새 시작점 재확인이
+필요하며 독립FINAL은 보존한다.
+
 ## 도구와 근거
 
 `summarize_closed_contact_attempts.py`는 우리 소유의 정상 종료한 고정 정책

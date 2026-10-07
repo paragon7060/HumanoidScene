@@ -87,6 +87,20 @@ writer가 정상 종료하고198 tensor 고정·동일 원본·동일 소스를 
 
 [07:18 실제 학습·진단 상태](assets/rl_v2_live_learning_and_diagnostics_20261008_0718.json).
 
+발견 실행은 정상 종료했고198 tensor와 actor·Q·replay0 고정을 확인했다.
+전체128요청은 성공4·안전 위반54·시간 초과60·초기 무효10이다. 성공은 중간
+왼쪽small3·상단 왼쪽small1회다. Medium은 좌우 모두 성공0이며, 유효한
+24회 중7회는 충돌 없이 시간 초과했고17회는 안전 위반이었다. 일부 후보가
+충돌을 피한 것과 실제 양손 파지가 된 것을 구분한다. 같은 원래16개 TRAIN
+시작점의 후보 반복이라 SAC 평가 개선이나 일반화 점수는 아니다.
+[전체 종료·크기별 실제 결과와 안전한 후보](assets/rl_v2_wide_size_discovery_closed_20261008.json).
+
+07:27 KST에는 대기 worker가 종료된 source와198 tensor 고정·동일 checkpoint·
+실제 소스 hash를 확인하고 새 재확인을 실제 시작했다. 고유 실행 폴더는
+`CPU_regional_mixed_size_wide_TRAIN_confirmation_gpu0_20261008_072716`이며
+supervisor3253951이다. 새 TRAIN16조건×같은8개 후보, seed origin4,960,000을
+사용한다. 아직 전체 결과는 미완료라 medium 학습 위치를 채택하지 않는다.
+
 2026-10-08의 두 번째 같은TRAIN 반복도 정상 종료했고 첫 진단과 같은
 성공4·안전 위반59·시간 초과35·초기 무효30/128이었다. 실제198개 runtime
 tensor와 actor·Q·replay0 고정을 확인했다. 새 독립적인 성공 확인이 아니다.

@@ -35,6 +35,7 @@ def validate_managed_physics_device(device, child, *, learner_device=None):
     parser.add_argument('--unmeasured-size-workplace-probe', action='store_true')
     parser.add_argument('--workplace-reset-diagnostics', action='store_true')
     parser.add_argument('--base-substep-trace-env-indices',type=int,nargs='+',default=None)
+    parser.add_argument('--base-attitude-gain-probe',choices=('soft15_2',),default=None)
     parser.add_argument('--steps', type=int, default=900)
     parser.add_argument('--waves-json', type=Path)
     parser.add_argument('--training-manifest', type=Path)
@@ -61,7 +62,12 @@ def validate_managed_physics_device(device, child, *, learner_device=None):
         from kuavo_isaaclab_scene.rl.multi_box.debug.base_substep_trace import validate_base_substep_trace
         validate_base_substep_trace(audit.base_substep_trace_env_indices,
             workplace=workplace,training=audit.training,num_envs=len(waves[0]['layouts']))
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.base_attitude_probe import validate_base_attitude_probe
+        validate_base_attitude_probe(audit.base_attitude_gain_probe,
+            workplace=workplace,training=audit.training,num_envs=len(waves[0]['layouts']))
         return workplace
+    if audit.base_attitude_gain_probe is not None:
+        raise ValueError('Attitude gain comparison requires the complete frozen TRAIN workplace route')
     if audit.cpu_physics_training:
         from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_physics_training import (
             INCOMPATIBLE_FLAGS, validate_cpu_physics_training)

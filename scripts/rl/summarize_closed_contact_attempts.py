@@ -131,7 +131,11 @@ def summarize(parent):
         source_simulation_unchanged=True,control_sampled_velocities_NOT_substep_dynamics_or_causal_controller_proof=True,
         near_geometric_potential_NOT_physical_success=True,by_region_and_box_type=groups,
         attempts=sorted(records,key=lambda r:r['environment']),no_evaluation_or_synthetic_training_rows=True,
-        no_sensor_physics_controller_policy_reward_changes=True,independent_FINAL_unused=True,goal_not_complete=True)
+        base_attitude_gain_probe=manifest.get('base_attitude_gain_probe'),
+        controller_parameters_changed=manifest.get('base_attitude_gain_probe') is not None,
+        no_sensor_physics_controller_policy_reward_changes=manifest.get('base_attitude_gain_probe') is None,
+        no_sensor_geometry_timestep_policy_reward_changes=True,
+        independent_FINAL_unused=True,goal_not_complete=True)
 
 
 def main():

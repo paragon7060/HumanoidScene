@@ -74,6 +74,8 @@ def main():
         help='Read-only reset trace for the explicit frozen TRAIN workplace search; existing contact reporters only')
     parser.add_argument('--base-substep-trace-env-indices',type=int,nargs='+',default=None,
         help='Read-only state/wrench trace for up to8 environments in a frozen TRAIN workplace search')
+    parser.add_argument('--base-attitude-gain-probe',choices=('soft15_2',),default=None,
+        help='Explicit frozen TRAIN128 comparison: lower only dynamic-base tilt gains; no Q import or learning')
     parser.add_argument('--steps',type=int,default=900)
     parser.add_argument('--reset-failure-diagnostics',action='store_true',
         help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
@@ -125,6 +127,11 @@ def main():
             explicit_frozen='--no-training' in sys.argv and '--training' not in sys.argv,
             other_probe=any(s.split('=')[0] in WORKPLACE_FLAGS for s in sys.argv[1:]))
     except (ValueError,OSError) as error:parser.error(str(error))
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.base_attitude_probe import validate_base_attitude_probe
+    try:
+        base_attitude_probe=validate_base_attitude_probe(args.base_attitude_gain_probe,
+            workplace=workplace_eval,training=args.training,num_envs=len(waves[0]['layouts']))
+    except ValueError as error:parser.error(str(error))
     from kuavo_isaaclab_scene.rl.multi_box.debug.base_substep_trace import validate_base_substep_trace
     try:
         base_trace_contract=validate_base_substep_trace(args.base_substep_trace_env_indices,
@@ -297,6 +304,9 @@ def main():
             resolve_critic_episode_clock, TASK_TIMING_GROUP)
         critic_episode_clock=resolve_critic_episode_clock(state,args.critic_episode_clock)
         cfg=MultiBoxGraspAssemblyEnvCfg(num_envs=n);cfg.episode_length_s=30.
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.base_attitude_probe import (
+            configure_base_attitude_probe, verify_base_attitude_probe)
+        configure_base_attitude_probe(cfg,base_attitude_probe)
         if critic_episode_clock is not None:
             from kuavo_isaaclab_scene.rl.multi_box.managers.v2_observations import TaskTimeRemainingCfg
             setattr(cfg.observations,TASK_TIMING_GROUP,TaskTimeRemainingCfg())
@@ -635,6 +645,7 @@ def main():
         if args.reset_failure_diagnostics or args.workplace_reset_diagnostics:
             meta['reset_diagnostic_physics_device']=str(env.device)
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
+        base_attitude_probe=verify_base_attitude_probe(env,base_attitude_probe)
         if base_trace_contract is not None:
             from kuavo_isaaclab_scene.rl.multi_box.debug.base_substep_trace import BaseSubstepTrace
             base_substep_trace=BaseSubstepTrace(env,output,base_trace_contract)
@@ -649,6 +660,7 @@ def main():
             'CPU_workplace_probe':workplace_eval,
             'workplace_reset_diagnostics':(workplace_eval or {}).get('workplace_reset_diagnostics'),
             'base_substep_trace':base_trace_contract,
+            'base_attitude_gain_probe':base_attitude_probe,
             'learner_device':learner_device,'sim_device':str(env.device),
             'TRAIN_jaw_behavior':collection_jaw_behavior,
             'TRAIN_body_behavior':collection_body_behavior,

@@ -14,7 +14,7 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.workplace_results import summ
 from kuavo_isaaclab_scene.rl.multi_box.experiments.size_workplaces import build_size_workplaces
 
 
-def closed_probe(run):
+def closed_probe(run, *, allow_frozen_base_attitude_probe=False):
     run=run.resolve();parent=run.parent
     status=read_snapshot(parent/'status.json');managed=read_snapshot(parent/'launch.json')
     if (Path(managed['run']).resolve()!=run or status.get('training_exit_code')!=0
@@ -29,6 +29,15 @@ def closed_probe(run):
     checkpoint=Path(command[command.index('--checkpoint')+1])
     waypoints=Path(command[command.index('--waypoints')+1])
     manifest=read_snapshot(run/'manifest.json')
+    attitude_probe=manifest.get('base_attitude_gain_probe')
+    if attitude_probe is not None:
+        if not allow_frozen_base_attitude_probe:
+            raise ValueError('Changed controller gains cannot supply the original waypoint or Q contract')
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.base_attitude_probe import validate_base_attitude_probe
+        declared=validate_base_attitude_probe(attitude_probe.get('profile'),
+            workplace=manifest.get('CPU_workplace_probe'),training=manifest.get('training'),num_envs=128)
+        if attitude_probe != declared | dict(actual_runtime_gains=declared['configured_gains'],actual_runtime_gains_verified=True):
+            raise ValueError('The frozen controller comparison must retain its exact verified runtime gains')
     result=summarize_workplace_results(manifest,read_snapshot(run/'metrics.json'))
     from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import layout_generation_contract
     generator=manifest.get('layout_generation_contract')
