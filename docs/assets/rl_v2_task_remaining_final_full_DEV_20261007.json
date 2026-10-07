@@ -1,0 +1,488 @@
+{
+  "recorded_at": "2026-10-07T23:37:45.791298+09:00",
+  "role": "task_remaining_final",
+  "source_commit": "8d167b1d675a75f2d4d6ad386632d55b50ed8623",
+  "run_directory_name": "batch_sac_20261007_154056_ba98f0",
+  "wave": 16,
+  "full_original_DEV128_per_region32": true,
+  "matching_actor_updates": 4324,
+  "matching_critic_updates": 19344,
+  "matching_checkpoint_SHA256": "c74537097b96285653f343afd60c674103e0eeb71ee0db0acf1479e1f0375fb7",
+  "matching_model_recovered_after_CPU_observer_ENOSPC": false,
+  "model_binding": "recorded_owned_DEV_phase_and_exact_counter_named_immutable_checkpoint",
+  "own_full_DEV_success_flow": [
+    11,
+    1,
+    2,
+    6,
+    4
+  ],
+  "own_initial_summary": {
+    "wave": 0,
+    "split": "validation",
+    "by_region": {
+      "shelf_2_left": {
+        "attempts": 32,
+        "initial_valid": 30,
+        "complete": 32,
+        "task_success_flags": 4,
+        "supported_successes": 4,
+        "unsafe": 25,
+        "timeout": 1
+      },
+      "shelf_2_right": {
+        "attempts": 32,
+        "initial_valid": 29,
+        "complete": 32,
+        "task_success_flags": 5,
+        "supported_successes": 5,
+        "unsafe": 22,
+        "timeout": 2
+      },
+      "shelf_3_left": {
+        "attempts": 32,
+        "initial_valid": 29,
+        "complete": 32,
+        "task_success_flags": 2,
+        "supported_successes": 2,
+        "unsafe": 18,
+        "timeout": 9
+      },
+      "shelf_3_right": {
+        "attempts": 32,
+        "initial_valid": 29,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 27,
+        "timeout": 2
+      }
+    },
+    "supported_successes": 11,
+    "attempts": 128,
+    "initial_valid": 117,
+    "unsupported_success_environments": [],
+    "safety_causes_on_valid_completed_attempts": {
+      "box_drop": 39,
+      "robot_rack_collision": 53
+    },
+    "simultaneous_safety_cause_sets": {
+      "box_drop": 39,
+      "robot_rack_collision": 53
+    },
+    "rack_collision_terminal_diagnostics": {
+      "by_region": {
+        "shelf_3_right": {
+          "count": 27,
+          "phase_counts": {
+            "held_grasp": 27
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 26,
+            "zarm_r7_link": 1
+          },
+          "peak_force_n": {
+            "count": 27,
+            "mean": 50.505952234621404,
+            "median": 36.464683532714844,
+            "p90": 100.66573486328133,
+            "maximum": 233.01937866210938
+          }
+        },
+        "shelf_3_left": {
+          "count": 18,
+          "phase_counts": {
+            "held_grasp": 18
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 17,
+            "zarm_r7_link": 1
+          },
+          "peak_force_n": {
+            "count": 18,
+            "mean": 39.493917571173775,
+            "median": 34.54843711853027,
+            "p90": 80.55579223632814,
+            "maximum": 104.81175994873047
+          }
+        },
+        "shelf_2_left": {
+          "count": 4,
+          "phase_counts": {
+            "held_grasp": 4
+          },
+          "peak_body_counts": {
+            "l_twofinger_base": 3,
+            "zarm_l2_link": 1
+          },
+          "peak_force_n": {
+            "count": 4,
+            "mean": 134.61897158622742,
+            "median": 22.64791965484619,
+            "p90": 341.44343795776376,
+            "maximum": 477.932861328125
+          }
+        },
+        "shelf_2_right": {
+          "count": 4,
+          "phase_counts": {
+            "held_grasp": 4
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 4
+          },
+          "peak_force_n": {
+            "count": 4,
+            "mean": 68.91265869140625,
+            "median": 67.68056106567383,
+            "p90": 102.6639793395996,
+            "maximum": 105.43334197998047
+          }
+        }
+      },
+      "valid_completed_unsafe_attempts_only": true,
+      "failure_step_peak_body_not_first_contact_or_contact_history": true
+    },
+    "end_pinching_hand_counts": {
+      "0": 102,
+      "2": 11,
+      "1": 4
+    },
+    "end_contact_quality": {
+      "count": 117,
+      "mean": 0.11143655037013893,
+      "median": 0.0,
+      "p90": 0.4375,
+      "maximum": 1.0
+    },
+    "end_matched_flap_surface_distance_m": [
+      {
+        "count": 117,
+        "mean": 0.11301640810645941,
+        "median": 0.11607027053833008,
+        "p90": 0.22393537759780896,
+        "maximum": 0.3228815197944641
+      },
+      {
+        "count": 117,
+        "mean": 0.15307485721965566,
+        "median": 0.10877039283514023,
+        "p90": 0.48033418059349064,
+        "maximum": 0.781295120716095
+      }
+    ],
+    "end_flap_surface_distance_by_outcome_m": {
+      "supported_success": [
+        {
+          "count": 11,
+          "mean": 0.0008034738129936159,
+          "median": 0.000802523223683238,
+          "p90": 0.0012202237267047167,
+          "maximum": 0.0012315523345023394
+        },
+        {
+          "count": 11,
+          "mean": 0.00027903349308127707,
+          "median": 8.31622164696455e-05,
+          "p90": 0.0006926811765879393,
+          "maximum": 0.0014303687494248152
+        }
+      ],
+      "safe_timeout": [
+        {
+          "count": 14,
+          "mean": 0.0643806327466986,
+          "median": 0.042520010843873024,
+          "p90": 0.1436356842517853,
+          "maximum": 0.23541784286499023
+        },
+        {
+          "count": 14,
+          "mean": 0.15141762610125756,
+          "median": 0.05433674529194832,
+          "p90": 0.47962349057197573,
+          "maximum": 0.7450447678565979
+        }
+      ],
+      "unsafe": [
+        {
+          "count": 92,
+          "mean": 0.13383426823977218,
+          "median": 0.13411863148212433,
+          "p90": 0.25987151265144354,
+          "maximum": 0.3228815197944641
+        },
+        {
+          "count": 92,
+          "mean": 0.17159611044411102,
+          "median": 0.13382945954799652,
+          "p90": 0.48306547403335576,
+          "maximum": 0.781295120716095
+        }
+      ]
+    },
+    "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+    "end_contact_statistics_are_not_ever_contact_rates": true
+  },
+  "summary": {
+    "wave": 16,
+    "split": "validation",
+    "by_region": {
+      "shelf_2_left": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 30,
+        "timeout": 2
+      },
+      "shelf_2_right": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 1,
+        "supported_successes": 1,
+        "unsafe": 23,
+        "timeout": 8
+      },
+      "shelf_3_left": {
+        "attempts": 32,
+        "initial_valid": 31,
+        "complete": 32,
+        "task_success_flags": 1,
+        "supported_successes": 1,
+        "unsafe": 29,
+        "timeout": 1
+      },
+      "shelf_3_right": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 2,
+        "supported_successes": 2,
+        "unsafe": 28,
+        "timeout": 2
+      }
+    },
+    "supported_successes": 4,
+    "attempts": 128,
+    "initial_valid": 127,
+    "unsupported_success_environments": [],
+    "safety_causes_on_valid_completed_attempts": {
+      "robot_rack_collision": 86,
+      "box_drop": 24
+    },
+    "simultaneous_safety_cause_sets": {
+      "robot_rack_collision": 86,
+      "box_drop": 24
+    },
+    "rack_collision_terminal_diagnostics": {
+      "by_region": {
+        "shelf_2_left": {
+          "count": 27,
+          "phase_counts": {
+            "held_grasp": 27
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 4,
+            "l_twofinger_base": 15,
+            "zarm_l2_link": 2,
+            "zarm_l4_link": 3,
+            "zarm_r2_link": 1,
+            "zarm_r4_link": 2
+          },
+          "peak_force_n": {
+            "count": 27,
+            "mean": 241.31998478924785,
+            "median": 136.34474182128906,
+            "p90": 473.20903930664065,
+            "maximum": 2226.64697265625
+          }
+        },
+        "shelf_2_right": {
+          "count": 2,
+          "phase_counts": {
+            "held_grasp": 2
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 1,
+            "zarm_l2_link": 1
+          },
+          "peak_force_n": {
+            "count": 2,
+            "mean": 181.47171115875244,
+            "median": 181.47171115875244,
+            "p90": 306.8077699661255,
+            "maximum": 338.14178466796875
+          }
+        },
+        "shelf_3_left": {
+          "count": 29,
+          "phase_counts": {
+            "held_grasp": 29
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 24,
+            "l_twofinger_base": 3,
+            "zarm_r7_link": 2
+          },
+          "peak_force_n": {
+            "count": 29,
+            "mean": 100.28863252442459,
+            "median": 90.90216064453125,
+            "p90": 178.97812499999998,
+            "maximum": 242.6603240966797
+          }
+        },
+        "shelf_3_right": {
+          "count": 28,
+          "phase_counts": {
+            "held_grasp": 28
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 27,
+            "l_twofinger_base": 1
+          },
+          "peak_force_n": {
+            "count": 28,
+            "mean": 65.42118494851249,
+            "median": 66.5199089050293,
+            "p90": 113.41158599853516,
+            "maximum": 129.26239013671875
+          }
+        }
+      },
+      "valid_completed_unsafe_attempts_only": true,
+      "failure_step_peak_body_not_first_contact_or_contact_history": true
+    },
+    "end_pinching_hand_counts": {
+      "0": 122,
+      "2": 4,
+      "1": 1
+    },
+    "end_contact_quality": {
+      "count": 127,
+      "mean": 0.040345005163057585,
+      "median": 0.0,
+      "p90": 0.025000000000000355,
+      "maximum": 1.0
+    },
+    "end_matched_flap_surface_distance_m": [
+      {
+        "count": 127,
+        "mean": 0.16642588056719268,
+        "median": 0.154293954372406,
+        "p90": 0.3197504937648773,
+        "maximum": 0.3585141897201538
+      },
+      {
+        "count": 127,
+        "mean": 0.20489717993379283,
+        "median": 0.14109697937965393,
+        "p90": 0.5028026521205905,
+        "maximum": 1.0540474653244019
+      }
+    ],
+    "end_flap_surface_distance_by_outcome_m": {
+      "supported_success": [
+        {
+          "count": 4,
+          "mean": 0.0015979189774952829,
+          "median": 0.0008916596416383982,
+          "p90": 0.003113641380332411,
+          "maximum": 0.0039966292679309845
+        },
+        {
+          "count": 4,
+          "mean": 0.0019378744764253497,
+          "median": 0.0004994177725166082,
+          "p90": 0.004881482594646515,
+          "maximum": 0.006752662360668182
+        }
+      ],
+      "safe_timeout": [
+        {
+          "count": 13,
+          "mean": 0.14146941869806212,
+          "median": 0.1526801884174347,
+          "p90": 0.25174329280853275,
+          "maximum": 0.26248759031295776
+        },
+        {
+          "count": 13,
+          "mean": 0.6231937671187692,
+          "median": 0.8308860063552856,
+          "p90": 0.8916918992996216,
+          "maximum": 0.9546172022819519
+        }
+      ],
+      "unsafe": [
+        {
+          "count": 110,
+          "mean": 0.17536902466407892,
+          "median": 0.16390468180179596,
+          "p90": 0.32134608924388897,
+          "maximum": 0.3585141897201538
+        },
+        {
+          "count": 110,
+          "mean": 0.16284246710129083,
+          "median": 0.1401345506310463,
+          "p90": 0.2431350082159044,
+          "maximum": 1.0540474653244019
+        }
+      ]
+    },
+    "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+    "end_contact_statistics_are_not_ever_contact_rates": true
+  },
+  "paired_against_own_initial": {
+    "reference_wave": 0,
+    "current_wave": 16,
+    "unmatched_environments": [],
+    "different_requested_layout_environments": [],
+    "by_region": {
+      "shelf_2_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 30,
+        "baseline_successes": 4,
+        "current_successes": 0,
+        "lost_successes": 4,
+        "gained_successes": 0
+      },
+      "shelf_2_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 29,
+        "baseline_successes": 5,
+        "current_successes": 1,
+        "lost_successes": 5,
+        "gained_successes": 1
+      },
+      "shelf_3_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 28,
+        "baseline_successes": 2,
+        "current_successes": 0,
+        "lost_successes": 2,
+        "gained_successes": 0
+      },
+      "shelf_3_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 29,
+        "baseline_successes": 0,
+        "current_successes": 2,
+        "lost_successes": 0,
+        "gained_successes": 2
+      }
+    },
+    "common_valid_comparison_is_diagnostic_not_the_primary_success_rate": true,
+    "repeated_reset_physics_are_not_asserted_identical": true
+  },
+  "same_requested_layouts_NOT_identical_physical_reset": true,
+  "no_live_HDF_or_replay_read": true,
+  "no_evaluation_rows_imported_into_training": true,
+  "broader_sizes_and_stable_all_four_regions_unproven": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}

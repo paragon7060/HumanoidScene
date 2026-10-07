@@ -63,6 +63,12 @@ actor518/critic578·초기 agent/progress/입력 계약의 정확한 일치와 �
 [실제 첫 평가의 학습률·계약](assets/rl_v2_return33_conservative_first_actual_DEV_20261007.json).
 [완료된 초기 평가·동일 모델](assets/rl_v2_return33_conservative_full_initial_DEV_20261007.json).
 
+두 번째 전체 평가는 **18/128(중간 좌15·우3, 상단 양쪽0)**이었다. 전체 흐름은
+27→28→18건이고 공통 유효117조건도 초기27→16건으로 내려갔다. 랙 충돌46건,
+시간 초과64건이며 같은 actor1927/Q9756 모델을 보호했다. 갱신 폭을 줄인
+설정도 현재까지 안정적인 개선은 아니다. 기존 학습은 계속 진행한다.
+[두 번째 전체 평가·동일 모델](assets/rl_v2_return33_conservative_second_full_DEV_20261007.json).
+
 준비 명령:
 
 ```bash

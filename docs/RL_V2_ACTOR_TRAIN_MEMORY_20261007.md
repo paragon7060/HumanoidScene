@@ -131,6 +131,14 @@ optimizer 갱신은 재개 파일에 넣지 않는다. 같은 원래 TRAIN·DEV 
 학습 후 전체 성공률은 아직 확인 전이다.
 [실제 재개·관찰자 확인](assets/rl_v2_actor_memory_device_fix_actual_launch_20261007.json).
 
+재개 실행은 실제 TRAIN에서 actor 갱신을 시작했다. 10/08 00:06 KST에
+actor201/Q2852를 확인했고, 최신 actor 배치64개는 과거 성공50행·새 성공14행이었다.
+과거 기억의 Q 입력은0행이고 손실은 유한했다. 첫 학습 후 전체 DEV 평가는
+아직 끝나지 않았으므로 새 성공률 개선을 주장하지 않는다.
+[실제 actor 학습 보고](assets/rl_v2_actor_memory_device_fix_first_actual_actor_report_20261007.json).
+별도로 같은 성공 TRAIN 명령으로 초기 actor만 보강해 새 무작위 환경에서
+평가하는 [초기화 비교](RL_V2_ACTOR_MEMORY_INITIALIZATION_20261007.md)를 준비했다.
+
 기존 Drive 연결은 이번 확인에서 `invalid_grant`였다. 인증을 새로 만들지 않고
 로컬 파일과 기존300초 업로드 재시도를 보존한다. 재인증 전 추가 원격 검증을
 완료했다고 주장하거나 미검증 파일을 정리하지 않는다.
