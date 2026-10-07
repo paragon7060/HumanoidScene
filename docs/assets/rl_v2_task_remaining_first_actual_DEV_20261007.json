@@ -1,0 +1,149 @@
+{
+  "recorded_at": "2026-10-07T15:49:58.356886+09:00",
+  "source_commit": "8d167b1d675a75f2d4d6ad386632d55b50ed8623",
+  "run_directory_name": "batch_sac_20261007_154056_ba98f0",
+  "writer_pid": 3818410,
+  "actual_owned_writer_command_CUDA3_verified": true,
+  "actual_first_DEV_started": true,
+  "actual_reward_manager_hook_success64_verified": true,
+  "actual_initialized_environment_reset_drop10cm_hook_verified": true,
+  "actual_drop_contract": {
+    "reference": "settled_initial_box_height_v1",
+    "max_drop_height_m": 0.1,
+    "actual_initialized_environment_verified": true
+  },
+  "actual_reward_profile": {
+    "approach_scale_m": 0.22,
+    "assignment_scale_m": 0.08333333333333333,
+    "capture_scale_m": 0.025,
+    "front_stage_clearance_m": 0.08,
+    "front_stage_lane_tolerance_m": 0.1,
+    "front_stage_scale_m": 0.8,
+    "geometry_profile": "rack_front_lane_then_opposing_flap_reach_v3",
+    "weights": {
+      "discount": 0.999,
+      "common": {
+        "robot_rack_collision": 6.0,
+        "self_collision": 4.0,
+        "box_drop": 12.0,
+        "obstacle_collision": 4.0,
+        "workspace_limit": 12.0,
+        "base_motion": 0.002,
+        "action_rate": 0.001,
+        "joint_limit": 0.002
+      },
+      "grasp": {
+        "base_motion": 0.0002,
+        "action_rate": 0.0001,
+        "approach_progress": 2.0,
+        "front_staging_progress": 1.0,
+        "front_distance_cost": 0.002,
+        "approach_distance_cost": 0.002,
+        "alignment_progress": 0.5,
+        "capture_progress": 0.5,
+        "jaw_gap_progress": 0.0,
+        "premature_close": 0.002,
+        "proof_lift_progress": 0.4,
+        "one_hand_pinch_event": 0.5,
+        "bilateral_pinch_event": 2.0,
+        "success_event": 64.0
+      },
+      "carry": {
+        "extraction_progress": 0.6,
+        "belt_progress": 1.0,
+        "free_space_progress": 0.5,
+        "pre_place_height_progress": 0.4,
+        "grasp_loss_event": 3.0,
+        "placed_box_disturbance_event": 1.0,
+        "success_event": 4.0
+      },
+      "place": {
+        "footprint_progress": 0.8,
+        "alignment_progress": 0.8,
+        "free_space_progress": 0.6,
+        "descent_progress": 0.5,
+        "stability_progress": 0.3,
+        "support_event": 0.5,
+        "correct_release_event": 1.0,
+        "premature_release_event": 2.5,
+        "success_event": 5.0
+      },
+      "high_level": {
+        "first_placement": 5.0,
+        "displacement": 3.0,
+        "full_success_event": 12.0,
+        "failure_event": 12.0,
+        "elapsed_second": 0.01
+      }
+    },
+    "contact_shaping": {
+      "name": "opposing_pad_contact_progress_v1",
+      "min_jaw_force_n": 5.0,
+      "contact_progress_weight": 1.0,
+      "pad_force_saturates_at_success_threshold": true,
+      "score": "weaker_pad_then_weaker_hand_opposing_flaps",
+      "geometry": "filtered_contact_in_panel_region_and_opposed_jaws",
+      "terminal_potential_zero": true,
+      "time_limit_is_absorbing_for_Q": true,
+      "closing_without_contact_reward": false
+    },
+    "precision_capture": {
+      "name": "weak_hand_capture_25mm_v1",
+      "scale_m": 0.025,
+      "aggregation": "weak-hand",
+      "score": "0.25*(left+right)+0.5*min(left,right)",
+      "geometry": "actual_calibrated_finger_straddle_and_flap_tangent_error",
+      "approach_front_contact_success_and_safety_unchanged": true,
+      "source_Q_replay_optimizer_import_allowed": false
+    },
+    "success_value": {
+      "name": "safe_grasp_success64_v1",
+      "source_success_event_weight": 8.0,
+      "success_event_weight": 64.0,
+      "only_safe_actual_task_success": true,
+      "all_other_reward_weights_geometry_and_terminal_rules_unchanged": true,
+      "source_Q_replay_optimizer_or_reward_labels_import_allowed": false
+    }
+  },
+  "actual_agent_runtime_input_contract_exact": true,
+  "actual_source_actor4337_only_new_actor_Q_replay_success_nstep_counters0": true,
+  "actual_actor_Q_counters": [
+    0,
+    0
+  ],
+  "actual_time_group_critic_clock_runtime_agent_checkpoint_exact": true,
+  "actual_critic_dim578_actor_dim518_and_original_held_clock_preserved": true,
+  "actual_critic_episode_clock": {
+    "name": "v2_added_settled_task_remaining_fraction_v1",
+    "observation_group": "task_time_remaining",
+    "critic_feature_index": 571,
+    "critic_dimension": 578,
+    "original_held_phase_clock_preserved": true,
+    "last_six_held_context_preserved": true,
+    "actor_features_and_controller_unchanged": true,
+    "source": "same_reset_settling_ready_steps_and_max_episode_length_as_task_time_out",
+    "value": "clamp(1-ready_steps/max_episode_length,0,1)",
+    "before_autoreset_terminal_capture_required": true,
+    "old_Q_or_reward_banks_import_allowed": false
+  },
+  "actual_held_phase_real_timeout_autoreset_HDF_verification_pending": true,
+  "actual_learning_fullstd0p03to0p12_preserved": true,
+  "actual_TRAIN_arm20_explore_rest_greedy_agent_manifest_config_exact": true,
+  "initial_DEV_mode_counts0_NO_TRAIN_sampler_yet": true,
+  "first_actual_TRAIN_mixture_verification_pending": true,
+  "actual_manifest_all17_waves_exact_verified_input": true,
+  "actual_initial_DEV_requested_by_region": {
+    "shelf_2_left": 32,
+    "shelf_2_right": 32,
+    "shelf_3_left": 32,
+    "shelf_3_right": 32
+  },
+  "actual_watch300_keep2_checkpoint_contract_logs_only": true,
+  "local_raw_replay_HDF_media_NOT_uploaded": true,
+  "full_initial_DEV128_NOT_yet_complete": true,
+  "new_learned_gain_NOT_yet_measured": true,
+  "old_representative_Q_video_rewards8_NOT_changed": true,
+  "no_other_user_files_or_process_signals": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}
