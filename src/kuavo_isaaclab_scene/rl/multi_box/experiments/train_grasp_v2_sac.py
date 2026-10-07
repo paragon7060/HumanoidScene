@@ -327,6 +327,7 @@ def main() -> None:
             from ...envs.terminal_observation import TerminalObservationMixin
             from ..rewards import MultiBoxRewardWeights
             from ..geometry.rack import grasp_lift_terminal_contract
+            from ..geometry.box_drop import grasp_drop_terminal_contract, grasp_drop_safety_thresholds
             from ..demo_replay import load_v2_grasp_demonstrations
             from ..state.isaac_privileged_grasp import (
                 GRASP_APPROACH_REWARD_SCALE_M,
@@ -505,9 +506,11 @@ def main() -> None:
                 ),
                 "terminal_contract": {
                     **grasp_lift_terminal_contract(),
+                    **grasp_drop_terminal_contract(cfg.multi_box),
                     "success": "exact_grasp_success",
                     "invalid_reset": "partial_respawn_excluded_from_replay",
                     "safety_thresholds": {
+                        **grasp_drop_safety_thresholds(cfg.multi_box),
                         "rack_contact_force_n": float(cfg.multi_box.rack_contact_force),
                         "obstacle_contact_force_n": float(cfg.task.obstacle_contact_force),
                         "workspace_radius_m": float(cfg.multi_box.workspace_radius),

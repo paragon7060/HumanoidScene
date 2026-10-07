@@ -129,8 +129,10 @@ def grasp_safety_step(env) -> V2GraspSafetyStep:
     origin_z = env.scene.env_origins[:, 2]
     finite = torch.isfinite(grasp.box_pose_world).all(-1) \
         & torch.isfinite(grasp.box_velocity_world).all(-1)
-    box_drop = settling.ready & (
-        (grasp.box_pose_world[:, 2] - origin_z < 0.12) | ~finite)
+    from ..geometry.box_drop import grasp_box_drop, grasp_drop_limit
+    box_drop = settling.ready & grasp_box_drop(
+        grasp.box_pose_world[:, 2] - origin_z, grasp.lift_from_reset_m, finite,
+        grasp_drop_limit(env.cfg.multi_box))
     box_lift_limit = settling.ready & (
         grasp.lift_from_reset_m > float(env.cfg.multi_box.max_box_lift_height))
     box_speed_limit = settling.ready & ((

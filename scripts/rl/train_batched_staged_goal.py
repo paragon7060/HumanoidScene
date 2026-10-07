@@ -400,7 +400,13 @@ def main():
         success_value=configured_success_value(contract['reward_profile'])
         if success_value is not None:
             profile['success_value']=success_value
-        thresholds=dict(rack_contact_force_n=float(cfg.multi_box.rack_contact_force),
+        from kuavo_isaaclab_scene.rl.multi_box.geometry.box_drop import (
+            grasp_drop_safety_thresholds, configured_drop_limit, DROP_REFERENCE)
+        drop_limit=configured_drop_limit(contract)
+        if cfg.multi_box.max_box_drop_height != drop_limit:
+            raise ValueError('Recorded grasp drop guard was not restored')
+        thresholds=dict(**grasp_drop_safety_thresholds(cfg.multi_box),
+            rack_contact_force_n=float(cfg.multi_box.rack_contact_force),
             obstacle_contact_force_n=float(cfg.task.obstacle_contact_force),workspace_radius_m=float(cfg.multi_box.workspace_radius),
             max_box_lift_height_m=float(cfg.multi_box.max_box_lift_height),
             max_box_linear_speed_mps=float(cfg.multi_box.max_box_linear_speed),
@@ -412,6 +418,12 @@ def main():
             raise ValueError('Batched prototype requires its explicitly nominal observation checkpoint')
         class WaveEnv(TerminalObservationMixin,ManagerBasedRLEnv):pass
         env=WaveEnv(cfg);env.enable_numerical_dynamics_recovery()
+        if env.cfg.multi_box.max_box_drop_height != drop_limit:
+            raise ValueError('Initialized environment changed the recorded grasp drop guard')
+        if drop_limit is not None:
+            print('[GRASP BOX DROP GUARD] '+json.dumps(dict(
+                reference=DROP_REFERENCE,max_drop_height_m=drop_limit,
+                actual_initialized_environment_verified=True)),flush=True)
         if geometry_shaping is not None:
             initialized_reward=env.reward_manager.get_term_cfg('grasp')
             if (initialized_reward.params.get('reward_profile') != contract['reward_profile']

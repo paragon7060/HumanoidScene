@@ -6,9 +6,12 @@ def frozen_prior_lift_contract(contract):
     """Old terminal labels are used only to restore a frozen actor prior.
 
     Staged Q/replay uses the unmodified current contract and fresh critics.
-    Other terminal fields remain strict. Old measured data does not become
-    current-reward Q data through this actor-only compatibility path.
+    The reviewed 10cm reset-relative drop guard is also ignored for this
+    actor-only match. Other terminal fields remain strict; old measured
+    data does not become current-reward Q data through this path.
     """
+    from ..geometry.box_drop import frozen_drop_actor_contract
+    contract = frozen_drop_actor_contract(contract)
     from ..geometry.rack import GRASP_LIFT_CLEARANCE_CONTRACT
     terminal=contract.get('terminal_contract',{})
     reference=terminal.get('proof_lift_reference')
@@ -45,9 +48,12 @@ def staged_solver_contract(name, *, physics_backend=None):
 def frozen_cpu_actor_contract(contract):
     """Only a frozen controller may ignore the reviewed CPU backend marker.
 
-    Current Q/replay always retains this marker. Solver, timesteps, actions,
-    observations, rewards and safety remain unchanged in the actor match.
+    Current Q/replay always retains the backend and drop markers. The reviewed
+    10cm drop guard is the only safety exception for this frozen actor match;
+    solver, timesteps, actions, observations and rewards remain strict.
     """
+    from ..geometry.box_drop import frozen_drop_actor_contract
+    contract = frozen_drop_actor_contract(contract)
     dynamics=contract.get('physics_dynamics',{})
     if not isinstance(dynamics,dict) or 'physics_backend' not in dynamics:return contract
     if dynamics!=staged_solver_contract('PGS',physics_backend=CPU_PHYSICS_BACKEND):
@@ -61,7 +67,13 @@ def configure_staged_physics(cfg, contract):
     This changes neither asset properties nor iteration counts. The staged
     learner includes this identity in its strict checkpoint/replay contract.
     An old actor can initialize new Q; old dynamics' Q/replay cannot resume.
+    Restore the recorded drop guard, including None for historical labels.
     """
+    from ..geometry.box_drop import configure_grasp_drop, configured_drop_limit
+    if hasattr(cfg, 'multi_box'):
+        configure_grasp_drop(cfg, contract)
+    elif configured_drop_limit(contract) is not None:
+        raise ValueError('Box-drop contract requires a multi-box configuration')
     dynamics=contract.get('physics_dynamics')
     if dynamics is None:
         if cfg.sim.physx.solver_type!=1:raise ValueError('Legacy staged physics requires TGS')

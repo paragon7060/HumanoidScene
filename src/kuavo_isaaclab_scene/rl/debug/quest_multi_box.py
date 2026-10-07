@@ -93,8 +93,13 @@ def _common_reward_input(env, snapshot, previous: dict[str, bool]):
         box.data.root_pos_w[0, 2] - env.scene.env_origins[0, 2])
     raw_grasp = snapshot.raw_by_phase["grasp"]
     raw_place = snapshot.raw_by_phase["place"]
+    from ..multi_box.geometry.box_drop import grasp_box_drop, grasp_drop_limit
+    drop = bool(grasp_box_drop(
+        raw_grasp.proof_lift_m.new_tensor([box_height]), raw_grasp.proof_lift_m,
+        torch.isfinite(box.data.root_pose_w).all(-1) & torch.isfinite(box.data.root_vel_w).all(-1),
+        grasp_drop_limit(env.cfg.multi_box))[0])
     box_failure = (
-        box_height < 0.12
+        drop
         or float(raw_grasp.proof_lift_m[0])
         > float(env.cfg.multi_box.max_box_lift_height)
         or float(raw_place.linear_speed_mps[0])

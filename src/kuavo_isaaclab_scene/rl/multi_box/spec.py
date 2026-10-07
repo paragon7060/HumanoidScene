@@ -82,6 +82,8 @@ class MultiBoxSpec:
 
     # Simulator guards are not success criteria or policy observations.
     max_box_lift_height: float = 0.50
+    # Grasp only; None reproduces old checkpoints' world-center 12cm guard.
+    max_box_drop_height: float | None = 0.10
     max_box_linear_speed: float = 10.0
     max_box_angular_speed: float = 100.0
     workspace_radius: float = 1.5
@@ -183,6 +185,11 @@ class MultiBoxSpec:
                   self.rack_contact_force, self.self_collision_clearance)
         if not all(math.isfinite(value) and value > 0 for value in safety):
             raise ValueError("Simulator safety limits must be finite and positive.")
+        if self.max_box_drop_height is not None and (
+                isinstance(self.max_box_drop_height, bool)
+                or not math.isfinite(self.max_box_drop_height)
+                or not 0 < self.max_box_drop_height <= .50):
+            raise ValueError("Grasp box-drop safety limit must be within (0, 0.50] metres.")
         if self.self_collision_clearance >= 0.04:
             raise ValueError("Self-collision clearance must be below the 4 cm influence range.")
 

@@ -261,6 +261,9 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.scene.flap_dynamics import configure_flap_dynamics
         from kuavo_isaaclab_scene.rl.multi_box.geometry.projected_base import projected_base_safety_contract
         configure_flap_dynamics(cfg, contract)
+        from kuavo_isaaclab_scene.rl.multi_box.geometry.box_drop import (
+            configure_grasp_drop, grasp_drop_safety_thresholds)
+        configure_grasp_drop(cfg, contract)
         if 'contact_shaping' in contract['reward_profile']:
             cfg.rewards.grasp.params = dict(reward_profile=contract['reward_profile'])
         cfg.multi_box = replace(cfg.multi_box, self_collision_enabled=contract['self_collision']['enabled'],
@@ -278,7 +281,8 @@ def main():
             geometry_profile='rack_front_lane_then_opposing_flap_reach_v3')
         if 'contact_shaping' in contract['reward_profile']:
             profile['contact_shaping'] = contract['reward_profile']['contact_shaping']
-        thresholds = dict(rack_contact_force_n=float(cfg.multi_box.rack_contact_force),
+        thresholds = dict(**grasp_drop_safety_thresholds(cfg.multi_box),
+            rack_contact_force_n=float(cfg.multi_box.rack_contact_force),
             obstacle_contact_force_n=float(cfg.task.obstacle_contact_force), workspace_radius_m=float(cfg.multi_box.workspace_radius),
             max_box_lift_height_m=float(cfg.multi_box.max_box_lift_height),
             max_box_linear_speed_mps=float(cfg.multi_box.max_box_linear_speed),

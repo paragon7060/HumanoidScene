@@ -20,6 +20,20 @@ Actor와 Q 업데이트가0인 초기 기준이므로 성공 보상 변경의 �
 TRAIN과 학습 후 전체 DEV를 자신의15건 기준과 비교한다.
 [전체 초기 평가·정확한 초기 모델](assets/rl_v2_success64_full_initial_DEV_20261007.json).
 
+첫 실제 TRAIN128에서는 **안전한 성공1건(중간 오른쪽)**, 위험 종료91건,
+시간 초과36건이었다. Actor0/Q1590의 일치 모델과 자기 성공410행을 보존했다.
+마지막 실제 reward와 같은 learner의 bootstrap 없는 terminal target은 모두
+**62.996414**여서 +64가 clipping 없이 critic에 전달됐다. 이때 actor는 초기
+동작 그대로였으므로 탐색에서 얻은 성공이며 학습 후 평가 개선은 아니다.
+[실제 성공 경로·reward·target](assets/rl_v2_success64_first_actual_TRAIN1_20261007.json).
+그보다 앞선 Q1024회에서도 actor는 동일하고 Q와 target만 유한하게 변경된 것을
+확인했다. [첫 Q 학습 증거](assets/rl_v2_success64_first_actual_Q1024_20261007.json).
+
+이 실행은 과거의 박스 중심12cm 낙하 기준을 사용한다. 바닥의 옆으로 누운
+박스를 놓치는 공통 판정 문제를 별도로 수정했고, 새10cm 상대 낙하 조건은
+새 Q·빈 reward 은행에서만 적용한다. 실행 중인 이 비교의 기준이나 과거
+라벨은 변경하지 않았다. [낙하 문제·수정·새 입력](RL_V2_GRASP_DROP_GUARD_20261007.md).
+
 ## 실제 경로에서 확인한 보상 관계
 
 완전히 종료된 원래 정책 actor4337/Q19396의 마지막 DEV128 중 유효한127경로에서
