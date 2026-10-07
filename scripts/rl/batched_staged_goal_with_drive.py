@@ -81,7 +81,8 @@ def validate_managed_physics_device(device, child, *, learner_device=None):
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__)
+    # Child flags such as --checkpoint must not abbreviate manager flags.
+    parser=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     parser.add_argument('--experiment-dir',type=Path,required=True)
     parser.add_argument('--gpu',type=int,default=3)
     parser.add_argument('--physics-device',choices=('cuda:0','cpu'),default='cuda:0',
