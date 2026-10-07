@@ -63,8 +63,9 @@ rack10N·주변 장애물5N·self collision OFF는 유지한다. 박스 고정�
 실제 writer3910094의 소유자·고유 run·CUDA3를 확인했다. 기존 학습4개는
 유지했고, 평가의 학습·actor/Q/replay 갱신은 비활성화했다. 네 구역32개씩
 모두 요청하고 구역별 대표 영상4개도 저장한다. 아직 전체 평가 결과는 없다.
-실행 소스는 로컬 커밋f1581d6이며 GitHub가 push를 Internal Server Error로
-거절해 원격 동기화는 재시도 대기 중이다. 기존 Drive도 invalid_grant로
+실행 소스는 커밋f1581d6이다. 초기 push는 GitHub Internal Server Error로
+지연됐지만 재시도 후 코드·실제 학습·평가·그래프 기록을245218d까지 main에
+push했다. 기존 Drive는 invalid_grant로
 재인증이 필요하므로 미검증 자료는 로컬에 보존한다.
 [실제 frozen 평가 실행](assets/rl_v2_actor_memory_fit1000_actual_frozen_DEV_launch_20261008.json).
 
