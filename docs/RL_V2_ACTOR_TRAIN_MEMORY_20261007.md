@@ -121,9 +121,15 @@ DEV4 모델을 보존하는 CPU 관찰자도 실제 실행을 확인했다. 시�
 재개 입력은 원래 actor0/Q2048 모델·정규화·optimizer와 실제 replay103,281행,
 신규 성공 은행7,848행 및 과거 actor 기억12,476행을 보존한다. 진단에서 수행한
 optimizer 갱신은 재개 파일에 넣지 않는다. 같은 원래 TRAIN·DEV 요청으로 별도
-실행 폴더에서 이어가며 물리 reset의 동일성을 가정하지 않는다. 실제 새 writer
-확인 전에는 재개 완료로 기록하지 않는다.
+실행 폴더에서 이어가며 물리 reset의 동일성을 가정하지 않는다.
 [실제 GPU 복원·첫 갱신 검증](assets/rl_v2_actor_memory_GPU_device_fix_resume_20261007.json).
+
+**10/07 23:19 KST에 재개했다.** Writer3445610·supervisor3445498의 실제 소유자·
+실행 경로·CUDA_VISIBLE_DEVICES=3과 active 서비스를 확인했다. 첫 성공 기억 갱신과
+첫 DEV4 모델을 보존하는 별도 CPU 관찰자 두 개도 실제 실행을 확인했다. 원래
+다섯 학습과 종료 실험의 백업 관리자에는 신호를 보내지 않았다. 새 초기 평가 및
+학습 후 전체 성공률은 아직 확인 전이다.
+[실제 재개·관찰자 확인](assets/rl_v2_actor_memory_device_fix_actual_launch_20261007.json).
 
 기존 Drive 연결은 이번 확인에서 `invalid_grant`였다. 인증을 새로 만들지 않고
 로컬 파일과 기존300초 업로드 재시도를 보존한다. 재인증 전 추가 원격 검증을
