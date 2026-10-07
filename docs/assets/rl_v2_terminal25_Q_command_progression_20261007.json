@@ -1,0 +1,1908 @@
+{
+  "recorded_at": "2026-10-07T14:22:40.848572+09:00",
+  "source_terminal_rows_SHA256": "5955bd6e161d8c79bbfa56774445a0c9ef3b69e0ee1972a2ad2c30bfea0c3bfb",
+  "source_run_directory_name": "batch_sac_20261007_095313_4bef31",
+  "models": [
+    {
+      "label": "after_TRAIN384_DEV4",
+      "actor_updates": 691,
+      "critic_updates": 4812,
+      "matching_checkpoint_SHA256": "20f5caa767197580f6f6ad35cdee932af3ece69b4390c500d38c71fee42c54fc"
+    },
+    {
+      "label": "after_TRAIN768_DEV8",
+      "actor_updates": 1902,
+      "critic_updates": 9654,
+      "matching_checkpoint_SHA256": "9236cd1b88c3197b84018c9c049920c567e6cd7173403700ddb0ebe3a442986d"
+    }
+  ],
+  "actual_own_closed_TRAIN_waves1_2_3_terminal_rows54": true,
+  "same_measured_observations_actions_rewards_and_full_goal_contract_verified": true,
+  "critic_action_features_exact_equal_across_models": true,
+  "terminal_no_bootstrap_or_entropy": true,
+  "source_extraction_stable_snapshot_previously_verified_NO_live_HDF_or_replay_read": true,
+  "terminal_sample_capacity_limited_NOT_all_TRAIN_paths_or_new_policy_rollouts": true,
+  "known_terminal_truth_ONLY_for_recorded_actions_alternative_greedy_not_executed": true,
+  "new_physical_outcome_and_causal_degradation_NOT_inferred_from_Q_or_command_differences": true,
+  "source_models_and_normalizers_unchanged_no_training_import": true,
+  "groups": [
+    {
+      "outcome": "success",
+      "own_past_TRAIN_paths": 3,
+      "models": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "actual_terminal_reward_mean": 2.6115509668986,
+          "recorded_action_Qmin_mean": 2.270327091217041,
+          "mean_recorded_action_Q_minus_reward": -0.34122387568155926,
+          "mean_absolute_recorded_action_terminal_error": 0.34122387568155926,
+          "mean_greedy_minus_recorded_Q": -0.019227981567382812,
+          "mean_greedy_vs_recorded_body_command_MAE": 0.2283641149600347,
+          "mean_greedy_recorded_binary_jaw_agreement": 1.0
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "actual_terminal_reward_mean": 2.6115509668986,
+          "recorded_action_Qmin_mean": 3.141723871231079,
+          "mean_recorded_action_Q_minus_reward": 0.5301729043324789,
+          "mean_absolute_recorded_action_terminal_error": 0.5301729043324789,
+          "mean_greedy_minus_recorded_Q": 0.11175537109375,
+          "mean_greedy_vs_recorded_body_command_MAE": 0.28242965042591095,
+          "mean_greedy_recorded_binary_jaw_agreement": 1.0
+        }
+      ]
+    },
+    {
+      "outcome": "unsafe",
+      "own_past_TRAIN_paths": 34,
+      "models": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "actual_terminal_reward_mean": -8.460901793311624,
+          "recorded_action_Qmin_mean": -5.949035755851689,
+          "mean_recorded_action_Q_minus_reward": 2.5118660374599346,
+          "mean_absolute_recorded_action_terminal_error": 2.669896407162442,
+          "mean_greedy_minus_recorded_Q": 0.6644073891289094,
+          "mean_greedy_vs_recorded_body_command_MAE": 0.5311146413578707,
+          "mean_greedy_recorded_binary_jaw_agreement": 0.7352941176470589
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "actual_terminal_reward_mean": -8.460901793311624,
+          "recorded_action_Qmin_mean": -6.261702288161306,
+          "mean_recorded_action_Q_minus_reward": 2.199199505150318,
+          "mean_absolute_recorded_action_terminal_error": 2.3186580402886166,
+          "mean_greedy_minus_recorded_Q": 0.34178875386714935,
+          "mean_greedy_vs_recorded_body_command_MAE": 0.733405293787227,
+          "mean_greedy_recorded_binary_jaw_agreement": 0.7205882352941176
+        }
+      ]
+    },
+    {
+      "outcome": "timeout",
+      "own_past_TRAIN_paths": 17,
+      "models": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "actual_terminal_reward_mean": -2.413055321749519,
+          "recorded_action_Qmin_mean": -1.2693278684335596,
+          "mean_recorded_action_Q_minus_reward": 1.1437274533159592,
+          "mean_absolute_recorded_action_terminal_error": 1.4055134093060213,
+          "mean_greedy_minus_recorded_Q": 0.03174220551462734,
+          "mean_greedy_vs_recorded_body_command_MAE": 0.18844923727652607,
+          "mean_greedy_recorded_binary_jaw_agreement": 0.8823529411764706
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "actual_terminal_reward_mean": -2.413055321749519,
+          "recorded_action_Qmin_mean": 0.7978955310057191,
+          "mean_recorded_action_Q_minus_reward": 3.210950852755238,
+          "mean_absolute_recorded_action_terminal_error": 3.210950852755238,
+          "mean_greedy_minus_recorded_Q": 0.20578178368947087,
+          "mean_greedy_vs_recorded_body_command_MAE": 0.8612043226466459,
+          "mean_greedy_recorded_binary_jaw_agreement": 0.7941176470588235
+        }
+      ]
+    }
+  ],
+  "episodes": [
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave2/env37/seed2310701109",
+      "region": "shelf_2_right",
+      "outcome": "success",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": 2.5992863178253174,
+          "actual_same_recorded_action_terminal_reward": 2.6107773780822754,
+          "recorded_action_Q_minus_reward": -0.011491060256958008,
+          "greedy_action_Qmin": 2.5885307788848877,
+          "greedy_minus_recorded_Q": -0.010755538940429688,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.3003454804420471,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.7464776039123535,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 2.7164146900177,
+          "actual_same_recorded_action_terminal_reward": 2.6107773780822754,
+          "recorded_action_Q_minus_reward": 0.1056373119354248,
+          "greedy_action_Qmin": 2.7414660453796387,
+          "greedy_minus_recorded_Q": 0.025051355361938477,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.26353171467781067,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.8456230163574219,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env61/seed2310702115",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -4.273256778717041,
+          "actual_same_recorded_action_terminal_reward": -9.663981437683105,
+          "recorded_action_Q_minus_reward": 5.3907246589660645,
+          "greedy_action_Qmin": -3.0531396865844727,
+          "greedy_minus_recorded_Q": 1.2201170921325684,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5040827393531799,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.8177220821380615,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -4.308341979980469,
+          "actual_same_recorded_action_terminal_reward": -9.663981437683105,
+          "recorded_action_Q_minus_reward": 5.355639457702637,
+          "greedy_action_Qmin": -3.903970956802368,
+          "greedy_minus_recorded_Q": 0.4043710231781006,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6849401593208313,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env65/seed2310702116",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -6.131701469421387,
+          "actual_same_recorded_action_terminal_reward": -9.523606300354004,
+          "recorded_action_Q_minus_reward": 3.391904830932617,
+          "greedy_action_Qmin": -4.912391185760498,
+          "greedy_minus_recorded_Q": 1.2193102836608887,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.46767401695251465,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.804111361503601,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -9.013105392456055,
+          "actual_same_recorded_action_terminal_reward": -9.523606300354004,
+          "recorded_action_Q_minus_reward": 0.5105009078979492,
+          "greedy_action_Qmin": -8.219170570373535,
+          "greedy_minus_recorded_Q": 0.7939348220825195,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7867283821105957,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env69/seed2310702117",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -4.056245803833008,
+          "actual_same_recorded_action_terminal_reward": -10.120368957519531,
+          "recorded_action_Q_minus_reward": 6.064123153686523,
+          "greedy_action_Qmin": -2.9132180213928223,
+          "greedy_minus_recorded_Q": 1.1430277824401855,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.3696931302547455,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.4159977436065674,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -6.360457897186279,
+          "actual_same_recorded_action_terminal_reward": -10.120368957519531,
+          "recorded_action_Q_minus_reward": 3.759911060333252,
+          "greedy_action_Qmin": -5.516403675079346,
+          "greedy_minus_recorded_Q": 0.8440542221069336,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.602080762386322,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env73/seed2310702118",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -4.82319974899292,
+          "actual_same_recorded_action_terminal_reward": -9.479448318481445,
+          "recorded_action_Q_minus_reward": 4.656248569488525,
+          "greedy_action_Qmin": -3.4756577014923096,
+          "greedy_minus_recorded_Q": 1.3475420475006104,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.48001715540885925,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.7618904113769531,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -6.311441421508789,
+          "actual_same_recorded_action_terminal_reward": -9.479448318481445,
+          "recorded_action_Q_minus_reward": 3.1680068969726562,
+          "greedy_action_Qmin": -5.953524589538574,
+          "greedy_minus_recorded_Q": 0.35791683197021484,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6318302750587463,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env77/seed2310702119",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -7.391968250274658,
+          "actual_same_recorded_action_terminal_reward": -9.343083381652832,
+          "recorded_action_Q_minus_reward": 1.9511151313781738,
+          "greedy_action_Qmin": -6.852018356323242,
+          "greedy_minus_recorded_Q": 0.539949893951416,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.3562741279602051,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.7635056972503662,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -9.209179878234863,
+          "actual_same_recorded_action_terminal_reward": -9.343083381652832,
+          "recorded_action_Q_minus_reward": 0.13390350341796875,
+          "greedy_action_Qmin": -8.976775169372559,
+          "greedy_minus_recorded_Q": 0.2324047088623047,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5710813999176025,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env81/seed2310702120",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -8.78237533569336,
+          "actual_same_recorded_action_terminal_reward": -10.009747505187988,
+          "recorded_action_Q_minus_reward": 1.227372169494629,
+          "greedy_action_Qmin": -7.831748008728027,
+          "greedy_minus_recorded_Q": 0.950627326965332,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5173875093460083,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.9465724229812622,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -9.554339408874512,
+          "actual_same_recorded_action_terminal_reward": -10.009747505187988,
+          "recorded_action_Q_minus_reward": 0.45540809631347656,
+          "greedy_action_Qmin": -9.378625869750977,
+          "greedy_minus_recorded_Q": 0.17571353912353516,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6337759494781494,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env85/seed2310702121",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -6.233939170837402,
+          "actual_same_recorded_action_terminal_reward": -9.631031036376953,
+          "recorded_action_Q_minus_reward": 3.397091865539551,
+          "greedy_action_Qmin": -4.372973918914795,
+          "greedy_minus_recorded_Q": 1.8609652519226074,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.4842045307159424,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.8401453495025635,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -2.6518936157226562,
+          "actual_same_recorded_action_terminal_reward": -9.631031036376953,
+          "recorded_action_Q_minus_reward": 6.979137420654297,
+          "greedy_action_Qmin": -1.5140528678894043,
+          "greedy_minus_recorded_Q": 1.137840747833252,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7018811106681824,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env89/seed2310702122",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -9.449980735778809,
+          "actual_same_recorded_action_terminal_reward": -8.68494987487793,
+          "recorded_action_Q_minus_reward": -0.7650308609008789,
+          "greedy_action_Qmin": -9.470547676086426,
+          "greedy_minus_recorded_Q": -0.020566940307617188,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.42700251936912537,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.889146327972412,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -8.288559913635254,
+          "actual_same_recorded_action_terminal_reward": -8.68494987487793,
+          "recorded_action_Q_minus_reward": 0.3963899612426758,
+          "greedy_action_Qmin": -8.230487823486328,
+          "greedy_minus_recorded_Q": 0.05807209014892578,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5134561657905579,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.48447847366333,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env93/seed2310702123",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -7.770615100860596,
+          "actual_same_recorded_action_terminal_reward": -8.741353988647461,
+          "recorded_action_Q_minus_reward": 0.9707388877868652,
+          "greedy_action_Qmin": -8.036792755126953,
+          "greedy_minus_recorded_Q": -0.2661776542663574,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.46903499960899353,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.835224986076355,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -8.226682662963867,
+          "actual_same_recorded_action_terminal_reward": -8.741353988647461,
+          "recorded_action_Q_minus_reward": 0.5146713256835938,
+          "greedy_action_Qmin": -7.630071640014648,
+          "greedy_minus_recorded_Q": 0.5966110229492188,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.612585186958313,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.920027494430542,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env97/seed2310702124",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -8.859766960144043,
+          "actual_same_recorded_action_terminal_reward": -9.549324989318848,
+          "recorded_action_Q_minus_reward": 0.6895580291748047,
+          "greedy_action_Qmin": -8.659738540649414,
+          "greedy_minus_recorded_Q": 0.2000284194946289,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.4943080246448517,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.9157031774520874,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -8.391495704650879,
+          "actual_same_recorded_action_terminal_reward": -9.549324989318848,
+          "recorded_action_Q_minus_reward": 1.1578292846679688,
+          "greedy_action_Qmin": -7.650390148162842,
+          "greedy_minus_recorded_Q": 0.7411055564880371,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7767057418823242,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env101/seed2310702125",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -6.84028959274292,
+          "actual_same_recorded_action_terminal_reward": -8.955888748168945,
+          "recorded_action_Q_minus_reward": 2.1155991554260254,
+          "greedy_action_Qmin": -6.254590034484863,
+          "greedy_minus_recorded_Q": 0.5856995582580566,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.3917480409145355,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.6627947092056274,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -8.130524635314941,
+          "actual_same_recorded_action_terminal_reward": -8.955888748168945,
+          "recorded_action_Q_minus_reward": 0.8253641128540039,
+          "greedy_action_Qmin": -7.357670307159424,
+          "greedy_minus_recorded_Q": 0.7728543281555176,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.678956151008606,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env105/seed2310702126",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -7.5072245597839355,
+          "actual_same_recorded_action_terminal_reward": -7.194420337677002,
+          "recorded_action_Q_minus_reward": -0.3128042221069336,
+          "greedy_action_Qmin": -7.4398603439331055,
+          "greedy_minus_recorded_Q": 0.06736421585083008,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6637314558029175,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -7.577276706695557,
+          "actual_same_recorded_action_terminal_reward": -7.194420337677002,
+          "recorded_action_Q_minus_reward": -0.3828563690185547,
+          "greedy_action_Qmin": -7.6174726486206055,
+          "greedy_minus_recorded_Q": -0.04019594192504883,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.772840142250061,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env109/seed2310702127",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -9.22420883178711,
+          "actual_same_recorded_action_terminal_reward": -9.335216522216797,
+          "recorded_action_Q_minus_reward": 0.1110076904296875,
+          "greedy_action_Qmin": -8.708521842956543,
+          "greedy_minus_recorded_Q": 0.5156869888305664,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.4404243528842926,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.5729764699935913,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -7.874818325042725,
+          "actual_same_recorded_action_terminal_reward": -9.335216522216797,
+          "recorded_action_Q_minus_reward": 1.4603981971740723,
+          "greedy_action_Qmin": -7.718984603881836,
+          "greedy_minus_recorded_Q": 0.15583372116088867,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7323994636535645,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env113/seed2310702128",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -5.267910957336426,
+          "actual_same_recorded_action_terminal_reward": -8.718790054321289,
+          "recorded_action_Q_minus_reward": 3.4508790969848633,
+          "greedy_action_Qmin": -3.618145227432251,
+          "greedy_minus_recorded_Q": 1.6497657299041748,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.47377070784568787,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.6768971681594849,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -7.601693153381348,
+          "actual_same_recorded_action_terminal_reward": -8.718790054321289,
+          "recorded_action_Q_minus_reward": 1.1170969009399414,
+          "greedy_action_Qmin": -7.080472946166992,
+          "greedy_minus_recorded_Q": 0.5212202072143555,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7230541110038757,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env117/seed2310702129",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -6.526309490203857,
+          "actual_same_recorded_action_terminal_reward": -8.835577011108398,
+          "recorded_action_Q_minus_reward": 2.309267520904541,
+          "greedy_action_Qmin": -4.655714988708496,
+          "greedy_minus_recorded_Q": 1.8705945014953613,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.44110527634620667,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.8076727390289307,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -5.279791355133057,
+          "actual_same_recorded_action_terminal_reward": -8.835577011108398,
+          "recorded_action_Q_minus_reward": 3.555785655975342,
+          "greedy_action_Qmin": -5.0865960121154785,
+          "greedy_minus_recorded_Q": 0.19319534301757812,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7475554943084717,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env121/seed2310702130",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -9.291218757629395,
+          "actual_same_recorded_action_terminal_reward": -9.552026748657227,
+          "recorded_action_Q_minus_reward": 0.26080799102783203,
+          "greedy_action_Qmin": -8.86658763885498,
+          "greedy_minus_recorded_Q": 0.42463111877441406,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.42610353231430054,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.7605135440826416,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -10.16495418548584,
+          "actual_same_recorded_action_terminal_reward": -9.552026748657227,
+          "recorded_action_Q_minus_reward": -0.6129274368286133,
+          "greedy_action_Qmin": -10.062726974487305,
+          "greedy_minus_recorded_Q": 0.10222721099853516,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6288303136825562,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env125/seed2310702131",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -8.357283592224121,
+          "actual_same_recorded_action_terminal_reward": -8.785968780517578,
+          "recorded_action_Q_minus_reward": 0.42868518829345703,
+          "greedy_action_Qmin": -8.139760971069336,
+          "greedy_minus_recorded_Q": 0.21752262115478516,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.3964484632015228,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.8246690034866333,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -8.827569961547852,
+          "actual_same_recorded_action_terminal_reward": -8.785968780517578,
+          "recorded_action_Q_minus_reward": -0.04160118103027344,
+          "greedy_action_Qmin": -8.39931869506836,
+          "greedy_minus_recorded_Q": 0.4282512664794922,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6499267220497131,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env68/seed2310702017",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -8.126617431640625,
+          "actual_same_recorded_action_terminal_reward": -7.308631896972656,
+          "recorded_action_Q_minus_reward": -0.8179855346679688,
+          "greedy_action_Qmin": -8.004068374633789,
+          "greedy_minus_recorded_Q": 0.12254905700683594,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.4749654531478882,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.2077877521514893,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -7.6014885902404785,
+          "actual_same_recorded_action_terminal_reward": -7.308631896972656,
+          "recorded_action_Q_minus_reward": -0.29285669326782227,
+          "greedy_action_Qmin": -7.487760543823242,
+          "greedy_minus_recorded_Q": 0.11372804641723633,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7310816049575806,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env72/seed2310702018",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -0.3251788318157196,
+          "actual_same_recorded_action_terminal_reward": -7.093212127685547,
+          "recorded_action_Q_minus_reward": 6.768033295869827,
+          "greedy_action_Qmin": -0.29132789373397827,
+          "greedy_minus_recorded_Q": 0.03385093808174133,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.37728506326675415,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.2123972177505493,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -1.9825485944747925,
+          "actual_same_recorded_action_terminal_reward": -7.093212127685547,
+          "recorded_action_Q_minus_reward": 5.110663533210754,
+          "greedy_action_Qmin": -1.7538443803787231,
+          "greedy_minus_recorded_Q": 0.22870421409606934,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5618588328361511,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.6409337520599365,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env76/seed2310702019",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -2.0787558555603027,
+          "actual_same_recorded_action_terminal_reward": -7.271966934204102,
+          "recorded_action_Q_minus_reward": 5.193211078643799,
+          "greedy_action_Qmin": -1.5460220575332642,
+          "greedy_minus_recorded_Q": 0.5327337980270386,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5623897314071655,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -7.12013578414917,
+          "actual_same_recorded_action_terminal_reward": -7.271966934204102,
+          "recorded_action_Q_minus_reward": 0.15183115005493164,
+          "greedy_action_Qmin": -6.858700752258301,
+          "greedy_minus_recorded_Q": 0.26143503189086914,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7791947722434998,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env80/seed2310702020",
+      "region": "shelf_2_left",
+      "outcome": "success",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": 2.30625581741333,
+          "actual_same_recorded_action_terminal_reward": 2.6143555641174316,
+          "recorded_action_Q_minus_reward": -0.30809974670410156,
+          "greedy_action_Qmin": 2.303759813308716,
+          "greedy_minus_recorded_Q": -0.002496004104614258,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.17901377379894257,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.4668682813644409,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 3.2097184658050537,
+          "actual_same_recorded_action_terminal_reward": 2.6143555641174316,
+          "recorded_action_Q_minus_reward": 0.5953629016876221,
+          "greedy_action_Qmin": 3.390425205230713,
+          "greedy_minus_recorded_Q": 0.18070673942565918,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.3412171006202698,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.9825706481933594,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env84/seed2310702021",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -6.5235676765441895,
+          "actual_same_recorded_action_terminal_reward": -7.339497089385986,
+          "recorded_action_Q_minus_reward": 0.8159294128417969,
+          "greedy_action_Qmin": -5.5287017822265625,
+          "greedy_minus_recorded_Q": 0.994865894317627,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7885326147079468,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -1.0347195863723755,
+          "actual_same_recorded_action_terminal_reward": -7.339497089385986,
+          "recorded_action_Q_minus_reward": 6.304777503013611,
+          "greedy_action_Qmin": -0.42274489998817444,
+          "greedy_minus_recorded_Q": 0.611974686384201,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 1.1908960342407227,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env88/seed2310702022",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -8.190494537353516,
+          "actual_same_recorded_action_terminal_reward": -7.39979887008667,
+          "recorded_action_Q_minus_reward": -0.7906956672668457,
+          "greedy_action_Qmin": -8.267191886901855,
+          "greedy_minus_recorded_Q": -0.07669734954833984,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5321620106697083,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.2355009317398071,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -7.581543922424316,
+          "actual_same_recorded_action_terminal_reward": -7.39979887008667,
+          "recorded_action_Q_minus_reward": -0.18174505233764648,
+          "greedy_action_Qmin": -7.540919780731201,
+          "greedy_minus_recorded_Q": 0.040624141693115234,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7698666453361511,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env92/seed2310702023",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -6.806426525115967,
+          "actual_same_recorded_action_terminal_reward": -7.226262092590332,
+          "recorded_action_Q_minus_reward": 0.41983556747436523,
+          "greedy_action_Qmin": -6.496203422546387,
+          "greedy_minus_recorded_Q": 0.3102231025695801,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5656129121780396,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.4645556211471558,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -3.9983408451080322,
+          "actual_same_recorded_action_terminal_reward": -7.226262092590332,
+          "recorded_action_Q_minus_reward": 3.2279212474823,
+          "greedy_action_Qmin": -3.419074773788452,
+          "greedy_minus_recorded_Q": 0.5792660713195801,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8271635174751282,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env96/seed2310702024",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -5.797445774078369,
+          "actual_same_recorded_action_terminal_reward": -7.401523113250732,
+          "recorded_action_Q_minus_reward": 1.6040773391723633,
+          "greedy_action_Qmin": -5.434158802032471,
+          "greedy_minus_recorded_Q": 0.36328697204589844,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5546661615371704,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.748586654663086,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -7.108065128326416,
+          "actual_same_recorded_action_terminal_reward": -7.401523113250732,
+          "recorded_action_Q_minus_reward": 0.2934579849243164,
+          "greedy_action_Qmin": -7.090738296508789,
+          "greedy_minus_recorded_Q": 0.017326831817626953,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6098605990409851,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.319412350654602,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env100/seed2310702025",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -5.325186729431152,
+          "actual_same_recorded_action_terminal_reward": -7.650759696960449,
+          "recorded_action_Q_minus_reward": 2.325572967529297,
+          "greedy_action_Qmin": -4.527789115905762,
+          "greedy_minus_recorded_Q": 0.7973976135253906,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.4419076442718506,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.7000446319580078,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -8.169568061828613,
+          "actual_same_recorded_action_terminal_reward": -7.650759696960449,
+          "recorded_action_Q_minus_reward": -0.5188083648681641,
+          "greedy_action_Qmin": -8.15910530090332,
+          "greedy_minus_recorded_Q": 0.010462760925292969,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7056949734687805,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env104/seed2310702026",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -7.463321208953857,
+          "actual_same_recorded_action_terminal_reward": -8.020231246948242,
+          "recorded_action_Q_minus_reward": 0.5569100379943848,
+          "greedy_action_Qmin": -6.704704761505127,
+          "greedy_minus_recorded_Q": 0.7586164474487305,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5921724438667297,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.971505045890808,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -7.112941741943359,
+          "actual_same_recorded_action_terminal_reward": -8.020231246948242,
+          "recorded_action_Q_minus_reward": 0.9072895050048828,
+          "greedy_action_Qmin": -6.821479320526123,
+          "greedy_minus_recorded_Q": 0.29146242141723633,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.9371578097343445,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env108/seed2310702027",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -2.6463065147399902,
+          "actual_same_recorded_action_terminal_reward": -8.130270004272461,
+          "recorded_action_Q_minus_reward": 5.483963489532471,
+          "greedy_action_Qmin": -2.118469476699829,
+          "greedy_minus_recorded_Q": 0.5278370380401611,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6355109214782715,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.8590728044509888,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -1.8362767696380615,
+          "actual_same_recorded_action_terminal_reward": -8.130270004272461,
+          "recorded_action_Q_minus_reward": 6.293993234634399,
+          "greedy_action_Qmin": -1.3876092433929443,
+          "greedy_minus_recorded_Q": 0.4486675262451172,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8512161374092102,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env112/seed2310702028",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -1.2554686069488525,
+          "actual_same_recorded_action_terminal_reward": -8.011314392089844,
+          "recorded_action_Q_minus_reward": 6.755845785140991,
+          "greedy_action_Qmin": -0.5184181928634644,
+          "greedy_minus_recorded_Q": 0.7370504140853882,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5937421917915344,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.9223356246948242,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -0.1351749449968338,
+          "actual_same_recorded_action_terminal_reward": -8.011314392089844,
+          "recorded_action_Q_minus_reward": 7.87613944709301,
+          "greedy_action_Qmin": 0.25256088376045227,
+          "greedy_minus_recorded_Q": 0.38773582875728607,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6240742802619934,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.9223356246948242,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env116/seed2310702029",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -6.028909683227539,
+          "actual_same_recorded_action_terminal_reward": -7.740161895751953,
+          "recorded_action_Q_minus_reward": 1.711252212524414,
+          "greedy_action_Qmin": -5.5043721199035645,
+          "greedy_minus_recorded_Q": 0.5245375633239746,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6132292151451111,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.8562356233596802,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -6.6174540519714355,
+          "actual_same_recorded_action_terminal_reward": -7.740161895751953,
+          "recorded_action_Q_minus_reward": 1.1227078437805176,
+          "greedy_action_Qmin": -6.76571798324585,
+          "greedy_minus_recorded_Q": -0.14826393127441406,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6199754476547241,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.2643585205078125,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env120/seed2310702030",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -7.31795072555542,
+          "actual_same_recorded_action_terminal_reward": -7.468733310699463,
+          "recorded_action_Q_minus_reward": 0.15078258514404297,
+          "greedy_action_Qmin": -6.953624248504639,
+          "greedy_minus_recorded_Q": 0.36432647705078125,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.5830729007720947,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.6416648626327515,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -7.18201208114624,
+          "actual_same_recorded_action_terminal_reward": -7.468733310699463,
+          "recorded_action_Q_minus_reward": 0.28672122955322266,
+          "greedy_action_Qmin": -7.042284965515137,
+          "greedy_minus_recorded_Q": 0.13972711563110352,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7371286749839783,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env124/seed2310702031",
+      "region": "shelf_2_left",
+      "outcome": "success",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": 1.9054391384124756,
+          "actual_same_recorded_action_terminal_reward": 2.6095199584960938,
+          "recorded_action_Q_minus_reward": -0.7040808200836182,
+          "greedy_action_Qmin": 1.861006736755371,
+          "greedy_minus_recorded_Q": -0.04443240165710449,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.20573309063911438,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.5238771438598633,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 3.4990384578704834,
+          "actual_same_recorded_action_terminal_reward": 2.6095199584960938,
+          "recorded_action_Q_minus_reward": 0.8895184993743896,
+          "greedy_action_Qmin": 3.6285464763641357,
+          "greedy_minus_recorded_Q": 0.12950801849365234,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.2425401359796524,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.933682918548584,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env87/seed2310702321",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -0.6827639937400818,
+          "actual_same_recorded_action_terminal_reward": -2.083275318145752,
+          "recorded_action_Q_minus_reward": 1.4005113244056702,
+          "greedy_action_Qmin": -0.6689297556877136,
+          "greedy_minus_recorded_Q": 0.013834238052368164,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.17689819633960724,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.5151212215423584,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 0.7412950992584229,
+          "actual_same_recorded_action_terminal_reward": -2.083275318145752,
+          "recorded_action_Q_minus_reward": 2.824570417404175,
+          "greedy_action_Qmin": 0.9552868604660034,
+          "greedy_minus_recorded_Q": 0.21399176120758057,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8443587422370911,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.0581145286560059,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env91/seed2310702322",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -0.8639857172966003,
+          "actual_same_recorded_action_terminal_reward": -1.9141912460327148,
+          "recorded_action_Q_minus_reward": 1.0502055287361145,
+          "greedy_action_Qmin": -0.861788809299469,
+          "greedy_minus_recorded_Q": 0.0021969079971313477,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.12799404561519623,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.7732987403869629,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 0.9789401888847351,
+          "actual_same_recorded_action_terminal_reward": -1.9141912460327148,
+          "recorded_action_Q_minus_reward": 2.89313143491745,
+          "greedy_action_Qmin": 1.1859511137008667,
+          "greedy_minus_recorded_Q": 0.2070109248161316,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.925316572189331,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.5020380020141602,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env95/seed2310702323",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -0.8089833855628967,
+          "actual_same_recorded_action_terminal_reward": -2.7626419067382812,
+          "recorded_action_Q_minus_reward": 1.9536585211753845,
+          "greedy_action_Qmin": -0.821170449256897,
+          "greedy_minus_recorded_Q": -0.012187063694000244,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.14902733266353607,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.48018842935562134,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 1.630674958229065,
+          "actual_same_recorded_action_terminal_reward": -2.7626419067382812,
+          "recorded_action_Q_minus_reward": 4.393316864967346,
+          "greedy_action_Qmin": 1.7778795957565308,
+          "greedy_minus_recorded_Q": 0.14720463752746582,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.9246084094047546,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env99/seed2310702324",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -1.0490787029266357,
+          "actual_same_recorded_action_terminal_reward": -2.4380486011505127,
+          "recorded_action_Q_minus_reward": 1.388969898223877,
+          "greedy_action_Qmin": -1.041684865951538,
+          "greedy_minus_recorded_Q": 0.007393836975097656,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.1388309746980667,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.3475308418273926,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 1.539739966392517,
+          "actual_same_recorded_action_terminal_reward": -2.4380486011505127,
+          "recorded_action_Q_minus_reward": 3.97778856754303,
+          "greedy_action_Qmin": 1.808047890663147,
+          "greedy_minus_recorded_Q": 0.2683079242706299,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.846062183380127,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.097672700881958,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env103/seed2310702325",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -0.7797392010688782,
+          "actual_same_recorded_action_terminal_reward": -1.604081153869629,
+          "recorded_action_Q_minus_reward": 0.8243419528007507,
+          "greedy_action_Qmin": -0.7793159484863281,
+          "greedy_minus_recorded_Q": 0.00042325258255004883,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.1594610959291458,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.7909297943115234,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 0.5639537572860718,
+          "actual_same_recorded_action_terminal_reward": -1.604081153869629,
+          "recorded_action_Q_minus_reward": 2.1680349111557007,
+          "greedy_action_Qmin": 0.7406362891197205,
+          "greedy_minus_recorded_Q": 0.17668253183364868,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.919303297996521,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.7639288902282715,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env107/seed2310702326",
+      "region": "shelf_3_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -2.204603672027588,
+          "actual_same_recorded_action_terminal_reward": -9.014333724975586,
+          "recorded_action_Q_minus_reward": 6.809730052947998,
+          "greedy_action_Qmin": -0.9702362418174744,
+          "greedy_minus_recorded_Q": 1.2343674302101135,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7273317575454712,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.2909690141677856,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -0.3242138922214508,
+          "actual_same_recorded_action_terminal_reward": -9.014333724975586,
+          "recorded_action_Q_minus_reward": 8.690119832754135,
+          "greedy_action_Qmin": -0.08858336508274078,
+          "greedy_minus_recorded_Q": 0.23563052713871002,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8185161352157593,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.3818273544311523,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env111/seed2310702327",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -3.6369197368621826,
+          "actual_same_recorded_action_terminal_reward": -2.268064022064209,
+          "recorded_action_Q_minus_reward": -1.3688557147979736,
+          "greedy_action_Qmin": -3.515857696533203,
+          "greedy_minus_recorded_Q": 0.12106204032897949,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.738613486289978,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.0527888536453247,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 0.47053056955337524,
+          "actual_same_recorded_action_terminal_reward": -2.268064022064209,
+          "recorded_action_Q_minus_reward": 2.7385945916175842,
+          "greedy_action_Qmin": 0.7810453176498413,
+          "greedy_minus_recorded_Q": 0.31051474809646606,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.9200955629348755,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.4887878894805908,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env115/seed2310702328",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -3.079357624053955,
+          "actual_same_recorded_action_terminal_reward": -2.2230327129364014,
+          "recorded_action_Q_minus_reward": -0.8563249111175537,
+          "greedy_action_Qmin": -3.0390048027038574,
+          "greedy_minus_recorded_Q": 0.040352821350097656,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.18763330578804016,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.9137997627258301,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 0.7814727425575256,
+          "actual_same_recorded_action_terminal_reward": -2.2230327129364014,
+          "recorded_action_Q_minus_reward": 3.004505455493927,
+          "greedy_action_Qmin": 0.9087045192718506,
+          "greedy_minus_recorded_Q": 0.12723177671432495,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8494770526885986,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.2397894859313965,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env119/seed2310702329",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -1.615850567817688,
+          "actual_same_recorded_action_terminal_reward": -1.9901859760284424,
+          "recorded_action_Q_minus_reward": 0.3743354082107544,
+          "greedy_action_Qmin": -1.4557055234909058,
+          "greedy_minus_recorded_Q": 0.16014504432678223,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.1442899852991104,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.4987657070159912,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 1.1050761938095093,
+          "actual_same_recorded_action_terminal_reward": -1.9901859760284424,
+          "recorded_action_Q_minus_reward": 3.0952621698379517,
+          "greedy_action_Qmin": 1.2277185916900635,
+          "greedy_minus_recorded_Q": 0.1226423978805542,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.805051326751709,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.0488042831420898,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env123/seed2310702330",
+      "region": "shelf_3_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -6.172031402587891,
+          "actual_same_recorded_action_terminal_reward": -7.182138919830322,
+          "recorded_action_Q_minus_reward": 1.0101075172424316,
+          "greedy_action_Qmin": -5.734376907348633,
+          "greedy_minus_recorded_Q": 0.4376544952392578,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7708576321601868,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.51741361618042,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -6.230261325836182,
+          "actual_same_recorded_action_terminal_reward": -7.182138919830322,
+          "recorded_action_Q_minus_reward": 0.9518775939941406,
+          "greedy_action_Qmin": -6.276506423950195,
+          "greedy_minus_recorded_Q": -0.04624509811401367,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.9433687925338745,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env127/seed2310702331",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -1.7225069999694824,
+          "actual_same_recorded_action_terminal_reward": -2.525214910507202,
+          "recorded_action_Q_minus_reward": 0.8027079105377197,
+          "greedy_action_Qmin": -1.8268167972564697,
+          "greedy_minus_recorded_Q": -0.1043097972869873,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.10956373810768127,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.4347264766693115,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 1.0486280918121338,
+          "actual_same_recorded_action_terminal_reward": -2.525214910507202,
+          "recorded_action_Q_minus_reward": 3.573843002319336,
+          "greedy_action_Qmin": 1.2044122219085693,
+          "greedy_minus_recorded_Q": 0.15578413009643555,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.9073048830032349,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.2525657415390015,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env90/seed2310702222",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -0.18392333388328552,
+          "actual_same_recorded_action_terminal_reward": -2.2740249633789062,
+          "recorded_action_Q_minus_reward": 2.0901016294956207,
+          "greedy_action_Qmin": -0.18114130198955536,
+          "greedy_minus_recorded_Q": 0.0027820318937301636,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.1437080055475235,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.864759087562561,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 1.0249485969543457,
+          "actual_same_recorded_action_terminal_reward": -2.2740249633789062,
+          "recorded_action_Q_minus_reward": 3.298973560333252,
+          "greedy_action_Qmin": 1.1728726625442505,
+          "greedy_minus_recorded_Q": 0.14792406558990479,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8174605965614319,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.0298529863357544,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env94/seed2310702223",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -1.071596384048462,
+          "actual_same_recorded_action_terminal_reward": -2.5374128818511963,
+          "recorded_action_Q_minus_reward": 1.4658164978027344,
+          "greedy_action_Qmin": -1.0616745948791504,
+          "greedy_minus_recorded_Q": 0.009921789169311523,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.16294367611408234,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.6040096282958984,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 0.4225054681301117,
+          "actual_same_recorded_action_terminal_reward": -2.5374128818511963,
+          "recorded_action_Q_minus_reward": 2.959918349981308,
+          "greedy_action_Qmin": 0.595930814743042,
+          "greedy_minus_recorded_Q": 0.1734253466129303,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8518353700637817,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.1407742500305176,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env98/seed2310702224",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -0.30131465196609497,
+          "actual_same_recorded_action_terminal_reward": -3.360121250152588,
+          "recorded_action_Q_minus_reward": 3.058806598186493,
+          "greedy_action_Qmin": -0.31008604168891907,
+          "greedy_minus_recorded_Q": -0.008771389722824097,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.12660814821720123,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.631454586982727,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 0.6616544127464294,
+          "actual_same_recorded_action_terminal_reward": -3.360121250152588,
+          "recorded_action_Q_minus_reward": 4.021775662899017,
+          "greedy_action_Qmin": 1.024369716644287,
+          "greedy_minus_recorded_Q": 0.36271530389785767,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7025421261787415,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.060056209564209,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env102/seed2310702225",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -0.474860817193985,
+          "actual_same_recorded_action_terminal_reward": -2.468195915222168,
+          "recorded_action_Q_minus_reward": 1.993335098028183,
+          "greedy_action_Qmin": -0.4853839576244354,
+          "greedy_minus_recorded_Q": -0.01052314043045044,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.17942391335964203,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.8481740951538086,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 0.4281652271747589,
+          "actual_same_recorded_action_terminal_reward": -2.468195915222168,
+          "recorded_action_Q_minus_reward": 2.896361142396927,
+          "greedy_action_Qmin": 0.6218737959861755,
+          "greedy_minus_recorded_Q": 0.19370856881141663,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8401779532432556,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.0441908836364746,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env106/seed2310702226",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -1.9298571348190308,
+          "actual_same_recorded_action_terminal_reward": -2.5562360286712646,
+          "recorded_action_Q_minus_reward": 0.6263788938522339,
+          "greedy_action_Qmin": -1.7296870946884155,
+          "greedy_minus_recorded_Q": 0.20017004013061523,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.2137695550918579,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.6727300882339478,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 0.3031889796257019,
+          "actual_same_recorded_action_terminal_reward": -2.5562360286712646,
+          "recorded_action_Q_minus_reward": 2.8594250082969666,
+          "greedy_action_Qmin": 0.5525760054588318,
+          "greedy_minus_recorded_Q": 0.24938702583312988,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.9708276987075806,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 2.0,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env110/seed2310702227",
+      "region": "shelf_3_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -3.2059216499328613,
+          "actual_same_recorded_action_terminal_reward": -7.808527946472168,
+          "recorded_action_Q_minus_reward": 4.602606296539307,
+          "greedy_action_Qmin": -2.637087345123291,
+          "greedy_minus_recorded_Q": 0.5688343048095703,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.7653048038482666,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.8062273263931274,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -5.046039581298828,
+          "actual_same_recorded_action_terminal_reward": -7.808527946472168,
+          "recorded_action_Q_minus_reward": 2.76248836517334,
+          "greedy_action_Qmin": -4.4327921867370605,
+          "greedy_minus_recorded_Q": 0.6132473945617676,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.924394428730011,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.8062273263931274,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env114/seed2310702228",
+      "region": "shelf_3_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -2.011533737182617,
+          "actual_same_recorded_action_terminal_reward": -9.478513717651367,
+          "recorded_action_Q_minus_reward": 7.46697998046875,
+          "greedy_action_Qmin": -1.1792049407958984,
+          "greedy_minus_recorded_Q": 0.8323287963867188,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.6761437654495239,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.1884832382202148,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -6.044966697692871,
+          "actual_same_recorded_action_terminal_reward": -9.478513717651367,
+          "recorded_action_Q_minus_reward": 3.433547019958496,
+          "greedy_action_Qmin": -5.6850433349609375,
+          "greedy_minus_recorded_Q": 0.3599233627319336,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8557037711143494,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.4353970289230347,
+          "greedy_recorded_binary_jaw_agreement": 0.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env118/seed2310702229",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -1.5517792701721191,
+          "actual_same_recorded_action_terminal_reward": -2.610908031463623,
+          "recorded_action_Q_minus_reward": 1.059128761291504,
+          "greedy_action_Qmin": -1.5125019550323486,
+          "greedy_minus_recorded_Q": 0.03927731513977051,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.13867799937725067,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.37221759557724,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 1.2414448261260986,
+          "actual_same_recorded_action_terminal_reward": -2.610908031463623,
+          "recorded_action_Q_minus_reward": 3.8523528575897217,
+          "greedy_action_Qmin": 1.4674882888793945,
+          "greedy_minus_recorded_Q": 0.2260434627532959,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8358333706855774,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.066077709197998,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env122/seed2310702230",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -0.9802539944648743,
+          "actual_same_recorded_action_terminal_reward": -2.603015899658203,
+          "recorded_action_Q_minus_reward": 1.6227619051933289,
+          "greedy_action_Qmin": -0.9655627012252808,
+          "greedy_minus_recorded_Q": 0.014691293239593506,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.1868756264448166,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.5020499229431152,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": -0.06279496103525162,
+          "actual_same_recorded_action_terminal_reward": -2.603015899658203,
+          "recorded_action_Q_minus_reward": 2.5402209386229515,
+          "greedy_action_Qmin": 0.1796262115240097,
+          "greedy_minus_recorded_Q": 0.24242117255926132,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8396909236907959,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.0911593437194824,
+          "greedy_recorded_binary_jaw_agreement": 1.0,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_095313_4bef31/wave3/env126/seed2310702231",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "predictions": [
+        {
+          "model": "after_TRAIN384_DEV4",
+          "recorded_action_Qmin": -0.8458022475242615,
+          "actual_same_recorded_action_terminal_reward": -2.8032896518707275,
+          "recorded_action_Q_minus_reward": 1.957487404346466,
+          "greedy_action_Qmin": -0.7826439738273621,
+          "greedy_minus_recorded_Q": 0.06315827369689941,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.11931794881820679,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 0.4340052604675293,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        },
+        {
+          "model": "after_TRAIN768_DEV8",
+          "recorded_action_Qmin": 0.6847999095916748,
+          "actual_same_recorded_action_terminal_reward": -2.8032896518707275,
+          "recorded_action_Q_minus_reward": 3.4880895614624023,
+          "greedy_action_Qmin": 0.8580944538116455,
+          "greedy_minus_recorded_Q": 0.1732945442199707,
+          "greedy_vs_recorded_body_command_mean_absolute_error": 0.8405274152755737,
+          "greedy_vs_recorded_body_command_maximum_absolute_error": 1.0444293022155762,
+          "greedy_recorded_binary_jaw_agreement": 0.5,
+          "alternative_greedy_action_NOT_executed_no_true_return_label": true
+        }
+      ]
+    }
+  ],
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}

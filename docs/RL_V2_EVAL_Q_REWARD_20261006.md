@@ -2,7 +2,8 @@
 
 [Notion 중간 보고](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)에
 동일한 대표 평가 정책의 Q 표시 영상 4개를 첨부했다. 성공 2개와
-랙 충돌·시간 초과 각 1개다. 전체 평가 결과 **30/128**은 그대로다.
+랙 충돌·시간 초과 각 1개다. 이 영상 정책의 전체 평가 결과 **30/128**은 그대로다.
+후속 성공 명령 유지 SAC의 최신 최고 **33/128**과 서로 다른 체크포인트다.
 대표 성능·학습 방법은 [중간 보고](RL_V2_GRASP_INTERIM_SUMMARY_20261006.md)를 참고한다.
 
 처음 보는 사람은 Notion의 **중간 왼쪽 성공 → 상단 오른쪽 충돌** Q 영상을
@@ -160,6 +161,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/export_eval_
 
 MP4와 preview PNG, control step별 Q·r·G trace JSON, 검증 JSON을 출력한다.
 현재 실제-flap bounded held-base 정책(518/577/21차원)용이며 Isaac/GPU를 사용하지 않는다.
+[선택형 task 시간 입력](RL_V2_CRITIC_TASK_TIME_20261007.md)의518/578/21차원도
+저장된 시간 계약과 실제 기록된 행동 전 시간값이 있는 경우에만 복원한다.
 동일한 차원을 사용하는 [표준편차 축소 정책](RL_V2_GAUSSIAN_SERVO_20261007.md)도
 저장된 고유 계약과 자기 Q 입력 변환을 복원해 표시한다. 그 형식을 지원하는 것은
 영상이 이미 생성됐다는 뜻이 아니며, 위4개는 대표30/128 정책의 영상 그대로다.
