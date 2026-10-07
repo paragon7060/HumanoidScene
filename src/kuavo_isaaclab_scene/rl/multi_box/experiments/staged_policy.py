@@ -10,6 +10,7 @@ from .gentle_servo_critic_sac import GentleServoCriticSACPilot
 from .servo_success_retention import ServoRetentionGentleSACPilot
 from .conservative_servo_retention import ConservativeServoRetentionSACPilot
 from .actor_memory_servo_retention import ActorMemoryServoRetentionSACPilot
+from .regional_actor_servo import RegionalActorMemorySACPilot
 
 
 def staged_policy_class(artifact_type):
@@ -21,6 +22,7 @@ def staged_policy_class(artifact_type):
         ServoRetentionGentleSACPilot,
         ConservativeServoRetentionSACPilot,
         ActorMemoryServoRetentionSACPilot,
+        RegionalActorMemorySACPilot,
     )}.get(artifact_type)
 
 

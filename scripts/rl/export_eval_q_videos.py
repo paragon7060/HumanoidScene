@@ -58,7 +58,11 @@ def restored_agent(state):
     from kuavo_isaaclab_scene.rl.multi_box.experiments.actor_train_memory import (
         ActorTrainMemory, actor_memory_contract, compatibility_contract, structure_sha256,
     )
-    memory = state.get('artifact_type') == ActorMemoryServoRetentionSACPilot.artifact_type
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.regional_actor_servo import (
+        RegionalActorMemorySACPilot, install_regional_actor, validate_regional_actor_state,
+    )
+    regional = state.get('artifact_type') == RegionalActorMemorySACPilot.artifact_type
+    memory = regional or state.get('artifact_type') == ActorMemoryServoRetentionSACPilot.artifact_type
     if memory:
         if state['goal_contract'].get('actor_training_memory') != actor_memory_contract():
             raise ValueError('Saved actor-only TRAIN memory contract differs')
@@ -128,6 +132,12 @@ def restored_agent(state):
     reference.requires_grad_(False)
     agent.validated_jaw_prior = lambda normal: reference['actor'].network(
         torch.cat((normal[:, :prefix], normal[:, -6:]), -1)).chunk(2, -1)[0][:, 19:21]
+    if regional:
+        validate_regional_actor_state(state)
+        # Install with the saved frozen statistics before restoring all tensors.
+        agent.actor_normalizer.load_state_dict({k.removeprefix('actor_normalizer.'):v
+            for k,v in state['model'].items() if k.startswith('actor_normalizer.')})
+        install_regional_actor(agent)
     agent.restore(state, training=False)
     agent.requires_grad_(False)
     if not all(torch.equal(value, agent.state_dict()[key]) for key, value in state['model'].items()):
