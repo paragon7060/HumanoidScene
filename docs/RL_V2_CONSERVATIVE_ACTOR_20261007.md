@@ -66,3 +66,12 @@ python scripts/rl/prepare_conservative_servo_actor.py \
 생성된 체크포인트의 artifact type으로 배치 학습·정책 재생이 같은 클래스를
 선택한다. 별도 환경 보상 옵션이나 기존 실행의 optimizer 수정은 필요하지 않다.
 독립 FINAL·다른 박스 크기·네 구역에서 안정적인 성공은 아직 입증되지 않았다.
+
+다음 데이터 후보도 읽기 전용으로 확인했다. 이전 SAC의 실제 TRAIN 탐색에서
+성공한 상단 오른쪽1경로·590개 관측의 몸체 명령은 현재 actor의 출력 가능
+범위에 모두 들어왔고 닫힘 명령도 현재 jaw gate를 모두 통과했다. Actor 관측,
+목표 좌표·flap 인지 계약과 고정 몸체 anchor가 일치했다. 과거의 안전한 성공
+동작을 잃지 않는 actor 전용 기억 후보이며, **현재 실행에는 넣지 않았고 기존
+Q·보상 전이도 가져오지 않았다.** 실제 환경·성공 기준과 TRAIN/DEV 분리의
+최종 호환성 확인, 별도 actor 전용 데이터 연결과 새 전체 평가는 아직 필요하다.
+[읽기 전용 TRAIN 명령 호환성](assets/rl_v2_actual_TRAIN_upper_right_actor_memory_eligibility_20261007.json).
