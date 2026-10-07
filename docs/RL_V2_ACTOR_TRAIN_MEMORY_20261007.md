@@ -91,6 +91,13 @@ DEV4 모델을 보존하는 CPU 관찰자도 실제 실행을 확인했다. 시�
 초기화 중이며 첫 학습 후 성능은 아직 없다.
 [실제 실행·백업·관찰자 확인](assets/rl_v2_actor_memory_conservative_actual_launch_20261007.json).
 
+이후 실제 첫 초기 평가에 진입했다. 준비 입력·agent·progress 계약이 정확히
+같고 actor518/critic578, 실제 optimizer의 actor1e-6·Q3e-4를 확인했다. 과거 기억
+12,476행·네 구역10/10/1/6경로가 actor에만 연결됐으며 Q/replay·신규 성공 보상·
+실제 return 은행 및 actor/Q 카운터는 모두0이었다. 정책80%/탐색20% 수집 설정도
+실제 manifest와 일치했다. 이는 실행 연결 확인이며 학습 후 성공률은 아니다.
+[첫 실제 평가의 계약·기억 연결](assets/rl_v2_actor_memory_conservative_first_actual_DEV_20261007.json).
+
 기존 Drive 연결로 초기 체크포인트·계약7개의 크기·MD5를 검증했다.
 학습 중300초 업로드·최신2개 보존,
 종료 후 닫힌 로그 검증을 사용한다. Raw HDF/replay는 RAM에 남으며 체크포인트·
