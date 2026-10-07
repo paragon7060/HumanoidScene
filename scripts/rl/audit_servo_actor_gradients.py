@@ -16,6 +16,7 @@ from pathlib import Path
 import torch
 
 from export_eval_q_videos import restored_agent
+from prepare_actual_success_actor_tail import identical
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import validate_success_outcome
 
 
@@ -76,6 +77,9 @@ def fractions(raw, agent, labels, generator):
         active_command_noise_abs_p95=float(torch.quantile(active_noise.flatten(),.95)),
         active_command_noise_changes_over0p05_fraction=float((active_noise>.05).float().mean()),
         same_past_TRAIN_label_command_MAE=float((command-measured).abs().mean()),
+        joint_jaw_greedy_label_match_fraction=float((greedy[:,19:]==labels[:,19:]).all(-1).float().mean()),
+        recorded_both_closed_states=int((labels[:,19:]==1).all(-1).sum()),
+        greedy_both_closed_on_recorded_closed_states=int(((labels[:,19:]==1).all(-1)&(greedy[:,19:]==1).all(-1)).sum()),
         all_jacobians_finite=bool(torch.isfinite(derivative).all()),
         discrete_jaws_and_20percent_bias_behavior_NOT_diagnosed=True)
 
@@ -84,6 +88,8 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--checkpoint-pointer',type=Path,required=True)
     p.add_argument('--completed-evaluation',type=Path,required=True)
+    p.add_argument('--policy-pointer',type=Path,
+        help='Optional different protected same-controller policy; diagnostic only, never a new evaluation claim')
     p.add_argument('--output',type=Path,required=True)
     a=p.parse_args()
     torch.set_num_threads(1)
@@ -98,7 +104,25 @@ def main():
     state=torch.load(io.BytesIO(blob),map_location='cpu',weights_only=True)
     if (state['actor_updates'],state['critic_updates'])!=(pointer['actor_updates'],pointer['critic_updates']):
         raise ValueError('Protected model counters differ')
-    agent,_=restored_agent(state)
+    policy_state=state
+    policy_blob=None; policy_pointer_blob=None
+    if a.policy_pointer is not None:
+        policy_pointer_blob=load_owned(a.policy_pointer);candidate=json.loads(policy_pointer_blob)
+        policy_blob=load_owned(candidate['protected_checkpoint'])
+        if hashlib.sha256(policy_blob).hexdigest()!=candidate['checkpoint_SHA256']:
+            raise ValueError('Protected diagnostic policy SHA256 differs')
+        policy_state=torch.load(io.BytesIO(policy_blob),map_location='cpu',weights_only=True)
+        if (policy_state['actor_updates'],policy_state['critic_updates'])!=(candidate['actor_updates'],candidate['critic_updates']):
+            raise ValueError('Diagnostic policy counters differ')
+        keys=('actor_dim','goal_center','goal_scale','action_coordinates','body_correction_radius',
+              'supplemental_perception','validated_jaw_prior_confidence','jaw_prior_residual_gain',
+              'critic_action_encoding','source_warm_start')
+        if (policy_state['artifact_type']!=state['artifact_type']
+                or not identical(policy_state['body_anchor_state'],state['body_anchor_state'])
+                or not identical(policy_state['frozen_actor_prior'],state['frozen_actor_prior'])
+                or any(policy_state['goal_contract'].get(k)!=state['goal_contract'].get(k) for k in keys)):
+            raise ValueError('Diagnostic policy actor/servo/anchor coordinates differ')
+    agent,_=restored_agent(policy_state)
     if not hasattr(agent,'goal_servo_critic_encoder'):
         raise ValueError('An actual production servo critic is required')
     groups=[]; generator=torch.Generator().manual_seed(237071801)
@@ -123,8 +147,14 @@ def main():
         raise ValueError('The protected model has no completed self-generated TRAIN states')
     assert digest==hashlib.sha256(load_owned(checkpoint)).hexdigest()
     assert pointer_blob==load_owned(a.checkpoint_pointer) and evaluation_blob==load_owned(a.completed_evaluation)
+    if policy_blob is not None:
+        assert policy_pointer_blob==load_owned(a.policy_pointer)
+        assert policy_blob==load_owned(candidate['protected_checkpoint'])
     proof=dict(recorded_utc=datetime.now(timezone.utc).isoformat(),
         checkpoint_SHA256=digest,actor_updates=state['actor_updates'],critic_updates=state['critic_updates'],
+        policy_checkpoint_SHA256=hashlib.sha256(policy_blob).hexdigest() if policy_blob is not None else digest,
+        diagnostic_policy_actor_updates=policy_state['actor_updates'],diagnostic_policy_critic_updates=policy_state['critic_updates'],
+        different_policy_on_same_past_TRAIN_states=a.policy_pointer is not None,
         source_completed_original_DEV_successes=evaluation['summary']['supported_successes'],
         groups=groups,production_goal_to_servo_autograd_matches_independent_analytic_Jacobian=True,
         same_past_completed_successful_TRAIN_only=True,NOT_new_physical_evaluation_or_learning_gain=True,
