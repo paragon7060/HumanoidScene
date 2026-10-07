@@ -14,8 +14,8 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.body_behavior_exploration imp
 from prepare_actual_success_actor_tail import identical
 
 
-def prepare(initial, experience, *, source_checkpoint):
-    """Fork only empty initializations; a learned actor may already be seeded."""
+def require_pristine_learning_state(initial, experience):
+    """Reject reward-bearing state before changing a fresh learner contract."""
     if (initial.get('artifact_type') not in (
             ReanchoredActualFlapSACPilot.artifact_type, ServoRetentionGentleSACPilot.artifact_type)
             or initial['actor_updates'] or initial['critic_updates']
@@ -28,6 +28,15 @@ def prepare(initial, experience, *, source_checkpoint):
             or experience['measured_train_credit_bank']['config']!=initial.get('measured_train_credit')
             or any(experience['measured_train_credit_bank']['episodes'].values())):
         raise ValueError('Fresh Q, all empty optimizers and matching empty reward-bearing banks are required')
+    if initial['goal_contract'] != experience['goal_contract'] or initial.get('online_rows', 0):
+        raise ValueError('Matching empty online learning contracts are required')
+    if any(not torch.isfinite(v).all() for v in initial['model'].values()):
+        raise ValueError('Finite initial models are required')
+
+
+def prepare(initial, experience, *, source_checkpoint):
+    """Fork only empty initializations; a learned actor may already be seeded."""
+    require_pristine_learning_state(initial, experience)
     previous=initial.get('body_behavior')
     if previous is None:
         pristine=all(value.get(key) is None for value in (initial,experience)
@@ -39,8 +48,6 @@ def prepare(initial, experience, *, source_checkpoint):
                 for value in (initial,experience)))
     if initial['goal_contract']!=experience['goal_contract'] or not pristine:
         raise ValueError('Matching pristine absent or original20% arm-behavior metadata required')
-    if any(not torch.isfinite(v).all() for v in initial['model'].values()):
-        raise ValueError('Finite initial models are required')
     state,replay=deepcopy(initial),deepcopy(experience)
     config=body_behavior_config(GREEDY_REST_VARIANT)
     origin=dict(source_checkpoint=str(source_checkpoint),actor_updates_at_activation=0,

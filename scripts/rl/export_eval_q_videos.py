@@ -51,11 +51,17 @@ def restored_agent(state):
     from kuavo_isaaclab_scene.rl.multi_box.experiments.servo_success_retention import (
         ServoRetentionGentleSACPilot,ServoRetainedCorrectionSAC,servo_success_retention_contract,
     )
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.conservative_servo_retention import (
+        ConservativeServoRetentionSACPilot, validate_conservative_actor_state,
+    )
+    conservative = state.get('artifact_type') == ConservativeServoRetentionSACPilot.artifact_type
+    if conservative:
+        validate_conservative_actor_state(state)
     contract = state['goal_contract']
     critic_dim = 578 if state.get('critic_episode_clock') is not None else 577
     if (contract['actor_dim'], contract['critic_dim'], state['action_dim']) != (518, critic_dim, 21):
         raise ValueError('This exporter requires the actual-flap bounded held-base SAC contract')
-    retained = state.get('artifact_type') == ServoRetentionGentleSACPilot.artifact_type
+    retained = conservative or state.get('artifact_type') == ServoRetentionGentleSACPilot.artifact_type
     if retained and contract.get('success_body_retention')!=servo_success_retention_contract():
         raise ValueError('Saved successful-servo retention contract differs')
     gentle = retained or state.get('artifact_type') == GentleServoCriticSACPilot.artifact_type
