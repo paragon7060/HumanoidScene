@@ -147,3 +147,8 @@ Drive 연결로 크기·MD5 검증했다. 실행할 때 GPU3/CUDA 마스크·5�
 모든 값이 유한하며 terminal25·성공 명령 유지 계약과 자기 TRAIN13경로·
 5,315행이 유지되는 것을 확인했다. 모델 갱신이며 새 물리 성공은 아니다.
 [첫 갱신 모델](assets/rl_v2_terminal25_first_updated_actor_20261007.json).
+
+새 TRAIN384조건 후 첫 전체 학습 평가에 진입했고 같은 actor691·Q4812 모델을
+별도 보존했다. 실제 model 값이 유한하고 terminal25·성공 명령 유지 계약이
+일치한다. 원래 DEV128 전체 결과는 아직 확인 전이며 초기23건과 비교한다.
+[첫 학습 평가의 일치 모델](assets/rl_v2_terminal25_first_learned_DEV4_matching_model_20261007.json).

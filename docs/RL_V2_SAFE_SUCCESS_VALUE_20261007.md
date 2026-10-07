@@ -5,8 +5,12 @@
 명령은 더 달라졌다. 별도의 원래 학습 정책은 네 위치에서 성공했지만 마지막
 전체 성능19/128은 초기23/128을 넘지 못했다. 성공 보상의 상대적인 크기도
 점검하고 **성공 이벤트8→64만 바꾸는 선택형 비교**를 구현했다.
-현재 초기 입력·실제 full trainer 복원·기존 Drive의 checkpoint/계약7개 검증까지
-마쳤으며, 새 실제 학습 시작과 학습 후 성공률 개선은 아직 확인 전이다.
+초기 입력·실제 full trainer 복원·기존 Drive의 checkpoint/계약7개 검증 뒤,
+**10/07 11:25 KST에 GPU3에서 별도 실제 SAC를 시작했다.** 초기화를 마치고
+첫 DEV에 진입했으며 실제 reward manager의+64 적용, 새 actor/Q 카운터와
+replay·성공·n-step 은행0을 확인했다. 학습 후 성공률 개선은 아직 확인 전이다.
+[실제 실행](assets/rl_v2_success64_actual_launch_20261007.json),
+[실제 첫 DEV와 보상 적용](assets/rl_v2_success64_first_actual_DEV_20261007.json).
 
 ## 실제 경로에서 확인한 보상 관계
 
@@ -56,7 +60,7 @@ Grasp에서는 안전 위반 시 성공 이벤트가0이고 즉시 실패로 종
 학습하겠다는 목적의 비교이며 위험한 rollout 자체가 사라진다는 보장은 아니다.
 
 선택형 profile은 [success_value.py](../src/kuavo_isaaclab_scene/rl/multi_box/rewards/success_value.py)에 있다.
-일반 기본값·진행 중 세 실행은 유지한다. 알 수 없는 보상 값이나 변경된 충돌
+일반 기본값·함께 진행 중인 세 실행은 유지한다. 알 수 없는 보상 값이나 변경된 충돌
 가중치는 actor 호환성 검사로 우회할 수 없다. 새 metadata는 full contract에 남고
 기존 Q로 직접 resume할 수 없다. 초기 reward manager의 실제64 적용도 런타임에서
 검사해 console에 기록한다.
@@ -86,6 +90,9 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_succ
 DEV128·17개 wave, seed2330700000이며 다른12개 계획과 겹치지 않는다.
 독립 FINAL은 남긴다. GPU3의 추가 비교는 checkpoint/계약/로그만5분마다
 검증·업로드하고 검증된 오래된 checkpoint만 정리하며 최신2개를 유지한다.
+실제 writer3251518·supervisor의 소유자·고유 run·`CUDA_VISIBLE_DEVICES=3`,
+서비스 실행과 실제17개 계획의 입력 일치를 확인했다. 기존 writer2089063·
+2413288·2933629는 유지했고 raw replay·HDF·영상은 전송하지 않는다.
 
 ## 성공 명령 유지 비교의 진단
 
@@ -105,5 +112,13 @@ MAE는 실제 제어 단위로 정규화한 차이이며 m나 rad가 아니다. 
 인과적 증거로 보지 않는다. 그리퍼와 마지막 구간의 일부 유지가 좋아졌어도
 초기 접근이 보존되지는 않았다. 자기 성공의 종료 Q−실제 마지막 reward 평균은
 중간 좌−0.047·우+0.055, 상단 좌−0.809이다. 성공만의 보존 은행이므로 전체
-실패 Q의 보정 상태를 나타내지 않는다. 첫 학습 후 DEV128로 실제 성능을 판단한다.
+실패 Q의 보정 상태를 나타내지 않는다.
 [같은 과거 성공 상태의 진단](assets/rl_v2_retention_actor693_own_success_path_diagnostic_20261007.json).
+
+첫 학습 후 전체 DEV는 **25/128(중간 좌19·우5, 상단 좌1·우0)**이며 초기23에서
+2건 늘었다. 그러나 유효한 초기화가117→127건으로 달랐다. 양쪽 모두 유효한
+116조건의 성공은23→21건이다. 중간 좌는12→17, 중간 우6→4, 상단 좌5→0,
+우0→0이며 같은 요청 layout이더라도 실제 reset 물리가 동일하다고 가정하지 않는다.
+주 성능의 분모128은 유지하되 **전체 학습 개선의 증거로 단정하지 않는다.**
+현재 랙73·시간 초과29·초기 무효1건이며 대표30을 넘지 못하고 상단 오른쪽도
+성공이 없다. [전체 실제 평가와 짝 비교](assets/rl_v2_servo_retention_first_full_DEV_after384_20261007.json).
