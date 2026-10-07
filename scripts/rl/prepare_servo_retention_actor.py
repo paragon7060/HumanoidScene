@@ -22,7 +22,7 @@ from kuavo_isaaclab_scene.rl.multi_box.rewards.absorbing_geometry import absorbi
 from prepare_actual_success_actor_tail import identical
 
 
-def prepare(initial,experience):
+def prepare(initial,experience,*,measured_train_credit=None):
     validate_quarter_policy_state(initial)
     goal=initial['goal_contract']
     if initial.get('artifact_type')!=GentleServoCriticSACPilot.artifact_type \
@@ -49,6 +49,18 @@ def prepare(initial,experience):
         success_body_retention=servo_success_retention_contract())
     state['hybrid_contract']=state['hybrid_contract']|dict(success_body_retention=servo_success_retention_contract())
     replay['goal_contract']=deepcopy(state['goal_contract'])
+    if measured_train_credit is not None:
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.measured_train_credit import (
+            measured_credit_config, MeasuredTrainCreditBank, VARIANT, TERMINAL_VARIANT,
+        )
+        if measured_train_credit not in (VARIANT, TERMINAL_VARIANT):
+            raise ValueError('Fresh successful-servo inputs require a supported measured TRAIN sampler')
+        configured=measured_credit_config(measured_train_credit)
+        state['measured_train_credit']=deepcopy(configured)
+        replay['measured_train_credit']=deepcopy(configured)
+        replay['measured_train_credit_bank']['config']=deepcopy(configured)
+        state['measured_train_credit_bank_report']=MeasuredTrainCreditBank(
+            goal['actor_dim'],goal['critic_dim'],state['config']['gamma'],configured).report()
     assert identical(state['model'],initial['model']) and identical(state['optimizers'],initial['optimizers'])
     return state,replay
 
@@ -61,6 +73,9 @@ def main():
     p.add_argument('--identity-checkpoint',type=Path,required=True,
         help='Closed actual TRAIN checkpoint for action identity checks only; its rows/models are not imported')
     p.add_argument('--output-dir',type=Path,required=True)
+    p.add_argument('--measured-train-credit',
+        choices=('measured-nstep16','measured-nstep16-terminal25'),default=None,
+        help='Optional fresh empty TRAIN-bank sampling contract; model and physical settings stay unchanged')
     args=p.parse_args();torch.set_num_threads(1)
     exp=args.initial_checkpoint.parent/'staged_goal_experience.pt'
     sources=(args.initial_checkpoint,exp,args.training_manifest,args.waypoints,args.identity_checkpoint)
@@ -68,7 +83,8 @@ def main():
         raise ValueError('Owned closed regular input files are required')
     hashes={str(s):hashlib.sha256(s.read_bytes()).hexdigest() for s in sources}
     initial=torch.load(args.initial_checkpoint,map_location='cpu',weights_only=True)
-    state,replay=prepare(initial,torch.load(exp,map_location='cpu',weights_only=True))
+    state,replay=prepare(initial,torch.load(exp,map_location='cpu',weights_only=True),
+        measured_train_credit=args.measured_train_credit)
     physical=json.loads(args.training_manifest.read_text())
     goal_physical=initial['goal_contract']['physical_contract']
     if goal_physical!={k:physical.get(k) for k in goal_physical}:
@@ -94,6 +110,7 @@ def main():
     assert all(hashes[str(s)]==hashlib.sha256(s.read_bytes()).hexdigest() for s in sources)
     proof=dict(recorded_utc=datetime.now(timezone.utc).isoformat(),source_SHA256=hashes,
         success_body_retention=servo_success_retention_contract(),actual_TRAIN_identity_rows=len(raw),
+        measured_train_credit=state.get('measured_train_credit'),
         initial_models_mean_jaw_Gaussian_Q_targets_and_normalizers_exactly_unchanged=True,
         source_identity_models_and_rows_NOT_imported=True,
         actual_TRAIN_online_success_nstep_rows0=True,actor_Q_updates0_four_optimizer_states0=True,

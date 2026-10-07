@@ -13,14 +13,15 @@ from .physical_train_credit import discounted_episode_windows
 from .staged_train_success import KEYS, REGIONS
 
 VARIANT = 'measured-nstep16'
+TERMINAL_VARIANT = 'measured-nstep16-terminal25'
 
 
 def measured_credit_config(variant):
     if variant in (None, 'one-step'):
         return None
-    if variant != VARIANT:
+    if variant not in (VARIANT, TERMINAL_VARIANT):
         raise ValueError('Unknown measured TRAIN credit variant')
-    return dict(name='matching_actual_held_TRAIN_nstep16_v1', horizon=16,
+    config = dict(name='matching_actual_held_TRAIN_nstep16_v1', horizon=16,
         capacity_per_region=8192, batch_size=64, critic_weight=.1,
         retained_successful_episodes_per_region=1,
         source='completed_matching_successful_and_failed_TRAIN_paths',
@@ -28,6 +29,13 @@ def measured_credit_config(variant):
         online_target='unchanged_one_step_SAC', off_policy_correction=False,
         intermediate_entropy_included=False, evaluation_import_allowed=False,
         episode_crossing_allowed=False, reward_relabeling=False)
+    if variant == TERMINAL_VARIANT:
+        config.update(name='matching_actual_held_TRAIN_nstep16_terminal25_v1',
+            sampling='75percent_uniform_rows25percent_final_terminal_per_available_region',
+            terminal_batch_fraction=.25, terminal_episode_sampling='uniform_episodes_within_region',
+            terminal_target='actual_last_reward_no_bootstrap_no_entropy',
+            critic_weight_unchanged=True)
+    return config
 
 
 def validate_measured_credit_batch(agent, batch, weight):
@@ -53,7 +61,8 @@ def validate_measured_credit_batch(agent, batch, weight):
 class MeasuredTrainCreditBank:
     """Whole physical paths, with no DEV, altered controller, or broken chains."""
     def __init__(self, actor_dim, critic_dim, gamma, config):
-        if config != measured_credit_config(VARIANT) or not math.isfinite(gamma) or not 0 < gamma <= 1:
+        if config not in (measured_credit_config(VARIANT), measured_credit_config(TERMINAL_VARIANT)) \
+                or not math.isfinite(gamma) or not 0 < gamma <= 1:
             raise ValueError('Unknown measured TRAIN credit configuration')
         self.actor_dim, self.critic_dim, self.gamma = actor_dim, critic_dim, gamma
         self.config = deepcopy(config)
@@ -101,6 +110,27 @@ class MeasuredTrainCreditBank:
             self._windows.pop(episodes.pop(removable)['identity'], None)
 
     def sample(self, count, device):
+        terminal_count = int(count * self.config.get('terminal_batch_fraction', 0.))
+        if not terminal_count:
+            return self._sample_uniform_rows(count, device)
+        regions = [r for r in REGIONS if self.episodes[r]]
+        if count < 1 or not regions:
+            raise ValueError('Cannot sample empty measured TRAIN credit')
+        uniform = self._sample_uniform_rows(count - terminal_count, 'cpu')
+        terminal = []
+        for index in range(terminal_count):
+            episodes = self.episodes[regions[index % len(regions)]]
+            episode = episodes[int(torch.randint(len(episodes), (1,)))]
+            identity = episode['identity']
+            if identity not in self._windows:
+                self._windows[identity] = discounted_episode_windows(episode['rows'],
+                    horizon=self.config['horizon'], gamma=self.gamma)
+            terminal.append({k: v[-1] for k, v in self._windows[identity].items()})
+        order = torch.randperm(count)
+        return {k: torch.cat((uniform[k], torch.stack([r[k] for r in terminal])))[order].to(device)
+            for k in uniform}
+
+    def _sample_uniform_rows(self, count, device):
         regions = [r for r in REGIONS if self.episodes[r]]
         if count < 1 or not regions:
             raise ValueError('Cannot sample empty measured TRAIN credit')
@@ -140,11 +170,15 @@ class MeasuredTrainCreditBank:
                     source_run=episode['identity'].split('/wave')[0])
 
     def report(self):
-        return dict(rows=self.size, by_region={r: dict(episodes=len(es),
+        report = dict(rows=self.size, by_region={r: dict(episodes=len(es),
             successes=sum(bool(e['outcome']['result']['success']) for e in es),
             failures=sum(not bool(e['outcome']['result']['success']) for e in es),
             rows=sum(len(e['rows']['reward']) for e in es)) for r, es in self.episodes.items()},
             TRAIN_only=True, evaluation_rows=0)
+        if 'terminal_batch_fraction' in self.config:
+            report.update(terminal_batch_fraction=self.config['terminal_batch_fraction'],
+                terminal_target=self.config['terminal_target'])
+        return report
 
 
 def add_measured_training_wave(bank, wave, outcomes, batches, *, source_run):

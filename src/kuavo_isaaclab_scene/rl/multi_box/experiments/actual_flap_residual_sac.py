@@ -149,9 +149,10 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
             body_anchor_state=saved.get('body_anchor_state')
         if body_anchor_state is None:raise ValueError('A validated nominal body actor snapshot is required')
         self.body_anchor_state=deepcopy(body_anchor_state)
-        from .measured_train_credit import measured_credit_config, VARIANT
+        from .measured_train_credit import measured_credit_config, VARIANT, TERMINAL_VARIANT
         stored = saved.get('measured_train_credit') if saved else None
-        if stored is not None and stored != measured_credit_config(VARIANT):
+        if stored is not None and stored not in (
+                measured_credit_config(VARIANT), measured_credit_config(TERMINAL_VARIANT)):
             raise ValueError('Saved measured TRAIN credit configuration differs')
         requested = measured_credit_config(measured_train_credit)
         if stored is not None and measured_train_credit is not None and requested != stored:

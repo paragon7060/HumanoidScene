@@ -26,7 +26,8 @@ def main():
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--native-seed',type=Path,action='append',required=True)
     parser.add_argument('--training',action=argparse.BooleanOptionalAction,default=False)
-    parser.add_argument('--measured-train-credit', choices=('one-step', 'measured-nstep16'), default=None,
+    parser.add_argument('--measured-train-credit',
+                        choices=('one-step', 'measured-nstep16', 'measured-nstep16-terminal25'), default=None,
         help='Opt-in actual-flap learner objective: real completed successful and failed TRAIN n-step credit')
     parser.add_argument('--jaw-behavior', choices=('policy', 'joint-epsilon10', 'joint-epsilon30'), default=None,
         help='Actual-flap TRAIN collection only: 10 or 30 percent correlated uniform joint jaws with unchanged production gate')
