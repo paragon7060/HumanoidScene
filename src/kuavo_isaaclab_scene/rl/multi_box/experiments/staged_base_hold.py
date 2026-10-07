@@ -27,7 +27,26 @@ class StagedBaseHoldDiagnostic:
         shelf = 'upper' if bool(token[0, 10:12].sum() > .5) else 'middle'
         template = templates['shelves'][shelf]
         regional=templates.get('region_workplaces')
+        typed=templates.get('size_workplaces')
+        if regional is not None and typed is not None:
+            raise ValueError('Choose exactly one regional or size-specific workplace contract')
         self.region_workplace=None
+        self.size_workplace=None
+        if typed is not None:
+            from .size_workplaces import validate_size_workplaces
+            from .size_workplace_probe import unmeasured_size_candidate
+            validate_size_workplaces(typed)
+            if typed['source_shelf_templates']!=templates['shelves']:
+                raise ValueError('Size targets require the original frozen shelf source')
+            # Reuse the real asset/one-hot validator; discard its diagnostic
+            # candidate and select only the actually measured typed entry.
+            _,identity=unmeasured_size_candidate(template,token[0])
+            region=typed['perceived_region_names_by_id'][int(token[0,8:12].argmax())]
+            kind=identity['requested_box_type']
+            entry=typed['regions'][region][kind]
+            self.size_workplace=dict(region=region,box_type=kind,**entry)
+            self.region_workplace=self.size_workplace
+            template=entry['template']
         if regional is not None:
             from .region_workplaces import validate_region_workplaces
             validate_region_workplaces(regional)
@@ -61,7 +80,7 @@ class StagedBaseHoldDiagnostic:
         self.linear_speed = self.angular_speed = None
         self.shelf = shelf
         self.template = template
-        self.templates = regional if regional is not None else templates['shelves']
+        self.templates = typed if typed is not None else regional if regional is not None else templates['shelves']
 
     def update(self, raw, linear_velocity, angular_velocity, step):
         _, _, xy, yaw, _ = self.coordinates.current(raw)
@@ -110,6 +129,7 @@ class StagedBaseHoldDiagnostic:
                     template=self.template, old_goal_replay_eligible=False)
         if hasattr(self,'waypoint_probe'):result['waypoint_probe']=self.waypoint_probe
         if self.region_workplace is not None:result['region_workplace_candidate']=self.region_workplace
+        if self.size_workplace is not None:result['size_workplace_candidate']=self.size_workplace
         if self.unmeasured_size_workplace_probe is not None:
             result['unmeasured_size_workplace_probe']=self.unmeasured_size_workplace_probe
         return result

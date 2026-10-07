@@ -70,6 +70,8 @@ def main():
         help='Frozen-only per-case workplace candidates; never contributes matching Q replay')
     parser.add_argument('--unmeasured-size-workplace-probe',action='store_true',
         help='Frozen TRAIN workplace measurement of supported new sizes; never relabels a measured waypoint or imports Q rows')
+    parser.add_argument('--workplace-reset-diagnostics',action='store_true',
+        help='Read-only reset trace for the explicit frozen TRAIN workplace search; existing contact reporters only')
     parser.add_argument('--steps',type=int,default=900)
     parser.add_argument('--reset-failure-diagnostics',action='store_true',
         help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
@@ -117,6 +119,7 @@ def main():
             enabled=args.cpu_workplace_probe,device=args.device or 'cuda:0',training=args.training,
             steps=args.steps,waypoint_enabled=args.base_waypoint_probe,
             unmeasured_size_probe=args.unmeasured_size_workplace_probe,
+            workplace_reset_diagnostics=args.workplace_reset_diagnostics,
             explicit_frozen='--no-training' in sys.argv and '--training' not in sys.argv,
             other_probe=any(s.split('=')[0] in WORKPLACE_FLAGS for s in sys.argv[1:]))
     except (ValueError,OSError) as error:parser.error(str(error))
@@ -622,7 +625,7 @@ def main():
             if args.success_jaw_balance is not None else state.get('success_jaw_balance'))
         meta['TRAIN_successful_jaw_balance'] = successful_jaw_balance
         meta['frozen_evaluation_uses_learned_policy_without_behavior_mixture'] = True
-        if args.reset_failure_diagnostics:
+        if args.reset_failure_diagnostics or args.workplace_reset_diagnostics:
             meta['reset_diagnostic_physics_device']=str(env.device)
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         if args.grasp_observation_audit:
@@ -633,6 +636,7 @@ def main():
             'frozen_physics_backend_evaluation':backend_eval,
             'CPU_physics_training':cpu_training,
             'CPU_workplace_probe':workplace_eval,
+            'workplace_reset_diagnostics':(workplace_eval or {}).get('workplace_reset_diagnostics'),
             'learner_device':learner_device,'sim_device':str(env.device),
             'TRAIN_jaw_behavior':collection_jaw_behavior,
             'TRAIN_body_behavior':collection_body_behavior,
@@ -706,14 +710,14 @@ def main():
                 actors=torch.stack([packed_background_reset_observation(actor,cfg.multi_box,
                     roller_clearance_m=resolve_rack_roller_settings().box_clearance_m) for actor in actors])
             observation,settled,valid_layout,layout_guard=settle_batched_layouts(env,actors,allow_partial=True,
-                capture_reset_diagnostics=args.reset_failure_diagnostics,
+                capture_reset_diagnostics=args.reset_failure_diagnostics or args.workplace_reset_diagnostics,
                 zero_passive_roller_velocity_probe=args.zero_passive_roller_velocities_probe)
             if contract.get('flap_dynamics'):
                 from kuavo_isaaclab_scene.rl.multi_box.scene.flap_dynamics import current_flap_dynamics_audit
                 (output/f'flap_dynamics_wave_{wave_index:04d}.json').write_text(json.dumps(
                     dict(wave=wave_index,split=wave['split'],
                          **current_flap_dynamics_audit(env,original_layout_valid=valid_layout)),indent=2)+'\n')
-            if args.reset_failure_diagnostics:
+            if args.reset_failure_diagnostics or args.workplace_reset_diagnostics:
                 if args.passive_bearing_probe_layer:
                     captured=layout_guard['reset_failure_diagnostics']
                     captured['passive_bearing_drive_probe']=solver_probe
@@ -734,7 +738,10 @@ def main():
                     layout_guard['reset_failure_diagnostics']['physical_state_unchanged']=False
                     layout_guard['reset_failure_diagnostics']['box_base_poses_randomization_physics_parameters_success_and_safety_unchanged']=False
                 captured=layout_guard['reset_failure_diagnostics']
-                if str(env.device)=='cpu':
+                if args.workplace_reset_diagnostics:
+                    captured['frozen_TRAIN_workplace_reset_capture']=workplace_eval['workplace_reset_diagnostics']
+                    captured['not_an_independent_confirmation']=True
+                elif str(env.device)=='cpu':
                     captured['reset_physics_device_diagnostic']=dict(name='frozen_DEV_reset_CPU_PhysX',
                         physics_device='cpu',Q_import_eligible=False,
                         constructor_and_contact_solver_history_not_matched=True,

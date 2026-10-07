@@ -70,3 +70,27 @@ def test_managed_cpu_route_has_the_same_freeze_and_data_split_gates(tmp_path):
     assert validate_managed_physics_device('cpu',child)['Q_import_eligible'] is False
     for extra in (['--training'],['--cpu-physics-training'],['--frozen-physics-backend-eval']):
         with pytest.raises(ValueError):validate_managed_physics_device('cpu',child+extra)
+
+
+def test_read_only_reset_capture_keeps_all_train_requests_and_same_gates(tmp_path):
+    waves=request();before=deepcopy(waves)
+    audit=check(waves,workplace_reset_diagnostics=True)
+    assert waves==before and audit['original_candidate_requests']==128
+    trace=audit['workplace_reset_diagnostics']
+    assert trace['first_failure_before_respawn']
+    assert trace['existing_normal_contact_reporters_only']
+    assert trace['physics_parameters_and_requested_layouts_unchanged']
+    assert trace['independent_confirmation'] is False and trace['Q_import_eligible'] is False
+    for changed in (dict(enabled=False),dict(training=True),dict(device='cuda:0'),
+                    dict(steps=1),dict(explicit_frozen=False),dict(other_probe=True)):
+        with pytest.raises(ValueError):check(waves,workplace_reset_diagnostics=True,**changed)
+    path=tmp_path/'waves.json';path.write_text(json.dumps(waves))
+    manifest=tmp_path/'manifest.json';manifest.write_text(json.dumps(dict(
+        physics_dynamics=staged_solver_contract('PGS',physics_backend=CPU_PHYSICS_BACKEND))))
+    child=['--cpu-workplace-probe','--base-waypoint-probe','--no-training',
+           '--workplace-reset-diagnostics','--waves-json',str(path),'--training-manifest',str(manifest)]
+    assert validate_managed_physics_device('cpu',child)['workplace_reset_diagnostics']==trace
+    for changed in (['--training'],['--reset-failure-diagnostics'],['--reset-contact-pair-diagnostics']):
+        with pytest.raises(ValueError):validate_managed_physics_device('cpu',child+changed)
+    for device in ('cpu','cuda:0'):
+        with pytest.raises(ValueError):validate_managed_physics_device(device,['--workplace-reset-diagnostics'])

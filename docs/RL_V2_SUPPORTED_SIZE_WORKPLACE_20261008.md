@@ -85,3 +85,84 @@ neutral reset·stage 구역과 medium 후보32개를 준비했고 원래 모델�
 이는 준비 및 연결 검사이며 실제 medium 파지 성공은 아직 측정 전이다.
 별도 DEV128·FINAL128은 준비했지만 사용하지 않았다.
 [실제 입력·복원 근거](assets/rl_v2_regional_mixed_size_TRAIN_workplace_preparation_20261008.json).
+
+## 두 번의 실제 TRAIN 측정 후 크기별 SAC 연결
+
+`prepare_size_workplaces.py`는 첫 탐색과 **시작 조건이 겹치지 않는 새 TRAIN
+재확인**을 함께 사용한다. 두 실행 모두 정상 종료한 고정 정책의128회 요청·
+모든 실패·같은 실제 checkpoint/waypoints와 model 고정 검사를 확인한다.
+중간의 small/medium은 각각2조건씩 두 번, 상단small은4조건씩 두 번이다.
+새 확인에서 파지 성공이 없으면 성공 위치로 표시하지 않는다. 안전한 시도만
+있는 후보는`measured_success:false`인 파지 미확인 후보로 유지할 수 있다.
+후보 간 flap 추첨과 물리 접촉 이력까지 일치한다고 가정하지 않는다.
+
+선택 JSON은`구역 -> 박스 종류 -> 후보 이름` 구조다. 중간 좌·우의small/medium,
+상단 좌·우의small **여섯 조합을 모두 명시**해야 한다. 실제 asset pool·원래
+접근 offset·시도 분모·새 확인 결과를 따로 보존한다. 크기별 stage는 실제 관측의
+구역·종류·dimensions가 이 측정과 맞을 때만 해당 위치를 사용한다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_size_workplaces.py \
+  --discovery-run /absolute/path/closed_discovery/batch_sac_run \
+  --confirmation-run /absolute/path/closed_fresh_confirmation/batch_sac_run \
+  --selections-json /absolute/path/explicit_six_selections.json \
+  --output /absolute/path/new_measured_size_waypoints.json
+
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_size_workplace_actor.py \
+  --initial-checkpoint /absolute/path/original_pristine/checkpoint_00000000.pt \
+  --training-manifest /absolute/path/original_pristine/training_manifest.json \
+  --waypoints /absolute/path/new_measured_size_waypoints.json \
+  --output-dir /absolute/path/new_size_SAC_initialization
+```
+
+두 번째 도구는 원래 **학습 전 regional checkpoint**와 비어 있는 experience만
+허용한다. Q는 갱신되지 않은 초기값을 유지하고, actor/Q counter·optimizer·
+보상/return/replay 은행이0이어야 한다. 바뀐 위치의 학습된 Q를 가져오지 않는다.
+Actor와 정규화·제어기 tensor는 그대로다. 기존 성공 TRAIN의 actor 참고 데이터는
+원래held x/y/yaw 관측·action·성공과 원래 계약을 보존하며 medium으로 재라벨링하지
+않는다. 새 목표는 그 원래 위치가 관측으로 드러나는 actor 참고만 허용한다.
+이전 경로의 Q/보상 전이는 가져오지 않는다. 새 성공은 새 학습에서 직접 측정한다.
+
+현재 연결의 관련135개 CPU 검사가 통과했고, CUDA 복원 검사2개는 GPU를
+노출하지 않은 검사에서 제외됐다. 이 검사는 합성 fixture의 계약·데이터 분리와
+실제 SAC gradient 연결을 다루며 물리 파지 성공을 증명하지 않는다. 실제 두
+TRAIN 측정·새 계약의 전체 trainer 복원과 학습 후 평가가 끝나기 전에는 크기별
+파지가 해결됐다고 보지 않는다. 독립 FINAL과 원래 무작위화 범위도 유지해야 한다.
+
+## 첫 실제 크기별 진단 결과와 초기화 문제
+
+GPU0의 첫 고정 정책 진단은 정상 종료했다. 새 TRAIN16조건을 각 접근 후보
+8개로 시도한128회 중 성공4·안전 위반59·시간 초과35·초기화 무효30회다.
+198개 실제 모델 tensor와 actor/Q/replay counter0을 유지했다. 성공4회는
+모두 중간 왼쪽small이다. 같은16조건을 반복한 결과이며 DEV 성공률이 아니다.
+
+| 구역·크기 | 시도 | 성공 | 초기화 무효 |
+|---|---:|---:|---:|
+| 중간 왼쪽small | 16 | 4 | 0 |
+| 중간 오른쪽small | 16 | 0 | 0 |
+| 중간 왼쪽medium | 16 | 0 | 12 |
+| 중간 오른쪽medium | 16 | 0 | 16 |
+| 상단 왼쪽small | 32 | 0 | 1 |
+| 상단 오른쪽small | 32 | 0 | 1 |
+
+**Medium32회 중28회는 파지를 시작하기 전 원래 배치가 무효였다.** 이 상태의
+실패를 SAC 탐색만의 문제로 해석하지 않는다. 최종 guard의 일부 박스 좌표는
+부분 respawn 후 비활성 asset을 보관한 위치이므로, 그 좌표로 원래 박스가
+어디서 어떻게 실패했는지 단정할 수 없다. 실패 배치도 원래128회 분모에 남긴다.
+[실제 종료·크기별 집계](assets/rl_v2_regional_mixed_size_TRAIN_first_result_20261008.json).
+
+![크기별 실제 시도 결과. Medium 배치 실패가 파지 측정 전에 발생했다.](assets/rl_v2_regional_mixed_size_TRAIN_first_result_20261008.png)
+
+같은 명령에`--workplace-reset-diagnostics`를 추가하면 **명시적인 고정 TRAIN
+접근 후보 진단에서만** 원래 박스가 부분 respawn되기 전 첫 실패와 neutral
+hold의 링크·속도·기존 normal contact trace를 남긴다. 새 sensor나 접촉 필터,
+물리 파라미터·무작위화·안전·성공 조건을 변경하지 않고 Q/replay에 넣지 않는다.
+일반 SAC·DEV/FINAL 또는1스텝 진단으로 이 옵션을 사용할 수 없다.
+전체 trace는`reset_failure_diagnostics_wave_0000.json`에 한 번 저장한다.
+같은16조건 재실행은 원인 진단이며 시작 조건이 겹치지 않는 새 TRAIN 확인을
+대신하지 않는다. 실제 원인을 확인하기 전에는 medium 성공이나 수정 완료를
+주장하지 않는다.
+
+이번 read-only trace 경로와 크기별 연결의 관련113개 검사를 통과했다.
+GPU를 노출하지 않은 실행에서 CUDA 복원2개는 제외했다. 이전135개 연결
+검사도 통과했으며, 어느 검사도 새로운 물리 파지 성공을 의미하지 않는다.

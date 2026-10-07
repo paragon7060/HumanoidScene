@@ -33,12 +33,15 @@ def validate_managed_physics_device(device, child, *, learner_device=None):
     parser.add_argument('--cpu-workplace-probe', action='store_true')
     parser.add_argument('--base-waypoint-probe', action='store_true')
     parser.add_argument('--unmeasured-size-workplace-probe', action='store_true')
+    parser.add_argument('--workplace-reset-diagnostics', action='store_true')
     parser.add_argument('--steps', type=int, default=900)
     parser.add_argument('--waves-json', type=Path)
     parser.add_argument('--training-manifest', type=Path)
     audit, _ = parser.parse_known_args(child)
     if audit.unmeasured_size_workplace_probe and not audit.cpu_workplace_probe:
         raise ValueError('Unmeasured size candidates require the explicit frozen workplace route')
+    if audit.workplace_reset_diagnostics and not audit.cpu_workplace_probe:
+        raise ValueError('Workplace reset capture requires the explicit frozen TRAIN workplace route')
     if audit.cpu_workplace_probe:
         from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_workplace_probe import (
             INCOMPATIBLE_FLAGS, validate_cpu_workplace_probe)
@@ -48,6 +51,7 @@ def validate_managed_physics_device(device, child, *, learner_device=None):
             json.loads(audit.training_manifest.read_text()), enabled=True, device=device,
             training=audit.training, steps=audit.steps, waypoint_enabled=audit.base_waypoint_probe,
             unmeasured_size_probe=audit.unmeasured_size_workplace_probe,
+            workplace_reset_diagnostics=audit.workplace_reset_diagnostics,
             explicit_frozen='--no-training' in child and '--training' not in child,
             other_probe=any(s.split('=')[0] in INCOMPATIBLE_FLAGS for s in child))
     if audit.cpu_physics_training:

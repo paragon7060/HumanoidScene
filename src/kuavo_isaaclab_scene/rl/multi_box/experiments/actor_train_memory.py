@@ -35,7 +35,18 @@ def compatibility_contract(goal):
         'body_correction_radius', 'jaw_proximity_gate')
     physical = {k: deepcopy(v) for k, v in goal['physical_contract'].items()
                 if k not in ('reward_profile', 'discount')}
-    return dict(actor={k: deepcopy(goal.get(k)) for k in keys},
+    actor={k:deepcopy(goal.get(k)) for k in keys}
+    from .size_workplaces import FORMAT as SIZE_FORMAT,validate_size_workplaces
+    if isinstance(actor['shelf_templates'],dict) and actor['shelf_templates'].get('name')==SIZE_FORMAT:
+        typed=validate_size_workplaces(actor['shelf_templates'])
+        # Old commands are actor-only references at their own original held
+        # x/y/yaw observations. Keep their stored contract/outcomes untouched.
+        # Neither rewards nor old Q/replay are compatible with new targets.
+        if actor['context_order']!=['held_phase','held_x_rack_m','held_y_rack_m',
+                'sin_held_yaw','cos_held_yaw','policy_radius']:
+            raise ValueError('Old actor references require the explicit measured held-pose context')
+        actor['shelf_templates']=deepcopy(typed['source_region_workplaces'])
+    return dict(actor=actor,
                 validated_current_physics_control_success_and_safety=physical)
 
 

@@ -15,9 +15,12 @@ INCOMPATIBLE_FLAGS = (BACKEND_FLAGS - {'--base-waypoint-probe', '--cpu-workplace
 
 def validate_cpu_workplace_probe(waves, contract, *, enabled, device, training, steps,
                                   waypoint_enabled, explicit_frozen, other_probe=False,
-                                  unmeasured_size_probe=False):
+                                  unmeasured_size_probe=False,
+                                  workplace_reset_diagnostics=False):
     if type(unmeasured_size_probe) is not bool or unmeasured_size_probe and not enabled:
         raise ValueError('Unmeasured size candidates require the explicit frozen workplace search')
+    if type(workplace_reset_diagnostics) is not bool or workplace_reset_diagnostics and not enabled:
+        raise ValueError('Workplace reset capture requires the explicit frozen TRAIN workplace search')
     if not enabled:
         return None
     if device != 'cpu' or training or not explicit_frozen or steps != 900 \
@@ -67,4 +70,9 @@ def validate_cpu_workplace_probe(waves, contract, *, enabled, device, training, 
         audit['unmeasured_size_workplace_probe']=validate_size_workplace_request(waves)
     elif any(row['layout'].get('target_box_type')=='medium' for row in rows):
         raise ValueError('Medium workplace measurement requires the explicit unmeasured size probe')
+    if workplace_reset_diagnostics:
+        audit['workplace_reset_diagnostics']=dict(enabled=True,
+            first_failure_before_respawn=True,existing_normal_contact_reporters_only=True,
+            physics_parameters_and_requested_layouts_unchanged=True,
+            Q_import_eligible=False,independent_confirmation=False)
     return audit
