@@ -12,7 +12,7 @@ import train_with_drive as storage
 def test_checkpoint_log_scope_keeps_physical_payloads_local(tmp_path, monkeypatch):
     source=tmp_path/'unique_run';source.mkdir()
     allowed=('manifest.json','env.yaml','agent.yaml','verification.json',
-             'checkpoint_00003072.pt','console.log','metrics.json','metrics.jsonl',
+             'checkpoint_00003072.pt','console.log','base_substep_trace.log','metrics.json','metrics.jsonl',
              'status.json','resources.jsonl','events.out.tfevents.example')
     local=('staged_goal_experience.pt','executed_transitions.hdf5',
            'eval_wave_0000_env_007_h264.mp4','eval_wave_0000_videos.json')

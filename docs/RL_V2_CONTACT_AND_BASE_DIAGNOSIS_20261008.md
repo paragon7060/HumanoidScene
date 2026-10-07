@@ -57,6 +57,41 @@ orientation으로 계산한 handoff 대비 최대 기울기의 그룹 중앙값�
 그리퍼 상대 오차를 함께 측정하는 것이 다음 진단이다. 이번 작업에서는
 센서·물리·제어기·정책·보상을 변경하지 않았다.
 
+## 매 물리 스텝의 원래 제어를 관찰하기
+
+`--base-substep-trace-env-indices`는 원래 floating-base drive가 계산한 명령을
+그대로 실행한 뒤, 다음 물리 스텝 전에 root 자세·세계 속도·실제 PhysX view의
+자세/속도·명령 force/torque·target·관성 추정값을 기록한다. Quaternion은wxyz이고
+세계 힘/torque와 body 힘/torque를 각각 표시한다. **명령 torque는 측정된 반력이나
+PhysX가 실제 달성한 torque가 아니다.** 캐시와 raw view의 차이, 물리 스텝 간
+자세 변화와 속도, 제어 입력의 부호를 확인하기 위한 read-only 도구다.
+
+실행은 완전한 고정 TRAIN 접근 진단128요청에서 선택한 최대8개 환경만 허용한다.
+학습 모드·축소된 환경·일반 DEV/FINAL 경로에서는 거부한다. 원래 양손 파지·
+유지·clearance·안전 기준과 무작위 배치는 그대로 유지한다. 실제 제어기의
+`apply`를 같은 입력으로 정확히 한 번 호출하고 반환값을 보존하며, 종료 시 원래
+메서드를 복구한다. 로봇 상태를 쓰거나 접촉 센서를 추가하지 않는다. 유효하지
+않은 상태는 로그에 표시하고 물리 상태를 유효한 값으로 교체하지 않는다.
+
+원래 frozen TRAIN 실행 명령에 다음 옵션을 추가한다. 대표 영상 선택은 선택형이다.
+
+```bash
+--base-substep-trace-env-indices 0 16 24 32 40 64 \
+--eval-video-env-indices 0 16 24 32 40 64
+```
+
+실행 폴더의`base_substep_trace.log`는 JSONL이다. 원래 접근 후 제어 스텝의
+각 physics apply 호출을 기록하며 원래 배치가 무효이거나 종료한 환경의 기록은
+추가하지 않는다. 마지막`closed`행을 확인한 뒤 분석한다. 기존 최소 백업은
+writer 종료 후 이 로그도 업로드·체크섬 검증 대상으로 포함한다. 영상과 raw
+HDF/replay는 이 checkpoint/log 백업 옵션으로 전송하지 않으므로 별도로 보존한다.
+
+관련36개 검사에서 명령·반환값·로봇 상태 보존, raw/cached 상태 구분,
+world/body torque 표현, inactive 환경 제외, 비유한 값의 원본 보존, 일반 학습·
+축소 scope 거부와 종료 로그 백업을 확인했다. **이는 도구 검사이며 base 진동의
+원인이나 파지 성공 개선을 증명하지 않는다.** 실제 고정 정책의 원래128요청을
+다시 실행해 물리 스텝별 측정과 전체 종료 결과를 함께 확인한다.
+
 ## 도구와 근거
 
 `summarize_closed_contact_attempts.py`는 우리 소유의 정상 종료한 고정 정책

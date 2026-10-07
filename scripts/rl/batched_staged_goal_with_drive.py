@@ -34,6 +34,7 @@ def validate_managed_physics_device(device, child, *, learner_device=None):
     parser.add_argument('--base-waypoint-probe', action='store_true')
     parser.add_argument('--unmeasured-size-workplace-probe', action='store_true')
     parser.add_argument('--workplace-reset-diagnostics', action='store_true')
+    parser.add_argument('--base-substep-trace-env-indices',type=int,nargs='+',default=None)
     parser.add_argument('--steps', type=int, default=900)
     parser.add_argument('--waves-json', type=Path)
     parser.add_argument('--training-manifest', type=Path)
@@ -42,18 +43,25 @@ def validate_managed_physics_device(device, child, *, learner_device=None):
         raise ValueError('Unmeasured size candidates require the explicit frozen workplace route')
     if audit.workplace_reset_diagnostics and not audit.cpu_workplace_probe:
         raise ValueError('Workplace reset capture requires the explicit frozen TRAIN workplace route')
+    if audit.base_substep_trace_env_indices is not None and not audit.cpu_workplace_probe:
+        raise ValueError('Base substep trace requires the explicit frozen TRAIN workplace route')
     if audit.cpu_workplace_probe:
         from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_workplace_probe import (
             INCOMPATIBLE_FLAGS, validate_cpu_workplace_probe)
         if audit.waves_json is None or audit.training_manifest is None:
             raise ValueError('CPU workplace search requires TRAIN candidate waves and its physical contract')
-        return validate_cpu_workplace_probe(json.loads(audit.waves_json.read_text()),
+        waves=json.loads(audit.waves_json.read_text())
+        workplace=validate_cpu_workplace_probe(waves,
             json.loads(audit.training_manifest.read_text()), enabled=True, device=device,
             training=audit.training, steps=audit.steps, waypoint_enabled=audit.base_waypoint_probe,
             unmeasured_size_probe=audit.unmeasured_size_workplace_probe,
             workplace_reset_diagnostics=audit.workplace_reset_diagnostics,
             explicit_frozen='--no-training' in child and '--training' not in child,
             other_probe=any(s.split('=')[0] in INCOMPATIBLE_FLAGS for s in child))
+        from kuavo_isaaclab_scene.rl.multi_box.debug.base_substep_trace import validate_base_substep_trace
+        validate_base_substep_trace(audit.base_substep_trace_env_indices,
+            workplace=workplace,training=audit.training,num_envs=len(waves[0]['layouts']))
+        return workplace
     if audit.cpu_physics_training:
         from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_physics_training import (
             INCOMPATIBLE_FLAGS, validate_cpu_physics_training)

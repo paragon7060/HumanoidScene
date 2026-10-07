@@ -72,6 +72,8 @@ def main():
         help='Frozen TRAIN workplace measurement of supported new sizes; never relabels a measured waypoint or imports Q rows')
     parser.add_argument('--workplace-reset-diagnostics',action='store_true',
         help='Read-only reset trace for the explicit frozen TRAIN workplace search; existing contact reporters only')
+    parser.add_argument('--base-substep-trace-env-indices',type=int,nargs='+',default=None,
+        help='Read-only state/wrench trace for up to8 environments in a frozen TRAIN workplace search')
     parser.add_argument('--steps',type=int,default=900)
     parser.add_argument('--reset-failure-diagnostics',action='store_true',
         help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
@@ -123,6 +125,11 @@ def main():
             explicit_frozen='--no-training' in sys.argv and '--training' not in sys.argv,
             other_probe=any(s.split('=')[0] in WORKPLACE_FLAGS for s in sys.argv[1:]))
     except (ValueError,OSError) as error:parser.error(str(error))
+    from kuavo_isaaclab_scene.rl.multi_box.debug.base_substep_trace import validate_base_substep_trace
+    try:
+        base_trace_contract=validate_base_substep_trace(args.base_substep_trace_env_indices,
+            workplace=workplace_eval,training=args.training,num_envs=len(waves[0]['layouts']))
+    except ValueError as error:parser.error(str(error))
     from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_physics_training import (
         INCOMPATIBLE_FLAGS as CPU_TRAIN_PROBE_FLAGS, SOURCE as CPU_TRAIN_SOURCE,
         validate_cpu_physics_training, act_measured_held_rows)
@@ -255,7 +262,7 @@ def main():
     export_robot_model_cli(args);export_gripper_cli(args);export_rack_roller_cli(args);export_base_drive_cli(args)
     app=AppLauncher(args).app
     stopped={'value':False};signal.signal(signal.SIGTERM,lambda *_:stopped.update(value=True))
-    env=recorder=pilot=grasp_audit=None;output=args.output_dir.resolve()
+    env=recorder=pilot=grasp_audit=base_substep_trace=None;output=args.output_dir.resolve()
     try:
         import torch
         import numpy as np
@@ -628,6 +635,9 @@ def main():
         if args.reset_failure_diagnostics or args.workplace_reset_diagnostics:
             meta['reset_diagnostic_physics_device']=str(env.device)
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
+        if base_trace_contract is not None:
+            from kuavo_isaaclab_scene.rl.multi_box.debug.base_substep_trace import BaseSubstepTrace
+            base_substep_trace=BaseSubstepTrace(env,output,base_trace_contract)
         if args.grasp_observation_audit:
             from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_observation_audit import GraspObservationAudit
             grasp_audit=GraspObservationAudit(env,output)
@@ -638,6 +648,7 @@ def main():
             'CPU_physics_training':cpu_training,
             'CPU_workplace_probe':workplace_eval,
             'workplace_reset_diagnostics':(workplace_eval or {}).get('workplace_reset_diagnostics'),
+            'base_substep_trace':base_trace_contract,
             'learner_device':learner_device,'sim_device':str(env.device),
             'TRAIN_jaw_behavior':collection_jaw_behavior,
             'TRAIN_body_behavior':collection_body_behavior,
@@ -872,7 +883,12 @@ def main():
                         if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                             raise ValueError('Generated and executed jaw projections differ')
                         if grasp_audit is not None:grasp_audit.prepare(step,pre['policy'],action,active,ids,previous)
-                        observation,reward,terminated,truncated,info=env.step(action)
+                        if base_substep_trace is not None:
+                            base_substep_trace.prepare(wave_index,step,active,stages.stages,action)
+                        try:
+                            observation,reward,terminated,truncated,info=env.step(action)
+                        finally:
+                            if base_substep_trace is not None:base_substep_trace.finish_step()
                         active=measured_wave_mask(active,info['transition_numerical_failure'],
                             info.get('transition_numerical_diagnostics',{}),last,step)
                         terminal=info['transition_next_observations']
@@ -1033,6 +1049,7 @@ def main():
         (output/'status.json').write_text(json.dumps(dict(status='failed'))+'\n')
         raise
     finally:
+        if base_substep_trace:base_substep_trace.close()
         if grasp_audit:grasp_audit.close()
         if recorder:recorder.close()
         if env:env.close()
