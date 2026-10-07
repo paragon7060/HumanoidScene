@@ -27,7 +27,7 @@ def main():
     parser.add_argument('--native-seed',type=Path,action='append',required=True)
     parser.add_argument('--training',action=argparse.BooleanOptionalAction,default=False)
     parser.add_argument('--measured-train-credit',
-                        choices=('one-step', 'measured-nstep16', 'measured-nstep16-terminal25'), default=None,
+                        choices=('one-step', 'measured-nstep16', 'measured-nstep16-terminal25', 'measured-episode-return'), default=None,
         help='Opt-in actual-flap learner objective: real completed successful and failed TRAIN n-step credit')
     parser.add_argument('--critic-episode-clock', choices=('task-remaining',), default=None,
         help='Measured task time remaining for the critic; requires fresh matching inputs')

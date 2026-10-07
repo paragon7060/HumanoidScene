@@ -74,3 +74,27 @@ def discounted_episode_windows(rows, *, horizon, gamma):
         next_critic_obs=rows['next_critic_obs'][endpoints], reward=discounted,
         terminated=terminated, bootstrap_discount=bootstrap_discount, n_steps=steps,
     )
+
+
+def completed_episode_returns(rows, *, gamma):
+    """Recorded discounted rewards through the real terminal, without bootstrap.
+
+    These are behavior returns from completed TRAIN episodes, not unbiased
+    current-policy targets. The linear recurrence avoids quadratic windows.
+    """
+    result = discounted_episode_windows(rows, horizon=1, gamma=gamma)
+    n = len(rows['reward'])
+    if n > 900:
+        raise ValueError('Completed TRAIN return exceeds the real episode horizon')
+    reward = rows['reward']
+    returns = torch.empty_like(reward)
+    total = reward.new_zeros(())
+    for i in range(n - 1, -1, -1):
+        total = reward[i] + gamma * total
+        returns[i] = total
+    result.update(reward=returns, terminated=torch.ones_like(rows['terminated']),
+        bootstrap_discount=torch.zeros_like(reward),
+        n_steps=torch.arange(n, 0, -1, device=reward.device, dtype=torch.int64),
+        next_actor_obs=rows['next_actor_obs'][-1:].expand_as(rows['next_actor_obs']),
+        next_critic_obs=rows['next_critic_obs'][-1:].expand_as(rows['next_critic_obs']))
+    return result

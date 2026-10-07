@@ -51,9 +51,9 @@ def prepare(initial,experience,*,measured_train_credit=None):
     replay['goal_contract']=deepcopy(state['goal_contract'])
     if measured_train_credit is not None:
         from kuavo_isaaclab_scene.rl.multi_box.experiments.measured_train_credit import (
-            measured_credit_config, MeasuredTrainCreditBank, VARIANT, TERMINAL_VARIANT,
+            measured_credit_config, MeasuredTrainCreditBank, VARIANTS,
         )
-        if measured_train_credit not in (VARIANT, TERMINAL_VARIANT):
+        if measured_train_credit not in VARIANTS:
             raise ValueError('Fresh successful-servo inputs require a supported measured TRAIN sampler')
         configured=measured_credit_config(measured_train_credit)
         state['measured_train_credit']=deepcopy(configured)
@@ -74,7 +74,7 @@ def main():
         help='Closed actual TRAIN checkpoint for action identity checks only; its rows/models are not imported')
     p.add_argument('--output-dir',type=Path,required=True)
     p.add_argument('--measured-train-credit',
-        choices=('measured-nstep16','measured-nstep16-terminal25'),default=None,
+        choices=('measured-nstep16','measured-nstep16-terminal25','measured-episode-return'),default=None,
         help='Optional fresh empty TRAIN-bank sampling contract; model and physical settings stay unchanged')
     args=p.parse_args();torch.set_num_threads(1)
     exp=args.initial_checkpoint.parent/'staged_goal_experience.pt'

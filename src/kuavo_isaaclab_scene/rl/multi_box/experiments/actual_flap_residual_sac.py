@@ -69,6 +69,8 @@ class BoundedCorrectionHybridSAC(HybridGoalSAC):
         result = super().update(*args, **kwargs)
         if getattr(self, 'measured_train_credit_enabled', False):
             result = {k.replace('native_nstep_', 'measured_nstep_'): v for k, v in result.items()}
+            if (getattr(self, 'measured_train_credit_config', None) or {}).get('bootstrap_allowed') is False:
+                result = {k.replace('measured_nstep_', 'measured_episode_return_'): v for k, v in result.items()}
         return result
 
     def validate_critic_auxiliary(self, batch, weight):
@@ -151,10 +153,9 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
             body_anchor_state=saved.get('body_anchor_state')
         if body_anchor_state is None:raise ValueError('A validated nominal body actor snapshot is required')
         self.body_anchor_state=deepcopy(body_anchor_state)
-        from .measured_train_credit import measured_credit_config, VARIANT, TERMINAL_VARIANT
+        from .measured_train_credit import measured_credit_config, VARIANTS
         stored = saved.get('measured_train_credit') if saved else None
-        if stored is not None and stored not in (
-                measured_credit_config(VARIANT), measured_credit_config(TERMINAL_VARIANT)):
+        if stored is not None and stored not in tuple(measured_credit_config(v) for v in VARIANTS):
             raise ValueError('Saved measured TRAIN credit configuration differs')
         requested = measured_credit_config(measured_train_credit)
         if stored is not None and measured_train_credit is not None and requested != stored:
@@ -367,6 +368,7 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
             self.measured_credit_bank = MeasuredTrainCreditBank(self.actor_dim, self.critic_dim,
                 self.agent.config.gamma, self.measured_train_credit)
         self.agent.measured_train_credit_enabled = self.measured_train_credit is not None
+        self.agent.measured_train_credit_config = deepcopy(self.measured_train_credit)
         self.agent.jaw_saturation_config = self.jaw_saturation
         self.agent.body_saturation_config = self.body_saturation
         self.agent.success_jaw_balance_config = self.success_jaw_balance

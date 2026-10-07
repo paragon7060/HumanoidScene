@@ -1,0 +1,300 @@
+{
+  "recorded_at": "2026-10-07T16:34:49.241986+09:00",
+  "source_commit": "0cf8c2d95676bf24096d05807bb97c4be01ce143",
+  "run_directory_name": "batch_sac_20261007_091545_1a3cfe",
+  "full_original_DEV128_per_region32": true,
+  "completed_new_TRAIN_requests1536": true,
+  "matching_actor_updates": 4337,
+  "matching_critic_updates": 19396,
+  "matching_checkpoint_SHA256": "59523eaf053744bca12f33b0cfe77b6f073c2a142c0febb60186c14c469afeab",
+  "own_full_DEV_success_flow": [
+    23,
+    25,
+    23,
+    33,
+    21
+  ],
+  "summary": {
+    "wave": 16,
+    "split": "validation",
+    "by_region": {
+      "shelf_2_left": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 9,
+        "supported_successes": 9,
+        "unsafe": 23,
+        "timeout": 0
+      },
+      "shelf_2_right": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 8,
+        "supported_successes": 8,
+        "unsafe": 24,
+        "timeout": 0
+      },
+      "shelf_3_left": {
+        "attempts": 32,
+        "initial_valid": 31,
+        "complete": 32,
+        "task_success_flags": 4,
+        "supported_successes": 4,
+        "unsafe": 1,
+        "timeout": 26
+      },
+      "shelf_3_right": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 0,
+        "timeout": 32
+      }
+    },
+    "supported_successes": 21,
+    "attempts": 128,
+    "initial_valid": 127,
+    "unsupported_success_environments": [],
+    "safety_causes_on_valid_completed_attempts": {
+      "robot_rack_collision": 48
+    },
+    "simultaneous_safety_cause_sets": {
+      "robot_rack_collision": 48
+    },
+    "rack_collision_terminal_diagnostics": {
+      "by_region": {
+        "shelf_2_left": {
+          "count": 23,
+          "phase_counts": {
+            "held_grasp": 23
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 14,
+            "zarm_r4_link": 3,
+            "zarm_r7_link": 3,
+            "zarm_l4_link": 3
+          },
+          "peak_force_n": {
+            "count": 23,
+            "mean": 117.23227940434995,
+            "median": 108.99472045898438,
+            "p90": 201.77698059082033,
+            "maximum": 332.1087341308594
+          }
+        },
+        "shelf_2_right": {
+          "count": 24,
+          "phase_counts": {
+            "held_grasp": 24
+          },
+          "peak_body_counts": {
+            "zarm_r7_link": 19,
+            "r_twofinger_base": 5
+          },
+          "peak_force_n": {
+            "count": 24,
+            "mean": 83.88098339239757,
+            "median": 76.1935806274414,
+            "p90": 149.77904052734374,
+            "maximum": 175.01356506347656
+          }
+        },
+        "shelf_3_left": {
+          "count": 1,
+          "phase_counts": {
+            "held_grasp": 1
+          },
+          "peak_body_counts": {
+            "zarm_l4_link": 1
+          },
+          "peak_force_n": {
+            "count": 1,
+            "mean": 49.48198318481445,
+            "median": 49.48198318481445,
+            "p90": 49.48198318481445,
+            "maximum": 49.48198318481445
+          }
+        }
+      },
+      "valid_completed_unsafe_attempts_only": true,
+      "failure_step_peak_body_not_first_contact_or_contact_history": true
+    },
+    "end_pinching_hand_counts": {
+      "2": 22,
+      "0": 97,
+      "1": 8
+    },
+    "end_contact_quality": {
+      "count": 127,
+      "mean": 0.19557755708870456,
+      "median": 0.0,
+      "p90": 1.0,
+      "maximum": 1.0
+    },
+    "end_matched_flap_surface_distance_m": [
+      {
+        "count": 127,
+        "mean": 0.06019040842826559,
+        "median": 0.0500679537653923,
+        "p90": 0.14007870554924012,
+        "maximum": 0.1822422295808792
+      },
+      {
+        "count": 127,
+        "mean": 0.09060610335789562,
+        "median": 0.06109975278377533,
+        "p90": 0.21565756499767305,
+        "maximum": 0.42121490836143494
+      }
+    ],
+    "end_flap_surface_distance_by_outcome_m": {
+      "supported_success": [
+        {
+          "count": 21,
+          "mean": 0.0007823732393305926,
+          "median": 0.000810303958132863,
+          "p90": 0.001058574067428708,
+          "maximum": 0.0012821902055293322
+        },
+        {
+          "count": 21,
+          "mean": 0.0005230733659118414,
+          "median": 3.7393299862742424e-05,
+          "p90": 0.0018845237791538239,
+          "maximum": 0.0031933251302689314
+        }
+      ],
+      "safe_timeout": [
+        {
+          "count": 58,
+          "mean": 0.08944465387773154,
+          "median": 0.09331440925598145,
+          "p90": 0.15058082789182664,
+          "maximum": 0.1822422295808792
+        },
+        {
+          "count": 58,
+          "mean": 0.11370210584397589,
+          "median": 0.12139991298317909,
+          "p90": 0.22032942175865175,
+          "maximum": 0.2557354271411896
+        }
+      ],
+      "unsafe": [
+        {
+          "count": 48,
+          "mean": 0.05083254390531996,
+          "median": 0.03340274281799793,
+          "p90": 0.11083437055349352,
+          "maximum": 0.17844100296497345
+        },
+        {
+          "count": 48,
+          "mean": 0.1021097593087082,
+          "median": 0.07586038485169411,
+          "p90": 0.2154271051287656,
+          "maximum": 0.42121490836143494
+        }
+      ]
+    },
+    "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+    "end_contact_statistics_are_not_ever_contact_rates": true
+  },
+  "paired_against_own_initial": {
+    "reference_wave": 0,
+    "current_wave": 16,
+    "unmatched_environments": [],
+    "different_requested_layout_environments": [],
+    "by_region": {
+      "shelf_2_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 30,
+        "baseline_successes": 12,
+        "current_successes": 7,
+        "lost_successes": 7,
+        "gained_successes": 2
+      },
+      "shelf_2_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 29,
+        "baseline_successes": 6,
+        "current_successes": 7,
+        "lost_successes": 5,
+        "gained_successes": 6
+      },
+      "shelf_3_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 28,
+        "baseline_successes": 5,
+        "current_successes": 4,
+        "lost_successes": 5,
+        "gained_successes": 4
+      },
+      "shelf_3_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 29,
+        "baseline_successes": 0,
+        "current_successes": 0,
+        "lost_successes": 0,
+        "gained_successes": 0
+      }
+    },
+    "common_valid_comparison_is_diagnostic_not_the_primary_success_rate": true,
+    "repeated_reset_physics_are_not_asserted_identical": true
+  },
+  "paired_against_own_best_DEV12": {
+    "reference_wave": 12,
+    "current_wave": 16,
+    "unmatched_environments": [],
+    "different_requested_layout_environments": [],
+    "by_region": {
+      "shelf_2_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 32,
+        "baseline_successes": 20,
+        "current_successes": 9,
+        "lost_successes": 12,
+        "gained_successes": 1
+      },
+      "shelf_2_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 32,
+        "baseline_successes": 13,
+        "current_successes": 8,
+        "lost_successes": 7,
+        "gained_successes": 2
+      },
+      "shelf_3_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 31,
+        "baseline_successes": 0,
+        "current_successes": 4,
+        "lost_successes": 0,
+        "gained_successes": 4
+      },
+      "shelf_3_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 32,
+        "baseline_successes": 0,
+        "current_successes": 0,
+        "lost_successes": 0,
+        "gained_successes": 0
+      }
+    },
+    "common_valid_comparison_is_diagnostic_not_the_primary_success_rate": true,
+    "repeated_reset_physics_are_not_asserted_identical": true
+  },
+  "same_requested_layouts_NOT_identical_physical_reset": true,
+  "highest33_model_retained": true,
+  "final_DEV_NOT_independent_FINAL": true,
+  "independent_FINAL_unused": true,
+  "stable_four_regions_and_broader_box_sizes_generalization_NOT_established": true,
+  "other_oldtail_model_with_same4337_Q19396_is_NOT_this_model": true,
+  "no_live_HDF_or_replay_read": true,
+  "no_DEV_import_into_training": true,
+  "goal_not_complete": true
+}

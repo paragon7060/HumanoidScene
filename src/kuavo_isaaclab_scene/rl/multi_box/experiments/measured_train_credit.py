@@ -9,17 +9,19 @@ import math
 
 import torch
 
-from .physical_train_credit import discounted_episode_windows
+from .physical_train_credit import discounted_episode_windows, completed_episode_returns
 from .staged_train_success import KEYS, REGIONS
 
 VARIANT = 'measured-nstep16'
 TERMINAL_VARIANT = 'measured-nstep16-terminal25'
+EPISODE_RETURN_VARIANT = 'measured-episode-return'
+VARIANTS = (VARIANT, TERMINAL_VARIANT, EPISODE_RETURN_VARIANT)
 
 
 def measured_credit_config(variant):
     if variant in (None, 'one-step'):
         return None
-    if variant not in (VARIANT, TERMINAL_VARIANT):
+    if variant not in VARIANTS:
         raise ValueError('Unknown measured TRAIN credit variant')
     config = dict(name='matching_actual_held_TRAIN_nstep16_v1', horizon=16,
         capacity_per_region=8192, batch_size=64, critic_weight=.1,
@@ -35,6 +37,12 @@ def measured_credit_config(variant):
             terminal_batch_fraction=.25, terminal_episode_sampling='uniform_episodes_within_region',
             terminal_target='actual_last_reward_no_bootstrap_no_entropy',
             critic_weight_unchanged=True)
+    if variant == EPISODE_RETURN_VARIANT:
+        config.update(name='matching_actual_held_TRAIN_episode_return_v1', horizon=900,
+            sampling='uniform_episodes_then_uniform_rows_within_available_region',
+            auxiliary_target='actual_discounted_rewards_through_real_terminal_no_bootstrap',
+            episode_length_bias_removed=True, bootstrap_allowed=False,
+            terminal_and_timeout_rewards_unchanged=True, critic_weight_unchanged=True)
     return config
 
 
@@ -44,15 +52,21 @@ def validate_measured_credit_batch(agent, batch, weight):
     if batch is None:
         return
     n = len(batch['reward'])
+    config = getattr(agent, 'measured_train_credit_config', None)
+    if config is not None and config not in tuple(measured_credit_config(v) for v in VARIANTS):
+        raise ValueError('Measured critic sampling configuration differs')
+    max_steps = 900 if config == measured_credit_config(EPISODE_RETURN_VARIANT) else 16
     shapes = dict(actor_obs=(n, agent.actor_obs_dim), next_actor_obs=(n, agent.actor_obs_dim),
         critic_obs=(n, agent.critic_obs_dim), next_critic_obs=(n, agent.critic_obs_dim),
         action=(n, 21), reward=(n,), terminated=(n,), bootstrap_discount=(n,), n_steps=(n,))
     if not n or set(batch) != set(shapes) or any(
             batch[k].shape != shape or not torch.isfinite(batch[k]).all() for k, shape in shapes.items()) \
             or batch['terminated'].dtype != torch.bool or batch['n_steps'].dtype != torch.int64 \
-            or (batch['n_steps'] < 1).any() or (batch['n_steps'] > 16).any() \
+            or (batch['n_steps'] < 1).any() or (batch['n_steps'] > max_steps).any() \
             or (batch['action'].abs() > 1.00001).any() or not (batch['action'][:, 19:].abs() == 1).all():
         raise ValueError('Malformed actual-goal multi-step critic rows')
+    if max_steps == 900 and not bool(batch['terminated'].all()):
+        raise ValueError('Completed episode returns must reach the real terminal without bootstrap')
     expected = (agent.config.gamma ** batch['n_steps'].to(batch['reward'])).masked_fill(batch['terminated'], 0.)
     if not torch.allclose(batch['bootstrap_discount'], expected, atol=1e-7, rtol=1e-6):
         raise ValueError('Measured multi-step discount must match its actual horizon and terminal')
@@ -61,7 +75,7 @@ def validate_measured_credit_batch(agent, batch, weight):
 class MeasuredTrainCreditBank:
     """Whole physical paths, with no DEV, altered controller, or broken chains."""
     def __init__(self, actor_dim, critic_dim, gamma, config):
-        if config not in (measured_credit_config(VARIANT), measured_credit_config(TERMINAL_VARIANT)) \
+        if config not in tuple(measured_credit_config(v) for v in VARIANTS) \
                 or not math.isfinite(gamma) or not 0 < gamma <= 1:
             raise ValueError('Unknown measured TRAIN credit configuration')
         self.actor_dim, self.critic_dim, self.gamma = actor_dim, critic_dim, gamma
@@ -96,7 +110,8 @@ class MeasuredTrainCreditBank:
         if region not in REGIONS or not bool((rows['actor_obs'][:, 94:98].argmax(-1) == REGIONS.index(region)).all()):
             raise ValueError('Measured credit region differs from perceived state')
         # This also rejects intermediate terminals and any missing/reset row.
-        discounted_episode_windows(rows, horizon=self.config['horizon'], gamma=self.gamma)
+        discounted_episode_windows(rows, horizon=1 if self.config.get('bootstrap_allowed') is False
+            else self.config['horizon'], gamma=self.gamma)
         identity = f"{source_run}/wave{outcome['wave']}/env{outcome['environment']}/seed{outcome['layout']['seed']}"
         if any(e['identity'] == identity for es in self.episodes.values() for e in es):
             raise ValueError('Duplicate measured TRAIN path')
@@ -110,6 +125,8 @@ class MeasuredTrainCreditBank:
             self._windows.pop(episodes.pop(removable)['identity'], None)
 
     def sample(self, count, device):
+        if self.config.get('bootstrap_allowed') is False:
+            return self._sample_episode_returns(count, device)
         terminal_count = int(count * self.config.get('terminal_batch_fraction', 0.))
         if not terminal_count:
             return self._sample_uniform_rows(count, device)
@@ -129,6 +146,22 @@ class MeasuredTrainCreditBank:
         order = torch.randperm(count)
         return {k: torch.cat((uniform[k], torch.stack([r[k] for r in terminal])))[order].to(device)
             for k in uniform}
+
+    def _sample_episode_returns(self, count, device):
+        regions = [r for r in REGIONS if self.episodes[r]]
+        if count < 1 or not regions:
+            raise ValueError('Cannot sample empty measured TRAIN credit')
+        selected = []
+        for i in range(count):
+            episodes = self.episodes[regions[i % len(regions)]]
+            episode = episodes[int(torch.randint(len(episodes), (1,)))]
+            identity = episode['identity']
+            if identity not in self._windows:
+                self._windows[identity] = completed_episode_returns(episode['rows'], gamma=self.gamma)
+            row = int(torch.randint(len(episode['rows']['reward']), (1,)))
+            selected.append({k: v[row] for k, v in self._windows[identity].items()})
+        order = torch.randperm(count)
+        return {k: torch.stack([s[k] for s in selected])[order].to(device) for k in selected[0]}
 
     def _sample_uniform_rows(self, count, device):
         regions = [r for r in REGIONS if self.episodes[r]]
@@ -178,6 +211,9 @@ class MeasuredTrainCreditBank:
         if 'terminal_batch_fraction' in self.config:
             report.update(terminal_batch_fraction=self.config['terminal_batch_fraction'],
                 terminal_target=self.config['terminal_target'])
+        if self.config.get('bootstrap_allowed') is False:
+            report.update(auxiliary_target=self.config['auxiliary_target'], bootstrap_allowed=False,
+                episode_length_bias_removed=True)
         return report
 
 
