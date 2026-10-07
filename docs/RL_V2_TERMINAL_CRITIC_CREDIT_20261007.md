@@ -8,16 +8,32 @@
 실제 writer2413288·supervisor의 소유자·명령·`CUDA_VISIBLE_DEVICES=3`과 서비스
 실행 상태를 확인했다. 초기화를 마치고 첫 DEV 평가에 진입했으며 실제 learner의
 종료 표본25% sampler·성공 명령 유지 손실·새 보상·표준편차0.0075–0.03을 확인했다.
-현재 초기 평가의 actor·Q·온라인 replay·성공/n-step 은행은0이다. 아직 새 TRAIN
-배치의16개 종료 표본이나 학습 후 물리 성능을 측정한 것은 아니다.
+초기 평가 당시 actor·Q·온라인 replay·성공/n-step 은행은0이었다. 이후 첫
+TRAIN13건과 실제 종료 minibatch 사용을 아래에 기록했다. 학습 후 물리 성능은 미확인이다.
 [실제 실행·입력 백업](assets/rl_v2_terminal25_actual_launch_20261007.json).
 [실제 첫 DEV·적용 계약](assets/rl_v2_terminal25_first_actual_DEV_20261007.json).
 
 이후 자신의 전체 초기 DEV128은 **23/128(중간 좌12·우6, 상단 좌5·우0)**으로
 끝났다. Actor·Q·성공/n-step 은행0과 같은 초기 model·optimizer를 보존했다.
-새 TRAIN에 진입했지만 아직 종료25%의 실제 TRAIN 배치나 학습 후 성능을
-확인한 것은 아니다.
+이 값은 새 TRAIN 이전 기준이며 이후 실제 수집·critic 갱신은 아래와 같다.
 [전체 초기 DEV·동일 모델](assets/rl_v2_terminal25_full_initial_DEV_20261007.json).
+
+## 실제 새 TRAIN과 종료 표본 사용 확인
+
+첫 TRAIN128에서 **13건(중간 좌6·우7, 상단 양쪽0)**이 안전한 양손 파지·유지·
+proof lift에 성공했다. 같은 실행의 계획·원래128개 요청과 성공13경로·5,315행을
+닫힌 actor0·Q1590 체크포인트에서 확인했다. Actor는 warmup 중0회였고 Q·target은
+유한하게 변했다. 탐색 결과이며 학습한 greedy 정책의 성능 개선은 아니다.
+[실제 첫 TRAIN·일치 모델](assets/rl_v2_terminal25_first_actual_TRAIN13_20261007.json).
+
+이후 실제 wave2·step241·Q1972의 critic minibatch에서 별도64행 중 **종료18행·
+bootstrap46행**과 유한한 보조 Q 손실1.5083을 확인했다. 지정16행에 일반 표본 중
+종료2행이 더 포함될 수 있으므로 전체 종료 수는16 이상이다. 보조 가중치0.1,
+TRAIN 전용 은행·evaluation0·VR/teacher BC0을 확인했다. 실제 사용 집계이며
+각 추출 행의 별도 trace를 남긴 검사는 아니다. 종료 target의 실제 마지막 reward·
+bootstrap0 의미는 적용 계약과 기존28개 검사가 보장한다. 학습 후 전체 DEV는
+아직 진행 전이다.
+[실제 critic minibatch](assets/rl_v2_terminal25_first_actual_terminal_minibatch_20261007.json).
 
 ## 전체 평가에서 확인한 결과
 

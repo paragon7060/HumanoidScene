@@ -1,0 +1,84 @@
+{
+  "recorded_at": "2026-10-07T10:54:07.302876+09:00",
+  "source_commit": "1caf73afeeed90ae0e82bbef235de91e3fa64b3f",
+  "run_directory_name": "batch_sac_20261007_095313_4bef31",
+  "actual_owned_writer_CUDA3_verified": true,
+  "writer_pid": 2413288,
+  "wave": 2,
+  "split": "train",
+  "step": 241,
+  "actor_updates": 0,
+  "critic_updates": 1972,
+  "online_rows": 89318,
+  "actual_minibatch_metrics": {
+    "measured_nstep_q_loss": 1.5082679986953735,
+    "measured_nstep_weight": 0.1,
+    "measured_nstep_rows": 64,
+    "measured_nstep_terminal_rows": 18,
+    "measured_nstep_bootstrapped_rows": 46,
+    "measured_nstep_horizon_mean": 12.078125,
+    "demo_bc_weight": 0.0,
+    "teacher_bc_weight": 0.0,
+    "q_loss": 0.366891086101532
+  },
+  "actual_sampler_config": {
+    "name": "matching_actual_held_TRAIN_nstep16_terminal25_v1",
+    "horizon": 16,
+    "capacity_per_region": 8192,
+    "batch_size": 64,
+    "critic_weight": 0.1,
+    "retained_successful_episodes_per_region": 1,
+    "source": "completed_matching_successful_and_failed_TRAIN_paths",
+    "sampling": "75percent_uniform_rows25percent_final_terminal_per_available_region",
+    "online_target": "unchanged_one_step_SAC",
+    "off_policy_correction": false,
+    "intermediate_entropy_included": false,
+    "evaluation_import_allowed": false,
+    "episode_crossing_allowed": false,
+    "reward_relabeling": false,
+    "terminal_batch_fraction": 0.25,
+    "terminal_episode_sampling": "uniform_episodes_within_region",
+    "terminal_target": "actual_last_reward_no_bootstrap_no_entropy",
+    "critic_weight_unchanged": true
+  },
+  "actual_completed_matching_TRAIN_bank_report": {
+    "rows": 31325,
+    "by_region": {
+      "shelf_2_right": {
+        "episodes": 17,
+        "successes": 4,
+        "failures": 13,
+        "rows": 7779
+      },
+      "shelf_2_left": {
+        "episodes": 17,
+        "successes": 4,
+        "failures": 13,
+        "rows": 8159
+      },
+      "shelf_3_right": {
+        "episodes": 16,
+        "successes": 0,
+        "failures": 16,
+        "rows": 7579
+      },
+      "shelf_3_left": {
+        "episodes": 12,
+        "successes": 0,
+        "failures": 12,
+        "rows": 7808
+      }
+    },
+    "TRAIN_only": true,
+    "evaluation_rows": 0,
+    "terminal_batch_fraction": 0.25,
+    "terminal_target": "actual_last_reward_no_bootstrap_no_entropy"
+  },
+  "actual64_auxiliary_rows_with_at_least16_terminal_rows_measured": true,
+  "first_closed_TRAIN13_matching_actor0_Q1590_verified": true,
+  "terminal_source_semantics_verified_by_config_and_existing28_tests_NOT_sample_trace": true,
+  "no_live_HDF_or_replay_read": true,
+  "actual_Q_learning_NOT_greedy_physical_success_gain": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}
