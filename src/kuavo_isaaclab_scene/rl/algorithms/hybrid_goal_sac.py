@@ -156,6 +156,10 @@ class HybridGoalSAC(AsymmetricSAC):
         if batch is not None or weight:
             raise ValueError('This hybrid learner does not support auxiliary critic targets')
 
+    def critic_regularization(self, batch, normalized_critic, replay_values):
+        """Optional critic-only objective; ordinary hybrid SAC is unchanged."""
+        return None
+
     @torch.no_grad()
     def critic_target(self,batch,alpha,discrete_alpha,*,bootstrap_discount=None):
         # Terminal placeholders must never enter a domain-constrained decoder.
@@ -222,6 +226,11 @@ class HybridGoalSAC(AsymmetricSAC):
                 native_nstep_bootstrapped_rows=aux_stats['bootstrapped_rows'],
                 native_nstep_terminal_rows=int(critic_auxiliary['terminated'].sum()),
                 native_nstep_horizon_mean=critic_auxiliary['n_steps'].float().mean().item())
+        regularization=self.critic_regularization(batch,co,(q1,q2))
+        if regularization is not None:
+            extra_loss,extra_statistics=regularization
+            q_loss=q_loss+extra_loss
+            auxiliary_statistics.update(extra_statistics)
         optimize(self.q_optimizer,q_loss,[*self.q1.parameters(),*self.q2.parameters()])
         with torch.no_grad():
             for a,b in ((self.q1,self.target1),(self.q2,self.target2)):

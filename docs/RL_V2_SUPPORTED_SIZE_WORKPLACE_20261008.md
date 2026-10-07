@@ -2,6 +2,25 @@
 
 ## 초기 배치의 전면 빔 침투 수정
 
+05:10 KST에GPU0으로 수정 후 같은128요청의 실제 고정 정책 진단을 시작했다.
+실제 writer2002091·CUDA0과 새 reset manifest 계약을 확인했고 actor·Q·replay0으로
+진행했다. 원래 배치 guard에서 **medium 무효28/32→8/32**로 줄었다.
+중간 좌12→3/16, 우16→5/16이며 small 무효는 두 실행 모두2/96이다.
+같은 대표env40의 첫 스텝 속도1.639→0.08175m/s, 각속도15.57→약0,
+순접촉력111.37→0N이었다. 새 초기 위치에서 중력 낙하가 시작되는 첫 스텝의
+표본이며 전체 접촉·모든 사례의 속도가0이라는 의미는 아니다.
+
+![같은 원래TRAIN 요청의 medium 초기 배치 무효 감소. 파지 성공률 아님](assets/rl_v2_medium_corrected_original_reset_guard_20261008.png)
+
+수정 후 진단은 정상 종료했고 실제198개 모델·normalizer tensor와 actor·Q·replay0
+고정 검사를 통과했다. 전체128요청은 성공4·안전 위반77·시간 초과37·초기 무효10이다.
+성공4개는 모두 중간 왼쪽small이며 수정 전과 같았다. **초기 배치는 개선됐지만
+medium 파지 성공은0이며 파지 성능 개선을 확인한 것은 아니다.** 원래 요청과
+실패를 지우지 않았으며 후보 간 flap 추첨·접촉 이력까지 맞춘 비교도 아니다.
+새 독립 TRAIN 확인과 남은 초기 무효·파지 실패 분석이 필요하다.
+[정상 종료·198 tensor 고정·원래 전체128 결과](assets/rl_v2_medium_front_beam_corrected_closed_TRAIN_20261008.json).
+[완료된 reset guard·원래 trace·첫 스텝 근거](assets/rl_v2_medium_corrected_original_reset_guard_20261008.json).
+
 2026-10-08의 두 번째 같은TRAIN 반복도 정상 종료했고 첫 진단과 같은
 성공4·안전 위반59·시간 초과35·초기 무효30/128이었다. 실제198개 runtime
 tensor와 actor·Q·replay0 고정을 확인했다. 새 독립적인 성공 확인이 아니다.

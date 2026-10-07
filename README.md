@@ -696,6 +696,10 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 유지하며, 기존 reward의 Q/replay를 재사용하지 않는다.
 사용법과 적용 전 검증 범위는 [정밀 capture 초기화 가이드](docs/RL_V2_PRECISION_CAPTURE_PROFILE_20261006.md)를 참고한다.
 
+초기 성공 동작이 SAC 업데이트 후 줄어드는 문제에 대한 선택형 critic 정규화는
+[실제 명령의 Q 근거를 보강하는 SAC 비교](docs/RL_V2_Q_SUPPORT_CONSERVATIVE_20261008.md)에 있다.
+원래 성공·안전·무작위화와 actor 동작을 보존하며, 파지 성능 개선 여부는 별도 평가한다.
+
 CPU/GPU PhysX 비교와 CPU 물리·별도 GPU SAC learner, 전체 DEV128 중 선택한
 실제 자세 영상 녹화는 [CPU/GPU 중간 보고와 평가 사용법](docs/RL_V2_CPU_GPU_INTERIM_REPORT_20261006.md)에 정리했다.
 기존 정책을 CPU에서 평가한 결과와 CPU 물리에서 새로 학습한 성과를 구분하며,

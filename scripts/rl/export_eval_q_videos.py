@@ -61,7 +61,13 @@ def restored_agent(state):
     from kuavo_isaaclab_scene.rl.multi_box.experiments.regional_actor_servo import (
         RegionalActorMemorySACPilot, install_regional_actor, validate_regional_actor_state,
     )
-    regional = state.get('artifact_type') == RegionalActorMemorySACPilot.artifact_type
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.support_conservative_sac import (
+        SupportConservativeRegionalSACPilot,SupportConservativeHybridSAC,support_conservative_contract,
+    )
+    support=state.get('artifact_type')==SupportConservativeRegionalSACPilot.artifact_type
+    if support and state['goal_contract'].get('critic_support_regularization')!=support_conservative_contract():
+        raise ValueError('Saved conservative critic support contract differs')
+    regional = support or state.get('artifact_type') == RegionalActorMemorySACPilot.artifact_type
     memory = regional or state.get('artifact_type') == ActorMemoryServoRetentionSACPilot.artifact_type
     if memory:
         if state['goal_contract'].get('actor_training_memory') != actor_memory_contract():
@@ -115,7 +121,8 @@ def restored_agent(state):
                 snapshot['source_goal_contract']['fixed_prior_radius'])
         return nominal_goal
 
-    agent_class=ServoRetainedCorrectionSAC if retained else BoundedCorrectionHybridSAC
+    agent_class=(SupportConservativeHybridSAC if support else
+                 ServoRetainedCorrectionSAC if retained else BoundedCorrectionHybridSAC)
     agent = agent_class(518, critic_dim, 21, SACConfig(**state['config']), 'cpu',
         action_projector=AbsoluteGoalJawProjector(),
         validated_jaw_prior_confidence=contract['validated_jaw_prior_confidence'],
