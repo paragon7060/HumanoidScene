@@ -105,6 +105,22 @@ seed 간격이 있으므로 연속128개 정수라고 가정하지 않았다.
 greedy 성공률 개선은 아니다.
 [첫 실제 TRAIN·닫힌 모델·은행 근거](assets/rl_v2_servo_retention_first_actual_TRAIN8_20261007.json).
 
+이후 실제 TRAIN wave2의 actor warmup이 끝났다. Actor11회·Q2,090회 갱신
+시점의 실제 actor minibatch에서 자기 성공64표본·지정 마지막 구간32표본을
+사용하는 것을 확인했다. 기존 목표 MSE는0.00004278, 새 명령 구간 Huber는
+0.04278이며 기존 반경 보정11.111…과 계수0.01을 합친 실제 Huber 가중치는
+0.1111이다. VR/teacher BC 가중치는0이며 자기 성공8경로·3,525행, 평가0행을
+확인했다. 이는 실제 새 actor 손실 사용 확인이며, 전체 물리 평가나 성공률
+개선의 증거는 아니다.
+[실제 actor 배치](assets/rl_v2_servo_retention_first_actual_actor_loss_20261007.json).
+
+주기 저장은 Q1,024회마다다. Q2,048 모델은 actor0회의 warmup 경계였고,
+다음 실제 Q3,072·actor256 모델을 보존했다. 실제 actor6개 tensor가 초기 입력과
+달라졌고 모든 model 값이 유한하며 자기 성공8경로도 유지됐다.
+저장된 명령 유지 계약도 일치했다. 여전히 실제 갱신 확인이며 전체 greedy
+평가의 개선은 아니다.
+[실제 저장된 갱신 actor](assets/rl_v2_servo_retention_first_updated_actor_20261007.json).
+
 독립적인 새 TRAIN1,536조건과 원래 DEV128개를 사용한다. 네 구역은 wave마다
 32개씩이며 자신의 전체 초기 DEV부터 시작한다. 다른9개 계획과 겹치지 않는
 TRAIN seed를 사용하고 독립 FINAL은 사용하지 않았다. 초기 mean·jaw와

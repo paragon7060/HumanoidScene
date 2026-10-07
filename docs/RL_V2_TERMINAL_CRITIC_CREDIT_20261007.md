@@ -13,6 +13,12 @@
 [실제 실행·입력 백업](assets/rl_v2_terminal25_actual_launch_20261007.json).
 [실제 첫 DEV·적용 계약](assets/rl_v2_terminal25_first_actual_DEV_20261007.json).
 
+이후 자신의 전체 초기 DEV128은 **23/128(중간 좌12·우6, 상단 좌5·우0)**으로
+끝났다. Actor·Q·성공/n-step 은행0과 같은 초기 model·optimizer를 보존했다.
+새 TRAIN에 진입했지만 아직 종료25%의 실제 TRAIN 배치나 학습 후 성능을
+확인한 것은 아니다.
+[전체 초기 DEV·동일 모델](assets/rl_v2_terminal25_full_initial_DEV_20261007.json).
+
 ## 전체 평가에서 확인한 결과
 
 | 비교 | 자신의 전체 DEV 성공 흐름 | 마지막 중간 좌/우·상단 좌/우 | 실패 |

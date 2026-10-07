@@ -97,6 +97,23 @@ bash scripts/rl/gdrive.sh lsd gdrive:
 
 ## 종료된 학습의 결과 업로드
 
+배치 SAC의 체크포인트·계약 metadata·로그만 전송하려면 관리 진입점에
+`--checkpoint-log-backup-only`를 추가한다.
+
+```bash
+CUDA_VISIBLE_DEVICES=3 python3 scripts/rl/batched_staged_goal_with_drive.py \
+  --gpu 3 --checkpoint-log-backup-only \
+  --experiment-dir /absolute/path/to/unique-run-directory \
+  ...
+```
+
+이 선택형 모드는 기존 파일 잠금·300초 주기·크기/MD5 검증·검증된 오래된
+checkpoint 정리·최신2개 보존을 사용하고 writer 종료 후 로그를 검증한다.
+Raw replay·HDF·평가 영상은 로컬에 남으며 전송하거나 삭제하지 않는다.
+따라서 학습 재개에는 로컬 `staged_goal_experience.pt`도 보존해야 한다.
+옵션을 생략한 기존 실험의 백업 동작은 유지한다. 실제 관리 폴더의
+`launch.json.backup_scope`로 선택한 범위를 확인한다.
+
 `--run-dir`는 `manifest.json`이 들어 있는 **개별 실행 폴더**다.
 
 ```bash

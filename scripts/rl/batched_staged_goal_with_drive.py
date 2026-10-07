@@ -11,7 +11,14 @@ import uuid
 
 from drive_backup import ROOT
 from reference_residual_with_drive import archive_pilot
-from train_with_drive import supervise
+from train_with_drive import archive, supervise
+
+
+def archive_batched(source, remote_root, finished, *, checkpoint_log_only=False):
+    """Allow checkpoint/log backups without exporting physical replay payloads."""
+    if checkpoint_log_only:
+        return archive(source, remote_root, finished)
+    return archive_pilot(source, remote_root, finished)
 
 
 def validate_managed_physics_device(device, child, *, learner_device=None):
@@ -83,6 +90,8 @@ def main():
         help='Managed GPU learner uses cuda:0 within CUDA_VISIBLE_DEVICES; default follows physics')
     parser.add_argument('--python',type=Path,default=Path.home()/'miniconda3/envs/env_isaaclab_232/bin/python')
     parser.add_argument('--remote-root',default=os.environ.get('RL_DRIVE_REMOTE_ROOT'))
+    parser.add_argument('--checkpoint-log-backup-only',action='store_true',
+        help='Upload checkpoints, contract metadata and closed logs; keep replay/HDF/media local')
     args,child=parser.parse_known_args()
     if args.gpu<0 or not args.python.is_file():parser.error('Valid GPU/Isaac Python required')
     if any(s.split('=')[0] in ('--output-dir','--device','--learner-device','--kit_args') for s in child):
@@ -106,9 +115,11 @@ def main():
     environment=os.environ.copy();environment.update(CUDA_VISIBLE_DEVICES=str(args.gpu),OMNI_KIT_ACCEPT_EULA='YES',
         PYTHONPATH=str(ROOT/'src')+':'+str(ROOT/'scripts/rl'),OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1')
     (parent/'launch.json').write_text(json.dumps(dict(command=command,gpu=args.gpu,run=str(run),
-        physics_device=args.physics_device,learner_device=learner_device,frozen_device_diagnostic=device_audit),indent=2)+'\n')
+        physics_device=args.physics_device,learner_device=learner_device,frozen_device_diagnostic=device_audit,
+        backup_scope='checkpoint_contract_logs_only' if args.checkpoint_log_backup_only else 'pilot_payloads'),indent=2)+'\n')
     return supervise(command,parent,environment,
-        lambda source,finished:archive_pilot(source,args.remote_root,finished),
+        lambda source,finished:archive_batched(source,args.remote_root,finished,
+            checkpoint_log_only=args.checkpoint_log_backup_only),
         interval=300,run_prefix='batch_sac_',require_run_status=True)
 
 
