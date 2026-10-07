@@ -159,6 +159,9 @@ greedy 성공률 개선은 아니다.
 대표 영상의 이전30/128 모델과 구분한다.
 [세 번째 전체 평가·같은 모델·공통 조건 비교](assets/rl_v2_retention_third_full_DEV_20261007.json).
 
+![자기 전체 DEV의 학습 흐름과 구역별 성공률. 초기화 무효도 분모에 포함하며 반복 DEV는 독립 FINAL이 아니다.](assets/rl_v2_retention_learning_progress_20261007.png)
+[그림의 원래 완료 평가 근거](assets/rl_v2_retention_learning_progress_20261007.json).
+
 첫 초기화의 무효11개는 별도 terminal25 및 기존 정책 resume의 초기화에서도
 동일한 환경 번호와 원래 박스의 선반/영역 실패 검사로 관측됐다. 정책 명령 전의
 원래 layout 검사가 실패한 결과이며, 이미 parked 된 원래 asset의 마지막

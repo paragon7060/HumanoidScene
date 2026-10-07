@@ -85,6 +85,14 @@ Q1594 모델을 따로 보존했고 자기 성공3경로·1,206행과 원래 TRA
 기준을 다시 완화하지 않고, 실제 접촉·양손 파지 경험과 이후 전체 평가를 본다.
 [첫 실제 TRAIN·모델·성공 target·낙하 단계](assets/rl_v2_resetdrop_success64_first_actual_TRAIN3_20261007.json).
 
+새 TRAIN384조건 후 첫 전체 학습 DEV는 **12/128(중간 좌6·우6,
+상단 양쪽0)**으로 초기13건을 넘지 못했다. 랙84·낙하16·시간 초과15·
+초기 무효1건이며 원래 요청128개와 실제 안전한 양손 접촉·유지·들기를 확인했다.
+공통 유효116조건에서도 초기13→10건이었다. 같은 actor693/Q4820 모델을
+보존했다. 낙하 판정 수정과 성공+64만으로 학습 개선은 확인되지 않았다.
+무작위화·성공·안전 기준을 유지하며 다음 TRAIN을 계속한다.
+[첫 학습 후 전체 DEV·공통 조건·같은 모델](assets/rl_v2_resetdrop_success64_first_full_DEV_20261007.json).
+
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_reset_drop_actor.py \
   --initial-checkpoint /absolute/path/to/pristine-fresh-Q-input/checkpoint_00000000.pt \

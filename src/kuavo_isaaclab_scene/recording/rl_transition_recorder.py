@@ -26,6 +26,12 @@ class RlTransitionRecorder:
             raise ValueError('Supplemental actor observation width must be a nonnegative integer')
         self.transition_fields=TRANSITION_FIELDS+(
             ('actor_supplemental','next_actor_supplemental') if supplemental else ())
+        self.critic_episode_clock = self.manifest.get('critic_episode_clock')
+        if self.critic_episode_clock is not None:
+            from ..rl.multi_box.observations.task_timing import critic_episode_clock_config, VARIANT
+            if self.critic_episode_clock != critic_episode_clock_config(VARIANT):
+                raise ValueError('Recorder requires the exact measured critic task clock contract')
+            self.transition_fields += ('critic_episode_remaining', 'next_critic_episode_remaining')
         self.path = Path(path).expanduser().resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.file = h5py.File(self.path, "x")
@@ -83,6 +89,11 @@ class RlTransitionRecorder:
                 if np.shape(sample[name])!=(self.manifest['supplemental_actor_obs_dim'],) \
                         or not np.isfinite(sample[name]).all():
                     raise ValueError('Supplemental perception needs aligned finite declared-width rows')
+        if self.critic_episode_clock is not None:
+            for name in ('critic_episode_remaining', 'next_critic_episode_remaining'):
+                value = np.asarray(sample[name])
+                if value.shape != (1,) or not np.isfinite(value).all() or ((value < 0) | (value > 1)).any():
+                    raise ValueError('Measured task remaining time must be one finite fraction in [0,1]')
         result = {}
         for name in self.transition_fields:
             value = np.asarray(sample[name])

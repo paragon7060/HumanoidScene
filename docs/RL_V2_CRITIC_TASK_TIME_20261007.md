@@ -63,7 +63,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_crit
 
 ## 현재 검증과 남은 확인
 
-관련65개 CPU 검사가 통과했고 GPU 통합 검사1개는 제외했다. 실제 전체
+기존 관련65개 CPU 검사가 통과했고, 기록 schema 검사까지 확장한78개도
+통과했다. GPU 통합 검사1개는 제외했다. 실제 전체
 SAC trainer를 복원해 기존 TRAIN1,240상태에서 초기 actor4337의 목표·binary
 jaw가 같고, 새 모델·네 optimizer와 빈 학습 은행이 정확히 복원됨을 확인했다.
 같은 상태의 새 시간값0·0.5·1에서 Q1/Q2/두 target의 초기 함수도 보존됐다.
@@ -71,11 +72,22 @@ jaw가 같고, 새 모델·네 optimizer와 빈 학습 은행이 정확히 복�
 17개 wave를 유지한다. 독립 FINAL은 사용하지 않았다.
 [실제 trainer 복원·새 계획](assets/rl_v2_task_remaining_fulltrainer_and_plan_20261007.json).
 
-**아직 실제 환경의 새 observation group이나 이 설정의 물리 학습·성능을
-검증하지 않았다.** 현재 GPU3의 비교6개는 기존 설정으로 계속 진행 중이다.
-완료한 전체 DEV 비교를 먼저 판단하고, 이 후보는 실제 reset 전 시간 기록을
-최소 확인한 뒤 별도 고유 실행에 적용해야 한다. 현재 최고33/128은 성공 명령
-유지 SAC의 결과이며 이 시간 입력의 결과가 아니다.
+**실제 환경의 그룹 생성과 기록까지 최소 확인했다.** CPU 물리의 원래 DEV
+4조건·1스텝 frozen 검사에서 실제 horizon900·정착 카운터·시간값112회,
+행동 전/후 HDF4행의 시간 차이1/900과 계약·578차원 pilot을 확인했다.
+Actor/Q/replay는0으로 유지됐다. 실제 검사에서는 새 그룹의 차원 검사 선언과
+HDF recorder의 새 필드 선언 누락을 발견해 수정했다. 앞선 실패 writer는
+종료 후 새 고유 검사에서 재확인했다. Isaac이 실패에도 exit0을 반환했으므로
+`failure.json`과 `status.json`으로 성공 여부를 확인했다.
+[실제 환경·카운터·HDF 정렬](assets/rl_v2_task_remaining_actual_group_runtime_20261007.json).
+검사 writer와 관리 프로세스 종료 뒤 고유 폴더의 계약·로그3개만 기존 Drive로
+업로드하고 파일별 크기·MD5를 확인했다. Raw HDF/관측 trace는 전송하지 않았다.
+[종료 로그 백업 근거](assets/rl_v2_task_remaining_closed_logs_backup_20261007.json).
+
+이 검사는 파지 단계 진입 전의 한 스텝으로 **실제 파지·시간 초과 자동 reset이나
+학습 성능 검증은 아니다.** 현재 GPU3의 비교6개는 기존 설정으로 계속 진행 중이다.
+완료한 전체 DEV 비교를 판단한 뒤 별도 고유 학습에 적용해야 한다.
+현재 최고33/128은 성공 명령 유지 SAC의 결과이며 이 시간 입력의 결과가 아니다.
 
 실행 시 [기존 Drive 관리자](RL_GOOGLE_DRIVE.md)의 checkpoint·계약·로그 범위,
 300초 업로드·크기/MD5 검증·검증된 오래된 checkpoint만 정리·최근2개 보존을

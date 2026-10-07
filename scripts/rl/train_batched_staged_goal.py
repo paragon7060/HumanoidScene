@@ -486,6 +486,8 @@ def main():
         dims={k:list(v) for k,v in env.observation_manager.group_obs_dim.items()}
         actions={k:env.action_manager.get_term(k).action_dim for k in env.action_manager.active_terms}
         expected_dims=contract['observations']|({SUPPLEMENTAL_GROUP:[SUPPLEMENTAL_DIM]} if supplemental else {})
+        if critic_episode_clock is not None:
+            expected_dims[TASK_TIMING_GROUP] = [1]
         if dims!=expected_dims or actions!=contract['actions']:
             raise ValueError('Batched physical observation/action widths differ')
         base=env.action_manager.get_term('base');upper=env.action_manager.get_term('upper_body')
@@ -589,6 +591,8 @@ def main():
             episode_layouts=[dict(wave=i,environment=j,**row) for i,w in enumerate(waves) for j,row in enumerate(w['layouts'])])
         if supplemental:
             meta.update(supplemental_actor_obs_dim=SUPPLEMENTAL_DIM,supplemental_perception=supplemental)
+        if critic_episode_clock is not None:
+            meta['critic_episode_clock'] = critic_episode_clock
         from kuavo_isaaclab_scene.rl.multi_box.geometry.projected_base import projected_base_safety_contract
         coordinate_safety = projected_base_safety_contract() if warm.coordinates.exact_projected_base else None
         meta['controller_coordinate_safety'] = coordinate_safety

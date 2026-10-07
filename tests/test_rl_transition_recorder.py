@@ -133,3 +133,36 @@ def test_optional_perceived_features_preserve_current_and_terminal_rows(tmp_path
     row['next_actor_supplemental'][0]=np.nan
     with pytest.raises(ValueError,match='finite'):recorder.append(row)
     recorder.close()
+
+
+def test_measured_task_time_keeps_terminal_zero_and_requires_declared_contract(tmp_path):
+    from kuavo_isaaclab_scene.rl.multi_box.observations.task_timing import critic_episode_clock_config, VARIANT
+    path=tmp_path/'task_time.hdf5'
+    clock=critic_episode_clock_config(VARIANT)
+    recorder=RlTransitionRecorder(path,{'critic_episode_clock':clock})
+    recorder.start_episode()
+    row=_sample(0,terminal=True)
+    row.update(success=np.bool_(False),truncated=np.bool_(True),
+        critic_episode_remaining=np.array([.01],dtype=np.float32),
+        next_critic_episode_remaining=np.array([0.],dtype=np.float32))
+    with pytest.raises(ValueError,match='fields mismatch'):recorder.append(_sample(0))
+    recorder.append_many([row]);recorder.finish_episode(success=False,reason='timeout');recorder.close()
+    with h5py.File(path) as source:
+        t=source['episodes/episode_000000/transitions']
+        np.testing.assert_array_equal(t['critic_episode_remaining'][0],row['critic_episode_remaining'])
+        assert t['next_critic_episode_remaining'][0,0]==0 and t['terminated'][0]
+    legacy=RlTransitionRecorder(tmp_path/'legacy.hdf5',{});legacy.start_episode()
+    with pytest.raises(ValueError,match='fields mismatch'):legacy.append(row)
+    legacy.close()
+
+
+@pytest.mark.parametrize('value',[np.array([np.nan]),np.array([-1.]),np.array([1.01]),np.array([0.,1.])])
+def test_bad_task_time_row_cannot_partially_append(tmp_path,value):
+    from kuavo_isaaclab_scene.rl.multi_box.observations.task_timing import critic_episode_clock_config, VARIANT
+    recorder=RlTransitionRecorder(tmp_path/'time.hdf5',{'critic_episode_clock':critic_episode_clock_config(VARIANT)})
+    recorder.start_episode()
+    good=_sample(0);good.update(critic_episode_remaining=np.array([.8]),next_critic_episode_remaining=np.array([.79]))
+    bad=good|{'next_critic_episode_remaining':value}
+    with pytest.raises(ValueError,match='one finite fraction'):recorder.append_many([good,bad])
+    assert recorder.count==0 and not len(recorder.episode['transitions'])
+    recorder.close()
