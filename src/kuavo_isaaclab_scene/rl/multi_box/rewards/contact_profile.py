@@ -77,6 +77,9 @@ def configured_reward_weights(profile):
             raise ValueError('Unknown legacy reward weights')
         return MultiBoxRewardWeights()
     frozen_actor_reward_contract(dict(reward_profile=profile))
+    if 'success_value' in profile:
+        from .success_value import success_value_weights
+        return success_value_weights()
     return contact_reward_weights()
 
 

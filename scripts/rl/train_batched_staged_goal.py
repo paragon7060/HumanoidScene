@@ -396,6 +396,10 @@ def main():
         geometry_shaping=configured_geometry_shaping(contract['reward_profile'])
         if geometry_shaping is not None:
             profile['absorbing_geometry']=geometry_shaping
+        from kuavo_isaaclab_scene.rl.multi_box.rewards.success_value import configured_success_value
+        success_value=configured_success_value(contract['reward_profile'])
+        if success_value is not None:
+            profile['success_value']=success_value
         thresholds=dict(rack_contact_force_n=float(cfg.multi_box.rack_contact_force),
             obstacle_contact_force_n=float(cfg.task.obstacle_contact_force),workspace_radius_m=float(cfg.multi_box.workspace_radius),
             max_box_lift_height_m=float(cfg.multi_box.max_box_lift_height),
@@ -414,6 +418,12 @@ def main():
                     or initialized_reward.func.model.geometry_shaping != geometry_shaping):
                 raise ValueError('Initialized reward manager did not apply the absorbing geometry contract')
             print('[ABSORBING GEOMETRY REWARD] '+json.dumps(geometry_shaping),flush=True)
+        if success_value is not None:
+            initialized_reward=env.reward_manager.get_term_cfg('grasp')
+            if (initialized_reward.params.get('reward_profile') != contract['reward_profile']
+                    or initialized_reward.func.model.weights != reward_weights):
+                raise ValueError('Initialized reward manager did not apply safe success64')
+            print('[SAFE SUCCESS VALUE REWARD] '+json.dumps(success_value),flush=True)
         replication_probe=verify_independent_scene_probe(env,replication_probe)
         if replication_probe is not None:
             print('[FROZEN INDEPENDENT SCENE] '+json.dumps(replication_probe),flush=True)

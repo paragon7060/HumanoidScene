@@ -142,3 +142,8 @@ Drive 연결로 크기·MD5 검증했다. 실행할 때 GPU3/CUDA 마스크·5�
 검증된 오래된 checkpoint만 정리·최근2개 유지·writer 종료 뒤 로그 검증을
 사용한다. 현재 자기 실행 중인 다른 비교는 변경하지 않는다.
 박스 고정·curriculum·무작위화 축소·성공 또는 충돌 기준 완화는 없다.
+
+실제 첫 저장 갱신 모델 actor256·Q3072를 보존해 actor tensor6개가 바뀌었고
+모든 값이 유한하며 terminal25·성공 명령 유지 계약과 자기 TRAIN13경로·
+5,315행이 유지되는 것을 확인했다. 모델 갱신이며 새 물리 성공은 아니다.
+[첫 갱신 모델](assets/rl_v2_terminal25_first_updated_actor_20261007.json).
