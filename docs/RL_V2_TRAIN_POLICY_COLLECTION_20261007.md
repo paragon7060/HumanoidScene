@@ -71,6 +71,9 @@ supervisor의 소유자·명령·`CUDA_VISIBLE_DEVICES=3`, 서비스 실행 상�
 
 입력 checkpoint·계약7개는 기존 Drive 연결로 크기·MD5를 검증했다. 실행도
 checkpoint·계약·닫힌 로그만300초마다 검증·업로드하며 최신2개를 유지한다.
-Raw replay·HDF·영상은 로컬에 남긴다. 실제 환경 초기화·첫 DEV 및 실제 TRAIN
-모드 적용은 확인 전이며 새 성능도 아직 없다. 초기 동작을 더 실행한다고 네
-구역의 일반화나 대표30/128을 넘는 성능이 보장되는 것은 아니다.
+Raw replay·HDF·영상은 로컬에 남긴다. 이후 **실제 첫 DEV에 진입했다.** 초기화된
+환경의10cm 낙하 조건과 reward manager의+64, 실제 agent·checkpoint·17개
+wave의 계약 일치, 새 수집 설정과 actor/Q·학습 은행0을 확인했다. 평가 동안
+수집 모드의 episode/row 수는0이다. 실제 TRAIN에서의 모드 사용과 새 성능은
+아직 확인 전이며, 전체 초기 DEV도 완료 전이다.
+[첫 실제 DEV·환경·agent 적용](assets/rl_v2_greedy80_first_actual_DEV_20261007.json).
