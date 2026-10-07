@@ -4,7 +4,14 @@
 실제 학습에 사용한 TRAIN의 마지막 동작에서도 Q가 실패 감점보다 높게 남았다.
 실패·성공의 마지막 실제 동작을 더 자주 학습하는 선택형 sampling을 추가했다.
 보상·제어·성공·충돌·무작위화는 유지한다. 구현·실제 trainer 복원·입력 Drive
-검증까지 마쳤으며 **새 옵션의 학습은 아직 시작하지 않았다.**
+검증까지 마친 뒤 **10/07 09:53 KST에 GPU3에서 새 고유 실행을 시작했다.**
+실제 writer2413288·supervisor의 소유자·명령·`CUDA_VISIBLE_DEVICES=3`과 서비스
+실행 상태를 확인했다. 초기화를 마치고 첫 DEV 평가에 진입했으며 실제 learner의
+종료 표본25% sampler·성공 명령 유지 손실·새 보상·표준편차0.0075–0.03을 확인했다.
+현재 초기 평가의 actor·Q·온라인 replay·성공/n-step 은행은0이다. 아직 새 TRAIN
+배치의16개 종료 표본이나 학습 후 물리 성능을 측정한 것은 아니다.
+[실제 실행·입력 백업](assets/rl_v2_terminal25_actual_launch_20261007.json).
+[실제 첫 DEV·적용 계약](assets/rl_v2_terminal25_first_actual_DEV_20261007.json).
 
 ## 전체 평가에서 확인한 결과
 
@@ -17,7 +24,9 @@
 0.25초 유지·8mm proof lift·안전 조건을 모두 충족해야 성공이다. 각 평가의
 동일 모델을 완료 전에 보존했다. 두 writer는 `policy_regression` 판정으로
 종료 코드1을 반환했다. OOM이나 runtime 예외가 아니므로 오류 재시작하지 않는다.
-원래 supervisor의 최종 업로드는 유지하며 검증 완료 전에는 완료라 부르지 않는다.
+두 원래 supervisor가 writer 종료 뒤 로그·체크포인트의 최종 업로드와 크기·MD5
+검증을 마친 상태를10:06 KST에 확인했다. 별도 중복 업로더를 만들지 않았다.
+[종료 실행 백업 기록](assets/rl_v2_closed_servo_absorbing_final_backup_20261007.json).
 
 ## 실제 마지막 동작의 Q와 보상
 

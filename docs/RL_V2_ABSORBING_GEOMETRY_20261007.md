@@ -12,7 +12,11 @@ GPU3에서 별도 비교를 시작했고 실제 reward manager에 적용됨을 �
 OOM이나 runtime 예외로 종료된 것이 아니다. 이 보상 수정만으로 개선되지 않았다.
 [전체 첫 학습 후 평가](assets/rl_v2_absorbing_geometry_first_full_DEV_after384_20261007.json).
 실제 종료 동작의 Q·보상과 보존된 TRAIN 종료 표본도 비교해
-[critic 종료 표본 보강](RL_V2_TERMINAL_CRITIC_CREDIT_20261007.md)을 별도로 준비했다.
+[critic 종료 표본 보강](RL_V2_TERMINAL_CRITIC_CREDIT_20261007.md)을 별도로 적용해
+GPU3에서 새 비교를 시작했다. 첫 초기 평가에서 실제 적용을 확인했고 학습 후
+성공률 개선은 아직 확인 전이다. 이 종료된 실행은 원래 관리자가 최종 로그와
+체크포인트를 Drive에 업로드·크기·MD5 검증까지 마쳤다.
+[종료 실행 백업 기록](assets/rl_v2_closed_servo_absorbing_final_backup_20261007.json).
 
 대표 성능은 [간단 중간 보고](RL_V2_GRASP_INTERIM_SUMMARY_20261006.md),
 동일 평가 정책의 Q 표시 영상4개와 보상 가중치는
