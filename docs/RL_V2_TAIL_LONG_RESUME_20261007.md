@@ -56,8 +56,13 @@ Box/base/주변 박스/단단한 동적 flap의 무작위화·랙10N/장애물5N
 
 **10/07 10:51 KST에 GPU3에서 새 고유 추가 학습을 시작했다.** 실제 writer2933629·
 supervisor2933414의 소유자·명령·`CUDA_VISIBLE_DEVICES=3`과 서비스 실행을 확인했다.
-기존 두 SAC writer2089063·2413288은 유지했다. 현재 환경 초기화 중이며 실제
-learner의 첫 DEV 복원 counters와 새 학습 후 성능은 아직 확인 전이다.
+기존 두 SAC writer2089063·2413288은 유지했다. 이후 초기화를 마치고 실제
+첫 DEV에 진입했다. 실행 learner의 actor4337·Q19396·replay500,000행·성공
+26경로12,300행과 input checkpoint의 전체 agent 계약 일치, 원래33개 계획·
+보상·표준편차0.03–0.12·n-step 은행 복원을 확인했다. 새로운 온라인 수집
+counter0은 복원 replay가 비었다는 뜻이 아니다. 아직 전체 초기 DEV나 새
+학습 후 성능은 확인 전이다.
+[실제 첫 DEV·복원 적용](assets/rl_v2_tail19_long3072_first_actual_DEV_20261007.json).
 [실제 실행·최소 백업 적용](assets/rl_v2_tail19_long3072_actual_launch_20261007.json).
 초기 checkpoint·계약 metadata7개는 기존 Drive 연결로 크기·MD5를 검증했다.
 최소 백업 범위와 기존 장치 검사를 포함한13개 검사가 통과했다.
