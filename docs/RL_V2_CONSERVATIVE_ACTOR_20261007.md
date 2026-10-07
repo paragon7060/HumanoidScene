@@ -53,8 +53,13 @@ actor518/critic578·초기 agent/progress/입력 계약의 정확한 일치와 �
 초기 평가 뒤 저장한 체크포인트0은 Drive 검증 후 로컬 보존 규칙으로 정리됐다.
 기존 연결에서 이 실행의 모델 한 개만 RAM에 회수해 크기·MD5를 재확인했고,
 모든 모델·정규화 tensor가 준비 입력과 정확히 같고 유한함을 확인해 보호했다.
-초기27건은 학습 개선이 아니다. 첫 학습 후 전체 평가는 아직 확인 전이며 CPU
-전용 관찰자가 그 DEV4와 같은 모델을 보호한다.
+초기27건은 학습 개선이 아니다. CPU 전용 관찰자가 이후 첫 학습 후 DEV4와
+정확히 같은 actor702/Q4854 모델을 보호했다. 새 TRAIN384조건 뒤 **첫 전체
+평가는28/128(중간 좌15·우11, 상단 좌2·우0)**이었다. 랙 충돌38·시간 초과61·
+초기 무효1건을 원래128개 분모에 포함했다. 초기27건보다1건 높지만 양쪽 모두
+유효한116조건에서는27→25건으로 줄었다. 초기 성능은 비교적 유지했으나
+안정적인 개선이나 상단 오른쪽 성공을 입증하지는 못했다.
+[첫 학습 후 전체 평가·동일 모델](assets/rl_v2_return33_conservative_first_full_DEV_20261007.json).
 [실제 첫 평가의 학습률·계약](assets/rl_v2_return33_conservative_first_actual_DEV_20261007.json).
 [완료된 초기 평가·동일 모델](assets/rl_v2_return33_conservative_full_initial_DEV_20261007.json).
 
@@ -78,5 +83,7 @@ python scripts/rl/prepare_conservative_servo_actor.py \
 목표 좌표·flap 인지 계약과 고정 몸체 anchor가 일치했다. 과거의 안전한 성공
 동작을 잃지 않는 actor 전용 기억 후보이며, **현재 실행에는 넣지 않았고 기존
 Q·보상 전이도 가져오지 않았다.** 실제 환경·성공 기준과 TRAIN/DEV 분리의
-최종 호환성 확인, 별도 actor 전용 데이터 연결과 새 전체 평가는 아직 필요하다.
+이후 전체27경로의 원본 명령·물리·성공·안전·새10cm 낙하 기준과 데이터 분리
+검증을 완료했고 [actor 전용 기억을 연결한 별도 비교](RL_V2_ACTOR_TRAIN_MEMORY_20261007.md)를
+GPU3에서 시작했다. 이 학습률 단독 비교에는 그 데이터를 넣지 않았다.
 [읽기 전용 TRAIN 명령 호환성](assets/rl_v2_actual_TRAIN_upper_right_actor_memory_eligibility_20261007.json).
