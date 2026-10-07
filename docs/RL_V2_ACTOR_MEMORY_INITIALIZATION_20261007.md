@@ -58,3 +58,21 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src python scripts/rl/fit_actor_train_memory.
 박스·base·배경·움직이는 flap 무작위화와 실제 양손 pad5N·hold0.25초·8mm 들기,
 rack10N·주변 장애물5N·self collision OFF는 유지한다. 박스 고정이나 curriculum을
 추가하지 않는다. 실제 새 평가·SAC 학습·네 구역과 다른 크기 일반화는 아직 미검증이다.
+
+**10/08 00:13 KST에 원래 전체 DEV128개 평가를 시작했다.** GPU3만 사용한
+실제 writer3910094의 소유자·고유 run·CUDA3를 확인했다. 기존 학습4개는
+유지했고, 평가의 학습·actor/Q/replay 갱신은 비활성화했다. 네 구역32개씩
+모두 요청하고 구역별 대표 영상4개도 저장한다. 아직 전체 평가 결과는 없다.
+실행 소스는 로컬 커밋f1581d6이며 GitHub가 push를 Internal Server Error로
+거절해 원격 동기화는 재시도 대기 중이다. 기존 Drive도 invalid_grant로
+재인증이 필요하므로 미검증 자료는 로컬에 보존한다.
+[실제 frozen 평가 실행](assets/rl_v2_actor_memory_fit1000_actual_frozen_DEV_launch_20261008.json).
+
+실제 DEV0에 진입한 뒤 actor/Q0·학습 비활성화, 입력 checkpoint·agent·
+progress 계약의 정확한 일치와 오프라인 초기화 출처의 runtime 보존을
+확인했다. 아직 원래128개 평가가 모두 끝난 것은 아니다.
+
+![실제 평가 추이와 과거 성공 명령의 초기화 비교](assets/rl_v2_actor_memory_initialization_and_latest_DEV_20261008.png)
+
+왼쪽은 새 환경에서 측정한 전체 물리 성공이며 오른쪽은 학습에 사용한
+과거 상태의 명령 오차다. 두 성능을 혼합하지 않는다.
