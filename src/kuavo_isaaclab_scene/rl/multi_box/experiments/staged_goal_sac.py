@@ -477,7 +477,12 @@ class StagedGoalSACPilot:
             # This optional collection distribution never runs in frozen
             # evaluation or collection-only frozen behavior diagnostics.
             behavior=getattr(self,'jaw_behavior_sampler',None) if self.training else None
-            action=self.goal_exploration.act(self.agent,ao,ids,body_latent_offset=offset,jaw_behavior=behavior)
+            options=dict(body_latent_offset=offset,jaw_behavior=behavior)
+            if use_arm_behavior and getattr(self.arm_behavior,'greedy_unselected_policy',False):
+                # offset() drew the existing episode-stable arm selection.
+                # Reuse it so wider arm exploration remains20%, not4%.
+                options['greedy_mask']=~self.arm_behavior.selected[ids]
+            action=self.goal_exploration.act(self.agent,ao,ids,**options)
         else:
             action=self.agent.act(ao,deterministic=deterministic)
         physical = held_goal_coordinates(self.coordinates, raw, self.center+self.scale*action, self.stage)

@@ -10,14 +10,16 @@ import torch
 
 
 VARIANT = 'ramped-arm-bias20'
+GREEDY_REST_VARIANT = 'arm20-explore-rest-greedy'
+VARIANTS = (VARIANT, GREEDY_REST_VARIANT)
 
 
 def body_behavior_config(variant):
     if variant in (None, 'off'):
         return None
-    if variant != VARIANT:
+    if variant not in VARIANTS:
         raise ValueError('Unknown TRAIN body behavior variant')
-    return dict(variant=variant, format_version=1,
+    result = dict(variant=variant, format_version=1,
         scope='actual_flap_real_TRAIN_collection_only', episode_fraction=.2,
         arm_goal_columns=list(range(1, 15)), latent_bias_std=.8,
         max_abs_latent_bias=1.6, ramp_held_steps=90,
@@ -27,6 +29,13 @@ def body_behavior_config(variant):
         affine_goal_radius_and_physical_projection_unchanged=True,
         base_head_torso_bias_zero=True, privileged_inputs=False,
         scene_curriculum=False, active_episode_biases_reset_between_waves=True)
+    if variant == GREEDY_REST_VARIANT:
+        result.update(unselected_episodes_keep_original_behavior_distribution=False,
+            unselected_policy_sampling='greedy_current_learned_body_and_binary_jaws',
+            selected_policy_sampling='existing_AR1_Gaussian_arm_bias_and_joint_jaw_behavior',
+            selection_shared_with_existing_arm_bias_not_an_independent20_percent_mask=True,
+            greedy_and_exploring_rows_are_actual_executed_TRAIN_not_demo_or_teacher=True)
+    return result
 
 
 def body_behavior_statistics(statistics=None):
@@ -70,9 +79,12 @@ class RampedArmBehaviorExploration:
     training_only = True
 
     def __init__(self, num_envs, device, config, statistics=None):
-        if config != body_behavior_config(VARIANT) or type(num_envs) is not int or num_envs < 1:
+        if (not isinstance(config,dict) or config.get('variant') not in VARIANTS
+                or config != body_behavior_config(config['variant'])
+                or type(num_envs) is not int or num_envs < 1):
             raise ValueError('Declared body behavior and positive environment count required')
         self.config = deepcopy(config)
+        self.greedy_unselected_policy = config['variant'] == GREEDY_REST_VARIANT
         self.statistics = body_behavior_statistics(statistics)
         self.bias = torch.zeros(num_envs, 14, device=device)
         self.selected = torch.zeros(num_envs, dtype=torch.bool, device=device)

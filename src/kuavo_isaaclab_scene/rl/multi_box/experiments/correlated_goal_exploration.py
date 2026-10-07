@@ -19,10 +19,13 @@ class CorrelatedGoalExploration:
         self.noise=torch.zeros(num_envs,action_dim,device=device)
         self.initialized=torch.zeros(num_envs,dtype=torch.bool,device=device)
 
-    def sample_noise(self, ids):
+    def _validate_ids(self, ids):
         if ids.ndim!=1 or ids.dtype!=torch.long or len(ids.unique())!=len(ids) \
                 or (ids<0).any() or (ids>=len(self.noise)).any():
             raise ValueError('Distinct valid global environment IDs required')
+
+    def sample_noise(self, ids):
+        self._validate_ids(ids)
         innovation=torch.randn_like(self.noise[ids])
         value=self.correlation*self.noise[ids]+math.sqrt(1-self.correlation**2)*innovation
         # Start each episode in the stationary N(0,1) marginal. There is no
@@ -32,7 +35,23 @@ class CorrelatedGoalExploration:
         return value
 
     @torch.no_grad()
-    def act(self, agent, observation, ids, *, body_latent_offset=None, jaw_behavior=None):
+    def act(self, agent, observation, ids, *, body_latent_offset=None, jaw_behavior=None,
+            greedy_mask=None):
+        if greedy_mask is not None:
+            self._validate_ids(ids)
+            if (not isinstance(greedy_mask,torch.Tensor)
+                    or greedy_mask.dtype != torch.bool or greedy_mask.shape != (len(ids),)
+                    or greedy_mask.device != observation.device or len(observation) != len(ids)):
+                raise ValueError('One boolean collection mode per measured active environment required')
+            # No random jaw draw or latent offset affects greedy episodes.
+            # Both paths return the same projected executed-goal coordinates.
+            action = agent.act(observation, deterministic=True)
+            exploring = ~greedy_mask
+            if bool(exploring.any()):
+                offset = None if body_latent_offset is None else body_latent_offset[exploring]
+                action[exploring] = self.act(agent, observation[exploring], ids[exploring],
+                    body_latent_offset=offset, jaw_behavior=jaw_behavior)
+            return action
         if hasattr(agent,'act_with_latent_noise'):
             options={} if body_latent_offset is None else dict(body_latent_offset=body_latent_offset)
             if jaw_behavior is not None:

@@ -3,7 +3,7 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.experiments.body_behavior_exploration import (
-    VARIANT, RampedArmBehaviorExploration, body_behavior_config, body_behavior_statistics)
+    VARIANT, GREEDY_REST_VARIANT, RampedArmBehaviorExploration, body_behavior_config, body_behavior_statistics)
 
 
 def observation(n):
@@ -68,13 +68,14 @@ def test_configuration_and_persisted_statistics_fail_closed():
     with pytest.raises(ValueError): body_behavior_statistics(bad)
 
 
-def test_managed_collection_option_is_allowed_in_TRAIN_and_rejected_in_frozen_probes(tmp_path):
+@pytest.mark.parametrize('variant',[VARIANT,GREEDY_REST_VARIANT])
+def test_managed_collection_option_is_allowed_in_TRAIN_and_rejected_in_frozen_probes(tmp_path,variant):
     import json
     from batched_staged_goal_with_drive import validate_managed_physics_device
     from test_rl_cpu_physics_training import inputs
     waves,contract=inputs();wp=tmp_path/'waves.json';mp=tmp_path/'manifest.json'
     wp.write_text(json.dumps(waves));mp.write_text(json.dumps(contract))
-    common=['--waves-json',str(wp),'--training-manifest',str(mp),'--body-behavior',VARIANT]
+    common=['--waves-json',str(wp),'--training-manifest',str(mp),'--body-behavior',variant]
     assert validate_managed_physics_device('cpu',common+['--training','--cpu-physics-training'],
         learner_device='cuda:0')['training']
     wp.write_text(json.dumps(waves[:1]))
@@ -82,3 +83,18 @@ def test_managed_collection_option_is_allowed_in_TRAIN_and_rejected_in_frozen_pr
         validate_managed_physics_device('cpu',common+['--no-training','--frozen-physics-backend-eval'])
     with pytest.raises(ValueError,match='only named waypoints'):
         validate_managed_physics_device('cpu',common+['--no-training','--cpu-workplace-probe','--base-waypoint-probe'])
+
+
+def test_greedy_rest_reuses_original20percent_selection_bias_and_wave_identity():
+    count=20000;raw=observation(count);ids=torch.arange(count)
+    original=RampedArmBehaviorExploration(count,'cpu',body_behavior_config(VARIANT))
+    mixed=RampedArmBehaviorExploration(count,'cpu',body_behavior_config(GREEDY_REST_VARIANT))
+    torch.manual_seed(93);before=original.offset(raw,90,ids)
+    torch.manual_seed(93);after=mixed.offset(raw,90,ids)
+    assert torch.equal(before,after) and torch.equal(original.selected,mixed.selected)
+    assert mixed.selected.float().mean()==pytest.approx(.2,abs=.01)
+    assert mixed.greedy_unselected_policy and not original.greedy_unselected_policy
+    chosen=torch.tensor([10,1,300,5000]);selection=mixed.selected[chosen].clone()
+    mixed.offset(raw[chosen],91,chosen)
+    assert torch.equal(selection,mixed.selected[chosen])
+    assert mixed.report()['episodes_drawn']==count

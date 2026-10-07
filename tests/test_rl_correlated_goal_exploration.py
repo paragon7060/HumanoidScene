@@ -51,3 +51,41 @@ def test_behavior_samples_existing_actor_std_and_preserves_goal_projection():
     torch.testing.assert_close(projected[0],(.2+torch.exp(torch.tensor(-5.3))*sampler.noise).tanh())
     assert action[:,19:].eq(-1).all()
     torch.testing.assert_close(action[:,:19],projected[0][:,:19])
+
+
+def test_episode_greedy_rows_keep_projected_body_and_binary_jaws_and_only_selected_noise_history():
+    class Hybrid:
+        def act(self,observation,deterministic):
+            assert deterministic
+            result=observation[:,:21].clone();result[:,19:]=torch.tensor([-1.,1.])
+            return result
+        def act_with_latent_noise(self,observation,noise,body_latent_offset=None):
+            result=(observation[:,:21]+.1*noise).tanh()
+            if body_latent_offset is not None:result[:,:19]+=body_latent_offset
+            result[:,19:]=torch.where(noise[:,19:]>0,1.,-1.)
+            return result
+    agent=Hybrid();obs=torch.linspace(-.2,.2,4*21).reshape(4,21)
+    ids=torch.tensor([8,2,7,1]);greedy=torch.tensor([True,False,True,False])
+    offsets=torch.full((4,19),.02)
+    mixed=CorrelatedGoalExploration(.99,10,21,'cpu')
+    reference=CorrelatedGoalExploration(.99,10,21,'cpu')
+    torch.manual_seed(24)
+    actual=mixed.act(agent,obs,ids,body_latent_offset=offsets,greedy_mask=greedy)
+    torch.manual_seed(24)
+    expected=reference.act(agent,obs[~greedy],ids[~greedy],body_latent_offset=offsets[~greedy])
+    assert torch.equal(actual[greedy],agent.act(obs[greedy],True))
+    assert torch.equal(actual[~greedy],expected)
+    assert mixed.initialized.nonzero().flatten().tolist()==[1,2]
+    assert torch.equal(mixed.noise,reference.noise)
+    # Finishing another environment does not change a retained greedy mode.
+    again=mixed.act(agent,obs[[2,1]],ids[[2,1]],greedy_mask=greedy[[2,1]])
+    assert torch.equal(again[0],agent.act(obs[2:3],True)[0])
+    assert not mixed.initialized[7] and not mixed.initialized[8]
+
+
+@pytest.mark.parametrize('mask',[torch.tensor([1,0]),torch.tensor([True]),[True,False]])
+def test_invalid_mixed_collection_mask_is_rejected_before_action_or_noise(mask):
+    sampler=CorrelatedGoalExploration(.99,2,21,'cpu')
+    with pytest.raises(ValueError,match='boolean'):
+        sampler.act(None,torch.zeros(2,21),torch.tensor([0,1]),greedy_mask=mask)
+    assert not sampler.initialized.any()

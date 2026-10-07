@@ -31,8 +31,8 @@ def main():
         help='Opt-in actual-flap learner objective: real completed successful and failed TRAIN n-step credit')
     parser.add_argument('--jaw-behavior', choices=('policy', 'joint-epsilon10', 'joint-epsilon30'), default=None,
         help='Actual-flap TRAIN collection only: 10 or 30 percent correlated uniform joint jaws with unchanged production gate')
-    parser.add_argument('--body-behavior', choices=('off', 'ramped-arm-bias20'), default=None,
-        help='Actual-flap TRAIN collection only: ramp one coherent wider arm bias in20 percent of episodes')
+    parser.add_argument('--body-behavior', choices=('off', 'ramped-arm-bias20', 'arm20-explore-rest-greedy'), default=None,
+        help='Actual-flap TRAIN only:20% coherent arm exploration; opt-in greedy current policy for remaining episodes')
     parser.add_argument('--body-saturation-penalty', choices=('off', 'mean3-soft'), default=None,
         help='Actual-flap TRAIN actor loss only: soft recovery of body means beyond abs3; no clipping')
     parser.add_argument('--jaw-saturation-penalty', choices=('off', 'logit4-soft', 'logit4-soft-strong'), default=None,
@@ -905,12 +905,19 @@ def main():
                 if scene_videos is not None:scene_videos.close(last)
             for i,samples in enumerate(rows):
                 success=bool(last[i] and last[i]['success'])
+                collection_mode=None
+                body_sampler=getattr(pilot,'body_behavior_sampler',None)
+                if wave['split']=='train' and getattr(body_sampler,'greedy_unselected_policy',False):
+                    collection_mode=('coherent_arm_exploration' if body_sampler.selected[i] else
+                        'greedy_current_policy') if body_sampler.initialized[i] else 'no_held_mode_draw'
                 if samples:
                     recorder.start_episode(initial_state=snapshots[i])
                     recorder.episode.attrs['wave']=wave_index
                     recorder.episode.attrs['environment']=i
                     recorder.episode.attrs['layout_json']=json.dumps(wave['layouts'][i]['layout'],sort_keys=True)
                     recorder.episode.attrs['initial_layout_guard_valid']=bool(valid_layout[i])
+                    if collection_mode is not None:
+                        recorder.episode.attrs['collection_policy_mode']=collection_mode
                     recorder.append_many(samples)
                     recorder.finish_episode(success=success,reason='numerical_failure_excluded_corrupt_row'
                         if last[i].get('numerical_failure') else 'success' if success else 'failure'
@@ -923,6 +930,8 @@ def main():
                     outcomes[-1]['collection_jaw_behavior']=pilot.jaw_behavior
                 if wave['split']=='train' and getattr(pilot,'body_behavior',None) is not None:
                     outcomes[-1]['collection_body_behavior']=pilot.body_behavior
+                if collection_mode is not None:
+                    outcomes[-1]['collection_policy_mode']=collection_mode
                 if wave['split']=='train' and getattr(pilot,'body_saturation',None) is not None:
                     outcomes[-1]['actor_body_regularization']=pilot.body_saturation
                 if wave['split']=='train' and getattr(pilot,'jaw_saturation',None) is not None:

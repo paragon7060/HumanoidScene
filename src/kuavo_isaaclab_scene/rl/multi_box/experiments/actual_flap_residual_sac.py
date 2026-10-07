@@ -176,9 +176,11 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         self.jaw_behavior_origin = deepcopy(saved.get('jaw_behavior_origin')) if stored_jaw else None
         self._saved_jaw_behavior = stored_jaw
         self.jaw_behavior_sampler = None
-        from .body_behavior_exploration import body_behavior_config, body_behavior_statistics, VARIANT as BODY_VARIANT
+        from .body_behavior_exploration import body_behavior_config, body_behavior_statistics, VARIANTS as BODY_VARIANTS
         stored_body = saved.get('body_behavior') if saved else None
-        if stored_body is not None and stored_body != body_behavior_config(BODY_VARIANT):
+        if stored_body is not None and (not isinstance(stored_body,dict)
+                or stored_body.get('variant') not in BODY_VARIANTS
+                or stored_body != body_behavior_config(stored_body['variant'])):
             raise ValueError('Saved TRAIN body behavior configuration differs')
         if stored_body is not None and not isinstance(saved.get('body_behavior_statistics'), dict):
             raise ValueError('Saved TRAIN body behavior statistics are missing')
@@ -489,6 +491,15 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
     def report(self):
         result = super().report()
         result.update(self.body_behavior_extras())
+        if self.body_behavior and self.body_behavior.get('unselected_policy_sampling'):
+            stats=result['body_behavior_statistics']
+            result['TRAIN_policy_mode_statistics']=dict(
+                drawn_episodes=stats['episodes_drawn'],
+                exploratory_episodes=stats['biased_episodes'],
+                greedy_episodes=stats['episodes_drawn']-stats['biased_episodes'],
+                exploratory_held_rows=stats['biased_episode_rows'],
+                greedy_held_rows=stats['held_collection_rows']-stats['biased_episode_rows'],
+                same_original20percent_arm_selection=True)
         if self.body_saturation is not None:
             result.update(body_saturation=self.body_saturation,body_saturation_origin=self.body_saturation_origin)
         if self.success_jaw_balance is not None:
