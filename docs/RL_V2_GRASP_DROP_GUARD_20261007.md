@@ -63,6 +63,13 @@ env·manifest·실제 agent·초기 checkpoint의 계약 일치, actor/Q·모든
 아직 측정 전이다. [실제 시작·Drive 설정](assets/rl_v2_success64_reset_drop_actual_launch_20261007.json),
 [실제 환경·보상·agent 복원과 첫 DEV](assets/rl_v2_success64_reset_drop_first_actual_DEV_20261007.json).
 
+이후 전체 초기 DEV128은 **13/128(중간 좌6·우6, 상단 좌1·우0)**으로 완료됐다.
+새 판정의 박스 낙하39·랙 충돌53·시간 초과12·초기화 무효11건을 원래 분모에
+포함했다. Actor/Q0회의 초기 성능이며 학습 후 개선을 뜻하지 않는다. 기존
+판정의15건과 실제 reset 물리도 동일하다고 가정하지 않는다. 새 TRAIN·Q
+갱신을 시작했고 이후 자신의13/128과 비교한다.
+[전체 초기 평가·모델 계약](assets/rl_v2_success64_resetdrop_initial_full_DEV_20261007.json).
+
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_reset_drop_actor.py \
   --initial-checkpoint /absolute/path/to/pristine-fresh-Q-input/checkpoint_00000000.pt \
