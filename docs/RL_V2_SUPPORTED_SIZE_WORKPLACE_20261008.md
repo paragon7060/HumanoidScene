@@ -21,6 +21,15 @@ medium 파지 성공은0이며 파지 성능 개선을 확인한 것은 아니�
 [정상 종료·198 tensor 고정·원래 전체128 결과](assets/rl_v2_medium_front_beam_corrected_closed_TRAIN_20261008.json).
 [완료된 reset guard·원래 trace·첫 스텝 근거](assets/rl_v2_medium_corrected_original_reset_guard_20261008.json).
 
+05:51 KST에GPU0에서 수정된 배치의 **새 TRAIN 시작 조건16개×같은 접근 후보8개**
+재확인을 시작했다. Seed origin4,920,000은 앞선4,880,000 및 기존 주 학습의 TRAIN·DEV와
+겹치지 않는다. Source`ddef524881a0864c2c8677526653c00ab40a0d30`, 실제 writer2344224의
+소유자·CUDA0·고유 실행 경로를 확인했다. 같은 immutable checkpoint·waypoints와
+수정된 배치 계약을 사용하며 actor·Q·replay를 학습하지 않는다. 중간 좌·우small/medium과
+상단 좌·우small의 여섯 조합과 원래128요청을 유지한다. 전체 결과와198 tensor 고정 검사는
+종료 후 확인하며, 독립FINAL은 사용하지 않았다. 실행 폴더는
+`CPU_regional_mixed_size_corrected_fresh_TRAIN_confirmation_gpu0_20261008_055144`다.
+
 2026-10-08의 두 번째 같은TRAIN 반복도 정상 종료했고 첫 진단과 같은
 성공4·안전 위반59·시간 초과35·초기 무효30/128이었다. 실제198개 runtime
 tensor와 actor·Q·replay0 고정을 확인했다. 새 독립적인 성공 확인이 아니다.
