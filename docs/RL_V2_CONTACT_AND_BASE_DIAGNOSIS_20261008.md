@@ -92,6 +92,34 @@ world/body torque 표현, inactive 환경 제외, 비유한 값의 원본 보존
 원인이나 파지 성공 개선을 증명하지 않는다.** 실제 고정 정책의 원래128요청을
 다시 실행해 물리 스텝별 측정과 전체 종료 결과를 함께 확인한다.
 
+### 실제 실행과 종료 후 분석
+
+10/08 06:51 KST에 source`826a0acb8f33b220a555be7163c5eacb03343d4d`로
+GPU0의 고유 실행`CPU_regional_mixed_size_same_TRAIN_base_substeps_gpu0_20261008_065143`
+을 시작했다. Writer2896233의 소유자·실행 경로·CUDA0을 확인했다. 원래
+checkpoint와 같은 TRAIN16조건×후보8개를 사용하고 env0·16·24·32·40·64의
+하위 스텝과 대표 영상을 기록한다. 07:18 KST에는 실제 control step571까지
+진행했고 actor·Q·replay 갱신은0이었다. **아직 writer가 실행 중이므로 닫힌 HDF
+분석·198 tensor 고정 검사·새 전체 종료 결과와 제어 원인 판정은 미완료다.**
+이 반복 측정은 겹치지 않는 새 시작 조건의 재확인이나 SAC 학습 개선이 아니다.
+
+정상 종료한 뒤 다음 도구가 원래 trace의 footer·각 제어 스텝의4개 물리 기록·
+reset 없는 시간 연속성과 실제 actor 관측의 각속도를 검사한다. Quaternion의
+부호가 바뀌어도 동일한 자세로 처리하고, 연속 자세로 구한 세계 각속도를
+구간 시작·끝의 기록된 속도 모두와 비교한다. 적분 방식의 시간 정렬 차이를
+제어 오류로 오해하지 않기 위해서다. Held 구간이 없는 사례는 추론 불가로
+남긴다. 명령 torque를 접촉 반력으로 해석하거나 물리 상태를 수정하지 않는다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/summarize_closed_base_substeps.py \
+  --experiment-dir /absolute/path/owned_normally_closed_frozen_TRAIN_probe \
+  --output-json /absolute/path/new_closed_base_report.json
+```
+
+세계 좌표 각속도·quaternion 부호·회전한 시작 자세·낮은 주파수의 표본화
+효과·비유한 입력 거부 검사7개가 통과했다. **이 역시 분석 도구의 검사이며
+실제 실행에서 base 문제를 확인했거나 해결했다는 뜻이 아니다.**
+
 ## 도구와 근거
 
 `summarize_closed_contact_attempts.py`는 우리 소유의 정상 종료한 고정 정책
