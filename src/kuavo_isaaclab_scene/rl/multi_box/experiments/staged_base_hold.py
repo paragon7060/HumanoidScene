@@ -15,7 +15,9 @@ class StagedBaseHoldDiagnostic:
     name = 'neutral_base_approach_then_held_pose_frozen_grasp_diagnostic_v1'
     collection_source = 'staged_base_hold_diagnostic_NOT_matching_goal_SAC_replay'
 
-    def __init__(self, coordinates, templates, raw):
+    def __init__(self, coordinates, templates, raw, *, unmeasured_size_probe=False):
+        if type(unmeasured_size_probe) is not bool:
+            raise ValueError('Unmeasured size probe must be explicit')
         if raw.shape != (1, 464) or templates.get('format') != self.name:
             raise ValueError('Staged base probe requires one native scene and explicit templates')
         self.coordinates = coordinates
@@ -38,8 +40,14 @@ class StagedBaseHoldDiagnostic:
             if self.region_workplace is None or not self.region_workplace['unproven_grasp_candidate']:
                 raise ValueError('Workplace candidates require successful TRAIN or explicit safe-candidate evidence')
         size=raw.new_tensor(template['box_size_m'])
-        if size.shape!=(3,) or not torch.allclose(token[0,5:8],size,atol=1e-5,rtol=0):
+        self.unmeasured_size_workplace_probe=None
+        if size.shape!=(3,):
             raise ValueError('Staged waypoint has not been measured for this box size')
+        if not torch.allclose(token[0,5:8],size,atol=1e-5,rtol=0):
+            if not unmeasured_size_probe:
+                raise ValueError('Staged waypoint has not been measured for this box size')
+            from .size_workplace_probe import unmeasured_size_candidate
+            template,self.unmeasured_size_workplace_probe=unmeasured_size_candidate(template,token[0])
         offset = raw.new_tensor(template['base_minus_initial_box_xy_rack_m'])
         heading = float(template['base_yaw_rack_rad'])
         if offset.shape != (2,) or not bool(torch.isfinite(offset).all()) or not math.isfinite(heading):
@@ -102,4 +110,6 @@ class StagedBaseHoldDiagnostic:
                     template=self.template, old_goal_replay_eligible=False)
         if hasattr(self,'waypoint_probe'):result['waypoint_probe']=self.waypoint_probe
         if self.region_workplace is not None:result['region_workplace_candidate']=self.region_workplace
+        if self.unmeasured_size_workplace_probe is not None:
+            result['unmeasured_size_workplace_probe']=self.unmeasured_size_workplace_probe
         return result

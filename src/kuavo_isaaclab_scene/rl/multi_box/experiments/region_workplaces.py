@@ -48,6 +48,8 @@ def validate_region_workplaces(contract):
 
 
 def build_region_workplaces(waypoints, results, selections, *, results_SHA256):
+    if results.get('unmeasured_size_workplace_probe'):
+        raise ValueError('Mixed-size measurements require separate size-specific TRAIN waypoint evidence')
     if set(selections)!=set(REGIONS) or not results.get('all178_tensors_and_initial_counters_frozen') \
             or not results.get('failed_and_initial_invalid_requests_retained') \
             or not results.get('not_a_DEV_or_FINAL_generalization_score') \

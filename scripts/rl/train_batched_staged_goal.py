@@ -68,6 +68,8 @@ def main():
         help='Frozen-only original/packed/original reset comparison; target/base randomization unchanged')
     parser.add_argument('--base-waypoint-probe',action='store_true',
         help='Frozen-only per-case workplace candidates; never contributes matching Q replay')
+    parser.add_argument('--unmeasured-size-workplace-probe',action='store_true',
+        help='Frozen TRAIN workplace measurement of supported new sizes; never relabels a measured waypoint or imports Q rows')
     parser.add_argument('--steps',type=int,default=900)
     parser.add_argument('--reset-failure-diagnostics',action='store_true',
         help='Frozen DEV --steps 1: trace original box/link velocities and existing normal contacts before partial respawn')
@@ -109,9 +111,12 @@ def main():
     from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_workplace_probe import (
         INCOMPATIBLE_FLAGS as WORKPLACE_FLAGS, validate_cpu_workplace_probe)
     try:
+        if args.unmeasured_size_workplace_probe and not args.cpu_workplace_probe:
+            raise ValueError('Unmeasured size candidates require the explicit frozen workplace route')
         workplace_eval=validate_cpu_workplace_probe(waves,json.loads(args.training_manifest.read_text()),
             enabled=args.cpu_workplace_probe,device=args.device or 'cuda:0',training=args.training,
             steps=args.steps,waypoint_enabled=args.base_waypoint_probe,
+            unmeasured_size_probe=args.unmeasured_size_workplace_probe,
             explicit_frozen='--no-training' in sys.argv and '--training' not in sys.argv,
             other_probe=any(s.split('=')[0] in WORKPLACE_FLAGS for s in sys.argv[1:]))
     except (ValueError,OSError) as error:parser.error(str(error))
@@ -764,7 +769,8 @@ def main():
             # or transition to this layout's replay.
             stage_seed=observation['policy'].clone()
             stage_seed[~valid_layout]=actors[~valid_layout]
-            stages=BatchedBaseStages(warm.coordinates,templates,stage_seed)
+            stages=BatchedBaseStages(warm.coordinates,templates,stage_seed,
+                unmeasured_size_probe=bool(workplace_eval and args.unmeasured_size_workplace_probe))
             from kuavo_isaaclab_scene.rl.multi_box.experiments.region_workplaces import validate_requested_region_stages
             validate_requested_region_stages(stages.stages,wave['layouts'])
             if pilot is None:

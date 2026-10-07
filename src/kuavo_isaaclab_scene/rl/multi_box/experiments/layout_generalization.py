@@ -27,6 +27,7 @@ class GraspLayout:
     base_yaw_rad: float = 0.0
     target_region: str | None = None
     align_initial_base_to_region: bool = False
+    target_box_type: str | None = None
 
     def validate(self):
         if self.split not in {'train', 'holdout', 'probe'}:
@@ -50,6 +51,11 @@ class GraspLayout:
             raise ValueError('Initial base region alignment must be an explicit boolean')
         if self.align_initial_base_to_region and self.target_region is None:
             raise ValueError('Initial base region alignment requires an explicit target region')
+        if self.target_box_type is not None:
+            if self.target_box_type not in ('small', 'medium') or self.target_region is None:
+                raise ValueError('Target size reset requires a known box type and explicit rack region')
+            if self.target_region.startswith('shelf_3') and self.target_box_type != 'small':
+                raise ValueError('The upper shelf supports small boxes only')
         return self
 
     def record(self):
@@ -57,6 +63,8 @@ class GraspLayout:
         if self.target_region is None:
             record.pop('target_region')
             record.pop('align_initial_base_to_region')
+        if self.target_box_type is None:
+            record.pop('target_box_type')
         return record
 
 
@@ -205,6 +213,37 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
             target=destination.logical_id
             tokens[target]=original_token
             actor[400:412]=0;actor[400+target]=1
+    if layout.target_box_type is not None:
+        # Only describe a new neutral reset. Never relabel recorded actions,
+        # contacts or successful demonstration transitions as another size.
+        region=next(r for r in spec.rack_regions if r.name==layout.target_region)
+        if layout.target_box_type not in region.allowed_box_types:
+            raise ValueError('Requested box type is not allowed in this rack region')
+        token=tokens[target]
+        kind=('small','medium')[int(token[3:5].argmax())]
+        if not torch.allclose(token[5:8],actor.new_tensor(BOX_DIMENSIONS_M[kind]),atol=1e-5,rtol=0):
+            raise ValueError('Size reset requires the known dimensions of its measured source')
+        if kind!=layout.target_box_type:
+            from ....workcell.workcell_layout import RACK_SHELF_WIDTH_RAW
+            # Re-centre the larger footprint within its semantic half-shelf.
+            # Keep the original 2..4cm inward perturbation; do not clamp or
+            # silently narrow the sampled layout to make it look successful.
+            local=rack_rotation.T@(token[12:15]-actor[68:71])
+            center=RACK_SHELF_CENTER_LOCAL_X_RAW*scale('rack')[0]
+            region_width=RACK_SHELF_WIDTH_RAW*scale('rack')[0]/2
+            sign=-1 if cells[target].side=='right' else 1
+            reference_x=center+sign*(region_width/2+.03)
+            delta=rack_rotation@actor.new_tensor([reference_x-float(local[0]),0.,0.])
+            normal=_rotation_matrix(token[15:21])[:,2]
+            # Preserve the source bottom plane while changing body height.
+            delta=delta-normal*normal.dot(delta)
+            old_size=token[5:8].clone()
+            new_size=actor.new_tensor(BOX_DIMENSIONS_M[layout.target_box_type])
+            delta+=normal*(.005*(new_size[2]-old_size[2]))
+            token[12:15]+=delta
+            nominal_base_shift+=float((rack_rotation.T@delta)[0])
+            token[3:5]=0;token[3+('small','medium').index(layout.target_box_type)]=1
+            token[5:8]=new_size
     if target in layout.distractors:
         raise ValueError('A distractor cannot replace the selected target')
     background=torch.arange(12,device=actor.device)!=target

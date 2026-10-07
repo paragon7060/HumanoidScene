@@ -44,7 +44,7 @@ def test_zero_success_region_is_not_promoted_to_a_successful_workplace():
 
 
 @pytest.mark.parametrize('kind',['missing','partial','unsafe_success','no_pinch','different_candidate',
-    'model_changed','actor_updated','nonfinite_hold','nonfinite_clearance','replay_imported'])
+    'model_changed','actor_updated','nonfinite_hold','nonfinite_clearance','replay_imported','numerical_success'])
 def test_incomplete_changed_or_unphysical_results_cannot_support_candidate_selection(kind):
     manifest,metrics=fixture();out=metrics['outcomes'][0]
     if kind=='missing':metrics['outcomes'].pop()
@@ -56,6 +56,7 @@ def test_incomplete_changed_or_unphysical_results_cannot_support_candidate_selec
     elif kind=='actor_updated':metrics['learner']['actor_updates']=1
     elif kind=='nonfinite_hold':out['result']['hold_time_s']=float('nan')
     elif kind=='nonfinite_clearance':out['result']['rack_clearance_m']=float('nan')
+    elif kind=='numerical_success':out['result']['numerical_failure']=True
     else:metrics['CPU_workplace_probe']['replay_rows_imported']=1
     with pytest.raises(ValueError):summarize_workplace_results(manifest,metrics)
 

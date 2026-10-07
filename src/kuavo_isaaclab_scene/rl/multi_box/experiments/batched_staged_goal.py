@@ -206,8 +206,9 @@ def observe_measured_held_rows(pilot,stages,ids,previous,terminal,reward,termina
 
 
 class BatchedBaseStages:
-    def __init__(self,coordinates,templates,raw):
-        self.stages=[StagedBaseHoldDiagnostic(coordinates,templates,row[None]) for row in raw]
+    def __init__(self,coordinates,templates,raw,*,unmeasured_size_probe=False):
+        self.stages=[StagedBaseHoldDiagnostic(coordinates,templates,row[None],
+            unmeasured_size_probe=unmeasured_size_probe) for row in raw]
         self.coordinates=coordinates
         self.anchors=torch.zeros(len(raw),2,device=raw.device,dtype=raw.dtype)
         self.target_xy=torch.cat([s.target_xy for s in self.stages])

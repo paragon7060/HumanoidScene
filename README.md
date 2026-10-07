@@ -72,6 +72,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | SAC에서 팔 탐색을 연속적으로 유지 | [에피소드별 팔 편차·TRAIN 전용·기존 Q/replay 재사용](docs/RL_V2_STAGED_GOAL_SAC.md#에피소드-동안-유지하는-팔-탐색-편차) |
 | SAC가 이전 실제 성공 동작을 기억 | [Actor 전용 TRAIN 기억·데이터 분리·안전 검증·초기화 사용법](docs/RL_V2_ACTOR_TRAIN_MEMORY_20261007.md) |
 | 랙 구역별 SAC actor로 동작 보존 | [구역별 정책·초기화·실제 복원·평가 범위](docs/RL_V2_REGIONAL_ACTOR_SAC_20261008.md) |
+| 중간 small/medium·상단 small의 접근 위치 측정 | [크기별 TRAIN 진단·사용법](docs/RL_V2_SUPPORTED_SIZE_WORKPLACE_20261008.md) |
 | Quest로 V2 grasp SAC 시연 데이터 수집 | [Quest RL 시연 수집](docs/RL_QUEST_REWARD_DEBUG.md) |
 | 기존 Google Drive 연결·결과 업로드·로컬 보관·종료 후 백업 재시도 | [Google Drive 보관](docs/RL_GOOGLE_DRIVE.md) |
 | RL 초기 자세 수정·VR 재캡처 | [모델별 초기 상태](docs/RL_INITIAL_STATES.md) |
