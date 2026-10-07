@@ -1,5 +1,38 @@
 # 지원하는 박스 크기의 실제 TRAIN 접근 위치 측정
 
+## 초기 배치의 전면 빔 침투 수정
+
+2026-10-08의 두 번째 같은TRAIN 반복도 정상 종료했고 첫 진단과 같은
+성공4·안전 위반59·시간 초과35·초기 무효30/128이었다. 실제198개 runtime
+tensor와 actor·Q·replay0 고정을 확인했다. 새 독립적인 성공 확인이 아니다.
+
+재생성 전의 실제 root·body·flap 자세를 이용해 USD collision geometry를
+직접 검사했다. medium 표본3개의 옆벽이 중간 선반 전면 빔과 **3.17mm** 겹쳤다.
+랙 좌표 복원 오차는0.00005mm 이하였고, 파지 전 첫 물리 스텝부터 선속도
+1.64m/s·각속도15.57rad/s·순접촉력111N인 기록과 함께 초기 침투의 근거다.
+순접촉력만으로 접촉 상대를 역추정한 것이 아니라 실제 두 collision mesh의
+SAT 겹침을 확인했다. 모든medium·모든 접촉 상대를 측정했다는 의미는 아니다.
+
+small의 깊이18.5cm를medium22cm로 바꾸면서 root의 깊이를 그대로 재사용한
+오류를 수정했다. 깊이 반 증가분17.5mm에 기존 neutral spawn clearance8mm를
+더해 안쪽으로 옮기고, 원래 바닥 평면에 투영한다. 반 증가분만 옮기면 기울어진
+앞벽이 빔에 여전히1.26mm 침투하기 때문에 clearance도 필요했다. 원래 body
+기울기·바닥 평면·source 시연과 small reset은 보존한다. 박스를 고정하거나
+base·박스의 randomization 범위, settle 실패 조건, 파지·충돌 기준은 줄이지 않았다.
+
+실제 USD의 위3표본에서 수정 후 랙 frame mesh와 body wall의 초기 겹침은0개였다.
+원래 TRAIN·DEV·FINAL 배치 생성 검사와 두 반선반 회귀 검사를 포함한 관련25개
+테스트가 통과했고 실제 관리 실행의 기존 계약 관련38개 검사도 통과했다.
+**이는 정적 geometry와 연결 검사이며 수정 후 동적 안정화·
+medium 파지 성공은 별도 실제 실행에서 확인해야 한다.**
+[원래 collision geometry·수정 전후 정적 검사](assets/rl_v2_medium_initial_front_beam_overlap_20261008.json).
+
+새 manifest에`layout_generation_contract`를 기록한다. 크기별 접근 위치를
+준비하는CLI는 수정 전 reset으로 수행한 결과나 계약이 없는 결과를 거부한다.
+발견·겹치지 않는 새TRAIN 재확인 모두 같은 수정된 reset geometry와 같은
+immutable checkpoint·waypoints로 다시 수행해야 한다. 아래 첫4/128은 수정 전
+실패 기록으로 보존하며 수정된6종류의 학습 근거로 재사용하지 않는다.
+
 현재 구역별 초기 정책의34/128회 성공은 small 박스만의 개발 평가다.
 원래 목표에는 다른 박스 크기와 base·박스·배경·움직이는 flap의 무작위화도
 포함한다. 현재 정책의 성능을 전체 목표 달성으로 보지 않는다.

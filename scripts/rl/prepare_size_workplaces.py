@@ -28,11 +28,17 @@ def closed_probe(run):
     command=managed['command']
     checkpoint=Path(command[command.index('--checkpoint')+1])
     waypoints=Path(command[command.index('--waypoints')+1])
-    result=summarize_workplace_results(read_snapshot(run/'manifest.json'),read_snapshot(run/'metrics.json'))
+    manifest=read_snapshot(run/'manifest.json')
+    result=summarize_workplace_results(manifest,read_snapshot(run/'metrics.json'))
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import layout_generation_contract
+    generator=manifest.get('layout_generation_contract')
+    if generator!=layout_generation_contract():
+        raise ValueError('Repeat discovery and confirmation with the corrected, recorded reset geometry')
     if not result.get('unmeasured_size_workplace_probe'):
         raise ValueError('Both searches must have measured supported sizes explicitly')
     hashes={name:hashlib.sha256(owned_stable_bytes(path)).hexdigest()
         for name,path in (('checkpoint',checkpoint),('waypoints',waypoints),('metrics',run/'metrics.json'))}
+    hashes['layout_generation_contract']=generator
     state=torch.load(io.BytesIO(owned_stable_bytes(checkpoint)),map_location='cpu',weights_only=True)
     if (state['goal_contract']!=read_snapshot(run/'agent.yaml')
         or state['actor_updates']!=result['frozen_source_actor_updates']
@@ -52,10 +58,12 @@ def main():
     if args.output.exists():parser.error('Use a new output file')
     first,h1,waypoints=closed_probe(args.discovery_run)
     second,h2,other=closed_probe(args.confirmation_run)
-    if h1['checkpoint']!=h2['checkpoint'] or h1['waypoints']!=h2['waypoints'] or waypoints!=other:
-        parser.error('Discovery and fresh confirmation must use the same immutable policy and waypoints')
+    if (h1['checkpoint']!=h2['checkpoint'] or h1['waypoints']!=h2['waypoints'] or waypoints!=other
+        or h1['layout_generation_contract']!=h2['layout_generation_contract']):
+        parser.error('Discovery and fresh confirmation must use the same immutable policy, waypoints and reset geometry')
     result=build_size_workplaces(waypoints,first,second,read_snapshot(args.selections_json),
         results_SHA256=dict(discovery=h1['metrics'],confirmation=h2['metrics']),checkpoint_SHA256=h1['checkpoint'])
+    result['layout_generation_contract']=h1['layout_generation_contract']
     with args.output.open('x') as stream:
         json.dump(result,stream,indent=2,allow_nan=False);stream.write('\n')
     print(json.dumps(dict(output=str(args.output.resolve()),supported_region_size_targets=6,

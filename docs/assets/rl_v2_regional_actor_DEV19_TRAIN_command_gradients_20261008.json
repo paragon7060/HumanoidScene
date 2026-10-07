@@ -1,0 +1,235 @@
+{
+  "recorded_at": "2026-10-08T05:06:54.401784+09:00",
+  "checkpoint_SHA256": [
+    "72dd402ef9cdb68b5ab13eeabf86932c84a30bc37e2bf916a0c106fa37b9d654",
+    "0dc7209518f01a1f68fc58ec19bb18ef7c368c4ab8f6b7475e161dc44cddb0bb"
+  ],
+  "same_old_verified_successful_TRAIN_actor_memory": true,
+  "commands_on_same1024_balanced_TRAIN_observations": [
+    {
+      "actor_updates": 0,
+      "critic_updates": 0,
+      "regions": [
+        {
+          "region": "shelf_2_right",
+          "sampled_rows": 256,
+          "recorded_both_closed_rows": 89,
+          "body_goal_MSE_against_recorded_TRAIN": 0.0028563160449266434,
+          "both_closed_reproduced": 82,
+          "near_jaw_mismatch_count": 35,
+          "both_closed_probability_mean": 0.9090085029602051
+        },
+        {
+          "region": "shelf_2_left",
+          "sampled_rows": 256,
+          "recorded_both_closed_rows": 97,
+          "body_goal_MSE_against_recorded_TRAIN": 0.003576235845685005,
+          "both_closed_reproduced": 94,
+          "near_jaw_mismatch_count": 17,
+          "both_closed_probability_mean": 0.9190413355827332
+        },
+        {
+          "region": "shelf_3_right",
+          "sampled_rows": 256,
+          "recorded_both_closed_rows": 54,
+          "body_goal_MSE_against_recorded_TRAIN": 4.410628025652841e-05,
+          "both_closed_reproduced": 54,
+          "near_jaw_mismatch_count": 0,
+          "both_closed_probability_mean": 0.9975290894508362
+        },
+        {
+          "region": "shelf_3_left",
+          "sampled_rows": 256,
+          "recorded_both_closed_rows": 78,
+          "body_goal_MSE_against_recorded_TRAIN": 0.004997679498046637,
+          "both_closed_reproduced": 70,
+          "near_jaw_mismatch_count": 49,
+          "both_closed_probability_mean": 0.7694592475891113
+        }
+      ]
+    },
+    {
+      "actor_updates": 695,
+      "critic_updates": 4826,
+      "regions": [
+        {
+          "region": "shelf_2_right",
+          "sampled_rows": 256,
+          "recorded_both_closed_rows": 89,
+          "body_goal_MSE_against_recorded_TRAIN": 0.0029483919497579336,
+          "both_closed_reproduced": 85,
+          "near_jaw_mismatch_count": 19,
+          "both_closed_probability_mean": 0.8836271166801453
+        },
+        {
+          "region": "shelf_2_left",
+          "sampled_rows": 256,
+          "recorded_both_closed_rows": 97,
+          "body_goal_MSE_against_recorded_TRAIN": 0.0028583696112036705,
+          "both_closed_reproduced": 93,
+          "near_jaw_mismatch_count": 17,
+          "both_closed_probability_mean": 0.9111714363098145
+        },
+        {
+          "region": "shelf_3_right",
+          "sampled_rows": 256,
+          "recorded_both_closed_rows": 54,
+          "body_goal_MSE_against_recorded_TRAIN": 0.00037605734542012215,
+          "both_closed_reproduced": 54,
+          "near_jaw_mismatch_count": 0,
+          "both_closed_probability_mean": 0.9986212849617004
+        },
+        {
+          "region": "shelf_3_left",
+          "sampled_rows": 256,
+          "recorded_both_closed_rows": 78,
+          "body_goal_MSE_against_recorded_TRAIN": 0.003193046897649765,
+          "both_closed_reproduced": 75,
+          "near_jaw_mismatch_count": 40,
+          "both_closed_probability_mean": 0.7910647988319397
+        }
+      ]
+    }
+  ],
+  "gradient_diagnostics": [
+    {
+      "seed": 0,
+      "actual_completed_matching_TRAIN_success_rows": 64,
+      "old_and_new_actor_memory_sampling": {
+        "successful_train_actor_rows": 64,
+        "successful_train_actor_designated_tail_rows": 32,
+        "previous_success_actor_memory_rows": 32,
+        "new_success_actor_memory_rows": 32,
+        "previous_success_memory_rows_in_Q_batch": 0
+      },
+      "component_losses": {
+        "Q": -0.7696551084518433,
+        "continuous_entropy": 0.0010237885871902108,
+        "discrete_entropy": -0.001367029151879251,
+        "memory_body": 0.05882476270198822,
+        "memory_jaw": 0.005654036533087492,
+        "body_regularization": 0.0,
+        "jaw_regularization": 0.0007876134477555752
+      },
+      "gradient_norms": {
+        "Q": 3.166590929031372,
+        "continuous_entropy": 0.00046352544450201094,
+        "discrete_entropy": 0.07029630243778229,
+        "memory_body": 0.9907622933387756,
+        "memory_jaw": 0.29292166233062744,
+        "body_regularization": 0.0,
+        "jaw_regularization": 0.14150157570838928
+      },
+      "Q_vs_memory_gradient_cosine": -0.45047053694725037,
+      "other_objectives_vs_memory_gradient_cosine": -0.45198971033096313,
+      "other_objectives_gradient_norm": 3.1727585792541504,
+      "memory_gradient_norm": 1.0319523811340332
+    },
+    {
+      "seed": 1,
+      "actual_completed_matching_TRAIN_success_rows": 64,
+      "old_and_new_actor_memory_sampling": {
+        "successful_train_actor_rows": 64,
+        "successful_train_actor_designated_tail_rows": 32,
+        "previous_success_actor_memory_rows": 33,
+        "new_success_actor_memory_rows": 31,
+        "previous_success_memory_rows_in_Q_batch": 0
+      },
+      "component_losses": {
+        "Q": -0.8054177165031433,
+        "continuous_entropy": 0.0010167676955461502,
+        "discrete_entropy": -0.0012477930868044496,
+        "memory_body": 0.07933026552200317,
+        "memory_jaw": 0.007310566492378712,
+        "body_regularization": 0.0,
+        "jaw_regularization": 0.0003647849662229419
+      },
+      "gradient_norms": {
+        "Q": 3.533165454864502,
+        "continuous_entropy": 0.00044529372826218605,
+        "discrete_entropy": 0.05766914412379265,
+        "memory_body": 1.2801764011383057,
+        "memory_jaw": 0.41298291087150574,
+        "body_regularization": 0.0,
+        "jaw_regularization": 0.06135259196162224
+      },
+      "Q_vs_memory_gradient_cosine": -0.40508395433425903,
+      "other_objectives_vs_memory_gradient_cosine": -0.40418165922164917,
+      "other_objectives_gradient_norm": 3.534801959991455,
+      "memory_gradient_norm": 1.3445379734039307
+    },
+    {
+      "seed": 2,
+      "actual_completed_matching_TRAIN_success_rows": 64,
+      "old_and_new_actor_memory_sampling": {
+        "successful_train_actor_rows": 64,
+        "successful_train_actor_designated_tail_rows": 32,
+        "previous_success_actor_memory_rows": 39,
+        "new_success_actor_memory_rows": 25,
+        "previous_success_memory_rows_in_Q_batch": 0
+      },
+      "component_losses": {
+        "Q": -0.831093430519104,
+        "continuous_entropy": 0.0010088363196700811,
+        "discrete_entropy": -0.001065963413566351,
+        "memory_body": 0.09314112365245819,
+        "memory_jaw": 0.004749228246510029,
+        "body_regularization": 0.0,
+        "jaw_regularization": 0.0011577315162867308
+      },
+      "gradient_norms": {
+        "Q": 4.129855632781982,
+        "continuous_entropy": 0.000481103197671473,
+        "discrete_entropy": 0.05558796226978302,
+        "memory_body": 1.19983971118927,
+        "memory_jaw": 0.22241240739822388,
+        "body_regularization": 0.0,
+        "jaw_regularization": 0.22128261625766754
+      },
+      "Q_vs_memory_gradient_cosine": -0.32523640990257263,
+      "other_objectives_vs_memory_gradient_cosine": -0.32551226019859314,
+      "other_objectives_gradient_norm": 4.135018348693848,
+      "memory_gradient_norm": 1.219901442527771
+    },
+    {
+      "seed": 3,
+      "actual_completed_matching_TRAIN_success_rows": 64,
+      "old_and_new_actor_memory_sampling": {
+        "successful_train_actor_rows": 64,
+        "successful_train_actor_designated_tail_rows": 32,
+        "previous_success_actor_memory_rows": 36,
+        "new_success_actor_memory_rows": 28,
+        "previous_success_memory_rows_in_Q_batch": 0
+      },
+      "component_losses": {
+        "Q": -0.9004659652709961,
+        "continuous_entropy": 0.0010128685971722007,
+        "discrete_entropy": -0.0014937330270186067,
+        "memory_body": 0.07668580859899521,
+        "memory_jaw": 0.014238107018172741,
+        "body_regularization": 0.0,
+        "jaw_regularization": 0.0009720519883558154
+      },
+      "gradient_norms": {
+        "Q": 3.9314799308776855,
+        "continuous_entropy": 0.0004545623669400811,
+        "discrete_entropy": 0.08342031389474869,
+        "memory_body": 1.276922583580017,
+        "memory_jaw": 0.9512225389480591,
+        "body_regularization": 0.0,
+        "jaw_regularization": 0.15893064439296722
+      },
+      "Q_vs_memory_gradient_cosine": -0.26619625091552734,
+      "other_objectives_vs_memory_gradient_cosine": -0.2672780752182007,
+      "other_objectives_gradient_norm": 3.937234878540039,
+      "memory_gradient_norm": 1.591586709022522
+    }
+  ],
+  "gradient_Q_batch_is_matching_completed_TRAIN_success_subset_NOT_actual_replay_update": true,
+  "no_optimizer_step_or_model_normalizer_file_mutation": true,
+  "no_GPU_Isaac_or_active_HDF_replay_read": true,
+  "local_gradients_NOT_proof_of_causal_full_optimizer_or_physical_success": true,
+  "no_evaluation_rows_imported_into_training": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}

@@ -19,6 +19,27 @@ from kuavo_isaaclab_scene.workcell.rack_box_layout import BOX_DIMENSIONS_M
 ROOT=Path(__file__).resolve().parents[1]
 
 
+def front_beam_separation(actor, token):
+    """SAT of the actual body envelope and the authored shelf02 front beam."""
+    rack=_rotation_matrix(actor[71:77])
+    rotation=rack.T@_rotation_matrix(token[15:21])
+    position=rack.T@(token[12:15]-actor[68:71])
+    width,depth,height=token[5:8]
+    corners=torch.cartesian_prod(torch.tensor([-1.,1.]),torch.tensor([-1.,1.]),torch.tensor([-.005,.995]))
+    corners=corners*torch.stack((width/2,depth/2,height))
+    body=corners@rotation.T+position
+    # Verified from rack_roller_runtime.usda, not from the reset implementation.
+    beam=torch.cartesian_prod(torch.tensor([-.77,-.07]),torch.tensor([-.020426,-.010426]),
+                             torch.tensor([1.047287,1.087287]))
+    axes=torch.eye(3);other=rotation.T
+    cross=torch.linalg.cross(axes[:,None,:],other[None,:,:]).reshape(-1,3)
+    axes=torch.cat((axes,other,cross));length=axes.norm(dim=-1)
+    axes=axes[length>1e-7]/length[length>1e-7,None]
+    a=body@axes.T;b=beam@axes.T
+    overlap=torch.minimum(a.max(0).values,b.max(0).values)-torch.maximum(a.min(0).values,b.min(0).values)
+    return float(-overlap.min())
+
+
 def recipe_module():
     spec=importlib.util.spec_from_file_location('mixed_size_recipe',ROOT/'scripts/rl/prepare_region_grasp_layouts.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -43,6 +64,10 @@ def test_mixed_size_recipe_covers_real_middle_assets_and_keeps_all_randomized_re
         torch.testing.assert_close(token[5:8],torch.tensor(BOX_DIMENSIONS_M[kind]),atol=1e-6,rtol=0)
         assert physical_pool_id(cells[target],int(token[3:5].argmax())) in range(18)
         validate_layout_footprints(reset)
+        if kind=='medium':
+            # Both halves and every original split/yaw/lateral/base draw must
+            # start outside the physical beam, including its2mm contact skin.
+            assert front_beam_separation(reset,token)>.002
         assert torch.equal(reset[:20],source[:20])  # Same neutral joints, no success reset state.
         assert -.04<=layout.lateral_m<=-.02
         seeds.setdefault(row['group'],set()).add(layout.seed)
@@ -68,6 +93,21 @@ def test_size_change_preserves_source_bottom_plane_and_orientation():
     torch.testing.assert_close(normal.dot(old_bottom),normal.dot(new_bottom),atol=2e-7,rtol=0)
     torch.testing.assert_close(a[15:21],b[15:21],atol=0,rtol=0)
     assert int(b[3:5].argmax())==1
+
+
+@pytest.mark.parametrize('region',['shelf_2_left','shelf_2_right'])
+def test_larger_body_at_small_root_penetrates_beam_but_neutral_size_reset_does_not(region):
+    source=source_rows()[0];spec=MultiBoxSpec()
+    layout=GraspLayout(930001,'train',0.,target_region=region)
+    small=layout_reset_observation(source,layout,spec)
+    old=small[86:350].reshape(12,22)[int(small[400:412].argmax())].clone()
+    old[5:8]=torch.tensor(BOX_DIMENSIONS_M['medium'])
+    assert front_beam_separation(small,old)<-.001
+    medium=layout_reset_observation(source,replace(layout,target_box_type='medium'),spec)
+    new=medium[86:350].reshape(12,22)[int(medium[400:412].argmax())]
+    assert front_beam_separation(medium,new)>.002
+    same=layout_reset_observation(source,replace(layout,target_box_type='small'),spec)
+    assert torch.equal(small,same)
 
 
 @pytest.mark.parametrize('kind,region', [('large','shelf_2_right'),('medium','shelf_3_left'),('medium',None)])

@@ -158,6 +158,14 @@ def validate_layout_footprints(actor, *, margin_m=.002):
                              f'allowed=[{lower+margin_m:.4f},{upper-margin_m:.4f}]')
 
 
+def layout_generation_contract():
+    """Identify reset geometry independently of the unchanged random draws."""
+    return dict(name='supported_size_front_beam_clearance_v2',
+        larger_box_depth_shift='half_depth_increase_plus_existing_spawn_clearance',
+        original_bottom_plane_and_orientation_preserved=True,
+        original_small_resets_and_randomization_ranges_unchanged=True)
+
+
 def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
     """Describe a reset relative to its source, with the requested background.
 
@@ -167,7 +175,7 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
     """
     from ..scene.spawn import logical_cells
     from ....workcell.workcell_layout import scale, RACK_SHELF_CENTER_LOCAL_X_RAW
-    from ....workcell.rack_box_layout import BOX_DIMENSIONS_M
+    from ....workcell.rack_box_layout import BOX_DIMENSIONS_M, RACK_SURFACE_CLEARANCE_M
     layout.validate()
     if source.shape!=(464,) or not bool(torch.isfinite(source).all()):
         raise ValueError('A layout seed needs one finite464-D measured observation')
@@ -233,12 +241,21 @@ def layout_reset_observation(source, layout, spec, *, roller_clearance_m=0.0):
             region_width=RACK_SHELF_WIDTH_RAW*scale('rack')[0]/2
             sign=-1 if cells[target].side=='right' else 1
             reference_x=center+sign*(region_width/2+.03)
-            delta=rack_rotation@actor.new_tensor([reference_x-float(local[0]),0.,0.])
+            old_size=token[5:8].clone()
+            new_size=actor.new_tensor(BOX_DIMENSIONS_M[layout.target_box_type])
+            # The measured small source is already against the front stop.
+            # Reusing its root for a deeper, pitched body penetrates that beam
+            # and launches the box before the policy acts. Move the enlarged
+            # footprint inward, including the existing neutral spawn clearance.
+            # Half-depth alone leaves its pitched front wall intersecting.
+            depth_increase=float(new_size[1]-old_size[1])
+            inward=.5*max(0.,depth_increase)
+            if depth_increase>0:
+                inward+=RACK_SURFACE_CLEARANCE_M
+            delta=rack_rotation@actor.new_tensor([reference_x-float(local[0]),-inward,0.])
             normal=_rotation_matrix(token[15:21])[:,2]
             # Preserve the source bottom plane while changing body height.
             delta=delta-normal*normal.dot(delta)
-            old_size=token[5:8].clone()
-            new_size=actor.new_tensor(BOX_DIMENSIONS_M[layout.target_box_type])
             delta+=normal*(.005*(new_size[2]-old_size[2]))
             token[12:15]+=delta
             nominal_base_shift+=float((rack_rotation.T@delta)[0])

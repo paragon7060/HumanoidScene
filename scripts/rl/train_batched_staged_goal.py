@@ -268,7 +268,7 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.metrics.potentials import FRONT_STAGE_CLEARANCE_M,FRONT_STAGE_LANE_TOLERANCE_M,FRONT_STAGE_REWARD_SCALE_M
         from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import configure_vr_torso_up_diagnostic,select_reference_episode
         from kuavo_isaaclab_scene.rl.multi_box.demo_replay import load_v2_grasp_demonstrations
-        from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import GraspLayout,layout_reset_observation
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.layout_generalization import GraspLayout,layout_reset_observation,layout_generation_contract
         from kuavo_isaaclab_scene.rl.multi_box.experiments.pose_goal_sac import PoseGoalSACPilot
         from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_policy import staged_policy_class
         from kuavo_isaaclab_scene.rl.multi_box.experiments.batched_staged_goal import BatchedBaseStages,settle_batched_layouts,DevelopmentSuccessGuard,WAVE_RESET_CONTROLLER_CONTRACT,evaluate_development_wave,measured_wave_mask,observe_measured_held_rows
@@ -633,6 +633,7 @@ def main():
             grasp_audit=GraspObservationAudit(env,output)
         (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
+            'layout_generation_contract':layout_generation_contract(),
             'frozen_physics_backend_evaluation':backend_eval,
             'CPU_physics_training':cpu_training,
             'CPU_workplace_probe':workplace_eval,
