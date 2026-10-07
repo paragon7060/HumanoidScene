@@ -74,6 +74,12 @@ checkpoint·계약·닫힌 로그만300초마다 검증·업로드하며 최신2
 Raw replay·HDF·영상은 로컬에 남긴다. 이후 **실제 첫 DEV에 진입했다.** 초기화된
 환경의10cm 낙하 조건과 reward manager의+64, 실제 agent·checkpoint·17개
 wave의 계약 일치, 새 수집 설정과 actor/Q·학습 은행0을 확인했다. 평가 동안
-수집 모드의 episode/row 수는0이다. 실제 TRAIN에서의 모드 사용과 새 성능은
-아직 확인 전이며, 전체 초기 DEV도 완료 전이다.
+수집 모드의 episode/row 수는0이었다. 이후 전체 초기 DEV128은 **13/128
+(중간 좌6·우6, 상단 좌1·우0)**으로 완료됐고 실제 TRAIN에 진입했다. 박스 낙하39·
+랙 충돌53·시간 초과12·초기 무효11건을 원래 분모에 포함했다. 일치하는
+초기 actor/Q0 모델과 원래128조건·실제 양손 파지·유지·들기 성공을 확인했다.
+수집 방식이 적용되기 전의 기준 성능이며 학습 개선은 아니다. 다른 실행과
+reset 물리가 같다고 가정하지 않는다. 실제 TRAIN의 탐색/greedy 모드 사용과
+학습 후 새 성능은 아직 확인 전이다.
 [첫 실제 DEV·환경·agent 적용](assets/rl_v2_greedy80_first_actual_DEV_20261007.json).
+[전체 초기 평가·일치 모델](assets/rl_v2_greedy80_full_initial_DEV_20261007.json).

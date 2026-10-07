@@ -59,8 +59,8 @@ GPU3에서 별도 SAC를 시작했고12:48에 첫 전체 DEV 진입을 확인했
 writer3997160·supervisor·서비스·`CUDA_VISIBLE_DEVICES=3`와 GPU learner를
 확인했다. 초기화된 환경의10cm 낙하 조건과 reward manager의+64 로그,
 env·manifest·실제 agent·초기 checkpoint의 계약 일치, actor/Q·모든 학습
-은행0을 확인했다. 기존 네 학습은 유지한다. 전체 초기 DEV와 학습 후 개선은
-아직 측정 전이다. [실제 시작·Drive 설정](assets/rl_v2_success64_reset_drop_actual_launch_20261007.json),
+은행0을 확인했다. 시작 당시 기존 네 학습은 유지했고 전체 초기 DEV와
+학습 후 개선은 아직 측정 전이었다. [실제 시작·Drive 설정](assets/rl_v2_success64_reset_drop_actual_launch_20261007.json),
 [실제 환경·보상·agent 복원과 첫 DEV](assets/rl_v2_success64_reset_drop_first_actual_DEV_20261007.json).
 
 이후 전체 초기 DEV128은 **13/128(중간 좌6·우6, 상단 좌1·우0)**으로 완료됐다.
@@ -69,6 +69,21 @@ env·manifest·실제 agent·초기 checkpoint의 계약 일치, actor/Q·모든
 판정의15건과 실제 reset 물리도 동일하다고 가정하지 않는다. 새 TRAIN·Q
 갱신을 시작했고 이후 자신의13/128과 비교한다.
 [전체 초기 평가·모델 계약](assets/rl_v2_success64_resetdrop_initial_full_DEV_20261007.json).
+
+첫 실제 TRAIN128조건에서는 **안전한 성공3건(중간 좌1·우2, 상단 양쪽0)**,
+랙70·낙하35·시간 초과20건이었다. 초기 무효는0이다. 저장이 끝난 actor0·
+Q1594 모델을 따로 보존했고 자기 성공3경로·1,206행과 원래 TRAIN 배치를
+확인했다. 세 경로의 마지막 실제 reward와 같은 critic의 terminal target은
+각각62.9948·62.9967·62.9968로 같았다. Bootstrap0·reward clipping 없음을
+확인했고 두 Q·두 target은 실제 갱신됐으며 actor·jaw·actor normalizer는 초기와
+같았다. 아직 actor warmup 중 얻은 탐색 성공으로, 학습 후 greedy 개선은 아니다.
+
+초기 DEV의 낙하39건과 첫 TRAIN의35건 모두 마지막 단계가 `held_grasp`였다.
+첫 TRAIN의 낙하 종료는 control step548–642에서 발생했다. Base 접근 중에
+끝난 실패는 아니지만, 마지막 단계만으로 처음 접촉한 순간이나 낙하 원인을
+확정하지 않는다. 새 판정 때문에 시작부터 불가능해졌다고 단정하거나 낙하
+기준을 다시 완화하지 않고, 실제 접촉·양손 파지 경험과 이후 전체 평가를 본다.
+[첫 실제 TRAIN·모델·성공 target·낙하 단계](assets/rl_v2_resetdrop_success64_first_actual_TRAIN3_20261007.json).
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_reset_drop_actor.py \
