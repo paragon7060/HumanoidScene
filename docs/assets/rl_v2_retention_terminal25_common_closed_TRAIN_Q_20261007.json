@@ -1,0 +1,1677 @@
+{
+  "recorded_at": "2026-10-07T11:43:47.169521+09:00",
+  "closed_source_run_name": "batch_sac_20261007_071533_060f16",
+  "source_experience_SHA256": "e49c78ae39d629ac150ea7df8560e70ba354febc8b79e349d7d3bac369f1b782",
+  "original_source_writer_and_supervisor_stopped_final_backup_verified": true,
+  "source_models": [
+    {
+      "role": "earlier_absorbing_servo",
+      "actor_updates": 695,
+      "critic_updates": 4826,
+      "matching_checkpoint_SHA256": "36d113ea5ea7db97ed29f9fc73d489fa7bf9dd45ff12970a582ff8509e24672c"
+    },
+    {
+      "role": "servo_success_retention",
+      "actor_updates": 693,
+      "critic_updates": 4818,
+      "matching_checkpoint_SHA256": "cee7567aaa9a92a0c2abb97ed6973b29afc89a9f61b758035f3a6eb6c08ed43b"
+    },
+    {
+      "role": "terminal25_plus_retention",
+      "actor_updates": 691,
+      "critic_updates": 4812,
+      "matching_checkpoint_SHA256": "20f5caa767197580f6f6ad35cdee932af3ece69b4390c500d38c71fee42c54fc"
+    }
+  ],
+  "source_closed_actual_TRAIN_paths": 55,
+  "same_actual_physical_contract_reward_and_critic_action_features_verified": true,
+  "source_rows_in_new_models_TRAIN_banks": false,
+  "source_same_observations_and_recorded_terminal_actions_all_models": true,
+  "before_and_after_models_NOT_same_TRAIN_seeds_noise_or_actor_objective": true,
+  "NOT_causal_terminal25_effect_or_full_critic_calibration": true,
+  "actual_terminal_has_no_bootstrap_or_entropy": true,
+  "new_greedy_rollout_performance_NOT_measured": true,
+  "groups": [
+    {
+      "outcome": "success",
+      "paths": 4,
+      "observed_terminal_reward_mean": 2.624198019504547,
+      "models": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin_mean": 2.645094931125641,
+          "mean_Q_minus_observed_terminal_reward": 0.02089691162109375,
+          "mean_absolute_terminal_error": 0.9934957027435303
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin_mean": 2.3986944258213043,
+          "mean_Q_minus_observed_terminal_reward": -0.2255035936832428,
+          "mean_absolute_terminal_error": 0.26219144463539124
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin_mean": 1.858298420906067,
+          "mean_Q_minus_observed_terminal_reward": -0.7658995985984802,
+          "mean_absolute_terminal_error": 0.7767508625984192
+        }
+      ]
+    },
+    {
+      "outcome": "unsafe",
+      "paths": 35,
+      "observed_terminal_reward_mean": -8.1909177507673,
+      "models": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin_mean": -4.066385815079723,
+          "mean_Q_minus_observed_terminal_reward": 4.124531935687576,
+          "mean_absolute_terminal_error": 4.357662363456829
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin_mean": -2.015796979436917,
+          "mean_Q_minus_observed_terminal_reward": 6.175120771330382,
+          "mean_absolute_terminal_error": 6.25626526770315
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin_mean": -2.654669754100697,
+          "mean_Q_minus_observed_terminal_reward": 5.536247996666602,
+          "mean_absolute_terminal_error": 5.552776316979101
+        }
+      ]
+    },
+    {
+      "outcome": "timeout",
+      "paths": 16,
+      "observed_terminal_reward_mean": -2.4695675000548363,
+      "models": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin_mean": -0.5561545086093247,
+          "mean_Q_minus_observed_terminal_reward": 1.9134129914455116,
+          "mean_absolute_terminal_error": 1.9134129914455116
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin_mean": -0.7791414836829063,
+          "mean_Q_minus_observed_terminal_reward": 1.69042601637193,
+          "mean_absolute_terminal_error": 1.8009941821510438
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin_mean": -0.7936425905791111,
+          "mean_Q_minus_observed_terminal_reward": 1.6759249094757251,
+          "mean_absolute_terminal_error": 1.8765428785118274
+        }
+      ]
+    }
+  ],
+  "episodes": [
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave1/env105/seed2280700126",
+      "region": "shelf_2_right",
+      "outcome": "success",
+      "unsafe_causes": [],
+      "observed_terminal_reward": 2.6076698303222656,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": 3.4981343746185303,
+          "Q_minus_observed_terminal_reward": 0.8904645442962646,
+          "absolute_error": 0.8904645442962646
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 2.6311428546905518,
+          "Q_minus_observed_terminal_reward": 0.023473024368286133,
+          "absolute_error": 0.023473024368286133
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 1.9139869213104248,
+          "Q_minus_observed_terminal_reward": -0.6936829090118408,
+          "absolute_error": 0.6936829090118408
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env69/seed2280702117",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -9.785618782043457,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -1.866726279258728,
+          "Q_minus_observed_terminal_reward": 7.918892502784729,
+          "absolute_error": 7.918892502784729
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.7558075189590454,
+          "Q_minus_observed_terminal_reward": 9.029811263084412,
+          "absolute_error": 9.029811263084412
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.1651577353477478,
+          "Q_minus_observed_terminal_reward": 9.950776517391205,
+          "absolute_error": 9.950776517391205
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env73/seed2280702118",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.691130638122559,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -5.737905979156494,
+          "Q_minus_observed_terminal_reward": 1.9532246589660645,
+          "absolute_error": 1.9532246589660645
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -2.2887041568756104,
+          "Q_minus_observed_terminal_reward": 5.402426481246948,
+          "absolute_error": 5.402426481246948
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.018979530781507492,
+          "Q_minus_observed_terminal_reward": 7.672151107341051,
+          "absolute_error": 7.672151107341051
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env77/seed2280702119",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.245946407318115,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -8.361529350280762,
+          "Q_minus_observed_terminal_reward": -1.1155829429626465,
+          "absolute_error": 1.1155829429626465
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -5.645668029785156,
+          "Q_minus_observed_terminal_reward": 1.600278377532959,
+          "absolute_error": 1.600278377532959
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -6.562849998474121,
+          "Q_minus_observed_terminal_reward": 0.6830964088439941,
+          "absolute_error": 0.6830964088439941
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env81/seed2280702120",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.971970558166504,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -6.7128071784973145,
+          "Q_minus_observed_terminal_reward": 1.2591633796691895,
+          "absolute_error": 1.2591633796691895
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -3.038994073867798,
+          "Q_minus_observed_terminal_reward": 4.932976484298706,
+          "absolute_error": 4.932976484298706
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -5.678537368774414,
+          "Q_minus_observed_terminal_reward": 2.29343318939209,
+          "absolute_error": 2.29343318939209
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env85/seed2280702121",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -9.18864917755127,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -6.331303596496582,
+          "Q_minus_observed_terminal_reward": 2.8573455810546875,
+          "absolute_error": 2.8573455810546875
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -7.724770545959473,
+          "Q_minus_observed_terminal_reward": 1.4638786315917969,
+          "absolute_error": 1.4638786315917969
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -8.418581008911133,
+          "Q_minus_observed_terminal_reward": 0.7700681686401367,
+          "absolute_error": 0.7700681686401367
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env89/seed2280702122",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.43537425994873,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -2.6763064861297607,
+          "Q_minus_observed_terminal_reward": 5.75906777381897,
+          "absolute_error": 5.75906777381897
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.8417173624038696,
+          "Q_minus_observed_terminal_reward": 6.593656897544861,
+          "absolute_error": 6.593656897544861
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -6.242770671844482,
+          "Q_minus_observed_terminal_reward": 2.192603588104248,
+          "absolute_error": 2.192603588104248
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env93/seed2280702123",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.956112861633301,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -7.934075355529785,
+          "Q_minus_observed_terminal_reward": 0.022037506103515625,
+          "absolute_error": 0.022037506103515625
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 0.25065600872039795,
+          "Q_minus_observed_terminal_reward": 8.206768870353699,
+          "absolute_error": 8.206768870353699
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -8.24535846710205,
+          "Q_minus_observed_terminal_reward": -0.28924560546875,
+          "absolute_error": 0.28924560546875
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env97/seed2280702124",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.711421012878418,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -3.4955906867980957,
+          "Q_minus_observed_terminal_reward": 5.215830326080322,
+          "absolute_error": 5.215830326080322
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.197916030883789,
+          "Q_minus_observed_terminal_reward": 7.513504981994629,
+          "absolute_error": 7.513504981994629
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -4.273062705993652,
+          "Q_minus_observed_terminal_reward": 4.438358306884766,
+          "absolute_error": 4.438358306884766
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env101/seed2280702125",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.969111442565918,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -4.5260090827941895,
+          "Q_minus_observed_terminal_reward": 3.4431023597717285,
+          "absolute_error": 3.4431023597717285
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 0.5260952115058899,
+          "Q_minus_observed_terminal_reward": 8.495206654071808,
+          "absolute_error": 8.495206654071808
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -1.159170389175415,
+          "Q_minus_observed_terminal_reward": 6.809941053390503,
+          "absolute_error": 6.809941053390503
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env105/seed2280702126",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.757114887237549,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -8.754549980163574,
+          "Q_minus_observed_terminal_reward": -0.9974350929260254,
+          "absolute_error": 0.9974350929260254
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -7.014248847961426,
+          "Q_minus_observed_terminal_reward": 0.742866039276123,
+          "absolute_error": 0.742866039276123
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -6.7637104988098145,
+          "Q_minus_observed_terminal_reward": 0.9934043884277344,
+          "absolute_error": 0.9934043884277344
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env109/seed2280702127",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.985902786254883,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -7.4056010246276855,
+          "Q_minus_observed_terminal_reward": 1.5803017616271973,
+          "absolute_error": 1.5803017616271973
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.0015987157821655,
+          "Q_minus_observed_terminal_reward": 7.984304070472717,
+          "absolute_error": 7.984304070472717
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -3.0812878608703613,
+          "Q_minus_observed_terminal_reward": 5.9046149253845215,
+          "absolute_error": 5.9046149253845215
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env113/seed2280702128",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.369370460510254,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -7.397612571716309,
+          "Q_minus_observed_terminal_reward": 0.9717578887939453,
+          "absolute_error": 0.9717578887939453
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -5.251490116119385,
+          "Q_minus_observed_terminal_reward": 3.117880344390869,
+          "absolute_error": 3.117880344390869
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -6.523952484130859,
+          "Q_minus_observed_terminal_reward": 1.8454179763793945,
+          "absolute_error": 1.8454179763793945
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env117/seed2280702129",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.607466697692871,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -2.553915500640869,
+          "Q_minus_observed_terminal_reward": 6.053551197052002,
+          "absolute_error": 6.053551197052002
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.1572129726409912,
+          "Q_minus_observed_terminal_reward": 7.45025372505188,
+          "absolute_error": 7.45025372505188
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -3.372748374938965,
+          "Q_minus_observed_terminal_reward": 5.234718322753906,
+          "absolute_error": 5.234718322753906
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env121/seed2280702130",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.049079895019531,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -7.015137672424316,
+          "Q_minus_observed_terminal_reward": 1.0339422225952148,
+          "absolute_error": 1.0339422225952148
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.7042878866195679,
+          "Q_minus_observed_terminal_reward": 6.344792008399963,
+          "absolute_error": 6.344792008399963
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -7.832825183868408,
+          "Q_minus_observed_terminal_reward": 0.21625471115112305,
+          "absolute_error": 0.21625471115112305
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env125/seed2280702131",
+      "region": "shelf_2_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.155531883239746,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -7.29537296295166,
+          "Q_minus_observed_terminal_reward": 0.8601589202880859,
+          "absolute_error": 0.8601589202880859
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -4.3245038986206055,
+          "Q_minus_observed_terminal_reward": 3.8310279846191406,
+          "absolute_error": 3.8310279846191406
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -3.9269864559173584,
+          "Q_minus_observed_terminal_reward": 4.228545427322388,
+          "absolute_error": 4.228545427322388
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave2/env84/seed2280701021",
+      "region": "shelf_2_left",
+      "outcome": "success",
+      "unsafe_causes": [],
+      "observed_terminal_reward": 2.6050338745117188,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": 3.5450046062469482,
+          "Q_minus_observed_terminal_reward": 0.9399707317352295,
+          "absolute_error": 0.9399707317352295
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 2.53279185295105,
+          "Q_minus_observed_terminal_reward": -0.07224202156066895,
+          "absolute_error": 0.07224202156066895
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 2.253584384918213,
+          "Q_minus_observed_terminal_reward": -0.35144948959350586,
+          "absolute_error": 0.35144948959350586
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env60/seed2280702015",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -9.446520805358887,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -4.136621475219727,
+          "Q_minus_observed_terminal_reward": 5.30989933013916,
+          "absolute_error": 5.30989933013916
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.0629289150238037,
+          "Q_minus_observed_terminal_reward": 8.383591890335083,
+          "absolute_error": 8.383591890335083
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -2.533189535140991,
+          "Q_minus_observed_terminal_reward": 6.9133312702178955,
+          "absolute_error": 6.9133312702178955
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env64/seed2280702016",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.00057315826416,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -7.320139408111572,
+          "Q_minus_observed_terminal_reward": 0.6804337501525879,
+          "absolute_error": 0.6804337501525879
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -9.204547882080078,
+          "Q_minus_observed_terminal_reward": -1.203974723815918,
+          "absolute_error": 1.203974723815918
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -5.208964824676514,
+          "Q_minus_observed_terminal_reward": 2.7916083335876465,
+          "absolute_error": 2.7916083335876465
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env68/seed2280702017",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.122642517089844,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.31609880924224854,
+          "Q_minus_observed_terminal_reward": 7.806543707847595,
+          "absolute_error": 7.806543707847595
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 2.250704050064087,
+          "Q_minus_observed_terminal_reward": 10.37334656715393,
+          "absolute_error": 10.37334656715393
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.35998955368995667,
+          "Q_minus_observed_terminal_reward": 8.4826320707798,
+          "absolute_error": 8.4826320707798
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env72/seed2280702018",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.225346565246582,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -4.318844318389893,
+          "Q_minus_observed_terminal_reward": 2.9065022468566895,
+          "absolute_error": 2.9065022468566895
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.09318429231643677,
+          "Q_minus_observed_terminal_reward": 7.132162272930145,
+          "absolute_error": 7.132162272930145
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.6605132818222046,
+          "Q_minus_observed_terminal_reward": 6.564833283424377,
+          "absolute_error": 6.564833283424377
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env76/seed2280702019",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.229816436767578,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": 1.5069544315338135,
+          "Q_minus_observed_terminal_reward": 8.736770868301392,
+          "absolute_error": 8.736770868301392
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -3.0539896488189697,
+          "Q_minus_observed_terminal_reward": 4.175826787948608,
+          "absolute_error": 4.175826787948608
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.9304701685905457,
+          "Q_minus_observed_terminal_reward": 8.160286605358124,
+          "absolute_error": 8.160286605358124
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env80/seed2280702020",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -9.013985633850098,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": 0.9541193842887878,
+          "Q_minus_observed_terminal_reward": 9.968105018138885,
+          "absolute_error": 9.968105018138885
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 1.8691012859344482,
+          "Q_minus_observed_terminal_reward": 10.883086919784546,
+          "absolute_error": 10.883086919784546
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.6975196003913879,
+          "Q_minus_observed_terminal_reward": 9.711505234241486,
+          "absolute_error": 9.711505234241486
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env84/seed2280702021",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.1392412185668945,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -8.660616874694824,
+          "Q_minus_observed_terminal_reward": -1.5213756561279297,
+          "absolute_error": 1.5213756561279297
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -5.79315185546875,
+          "Q_minus_observed_terminal_reward": 1.3460893630981445,
+          "absolute_error": 1.3460893630981445
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -1.4447191953659058,
+          "Q_minus_observed_terminal_reward": 5.694522023200989,
+          "absolute_error": 5.694522023200989
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env88/seed2280702022",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -9.773134231567383,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": 0.3907015323638916,
+          "Q_minus_observed_terminal_reward": 10.163835763931274,
+          "absolute_error": 10.163835763931274
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 0.5414144992828369,
+          "Q_minus_observed_terminal_reward": 10.31454873085022,
+          "absolute_error": 10.31454873085022
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.06972511112689972,
+          "Q_minus_observed_terminal_reward": 9.842859342694283,
+          "absolute_error": 9.842859342694283
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env92/seed2280702023",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.771339416503906,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -3.1530728340148926,
+          "Q_minus_observed_terminal_reward": 5.618266582489014,
+          "absolute_error": 5.618266582489014
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.23918208479881287,
+          "Q_minus_observed_terminal_reward": 8.532157331705093,
+          "absolute_error": 8.532157331705093
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -1.8348908424377441,
+          "Q_minus_observed_terminal_reward": 6.936448574066162,
+          "absolute_error": 6.936448574066162
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env96/seed2280702024",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.553034782409668,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -4.539449691772461,
+          "Q_minus_observed_terminal_reward": 3.013585090637207,
+          "absolute_error": 3.013585090637207
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 1.193742275238037,
+          "Q_minus_observed_terminal_reward": 8.746777057647705,
+          "absolute_error": 8.746777057647705
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -1.2868534326553345,
+          "Q_minus_observed_terminal_reward": 6.2661813497543335,
+          "absolute_error": 6.2661813497543335
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env100/seed2280702025",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.688142776489258,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.009344849735498428,
+          "Q_minus_observed_terminal_reward": 7.678797926753759,
+          "absolute_error": 7.678797926753759
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 1.6555992364883423,
+          "Q_minus_observed_terminal_reward": 9.3437420129776,
+          "absolute_error": 9.3437420129776
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.09830521792173386,
+          "Q_minus_observed_terminal_reward": 7.786447994410992,
+          "absolute_error": 7.786447994410992
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env104/seed2280702026",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -9.515795707702637,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -1.811692476272583,
+          "Q_minus_observed_terminal_reward": 7.704103231430054,
+          "absolute_error": 7.704103231430054
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.007577613927423954,
+          "Q_minus_observed_terminal_reward": 9.508218093775213,
+          "absolute_error": 9.508218093775213
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.5515854358673096,
+          "Q_minus_observed_terminal_reward": 8.964210271835327,
+          "absolute_error": 8.964210271835327
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env108/seed2280702027",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.014572143554688,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -8.4599609375,
+          "Q_minus_observed_terminal_reward": -0.4453887939453125,
+          "absolute_error": 0.4453887939453125
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -8.230626106262207,
+          "Q_minus_observed_terminal_reward": -0.21605396270751953,
+          "absolute_error": 0.21605396270751953
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -4.036052703857422,
+          "Q_minus_observed_terminal_reward": 3.9785194396972656,
+          "absolute_error": 3.9785194396972656
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env112/seed2280702028",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.224403381347656,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -5.170983791351318,
+          "Q_minus_observed_terminal_reward": 2.053419589996338,
+          "absolute_error": 2.053419589996338
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.7455806732177734,
+          "Q_minus_observed_terminal_reward": 5.478822708129883,
+          "absolute_error": 5.478822708129883
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -3.849163293838501,
+          "Q_minus_observed_terminal_reward": 3.3752400875091553,
+          "absolute_error": 3.3752400875091553
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env116/seed2280702029",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.613162517547607,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": 2.699692726135254,
+          "Q_minus_observed_terminal_reward": 10.312855243682861,
+          "absolute_error": 10.312855243682861
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 2.877027750015259,
+          "Q_minus_observed_terminal_reward": 10.490190267562866,
+          "absolute_error": 10.490190267562866
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 1.0805667638778687,
+          "Q_minus_observed_terminal_reward": 8.693729281425476,
+          "absolute_error": 8.693729281425476
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env120/seed2280702030",
+      "region": "shelf_2_left",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.089792251586914,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -6.599788188934326,
+          "Q_minus_observed_terminal_reward": 1.490004062652588,
+          "absolute_error": 1.490004062652588
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 0.5977076292037964,
+          "Q_minus_observed_terminal_reward": 8.68749988079071,
+          "absolute_error": 8.68749988079071
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.1903705596923828,
+          "Q_minus_observed_terminal_reward": 8.280162811279297,
+          "absolute_error": 8.280162811279297
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env124/seed2280702031",
+      "region": "shelf_2_left",
+      "outcome": "success",
+      "unsafe_causes": [],
+      "observed_terminal_reward": 2.613536834716797,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": 2.811886787414551,
+          "Q_minus_observed_terminal_reward": 0.1983499526977539,
+          "absolute_error": 0.1983499526977539
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 2.6634395122528076,
+          "Q_minus_observed_terminal_reward": 0.04990267753601074,
+          "absolute_error": 0.04990267753601074
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 2.635239362716675,
+          "Q_minus_observed_terminal_reward": 0.02170252799987793,
+          "absolute_error": 0.02170252799987793
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env87/seed2280702321",
+      "region": "shelf_3_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.619900703430176,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -1.0051878690719604,
+          "Q_minus_observed_terminal_reward": 6.614712834358215,
+          "absolute_error": 6.614712834358215
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -3.9332332611083984,
+          "Q_minus_observed_terminal_reward": 3.6866674423217773,
+          "absolute_error": 3.6866674423217773
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.679161787033081,
+          "Q_minus_observed_terminal_reward": 6.940738916397095,
+          "absolute_error": 6.940738916397095
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env91/seed2280702322",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -3.0888779163360596,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.8697969317436218,
+          "Q_minus_observed_terminal_reward": 2.2190809845924377,
+          "absolute_error": 2.2190809845924377
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.875529170036316,
+          "Q_minus_observed_terminal_reward": 1.2133487462997437,
+          "absolute_error": 1.2133487462997437
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.29395782947540283,
+          "Q_minus_observed_terminal_reward": 3.3828357458114624,
+          "absolute_error": 3.3828357458114624
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env95/seed2280702323",
+      "region": "shelf_3_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.737057685852051,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.7528812289237976,
+          "Q_minus_observed_terminal_reward": 6.984176456928253,
+          "absolute_error": 6.984176456928253
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -2.024644613265991,
+          "Q_minus_observed_terminal_reward": 5.71241307258606,
+          "absolute_error": 5.71241307258606
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.5644726753234863,
+          "Q_minus_observed_terminal_reward": 7.1725850105285645,
+          "absolute_error": 7.1725850105285645
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env99/seed2280702324",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -1.8141130208969116,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.8193521499633789,
+          "Q_minus_observed_terminal_reward": 0.9947608709335327,
+          "absolute_error": 0.9947608709335327
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.5703297257423401,
+          "Q_minus_observed_terminal_reward": 1.2437832951545715,
+          "absolute_error": 1.2437832951545715
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.0038723116740584373,
+          "Q_minus_observed_terminal_reward": 1.81798533257097,
+          "absolute_error": 1.81798533257097
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env103/seed2280702325",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -2.6047255992889404,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.2786943018436432,
+          "Q_minus_observed_terminal_reward": 2.3260312974452972,
+          "absolute_error": 2.3260312974452972
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.0640839338302612,
+          "Q_minus_observed_terminal_reward": 1.5406416654586792,
+          "absolute_error": 1.5406416654586792
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.017913755029439926,
+          "Q_minus_observed_terminal_reward": 2.6226393543183804,
+          "absolute_error": 2.6226393543183804
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env107/seed2280702326",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -1.6698660850524902,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -1.475594162940979,
+          "Q_minus_observed_terminal_reward": 0.19427192211151123,
+          "absolute_error": 0.19427192211151123
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.7977036833763123,
+          "Q_minus_observed_terminal_reward": 0.872162401676178,
+          "absolute_error": 0.872162401676178
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.5965934991836548,
+          "Q_minus_observed_terminal_reward": 1.0732725858688354,
+          "absolute_error": 1.0732725858688354
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env111/seed2280702327",
+      "region": "shelf_3_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -8.176016807556152,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -2.3548238277435303,
+          "Q_minus_observed_terminal_reward": 5.821192979812622,
+          "absolute_error": 5.821192979812622
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.5559854507446289,
+          "Q_minus_observed_terminal_reward": 7.620031356811523,
+          "absolute_error": 7.620031356811523
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -1.4121460914611816,
+          "Q_minus_observed_terminal_reward": 6.763870716094971,
+          "absolute_error": 6.763870716094971
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env115/seed2280702328",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -2.1185848712921143,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.3905916213989258,
+          "Q_minus_observed_terminal_reward": 1.7279932498931885,
+          "absolute_error": 1.7279932498931885
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.5366160869598389,
+          "Q_minus_observed_terminal_reward": 1.5819687843322754,
+          "absolute_error": 1.5819687843322754
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -1.0983290672302246,
+          "Q_minus_observed_terminal_reward": 1.0202558040618896,
+          "absolute_error": 1.0202558040618896
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env119/seed2280702329",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -2.6706905364990234,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.6997588276863098,
+          "Q_minus_observed_terminal_reward": 1.9709317088127136,
+          "absolute_error": 1.9709317088127136
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.7791662216186523,
+          "Q_minus_observed_terminal_reward": 0.8915243148803711,
+          "absolute_error": 0.8915243148803711
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.44578292965888977,
+          "Q_minus_observed_terminal_reward": 2.2249076068401337,
+          "absolute_error": 2.2249076068401337
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env123/seed2280702330",
+      "region": "shelf_3_right",
+      "outcome": "unsafe",
+      "unsafe_causes": [
+        "robot_rack_collision"
+      ],
+      "observed_terminal_reward": -7.847840785980225,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -1.2010213136672974,
+          "Q_minus_observed_terminal_reward": 6.646819472312927,
+          "absolute_error": 6.646819472312927
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -3.4233896732330322,
+          "Q_minus_observed_terminal_reward": 4.424451112747192,
+          "absolute_error": 4.424451112747192
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.3430120050907135,
+          "Q_minus_observed_terminal_reward": 7.504828780889511,
+          "absolute_error": 7.504828780889511
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env127/seed2280702331",
+      "region": "shelf_3_right",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -1.7873351573944092,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.3449985384941101,
+          "Q_minus_observed_terminal_reward": 1.442336618900299,
+          "absolute_error": 1.442336618900299
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 0.31188535690307617,
+          "Q_minus_observed_terminal_reward": 2.0992205142974854,
+          "absolute_error": 2.0992205142974854
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.19168570637702942,
+          "Q_minus_observed_terminal_reward": 1.5956494510173798,
+          "absolute_error": 1.5956494510173798
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env10/seed2280702202",
+      "region": "shelf_3_left",
+      "outcome": "success",
+      "unsafe_causes": [],
+      "observed_terminal_reward": 2.6705515384674072,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": 0.7253539562225342,
+          "Q_minus_observed_terminal_reward": -1.945197582244873,
+          "absolute_error": 1.945197582244873
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 1.767403483390808,
+          "Q_minus_observed_terminal_reward": -0.9031480550765991,
+          "absolute_error": 0.9031480550765991
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.6303830146789551,
+          "Q_minus_observed_terminal_reward": -2.040168523788452,
+          "absolute_error": 2.040168523788452
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env94/seed2280702223",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -2.6138994693756104,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -1.0319266319274902,
+          "Q_minus_observed_terminal_reward": 1.5819728374481201,
+          "absolute_error": 1.5819728374481201
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.6700380444526672,
+          "Q_minus_observed_terminal_reward": 1.9438614249229431,
+          "absolute_error": 1.9438614249229431
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.8080018758773804,
+          "Q_minus_observed_terminal_reward": 1.80589759349823,
+          "absolute_error": 1.80589759349823
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env98/seed2280702224",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -3.1051642894744873,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.7570528984069824,
+          "Q_minus_observed_terminal_reward": 2.348111391067505,
+          "absolute_error": 2.348111391067505
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -1.1303128004074097,
+          "Q_minus_observed_terminal_reward": 1.9748514890670776,
+          "absolute_error": 1.9748514890670776
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -2.380871057510376,
+          "Q_minus_observed_terminal_reward": 0.7242932319641113,
+          "absolute_error": 0.7242932319641113
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env102/seed2280702225",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -2.447380542755127,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.08210138231515884,
+          "Q_minus_observed_terminal_reward": 2.365279160439968,
+          "absolute_error": 2.365279160439968
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.16361604630947113,
+          "Q_minus_observed_terminal_reward": 2.283764496445656,
+          "absolute_error": 2.283764496445656
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.934874415397644,
+          "Q_minus_observed_terminal_reward": 1.512506127357483,
+          "absolute_error": 1.512506127357483
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env106/seed2280702226",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -2.1604981422424316,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.7210999727249146,
+          "Q_minus_observed_terminal_reward": 1.439398169517517,
+          "absolute_error": 1.439398169517517
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.22154758870601654,
+          "Q_minus_observed_terminal_reward": 1.938950553536415,
+          "absolute_error": 1.938950553536415
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -2.5133414268493652,
+          "Q_minus_observed_terminal_reward": -0.3528432846069336,
+          "absolute_error": 0.3528432846069336
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env110/seed2280702227",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -3.019829750061035,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": 0.11047223210334778,
+          "Q_minus_observed_terminal_reward": 3.130301982164383,
+          "absolute_error": 3.130301982164383
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.4753829836845398,
+          "Q_minus_observed_terminal_reward": 2.5444467663764954,
+          "absolute_error": 2.5444467663764954
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.07963767647743225,
+          "Q_minus_observed_terminal_reward": 3.0994674265384674,
+          "absolute_error": 3.0994674265384674
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env114/seed2280702228",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -2.9787466526031494,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.3994295001029968,
+          "Q_minus_observed_terminal_reward": 2.5793171525001526,
+          "absolute_error": 2.5793171525001526
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.6551881432533264,
+          "Q_minus_observed_terminal_reward": 2.323558509349823,
+          "absolute_error": 2.323558509349823
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -0.13924430310726166,
+          "Q_minus_observed_terminal_reward": 2.8395023494958878,
+          "absolute_error": 2.8395023494958878
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env118/seed2280702229",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -2.1724395751953125,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.7125440835952759,
+          "Q_minus_observed_terminal_reward": 1.4598954916000366,
+          "absolute_error": 1.4598954916000366
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": 0.004878880921751261,
+          "Q_minus_observed_terminal_reward": 2.1773184561170638,
+          "absolute_error": 2.1773184561170638
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -1.1867189407348633,
+          "Q_minus_observed_terminal_reward": 0.9857206344604492,
+          "absolute_error": 0.9857206344604492
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env122/seed2280702230",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -1.8252923488616943,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": -0.6208774447441101,
+          "Q_minus_observed_terminal_reward": 1.2044149041175842,
+          "absolute_error": 1.2044149041175842
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -2.7098376750946045,
+          "Q_minus_observed_terminal_reward": -0.8845453262329102,
+          "absolute_error": 0.8845453262329102
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": -3.077392816543579,
+          "Q_minus_observed_terminal_reward": -1.2521004676818848,
+          "absolute_error": 1.2521004676818848
+        }
+      ]
+    },
+    {
+      "identity": "batch_sac_20261007_071533_060f16/wave3/env126/seed2280702231",
+      "region": "shelf_3_left",
+      "outcome": "timeout",
+      "unsafe_causes": [],
+      "observed_terminal_reward": -3.435636043548584,
+      "predictions": [
+        {
+          "role": "earlier_absorbing_servo",
+          "Qmin": 0.19487407803535461,
+          "Q_minus_observed_terminal_reward": 3.6305101215839386,
+          "absolute_error": 3.6305101215839386
+        },
+        {
+          "role": "servo_success_retention",
+          "Qmin": -0.13367587327957153,
+          "Q_minus_observed_terminal_reward": 3.3019601702690125,
+          "absolute_error": 3.3019601702690125
+        },
+        {
+          "role": "terminal25_plus_retention",
+          "Qmin": 0.27917301654815674,
+          "Q_minus_observed_terminal_reward": 3.7148090600967407,
+          "absolute_error": 3.7148090600967407
+        }
+      ]
+    }
+  ],
+  "no_live_HDF_or_replay_read": true,
+  "no_model_optimizer_reward_updates_or_new_physics": true,
+  "source_files_unchanged": true,
+  "no_DEV_FINAL_import": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true,
+  "earlier_absorbing_baseline_is_in_sample_of_source_paths": true,
+  "new_retention_and_terminal25_models_source_paths_are_unseen": true,
+  "source_seen_vs_unseen_limits_baseline_to_new_comparison": true
+}
