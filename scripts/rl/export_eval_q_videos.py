@@ -45,10 +45,16 @@ def sha256(path):
 
 
 def restored_agent(state):
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.servo_success_retention import (
+        ServoRetentionGentleSACPilot,ServoRetainedCorrectionSAC,servo_success_retention_contract,
+    )
     contract = state['goal_contract']
     if (contract['actor_dim'], contract['critic_dim'], state['action_dim']) != (518, 577, 21):
         raise ValueError('This exporter requires the actual-flap bounded held-base SAC contract')
-    gentle = state.get('artifact_type') == GentleServoCriticSACPilot.artifact_type
+    retained = state.get('artifact_type') == ServoRetentionGentleSACPilot.artifact_type
+    if retained and contract.get('success_body_retention')!=servo_success_retention_contract():
+        raise ValueError('Saved successful-servo retention contract differs')
+    gentle = retained or state.get('artifact_type') == GentleServoCriticSACPilot.artifact_type
     if gentle:
         from kuavo_isaaclab_scene.rl.multi_box.experiments.body_policy_spread import validate_quarter_policy_state
         validate_quarter_policy_state(state)
@@ -84,7 +90,8 @@ def restored_agent(state):
                 snapshot['source_goal_contract']['fixed_prior_radius'])
         return nominal_goal
 
-    agent = BoundedCorrectionHybridSAC(518, 577, 21, SACConfig(**state['config']), 'cpu',
+    agent_class=ServoRetainedCorrectionSAC if retained else BoundedCorrectionHybridSAC
+    agent = agent_class(518, 577, 21, SACConfig(**state['config']), 'cpu',
         action_projector=AbsoluteGoalJawProjector(),
         validated_jaw_prior_confidence=contract['validated_jaw_prior_confidence'],
         jaw_prior_residual_gain=contract['jaw_prior_residual_gain'])

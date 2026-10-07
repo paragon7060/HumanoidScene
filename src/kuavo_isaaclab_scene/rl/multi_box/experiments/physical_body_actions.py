@@ -72,8 +72,8 @@ def full_command(coordinates,observation,body):
     return physical
 
 
-def goal_body_command(coordinates,observation,goals):
-    """Decode body21 independently of the unused base-plane wheel solver."""
+def goal_body_delta(coordinates,observation,goals):
+    """Measured normalized body19 drive deltas before the production clip."""
     if goals.shape!=(len(observation),21) or not torch.isfinite(goals).all():
         raise ValueError('Expected finite non-base goals21')
     raw=servo_raw_actor(observation)
@@ -81,7 +81,12 @@ def goal_body_command(coordinates,observation,goals):
     joint=targets[:,coordinates.joints.joint_columns]
     torso=planar_position(targets[:,:2],coordinates.links.to(raw))
     return torch.cat(((goals[:,:17]-joint)/raw.new_tensor(coordinates.joints.scales),
-        (goals[:,17:19]-torso)/(.1/30),goals[:,19:21]),-1).clamp(-1,1)
+        (goals[:,17:19]-torso)/(.1/30)),-1)
+
+
+def goal_body_command(coordinates,observation,goals):
+    """Decode body21 independently of the unused base-plane wheel solver."""
+    return torch.cat((goal_body_delta(coordinates,observation,goals),goals[:,19:21]),-1).clamp(-1,1)
 
 
 class FrozenGoalCommandPrior(nn.Module):

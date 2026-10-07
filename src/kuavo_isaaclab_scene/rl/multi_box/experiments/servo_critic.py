@@ -7,7 +7,7 @@ it neither runs IK/physics nor changes the actor's goal-space entropy.
 """
 import torch
 
-from .physical_body_actions import goal_body_command
+from .physical_body_actions import goal_body_command,goal_body_delta
 
 
 def servo_critic_contract():
@@ -36,7 +36,7 @@ class BodyServoCriticEncoder:
     @property
     def contract(self):return servo_critic_contract()
 
-    def __call__(self,raw,goals):
+    def physical_inputs(self,raw,goals):
         if raw is None or raw.ndim!=2 or raw.shape[1]!=518 \
                 or goals.shape!=(len(raw),21) or not torch.isfinite(raw).all() \
                 or not torch.isfinite(goals).all() or (goals.abs()>1.00001).any() \
@@ -44,5 +44,10 @@ class BodyServoCriticEncoder:
                 or not (raw[:,-6]==1).all():
             raise ValueError('Servo critic needs finite measured518-D held actor states')
         nominal=torch.cat((raw[:,:474],raw[:,-6:]),-1)
-        return goal_body_command(self.coordinates,nominal,
-            self.center.to(raw)+self.scale.to(raw)*goals)
+        return nominal,self.center.to(raw)+self.scale.to(raw)*goals
+
+    def __call__(self,raw,goals):
+        return goal_body_command(self.coordinates,*self.physical_inputs(raw,goals))
+
+    def unclipped_body(self,raw,goals):
+        return goal_body_delta(self.coordinates,*self.physical_inputs(raw,goals))
