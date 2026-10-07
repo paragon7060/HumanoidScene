@@ -57,12 +57,12 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src python scripts/rl/fit_actor_train_memory.
 초기 actor 보강은 모방 학습 성격의 준비 단계이며 SAC 갱신 수로 세지 않는다.
 박스·base·배경·움직이는 flap 무작위화와 실제 양손 pad5N·hold0.25초·8mm 들기,
 rack10N·주변 장애물5N·self collision OFF는 유지한다. 박스 고정이나 curriculum을
-추가하지 않는다. 실제 새 평가·SAC 학습·네 구역과 다른 크기 일반화는 아직 미검증이다.
+추가하지 않는다. 새 평가는 아래와 같이 완료했고 이후 SAC 학습 개선·네 구역과 다른 크기 일반화는 미검증이다.
 
 **10/08 00:13 KST에 원래 전체 DEV128개 평가를 시작했다.** GPU3만 사용한
 실제 writer3910094의 소유자·고유 run·CUDA3를 확인했다. 기존 학습4개는
 유지했고, 평가의 학습·actor/Q/replay 갱신은 비활성화했다. 네 구역32개씩
-모두 요청하고 구역별 대표 영상4개도 저장한다. 아직 전체 평가 결과는 없다.
+모두 요청하고 구역별 대표 영상4개도 요청했다. 완료 결과는 아래에 기록했다.
 실행 소스는 커밋f1581d6이다. 초기 push는 GitHub Internal Server Error로
 지연됐지만 재시도 후 코드·실제 학습·평가·그래프 기록을245218d까지 main에
 push했다. 기존 Drive는 invalid_grant로
@@ -70,8 +70,30 @@ push했다. 기존 Drive는 invalid_grant로
 [실제 frozen 평가 실행](assets/rl_v2_actor_memory_fit1000_actual_frozen_DEV_launch_20261008.json).
 
 실제 DEV0에 진입한 뒤 actor/Q0·학습 비활성화, 입력 checkpoint·agent·
-progress 계약의 정확한 일치와 오프라인 초기화 출처의 runtime 보존을
-확인했다. 아직 원래128개 평가가 모두 끝난 것은 아니다.
+progress 계약의 정확한 일치와 오프라인 초기화 출처의 runtime 보존을 확인했다.
+
+**10/08 01:04 KST 확인: 전체 평가를 정상 종료했으며 13/128회(10.2%)였다.**
+자신의 초기 27/128회(21.1%)보다 낮다. 각 구역32개와 초기화 무효11개를 원래
+분모에 포함했다. 두 평가의 요청 배치는 같지만 반복 초기화의 물리 상태가
+완전히 같다고 주장하지 않는다. 공통 유효 조건 비교도 별도 근거에 기록했다.
+
+| 구역 | 보강 전 | 초기 actor 1,000회 보강 후 |
+| --- | --- | --- |
+| 중간 왼쪽 | 16/32 | 5/32 |
+| 중간 오른쪽 | 11/32 | 4/32 |
+| 상단 왼쪽 | 0/32 | 0/32 |
+| 상단 오른쪽 | 0/32 | 4/32 |
+| 전체 | 27/128 | 13/128 |
+
+상단 오른쪽 파지 사례는 생겼지만 중간 선반 성능을 잃어 전체 개선이 아니다.
+이는 자기 TRAIN 명령으로 초기화한 정책의 성능이며 **SAC 학습 개선으로 세지
+않는다.** 평가 내내 SAC actor·Q 갱신과 replay 유입은0이고 모델·normalizer
+178개 tensor가 입력 checkpoint와 동일했다. 양손 파지·hold·proof lift의 실제
+성공 조건도 대조했다. 대표로 녹화한 env0·1·3은 실패이므로 성공 영상으로
+표시하지 않는다. GPU3의 별도 SAC는 계속 학습하며 수정 후 첫 전체 평가는
+대기 중이다. 네 구역 안정적 일반화·다른 박스 크기와 독립 FINAL은 미검증이다.
+[전체 평가·모델 동일성·공통 유효 조건](assets/rl_v2_actor_memory_fit1000_full_original_DEV_20261008.json).
+
 
 ![실제 평가 추이와 과거 성공 명령의 초기화 비교](assets/rl_v2_actor_memory_initialization_and_latest_DEV_20261008.png)
 
