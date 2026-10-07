@@ -54,7 +54,14 @@ Q·optimizer·온라인/성공/n-step reward 은행이 모두0인 상태에 새 
 박스·base·주변 박스·단단한 동적 flap 무작위화와 파지 조건, 탐색 설정은
 그대로다. 새 TRAIN1,536조건은 seed2340700000으로 다른13개 계획과 겹치지
 않고 원래 DEV128개·17wave를 유지한다. 독립 FINAL은 사용하지 않았다.
-**이 기록 시점에는 새 물리 학습 시작 전이며 개선 효과는 아직 측정하지 않았다.**
+위 full trainer 증거는 실행 전 입력 검증이다. 그 후 **10/07 12:41 KST에
+GPU3에서 별도 SAC를 시작했고12:48에 첫 전체 DEV 진입을 확인했다.** 실제
+writer3997160·supervisor·서비스·`CUDA_VISIBLE_DEVICES=3`와 GPU learner를
+확인했다. 초기화된 환경의10cm 낙하 조건과 reward manager의+64 로그,
+env·manifest·실제 agent·초기 checkpoint의 계약 일치, actor/Q·모든 학습
+은행0을 확인했다. 기존 네 학습은 유지한다. 전체 초기 DEV와 학습 후 개선은
+아직 측정 전이다. [실제 시작·Drive 설정](assets/rl_v2_success64_reset_drop_actual_launch_20261007.json),
+[실제 환경·보상·agent 복원과 첫 DEV](assets/rl_v2_success64_reset_drop_first_actual_DEV_20261007.json).
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/prepare_reset_drop_actor.py \
