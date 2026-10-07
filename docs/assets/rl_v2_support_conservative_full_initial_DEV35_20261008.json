@@ -440,5 +440,43 @@
   "no_evaluation_rows_imported_into_training": true,
   "same_requested_layouts_NOT_identical_physical_reset": true,
   "independent_FINAL_unused": true,
-  "goal_not_complete": true
+  "goal_not_complete": true,
+  "first_observed_actual_Q_training": {
+    "recorded_at": "2026-10-08T06:35:59.601456+09:00",
+    "recorded_writer_owner_run_CUDA3_verified": true,
+    "actual_Q_updates": 724,
+    "actual_actor_updates": 0,
+    "actual_online_TRAIN_rows": 43091,
+    "actual_replay_size": 43091,
+    "Q_warmup_remaining": 1324,
+    "support_stats": {
+      "q_loss": -1.5753278732299805,
+      "critic_support_loss": -3.5914416313171387,
+      "critic_support_weight": 1.0,
+      "critic_support_candidates_per_state": 32,
+      "critic_support_actual_TRAIN_rows": 256,
+      "critic_support_Q1_gap": -1.596742033958435,
+      "critic_support_Q2_gap": -1.9946997165679932,
+      "critic_support_synthetic_replay_rows": 0
+    },
+    "support_contract": {
+      "name": "finite_command_support_conservative_critic_v1",
+      "weight": 1.0,
+      "temperature": 1.0,
+      "uniform_body_draws": 4,
+      "current_policy_body_draws": 4,
+      "physical_binary_jaw_branches": 4,
+      "source": "same_actual_online_TRAIN_Q_batch_observations_and_executed_actions",
+      "penalty": "sum_two_Q_temperature_logmeanexp_candidate_Q_minus_actual_data_Q",
+      "candidates": "existing_bounded_body_correction_and_production_near_flap_jaw_gate",
+      "critic_uses_existing_servo_command_encoding": true,
+      "candidates_not_replay_or_reward_labels": true,
+      "no_policy_gradient_in_critic_penalty": true,
+      "actor_entropy_retention_targets_reward_and_randomization_unchanged": true,
+      "offline_CQL_theoretical_lower_bound_NOT_claimed": true
+    },
+    "all_logged_support_losses_finite": true,
+    "sampled_actual_runtime_progress_NOT_a_model_snapshot": true,
+    "learning_gain_NOT_claimed": true
+  }
 }
