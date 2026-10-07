@@ -94,6 +94,33 @@ def test_new_successes_share_actor_sampling_but_old_paths_never_supply_Q_fields(
     assert batch['actor_obs'][:, 94:98].argmax(-1).bincount().tolist() == [128]*4
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA restore regression')
+@pytest.mark.parametrize('learner_device', ['cpu', 'cuda:0'])
+def test_cuda_checkpoint_memory_and_online_CPU_successes_sample_on_learner_device(learner_device):
+    _, _, data, _ = fixtures()
+    expected_hash = structure_sha256(data)
+    for e in data['episodes']:
+        for key in ('actor_obs', 'action'):
+            e[key] = e[key].to('cuda:0')
+    bank = restore(data)
+    assert structure_sha256(bank.state()) == expected_hash
+    assert all(e[key].device.type == 'cpu' for e in bank.state()['episodes']
+               for key in ('actor_obs', 'action'))
+    # add_episode() and restore() keep the online TrainSuccessBank on CPU.
+    current = SimpleNamespace(episodes={r: [] for r in REGIONS})
+    for e in bank.state()['episodes']:
+        rows = {key: e[key].clone() for key in ('actor_obs', 'action')}
+        rows['actor_obs'][:, 451] = 7
+        current.episodes[e['outcome']['layout']['target_region']].append(dict(rows=rows))
+    torch.manual_seed(17)
+    batch, stats = bank.sample_actor(64, learner_device, current)
+    assert 0 < stats['new_success_actor_memory_rows'] < 64
+    assert stats['new_success_actor_memory_rows'] == int(batch['actor_obs'][:, 451].eq(7).sum())
+    assert stats['previous_success_memory_rows_in_Q_batch'] == 0
+    assert all(v.device == torch.device(learner_device) for v in batch.values())
+    assert batch['actor_obs'][:, 94:98].argmax(-1).bincount().tolist() == [16]*4
+
+
 @pytest.mark.parametrize('fault', ['reward', 'critic', 'DEV', 'unsafe', 'drop',
                                  'region', 'approach', 'jaw', 'nan', 'duplicate', 'missing'])
 def test_memory_rejects_reward_fields_or_unverified_success_rows(fault):

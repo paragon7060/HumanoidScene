@@ -96,6 +96,12 @@ class ActorTrainMemory:
         if not all(self.episodes.values()):
             raise ValueError('Verified actor memory needs successful TRAIN from all four regions')
         self._state = deepcopy(state)
+        # Checkpoint map_location may put historical paths on CUDA, while the
+        # online success bank deliberately stores new paths on CPU. Keep both
+        # banks on CPU and move only the sampled batch to the learner device.
+        for e in self._state['episodes']:
+            for key in ('actor_obs', 'action'):
+                e[key] = e[key].detach().cpu().contiguous()
         self.episodes = {r: [e for e in self._state['episodes']
                             if e['outcome']['layout']['target_region'] == r] for r in REGIONS}
 
