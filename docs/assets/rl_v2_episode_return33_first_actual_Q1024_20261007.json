@@ -1,0 +1,76 @@
+{
+  "recorded_at": "2026-10-07T17:41:56.952446+09:00",
+  "source_commit": "36b0c51491665e5c9e97c093320fc6fd50595dea",
+  "run_directory_name": "batch_sac_20261007_164353_8539b9",
+  "actor_updates": 0,
+  "critic_updates": 1024,
+  "checkpoint_SHA256": "62ecfc1825e8233ae1c0408feedd421c7226dbead3ab4d22dd82adce877b7787",
+  "all_model_tensors_finite": true,
+  "changed_tensor_counts": {
+    "q1.": 10,
+    "q2.": 10,
+    "target1.": 10,
+    "target2.": 10
+  },
+  "actor_and_actor_normalizer_exactly_unchanged": true,
+  "measured_train_credit": {
+    "name": "matching_actual_held_TRAIN_episode_return_v1",
+    "horizon": 900,
+    "capacity_per_region": 8192,
+    "batch_size": 64,
+    "critic_weight": 0.1,
+    "retained_successful_episodes_per_region": 1,
+    "source": "completed_matching_successful_and_failed_TRAIN_paths",
+    "sampling": "uniform_episodes_then_uniform_rows_within_available_region",
+    "online_target": "unchanged_one_step_SAC",
+    "off_policy_correction": false,
+    "intermediate_entropy_included": false,
+    "evaluation_import_allowed": false,
+    "episode_crossing_allowed": false,
+    "reward_relabeling": false,
+    "auxiliary_target": "actual_discounted_rewards_through_real_terminal_no_bootstrap",
+    "episode_length_bias_removed": true,
+    "bootstrap_allowed": false,
+    "terminal_and_timeout_rewards_unchanged": true,
+    "critic_weight_unchanged": true
+  },
+  "measured_train_credit_bank_report": {
+    "rows": 0,
+    "by_region": {
+      "shelf_2_right": {
+        "episodes": 0,
+        "successes": 0,
+        "failures": 0,
+        "rows": 0
+      },
+      "shelf_2_left": {
+        "episodes": 0,
+        "successes": 0,
+        "failures": 0,
+        "rows": 0
+      },
+      "shelf_3_right": {
+        "episodes": 0,
+        "successes": 0,
+        "failures": 0,
+        "rows": 0
+      },
+      "shelf_3_left": {
+        "episodes": 0,
+        "successes": 0,
+        "failures": 0,
+        "rows": 0
+      }
+    },
+    "TRAIN_only": true,
+    "evaluation_rows": 0,
+    "auxiliary_target": "actual_discounted_rewards_through_real_terminal_no_bootstrap",
+    "bootstrap_allowed": false,
+    "episode_length_bias_removed": true
+  },
+  "actual_online_one_step_Q_updates_NOT_yet_completed_episode_return_batch": true,
+  "no_live_HDF_or_replay_read": true,
+  "whole_learned_DEV_gain_NOT_claimed": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}

@@ -59,3 +59,26 @@ def test_failed_checksum_or_source_change_keeps_file(tmp_path,monkeypatch,condit
             file.write_bytes(b'changed')
     result=prune_experiment(parent,'test:HumanoidScene-RL',Changed())
     assert not result['removed'] and file.exists()
+
+
+@pytest.mark.parametrize('condition',['matching','different_command','different_output','conflicting_run'])
+def test_legacy_supervisor_requires_exact_run_command_binding(tmp_path,monkeypatch,condition):
+    parent,run=experiment(tmp_path)
+    command=['python','reference.py','--output-dir',str(run)]
+    launch={'command':command}
+    state=json.loads((parent/'status.json').read_text())
+    state.update(run_dir=str(run),command=command.copy())
+    if condition=='different_command':state['command'][1]='other.py'
+    if condition=='different_output':
+        launch['command'][-1]=str(parent/'other')
+        state['command']=launch['command'].copy()
+    if condition=='conflicting_run':launch['run']=str(parent/'other')
+    (parent/'launch.json').write_text(json.dumps(launch))
+    (parent/'status.json').write_text(json.dumps(state))
+    monkeypatch.setattr('prune_verified_payloads.process_inventory',lambda:([],set()))
+    if condition=='matching':
+        assert len(prune_experiment(parent,'test:HumanoidScene-RL',Verified())['removed'])==1
+    else:
+        with pytest.raises(ValueError):
+            prune_experiment(parent,'test:HumanoidScene-RL',Verified())
+        assert (run/'staged_goal_experience.pt').exists()

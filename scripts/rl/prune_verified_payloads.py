@@ -57,7 +57,22 @@ def closed_run(parent, commands):
     launch = json.loads((parent/'launch.json').read_text())
     if launch.get('backup_scope') == 'checkpoint_contract_logs_only':
         return None
-    run = Path(launch['run'])
+    recorded_run = launch.get('run')
+    if recorded_run is None:
+        # Earlier reference supervisors recorded the run in status, with the
+        # exact launch command repeated there. Require that binding rather
+        # than guessing a child directory or trusting a run name alone.
+        recorded_run = state.get('run_dir')
+        command = launch.get('command')
+        if not isinstance(command, list) or command != state.get('command') \
+                or command.count('--output-dir') != 1 or not recorded_run:
+            raise ValueError('Legacy run requires matching recorded launch command')
+        index = command.index('--output-dir')
+        if index + 1 >= len(command) or command[index + 1] != recorded_run:
+            raise ValueError('Legacy output directory must match recorded run')
+    elif state.get('run_dir') not in (None, recorded_run):
+        raise ValueError('Conflicting recorded run directories')
+    run = Path(recorded_run)
     if run.parent != parent or run.is_symlink() or not run.is_dir() or run.stat().st_uid != os.getuid():
         raise ValueError('Owned direct recorded run required')
     manifest = run/'manifest.json'
