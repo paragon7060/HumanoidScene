@@ -136,3 +136,11 @@ Actor·Q·온라인 replay·성공/n-step 은행은0이며 평가 데이터를 �
 기존 첫 TRAIN의3건보다 많은 수치를 잡음 축소의 인과적 효과로 단정하지 않는다.
 학습 후 전체 DEV와 상단 오른쪽 성공은 아직 확인 전이다.
 [첫 완료 TRAIN128·실제 성공9경로](assets/rl_v2_gentle_servo_first_complete_TRAIN128_20261007.json).
+
+이후 저장 완료된 actor256·Q3,072회 체크포인트를 보존했다. 초기 모델과
+비교해 actor6개 tensor, Q1·Q2·두 target 각각10개 tensor가 실제로 바뀌었고
+모든 모델과 성공 은행 값이 유한했다. Actor 정규화는 초기 값과 같고 같은
+실행의 안전한 성공9경로4,232행도 유지됐다. 실행 중 HDF/replay는 읽지 않았다.
+이는 실제 신경망 학습 갱신을 확인한 것이며 새 greedy 물리 성공률이 아니다.
+자신의 첫 학습 후 전체 DEV128개는 아직 확인 전이다.
+[실제 actor256·Q3072 모델 근거](assets/rl_v2_quarter_actual_actor256_Q3072_20261007.json).
