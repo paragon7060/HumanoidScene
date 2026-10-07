@@ -8,9 +8,50 @@ from pathlib import Path
 import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_reanchored_sac import ReanchoredActualFlapSACPilot
+from kuavo_isaaclab_scene.rl.multi_box.experiments.servo_success_retention import ServoRetentionGentleSACPilot
 from kuavo_isaaclab_scene.rl.multi_box.experiments.body_behavior_exploration import (
     VARIANT,GREEDY_REST_VARIANT,body_behavior_config,body_behavior_statistics)
 from prepare_actual_success_actor_tail import identical
+
+
+def prepare(initial, experience, *, source_checkpoint):
+    """Fork only empty initializations; a learned actor may already be seeded."""
+    if (initial.get('artifact_type') not in (
+            ReanchoredActualFlapSACPilot.artifact_type, ServoRetentionGentleSACPilot.artifact_type)
+            or initial['actor_updates'] or initial['critic_updates']
+            or len(initial['optimizers'])!=4 or any(o['state'] for o in initial['optimizers'])
+            or initial['model']['critic_normalizer.count']
+            or any(len(v) for v in experience['executed_goal_transitions'].values())
+            or any(initial['successful_train_transitions']['episodes'].values())
+            or not identical(initial['successful_train_transitions'],experience['successful_train_transitions'])
+            or initial.get('measured_train_credit')!=experience.get('measured_train_credit')
+            or experience['measured_train_credit_bank']['config']!=initial.get('measured_train_credit')
+            or any(experience['measured_train_credit_bank']['episodes'].values())):
+        raise ValueError('Fresh Q, all empty optimizers and matching empty reward-bearing banks are required')
+    previous=initial.get('body_behavior')
+    if previous is None:
+        pristine=all(value.get(key) is None for value in (initial,experience)
+            for key in ('body_behavior','body_behavior_statistics'))
+    else:
+        pristine=(previous==body_behavior_config(VARIANT)
+            and experience.get('body_behavior')==previous
+            and all(value.get('body_behavior_statistics')==body_behavior_statistics()
+                for value in (initial,experience)))
+    if initial['goal_contract']!=experience['goal_contract'] or not pristine:
+        raise ValueError('Matching pristine absent or original20% arm-behavior metadata required')
+    if any(not torch.isfinite(v).all() for v in initial['model'].values()):
+        raise ValueError('Finite initial models are required')
+    state,replay=deepcopy(initial),deepcopy(experience)
+    config=body_behavior_config(GREEDY_REST_VARIANT)
+    origin=dict(source_checkpoint=str(source_checkpoint),actor_updates_at_activation=0,
+        critic_updates_at_activation=0,old_replay_rows_at_activation=0,
+        model_Q_normalizers_and_four_optimizer_states_kept=True,
+        old_replay_kept_with_original_behavior=True,old_rows_not_relabelled=True,
+        scope='future_real_TRAIN_collection',source_checkpoint_behavior=previous)
+    for value in (state,replay):
+        value.update(body_behavior=deepcopy(config),body_behavior_origin=deepcopy(origin),
+            body_behavior_statistics=body_behavior_statistics())
+    return state,replay
 
 
 def main():
@@ -25,39 +66,13 @@ def main():
     hashes={str(x):hashlib.sha256(x.read_bytes()).hexdigest() for x in sources}
     state=torch.load(a.initial_checkpoint,map_location='cpu',weights_only=True)
     replay=torch.load(replay_path,map_location='cpu',weights_only=True)
-    if (state.get('artifact_type')!=ReanchoredActualFlapSACPilot.artifact_type
-            or state['actor_updates'] or state['critic_updates']
-            or len(state['optimizers'])!=4 or any(o['state'] for o in state['optimizers'])
-            or state['model']['critic_normalizer.count']
-            or any(len(v) for v in replay['executed_goal_transitions'].values())
-            or any(state['successful_train_transitions']['episodes'].values())
-            or any(replay['measured_train_credit_bank']['episodes'].values())):
-        raise ValueError('Fresh Q, all empty optimizers and empty reward-bearing banks are required')
-    previous=state.get('body_behavior')
-    if previous is None:
-        pristine=all(value.get(key) is None for value in (state,replay)
-            for key in ('body_behavior','body_behavior_statistics'))
-    else:
-        pristine=(previous==body_behavior_config(VARIANT)
-            and replay.get('body_behavior')==previous
-            and all(value.get('body_behavior_statistics')==body_behavior_statistics()
-                for value in (state,replay)))
-    if state['goal_contract']!=replay['goal_contract'] or not pristine:
-        raise ValueError('Matching pristine absent or original20% arm-behavior metadata required')
     physical=json.loads(a.training_manifest.read_text())
     contract=state['goal_contract']['physical_contract']
     if {k:physical.get(k) for k in contract}!=contract:
         raise ValueError('Source physical manifest differs')
     original=deepcopy(state)
-    config=body_behavior_config(GREEDY_REST_VARIANT)
-    origin=dict(source_checkpoint=str(a.initial_checkpoint),actor_updates_at_activation=0,
-        critic_updates_at_activation=0,old_replay_rows_at_activation=0,
-        model_Q_normalizers_and_four_optimizer_states_kept=True,
-        old_replay_kept_with_original_behavior=True,old_rows_not_relabelled=True,
-        scope='future_real_TRAIN_collection',source_checkpoint_behavior=previous)
-    for value in (state,replay):
-        value.update(body_behavior=deepcopy(config),body_behavior_origin=deepcopy(origin),
-            body_behavior_statistics=body_behavior_statistics())
+    state,replay=prepare(state,replay,source_checkpoint=a.initial_checkpoint)
+    config=state['body_behavior']
     assert identical(original['model'],state['model']) and identical(original['optimizers'],state['optimizers'])
     assert original['goal_contract']==state['goal_contract'] and original['config']==state['config']
     assert all(torch.isfinite(v).all() for v in state['model'].values())
