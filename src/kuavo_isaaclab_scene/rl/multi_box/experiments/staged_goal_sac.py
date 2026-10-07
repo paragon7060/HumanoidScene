@@ -504,6 +504,19 @@ class StagedGoalSACPilot:
         self.arm_behavior=(EpisodeArmExploration(num_envs,self.device,self.episode_arm_exploration)
                            if self.episode_arm_exploration is not None else None)
 
+    def successful_actor_options(self, update_actor):
+        options = {}
+        rows = tail_rows = 0
+        if self.success_bank is not None and self.success_bank.size and update_actor:
+            options = dict(successful_train=self.success_bank.sample_actor(64,self.device),
+                success_goal_weight=self.success_bank.config['actor_goal_mse_weight']/self.radius**2,
+                success_jaw_weight=self.success_bank.config['actor_jaw_nll_weight'])
+            rows = len(options['successful_train']['action'])
+            sampling = self.success_bank.config.get('actor_sampling')
+            tail_rows = round(rows*sampling['tail_fraction']) if sampling else 0
+        return options, dict(successful_train_actor_rows=rows,
+                             successful_train_actor_designated_tail_rows=tail_rows)
+
     def observe(self, previous, next_raw, next_critic, reward, terminated, index,*,supplemental=None,critic_episode_remaining=None):
         if not self.training:
             return
@@ -539,22 +552,13 @@ class StagedGoalSACPilot:
                                 labels[:,19:21]=(labels[:,19:21].clamp(-.999999,.999999).atanh()
                                                  *self.gripper_logit_scale).tanh()
                     teacher = dict(actor_obs=actual['actor_obs'], action=labels)
-                success_options={}
-                success_actor_rows=success_actor_tail_rows=0
-                if self.success_bank is not None and self.success_bank.size and update_actor:
-                    success_options=dict(successful_train=self.success_bank.sample_actor(64,self.device),
-                        success_goal_weight=self.success_bank.config['actor_goal_mse_weight']/self.radius**2,
-                        success_jaw_weight=self.success_bank.config['actor_jaw_nll_weight'])
-                    success_actor_rows=len(success_options['successful_train']['reward'])
-                    sampling=self.success_bank.config.get('actor_sampling')
-                    success_actor_tail_rows=round(success_actor_rows*sampling['tail_fraction']) if sampling else 0
+                success_options, success_actor_statistics = self.successful_actor_options(update_actor)
                 self.latest = self.agent.update(actual, teacher=teacher, teacher_weight=weight,
                     update_actor=update_actor, **success_options, **self.critic_auxiliary_options())
                 if self.success_bank is not None:
                     self.latest.update(successful_train_rows_in_Q_batch=success_rows,
                         successful_train_replay_fraction=self.success_replay_fraction,
-                        successful_train_actor_rows=success_actor_rows,
-                        successful_train_actor_designated_tail_rows=success_actor_tail_rows)
+                        **success_actor_statistics)
                 if update_actor:
                     self.latest_actor = dict(self.latest, critic_update=self.critic_updates+1)
                 self.actor_updates += int(update_actor)

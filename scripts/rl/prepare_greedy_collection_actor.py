@@ -14,10 +14,11 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.body_behavior_exploration imp
 from prepare_actual_success_actor_tail import identical
 
 
-def require_pristine_learning_state(initial, experience):
+def require_pristine_learning_state(initial, experience, *, artifact_types=None):
     """Reject reward-bearing state before changing a fresh learner contract."""
-    if (initial.get('artifact_type') not in (
-            ReanchoredActualFlapSACPilot.artifact_type, ServoRetentionGentleSACPilot.artifact_type)
+    allowed = artifact_types or (
+        ReanchoredActualFlapSACPilot.artifact_type, ServoRetentionGentleSACPilot.artifact_type)
+    if (initial.get('artifact_type') not in allowed
             or initial['actor_updates'] or initial['critic_updates']
             or len(initial['optimizers'])!=4 or any(o['state'] for o in initial['optimizers'])
             or initial['model']['critic_normalizer.count']

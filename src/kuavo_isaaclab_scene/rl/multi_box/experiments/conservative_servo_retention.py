@@ -18,9 +18,10 @@ def conservative_actor_contract():
         learned_optimizer_or_reward_data_imported=False)
 
 
-def validate_conservative_actor_state(state):
+def validate_conservative_actor_state(state, *, artifact_type=None):
     config = state.get('config', {})
-    if (state.get('artifact_type') != ConservativeServoRetentionSACPilot.artifact_type
+    expected = artifact_type or ConservativeServoRetentionSACPilot.artifact_type
+    if (state.get('artifact_type') != expected
             or state.get('goal_contract', {}).get('actor_update_step') != conservative_actor_contract()
             or (config.get('actor_lr'), config.get('lr')) != (ACTOR_LR, CRITIC_ALPHA_LR)):
         raise ValueError('Conservative actor checkpoint configuration differs')
@@ -38,7 +39,8 @@ class ConservativeServoRetentionSACPilot(ServoRetentionGentleSACPilot):
     def __init__(self, *args, checkpoint=None, device='cpu', **kwargs):
         if checkpoint is not None:
             import torch
-            validate_conservative_actor_state(torch.load(checkpoint, map_location=device, weights_only=True))
+            validate_conservative_actor_state(torch.load(checkpoint, map_location=device, weights_only=True),
+                                              artifact_type=self.artifact_type)
         super().__init__(*args, checkpoint=checkpoint, device=device, **kwargs)
 
     def learning_config(self, config):

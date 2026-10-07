@@ -54,9 +54,20 @@ def restored_agent(state):
     from kuavo_isaaclab_scene.rl.multi_box.experiments.conservative_servo_retention import (
         ConservativeServoRetentionSACPilot, validate_conservative_actor_state,
     )
-    conservative = state.get('artifact_type') == ConservativeServoRetentionSACPilot.artifact_type
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.actor_memory_servo_retention import ActorMemoryServoRetentionSACPilot
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.actor_train_memory import (
+        ActorTrainMemory, actor_memory_contract, compatibility_contract, structure_sha256,
+    )
+    memory = state.get('artifact_type') == ActorMemoryServoRetentionSACPilot.artifact_type
+    if memory:
+        if state['goal_contract'].get('actor_training_memory') != actor_memory_contract():
+            raise ValueError('Saved actor-only TRAIN memory contract differs')
+        ActorTrainMemory(state['actor_training_memory'],
+            compatibility=compatibility_contract(state['goal_contract']),
+            frozen_anchor_SHA256=structure_sha256(state['body_anchor_state']))
+    conservative = memory or state.get('artifact_type') == ConservativeServoRetentionSACPilot.artifact_type
     if conservative:
-        validate_conservative_actor_state(state)
+        validate_conservative_actor_state(state, artifact_type=state['artifact_type'])
     contract = state['goal_contract']
     critic_dim = 578 if state.get('critic_episode_clock') is not None else 577
     if (contract['actor_dim'], contract['critic_dim'], state['action_dim']) != (518, critic_dim, 21):

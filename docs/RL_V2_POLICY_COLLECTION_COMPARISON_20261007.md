@@ -97,3 +97,9 @@ CPU trainer에서 확인했고, 실행의 체크포인트0 직접 비교는 첫 
 관련 코드: [초기 수집 방식 변경](../scripts/rl/prepare_greedy_collection_actor.py),
 [읽기 전용 제어기 진단](../scripts/rl/audit_servo_actor_gradients.py),
 [학습 데이터 오염 거부 검사](../tests/test_rl_pristine_greedy_collection.py).
+
+첫 전체 학습DEV4는 **27→21/128(중간 좌9·우12, 상단 양쪽0)**이었다. 랙64·낙하2·
+과도한 들기3·시간 초과37·초기 무효1건이다. 공통 유효116조건에서도27→19건으로
+줄었다. 같은 actor705/Q4868 모델로 묶은 [전체 평가](assets/rl_v2_return33_greedy80_first_full_DEV_20261007.json)를
+확인했으며 자기 초기 성능을 넘지 못했다. 별도의 [과거 성공 TRAIN actor 기억 연결](RL_V2_ACTOR_TRAIN_MEMORY_20261007.md)도
+준비했고 기존 Q·보상 전이는 가져오지 않는다.
