@@ -73,6 +73,24 @@ flap 직사각형 영역 안에 투영해 접촉점 하나를 선택한다. Norm
 새 접촉·들기 성공으로 표시하지 않는다.
 [원래 실제 입력에서의 제안 검사](assets/rl_v2_cartesian_region_closed_success_rehearsal_20261008.json).
 
+### 후속 진단 v2 실제 시작
+
+13:01 KST에 GPU0의 고유 실행을 시작했다. 13:05에 실제 writer2332935의
+소유자·고유 경로·CUDA_VISIBLE_DEVICES=0과 원래448개 Python SHA256,
+새 진단 tag·원래전체128요청·접근 후보8개·물리/보상/DR/안전 계약 일치를
+확인했다. 폴더는`GPU0_actual_flap_region_contact_frozen_TRAIN128_20261008_130058/`
+`batch_sac_20261008_130059_2149c5`다. 당시 초기화 중이고 실제 control report와
+새 접촉 결과는 아직 없었다. 시작 확인을 보정 실행 또는 성공으로 집계하지 않는다.
+CPU 전용 확인기2356472는 같은 writer의 정상 종료 후에만 모델198개·소스448개·
+원래 전체128결과를 판정한다. GPU3 여섯 조합 writer3987840은 계속 학습하고
+small Q 보강 비교는23/128로 정상 종료했다. 원래 프로세스를 종료하지 않았다.
+[실제 시작·manifest·확인 범위](assets/rl_v2_cartesian_region_actual_startup_20261008.json).
+
+Notion 보고서에는 이전 진단의 재생 가능한 영상2개와 실제 성공 영역을 토대로
+바꾼 방법, 전체 학습 평가11→10→7회와 small 비교23회를 구분해 기록했다.
+기존media58개 내용·순서와 native표5개를 보존하고 새 native영상2개를 확인했다.
+[Notion·기존 자료·새 영상 확인](assets/rl_v2_cartesian_region_and_latest_DEVs_Notion_verification_20261008.json).
+
 ## 확인한 원인
 
 정상 종료한 이전 진단의 두 중형 사례에서 손–flap 거리 증가를 분해했다.
