@@ -54,7 +54,7 @@ Actor/Q/replay는0이고 모델·normalizer198개 고정 검사를 재사용한�
 
 기존 Google Drive wrapper·300초 검사·최근2개 보호를 재사용한다. 인증 오류가
 계속되면 미검증 checkpoint를 유지한다. 다른 사용자의 파일·프로세스와 기존
-학습 소스 worktree는 건드리지 않는다. 실행 후 고유 폴더와 실제 PID를 추가한다.
+학습 소스 worktree는 건드리지 않는다. 아래 실제 시작 기록에 고유 폴더와 PID를 기록했다.
 
 ## 실행 전 확인
 
@@ -64,3 +64,19 @@ hook 복구·기존 waypoint/Q 준비 거부를 확인했다. 추가로 정상 �
 실제 입력411행에서 보정 제안을 계산했다. 모델·HDF는 그대로였고 원래 decoder와
 비팔 명령이 일치했다. 제안을 물리적으로 실행한 데이터나 학습 성공으로 표시하지
 않는다. [실제 입력의 오프라인 제안 확인](assets/rl_v2_cartesian_probe_closed_state_rehearsal_20261008.json).
+
+## 실제 시작 확인
+
+10/08 11:34 KST에 별도GPU0 실행을 시작했다. 실제 writer1476893의 소유자·고유
+경로·CUDA_VISIBLE_DEVICES=0을 확인했다. 폴더는
+`GPU0_actual_flap_cartesian_contact_frozen_TRAIN128_20261008_113429/`
+`batch_sac_20261008_113431_535efb`다. Manifest의 진단 tag·원래128요청 일치와
+원래447개 Python source SHA256을 확인했다. 전체 물리 결과·종료 후198개
+모델 고정 검증은 대기 중이다. GPU3의 여섯 조합 SAC와 Q 보강 SAC는 유지했다.
+[실제 PID·장치·원래 요청·검증 범위](assets/rl_v2_cartesian_probe_actual_startup_20261008.json).
+
+11:46 KST에는 같은 writer가 실제 control step121·13,794행까지 진행했고
+유효한114환경 모두 base 정착 이후 단계에 들어갔다. Actor/Q/온라인 replay는
+모두0이다. 측정 관절로 계산한 TCP의 실시간 최대 위치 차이는0.0163mm다.
+이 시점에는 두 손22cm 진입 조건을 만족한 환경과 보정 명령 행이 아직0이므로
+물리 rollout 시작과 보정 성공을 구분한다. 전체128 종료 결과는 아직 없다.

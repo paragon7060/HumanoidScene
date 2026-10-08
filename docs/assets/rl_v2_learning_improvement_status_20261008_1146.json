@@ -1,0 +1,152 @@
+{
+  "recorded_at": "2026-10-08T11:47:36.295308+09:00",
+  "jobs": [
+    {
+      "role": "all6_SAC",
+      "source_commit": "8b061dbee5e2c8fbb2a9a09def81f99fc0133a27",
+      "run_directory_name": "batch_sac_20261008_084131_164876",
+      "writer_pid": 3987840,
+      "writer_owner_run_CUDA_verified": true,
+      "physical_gpu": 3,
+      "phase": "training",
+      "training_exit_code": null,
+      "progress_recorded_at": "2026-10-08T11:45:09.633637+09:00",
+      "current": {
+        "wave": 6,
+        "split": "train",
+        "step": 841,
+        "active": 60,
+        "held": 60,
+        "actual_rows": 612278
+      },
+      "learner": {
+        "training": true,
+        "actor_updates": 1508,
+        "critic_updates": 8080,
+        "online_rows": 392316,
+        "replay_size": 392316
+      },
+      "actual_probe_statistics": null,
+      "whole_completed_DEVs": [
+        {
+          "wave": 0,
+          "requested": 128,
+          "success": 11,
+          "unsafe": 49,
+          "time_out": 55,
+          "initial_invalid": 13
+        },
+        {
+          "wave": 4,
+          "requested": 128,
+          "success": 10,
+          "unsafe": 51,
+          "time_out": 67,
+          "initial_invalid": 0
+        }
+      ]
+    },
+    {
+      "role": "small_Q_support_SAC",
+      "source_commit": "ddef524881a0864c2c8677526653c00ab40a0d30",
+      "run_directory_name": "batch_sac_20261008_054847_43dca8",
+      "writer_pid": 2318510,
+      "writer_owner_run_CUDA_verified": true,
+      "physical_gpu": 3,
+      "phase": "training",
+      "training_exit_code": null,
+      "progress_recorded_at": "2026-10-08T11:46:59.786633+09:00",
+      "current": {
+        "wave": 14,
+        "split": "train",
+        "step": 151,
+        "active": 128,
+        "held": 128,
+        "actual_rows": 1171607
+      },
+      "learner": {
+        "training": true,
+        "actor_updates": 3562,
+        "critic_updates": 16296,
+        "online_rows": 733343,
+        "replay_size": 500000
+      },
+      "actual_probe_statistics": null,
+      "whole_completed_DEVs": [
+        {
+          "wave": 0,
+          "requested": 128,
+          "success": 35,
+          "unsafe": 49,
+          "time_out": 33,
+          "initial_invalid": 11
+        },
+        {
+          "wave": 4,
+          "requested": 128,
+          "success": 22,
+          "unsafe": 65,
+          "time_out": 40,
+          "initial_invalid": 1
+        },
+        {
+          "wave": 8,
+          "requested": 128,
+          "success": 16,
+          "unsafe": 70,
+          "time_out": 41,
+          "initial_invalid": 1
+        },
+        {
+          "wave": 12,
+          "requested": 128,
+          "success": 18,
+          "unsafe": 64,
+          "time_out": 45,
+          "initial_invalid": 1
+        }
+      ]
+    },
+    {
+      "role": "frozen_Cartesian_diagnostic_NOT_SAC",
+      "source_commit": "78649dac0fefee26a94e5b3b37cc315a593ea95a",
+      "run_directory_name": "batch_sac_20261008_113431_535efb",
+      "writer_pid": 1476893,
+      "writer_owner_run_CUDA_verified": true,
+      "physical_gpu": 0,
+      "phase": "training",
+      "training_exit_code": null,
+      "progress_recorded_at": "2026-10-08T11:46:40.683634+09:00",
+      "current": {
+        "wave": 0,
+        "split": "train",
+        "step": 151,
+        "active": 114,
+        "held": 114,
+        "actual_rows": 17214
+      },
+      "learner": {
+        "training": false,
+        "actor_updates": 0,
+        "critic_updates": 0,
+        "online_rows": 0,
+        "replay_size": 0
+      },
+      "actual_probe_statistics": {
+        "held_rows": 8276,
+        "handoff_episodes": 0,
+        "guided_rows": 0,
+        "guided_close_rows": 0,
+        "confirmed_lift_episodes": 0,
+        "affine_arm_goal_clamped_rows": 0,
+        "measured_fk_max_position_error_m": 1.6280935597023927e-05
+      },
+      "whole_completed_DEVs": []
+    }
+  ],
+  "interpretation": "All-six 11 to 10 of original128; medium success remains0. Small-only Q-support16 to18, below initial35; stable improvement unproven. Frozen Cartesian run is not learned SAC and whole result remains pending.",
+  "no_active_HDF_or_replay_read": true,
+  "no_process_signalled": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}
