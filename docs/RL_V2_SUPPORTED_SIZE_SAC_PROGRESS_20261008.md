@@ -19,9 +19,12 @@
 시작했다. 팔14목표를URDF 범위로 표현하고 Q/replay·성공/return bank는 새로
 시작한다. Fresh TRAIN6,144조건·버퍼200만으로 늘렸으며 여섯 조합·원래 전체
 DEV128·box/base/배경/움직이는 flap 무작위화·성공과 안전 기준은 유지한다.
-16:21 KST 실제 writer3758401은 초기 DEV0 step361에서 actor/Q/online0이며
-새 전체 평가·학습 후 성능은 아직 미확인이다. 기존 실행을 수정하거나 교사의
-unbounded goal을 기존 Q에 넣지 않았다. 독립FINAL은 아직 사용하지 않았다.
+16:38 KST 새 초기 전체 DEV는 **성공14·안전 위반45·시간 초과56·초기 무효13회**로
+완료했다. 실제 저장 모델·normalizer74개가 입력과 같고 checkpoint256개 tensor는
+유한했다. Actor/Q0인 새 초기 기준이며 기존 실행과 학습 개선으로 비교하지
+않는다. 중형은양쪽0회이고16:40 KST 같은 writer가 새TRAIN으로 넘어갔다.
+기존 실행을 수정하거나 교사의unbounded goal을 기존 Q에 넣지 않았다.
+대표small 성공·medium 랙 충돌 영상을 위 방법 문서에 보존했다. 독립FINAL은미사용이다.
 
 ## TRAIN1,152 뒤 세 번째 평가 기록: 성공6/128
 
