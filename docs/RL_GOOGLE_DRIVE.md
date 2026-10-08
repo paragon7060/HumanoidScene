@@ -161,6 +161,29 @@ python3 scripts/rl/drive_backup.py \
 
 ### 종료된 관리자의 대용량 업로드 재시도
 
+`finalize_with_drive.py`는 원래`launch.json.backup_scope`를 보존한다.
+`checkpoint_contract_logs_only`이면 체크포인트·계약·종료 로그만 검증하며
+raw HDF/replay/영상은 업로드하거나 삭제하지 않는다. 기존 payload 백업은
+그대로 유지하고 알 수 없는 scope는 거부한다.
+
+종료된 실험 여러 개의 최종 백업은 CPU 대기열 하나로 재시도할 수 있다.
+`scripts/rl/finalize_drive_queue.py`는 명시한 각 실험의 원래 writer와 supervisor가
+모두 종료된 것을 확인하고, 기존 연결을300초마다 검사한다. 살아 있는 원래
+관리자·전송은 건드리지 않으며 그 관리자가 검증을 완료하면 재업로드를 생략한다.
+이 worker 자체에는 프로세스 종료나 인증 생성 기능이 없다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' python3 scripts/rl/finalize_drive_queue.py \
+  --queue /absolute/path/to/closed-backup-queue.json --retry-seconds 300
+```
+
+대기열 형식은`closed_managed_Drive_backups_v1`이며`entries`의 각 항목에
+`experiment_dir`·`run_dir`의 절대 경로, 원래`training_pid`·`supervisor_pid`,
+`backup_scope`를 기록한다. 서로 다른 소유자·중복 경로·symlink·신원이나 scope
+변경을 거부한다. 결과는 대기열 옆`.status.json`에 기록한다. 실패 원본은 남기고
+기존 uploader의 체크섬 검증·최신2개 보호 규칙만 사용한다. 문서나 준비된
+대기열의 존재를 실행 근거로 삼지 않는다.
+
 오래 실행된 관리자가 이전600초 또는1MiB/s 제한 코드를 메모리에 가진 채 재시도하는 경우,
 새 CPU 프로세스에서 `scripts/rl/finalize_with_drive.py`를 실행하면 현재 파일 크기별
 시간 제한을 적용할 수 있다. **기록된 GPU writer와 원래 CPU supervisor가 모두

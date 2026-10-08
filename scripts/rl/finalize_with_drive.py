@@ -12,7 +12,7 @@ import subprocess
 import time
 
 from drive_backup import ROOT
-from reference_residual_with_drive import archive_pilot
+from batched_staged_goal_with_drive import archive_batched
 from train_with_drive import write_status
 
 
@@ -42,6 +42,37 @@ def validate_closed_run(parent):
     return run,state
 
 
+def backup_scope(parent):
+    """Preserve the original manager's explicit payload scope on recovery."""
+    launch=Path(parent)/'launch.json'
+    if launch.is_symlink():
+        raise ValueError('Original launch metadata cannot be a symlink')
+    scope=json.loads(launch.read_text()).get('backup_scope','pilot_payloads') if launch.exists() else 'pilot_payloads'
+    if scope not in ('pilot_payloads','checkpoint_contract_logs_only'):
+        raise ValueError('Unknown original backup scope; do not widen it on recovery')
+    return scope
+
+
+def finalize_once(parent,remote_root):
+    """One locked, checksum-verified attempt; failure preserves local sources."""
+    parent=Path(parent).resolve()
+    validate_closed_run(parent)
+    with (parent/'.drive-finalize.lock').open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        run,state=validate_closed_run(parent)
+        scope=backup_scope(parent)
+        if state.get('phase')=='finished' and state.get('final_upload_verified'):
+            return run
+        write_status(parent,phase='final_upload',finalizer_pid=os.getpid(),
+                     finalizer_started_at=datetime.now().astimezone().isoformat(),
+                     finalizer_backup_scope=scope)
+        archive_batched(run,remote_root,True,
+            checkpoint_log_only=scope=='checkpoint_contract_logs_only')
+        write_status(parent,phase='finished',final_upload_verified=True,backup_error=None,
+                     finalizer_finished_at=datetime.now().astimezone().isoformat())
+        return run
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--experiment-dir',type=Path,required=True)
@@ -57,25 +88,19 @@ def main():
         args.remote_root=names[0]+'HumanoidScene-RL'
     if not re.fullmatch(r'[\w-]+:HumanoidScene-RL',args.remote_root.rstrip('/')):
         parser.error('Dedicated HumanoidScene-RL destination required')
-    with (parent/'.drive-finalize.lock').open('a') as lock:
-        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        write_status(parent,phase='final_upload',finalizer_pid=os.getpid(),
-                     finalizer_started_at=datetime.now().astimezone().isoformat())
-        while True:
-            run,_=validate_closed_run(parent)
-            try:
-                archive_pilot(run,args.remote_root,True)
-            except Exception as error:
-                # Keep credentials and the host-specific remote alias out of
-                # diagnostics. Local source files are retained on failure.
-                write_status(parent,backup_error=type(error).__name__)
-                print(f'[Finalize] Upload failed ({type(error).__name__}); retrying in {args.retry_seconds}s',flush=True)
-                time.sleep(args.retry_seconds)
-                continue
-            write_status(parent,phase='finished',final_upload_verified=True,backup_error=None,
-                         finalizer_finished_at=datetime.now().astimezone().isoformat())
-            print('[Finalize] Closed checkpoints, logs and replay verified; original training exit code preserved.',flush=True)
-            return 0
+    while True:
+        validate_closed_run(parent)
+        try:
+            finalize_once(parent,args.remote_root)
+        except Exception as error:
+            # Keep credentials and the host-specific remote alias out of
+            # diagnostics. Local source files are retained on failure.
+            write_status(parent,backup_error=type(error).__name__)
+            print(f'[Finalize] Upload failed ({type(error).__name__}); retrying in {args.retry_seconds}s',flush=True)
+            time.sleep(args.retry_seconds)
+            continue
+        print('[Finalize] Closed payloads verified within the original backup scope; training exit code preserved.',flush=True)
+        return 0
 
 
 if __name__=='__main__':raise SystemExit(main())

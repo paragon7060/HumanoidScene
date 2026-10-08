@@ -58,3 +58,37 @@ def test_symlinked_run_is_rejected(closed):
     state['run_dir']=str(link);(parent/'status.json').write_text(json.dumps(state))
     with pytest.raises(ValueError,match='non-symlink'):
         recovery.validate_closed_run(parent)
+
+
+@pytest.mark.parametrize('scope,checkpoint_only',[
+    ('checkpoint_contract_logs_only',True),('pilot_payloads',False),(None,False)])
+def test_final_retry_preserves_original_backup_scope(closed,monkeypatch,scope,checkpoint_only):
+    parent,run,state=closed
+    if scope is not None:(parent/'launch.json').write_text(json.dumps(dict(backup_scope=scope)))
+    calls=[]
+    monkeypatch.setattr(recovery,'archive_batched',lambda *a,**kw:calls.append((a,kw)))
+    assert recovery.finalize_once(parent,'example:HumanoidScene-RL')==run
+    assert calls==[((run,'example:HumanoidScene-RL',True),dict(checkpoint_log_only=checkpoint_only))]
+    actual=json.loads((parent/'status.json').read_text())
+    assert actual['training_exit_code']==state['training_exit_code']
+    assert actual['phase']=='finished' and actual['final_upload_verified']
+    assert actual['stop_reason']=='low_disk_space'
+
+
+def test_unknown_scope_cannot_widen_payloads(closed,monkeypatch):
+    parent,_,state=closed
+    (parent/'launch.json').write_text(json.dumps(dict(backup_scope='unknown')))
+    monkeypatch.setattr(recovery,'archive_batched',lambda *a,**kw:pytest.fail('Must not upload'))
+    with pytest.raises(ValueError,match='scope'):recovery.finalize_once(parent,'example:HumanoidScene-RL')
+    assert json.loads((parent/'status.json').read_text())==state
+
+
+def test_failed_upload_retains_local_source_and_original_exit(closed,monkeypatch):
+    parent,run,state=closed;checkpoint=run/'checkpoint_00000001.pt';checkpoint.write_bytes(b'not yet backed up')
+    def fail(*args,**kwargs):raise RuntimeError('disconnected')
+    monkeypatch.setattr(recovery,'archive_batched',fail)
+    with pytest.raises(RuntimeError):recovery.finalize_once(parent,'example:HumanoidScene-RL')
+    actual=json.loads((parent/'status.json').read_text())
+    assert actual['training_exit_code']==state['training_exit_code']
+    assert actual['phase']=='final_upload' and not actual.get('final_upload_verified')
+    assert checkpoint.read_bytes()==b'not yet backed up'
