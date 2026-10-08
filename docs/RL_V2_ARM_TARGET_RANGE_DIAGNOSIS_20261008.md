@@ -86,3 +86,12 @@ V2는13:39 KST에 성공0/128로 정상 종료했다. 종료 당시 source448개
 격리 source를 사용하므로 main 통합으로 활성URDF 또는GPU3 코드를 바꾸지 않는다.
 [V2 전체 종료 근거](assets/rl_v2_cartesian_region_full128_closed_20261008.json),
 [Notion 정적 그림·기존61개 media와5개 표 확인](assets/rl_v2_arm_range_Notion_verification_20261008.json).
+
+## 탐색이 실제 명령에 전달되는지 추가 확인
+
+별도 정상 종료 small TRAIN1,531경로의 성공·충돌·시간 초과를 모두 분석했다.
+현재 최종 정책을 과거 상태에 적용했을 때 팔 미분 차단은 일부 있지만, Gaussian과
+기존 arm bias도 실제 명령을 바꾼다. 제어기 clipping을 없애거나 탐색 크기를
+더 키워야 한다고 단정하지 않는다. 이 단일 상태 분석은 실제 rollout이나 과거
+정책 복원이 아니다. URDF 진단의 원래 전체 물리 결과를 계속 확인한다.
+[실패 포함 분석과 재현](RL_V2_FAILED_TRAIN_SERVO_DIAGNOSIS_20261008.md).
