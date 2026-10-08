@@ -18,7 +18,7 @@ import numpy as np
 import torch
 
 from audit_servo_actor_gradients import load_owned
-from export_eval_q_videos import restored_agent, sha256
+from export_eval_q_videos import recorded_held_box_anchor, restored_agent, sha256
 from kuavo_isaaclab_scene.rl.multi_box.experiments.physical_body_actions import body_command
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import staged_context
 
@@ -60,8 +60,7 @@ def samples(source, state, prior, *, group_by_box_type=False):
             stage = SimpleNamespace(phase='held_grasp', manipulation_start=start,
                 target_xy=torch.tensor([base['base_target_xy_rack_m']]),
                 target_yaw=base['base_target_yaw_rack_rad'])
-            initial = torch.from_numpy(episode['initial_state/observations/policy'][:])[None]
-            anchor = prior.coordinates.box_anchor(initial)
+            anchor = recorded_held_box_anchor(prior, rows, start)
             spans = {'early': np.arange(start, min(n, start + 8)),
                      'middle': np.unique(np.linspace(start, n - 1, min(n - start, 8)).astype(int)),
                      'late': np.arange(max(start, n - 8), n)}

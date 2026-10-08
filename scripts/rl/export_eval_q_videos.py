@@ -44,6 +44,21 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def recorded_held_box_anchor(prior, rows, start):
+    """Match BatchedBaseStages: freeze the box anchor at the first held row.
+
+    The selected box can move while the base approaches. The episode's
+    pre-approach snapshot is therefore not the actor's held anchor.
+    """
+    raw_rows = rows['actor_obs']
+    if type(start) is not int or not 0 <= start < len(raw_rows):
+        raise ValueError('A recorded first held control row is required')
+    raw = torch.from_numpy(np.asarray(raw_rows[start]))[None]
+    if raw.shape != (1, 464) or not torch.isfinite(raw).all():
+        raise ValueError('The held anchor requires finite measured actor464')
+    return prior.coordinates.box_anchor(raw)
+
+
 def restored_agent(state):
     from kuavo_isaaclab_scene.rl.multi_box.observations.task_timing import resolve_critic_episode_clock
     if resolve_critic_episode_clock(state) != state['goal_contract'].get('critic_episode_clock'):
@@ -196,8 +211,7 @@ def episode_values(episode, outcome, state, agent, prior):
     stage = SimpleNamespace(phase='held_grasp', manipulation_start=start,
         target_xy=raw.new_tensor([base['base_target_xy_rack_m']]),
         target_yaw=base['base_target_yaw_rack_rad'])
-    initial = torch.from_numpy(episode['initial_state/observations/policy'][:])[None]
-    anchor = prior.coordinates.box_anchor(initial)
+    anchor = recorded_held_box_anchor(prior, rows, start)
     raw = raw[start:]
     clock_index = torch.arange(len(raw))
     config = prior.state
