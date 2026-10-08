@@ -20,12 +20,14 @@ from ....robots.end_effector import closed_closing_axes
 from ....workcell.workcell_layout import RACK_RAW_BOUNDS_M, scale as workcell_scale
 
 
-def perceived_contact_contract(*, settled_close=False, precise_feedback=False, motion_feedback=False):
+def perceived_contact_contract(*, settled_close=False, precise_feedback=False, motion_feedback=False, upright_feedback=False):
     if type(settled_close) is not bool:raise ValueError('Explicit settled-close variant required')
     if type(precise_feedback) is not bool or (precise_feedback and not settled_close):
         raise ValueError('Precise feedback requires the explicit settled-close variant')
     if type(motion_feedback) is not bool or (motion_feedback and not precise_feedback):
         raise ValueError('Motion feedback requires the explicit precise-feedback variant')
+    if type(upright_feedback) is not bool or (upright_feedback and not motion_feedback):
+        raise ValueError('Upright feedback requires the explicit motion-feedback variant')
     result=dict(name='TRAIN_arm20_perceived_contact_attempt_v1',
         scope='selected_original20percent_actual_TRAIN_episodes_only',
         selection='existing_gentle_arm_episode_mask_no_second_draw',
@@ -74,6 +76,19 @@ def perceived_contact_contract(*, settled_close=False, precise_feedback=False, m
             panel_motion_coordinates='measured_rack_frame_consecutive_held_ticks_same_phase',
             position_task_increment_cap_m_per_tick=.01,
             closing_reacquisition_and_measured_lift_gates_unchanged=True)
+    if upright_feedback:
+        result.update(name='TRAIN_arm20_upright_contact_attempt_v5',
+            torso_goal='measured_handoff_bounded_actual_upright_IK_stage_adjustment_then_hold',
+            torso_source_clock_rise_overridden_only_in_selected_guided_TRAIN=True,
+            torso_stage_increment_cap_m_per_tick=.001,
+            torso_local_handoff_radius_XZ_m=[.03, .05],
+            torso_actual_software_and_policy_goal_support_intersected=True,
+            torso_finite_difference_actual_IK_FK_Jacobian=True,
+            torso_stage_regularization=.2, stage_orientation_weight_m=.1,
+            closing_orientation_weight_m=.04, fixed_measured_reset_pitch=True,
+            actor_Q_targets_density_entropy_and_greedy_eval_unchanged=False,
+            SAC_upright_support_and_density_connected=True,
+            evaluated_policy_never_uses_contact_explorer=True)
     return result
 
 
@@ -93,13 +108,18 @@ def contact_statistics(saved=None):
 
 
 class PerceivedContactExploration:
-    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False,motion_feedback=False):
+    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False,motion_feedback=False,upright_feedback=False):
         if type(num_envs) is not int or num_envs<1:
             raise ValueError('Positive global environment count required')
-        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback,motion_feedback=motion_feedback)
+        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback,motion_feedback=motion_feedback,upright_feedback=upright_feedback)
         self.settled_close=settled_close
         self.precise_feedback=precise_feedback
         self.motion_feedback=motion_feedback
+        self.upright_feedback=upright_feedback
+        self.upright_control=None
+        if upright_feedback:
+            from .upright_contact_control import UprightContactControl
+            self.upright_control=UprightContactControl(num_envs,raw)
         self.kinematics=TensorArmKinematics(device=raw.device,dtype=raw.dtype)
         self.axes=raw.new_tensor([closed_closing_axes()[s] for s in ('left','right')])
         self.phase=torch.full((num_envs,),-1,dtype=torch.long,device=raw.device)
@@ -136,6 +156,7 @@ class PerceivedContactExploration:
         if not torch.isfinite(clocks).all() or (clocks<0).any():
             raise ValueError('Measured nonnegative held clocks required')
         reset=clocks<self.last_clock[ids]
+        if self.upright_control is not None:self.upright_control.reset(ids[reset])
         self.phase[ids[reset]]=-1;self.closed_ticks[ids[reset]]=0
         self.closing[ids[reset]]=False;self.settled_ticks[ids[reset]]=0
         self.closure_initialized[ids[reset]]=False
@@ -165,6 +186,7 @@ class PerceivedContactExploration:
             self.contact_offsets[ids[handoff]]=contact_region_offsets(selected[handoff],halves[rows,flaps][handoff])
             self.assignment[ids[handoff]]=assignment[handoff]
             self.started[ids[handoff]]=clocks[handoff];self.phase[ids[handoff]]=0
+            if self.upright_control is not None:self.upright_control.begin(ids[handoff],raw[handoff],pilot)
             self.statistics['handoff_episodes']+=int(handoff.sum())
         expired=chosen&(self.phase[ids]>=0)&(self.phase[ids]<3)&(
             ((clocks-self.started[ids])>=self.contract['max_guided_control_ticks'])|
@@ -255,6 +277,9 @@ class PerceivedContactExploration:
         task_error=torch.cat((displacement,.04*angular),-1)
         regularized=task_J.transpose(-1,-2)@task_J+.0025*torch.eye(7,device=raw.device,dtype=raw.dtype)
         dq=torch.linalg.solve(regularized,(task_J.transpose(-1,-2)@task_error[...,None])).squeeze(-1).clamp(-.02,.02)
+        if self.upright_control is not None:
+            dq,torso_goals=self.upright_control.solve(self,pilot,raw,ids,guided,displacement,angular,J,p,projector)
+            requested[guided,17:19]=torso_goals[guided]
         measured_q=torch.stack([raw[:,cols] for cols in self.kinematics.columns],1)
         pending=raw[:,:20]+raw[:,416:436]
         pending_q=torch.stack([pending[:,cols] for cols in self.kinematics.columns],1)
@@ -269,9 +294,9 @@ class PerceivedContactExploration:
         requested=pilot.agent.action_projector(actor,requested)
         decoded=held_goal_coordinates(pilot.coordinates,raw,pilot.center+pilot.scale*requested,pilot.stage)
         command=torch.where(guided[:,None],decoded,physical)
-        untouched=[0,1,2,3,18,19,22,23]
+        untouched=[0,1,2,3,22,23] if self.upright_feedback else [0,1,2,3,18,19,22,23]
         if not torch.allclose(command[:,untouched],physical[:,untouched],atol=2e-5,rtol=0):
-            raise ValueError('Contact exploration changed base/waist/torso/head')
+            raise ValueError('Contact exploration changed a protected base/waist/head channel')
         if not torch.isfinite(command).all() or command.abs().max()>1.00001:
             raise ValueError('Invalid physically bounded contact exploration command')
         self.statistics['guided_rows']+=int(guided.sum())

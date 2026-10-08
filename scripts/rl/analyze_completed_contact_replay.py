@@ -40,8 +40,11 @@ assert all(torch.isfinite(t).all() for t in data.values())
 coordinates=PoseGoalCoordinates(exact_projected_base=True)
 contract=s['goal_contract'];pilot=SimpleNamespace(coordinates=coordinates,center=torch.tensor(contract['goal_center']),scale=torch.tensor(contract['goal_scale']),agent=SimpleNamespace(action_projector=AbsoluteGoalJawProjector()))
 variant=contract['TRAIN_perceived_contact_exploration']['name']
-assert variant in ('TRAIN_arm20_perceived_contact_attempt_v1','TRAIN_arm20_perceived_settled_contact_attempt_v2','TRAIN_arm20_perceived_precise_feedback_attempt_v3','TRAIN_arm20_perceived_motion_feedback_attempt_v4')
-settled=not variant.endswith('_v1');motion=variant.endswith('_v4');precise=motion or variant.endswith('_v3')
+assert variant in ('TRAIN_arm20_perceived_contact_attempt_v1','TRAIN_arm20_perceived_settled_contact_attempt_v2','TRAIN_arm20_perceived_precise_feedback_attempt_v3','TRAIN_arm20_perceived_motion_feedback_attempt_v4','TRAIN_arm20_upright_contact_attempt_v5')
+upright=variant.endswith('_v5');settled=not variant.endswith('_v1');motion=upright or variant.endswith('_v4');precise=motion or variant.endswith('_v3')
+if upright:
+ from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_upright_contact_sac import upright_support_affine
+ pilot.agent.upright_support_anchor,pilot.agent.upright_support_scale=upright_support_affine(pilot.center,pilot.scale,coordinates.links)
 waves=proof['completed_TRAIN_waves']
 assert waves and len(waves)==len(set(waves))
 offset=0;previous_stats=None;records=[];max_error=0.
@@ -62,7 +65,7 @@ for wave in waves:
   assert torch.equal(ao[:,-5:-3],xy) and torch.allclose(ao[:,-3],yaw.sin(),atol=1e-7,rtol=0) and torch.allclose(ao[:,-2],yaw.cos(),atol=1e-7,rtol=0)
   pilot.stage=SimpleNamespace(target_xy=xy,target_yaw=yaw)
   command=held_goal_coordinates(coordinates,raw,pilot.center+pilot.scale*goals,pilot.stage)
-  if tracker is None:tracker=PerceivedContactExploration(128,raw,previous_stats,settled_close=settled,precise_feedback=precise,motion_feedback=motion)
+  if tracker is None:tracker=PerceivedContactExploration(128,raw,previous_stats,settled_close=settled,precise_feedback=precise,motion_feedback=motion,upright_feedback=upright)
   pre=tracker.phase[ids].clone()
   pre_closed=tracker.closing[ids].clone()
   pre_closed_ticks=tracker.closed_ticks[ids].clone()

@@ -14,6 +14,7 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
     settled_close=False
     precise_feedback=False
     motion_feedback=False
+    upright_feedback=False
 
     def __init__(self,*args,**kwargs):
         self.contact_explorer=None
@@ -32,7 +33,7 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
     def contract(self):
         result=super().contract
         if self._URDF_configuring_source:return result
-        return result|dict(TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback))
+        return result|dict(TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback,upright_feedback=self.upright_feedback))
 
     def reset_exploration(self,num_envs):
         if self.contact_explorer is not None:self._contact_statistics=self.contact_explorer.report()
@@ -50,7 +51,7 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
         if not chosen.any():return result
         if self.contact_explorer is None:
             self.contact_explorer=PerceivedContactExploration(self._contact_num_envs,raw,self._contact_statistics,
-                settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback)
+                settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback,upright_feedback=self.upright_feedback)
         return self.contact_explorer.step(self,raw,result,ids,kwargs.get('supplemental'),chosen,index)
 
     def contact_extras(self):
@@ -67,7 +68,7 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
 
     def report(self):
         return super().report()|self.contact_extras()|dict(
-            TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback),
+            TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback,upright_feedback=self.upright_feedback),
             evaluated_policy_never_uses_contact_explorer=True)
 
 

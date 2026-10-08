@@ -97,7 +97,11 @@ def restored_agent(state):
     from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_perceived_contact_sac import (
         URDFPerceivedContactSACPilot, URDFSettledContactSACPilot, URDFPreciseFeedbackSACPilot, URDFMotionFeedbackSACPilot, validate_perceived_contact_state,
     )
-    motion_feedback = state.get('artifact_type') == URDFMotionFeedbackSACPilot.artifact_type
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_upright_contact_sac import (
+        URDFUprightContactSACPilot, UprightServoGuardSAC, validate_upright_contact_state,
+    )
+    upright_contact = state.get('artifact_type') == URDFUprightContactSACPilot.artifact_type
+    motion_feedback = upright_contact or state.get('artifact_type') == URDFMotionFeedbackSACPilot.artifact_type
     precise_feedback = motion_feedback or state.get('artifact_type') == URDFPreciseFeedbackSACPilot.artifact_type
     settled_contact = precise_feedback or state.get('artifact_type') == URDFSettledContactSACPilot.artifact_type
     perceived_contact = settled_contact or state.get('artifact_type') == URDFPerceivedContactSACPilot.artifact_type
@@ -105,7 +109,9 @@ def restored_agent(state):
     full_arm = strong_success or state.get('artifact_type') == URDFFullArmSACPilot.artifact_type
     guard = full_arm or state.get('artifact_type') == URDFServoGuardSACPilot.artifact_type
     urdf = guard or state.get('artifact_type') == URDFRegionalGoalSACPilot.artifact_type
-    if perceived_contact:
+    if upright_contact:
+        validate_upright_contact_state(state)
+    elif perceived_contact:
         validate_perceived_contact_state(state,settled_close=settled_contact,precise_feedback=precise_feedback,motion_feedback=motion_feedback)
     elif strong_success:
         validate_strong_success_state(state)
@@ -180,7 +186,7 @@ def restored_agent(state):
                 contract['goal_center'], contract['goal_scale'])
         return nominal_goal
 
-    agent_class=(StrongSuccessFullArmSAC if strong_success else FullArmServoGuardSAC if full_arm else
+    agent_class=(UprightServoGuardSAC if upright_contact else StrongSuccessFullArmSAC if strong_success else FullArmServoGuardSAC if full_arm else
                  ServoGuardCorrectionSAC if guard else SupportConservativeHybridSAC if support else
                  ServoRetainedCorrectionSAC if retained else BoundedCorrectionHybridSAC)
     agent = agent_class(518, critic_dim, 21, SACConfig(**state['config']), 'cpu',
@@ -189,6 +195,8 @@ def restored_agent(state):
         jaw_prior_residual_gain=contract['jaw_prior_residual_gain'])
     agent.correction_radius = contract['body_correction_radius']
     agent.executed_body_anchor = body_anchor
+    if upright_contact:
+        agent.configure_upright_support(contract['goal_center'], contract['goal_scale'], prior.coordinates.links)
     if servo_critic:
         agent.goal_servo_critic_encoder=BodyServoCriticEncoder(prior.coordinates,
             contract['goal_center'],contract['goal_scale'])
