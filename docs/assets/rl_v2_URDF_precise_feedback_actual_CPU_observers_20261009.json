@@ -2,13 +2,21 @@
   "recorded_at": "2026-10-09T03:21:47.309352+09:00",
   "read_only_training_and_no_signals": true,
   "training_restart_NOT_performed": true,
-  "updated_at": "2026-10-09T03:30:36.526322+09:00",
+  "updated_at": "2026-10-09T03:43:48.620361+09:00",
   "failed_CPU_observer_repaired": {
     "previous_unit": "humanoid-rl-precise-feedback-cpu-observer-20261009-0323-2.service",
     "previous_pid": 1995406,
     "reason": "metrics.json not created before initial DEV completion",
     "fix": "wait for completed metrics file",
     "GPU_training_writer_unchanged": true
+  },
+  "final_DEV_observer_replacement": {
+    "previous_unit": "humanoid-rl-precise-feedback-learned-dev4-cpu-repaired-20261009-0331.service",
+    "previous_pid": 2126674,
+    "only_owned_CUDA_empty_CPU_observer_stopped": true,
+    "reason": "final full DEV may finish after physical writer exits",
+    "reader_fix": "allow exact completed128 final results and matching immutable model after writer exit",
+    "all8_SAC_writers_and_supervisors_unchanged": true
   },
   "CPU_observers": [
     {
@@ -24,8 +32,8 @@
       "live_owner_verified": true
     },
     {
-      "unit": "humanoid-rl-precise-feedback-learned-dev4-cpu-repaired-20261009-0331.service",
-      "pid": 2126674,
+      "unit": "humanoid-rl-precise-feedback-final-dev4-cpu-20261009-0344.service",
+      "pid": 2319126,
       "CPU_only": true,
       "live_owner_verified": true
     },

@@ -8,7 +8,7 @@
 
 | 활성 비교 | 완료한 TRAIN 조건 | 자기 초기 → 학습 후 전체 성공/128 | 판단 |
 |---|---:|---|---|
-| 기존 uniform 팔 범위 | 1,920 | 14→8→4→1→3→2 | 초기보다 낮음 |
+| 기존 uniform 팔 범위 | 2,304 | 14→8→4→1→3→2→1 | 초기보다 낮음 |
 | 성공 명령 유지 보강 | 1,536 | 14→13→8→6→5 | 초기보다 낮음 |
 | 전체 팔 범위·큰 탐색 | 1,152 | 11→10→7→8 | 초기보다 낮음 |
 | 전체 팔 범위·작은 탐색 | 768 | 11→11→13 | 소폭 증가, 중형·안정적인 일반화는 미해결 |
@@ -84,6 +84,12 @@ TRAIN1,536조건 뒤 성공5·안전 위반53·시간 초과70·초기 무효0/1
 같은 모델과 optimizer 갱신 횟수를 대조했으며 두 비교 모두 중형은0이다.
 [강한 유지 두 번째 전체 결과](assets/rl_v2_URDF_strong_gentle_full_arm_second_learned_full_DEV8_20261008.json),
 [보강 네 번째 전체 결과](assets/rl_v2_URDF_servo_guard_fourth_learned_full_DEV16_20261008.json).
+
+03:40 KST의 uniform 여섯 번째 전체평가는 TRAIN2,304조건 뒤 성공1·안전
+위반46·시간 초과81·초기 무효0/128이었다. Actor6,784/Q29,184의 실제 평가
+전후 같은 모델과 optimizer를 대조했다. 자기 초기14회보다 낮고 중형은0이다.
+더 긴 수집만으로의 개선은 아직 확인되지 않았다.
+[여섯 번째 전체 결과](assets/rl_v2_URDF_regional_goal_sixth_learned_full_DEV24_20261008.json).
 
 원본 장기 비교는TRAIN3,072를 정상 종료했고 마지막5/128이었다.
 최종 checkpoint와 닫힌 로그의Drive 검증까지 끝났지만 목표 달성은 아니다.
@@ -170,6 +176,17 @@ Kit단일GPU3, 고정 소스744개, 중력보상18관절, 메모리2,791MiB와 �
 [실제 시작과 백업](assets/rl_v2_URDF_precise_feedback_SAC_actual_startup_20261009.json),
 [실제 CPU 관찰 작업](assets/rl_v2_URDF_precise_feedback_actual_CPU_observers_20261009.json),
 [여덟 writer 실제 상태](assets/rl_v2_eight_SAC_actual_status_20261009.json).
+
+## 실제 보상의 성공·실패 순서
+
+완료된 v2 첫 TRAIN128의 실제 보상과 종료 mask를 대조했다. 보상 shaping과
+Q의 discount는 같은0.999이며 timeout도 Q에서 absorbing terminal이었다.
+Held 구간 시작의 할인 return 중앙값은 성공10경로가5.95, timeout79경로가
+−1.19, unsafe39경로가−5.04였다. 이 수집에서는 timeout이 성공보다 유리한
+순서가 관측되지 않았다. 이는 서로 다른 실제 경로의 비교이며 같은 상태에서
+동작을 바꾼 인과 비교나 다른 보상 결함이 없다는 증거는 아니다.
+보상은 유지하고 안전 접근·축 정렬·실제 접촉 경험과 학습 후 평가를 계속 확인한다.
+[실제 return·discount·종료 mask 대조](assets/rl_v2_completed_TRAIN_actual_returns_20261009.json).
 
 ## 장기 실행 저장 공간
 
