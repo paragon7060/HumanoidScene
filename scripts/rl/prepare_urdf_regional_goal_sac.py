@@ -30,6 +30,9 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_full_arm_sac import (
 from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_strong_success_sac import (
     URDFStrongSuccessSACPilot, validate_strong_success_state,
 )
+from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_perceived_contact_sac import (
+    URDFPerceivedContactSACPilot, validate_perceived_contact_state,
+)
 from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import select_reference_episode
 from kuavo_isaaclab_scene.rl.multi_box.experiments.body_behavior_exploration import (
     GREEDY_REST_VARIANT, GENTLE_GREEDY_REST_VARIANT,
@@ -45,11 +48,14 @@ def main():
     parser.add_argument('--native-seed', type=Path, action='append', required=True)
     parser.add_argument('--replay-capacity', type=int, default=2000000)
     parser.add_argument('--servo-retention-profile',
-        choices=('uniform', 'guard-tail64', 'full-arm-tail64', 'full-arm-tail64-strong-servo'),
+        choices=('uniform', 'guard-tail64', 'full-arm-tail64', 'full-arm-tail64-strong-servo',
+                 'full-arm-contact-exploration'),
         default='uniform')
     parser.add_argument('--body-behavior', choices=(GREEDY_REST_VARIANT, GENTLE_GREEDY_REST_VARIANT),
         default=GREEDY_REST_VARIANT, help='Fresh TRAIN collection bias; policy/evaluation and original defaults are preserved')
     args = parser.parse_args()
+    if args.servo_retention_profile == 'full-arm-contact-exploration' and args.body_behavior != GENTLE_GREEDY_REST_VARIANT:
+        parser.error('Contact exploration requires explicit --body-behavior arm20-gentle-rest-greedy')
     if os.environ.get('CUDA_VISIBLE_DEVICES') != '':
         raise ValueError('Initialization is CPU-only; CUDA_VISIBLE_DEVICES must be empty')
     torch.set_num_threads(1)
@@ -80,6 +86,7 @@ def main():
         'guard-tail64': (URDFServoGuardSACPilot, validate_urdf_servo_guard_state),
         'full-arm-tail64': (URDFFullArmSACPilot, validate_full_arm_state),
         'full-arm-tail64-strong-servo': (URDFStrongSuccessSACPilot, validate_strong_success_state),
+        'full-arm-contact-exploration': (URDFPerceivedContactSACPilot, validate_perceived_contact_state),
     }[args.servo_retention_profile]
     pilot = pilot_class(warm, physical, args.output_dir, stages.stages[0],
         regional_source=packet, body_anchor_state=source['body_anchor_state'], training=False, device='cpu',

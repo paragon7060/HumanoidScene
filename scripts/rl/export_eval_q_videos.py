@@ -94,11 +94,17 @@ def restored_agent(state):
         URDFStrongSuccessSACPilot, StrongSuccessFullArmSAC, validate_strong_success_state,
         STRONG_SERVO_COEFFICIENT,
     )
-    strong_success = state.get('artifact_type') == URDFStrongSuccessSACPilot.artifact_type
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_perceived_contact_sac import (
+        URDFPerceivedContactSACPilot, validate_perceived_contact_state,
+    )
+    perceived_contact = state.get('artifact_type') == URDFPerceivedContactSACPilot.artifact_type
+    strong_success = perceived_contact or state.get('artifact_type') == URDFStrongSuccessSACPilot.artifact_type
     full_arm = strong_success or state.get('artifact_type') == URDFFullArmSACPilot.artifact_type
     guard = full_arm or state.get('artifact_type') == URDFServoGuardSACPilot.artifact_type
     urdf = guard or state.get('artifact_type') == URDFRegionalGoalSACPilot.artifact_type
-    if strong_success:
+    if perceived_contact:
+        validate_perceived_contact_state(state)
+    elif strong_success:
         validate_strong_success_state(state)
     elif full_arm:
         validate_full_arm_state(state)

@@ -631,6 +631,9 @@ def main():
         collection_body_behavior = (body_behavior_config(args.body_behavior)
             if args.body_behavior is not None else state.get('body_behavior'))
         meta['TRAIN_body_behavior'] = collection_body_behavior
+        contact_collection = state.get('goal_contract', {}).get('TRAIN_perceived_contact_exploration')
+        if contact_collection is not None:
+            meta['TRAIN_perceived_contact_exploration'] = contact_collection
         from kuavo_isaaclab_scene.rl.multi_box.experiments.body_saturation import body_saturation_config
         actor_body_regularization = (body_saturation_config(args.body_saturation_penalty)
             if args.body_saturation_penalty is not None else state.get('body_saturation'))
@@ -657,7 +660,8 @@ def main():
         from kuavo_isaaclab_scene.rl.multi_box.experiments.policy_manifest import checkpoint_manifest_fields
         policy_metadata=checkpoint_manifest_fields(contract,state,artifact_type=pilot_class.artifact_type)
         (output/'manifest.json').write_text(json.dumps(contract|policy_metadata|{'artifact_type':pilot_class.artifact_type,
-            'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
+            'training':args.training,'layout_waves':waves,
+            'no_live_VR_or_IK':not(args.training and contact_collection is not None),
             'layout_generation_contract':layout_generation_contract(),
             'frozen_physics_backend_evaluation':backend_eval,
             'CPU_physics_training':cpu_training,
@@ -668,6 +672,8 @@ def main():
             'learner_device':learner_device,'sim_device':str(env.device),
             'TRAIN_jaw_behavior':collection_jaw_behavior,
             'TRAIN_body_behavior':collection_body_behavior,
+            **({'TRAIN_perceived_contact_exploration':contact_collection,
+                'evaluated_policy_never_uses_contact_explorer':True} if contact_collection is not None else {}),
             'TRAIN_actor_body_regularization':actor_body_regularization,
             'TRAIN_actor_jaw_regularization':actor_jaw_regularization,
             'TRAIN_successful_jaw_balance':successful_jaw_balance,
@@ -982,7 +988,8 @@ def main():
                 collection_mode=None
                 body_sampler=getattr(pilot,'body_behavior_sampler',None)
                 if wave['split']=='train' and getattr(body_sampler,'greedy_unselected_policy',False):
-                    collection_mode=('coherent_arm_exploration' if body_sampler.selected[i] else
+                    exploratory_mode=('perceived_contact_exploration' if contact_collection is not None else 'coherent_arm_exploration')
+                    collection_mode=(exploratory_mode if body_sampler.selected[i] else
                         'greedy_current_policy') if body_sampler.initialized[i] else 'no_held_mode_draw'
                 if samples:
                     recorder.start_episode(initial_state=snapshots[i])
@@ -1004,6 +1011,8 @@ def main():
                     outcomes[-1]['collection_jaw_behavior']=pilot.jaw_behavior
                 if wave['split']=='train' and getattr(pilot,'body_behavior',None) is not None:
                     outcomes[-1]['collection_body_behavior']=pilot.body_behavior
+                if wave['split']=='train' and contact_collection is not None:
+                    outcomes[-1]['collection_perceived_contact_exploration']=contact_collection
                 if collection_mode is not None:
                     outcomes[-1]['collection_policy_mode']=collection_mode
                 if wave['split']=='train' and getattr(pilot,'body_saturation',None) is not None:
