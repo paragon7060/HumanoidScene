@@ -64,6 +64,12 @@ PID·GPU mask·런타임 상태로 확인하며 준비 파일의 존재만으로
 
 GPU3에서 앞선 v3 비교가 계획 종료하고 최종 checkpoint/log의 Drive 검증을
 마친 뒤 새 비교를 시작한다. 필요한 메모리와 3GiB 여유도 다시 확인한다.
+05:40 KST에 이를 수행하는 **CPU 대기 PID4,047,308**의 실제 소유자·명령과
+빈 `CUDA_VISIBLE_DEVICES`를 확인했다. 현재 v3 writer/supervisor가 살아 있어
+대기 중이며 새 GPU 학습이 이미 시작됐다는 뜻은 아니다. 고정 소스748개와
+검증한 초기 모델을 준비했다. 시작 후 전체 평가 모델 보존·초기/최종 전체
+결과·첫 TRAIN·런타임/Drive 확인용 CPU 관찰 다섯 개를 자동으로 시작한다.
+[실제 대기 작업과 시작 조건](assets/rl_v2_URDF_upright_contact_actual_GPU3_queue_20261009.json).
 기존 Drive 연결과 300초 업로드·크기/MD5 검증·최신 두 checkpoint 보호를
 재사용한다. Raw HDF/replay/영상은 checkpoint/log 전용 백업 범위에 없으므로
 로컬에 남긴다. 다른 사용자의 실행은 종료하거나 변경하지 않는다.
