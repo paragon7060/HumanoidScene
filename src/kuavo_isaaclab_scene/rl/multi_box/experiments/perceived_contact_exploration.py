@@ -20,8 +20,9 @@ from ....robots.end_effector import closed_closing_axes
 from ....workcell.workcell_layout import RACK_RAW_BOUNDS_M, scale as workcell_scale
 
 
-def perceived_contact_contract():
-    return dict(name='TRAIN_arm20_perceived_contact_attempt_v1',
+def perceived_contact_contract(*, settled_close=False):
+    if type(settled_close) is not bool:raise ValueError('Explicit settled-close variant required')
+    result=dict(name='TRAIN_arm20_perceived_contact_attempt_v1',
         scope='selected_original20percent_actual_TRAIN_episodes_only',
         selection='existing_gentle_arm_episode_mask_no_second_draw',
         inputs='measured_joint_TCP_rack_box_geometry_perceived_flap_midpoint_and_pending_targets',
@@ -40,6 +41,18 @@ def perceived_contact_contract():
         actor_Q_targets_density_entropy_and_greedy_eval_unchanged=True,
         original_nominal_jaw_gate_PD_limits_DR_reward_success_safety_preserved=True,
         no_extra_RNG=True, curriculum=False)
+    if settled_close:
+        result.update(name='TRAIN_arm20_perceived_settled_contact_attempt_v2',
+            close_target='once_captured_contact_point_in_measured_rack_frame',
+            measured_jaw_settling_required=True,
+            measured_minimum_closure_fraction=.85,
+            measured_maximum_closure_change_per_tick=.005,
+            consecutive_measured_settled_ticks_before_attempt_lift=6,
+            sustained_projected_closed_command_ticks_before_attempt_lift=24,
+            lift_point_tolerance_m=.006,
+            settled_closure_NOT_confirmed_pinch_or_success=True,
+            max_guided_control_ticks=360,max_lift_attempt_control_ticks=60)
+    return result
 
 
 def contact_statistics(saved=None):
@@ -58,9 +71,11 @@ def contact_statistics(saved=None):
 
 
 class PerceivedContactExploration:
-    def __init__(self,num_envs,raw,statistics=None):
+    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False):
         if type(num_envs) is not int or num_envs<1:
             raise ValueError('Positive global environment count required')
+        self.contract=perceived_contact_contract(settled_close=settled_close)
+        self.settled_close=settled_close
         self.kinematics=TensorArmKinematics(device=raw.device,dtype=raw.dtype)
         self.axes=raw.new_tensor([closed_closing_axes()[s] for s in ('left','right')])
         self.phase=torch.full((num_envs,),-1,dtype=torch.long,device=raw.device)
@@ -71,6 +86,11 @@ class PerceivedContactExploration:
         self.last_clock=raw.new_full((num_envs,),-1)
         self.contact_offsets=raw.new_zeros(num_envs,2,3)
         self.lift_targets_rack=raw.new_zeros(num_envs,2,3)
+        self.close_targets_rack=raw.new_zeros(num_envs,2,3)
+        self.closing=torch.zeros(num_envs,dtype=torch.bool,device=raw.device)
+        self.settled_ticks=torch.zeros_like(self.phase)
+        self.previous_closure=raw.new_zeros(num_envs,2)
+        self.closure_initialized=torch.zeros_like(self.closing)
         self.front_y=RACK_RAW_BOUNDS_M[1][1]*workcell_scale('rack')[1]+FRONT_STAGE_CLEARANCE_M
         self.statistics=contact_statistics(statistics)
 
@@ -90,6 +110,8 @@ class PerceivedContactExploration:
             raise ValueError('Measured nonnegative held clocks required')
         reset=clocks<self.last_clock[ids]
         self.phase[ids[reset]]=-1;self.closed_ticks[ids[reset]]=0
+        self.closing[ids[reset]]=False;self.settled_ticks[ids[reset]]=0
+        self.closure_initialized[ids[reset]]=False
         self.last_clock[ids]=clocks
         if not chosen.any():return result
         p,R,J=self.kinematics.fk(raw[:,:20])
@@ -116,7 +138,8 @@ class PerceivedContactExploration:
             self.started[ids[handoff]]=clocks[handoff];self.phase[ids[handoff]]=0
             self.statistics['handoff_episodes']+=int(handoff.sum())
         expired=chosen&(self.phase[ids]>=0)&(self.phase[ids]<3)&(
-            ((clocks-self.started[ids])>=180)|((self.phase[ids]==2)&((clocks-self.lift_started[ids])>=40)))
+            ((clocks-self.started[ids])>=self.contract['max_guided_control_ticks'])|
+            ((self.phase[ids]==2)&((clocks-self.lift_started[ids])>=self.contract['max_lift_attempt_control_ticks'])))
         self.phase[ids[expired]]=3;self.statistics['expired_attempts']+=int(expired.sum())
         guided=chosen&valid&(self.phase[ids]>=0)&(self.phase[ids]<3)
         if not guided.any():return result
@@ -138,19 +161,37 @@ class PerceivedContactExploration:
         staged=(((stage-tcp[...,:3]).norm(dim=-1)<=.05)&(axis_error<=.25)).all(-1)
         self.phase[ids[guided&(self.phase[ids]==0)&staged]]=1
         ready=((goal_points-tcp[...,:3]).norm(dim=-1)<=.018)&(axis_error<=.25)
-        close=guided&(((self.phase[ids]==1)&ready.all(-1))|(self.phase[ids]==2))
+        latched=self.closing[ids] if self.settled_close else torch.zeros_like(guided)
+        close=guided&(((self.phase[ids]==1)&(ready.all(-1)|latched))|(self.phase[ids]==2))
         requested=original_goals.clone()
         requested[close,19:21]=1
         requested=pilot.agent.action_projector(actor,requested)
         closed=close&(requested[:,19:21]>0).all(-1)
         self.closed_ticks[ids]=torch.where(closed,self.closed_ticks[ids]+1,0)
-        lift=guided&(self.phase[ids]==1)&(self.closed_ticks[ids]>=8)
+        lift_ready=self.closed_ticks[ids]>=self.contract['sustained_projected_closed_command_ticks_before_attempt_lift']
+        if self.settled_close:
+            first_close=closed&(self.phase[ids]==1)&~self.closing[ids]
+            self.close_targets_rack[ids[first_close]]=(rack_R.transpose(-1,-2)[:,None]@
+                (goal_points-rack[:,None,:3])[...,None]).squeeze(-1)[first_close]
+            self.closing[ids]=closed&(self.phase[ids]==1)
+            held_close=rack[:,None,:3]+(rack_R[:,None]@self.close_targets_rack[ids,...,None]).squeeze(-1)
+            closure=raw[:,46:48]
+            settled=closed&self.closure_initialized[ids]&(closure>=.85).all(-1)&(
+                (closure-self.previous_closure[ids]).abs().amax(-1)<=.005)
+            self.settled_ticks[ids]=torch.where(settled,self.settled_ticks[ids]+1,0)
+            self.previous_closure[ids]=closure;self.closure_initialized[ids]=True
+            lift_ready&=(self.settled_ticks[ids]>=6)&(
+                (held_close-tcp[...,:3]).norm(dim=-1).amax(-1)<=.006)&(
+                (goal_points-tcp[...,:3]).norm(dim=-1).amax(-1)<=.006)&(axis_error<=.25).all(-1)
+        lift=guided&(self.phase[ids]==1)&lift_ready
         rack_tcp=(rack_R.transpose(-1,-2)[:,None]@(tcp[...,:3]-rack[:,None,:3])[...,None]).squeeze(-1)
         self.lift_targets_rack[ids[lift]]=rack_tcp[lift]
         self.lift_targets_rack[ids[lift],:,2]+=.025
         self.lift_started[ids[lift]]=clocks[lift];self.phase[ids[lift]]=2
         self.statistics['attempted_lift_episodes']+=int(lift.sum())
         target=torch.where((self.phase[ids]==0)[:,None,None],stage,goal_points)
+        if self.settled_close:
+            target=torch.where(self.closing[ids,None,None],held_close,target)
         lifted=rack[:,None,:3]+(rack_R[:,None]@self.lift_targets_rack[ids,...,None]).squeeze(-1)
         target=torch.where((self.phase[ids]==2)[:,None,None],lifted,target)
         displacement=(target-p)*(2./30);norm=displacement.norm(dim=-1,keepdim=True)

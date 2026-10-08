@@ -119,3 +119,63 @@ Writer 메모리는17561MiB이고, 기존 인증으로 첫 Drive
 CUDA2·Drive 검증을 다시 확인했다. 닫힘과 들기 시도는 실제 파지 성공의
 증거가 아니며, 첫 TRAIN128 전체 결과와 학습 후 greedy 평가는 대기 중이다.
 [실제 탐색·Q 학습 연결](assets/rl_v2_perceived_contact_first_live_TRAIN_20261009.json).
+
+## 첫 완료 수집 결과와 수정 판단 — 10/09
+
+00:41 KST에 첫 실제 TRAIN128을 완료했다. 성공9·안전 위반42·시간 초과77,
+초기 무효/수치 실패0회다. 기존 greedy 수집103조건에서 성공9회,
+접촉 탐색으로 선택된25조건은 **성공0·안전 위반11·시간 초과14회**였다.
+선택 모드 자체가 탐색의 활성화나 인과적 효과를 증명하지는 않는다.
+실제 누적 통계는25handoff·4,291guided행·225닫힘 명령·8들기 시도·24만료다.
+현재 이 탐색이 효과적이라고 판단하지 않는다.
+[완료된 첫 TRAIN·모델](assets/rl_v2_perceived_contact_first_TRAIN_actual_20261009.json).
+
+Q는첫 배치 종료까지1,590회 업데이트했고 actor는0회였다. Q1,024의 실제
+checkpoint에서도20개 Q parameter 변경·모든 Q optimizer step1,024·317개
+유한 tensor를 확인했다. 초기actor/normalizer29개는 그대로이고 Q영상용 복원도
+정확히 일치한다. 이는 학습 연결의 확인이며 성능 향상의 증거는 아니다.
+[실제 Q 갱신](assets/rl_v2_perceived_contact_first_Q1024_actual_verified_20261009.json).
+
+닫기 허용오차18mm와닫힘 명령8tick 이후 들기가 실제 pad 접촉·그리퍼 정착보다
+빠른지 점검한다. 이는 아직 원인으로 확인된 사실이 아니다. 첫 두 완료 TRAIN
+wave의 replay를 별도 읽기 전용 파일로 복사하고 SHA256과원본 파일 상태를
+확인했다. 분석에는 해당 완료 복사본만 쓰며 활성HDF/GPU replay를 열지 않는다.
+수집 행동의 수정은 실제 궤적 분석 뒤 결정하고 기존 장기 비교는 유지한다.
+
+01:13 KST에 첫 두 TRAIN 배치의실제159,438행을원래wave·global environment
+ID·held clock·base 목표에 정확히 연결하고256개 종료 결과의pinch·stability·
+success를 대조했다. 탐색 상태를 다시 계산한 통계가 실제 저장 통계와 같았고
+실행21차원 목표의 최대 오차는2.38e-7이었다. 선택47조건은성공0,
+기존greedy209조건은18회였다. 선택조건 중양손 opposing pinch를 한 번이라도
+만든 것은2조건이고 가장 긴 유지도0.233초로원래0.25초보다 짧았다.
+
+16개 들기 시도 모두시작 전과직후 양손 pinch가없었다. 시작 시 실제그리퍼
+닫힘 비율 중앙값은좌45.11%·우52.48%였다. 반면실제 양손 pinch426행의
+닫힘 중앙값은좌98.37%·우98.98%였다. 서로 다른 상태집단의 진단 값이며
+인과적A/B 점수는아니다. 닫힘 명령8틱을 파지 준비로 간주한 전환이너무 이른
+것은직접 확인됐지만, 이후 수정만으로 성공할 것이라고 단정하지 않는다.
+[완료 replay 분석·검증](assets/rl_v2_perceived_contact_completed_TRAIN_failure_analysis_20261009.json).
+
+![실제 들기 시작의 미완료 닫힘과 다음 비교](assets/rl_v2_perceived_contact_closing_failure_20261009.png)
+
+## 정착 후 들기 비교 프로필
+
+`full-arm-settled-contact`는별도v2 artifact이며기존v1 모델 계약·실행은
+유지한다. 최소24틱 닫힘 명령, 측정 닫힘 양쪽85% 이상, 매틱 변화0.005 이하가
+6틱 연속 유지되어야 들기를 시도한다. 닫기 시작 시의접촉 목표점을 측정된
+랙 좌표에 저장해서 flap 움직임을쫓지 않고, 실제 TCP가고정 목표와현재 관측
+flap의접촉 지점 양쪽 모두6mm 안에 있어야 한다. 기존 nominal jaw gate가
+닫힘을차단하면 latch와유지 카운트를 해제한다. 최대시도는360틱·들기60틱이다.
+
+측정된 정착과닫힘도실제 pinch의증거로 취급하지 않는다. 접촉/성공/보상/
+critic은탐색 결정에쓰지 않으며, 모든실제 성공 판정과물리·randomization·
+reward는그대로다. TRAIN6144·DEV128·replay200만의새 비교로연결한다.
+관련52개 검사와 실제CPU 초기저장·학습복원·Q영상복원을 통과했다.
+새 초기actor/정규화29개는 원래strong-gentle과 정확히 같고 모델75개는
+유한하며 Q·replay·성공/return bank·optimizer는 새로 시작한다.
+[v2 실제 초기화 검증](assets/rl_v2_URDF_settled_contact_initial_verified_20261009.json).
+실행 결과가나오기 전에는 성능개선으로 표시하지 않는다.
+
+완료 데이터 진단 도구는[scripts/rl/analyze_completed_contact_replay.py](../scripts/rl/analyze_completed_contact_replay.py)다.
+체크섬이 기록된우리 소유의읽기 전용snapshot만사용하고현재 HDF/GPU replay를
+열거나데이터를학습으로가져오지 않는다.
