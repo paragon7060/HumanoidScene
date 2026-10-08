@@ -100,3 +100,7 @@ actor518/critic578·탐색 계약·65 wave·중력보상18관절·원래 환경 
 Writer 메모리는17561MiB이고, 기존 인증으로 첫 Drive
 검증을23:43:00 KST에 마쳤다. 기존 다섯 활성 학습은 유지한다.
 [실제 시작·계약·백업](assets/rl_v2_URDF_perceived_contact_SAC_actual_startup_20261008.json).
+
+10/09의 비교 전체평가와 장기 저장 여유 확보는
+[최신 진행 기록](RL_V2_SAC_PROGRESS_20261009.md)에 정리했다. 새 탐색의 초기
+평가 및 실제 TRAIN 수집을 계속 확인하며 목표는 미달성이다.
