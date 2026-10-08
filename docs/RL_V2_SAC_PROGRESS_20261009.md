@@ -455,3 +455,9 @@ Notion에도옛실행의종료원인·복구수정·새장기설정·실제PID·
 기존미디어78개와native table5개가모두보존됐고초기14회를새학습개선으로
 표시하지않는것을확인했다.
 [실제 수정 보고·미디어/표 보존 검증](assets/rl_v2_upright_repaired_long_Notion_verified_20261009.json).
+
+07:19 KST의CPU 시작검증도완료해실제writer·749개고정소스·TRAIN6,144·
+17개전체DEV/65배치·replay40만·중력보상18관절·기존Drive계약검증을대조했다.
+07:22 KST GPU3의실제VRAM여유는3,749MiB였다. 현재초기평가중이며새학습
+후성공률을뜻하지않는다.
+[실제 시작·설정·백업 검증](assets/rl_v2_URDF_upright_contact_repaired_SAC_actual_startup_20261009.json).
