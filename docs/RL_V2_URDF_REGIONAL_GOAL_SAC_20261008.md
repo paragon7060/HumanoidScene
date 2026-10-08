@@ -29,6 +29,12 @@ body anchor도 같았다. Checkpoint 전체256개 tensor는 유한했다. 따라
 DEV는 새 TRAIN384조건 뒤다. 중형·상단 왼쪽의0회가 남아 있으며 목표는 아직
 달성하지 않았다. 전체 개선과 독립FINAL을 확인하면서6144조건 계획을 계속한다.
 
+16:48 KST 첫TRAIN step361에서 실제held 전이35,912개·Q598회 갱신과 유한한
+업데이트 손실을 확인했다. Q2,048회 warmup이 먼저이므로 actor갱신0은 정상이다.
+현재 성공 은행과 평가 import는0이며 VR/teacher BC 갱신 가중치도0이다.
+업데이트 뒤 전체 모델의 유한성은 다음 실제 저장 checkpoint에서 확인한다.
+[실제 첫TRAIN/Q 갱신과 확인 범위](assets/rl_v2_URDF_initial_DEV14_first_TRAIN_20261008.json).
+
 ### 같은 초기 정책의 대표 영상
 
 [중간 왼쪽 small 실제 성공 영상](assets/rl_v2_URDF_initial_DEV_middle_left_small_success_20261008.mp4)은
@@ -43,6 +49,11 @@ base 시작 lateral+18.8cm·outward+12.0cm·yaw+15.0도인 무작위 조건의 �
 두 영상은 실제 측정된 몸체/flap pose와 reset 전 terminal frame을 기록하며
 H264/avc1·yuv420p·faststart 및 별도 전체 decode를 확인했다.
 [영상 형식·실제 모델·결과 대조](assets/rl_v2_URDF_initial_DEV_media_20261008.json).
+
+Notion 중간 보고의 native video2개로 업로드하고 caption·초기 기준14/128과
+실제TRAIN 시작을 재확인했다. 기존 media63개와 native table5개의 내용·순서를
+보존했으며 현재 media는65개다.
+[Notion 영상과 기존 자료 보존 검증](assets/rl_v2_URDF_initial_DEV14_Notion_native_videos_verified_20261008.json).
 
 ## 방법과 변경 범위
 
