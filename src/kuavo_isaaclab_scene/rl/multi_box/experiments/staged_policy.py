@@ -16,7 +16,7 @@ from .urdf_regional_goal_sac import URDFRegionalGoalSACPilot
 from .urdf_servo_guard_sac import URDFServoGuardSACPilot
 from .urdf_full_arm_sac import URDFFullArmSACPilot
 from .urdf_strong_success_sac import URDFStrongSuccessSACPilot
-from .urdf_perceived_contact_sac import URDFPerceivedContactSACPilot,URDFSettledContactSACPilot,URDFPreciseFeedbackSACPilot
+from .urdf_perceived_contact_sac import URDFPerceivedContactSACPilot,URDFSettledContactSACPilot,URDFPreciseFeedbackSACPilot,URDFMotionFeedbackSACPilot
 
 
 def staged_policy_class(artifact_type):
@@ -37,6 +37,7 @@ def staged_policy_class(artifact_type):
         URDFPerceivedContactSACPilot,
         URDFSettledContactSACPilot,
         URDFPreciseFeedbackSACPilot,
+        URDFMotionFeedbackSACPilot,
     )}.get(artifact_type)
 
 

@@ -20,10 +20,12 @@ from ....robots.end_effector import closed_closing_axes
 from ....workcell.workcell_layout import RACK_RAW_BOUNDS_M, scale as workcell_scale
 
 
-def perceived_contact_contract(*, settled_close=False, precise_feedback=False):
+def perceived_contact_contract(*, settled_close=False, precise_feedback=False, motion_feedback=False):
     if type(settled_close) is not bool:raise ValueError('Explicit settled-close variant required')
     if type(precise_feedback) is not bool or (precise_feedback and not settled_close):
         raise ValueError('Precise feedback requires the explicit settled-close variant')
+    if type(motion_feedback) is not bool or (motion_feedback and not precise_feedback):
+        raise ValueError('Motion feedback requires the explicit precise-feedback variant')
     result=dict(name='TRAIN_arm20_perceived_contact_attempt_v1',
         scope='selected_original20percent_actual_TRAIN_episodes_only',
         selection='existing_gentle_arm_episode_mask_no_second_draw',
@@ -63,6 +65,15 @@ def perceived_contact_contract(*, settled_close=False, precise_feedback=False):
             both_jaws_open_until_precise_closing_gate=True,
             orientation_feedback_until_lift=True,
             world_frame_close_latch=False)
+    if motion_feedback:
+        result.update(name='TRAIN_arm20_perceived_motion_feedback_attempt_v4',
+            closed_position_feedback_gain_per_s=8.,
+            open_and_lift_position_feedback_gain_per_s=2.,
+            current_panel_motion_feedforward_fraction=.5,
+            panel_motion_feedforward_cap_m_per_tick=.002,
+            panel_motion_coordinates='measured_rack_frame_consecutive_held_ticks_same_phase',
+            position_task_increment_cap_m_per_tick=.01,
+            closing_reacquisition_and_measured_lift_gates_unchanged=True)
     return result
 
 
@@ -82,12 +93,13 @@ def contact_statistics(saved=None):
 
 
 class PerceivedContactExploration:
-    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False):
+    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False,motion_feedback=False):
         if type(num_envs) is not int or num_envs<1:
             raise ValueError('Positive global environment count required')
-        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback)
+        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback,motion_feedback=motion_feedback)
         self.settled_close=settled_close
         self.precise_feedback=precise_feedback
+        self.motion_feedback=motion_feedback
         self.kinematics=TensorArmKinematics(device=raw.device,dtype=raw.dtype)
         self.axes=raw.new_tensor([closed_closing_axes()[s] for s in ('left','right')])
         self.phase=torch.full((num_envs,),-1,dtype=torch.long,device=raw.device)
@@ -103,6 +115,9 @@ class PerceivedContactExploration:
         self.settled_ticks=torch.zeros_like(self.phase)
         self.previous_closure=raw.new_zeros(num_envs,2)
         self.closure_initialized=torch.zeros_like(self.closing)
+        self.previous_target_rack=raw.new_zeros(num_envs,2,3)
+        self.previous_target_clock=raw.new_full((num_envs,),-1)
+        self.previous_target_phase=torch.full_like(self.phase,-1)
         self.front_y=RACK_RAW_BOUNDS_M[1][1]*workcell_scale('rack')[1]+FRONT_STAGE_CLEARANCE_M
         self.statistics=contact_statistics(statistics)
 
@@ -124,6 +139,8 @@ class PerceivedContactExploration:
         self.phase[ids[reset]]=-1;self.closed_ticks[ids[reset]]=0
         self.closing[ids[reset]]=False;self.settled_ticks[ids[reset]]=0
         self.closure_initialized[ids[reset]]=False
+        self.previous_target_clock[ids[reset]]=-1
+        self.previous_target_phase[ids[reset]]=-1
         self.last_clock[ids]=clocks
         if not chosen.any():return result
         p,R,J=self.kinematics.fk(raw[:,:20])
@@ -210,7 +227,25 @@ class PerceivedContactExploration:
             target=torch.where(self.closing[ids,None,None],held_close,target)
         lifted=rack[:,None,:3]+(rack_R[:,None]@self.lift_targets_rack[ids,...,None]).squeeze(-1)
         target=torch.where((self.phase[ids]==2)[:,None,None],lifted,target)
-        displacement=(target-p)*(2./30);norm=displacement.norm(dim=-1,keepdim=True)
+        displacement=(target-p)*(2./30)
+        if self.motion_feedback:
+            # Actual TCPs retreated 5--9 mm before the jaws closed. Test
+            # stronger bounded position feedback only in
+            # the closing interval. The task's drives and effort caps stay
+            # unchanged. Prediction uses deployable panel poses, never force.
+            closing_feedback=closed&(self.phase[ids]==1)
+            displacement=torch.where(closing_feedback[:,None,None],
+                (target-p)*(self.contract['closed_position_feedback_gain_per_s']/30),displacement)
+            target_rack=(rack_R.transpose(-1,-2)[:,None]@(target-rack[:,None,:3])[...,None]).squeeze(-1)
+            consecutive=(clocks-self.previous_target_clock[ids]==1)&(self.previous_target_phase[ids]==self.phase[ids])
+            motion=(target_rack-self.previous_target_rack[ids])*self.contract['current_panel_motion_feedforward_fraction']
+            motion*=self.contract['panel_motion_feedforward_cap_m_per_tick']/motion.norm(dim=-1,keepdim=True).clamp_min(self.contract['panel_motion_feedforward_cap_m_per_tick'])
+            motion=(rack_R[:,None]@motion[...,None]).squeeze(-1)
+            displacement+=torch.where((closing_feedback&consecutive)[:,None,None],motion,0.)
+            self.previous_target_rack[ids[guided]]=target_rack[guided]
+            self.previous_target_clock[ids[guided]]=clocks[guided]
+            self.previous_target_phase[ids[guided]]=self.phase[ids[guided]]
+        norm=displacement.norm(dim=-1,keepdim=True)
         displacement*=.01/norm.clamp_min(.01)
         angular=rotation_error*(1.5/30)
         hold_orientation=(self.phase[ids]==2) if self.precise_feedback else (self.closed_ticks[ids]>0)

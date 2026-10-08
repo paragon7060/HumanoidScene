@@ -283,3 +283,41 @@ greedy 정책이다. Base/torso/head 채널도 그대로며 curriculum은 없다
 여기서가까운패널점은v3가처음선택해유지하는접선좌표점과다를수있다.
 접촉label은완료snapshot의분석에만사용하며학습/탐색입력으로유입하지않는다.
 [실제파지와현재패널점기하분석](assets/rl_v2_completed_actual_pinch_geometry_20261009.json).
+
+## 닫힘 중 손이 멀어지는 실제 경로와 v4 추적 시험
+
+04:17 KST에 v3 첫 TRAIN128이 완료됐다. Greedy103조건은10회 성공했고
+탐색25조건은0회였다. 전체는성공10·안전 위반47·시간 초과71·초기 무효/수치
+실패0회다. 완료 replay81,115행을 원본 상태와 SHA256 확인 후 읽기 전용으로
+복사했다.128개 종료 결과와모든 탐색 정수 통계를 대조했고 명령 재계산 오차는
+최대3.28e-7이었다. CPU/CUDA FK 통계차이5.38e-8m는 별도로 기록했다.
+
+닫기를 시도한8개small 경로에서 **11번 모두6–7틱 뒤12mm 거리 조건으로
+다시 열렸고 축 오차0.30rad 조건으로 열린 경우는0회**였다. 이때 실제 닫힘은
+35.8–52.4%여서85% 정착 전에 끊겼다. 현재 flap의최근접 패널점도6mm 밖이므로
+처음 선택한접선 지점만 잘못 따라간 현상으로 설명할 수없다. 실제 양손 또는
+한손 pinch도없었다. 접촉점과TCP를 각각 측정된랙 좌표로변환해 분리한 결과,
+손이 법선방향으로약5–9mm 밀려나는 경로가 있었다. 모든닫힘 구간의finger–flap
+힘은0이었다. 이것은finger–box 몸체나 다른링크의 접촉까지없다는증거는아니다.
+몸통만 바꾼FK도분리했지만 접촉반동·drive 추종의 근본 원인을확정하지 않는다.
+
+![닫힘이 정착하기 전 거리가 벌어진 실제 TRAIN 경로](assets/rl_v2_precise_feedback_closed_motion_20261009.png)
+
+[전체 첫TRAIN·실제 저장 모델](assets/rl_v2_precise_feedback_first_TRAIN_actual_20261009.json) ·
+[완료 경로·힘·몸통FK·명령 재계산 근거](assets/rl_v2_precise_feedback_completed_TRAIN_motion_analysis_20261009.json).
+
+`--servo-retention-profile full-arm-motion-feedback`는별도v4 artifact다.
+닫힘구간 위치 피드백을2→8/s로 높이고 연속같은phase의현재flap 이동량50%를
+feedforward로더한다. 이동량은측정랙 좌표에서계산하며각틱최대2mm다. 전체위치
+task increment10mm·관절증분0.02rad·pending lead0.08rad와 실제decoder 제한을
+유지한다. 초기화·clock reset·phase 변경·건너뛴tick에서는이전 이동량을쓰지
+않는다. 열고접근하거나들 때는기존2/s이며진입속도를일괄 높이지 않는다.
+
+6mm 닫기 시작·12mm 재접근·축0.25/0.30rad·24틱 닫힘·측정85%·6틱 정착·
+6mm 들기 전환은동일하다. 기존20% 선택·관측·actor/Q sampling·density·entropy·
+보상·물리servo·양손 성공·안전·무작위화도동일하며 접촉/성공label은진단에만
+쓴다. 관련66개 검사와실제모델 저장·재개·Q영상복원을 통과했다. 초기actor/
+정규화29개와 source/body anchor는v3 초기와정확히같다. **수정은추종가설의
+시험이며 아직물리성공 또는학습개선 결과가아니다.** 상단11경로의진입 정렬,
+중형6경로의안전접근도 여전히미해결이다.
+[초기 모델과실제복원 검증](assets/rl_v2_URDF_motion_feedback_initial_verified_20261009.json).

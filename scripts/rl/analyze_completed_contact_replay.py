@@ -40,8 +40,8 @@ assert all(torch.isfinite(t).all() for t in data.values())
 coordinates=PoseGoalCoordinates(exact_projected_base=True)
 contract=s['goal_contract'];pilot=SimpleNamespace(coordinates=coordinates,center=torch.tensor(contract['goal_center']),scale=torch.tensor(contract['goal_scale']),agent=SimpleNamespace(action_projector=AbsoluteGoalJawProjector()))
 variant=contract['TRAIN_perceived_contact_exploration']['name']
-assert variant in ('TRAIN_arm20_perceived_contact_attempt_v1','TRAIN_arm20_perceived_settled_contact_attempt_v2','TRAIN_arm20_perceived_precise_feedback_attempt_v3')
-settled=not variant.endswith('_v1');precise=variant.endswith('_v3')
+assert variant in ('TRAIN_arm20_perceived_contact_attempt_v1','TRAIN_arm20_perceived_settled_contact_attempt_v2','TRAIN_arm20_perceived_precise_feedback_attempt_v3','TRAIN_arm20_perceived_motion_feedback_attempt_v4')
+settled=not variant.endswith('_v1');motion=variant.endswith('_v4');precise=motion or variant.endswith('_v3')
 waves=proof['completed_TRAIN_waves']
 assert waves and len(waves)==len(set(waves))
 offset=0;previous_stats=None;records=[];max_error=0.
@@ -50,7 +50,7 @@ for wave in waves:
  assert len(cases)==128 and all(r['complete'] and r['initial_layout_valid'] and not r['result'].get('numerical_failure') for r in cases)
  starts=np.array([r['result']['staged_base']['manipulation_start'] for r in cases]);ends=np.array([r['result']['steps'] for r in cases]);chosen=torch.tensor([r['collection_policy_mode']=='perceived_contact_exploration' for r in cases])
  assert all(type(x) is int for x in starts.tolist())
- tracker=None;indices=[[] for _ in cases];phases=[[] for _ in cases];events=[[] for _ in cases];close_gates=[[] for _ in cases]
+ tracker=None;indices=[[] for _ in cases];phases=[[] for _ in cases];events=[[] for _ in cases];close_gates=[[] for _ in cases];reopens=[[] for _ in cases]
  for step in range(int(ends.max())):
   ids=torch.from_numpy(np.where((starts<=step)&(ends>step))[0]);n=len(ids)
   if not n:continue
@@ -62,8 +62,11 @@ for wave in waves:
   assert torch.equal(ao[:,-5:-3],xy) and torch.allclose(ao[:,-3],yaw.sin(),atol=1e-7,rtol=0) and torch.allclose(ao[:,-2],yaw.cos(),atol=1e-7,rtol=0)
   pilot.stage=SimpleNamespace(target_xy=xy,target_yaw=yaw)
   command=held_goal_coordinates(coordinates,raw,pilot.center+pilot.scale*goals,pilot.stage)
-  if tracker is None:tracker=PerceivedContactExploration(128,raw,previous_stats,settled_close=settled,precise_feedback=precise)
+  if tracker is None:tracker=PerceivedContactExploration(128,raw,previous_stats,settled_close=settled,precise_feedback=precise,motion_feedback=motion)
   pre=tracker.phase[ids].clone()
+  pre_closed=tracker.closing[ids].clone()
+  pre_closed_ticks=tracker.closed_ticks[ids].clone()
+  pre_settled_ticks=tracker.settled_ticks[ids].clone()
   proposed,(_,_,recomputed)=tracker.step(pilot,raw,(command,(ao,torch.full_like(co,float('nan')),goals)),ids,supp,chosen[ids],clocks)
   error=float((recomputed-goals).abs().max());max_error=max(max_error,error)
   assert torch.allclose(recomputed,goals,atol=3e-5,rtol=0),(wave,step,error)
@@ -82,6 +85,67 @@ for wave in waves:
    indices[i].append(int(ix[j]));phases[i].append(int(tracker.phase[i]))
    if pre[j]==1 and tracker.phase[i]==2:
     events[i].append(dict(control_step=step+1,held_clock=int(clocks[j]),measured_closure_fraction=raw[j,46:48].tolist(),physical_close_command=command[j,20:22].tolist(),actual_pre_pinching=(co[j,499:501]>.5).tolist(),actual_next_pinching=(data['next_critic_obs'][ix[j],499:501]>.5).tolist(),actual_pre_stable=(co[j,505:507]>.5).tolist(),actual_pre_weaker_pad_force_n=(50*co[j,479:487].reshape(2,2,2)).min(-1).values.max(-1).values.tolist(),actual_pre_pad_in_region=(co[j,487:495].reshape(2,2,2)>.5).tolist(),actual_pre_opposed=(co[j,495:499].reshape(2,2)>.5).tolist()))
+  if precise:
+   reopened=chosen[ids]&pre_closed&(pre==1)&(tracker.phase[ids]==1)&~tracker.closing[ids]
+   if reopened.any():
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.cartesian_flap_probe import contact_region_offsets
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.kinematic_exploration import target_token
+    from kuavo_isaaclab_scene.rl.multi_box.geometry.grasp import nominal_flap_geometry
+    relation=supp[:,:36].reshape(n,2,2,9);flaps=torch.stack((tracker.assignment[ids],1-tracker.assignment[ids]),-1)
+    selected=relation[torch.arange(n)[:,None],torch.arange(2)[None],flaps]
+    relative_R=_rotation_matrix(selected[...,3:]);point=selected[...,:3]+(relative_R@tracker.contact_offsets[ids,...,None]).squeeze(-1)
+    token,valid=target_token(raw);assert valid[reopened].all()
+    _,halves,_=nominal_flap_geometry(token[:,5:8],token[:,3:5].argmax(-1))
+    nearest_offsets=contact_region_offsets(selected,halves[torch.arange(n)[:,None],flaps])
+    nearest=selected[...,:3]+(relative_R@nearest_offsets[...,None]).squeeze(-1)
+    angle=torch.acos((relative_R[...,0]*tracker.axes[None]).sum(-1).abs().clamp(0,1))
+    for j in torch.where(reopened)[0].tolist():
+     # Include the complete immediately preceding closed-command interval.
+     # Coordinates are expressed in each row's measured rack frame, so base
+     # motion does not masquerade as flap or TCP motion in robot coordinates.
+     interval=torch.tensor(indices[int(ids[j])][-(int(pre_closed_ticks[j])+1):])
+     interval_raw=data['critic_obs'][interval,:464]
+     interval_relation=data['critic_obs'][interval,533:569].reshape(-1,2,2,9)
+     interval_flaps=flaps[j]
+     interval_selected=interval_relation[torch.arange(len(interval))[:,None],torch.arange(2)[None],interval_flaps[None]]
+     interval_tcp=interval_raw[:,50:68].reshape(-1,2,9)
+     interval_tcp_R=_rotation_matrix(interval_tcp[...,3:])
+     interval_relative_R=_rotation_matrix(interval_selected[...,3:])
+     interval_point_hand=interval_selected[...,:3]+(interval_relative_R@tracker.contact_offsets[ids[j],...,None]).squeeze(-1)
+     interval_point=interval_tcp[...,:3]+(interval_tcp_R@interval_point_hand[...,None]).squeeze(-1)
+     interval_rack_R=_rotation_matrix(interval_raw[:,71:77])
+     interval_to_rack=interval_rack_R.transpose(-1,-2)[:,None]
+     interval_point_rack=(interval_to_rack@(interval_point-interval_raw[:,None,68:71])[...,None]).squeeze(-1)
+     interval_tcp_rack=(interval_to_rack@(interval_tcp[...,:3]-interval_raw[:,None,68:71])[...,None]).squeeze(-1)
+     interval_normal=(interval_to_rack@(interval_tcp_R@interval_relative_R)[...,0,None]).squeeze(-1)
+     start_normal=interval_normal[0]
+     point_delta=interval_point_rack[-1]-interval_point_rack[0]
+     tcp_delta=interval_tcp_rack[-1]-interval_tcp_rack[0]
+     interval_pending=interval_raw[:,:20]+interval_raw[:,416:436]
+     arm_columns=torch.tensor(tracker.kinematics.columns)
+     interval_torso=planar_position(interval_raw[:,:2],coordinates.links.to(interval_raw))
+     interval_weak=50*data['critic_obs'][interval,479:487].reshape(-1,2,2,2).min(-1).values.max(-1).values
+     reopens[int(ids[j])].append(dict(control_step=step+1,held_clock=int(clocks[j]),
+      previous_closed_ticks=int(pre_closed_ticks[j]),previous_settled_ticks=int(pre_settled_ticks[j]),
+      measured_closure_fraction=raw[j,46:48].tolist(),selected_current_point_distance_m=point[j].norm(dim=-1).tolist(),
+      closest_current_panel_point_distance_m=nearest[j].norm(dim=-1).tolist(),closing_line_error_rad=angle[j].tolist(),
+      actual_pre_pinching=(co[j,499:501]>.5).tolist(),actual_pre_stable=(co[j,505:507]>.5).tolist(),
+      actual_next_pinching=(data['next_critic_obs'][ix[j],499:501]>.5).tolist(),
+      selected_point_beyond12mm=bool(point[j].norm(dim=-1).max()>.012),axis_beyond0p30rad=bool(angle[j].max()>.30),
+      closest_point_still_within6mm=bool(nearest[j].norm(dim=-1).max()<=.006),actual_executed_jaw_goals=goals[j,19:21].tolist(),
+      immediately_preceding_closed_interval=dict(rows_including_reopen=len(interval),
+       measured_closure_fraction=interval_raw[:,46:48].tolist(),
+       selected_current_point_distance_m=interval_point_hand.norm(dim=-1).tolist(),
+       contact_point_rack_m=interval_point_rack.tolist(),tcp_rack_m=interval_tcp_rack.tolist(),
+       measured_torso_xz_m=interval_torso.tolist(),
+       measured_arm_joints_rad=interval_raw[:,:20][:,arm_columns].tolist(),
+       pending_arm_joint_lead_rad=(interval_pending[:,arm_columns]-interval_raw[:,:20][:,arm_columns]).tolist(),
+       actual_weaker_pad_force_n=interval_weak.tolist(),
+       actual_executed_jaw_goals=data['action'][interval,19:21].tolist(),
+       actual_executed_torso_goals_m=(pilot.center+pilot.scale*data['action'][interval])[:,17:19].tolist(),
+       flap_point_displacement_rack_m=point_delta.tolist(),tcp_displacement_rack_m=tcp_delta.tolist(),
+       flap_point_displacement_along_start_panel_normal_m=(point_delta*start_normal).sum(-1).tolist(),
+       tcp_displacement_along_start_panel_normal_m=(tcp_delta*start_normal).sum(-1).tolist())))
  previous_stats=tracker.report()
  for i,case in enumerate(cases):
   ix=torch.tensor(indices[i]);assert len(ix)==ends[i]-starts[i]
@@ -123,6 +187,7 @@ for wave in waves:
   record=dict(wave=wave,environment=i,seed=case['layout']['seed'],region=case['layout']['target_region'],box_type=case['layout']['target_box_type'],mode=case['collection_policy_mode'],success=supported_success(case),unsafe=bool(term['unsafe']),time_out=bool(term['time_out']),unsafe_causes=term['unsafe_causes'],rack_peak_body=term['rack_peak_body'],held_rows=len(ix),reconstructed_guided_rows=sum(0<=p<3 for p in phases[i]),reconstructed_phase_counts=dict(Counter(phases[i])),approach_phase_rows_with_any_commanded_closed_jaw=int(((torch.tensor(phases[i])==0)&(data['action'][ix,19:21]>0).any(-1)).sum()),approach_phase_rows_with_both_commanded_closed_jaws=int(((torch.tensor(phases[i])==0)&(data['action'][ix,19:21]>0).all(-1)).sum()),first_surface_approach_clock=(phases[i].index(1) if 1 in phases[i] else None),lift_attempt_events=events[i],ever_each_hand_pinched=pinch.any(0).tolist(),actual_opposing_pinch_rows=int(opposing.sum()),longest_actual_opposing_pinch_s=best/30,measured_closure_peak=raw[:,46:48].max(0).values.tolist(),best_actual_weaker_pad_force_n=weaker.max(0).values.tolist(),terminal_surface_distance_m=term['flap_distances'],terminal_actual_pinching=term['pinching'],terminal_stable_hands=term['stable_hands'])
   record.update(geometry)
   record['measured_closing_gate_diagnosis']=closure_summary
+  record['precise_feedback_reopen_events']=reopens[i]
   records.append(record)
 saved_statistics=s['perceived_contact_statistics']
 fk_key='measured_fk_max_position_error_m'
