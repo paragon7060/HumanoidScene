@@ -31,6 +31,8 @@ def main():
         help='Opt-in actual-flap learner objective: real completed successful and failed TRAIN n-step credit')
     parser.add_argument('--critic-episode-clock', choices=('task-remaining',), default=None,
         help='Measured task time remaining for the critic; requires fresh matching inputs')
+    parser.add_argument('--policy-servo-diagnostics', action='store_true',
+        help='Read-only measured held states: report production step clipping by region/box type every30steps')
     parser.add_argument('--jaw-behavior', choices=('policy', 'joint-epsilon10', 'joint-epsilon30'), default=None,
         help='Actual-flap TRAIN collection only: 10 or 30 percent correlated uniform joint jaws with unchanged production gate')
     parser.add_argument('--body-behavior', choices=('off', 'ramped-arm-bias20', 'arm20-explore-rest-greedy'), default=None,
@@ -879,7 +881,7 @@ def main():
                     scene_videos.capture(step,active,buffer['success'],buffer['unsafe'],buffer['time_out'],buffer['distance'])
                 return result
             env.termination_manager.compute=capture_before_reset
-            rollout_start=time.monotonic();wave_rows=0
+            rollout_start=time.monotonic();wave_rows=0;policy_servo_diagnostics=[]
             try:
                 with torch.no_grad():
                     for step in range(args.steps):
@@ -894,6 +896,10 @@ def main():
                             command,previous=act_measured_held_rows(pilot,stages,ids,pre,clocks,
                                 supplemental_group=SUPPLEMENTAL_GROUP if supplemental else None)
                             action[ids]=command
+                            if args.policy_servo_diagnostics and step%30==0:
+                                from kuavo_isaaclab_scene.rl.multi_box.debug.servo_policy_diagnostics import measured_policy_servo_diagnostics
+                                policy_servo_diagnostics.append(dict(wave=wave_index,split=wave['split'],step=step+1,
+                                    statistics=measured_policy_servo_diagnostics(pilot.agent,previous,ids,wave['layouts'])))
                         if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                             raise ValueError('Generated and executed jaw projections differ')
                         if grasp_audit is not None:grasp_audit.prepare(step,pre['policy'],action,active,ids,previous)
@@ -957,6 +963,8 @@ def main():
                                 active=int(active.sum()),held=len(ids),actual_rows=total_rows,
                                 transition_per_s=total_rows/(time.monotonic()-start),learner=pilot.report(),last=last)
                             progress['rollout_transition_per_s']=wave_rows/(time.monotonic()-rollout_start)
+                            if policy_servo_diagnostics and policy_servo_diagnostics[-1]['step']==step+1:
+                                progress['policy_servo_diagnostics']=policy_servo_diagnostics[-1]
                             (output/'progress.json').write_text(json.dumps(progress)+'\n')
                             print('[BATCHED SAC] '+json.dumps({k:v for k,v in progress.items() if k not in ('learner','last')})+
                                 f' actor={pilot.actor_updates} critic={pilot.critic_updates}',flush=True)
@@ -964,6 +972,11 @@ def main():
             finally:
                 env.termination_manager.compute=compute
                 if scene_videos is not None:scene_videos.close(last)
+            if args.policy_servo_diagnostics:
+                (output/f'policy_servo_diagnostics_wave_{wave_index:04d}.json').write_text(json.dumps(
+                    dict(role='read_only_measured_policy_servo_step_clipping',wave=wave_index,
+                         split=wave['split'],samples=policy_servo_diagnostics,
+                         sample_period_control_steps=30,whole_wave_result_requires_metrics=True),indent=2)+'\n')
             for i,samples in enumerate(rows):
                 success=bool(last[i] and last[i]['success'])
                 collection_mode=None

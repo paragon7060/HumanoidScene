@@ -30,7 +30,7 @@ def load_owned(path):
 def fractions(raw, agent, labels, generator):
     normalized = agent.actor_normalizer(agent.actor_features(raw))
     with torch.no_grad():
-        mean, log_std, _ = agent.parameters_at(normalized)
+        mean, log_std, _ = agent.continuous_parameters(normalized, raw)
         _, radius = agent.anchor_and_scale(raw)
         greedy = agent.act(raw, True)
         delta = agent.goal_servo_critic_encoder.unclipped_body(raw, greedy)
@@ -39,6 +39,8 @@ def fractions(raw, agent, labels, generator):
     body = agent.body_from_latent(normalized, latent.tanh(), raw)
     projected = agent.action_projector(raw, torch.cat((body, greedy[:, 19:]), -1))
     encoded = agent.critic_action_features(raw, projected)[:, :19]
+    if not torch.allclose(projected, greedy, atol=1e-7, rtol=1e-6):
+        raise ValueError('Diagnostic mean differs from the actual deterministic sampler')
     derivative = torch.autograd.grad(encoded.sum(), latent)[0]
     encoder = agent.goal_servo_critic_encoder
     steps = raw.new_tensor(encoder.coordinates.joints.scales + [.1/30, .1/30])
@@ -55,7 +57,7 @@ def fractions(raw, agent, labels, generator):
         noisy_deltas = []
         for _ in range(16):
             noise = torch.randn(mean.shape, generator=generator, device='cpu').to(raw)
-            noisy_body = agent.body_from_latent(normalized, (mean+log_std.exp()*noise).tanh(), raw)
+            noisy_body, _, _ = agent.continuous_sample(normalized, noise=noise, raw=raw)
             noisy_goals = agent.action_projector(raw, torch.cat((noisy_body, greedy[:,19:]), -1))
             noisy_command = agent.critic_action_features(raw, noisy_goals)[:, :19]
             noisy_deltas.append((noisy_command-command).abs())
@@ -66,6 +68,10 @@ def fractions(raw, agent, labels, generator):
     active_noise = noise_delta[:,active]
     return dict(
         states=len(raw), active_coordinate_samples=denom,
+        gradient_coordinate='actual_state_aware_pre_tanh_Gaussian_mean',
+        network_residual_mean_local_scaling_NOT_included_in_this_Jacobian=True,
+        deterministic_body_mean_matches_actual_sampler=True,
+        noise_uses_actual_continuous_sampler=True,
         servo_clipped_active_fraction=float(((delta.abs()>1)&active).sum())/denom,
         zero_servo_gradient_active_fraction=float((blocked&active).sum())/denom,
         tanh_mean_abs_over3_active_fraction=float(((mean.abs()>3)&active).sum())/denom,

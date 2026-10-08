@@ -707,6 +707,11 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 [실제 명령의 Q 근거를 보강하는 SAC 비교](docs/RL_V2_Q_SUPPORT_CONSERVATIVE_20261008.md)에 있다.
 원래 성공·안전·무작위화와 actor 동작을 보존하며, 파지 성능 개선 여부는 별도 평가한다.
 
+실제 SAC 상태에서 관절 속도 제한을 구역·크기별로 관찰하려면
+`train_batched_staged_goal.py --policy-servo-diagnostics`를 사용한다. 기본OFF이며
+정책·reward·replay를 바꾸지 않는다. 출력과 최신 전체 성능은
+[실제 수집 상태 진단](docs/RL_V2_MEASURED_SERVO_DIAGNOSTICS_20261008.md)에 있다.
+
 CPU/GPU PhysX 비교와 CPU 물리·별도 GPU SAC learner, 전체 DEV128 중 선택한
 실제 자세 영상 녹화는 [CPU/GPU 중간 보고와 평가 사용법](docs/RL_V2_CPU_GPU_INTERIM_REPORT_20261006.md)에 정리했다.
 기존 정책을 CPU에서 평가한 결과와 CPU 물리에서 새로 학습한 성과를 구분하며,

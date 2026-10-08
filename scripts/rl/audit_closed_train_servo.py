@@ -23,7 +23,7 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.physical_body_actions import 
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import staged_context
 
 
-def samples(source, state, prior):
+def samples(source, state, prior, *, group_by_box_type=False):
     """Use every valid held TRAIN episode; retain early, middle and late states."""
     outcomes = json.loads(load_owned(source / 'metrics.json'))['outcomes']
     train = {(v['wave'], v['environment']): v for v in outcomes if v['split'] == 'train'}
@@ -79,14 +79,16 @@ def samples(source, state, prior):
                 physical = body_command(torch.from_numpy(rows['action'][indices]))
                 if ao.shape[1] != 518 or not torch.isfinite(ao).all():
                     raise ValueError('Measured actor feature reconstruction differs')
-                groups[(region, ending, window)].append((ao, physical))
+                identity = ((region, layout['target_box_type'], ending, window)
+                            if group_by_box_type else (region, ending, window))
+                groups[identity].append((ao, physical))
     return groups, dict(coverage)
 
 
 def diagnose(raw, recorded, agent, generator):
     normal = agent.actor_normalizer(agent.actor_features(raw))
     with torch.no_grad():
-        mean, log_std, _ = agent.parameters_at(normal)
+        mean, log_std, _ = agent.continuous_parameters(normal, raw)
         _, radius = agent.anchor_and_scale(raw)
         greedy = agent.act(raw, True)
         delta = agent.goal_servo_critic_encoder.unclipped_body(raw, greedy)
@@ -95,6 +97,8 @@ def diagnose(raw, recorded, agent, generator):
     body = agent.body_from_latent(normal, latent.tanh(), raw)
     goals = agent.action_projector(raw, torch.cat((body, greedy[:, 19:]), -1))
     encoded = agent.critic_action_features(raw, goals)[:, :19]
+    if not torch.allclose(goals, greedy, atol=1e-7, rtol=1e-6):
+        raise ValueError('Diagnostic mean differs from the actual deterministic sampler')
     jacobian = torch.autograd.grad(encoded.sum(), latent)[0]
     encoder = agent.goal_servo_critic_encoder
     steps = raw.new_tensor(encoder.coordinates.joints.scales + [.1 / 30, .1 / 30])
@@ -111,11 +115,18 @@ def diagnose(raw, recorded, agent, generator):
             draw = torch.randn(mean.shape, generator=generator)
             bias = (draw * .8).clamp(-1.6, 1.6)
             bias[:, [0, 15, 16, 17, 18]] = 0
-            for name, shift in [('Gaussian', log_std.exp() * draw), ('full_ramp_arm_bias', bias)]:
-                noisy_body = agent.body_from_latent(normal, (mean + shift).tanh(), raw)
+            for name in ('Gaussian', 'full_ramp_arm_bias'):
+                noisy_body, _, _ = agent.continuous_sample(normal, raw=raw,
+                    noise=draw if name == 'Gaussian' else None,
+                    deterministic=name == 'full_ramp_arm_bias',
+                    body_latent_offset=bias if name == 'full_ramp_arm_bias' else None)
                 noisy_goals = agent.action_projector(raw, torch.cat((noisy_body, greedy[:, 19:]), -1))
                 noises[name].append((agent.critic_action_features(raw, noisy_goals)[:, :19] - command).abs())
     result = {'states': len(raw), 'all_jacobians_finite': bool(torch.isfinite(jacobian).all()),
+        'gradient_coordinate': 'actual_state_aware_pre_tanh_Gaussian_mean',
+        'network_residual_mean_local_scaling_NOT_included_in_this_Jacobian': True,
+        'deterministic_body_mean_matches_actual_sampler': True,
+        'noise_and_episode_bias_use_actual_continuous_sampler': True,
         'greedy_command_MAE_against_past_executed_body': float((command - recorded[:, :19]).abs().mean()),
         'greedy_jaw_pair_match_past_executed_fraction': float((greedy[:, 19:] == recorded[:, 19:]).all(-1).float().mean()),
         'Gaussian_std_min': float(log_std.exp().min()), 'Gaussian_std_max': float(log_std.exp().max())}
@@ -145,6 +156,8 @@ def main():
     p.add_argument('--checkpoint-pointer', type=Path, required=True)
     p.add_argument('--completed-evaluation', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--by-box-type', action='store_true',
+        help='Keep small and medium separately within each rack region')
     a = p.parse_args()
     if os.environ.get('CUDA_VISIBLE_DEVICES') != '':
         raise ValueError('This read-only diagnostic requires CUDA_VISIBLE_DEVICES empty')
@@ -174,14 +187,17 @@ def main():
         raise ValueError('An owned regular closed HDF is required')
     hdf_before = sha256(hdf)
     agent, prior = restored_agent(state)
-    groups, coverage = samples(source, state, prior)
+    groups, coverage = samples(source, state, prior, group_by_box_type=a.by_box_type)
     generator = torch.Generator().manual_seed(237081400)
     results = []
-    for (region, ending, window), rows in sorted(groups.items()):
+    for group, rows in sorted(groups.items()):
+        region, *middle, ending, window = group
         raw = torch.cat([v[0] for v in rows])
         labels = torch.cat([v[1] for v in rows])
         result = dict(region=region, ending=ending, window=window, episodes=len(rows),
             **diagnose(raw, labels, agent, generator))
+        if middle:
+            result['box_type'] = middle[0]
         results.append(result)
         print(json.dumps({k: result[k] for k in ('region', 'ending', 'window', 'states', 'arms')}), flush=True)
     if not results or not all(torch.equal(v, agent.state_dict()[k]) for k, v in state['model'].items()):
