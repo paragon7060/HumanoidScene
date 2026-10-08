@@ -390,3 +390,9 @@ frozen source를 유지했고 완료 TRAIN384상태의 초기 greedy 목표21개
 앞선 v4가 계획 종료와 최종Drive 검증을 마친 뒤 GPU3 메모리·디스크를 다시
 확인하고 별도 비교를 이어가도록 연결한다. 기존 장기7개와 v5는 계속 유지한다.
 [문제·변경·설정·검증·방법 그림](RL_V2_INTERIOR_CONTACT_SAC_20261009.md).
+
+06:26 KST에 v6의 CPU 대기 PID589,524·빈 GPU mask·앞선 v4 writer/supervisor
+생존·고정 소스749개를 실제 확인했다. 새 v6의 물리 학습은 아직 시작 전이다.
+정상 종료·최종Drive 검증 뒤 GPU3에 별도 폴더로 이어지며, 초기/학습 후 전체
+128결과와 같은 실제 모델을 보호한다. 현재 학습을 종료하거나 재시작하지 않았다.
+[실제 대기 작업과 조건](assets/rl_v2_URDF_interior_contact_actual_GPU3_queue_20261009.json).

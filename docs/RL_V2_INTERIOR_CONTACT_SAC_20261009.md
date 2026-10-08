@@ -56,8 +56,13 @@ entropy도 유한했다. 분석 상태나 명령은 학습에 넣지 않았다. 
 중간/상단·좌/우와small/medium의 원래 여섯 조합을 유지하고 독립FINAL은 아직
 사용하지 않는다. 기존 일곱 장기 비교는TRAIN6,144·replay200만으로 계속한다.
 GPU3의 앞선 v4 writer/supervisor가 정상 종료하고 최종Drive 검증을 마친 뒤,
-GPU 메모리·디스크를 다시 확인해 별도 v6를 시작하도록 CPU 대기 작업을 연결한다.
-준비 파일의 존재를 실제 학습 시작으로 판단하지 않는다.
+GPU 메모리·디스크를 다시 확인해 별도 v6를 시작하도록 CPU 대기 작업을 등록했다.
+06:26 KST에 실제 PID589,524·빈 `CUDA_VISIBLE_DEVICES`·v4 writer3,191,064와
+supervisor3,190,664의 생존을 확인했다. 고정 소스749개와 초기 checkpoint를
+검증했으며 현재 새 v6는 대기 중이다. 기존 실행에 신호를 보내지 않는다.
+시작 후 실제 런타임·첫 TRAIN·전체 초기/학습 후 평가·같은 모델 보존용 CPU
+관찰 다섯 개를 자동 등록한다. 준비 파일의 존재를 실제 학습 시작으로 판단하지 않는다.
+[실제 대기 PID·고정 소스·시작 조건](assets/rl_v2_URDF_interior_contact_actual_GPU3_queue_20261009.json).
 
 기존 Drive 연결·300초 업로드·크기/MD5 검증·최신2개 checkpoint 보호를 재사용한다.
 RawHDF/replay/영상은 checkpoint/log 전용 백업 범위에 없으므로 로컬에 보관한다.
