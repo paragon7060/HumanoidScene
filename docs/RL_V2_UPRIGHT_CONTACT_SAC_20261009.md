@@ -169,3 +169,13 @@ supervisor의 종료·안정된 파일·입력 불변·실행 목표 범위를 �
 Drive 검증을 확인했다. 경계 복구 수정의 실제 완료 수집과 학습 후 전체
 성능은 아직 대기 중이다. TRAIN6,144·replay40만과 원래 무작위화를 유지한다.
 [전체 초기 평가 근거](assets/rl_v2_URDF_upright_contact_repaired_first_full_DEV_20261009.json).
+
+
+08:11 KST에 같은 수정 writer가 첫 TRAIN step451·Q778·수집46,659행까지
+진행했다. `upright_projected_proposal_rejections_current_wave`는37이었다.
+이전 오류 실행의44,020행/마지막progress421을 넘었고, 범위 밖의 유한 제안을
+거부하고 이전 유효 몸통 목표와 팔 제어를 유지하는 분기가 실제로 실행된
+상태에서도 배치가 계속됐다. 같은 실제 접촉 이력의 반복이나 전체 episode
+완료·파지 성공·학습 개선을 뜻하지 않는다. 실제 pitch/접촉 영향은 완료된
+첫 TRAIN 자료에서 별도로 확인한다.
+[실제 경계 복구 관찰](assets/rl_v2_upright_repaired_actual_boundary_recovery_20261009.json).
