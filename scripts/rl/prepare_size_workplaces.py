@@ -31,6 +31,8 @@ def closed_probe(run, *, allow_frozen_base_attitude_probe=False):
     manifest=read_snapshot(run/'manifest.json')
     if manifest.get('frozen_bilateral_close_probe') is not None:
         raise ValueError('Changed jaw behavior is a diagnostic, not the original waypoint or Q contract')
+    if manifest.get('frozen_cartesian_flap_probe') is not None:
+        raise ValueError('Changed Cartesian behavior is a diagnostic, not the original waypoint or Q contract')
     attitude_probe=manifest.get('base_attitude_gain_probe')
     if attitude_probe is not None:
         if not allow_frozen_base_attitude_probe:
