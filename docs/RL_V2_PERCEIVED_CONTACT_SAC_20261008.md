@@ -321,3 +321,15 @@ task increment10mm·관절증분0.02rad·pending lead0.08rad와 실제decoder �
 시험이며 아직물리성공 또는학습개선 결과가아니다.** 상단11경로의진입 정렬,
 중형6경로의안전접근도 여전히미해결이다.
 [초기 모델과실제복원 검증](assets/rl_v2_URDF_motion_feedback_initial_verified_20261009.json).
+
+04:43 KST에격리소스 `1aa4c0b680750e10c6414726552aef21f6bf3b50`의새v4를
+고유폴더에서시작했다. 04:50 KST에실제초기전체DEV 진행·writer3,191,064·
+`CUDA_VISIBLE_DEVICES=3`·Kit단일GPU3·고정소스745개·중력보상18관절·
+메모리2,791MiB를대조했다. 기존Drive는04:49:56에업로드·체크섬검증을
+완료했다. TRAIN384·초기/학습후각DEV128·replay25만이며아직actor/Q0인
+초기평가다. 기존8개실행은유지했다. 시작기록작성의중복키오류는성공한
+기존서비스/PID를다시대조해기록만복구했고중복실행하거나writer를재시작하지
+않았다. 평가모델·전체결과·첫TRAIN·시작검증을읽는CPU관찰5개와완료replay
+분석관찰을실행했다. 현재학습성공/개선은미확인이다.
+[실제시작·환경계약·첫Drive검증](assets/rl_v2_URDF_motion_feedback_SAC_actual_startup_20261009.json) ·
+[실제읽기전용관찰](assets/rl_v2_URDF_motion_feedback_actual_CPU_observers_20261009.json).
