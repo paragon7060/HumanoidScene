@@ -69,3 +69,8 @@ RawHDF/replay/영상은 checkpoint/log 전용 백업 범위에 없으므로 로�
 종료 로그는 writer가 멈춘 뒤 검증하며 다른 사용자 파일·프로세스는 변경하지 않는다.
 
 [최신 전체평가·실제 실행 상태·성공/실패 영상](RL_V2_SAC_PROGRESS_20261009.md).
+
+Notion 중간보고에도 새 지점 선택 방법과 실제 대기를 기록하고 그림을 native
+image로 올렸다. 기존 미디어77개와표5개가 그대로 남았고 새 그림을 포함한
+78개 미디어·native table5개를 다시 확인했다.
+[보고·그림·표 보존 검증](assets/rl_v2_interior_contact_Notion_verified_20261009.json).
