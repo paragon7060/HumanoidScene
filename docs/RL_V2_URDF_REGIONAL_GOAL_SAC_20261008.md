@@ -1,6 +1,6 @@
 # 실제 관절 범위에서 학습하는 별도 SAC
 
-## 최신 결과: 초기 전체 DEV14/128, 새 TRAIN 시작
+## 최신 결과: 초기 전체 DEV14/128, 실제 성공 데이터로 학습 중
 
 2026-10-08 16:38 KST에 초기 전체 DEV128이 완료됐다. **성공14·안전 위반45·
 시간 초과56·초기 무효13회**, numerical failure0이다. Actor/Q 업데이트0인
@@ -42,6 +42,49 @@ actor normalizer29개 tensor는 원래 값과 같았다. 초기Q warmup 동안 �
 동작이다. Frozen source/body anchor와 격리 소스728개도 보존했다.
 학습 로그만으로 모델 갱신을 추정하지 않았으며 첫 학습 후 전체 DEV는 아직 전이다.
 [실제Q1,024 모델·optimizer·동결 actor 대조](assets/rl_v2_URDF_first_Q1024_actual_model_20261008.json).
+
+17:06 KST에 첫 TRAIN128조건의 종료 체크포인트를 대조했다. **성공16·안전
+위반51·시간 초과61·초기 무효0회**였다. 성공은 중간 왼쪽small9회·상단
+오른쪽small6회·상단 왼쪽small1회이며 중형과 중간 오른쪽은0회다. Greedy
+97조건에서16회 성공했고 연속 팔 탐색31조건에서는 성공0·안전 위반23·시간
+초과8회였다. 당시 actor갱신0·Q1,590회였으며 TRAIN 시작 조건은 DEV와 다르다.
+따라서16회를 학습 후 평가 성공률이나 초기14회 대비 개선으로 해석하지 않는다.
+
+실제로 성공한16개 경로의7,666개 전이가 성공 은행에 들어갔다. 모든 행의
+518D/578D 관측과 새 bounded21D 목표·binary jaw·실제 opposing 파지/유지/들기
+증거, production jaw gate와 servo encoder를 확인했다. 실제 종료 checkpoint의
+모델·optimizer·성공 행428개 tensor가 유한했고 Q optimizer는 모두 실제
+1,590회 갱신이었다. CPU Q 복원도 정확히 일치했다. 성공 경로 입력에서 greedy
+목표의 최대 오차2.56e-6과 servo 평균 오차4.92e-6은 CPU/GPU 수치 차이이며
+정책 갱신으로 해석하지 않는다.
+
+완료한 TRAIN128조건의 실제 종료까지 계산한 return도 수집됐으며 평가 데이터
+유입은0이다. 학습 로그에서 성공 전이의 Q 표본 약20%와 실제 종료 return
+보조64행·가중치0.1·bootstrap0을 확인했다. 실제 성공 유지 손실은 이 새
+TRAIN 성공 행을 사용한다. VR/교사 BC 가중치는0이고 과거 좌표의 성공 은행을
+가져오지 않았다. Return 은행의 보고·수집 수는 대조했지만 실행 중인 전체
+replay/HDF를 읽어 재구성하지 않았다.
+[첫 TRAIN 전체 결과·실제 성공 은행·모델 대조](assets/rl_v2_URDF_first_closed_TRAIN1590_data_verified_20261008.json).
+
+17:19 KST 실제 저장 모델에서 **actor256회·Q3,072회 갱신**을 확인했다. Actor
+가중치가 초기 값에서 바뀌었고 모든 actor/Q optimizer parameter의 실제 Adam
+step이 각각256/3,072였다. 저장된 모델·normalizer·optimizer·성공 행506개
+tensor는 유한했다. Actor LR1e-6, 관측 normalizer와 고정 기준 actor/body anchor,
+격리 소스728개는 유지됐다. 실제 actor 갱신에 TRAIN 성공64행과 Q 성공 표본,
+종료 return 보조64행·bootstrap0이 사용됐다. 새 성공 은행은 구역 균형을 유지한
+전체 경로 uniform 표본이며 이전 actor-memory 실행의 tail32 표본을 가져오지
+않는다. 이는 **실제 SAC 정책이 갱신되고 있다는 증거**다. 첫 학습 후 전체
+DEV4는 아직 진행 전이므로 성공률 개선이나 일반화 성공의 증거는 아니다.
+[첫 실제 actor 모델·optimizer·성공 학습 연결](assets/rl_v2_URDF_first_actor_Q3072_actual_model_20261008.json).
+
+같은 모델을 CPU에서 정확히 복원해 **이전 실제 성공 경로의 입력**을 다시
+질의했다. 중간 왼쪽small/상단 오른쪽small/상단 왼쪽small의 몸체 목표 평균
+오차는0.00617/0.00715/0.00406인 반면, 정규화된 실제 servo 명령 평균 오차는
+0.271/0.264/0.161이었다. 작은 목표 변화가 production step 제한에서 큰 명령
+변화로 이어질 수 있으므로 성공 동작 보존을 추가로 살펴야 한다. 이는 과거
+입력에 대한 정적 측정이며 실제 새 경로의 충돌·성공 여부를 단정하지 않는다.
+전체 DEV에서 성공이 감소하면 이 명령 변화와 Q/성공 유지 손실의 균형을
+함께 분석한다. 목표 오차만 작다고 성공 경로가 유지됐다고 판단하지 않는다.
 
 ### 같은 초기 정책의 대표 영상
 
