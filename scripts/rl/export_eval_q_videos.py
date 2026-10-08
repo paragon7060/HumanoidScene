@@ -64,18 +64,25 @@ def restored_agent(state):
     from kuavo_isaaclab_scene.rl.multi_box.experiments.support_conservative_sac import (
         SupportConservativeRegionalSACPilot,SupportConservativeHybridSAC,support_conservative_contract,
     )
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_regional_goal_sac import (
+        URDFRegionalGoalSACPilot, validate_urdf_regional_state, frozen_regional_source,
+        original_regional_body_goal, convert_original_body_goals,
+    )
+    urdf = state.get('artifact_type') == URDFRegionalGoalSACPilot.artifact_type
+    if urdf:
+        validate_urdf_regional_state(state)
     support=state.get('artifact_type')==SupportConservativeRegionalSACPilot.artifact_type
     if support and state['goal_contract'].get('critic_support_regularization')!=support_conservative_contract():
         raise ValueError('Saved conservative critic support contract differs')
-    regional = support or state.get('artifact_type') == RegionalActorMemorySACPilot.artifact_type
-    memory = regional or state.get('artifact_type') == ActorMemoryServoRetentionSACPilot.artifact_type
+    regional = urdf or support or state.get('artifact_type') == RegionalActorMemorySACPilot.artifact_type
+    memory = (regional and not urdf) or state.get('artifact_type') == ActorMemoryServoRetentionSACPilot.artifact_type
     if memory:
         if state['goal_contract'].get('actor_training_memory') != actor_memory_contract():
             raise ValueError('Saved actor-only TRAIN memory contract differs')
         ActorTrainMemory(state['actor_training_memory'],
             compatibility=compatibility_contract(state['goal_contract']),
             frozen_anchor_SHA256=structure_sha256(state['body_anchor_state']))
-    conservative = memory or state.get('artifact_type') == ConservativeServoRetentionSACPilot.artifact_type
+    conservative = urdf or memory or state.get('artifact_type') == ConservativeServoRetentionSACPilot.artifact_type
     if conservative:
         validate_conservative_actor_state(state, artifact_type=state['artifact_type'])
     contract = state['goal_contract']
@@ -109,6 +116,7 @@ def restored_agent(state):
     anchor.load_state_dict(nominal_snapshot['model'])
     anchor.requires_grad_(False)
     actual_anchor = actual_actor_snapshot(snapshot, 'cpu') if reanchored else None
+    regional_source = frozen_regional_source(state['URDF_regional_source'], 'cpu') if urdf else None
 
     @torch.no_grad()
     def body_anchor(raw):
@@ -117,8 +125,12 @@ def restored_agent(state):
         command = anchor['actor'](anchor['actor_normalizer'](nominal), deterministic=True)[0]
         nominal_goal = projector(nominal, command)[:, :19]
         if actual_anchor is not None:
-            return source_actual_body_goal(raw, nominal_goal, actual_anchor,
+            nominal_goal = source_actual_body_goal(raw, nominal_goal, actual_anchor,
                 snapshot['source_goal_contract']['fixed_prior_radius'])
+        if urdf:
+            original = original_regional_body_goal(raw, nominal_goal, state['URDF_regional_source'], regional_source)
+            return convert_original_body_goals(original, contract['source_goal_center'], contract['source_goal_scale'],
+                contract['goal_center'], contract['goal_scale'])
         return nominal_goal
 
     agent_class=(SupportConservativeHybridSAC if support else
@@ -140,7 +152,8 @@ def restored_agent(state):
     agent.validated_jaw_prior = lambda normal: reference['actor'].network(
         torch.cat((normal[:, :prefix], normal[:, -6:]), -1)).chunk(2, -1)[0][:, 19:21]
     if regional:
-        validate_regional_actor_state(state)
+        if not urdf:
+            validate_regional_actor_state(state)
         # Install with the saved frozen statistics before restoring all tensors.
         agent.actor_normalizer.load_state_dict({k.removeprefix('actor_normalizer.'):v
             for k,v in state['model'].items() if k.startswith('actor_normalizer.')})

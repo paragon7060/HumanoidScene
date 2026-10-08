@@ -12,6 +12,7 @@ from .conservative_servo_retention import ConservativeServoRetentionSACPilot
 from .actor_memory_servo_retention import ActorMemoryServoRetentionSACPilot
 from .regional_actor_servo import RegionalActorMemorySACPilot
 from .support_conservative_sac import SupportConservativeRegionalSACPilot
+from .urdf_regional_goal_sac import URDFRegionalGoalSACPilot
 
 
 def staged_policy_class(artifact_type):
@@ -25,6 +26,7 @@ def staged_policy_class(artifact_type):
         ActorMemoryServoRetentionSACPilot,
         RegionalActorMemorySACPilot,
         SupportConservativeRegionalSACPilot,
+        URDFRegionalGoalSACPilot,
     )}.get(artifact_type)
 
 
