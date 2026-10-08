@@ -161,3 +161,37 @@ CPU 전용 확인기3054050은 이 writer의 정상 종료 뒤 전체128결과·
 방법을 확인한 뒤 새 좌표·실행 label·fresh Q를 갖춘 실제 TRAIN 연결과
 교사 없는 전체 SAC 평가로 이어가야 한다.
 [진행 중 첫 실제 성공과 미확인 범위](assets/rl_v2_pending_lift_first_actual_success_20261008.json).
+
+## 전체 정상 종료: 교사 성공1/128, SAC 성공으로 집계하지 않음
+
+15:11 KST에 v4 writer의 exit0·run complete·원래128요청·격리 소스450개·
+모델/normalizer198개 고정·actor/Q/replay0을 확인했다. 전체 결과는 성공1·
+안전 위반18·시간 초과96·초기 무효13회이며 numerical failure는0이다.
+성공은 중간 왼쪽small env67 한 번이고 중형 양쪽은 모두0이다. 안전 위반은
+랙 충돌15·박스 낙하3회다. 원래128요청·checkpoint·waypoint·물리/보상/
+제어기/무작위화/성공/안전 기준을 대조했다. 실제 flap 추첨과 접촉 이력까지
+동일한 비교는 아니므로 v3의0→v4의1회를 엄밀한 인과 효과나 SAC 개선으로
+표시하지 않는다. [전체 종료 근거](assets/rl_v2_cartesian_pending_lift_full128_closed_20261008.json).
+
+15:20 KST에 유효115경로의 held80,517행에서 실제24채널 명령을 전부 다시
+계산했다. 최대 오차3.58e-5이고 guide34,642행·닫기4,664행·실제 들기 전환1회·
+pending-target 누적14행을 포함한 전체 카운터가 실행 기록과 일치했다.
+원래 모델·checkpoint·종료 HDF의 checksum도 보존했다. Env67은step612에서
+들기로 전환하고14번의 누적 명령 뒤step626에 실제 양손 opposing 파지·
+0.267초 유지·clearance17.95mm·안전 위반 없음으로 성공했다.
+[전체 실제 명령 재구성](assets/rl_v2_closed_cartesian_pending_lift_actions_audit_20261008.json).
+
+그러나 대부분의 접근·정렬·양손 파지는 해소되지 않았다. 상단 왼쪽은 유효30회
+중26회가 보정으로 넘어갔지만 삽입 단계로 전환한 경로는0이었다. 중형 왼쪽은
+유효14회 중10회, 오른쪽은14회 중9회가 삽입 단계로 넘어갔지만 실제 opposing
+양손 pinch 행은 양쪽 모두0이었다. 삽입 전환에는 한 손 접촉도 포함되므로
+양손 정렬 성공으로 해석하지 않는다. 이 카운터로 모든 실패의 단일 원인을
+확정하지 않는다. 접촉 후 들기를 한 사례에서 구현한 것과 여섯 조합의
+안전한 접근·정렬·파지 및 학습 일반화는 구분한다.
+
+15:19 KST에 원래 관리자의`finished`·`final_upload_verified: true`도 확인했다.
+기존 Drive 연결을 재사용했고 선택한 체크포인트·계약·종료 로그 범위를 검증했다.
+Raw HDF/replay는 로컬에 유지하며 Drive에 검증됐다고 표시하지 않는다.
+성공 경험을 실제 SAC에 연결하려면 새 목표 좌표·실행 label·fresh Q/replay가
+필요하다. 교사 goal을 기존 bounded action/Q에 넣지 않는다.
+[가능성·남은 문제·다음 판단 기준](RL_V2_LEARNING_FEASIBILITY_20261008.md).
