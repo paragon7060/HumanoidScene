@@ -98,3 +98,13 @@ CPU 대기 coordinator가 exit0으로 끝난 것은 시작 완료이며 새 GPU 
 읽어 종료하는 문제를 고쳐 PID1,652,910으로 교체했다. 수정 장기 v5의 같은 CPU
 관찰도 PID1,651,919로 복구했다. GPU writer나 Drive 업로드는 중단하지 않았다.
 [실제 시작·고정 소스·대기 완료·관찰 PID](assets/rl_v2_URDF_interior_contact_repaired_actual_launch_20261009.json).
+
+07:40 KST에 초기 전체평가 step1·Actor/Q0·온라인0에 진입했다. 실제 agent/progress/
+manifest·원래 다섯 배치와749개 고정 소스가 일치했고 중력보상18관절을 확인했다.
+VRAM2,791MiB와 첫 Drive 계약 검증도 확인했다. 이는 실행·초기 평가 진입이며
+파지 성공이나 학습 개선은 아니다. 학습 후 전체평가와 같은 모델의 실제 파지로 판단한다.
+[실제 첫 평가·설정·Drive 검증](assets/rl_v2_URDF_interior_contact_repaired_SAC_actual_startup_20261009.json).
+
+Notion 보고에 이번 몸통 추종 그림을 native image로 추가했다. 기존 미디어78개와
+표5개를 그대로 보존했고 현재 미디어79개·native table5개를 다시 확인했다.
+[보고·그림·표 보존 검증](assets/rl_v2_upright_tracking_and_contact_launch_Notion_verified_20261009.json).
