@@ -370,3 +370,8 @@ v3의 정상 종료·최종 Drive 검증 후 v5가05:53 KST에 GPU3에서 실제
 실제로 등록했다. 모델·전체128결과·원래 요청·무작위화·고정 소스를 확인하며,
 훈련이나 다른 사용자 프로세스에 신호를 보내지 않는다.
 [다음 전체평가 관찰 PID](assets/rl_v2_next_whole_DEV_actual_CPU_observers_20261009_0611.json).
+
+Notion 중간보고에도 실제 v5 시작과 v3 종료, 최신 v1 13회·작은 탐색6회,
+v4 접촉 실패를 갱신했다. 기존 미디어77개와 native table5개가 모두 그대로
+남는 것을 재확인했다.
+[실제 실행 보고·미디어/표 보존 검증](assets/rl_v2_upright_contact_actual_runtime_Notion_verified_20261009.json).
