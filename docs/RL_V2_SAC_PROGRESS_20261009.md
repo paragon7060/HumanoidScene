@@ -420,3 +420,8 @@ Actor6,777/Q29,154의 실제 평가 전후 같은 모델·optimizer와1,084개 �
 진행한Q 갱신을 실제 대조했다. v6는 여전히 별도CPU 대기이며 물리 학습은
 시작 전이다. 현재 실행을 종료하거나 다른 사용자의 작업을 변경하지 않았다.
 [현재 실행·갱신·대기 상태](assets/rl_v2_SAC_live_progress_20261009_0653.json).
+
+Notion 중간보고에도v5 초기14회와실제TRAIN 시작, 장기 보강 비교의 최신8회를
+갱신했다. 초기 결과를학습 개선으로표시하지 않으며 기존영상/그림78개와
+native table5개가 모두그대로남는것을재확인했다.
+[보고·미디어/표 보존 검증](assets/rl_v2_upright_initial_and_long_DEV_Notion_verified_20261009.json).
