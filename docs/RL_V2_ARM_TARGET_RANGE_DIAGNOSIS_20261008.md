@@ -95,3 +95,40 @@ V2는13:39 KST에 성공0/128로 정상 종료했다. 종료 당시 source448개
 더 키워야 한다고 단정하지 않는다. 이 단일 상태 분석은 실제 rollout이나 과거
 정책 복원이 아니다. URDF 진단의 원래 전체 물리 결과를 계속 확인한다.
 [실패 포함 분석과 재현](RL_V2_FAILED_TRAIN_SERVO_DIAGNOSIS_20261008.md).
+
+## 전체 물리 종료와 들기 구간의 추가 병목
+
+14:12 KST에 URDF 진단의 정상 종료·원래 전체128요청·소스448개·모델198개
+고정을 확인했다. 성공0·안전 위반15·시간 초과99·초기 무효14회다. 앞선 영역
+보정의 안전 위반40회보다 적지만 새 SAC 성능이나 안정적인 인과 효과로 표시하지
+않는다. 같은 요청이며 flap 추첨·접촉 이력까지 동일한 비교는 아니다.
+[전체 종료 근거](assets/rl_v2_cartesian_URDF_full128_closed_20261008.json).
+
+유효114경로의 실제24채널 명령을 전부 다시 계산했다. 최대 오차4.2e-5이며
+held80,136행·guide34,123행·닫기4,382행 등 전체 카운터가 실행 기록과 일치했다.
+실제 opposing 양손 pinch가 생긴 경로는5개,8tick 유지 후 들기로 전환한 경로는
+3개다. 전환3회는 고유 경로3개임을 따로 확인했다. 접촉만으로 성공으로 세지 않는다.
+[전체 명령과 단계 재구성](assets/rl_v2_closed_cartesian_URDF_actions_audit_20261008.json).
+
+중간 오른쪽small env74는 실제 양손 opposing 접촉을55tick, 약1.83초 유지했다.
+시작 당시 각 pad 힘은8.39~10.49N으로 기존5N 기준을 만족했다. 그러나 들기
+전환 후48tick에서 왼손 상승은0.89mm, 오른손은0.60mm에 불과했고 박스 clearance는
+최대0.075mm였다.8mm proof lift가 생기지 않아 안정성 타이머도 시작하지 않았다.
+기록된 실패는 정상적으로 실패로 유지한다.
+[실제 접촉 유지·손 상승·정규화된 clearance 필드 검증](assets/rl_v2_closed_URDF_contact_lift_20261008.json).
+
+새 선택형 `frozen_cartesian_pending_lift_probe.py`는 **실제 양손 opposing pinch가
+유지되는 들기 구간에서만** 기존 pending PD 목표에 DLS 증분을 누적한다. 측정
+관절 대비 목표 lead는0.08rad로 제한하고 URDF·기존 physical command 제한을
+유지한다. 접촉 전 접근·삽입과 비팔 제어·2.5cm 들기 목표·성공·안전·무작위화는
+그대로다. 현재 측정 위치 가까이 목표를 매번 다시 잡아 PD 오차가 수mrad에
+머무는 문제가 하중 이동을 막는지 분리하는 진단이다. 아직 원인이 확정되거나
+새 물리 성공을 확인한 것은 아니다.
+
+기존 v3는 기본값으로 그대로 보존한다. 새 v4 tag는
+`frozen_actual_flap_URDF_pending_lift_diagnostic_v4`이며 교사·actor/Q/replay0·
+Q import 금지를 유지한다. 관련22개 검사와 실제 입력256개(처음 정착114·
+진입86·실제 들기56개) 제안을 확인했다.200개 접촉 전 입력의 명령은 기존
+v3와 bitwise 같았다. 정확한 decoder·비팔 보존·원래 모델과 HDF 보존을 확인했으며
+이 재구성을 새 접촉이나 학습 경험으로 표시하지 않는다.
+[새 명령 제안 검사](assets/rl_v2_pending_lift_closed_state_rehearsal_20261008.json).

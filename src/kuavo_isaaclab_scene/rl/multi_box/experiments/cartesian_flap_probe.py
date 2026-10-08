@@ -13,9 +13,12 @@ from ..geometry.grasp import nominal_flap_geometry
 from .kinematic_exploration import target_token
 
 
-def cartesian_flap_probe_contract(*, contact_region=False, arm_goal_bounds='source-affine'):
+def cartesian_flap_probe_contract(*, contact_region=False, arm_goal_bounds='source-affine', lift_drive='measured'):
     if arm_goal_bounds not in ('source-affine', 'urdf') or (arm_goal_bounds == 'urdf' and not contact_region):
         raise ValueError('URDF arm diagnostic requires the explicit contact-region method')
+    if lift_drive not in ('measured', 'bounded-pending-target') or (
+            lift_drive != 'measured' and arm_goal_bounds != 'urdf'):
+        raise ValueError('Pending-target lift requires the explicit URDF diagnostic')
     contract = dict(name='frozen_actual_flap_cartesian_contact_diagnostic_v1',
         scope='original_full_TRAIN128_workplace_candidates8',
         handoff_both_midpoint_distance_m=.22, arm_joint_step_cap_rad=.02,
@@ -42,6 +45,13 @@ def cartesian_flap_probe_contract(*, contact_region=False, arm_goal_bounds='sour
             physical_joint_delta_and_controller_caps_unchanged=True,
             stored_teacher_goal_coordinates='source_affine_coordinates_may_exceed_normalized_bounds',
             stored_teacher_goals_NOT_SAC_actor_actions=True)
+    if lift_drive == 'bounded-pending-target':
+        contract.update(name='frozen_actual_flap_URDF_pending_lift_diagnostic_v4',
+            lift_joint_target_rule='measured_pending_PD_target_plus_DLS_increment',
+            lift_pending_target_increment_cap_rad=.02,
+            lift_target_lead_over_measured_joint_limit_rad=.08,
+            lift_integration_requires_current_real_opposing_bilateral_pinch=True,
+            approach_and_insertion_target_rule_unchanged=True)
     return contract
 
 
@@ -63,12 +73,13 @@ def contact_region_offsets(relations, half_extents, *, margin=.005):
 
 
 class FrozenCartesianFlapProbe:
-    def __init__(self, num_envs, raw, *, contact_region=False, arm_goal_bounds='source-affine'):
+    def __init__(self, num_envs, raw, *, contact_region=False, arm_goal_bounds='source-affine', lift_drive='measured'):
         if type(contact_region) is not bool:
             raise ValueError('Contact-region diagnostic must be explicit')
         self.contact_region = contact_region
-        cartesian_flap_probe_contract(contact_region=contact_region, arm_goal_bounds=arm_goal_bounds)
+        cartesian_flap_probe_contract(contact_region=contact_region, arm_goal_bounds=arm_goal_bounds, lift_drive=lift_drive)
         self.arm_goal_bounds = arm_goal_bounds
+        self.lift_drive = lift_drive
         self.kinematics = TensorArmKinematics(device=raw.device, dtype=raw.dtype)
         axes = closed_closing_axes()
         self.axes = raw.new_tensor([axes[side] for side in ('left', 'right')])
@@ -88,6 +99,9 @@ class FrozenCartesianFlapProbe:
         if arm_goal_bounds == 'urdf':
             self.statistics.update(source_affine_arm_range_bypassed_rows=0,
                 URDF_arm_limit_clamped_rows=0)
+        if lift_drive == 'bounded-pending-target':
+            self.statistics.update(lift_pending_target_integrated_rows=0,
+                lift_target_lead_clamped_rows=0)
 
     @torch.no_grad()
     def step(self, pilot, raw, critic, result, ids, supplemental):
@@ -187,6 +201,20 @@ class FrozenCartesianFlapProbe:
         dq = torch.linalg.solve(regularized, (task_J.transpose(-1, -2) @ task_error[..., None])).squeeze(-1).clamp(-.02, .02)
         measured_q = torch.stack([raw[:, cols] for cols in self.kinematics.columns], 1)
         joint_proposal = measured_q + dq
+        if self.lift_drive == 'bounded-pending-target':
+            # A target reset close to measured q every tick can leave only a
+            # few mrad of PD error under load. Preserve the measured pending
+            # target during confirmed lift, with a bounded lead to prevent
+            # unchecked accumulation when a hand is mechanically blocked.
+            lift_integrating = (self.phase[ids] == 2) & confirmed
+            pending = raw[:, :20] + raw[:, 416:436]
+            pending_q = torch.stack([pending[:, cols] for cols in self.kinematics.columns], 1)
+            integrated = pending_q + dq
+            limited = torch.maximum(measured_q - .08, torch.minimum(integrated, measured_q + .08))
+            self.statistics['lift_pending_target_integrated_rows'] += int(lift_integrating.sum())
+            self.statistics['lift_target_lead_clamped_rows'] += int((lift_integrating &
+                ((integrated - limited).abs().flatten(1).amax(-1) > 1e-6)).sum())
+            joint_proposal = torch.where(lift_integrating[:, None, None], limited, joint_proposal)
         requested_q = joint_proposal.clamp(self.kinematics.lower + .01, self.kinematics.upper - .01)
         requested = original_goals.clone()
         requested[:, 1:15] = (requested_q.reshape(-1, 14) - pilot.center[1:15]) / pilot.scale[1:15]
@@ -232,16 +260,16 @@ class FrozenCartesianFlapProbe:
         return command, (actor, critic_features, executed)
 
 
-def install_frozen_cartesian_flap_probe(pilot_class, manifest_module, *, contact_region=False, arm_goal_bounds='source-affine'):
+def install_frozen_cartesian_flap_probe(pilot_class, manifest_module, *, contact_region=False, arm_goal_bounds='source-affine', lift_drive='measured'):
     original_act, original_report = pilot_class.act, pilot_class.report
     original_manifest = manifest_module.checkpoint_manifest_fields
-    contract, tracker = cartesian_flap_probe_contract(contact_region=contact_region, arm_goal_bounds=arm_goal_bounds), [None]
+    contract, tracker = cartesian_flap_probe_contract(contact_region=contact_region, arm_goal_bounds=arm_goal_bounds, lift_drive=lift_drive), [None]
     def act(self, raw, critic, index, **kwargs):
         if self.training or self.actor_updates or self.critic_updates or self.replay.size:
             raise ValueError('Cartesian diagnostic cannot train or consume learned Q/replay')
         result = original_act(self, raw, critic, index, **kwargs)
         if tracker[0] is None:
-            tracker[0] = FrozenCartesianFlapProbe(128, raw, contact_region=contact_region, arm_goal_bounds=arm_goal_bounds)
+            tracker[0] = FrozenCartesianFlapProbe(128, raw, contact_region=contact_region, arm_goal_bounds=arm_goal_bounds, lift_drive=lift_drive)
         return tracker[0].step(self, raw, critic, result, kwargs.get('exploration_ids'), kwargs.get('supplemental'))
     def report(self):
         stats = {} if tracker[0] is None else tracker[0].statistics

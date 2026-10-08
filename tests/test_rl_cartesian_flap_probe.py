@@ -256,3 +256,63 @@ def test_URDF_teacher_still_rejects_learning_before_the_source_actor_runs():
     finally:
         restore()
     assert (Pilot.act, Pilot.report, manifest.checkpoint_manifest_fields) == original
+
+
+def test_pending_lift_keeps_every_precontact_command_identical():
+    pilot, raw, critic, original, supplemental = region_fixture()
+    raw[:, 416:436] = .04
+    original = (held_goal_coordinates(pilot.coordinates, raw,
+        pilot.center + pilot.scale * original[1][2], pilot.stage), original[1])
+    a = FrozenCartesianFlapProbe(128, raw, contact_region=True, arm_goal_bounds='urdf')
+    b = FrozenCartesianFlapProbe(128, raw, contact_region=True, arm_goal_bounds='urdf',
+        lift_drive='bounded-pending-target')
+    ids = torch.tensor([5, 19])
+    old, (_, _, oldgoals) = a.step(pilot, raw, critic, original, ids, supplemental)
+    new, (_, _, newgoals) = b.step(pilot, raw, critic, original, ids, supplemental)
+    assert torch.equal(old, new) and torch.equal(oldgoals, newgoals)
+    assert b.statistics['lift_pending_target_integrated_rows'] == 0
+
+
+@pytest.mark.parametrize('opposing', [False, True])
+def test_pending_lift_accumulates_only_with_real_opposing_pinch_and_bounds_joint_lead(opposing):
+    pilot, raw, critic, original, supplemental = region_fixture()
+    model = TensorArmKinematics()
+    for hand, columns in enumerate(model.columns):
+        raw[:, columns] = (model.lower[hand] + model.upper[hand]) / 2
+    p, R, _ = model.fk(raw[:, :20])
+    raw[:, 50:68] = torch.cat((p, rotation6(R)), -1).flatten(1)
+    joints, torso, _, _, _ = pilot.coordinates.current(raw)
+    pilot.center = torch.cat((joints[0], torso[0], torch.zeros(2)))
+    raw[:, 416:436] = .079
+    original = (held_goal_coordinates(pilot.coordinates, raw,
+        pilot.center + pilot.scale * original[1][2], pilot.stage), original[1])
+    critic[:, 464 + 35:464 + 37] = 1
+    critic[:, 464 + 37] = 1
+    critic[:, 464 + (40 if opposing else 39)] = 1
+    ids = torch.tensor([5, 19])
+    tracker = FrozenCartesianFlapProbe(128, raw, contact_region=True, arm_goal_bounds='urdf',
+        lift_drive='bounded-pending-target')
+    tracker.phase[ids] = 2
+    tracker.lift_targets_rack[ids] = p + torch.tensor([0., 0., .025])
+    command, (_, _, goals) = tracker.step(pilot, raw, critic, original, ids, supplemental)
+    targets = (pilot.center + pilot.scale * goals)[:, 1:15].reshape(2, 2, 7)
+    measured = torch.stack([raw[:, cols] for cols in model.columns], 1)
+    assert (targets >= model.lower + .01).all() and (targets <= model.upper - .01).all()
+    assert command.abs().max() <= 1
+    assert torch.equal(command, held_goal_coordinates(pilot.coordinates, raw,
+        pilot.center + pilot.scale * goals, pilot.stage))
+    assert (targets - measured).abs().max() <= (.080001 if opposing else .020001)
+    assert tracker.statistics['lift_pending_target_integrated_rows'] == (2 if opposing else 0)
+    if opposing:
+        assert (targets - measured).abs().max() > .02
+        assert tracker.statistics['lift_target_lead_clamped_rows'] == 2
+    contract = cartesian_flap_probe_contract(contact_region=True, arm_goal_bounds='urdf',
+        lift_drive='bounded-pending-target')
+    assert contract['approach_and_insertion_target_rule_unchanged']
+    assert contract['name'].endswith('v4') and contract['Q_import_eligible'] is False
+
+
+@pytest.mark.parametrize('bounds,drive', [('source-affine', 'bounded-pending-target'), ('urdf', 'unknown')])
+def test_pending_lift_requires_the_explicit_known_URDF_contract(bounds, drive):
+    with pytest.raises(ValueError, match='Pending-target lift'):
+        cartesian_flap_probe_contract(contact_region=True, arm_goal_bounds=bounds, lift_drive=drive)
