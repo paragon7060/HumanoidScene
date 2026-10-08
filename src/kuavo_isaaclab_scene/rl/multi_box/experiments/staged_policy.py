@@ -15,6 +15,7 @@ from .support_conservative_sac import SupportConservativeRegionalSACPilot
 from .urdf_regional_goal_sac import URDFRegionalGoalSACPilot
 from .urdf_servo_guard_sac import URDFServoGuardSACPilot
 from .urdf_full_arm_sac import URDFFullArmSACPilot
+from .urdf_strong_success_sac import URDFStrongSuccessSACPilot
 
 
 def staged_policy_class(artifact_type):
@@ -31,6 +32,7 @@ def staged_policy_class(artifact_type):
         URDFRegionalGoalSACPilot,
         URDFServoGuardSACPilot,
         URDFFullArmSACPilot,
+        URDFStrongSuccessSACPilot,
     )}.get(artifact_type)
 
 

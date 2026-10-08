@@ -48,8 +48,12 @@ actor/Q/replay는0으로 전체 초기DEV에 들어갔다. 첫 Drive 백업은21
 [실제 시작·계약·첫 백업](assets/rl_v2_URDF_gentle_full_arm_SAC_actual_startup_20261008.json).
 
 관리 폴더는`GPU3_URDF_gentle_full_arm_long_SAC128_20261008_213310`, 실제run은
-`batch_sac_20261008_213311_2b86dc`다. 기존 네 학습은 중단하지 않았다. 새 정책의
-전체 초기DEV와 학습 후 성능은 아직 미확인이다. CPU 관찰기는 각 전체 평가와
+`batch_sac_20261008_213311_2b86dc`다. 기존 네 학습은 중단하지 않았다. 22:13 KST에 전체 초기DEV는성공11·안전 위반48·시간 초과56·초기 무효13회,
+수치 오류0으로 끝났다. 실제 저장 모델/normalizer75개는 이 실행의 지정 초기 모델과
+같고 전체257tensor는 유한했다. 원래 full-arm 초기11과 같은 결과이며 bias가
+없는 DEV 기준이다. Actor/Q0인 초기 평가를 학습 개선으로 해석하지 않는다.
+[전체 초기 결과·같은 모델](assets/rl_v2_URDF_gentle_full_arm_first_full_DEV_20261008.json).
+이후 새 TRAIN 수집을 진행하며 학습 후 성능은 아직 미확인이다. CPU 관찰기는 각 전체 평가와
 정확히 같은 저장 모델을 보존하고 초기 모델·전체 결과를 대조한다.
 
 자기 초기 전체DEV128과 TRAIN384 단위 후속 DEV를 비교하며 중형과 오른쪽도 따로

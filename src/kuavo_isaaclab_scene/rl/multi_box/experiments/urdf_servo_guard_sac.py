@@ -32,13 +32,16 @@ def calibrated_body_noise_scales(source_scale, urdf_scale):
     return result
 
 
-def servo_guard_retention_contract():
+def servo_guard_retention_contract(coefficient=SERVO_GUARD_COEFFICIENT):
+    if type(coefficient) not in (int, float) or coefficient not in (.1, 1.):
+        raise ValueError('Declared servo retention coefficient .1 or1 required')
     return servo_success_retention_contract() | dict(
         name='measured_servo_equivalent_success_retention_guard_v1',
-        servo_interval_Huber_coefficient=SERVO_GUARD_COEFFICIENT)
+        servo_interval_Huber_coefficient=coefficient)
 
 
-def servo_guard_contract():
+def servo_guard_contract(coefficient=SERVO_GUARD_COEFFICIENT):
+    servo_guard_retention_contract(coefficient)
     return dict(name='URDF_arm_physical_Gaussian_scale_and_success_servo_guard_v1',
         quarter_std_config_is_base_before_arm_calibration=True,
         Gaussian_arm_scales='min_source_goal_halfspan_over_URDF_halfspan_and_one',
@@ -48,13 +51,15 @@ def servo_guard_contract():
         Gaussian_log_probability_and_attainable_entropy_target_calibrated=True,
         initial_greedy_body_and_binary_jaws_unchanged=True,
         wide_mean_goal_bounds_and_coherent_TRAIN_arm_bias_unchanged=True,
-        success_servo_interval_coefficient=SERVO_GUARD_COEFFICIENT,
+        success_servo_interval_coefficient=coefficient,
         success_actor_sampling='tail64-half', success_Q_sampling_unchanged=True,
         actual_completed_TRAIN_labels_only=True, curriculum=False,
         physical_decoder_reward_DR_success_safety_unchanged=True)
 
 
 class ServoGuardCorrectionSAC(ServoRetainedCorrectionSAC):
+    success_servo_interval_coefficient = SERVO_GUARD_COEFFICIENT
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.register_buffer('body_std_calibration', torch.ones(19, device=self.log_alpha.device))
@@ -78,19 +83,21 @@ class ServoGuardCorrectionSAC(ServoRetainedCorrectionSAC):
         interval = servo_interval_loss(self.goal_servo_critic_encoder, raw, goals, labels)
         self._success_servo_statistics = dict(success_absolute_goal_MSE=original.detach().item(),
             success_servo_interval_Huber=interval.detach().item(),
-            success_servo_interval_coefficient=SERVO_GUARD_COEFFICIENT)
-        return original + SERVO_GUARD_COEFFICIENT * interval
+            success_servo_interval_coefficient=self.success_servo_interval_coefficient)
+        return original + self.success_servo_interval_coefficient * interval
 
     def update(self, *args, **kwargs):
         report = super().update(*args, **kwargs)
         if self._success_servo_statistics:
-            report['success_servo_interval_weight'] = report['success_goal_weight'] * SERVO_GUARD_COEFFICIENT
+            report['success_servo_interval_weight'] = (
+                report['success_goal_weight'] * self.success_servo_interval_coefficient)
         return report
 
     @property
     def hybrid_contract(self):
-        return super().hybrid_contract | dict(success_body_retention=servo_guard_retention_contract(),
-            URDF_servo_guard=servo_guard_contract())
+        coefficient = self.success_servo_interval_coefficient
+        return super().hybrid_contract | dict(success_body_retention=servo_guard_retention_contract(coefficient),
+            URDF_servo_guard=servo_guard_contract(coefficient))
 
 
 class URDFServoGuardSACPilot(URDFRegionalGoalSACPilot):
@@ -115,29 +122,32 @@ class URDFServoGuardSACPilot(URDFRegionalGoalSACPilot):
         result = super().contract
         if self._URDF_configuring_source:
             return result
-        return result | dict(URDF_servo_guard=servo_guard_contract(),
+        coefficient = self.agent.success_servo_interval_coefficient
+        return result | dict(URDF_servo_guard=servo_guard_contract(coefficient),
             calibrated_body_noise_scales=self.agent.body_std_calibration.tolist(),
-            success_body_retention=servo_guard_retention_contract())
+            success_body_retention=servo_guard_retention_contract(coefficient))
 
     def report(self):
         config = self.agent.config
-        return super().report() | dict(URDF_servo_guard=servo_guard_contract(),
+        return super().report() | dict(
+            URDF_servo_guard=servo_guard_contract(self.agent.success_servo_interval_coefficient),
             calibrated_body_noise_scales=self.agent.body_std_calibration.tolist(),
             effective_continuous_std_min=(config.min_policy_std * self.agent.body_std_calibration).tolist(),
             effective_continuous_std_max=(config.max_policy_std * self.agent.body_std_calibration).tolist())
 
 
-def validate_urdf_servo_guard_state(state, *, artifact_type=None):
+def validate_urdf_servo_guard_state(state, *, artifact_type=None,
+                                  servo_coefficient=SERVO_GUARD_COEFFICIENT):
     validate_urdf_regional_state(state, artifact_type=artifact_type or URDFServoGuardSACPilot.artifact_type)
     contract = state['goal_contract']
     scales = calibrated_body_noise_scales(contract['source_goal_scale'], contract['goal_scale'])
     saved_scales = state['model'].get('body_std_calibration', torch.empty(0))
-    if contract.get('URDF_servo_guard') != servo_guard_contract() \
-            or contract.get('success_body_retention') != servo_guard_retention_contract() \
+    if contract.get('URDF_servo_guard') != servo_guard_contract(servo_coefficient) \
+            or contract.get('success_body_retention') != servo_guard_retention_contract(servo_coefficient) \
             or contract.get('calibrated_body_noise_scales') != scales.tolist() \
             or not torch.equal(saved_scales, scales.to(saved_scales)) \
             or contract.get('train_success_retention') != retention_config('tail64-half') \
             or state.get('successful_train_transitions', {}).get('config') != retention_config('tail64-half') \
-            or state.get('hybrid_contract', {}).get('URDF_servo_guard') != servo_guard_contract() \
-            or state.get('hybrid_contract', {}).get('success_body_retention') != servo_guard_retention_contract():
+            or state.get('hybrid_contract', {}).get('URDF_servo_guard') != servo_guard_contract(servo_coefficient) \
+            or state.get('hybrid_contract', {}).get('success_body_retention') != servo_guard_retention_contract(servo_coefficient):
         raise ValueError('Saved URDF servo guard noise, entropy or real-success objective differs')

@@ -123,8 +123,10 @@ class URDFFullArmSACPilot(URDFServoGuardSACPilot):
             arm_state_local_scale_bounds=[self.correction_radius, 1 / (2 - self.correction_radius)])
 
 
-def validate_full_arm_state(state):
-    validate_urdf_servo_guard_state(state, artifact_type=URDFFullArmSACPilot.artifact_type)
+def validate_full_arm_state(state, *, artifact_type=None, servo_coefficient=.1):
+    validate_urdf_servo_guard_state(state,
+        artifact_type=artifact_type or URDFFullArmSACPilot.artifact_type,
+        servo_coefficient=servo_coefficient)
     contract = state['goal_contract']
     if contract.get('URDF_full_arm_support') != full_arm_contract() \
             or state.get('hybrid_contract', {}).get('URDF_full_arm_support') != full_arm_contract() \

@@ -90,10 +90,17 @@ def restored_agent(state):
     from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_full_arm_sac import (
         URDFFullArmSACPilot, FullArmServoGuardSAC, validate_full_arm_state,
     )
-    full_arm = state.get('artifact_type') == URDFFullArmSACPilot.artifact_type
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_strong_success_sac import (
+        URDFStrongSuccessSACPilot, StrongSuccessFullArmSAC, validate_strong_success_state,
+        STRONG_SERVO_COEFFICIENT,
+    )
+    strong_success = state.get('artifact_type') == URDFStrongSuccessSACPilot.artifact_type
+    full_arm = strong_success or state.get('artifact_type') == URDFFullArmSACPilot.artifact_type
     guard = full_arm or state.get('artifact_type') == URDFServoGuardSACPilot.artifact_type
     urdf = guard or state.get('artifact_type') == URDFRegionalGoalSACPilot.artifact_type
-    if full_arm:
+    if strong_success:
+        validate_strong_success_state(state)
+    elif full_arm:
         validate_full_arm_state(state)
     elif guard:
         validate_urdf_servo_guard_state(state)
@@ -118,7 +125,9 @@ def restored_agent(state):
     if (contract['actor_dim'], contract['critic_dim'], state['action_dim']) != (518, critic_dim, 21):
         raise ValueError('This exporter requires the actual-flap bounded held-base SAC contract')
     retained = conservative or state.get('artifact_type') == ServoRetentionGentleSACPilot.artifact_type
-    retention_contract = servo_guard_retention_contract() if guard else servo_success_retention_contract()
+    coefficient = STRONG_SERVO_COEFFICIENT if strong_success else .1
+    retention_contract = (servo_guard_retention_contract(coefficient) if guard
+                          else servo_success_retention_contract())
     if retained and contract.get('success_body_retention')!=retention_contract:
         raise ValueError('Saved successful-servo retention contract differs')
     gentle = retained or state.get('artifact_type') == GentleServoCriticSACPilot.artifact_type
@@ -162,7 +171,8 @@ def restored_agent(state):
                 contract['goal_center'], contract['goal_scale'])
         return nominal_goal
 
-    agent_class=(FullArmServoGuardSAC if full_arm else ServoGuardCorrectionSAC if guard else SupportConservativeHybridSAC if support else
+    agent_class=(StrongSuccessFullArmSAC if strong_success else FullArmServoGuardSAC if full_arm else
+                 ServoGuardCorrectionSAC if guard else SupportConservativeHybridSAC if support else
                  ServoRetainedCorrectionSAC if retained else BoundedCorrectionHybridSAC)
     agent = agent_class(518, critic_dim, 21, SACConfig(**state['config']), 'cpu',
         action_projector=AbsoluteGoalJawProjector(),
