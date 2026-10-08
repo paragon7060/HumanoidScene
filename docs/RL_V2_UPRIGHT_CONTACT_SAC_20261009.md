@@ -67,15 +67,21 @@ checkpoint/log의 Drive 검증을 마쳤다. 메모리와3GiB 여유를 다시 �
 **05:53 KST에 새 v5 writer84,979·supervisor84,473이 실제 시작됐다.**
 06:07 KST에 초기 전체평가step121·고정 소스748개·중력보상18관절·
 `CUDA_VISIBLE_DEVICES=3`·Kit단일GPU3·VRAM2,791MiB를 확인했다.
-새 버전의 초기/학습 후 성공률은 아직 대기 중이다. CPU 대기 coordinator는
-학습을 시작한 뒤exit0으로 종료했고, 새 학습의 중단을 뜻하지 않는다.
+06:41 KST에 전체 초기평가128회가 끝나 성공14·안전 위반44·시간 초과57·
+초기 무효13·수치 실패0회였다. 중간 왼쪽small9·상단 오른쪽small5회이며
+다른 네 조합과 중형은0회다. 안전 위반은랙43·박스 낙하1회다.
+실제 저장 모델/정규화77개가 검증한 초기 모델과 같고259개tensor가 유한했다.
+Actor/Q 갱신0인 자기 초기 기준이며 학습의 개선을 뜻하지 않는다.
+이후 첫 실제 TRAIN 수집을 시작했다. 학습 후 전체 greedy 결과는 대기 중이다.
+[전체 초기 결과·실제 저장 모델](assets/rl_v2_URDF_upright_contact_first_full_DEV_20261009.json).
+CPU 대기 coordinator는 학습을 시작한 뒤exit0으로 종료했고, 새 학습의 중단을 뜻하지 않는다.
 전체 평가 모델 보존·초기/최종 전체 결과·첫 TRAIN·런타임/Drive 확인용
 CPU 관찰 다섯 개도 실제 시작했다.
 [실제 시작·런타임 계약](assets/rl_v2_URDF_upright_contact_SAC_actual_startup_20261009.json) ·
 [실제 CPU 관찰 작업](assets/rl_v2_URDF_upright_contact_actual_CPU_observers_20261009.json).
 기존 Drive 연결과 300초 업로드·크기/MD5 검증·최신 두 checkpoint 보호를
-재사용한다. 06:00의 첫 검증은manifest/env/agent 계약이며 초기 평가checkpoint는
-아직 저장 전이다. 이후 저장된 checkpoint도 같은 업로더가 검증한다.
+재사용한다. 06:00의 첫 검증은manifest/env/agent 계약이었다. 초기 평가 뒤
+저장된 `checkpoint_00000000.pt`는06:45:25에 기존 업로더의 Drive 검증을 마쳤다.
 Raw HDF/replay/영상은 checkpoint/log 전용 백업 범위에 없으므로
 로컬에 남긴다. 다른 사용자의 실행은 종료하거나 변경하지 않는다.
 
