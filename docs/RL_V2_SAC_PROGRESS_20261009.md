@@ -31,6 +31,19 @@ Q9,708의 실제 평가 전후 같은 모델·optimizer1,028개 유한tensor를 
 이 평가에 대응하는 모델을 별도로 보존했다.
 [두 번째 전체 결과·같은 모델](assets/rl_v2_URDF_gentle_full_arm_second_learned_full_DEV8_20261008.json).
 
+대표 영상은 위 평가의 **상단 오른쪽small 성공**이다. 초기 base는 횡방향
+-1.5cm·밖으로8.2cm·yaw -3.2°가 적용됐고, 접근 후 양손 opposing 파지와
+0.267초 유지·실제 들기·안전 조건을 통과했다. 종료 시 랙 지지면 여유는4.48cm다.
+같은 요청의 자기 초기 평가는timeout이었지만 flap 추첨·접촉 이력까지 같다고
+가정하지 않는다. 탐색 보조 없는 학습된 greedy 정책의 실제 측정 자세를
+기록한 영상이며, 여섯 배치 전체의 일반화 성공을 뜻하지 않는다. 화면의
+`Q9708`은Q 갱신 횟수이고Q-value가 아니다.
+
+![최근 학습 후 상단 오른쪽small 성공](assets/rl_v2_gentle_DEV8_upper_right_learned_success_20261009.png)
+
+[재생 가능한 H264 영상](assets/rl_v2_gentle_DEV8_upper_right_learned_success_20261009.mp4) ·
+[모델·base 변화·실제 성공·전체 재생 검증](assets/rl_v2_gentle_DEV8_upper_right_learned_success_verified_20261009.json).
+
 전체 팔·큰 탐색은actor1,909/Q9,682의 전체128조건에서7회였다.
 원래uniform은actor4,349/Q19,444에서3회였다. 각자의 초기 기준과 비교하며
 실제 flap 추첨·접촉 이력까지 같은 반복이라고 가정하지 않는다.
@@ -109,6 +122,15 @@ TRAIN 탐색의 성공도 학습된 greedy 정책의 일반화 성공과 따로 
 아직 대기 중이다.
 [실제 시작·계약·백업](assets/rl_v2_URDF_settled_contact_SAC_actual_startup_20261009.json).
 [전체 초기 결과·같은 모델](assets/rl_v2_URDF_settled_contact_first_full_DEV_20261009.json).
+
+02:31 KST에 수정 버전의 첫 실제TRAIN128이 완료됐다. 성공10·안전 위반39·
+시간 초과79·초기 무효/수치 실패0회다. Greedy103조건이10회 성공했고 탐색
+선택25조건은0회였다. 닫힘 명령1,815행을 실행했지만 들기 전환은0회였다.
+너무 이른 들기는 막았으나 실제 파지 성공 증가를 확인하지 못했다. 완료된
+TRAIN의 읽기 전용 복사본에서 측정 닫힘·정착·고정/현재 목표 거리 조건을
+구분해 다음 수정의 근거를 확인한다. 기존 일곱 학습은 계속하며 원래 기준을
+유지한다.
+[첫 완료 TRAIN·실제 모델](assets/rl_v2_settled_contact_first_TRAIN_actual_20261009.json).
 
 ## 장기 실행 저장 공간
 

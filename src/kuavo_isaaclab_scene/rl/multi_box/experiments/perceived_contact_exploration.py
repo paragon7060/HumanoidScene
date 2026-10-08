@@ -20,8 +20,10 @@ from ....robots.end_effector import closed_closing_axes
 from ....workcell.workcell_layout import RACK_RAW_BOUNDS_M, scale as workcell_scale
 
 
-def perceived_contact_contract(*, settled_close=False):
+def perceived_contact_contract(*, settled_close=False, precise_feedback=False):
     if type(settled_close) is not bool:raise ValueError('Explicit settled-close variant required')
+    if type(precise_feedback) is not bool or (precise_feedback and not settled_close):
+        raise ValueError('Precise feedback requires the explicit settled-close variant')
     result=dict(name='TRAIN_arm20_perceived_contact_attempt_v1',
         scope='selected_original20percent_actual_TRAIN_episodes_only',
         selection='existing_gentle_arm_episode_mask_no_second_draw',
@@ -52,6 +54,15 @@ def perceived_contact_contract(*, settled_close=False):
             lift_point_tolerance_m=.006,
             settled_closure_NOT_confirmed_pinch_or_success=True,
             max_guided_control_ticks=360,max_lift_attempt_control_ticks=60)
+    if precise_feedback:
+        result.update(name='TRAIN_arm20_perceived_precise_feedback_attempt_v3',
+            close_target='current_measured_flap_pose_with_once_selected_panel_tangent_point',
+            close_point_tolerance_m=.006,
+            closed_reacquire_maximum_point_distance_m=.012,
+            closed_reacquire_maximum_axis_error_rad=.30,
+            both_jaws_open_until_precise_closing_gate=True,
+            orientation_feedback_until_lift=True,
+            world_frame_close_latch=False)
     return result
 
 
@@ -71,11 +82,12 @@ def contact_statistics(saved=None):
 
 
 class PerceivedContactExploration:
-    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False):
+    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False):
         if type(num_envs) is not int or num_envs<1:
             raise ValueError('Positive global environment count required')
-        self.contract=perceived_contact_contract(settled_close=settled_close)
+        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback)
         self.settled_close=settled_close
+        self.precise_feedback=precise_feedback
         self.kinematics=TensorArmKinematics(device=raw.device,dtype=raw.dtype)
         self.axes=raw.new_tensor([closed_closing_axes()[s] for s in ('left','right')])
         self.phase=torch.full((num_envs,),-1,dtype=torch.long,device=raw.device)
@@ -160,10 +172,14 @@ class PerceivedContactExploration:
         stage=goal_points+depth[...,None]*outward[:,None]
         staged=(((stage-tcp[...,:3]).norm(dim=-1)<=.05)&(axis_error<=.25)).all(-1)
         self.phase[ids[guided&(self.phase[ids]==0)&staged]]=1
-        ready=((goal_points-tcp[...,:3]).norm(dim=-1)<=.018)&(axis_error<=.25)
+        point_distance=(goal_points-tcp[...,:3]).norm(dim=-1)
+        ready=(point_distance<=self.contract['close_point_tolerance_m'])&(axis_error<=.25)
         latched=self.closing[ids] if self.settled_close else torch.zeros_like(guided)
+        if self.precise_feedback:
+            latched=latched&((point_distance<=.012)&(axis_error<=.30)).all(-1)
         close=guided&(((self.phase[ids]==1)&(ready.all(-1)|latched))|(self.phase[ids]==2))
         requested=original_goals.clone()
+        if self.precise_feedback:requested[guided,19:21]=-1
         requested[close,19:21]=1
         requested=pilot.agent.action_projector(actor,requested)
         closed=close&(requested[:,19:21]>0).all(-1)
@@ -180,9 +196,9 @@ class PerceivedContactExploration:
                 (closure-self.previous_closure[ids]).abs().amax(-1)<=.005)
             self.settled_ticks[ids]=torch.where(settled,self.settled_ticks[ids]+1,0)
             self.previous_closure[ids]=closure;self.closure_initialized[ids]=True
-            lift_ready&=(self.settled_ticks[ids]>=6)&(
-                (held_close-tcp[...,:3]).norm(dim=-1).amax(-1)<=.006)&(
-                (goal_points-tcp[...,:3]).norm(dim=-1).amax(-1)<=.006)&(axis_error<=.25).all(-1)
+            lift_ready&=(self.settled_ticks[ids]>=6)&(point_distance.amax(-1)<=.006)&(axis_error<=.25).all(-1)
+            if not self.precise_feedback:
+                lift_ready&=(held_close-tcp[...,:3]).norm(dim=-1).amax(-1)<=.006
         lift=guided&(self.phase[ids]==1)&lift_ready
         rack_tcp=(rack_R.transpose(-1,-2)[:,None]@(tcp[...,:3]-rack[:,None,:3])[...,None]).squeeze(-1)
         self.lift_targets_rack[ids[lift]]=rack_tcp[lift]
@@ -190,14 +206,15 @@ class PerceivedContactExploration:
         self.lift_started[ids[lift]]=clocks[lift];self.phase[ids[lift]]=2
         self.statistics['attempted_lift_episodes']+=int(lift.sum())
         target=torch.where((self.phase[ids]==0)[:,None,None],stage,goal_points)
-        if self.settled_close:
+        if self.settled_close and not self.precise_feedback:
             target=torch.where(self.closing[ids,None,None],held_close,target)
         lifted=rack[:,None,:3]+(rack_R[:,None]@self.lift_targets_rack[ids,...,None]).squeeze(-1)
         target=torch.where((self.phase[ids]==2)[:,None,None],lifted,target)
         displacement=(target-p)*(2./30);norm=displacement.norm(dim=-1,keepdim=True)
         displacement*=.01/norm.clamp_min(.01)
         angular=rotation_error*(1.5/30)
-        angular=torch.where((self.closed_ticks[ids]>0)[:,None,None],0.,angular)
+        hold_orientation=(self.phase[ids]==2) if self.precise_feedback else (self.closed_ticks[ids]>0)
+        angular=torch.where(hold_orientation[:,None,None],0.,angular)
         projector=torch.eye(3,device=raw.device,dtype=raw.dtype)-axis[..., :,None]*axis[...,None,:]
         task_J=torch.cat((J[...,:3,:],.04*(projector@J[...,3:,:])),-2)
         task_error=torch.cat((displacement,.04*angular),-1)

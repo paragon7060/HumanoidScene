@@ -219,6 +219,49 @@ greedy평가를 검증한다. 초기 metadata 생성전에 종료된CPU 평가�
 성능을 뜻하지 않는다. 이후 실제TRAIN 수집과Q 갱신을 시작했다.
 [전체 초기평가·같은 모델](assets/rl_v2_URDF_settled_contact_first_full_DEV_20261009.json).
 
+02:31 KST에 v2의 첫 실제TRAIN128이 끝나 성공10·안전 위반39·시간 초과79,
+초기 무효/수치 실패0회였다. Greedy103조건은10회 성공했고 선택25조건은0회다.
+실제25handoff·8,294guided행·1,815닫힘 명령·들기 전환0·19만료를 확인했다.
+초기actor/정규화는 그대로이고Q는1,590회 갱신됐다. 조기 들기는 막았으나
+성공 경험이 늘었다고 판단하지 않는다. 완료된 첫TRAIN replay83,143행을
+원본 상태·SHA256 확인 후 별도 읽기 전용 파일로 복사해 닫힘·정착·거리 조건을
+분리해서 분석한다. 기존 실행과 활성HDF/GPU replay는 변경하지 않는다.
+[첫 전체TRAIN·실제 저장 모델](assets/rl_v2_settled_contact_first_TRAIN_actual_20261009.json).
+
+## 정밀 접근 후 현재 flap을 추적하며 닫기
+
+완료된 v2 TRAIN83,143행의128종료 결과와 실행 명령을 다시 대조했다. 명령
+오차는최대2.98e-7이고 모든 정수 탐색 통계가 같았다. FK 최대오차 통계의
+부동소수점 차이1.86e-8m는 별도로 기록했다. 선택25경로 모두 실제 opposing
+양손 pinch가 없었다. 닫기를 시도한8경로는24틱 닫힘·6틱 정착을 충분히
+통과했지만 **현재 flap 접촉 목표6mm 이내인 행은0개**였다. 현재 목표의
+최소 양손 거리는약12mm였고 고정한 옛 목표에는0.16~2.62mm까지 접근했다.
+그리퍼가 정착하지 않은 문제가 아니라, 이동한 표면을 따라가지 않고
+옛 위치에서 빈 공간을 닫은 것이 직접 확인된 다음 수정 대상이다.
+[완료 수집의 닫힘·정착·거리 분리 분석](assets/rl_v2_settled_contact_completed_TRAIN_gate_analysis_20261009.json).
+
+`full-arm-precise-feedback`는기존v1/v2와 구분되는v3 artifact다. 같은20% TRAIN
+선택에서 현재 측정 flap의 같은 tangent 접촉 지점을 계속 추적한다. **양손
+6mm 이내·축 오차0.25rad 이내일 때 닫기**를 시작하며, 닫는 중에도 축 정렬을
+보정한다. 지점 거리가12mm나 축 오차0.30rad를 넘으면 양손을 열고 다시
+접근한다.24틱 닫힘·측정 닫힘85%·6틱 정착과6mm 들기 전환은 유지한다.
+들기 중에는 기존25mm 목표와 방향 유지 방법을 쓴다.
+
+원래12cm nominal jaw gate와 PD 속도/관절 제한·보상·성공·안전·박스/base/flap
+무작위화는 그대로다. 접촉·pinch·성공·critic·reward를 탐색 입력으로 쓰지
+않고, 실제 수집된 명령·관측·보상만 SAC에 연결한다. 평가는 탐색 보조 없는
+greedy 정책이다. Base/torso/head 채널도 그대로며 curriculum은 없다.
+상단의 축 정렬/진입과 중형의 안전 접근은 별도로 남아 있다.
+
+준비 진입점의 `--servo-retention-profile full-arm-precise-feedback`와
+`--body-behavior arm20-gentle-rest-greedy`로 선택한다. 기존 프로필과 모델 계약은
+유지한다. 관련59개 검사와 실제CPU 모델 저장·학습 재개·Q영상 복원을
+통과했고, 초기actor/정규화29개와 frozen source/body anchor를 보존했다.
+[실제 초기화·검사 범위](assets/rl_v2_URDF_precise_feedback_initial_verified_20261009.json).
+기존 일곱 장기 학습을 유지하며, 새 비교는 먼저 원래첫5배치의TRAIN384와
+전체 초기/최종DEV128·replay25만으로 실제 접촉과 학습 연결을 확인한다.
+정밀 피드백의 실제 물리 결과와 학습 개선은 아직 확인 전이다.
+
 완료 데이터 진단 도구는[scripts/rl/analyze_completed_contact_replay.py](../scripts/rl/analyze_completed_contact_replay.py)다.
 체크섬이 기록된우리 소유의읽기 전용snapshot만사용하고현재 HDF/GPU replay를
 열거나데이터를학습으로가져오지 않는다.

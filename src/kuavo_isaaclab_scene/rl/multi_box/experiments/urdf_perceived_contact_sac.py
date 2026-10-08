@@ -12,6 +12,7 @@ from .perceived_contact_exploration import (
 class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
     artifact_type='staged_actual_flap_URDF_full_arm_perceived_contact_exploration_sac_v1'
     settled_close=False
+    precise_feedback=False
 
     def __init__(self,*args,**kwargs):
         self.contact_explorer=None
@@ -23,14 +24,14 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
             raise ValueError('Contact exploration requires the existing gentle20percent selection')
 
     def validate_saved_state(self,state):
-        validate_perceived_contact_state(state,settled_close=self.settled_close)
+        validate_perceived_contact_state(state,settled_close=self.settled_close,precise_feedback=self.precise_feedback)
         self._contact_statistics=contact_statistics(state['perceived_contact_statistics'])
 
     @property
     def contract(self):
         result=super().contract
         if self._URDF_configuring_source:return result
-        return result|dict(TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close))
+        return result|dict(TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback))
 
     def reset_exploration(self,num_envs):
         if self.contact_explorer is not None:self._contact_statistics=self.contact_explorer.report()
@@ -48,7 +49,7 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
         if not chosen.any():return result
         if self.contact_explorer is None:
             self.contact_explorer=PerceivedContactExploration(self._contact_num_envs,raw,self._contact_statistics,
-                settled_close=self.settled_close)
+                settled_close=self.settled_close,precise_feedback=self.precise_feedback)
         return self.contact_explorer.step(self,raw,result,ids,kwargs.get('supplemental'),chosen,index)
 
     def contact_extras(self):
@@ -65,7 +66,7 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
 
     def report(self):
         return super().report()|self.contact_extras()|dict(
-            TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close),
+            TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback),
             evaluated_policy_never_uses_contact_explorer=True)
 
 
@@ -74,11 +75,18 @@ class URDFSettledContactSACPilot(URDFPerceivedContactSACPilot):
     settled_close=True
 
 
-def validate_perceived_contact_state(state,*,settled_close=False):
-    artifact=(URDFSettledContactSACPilot if settled_close else URDFPerceivedContactSACPilot).artifact_type
+class URDFPreciseFeedbackSACPilot(URDFSettledContactSACPilot):
+    artifact_type='staged_actual_flap_URDF_full_arm_perceived_precise_feedback_exploration_sac_v3'
+    precise_feedback=True
+
+
+def validate_perceived_contact_state(state,*,settled_close=False,precise_feedback=False):
+    expected=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback)
+    artifact=(URDFPreciseFeedbackSACPilot if precise_feedback else
+        URDFSettledContactSACPilot if settled_close else URDFPerceivedContactSACPilot).artifact_type
     validate_full_arm_state(state,artifact_type=artifact,
         servo_coefficient=STRONG_SERVO_COEFFICIENT)
-    if state['goal_contract'].get('TRAIN_perceived_contact_exploration')!=perceived_contact_contract(settled_close=settled_close) \
+    if state['goal_contract'].get('TRAIN_perceived_contact_exploration')!=expected \
             or state.get('body_behavior')!=body_behavior_config(GENTLE_GREEDY_REST_VARIANT):
         raise ValueError('Saved contact exploration input/selection contract differs')
     if 'perceived_contact_statistics' not in state:
