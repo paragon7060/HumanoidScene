@@ -1,5 +1,53 @@
 # 여섯 박스 조합의 SAC 학습 진행
 
+## 첫 여섯 배치 기준 평가: 11/128, medium 성공0
+
+첫 전체 DEV128의 완료 결과와 정확히 같은 GPU 모델을 확인했다.
+Actor/Q 업데이트0인 기준 정책에서 **성공11·안전 위반49·시간 초과55·초기 무효13회**다.
+박스 크기별 요청128개가 준비본과 정확히 일치하며 실제 모델은 유한하고 정책
+계약도 실제`agent.yaml`과 같다. 아래 점수는 새 SAC 업데이트 전의 기준이며
+small만의 과거35/128 또는30/128과 학습 개선으로 직접 비교하지 않는다.
+
+| 선반·방향 | 크기 | 요청 | 성공 | 안전 위반 | 시간 초과 | 초기 무효 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 중간 왼쪽 | small | 16 | 6 | 10 | 0 | 0 |
+| 중간 오른쪽 | small | 16 | 0 | 0 | 13 | 3 |
+| 중간 왼쪽 | medium | 16 | 0 | 16 | 0 | 0 |
+| 중간 오른쪽 | medium | 16 | 0 | 6 | 9 | 1 |
+| 상단 왼쪽 | small | 32 | 1 | 0 | 27 | 4 |
+| 상단 오른쪽 | small | 32 | 4 | 17 | 6 | 5 |
+| 전체 | 여섯 조합 | 128 | 11 | 49 | 55 | 13 |
+
+중간 왼쪽medium은16회 모두 안전 위반, 오른쪽medium은9회 시간 초과했다.
+실패와 초기 무효를 분모에 유지한다. 이후 새 TRAIN384조건의 실제 업데이트와
+동일한 전체 DEV128로 개선을 확인하며 독립FINAL은 아직 사용하지 않는다.
+[전체 결과·동일 모델·정확한 요청](assets/rl_v2_all6_initial_full_DEV11_20261008.json),
+[보존된 평가 모델의 확인](assets/rl_v2_supported_size_bootstrap_DEV0_matching_model_20261008.json).
+
+## 09:20 KST 진행 확인
+
+기존 small SAC는 1,536개 TRAIN 조건을 마치고 마지막 전체 DEV128을 진행한다.
+완료된 평가35→19→23→30/128에서 직전 대비 회복은 있지만 초기35건을 넘지
+못했다. Actor4,316회·Q19,312회 업데이트, 실제 온라인873,369행이다.
+새 여섯 배치 SAC는 첫 전체 기준 DEV의 control step811로 진행 중이며
+actor/Q/replay0이다. 초기 평가를 학습 후 성능으로 해석하지 않는다.
+별도 Q 보강 SAC도 TRAIN768 뒤 다음 전체 DEV를 수행하며, 이전 완료 점수는
+22/128이다. 세 writer의 소유자·고유 경로·CUDA3을 실제 확인했다.
+[현재 실행·완료 지표와 비교 범위](assets/rl_v2_learning_improvement_status_20261008_0920.json).
+
+대각선 접근 후보의 새 seed 재확인도 정상 종료했다. 성공3·안전 위반37·
+시간 초과75·초기 무효13/128이며 medium 성공은0이다. 발견과 재확인 모두
+frozen198과 원래230개 소스 hash, 같은 checkpoint·waypoint·reset geometry,
+서로 다른 TRAIN seed를 확인했다. 후보 변경만으로 목표가 해결되지는 않았다.
+[전체 재확인 근거](assets/rl_v2_diagonal_size_confirmation_closed_20261008.json).
+
+진행 중인 비교의 소스 보존 조건이 해소되어 검증한 여섯 배치 SAC 코드를
+main commit`4fbeef3`에 반영했다. 실제 정책 metadata 수정은`cb17b9a`이며
+기존 physical-body 경로를 포함한11개 검사가 통과했다. 실행 중인 새 SAC의
+격리 worktree·모델·manifest는 유지한다.
+[다음 실행의 정확한 metadata 생성](RL_V2_RUNTIME_POLICY_METADATA_20261008.md),
+[실제 초기 checkpoint와 계약 readback](assets/rl_v2_actual_policy_manifest_metadata_fix_20261008.json).
+
 2026-10-08 08:46 KST 기준이다. 기존 small 정책의 평가35→19→23→30/128은
 직전보다 회복했지만 초기보다 낮다. Medium 파지가 없다는 전체 목표의
 부족한 범위를 유지하고 새 실제 학습을 시작했다.
@@ -55,7 +103,8 @@ nominal 초기화 설명으로 남아 있었다. 실제 현재 정책의 출처�
 checkpoint와 progress이며 준비본과 일치한다. 물리·보상·안전 계약의 차이가
 아니며, 현재 파일을 뒤늦게 덮어 Drive의 immutable 검증을 깨지 않았다.
 이를 구분한`verification.json`을 새 실행에 추가했고 다음 실행의 metadata
-생성은 실제 checkpoint 계약을 사용하도록 수정해야 한다.
+생성은 실제 checkpoint 계약을 사용하도록 수정했다. 위 metadata 문서와 최신
+진행 기록을 참고한다.
 
 Notion 중간 보고에도 새 설정과 한계를 반영했다. 재생 가능한 H264/yuv420p
 영상2개와 실제 그림1개를 native 블록으로 추가했으며 기존51개 media의
@@ -64,8 +113,8 @@ Notion 중간 보고에도 새 설정과 한계를 반영했다. 재생 가능�
 
 소스는 격리 commit`8b061dbee5e2c8fbb2a9a09def81f99fc0133a27`이다. 진행 중인
 원래 접근 비교의 같은 소스 검사를 보호하기 위해 별도 worktree에서 실행한다.
-Main 통합은 해당 비교의 정상 종료와 원래 소스 검증 후 진행한다. 기존 checkout
-수정 파일은 보존한다.
+Main 통합은 해당 비교의 정상 종료와 원래 소스 검증 후 완료했다. 위 최신
+진행 기록을 참고한다. 기존 checkout 수정 파일은 보존한다.
 
 ## 함께 확인한 원인과 적용 여부
 

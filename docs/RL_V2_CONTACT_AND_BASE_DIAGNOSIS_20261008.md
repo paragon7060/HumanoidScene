@@ -237,3 +237,15 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl python scripts/rl/summarize_cl
 박스·base·배경·움직이는 flap의 무작위화, rack10N·장애물5N·self-off와 원래
 양손 접촉·유지·lift 기준을 유지했다. 모든 여섯 구역·크기의 안정적인 성공과
 손대지 않은 독립FINAL은 미확인이며 목표는 완료되지 않았다.
+
+## 선택한 실제 관측에서 탐색 범위·명령 clipping 확인
+
+정상 종료한 원래 중형 포함 TRAIN128/frozen198에서 선택한8개 유효 episode의
+32관측을 복원해 실제 명령 오차 최대2.98e−5를 확인했다. 팔14축의 탐색 반경이
+완전히0인 축은 없고 tanh mean 절댓값은 모두3 미만이었다. 따라서 이 표본에서
+정책 전체가 포화돼 움직일 수 없다는 설명은 맞지 않는다. 팔448개 scalar 중
+74개는 실제 servo step clipping에 걸렸으며 Q도 같은 물리 명령 clipping을 쓴다.
+한 step에 같은 실행 명령을 내면 같은 Q가 되는 것은 정상일 수 있다.
+이 자료는 새 여섯 배치 SAC의 학습 데이터나 전체 실패 원인 증명이 아니며,
+탐색 반경을 바로 확대하거나 controller·reward를 바꾸는 근거로 사용하지 않았다.
+[관측·명령 재현·반경·clipping 수치](assets/rl_v2_closed_actor_body_search_envelope_20261008.json).
