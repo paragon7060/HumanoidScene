@@ -176,6 +176,17 @@ reward는그대로다. TRAIN6144·DEV128·replay200만의새 비교로연결한�
 [v2 실제 초기화 검증](assets/rl_v2_URDF_settled_contact_initial_verified_20261009.json).
 실행 결과가나오기 전에는 성능개선으로 표시하지 않는다.
 
+01:24 KST에격리 source `d90eea25e0ec18b8ba476b0eddec729f1e449f84`의
+새GPU0 writer353905를 고유한디스크 실행 폴더에서시작했다. 01:30의실제
+DEV 진입·743소스 SHA256·원래65 wave/T6144/DEV128·중력보상18관절·
+첫Drive 검증을 대조했다. `CUDA_VISIBLE_DEVICES=0`과Kit 단일GPU0으로
+메모리17,570MiB를 사용하며 기존 여섯 학습을 유지한다.
+[실제 runtime·첫 백업](assets/rl_v2_URDF_settled_contact_SAC_actual_startup_20261009.json).
+CPU 관찰기가각 평가의실제 모델을 별도 보존하고 첫전체TRAIN과보조 없는
+greedy평가를 검증한다. 초기 metadata 생성전에 종료된CPU 평가관찰기 하나는
+파일 생성대기를 추가해다시 시작했고GPU 학습 writer는그대로였다.
+[실제 CPU 관찰·수정 범위](assets/rl_v2_settled_contact_actual_CPU_observers_20261009.json).
+
 완료 데이터 진단 도구는[scripts/rl/analyze_completed_contact_replay.py](../scripts/rl/analyze_completed_contact_replay.py)다.
 체크섬이 기록된우리 소유의읽기 전용snapshot만사용하고현재 HDF/GPU replay를
 열거나데이터를학습으로가져오지 않는다.
