@@ -211,3 +211,48 @@ def test_real_pinch_holds_measured_arm_orientation_instead_of_rotating_the_flap(
     command, _ = tracker.step(pilot, raw, critic, original, torch.tensor([5, 19]), supplemental)
     assert command[:, 4:11].abs().max() < 1e-5
     assert tracker.statistics['confirmed_lift_episodes'] == 0
+
+
+def test_URDF_teacher_bypasses_source_range_with_exact_labels_and_original_physical_caps():
+    pilot, raw, critic, original, supplemental = region_fixture()
+    pilot.scale[1:15] = .001
+    tracker = FrozenCartesianFlapProbe(128, raw, contact_region=True, arm_goal_bounds='urdf')
+    command, (_, _, goals) = tracker.step(pilot, raw, critic, original, torch.tensor([5, 19]), supplemental)
+    assert goals[:, 1:15].abs().max() > 1
+    assert command.abs().max() <= 1
+    assert torch.equal(command, held_goal_coordinates(pilot.coordinates, raw, pilot.center + pilot.scale * goals, pilot.stage))
+    assert torch.equal(command[:, [0, 1, 2, 3, 18, 19, 22, 23]], original[0][:, [0, 1, 2, 3, 18, 19, 22, 23]])
+    target = (pilot.center + pilot.scale * goals)[:, 1:15].reshape(2, 2, 7)
+    assert (target >= tracker.kinematics.lower + .01 - 1e-6).all()
+    assert (target <= tracker.kinematics.upper - .01 + 1e-6).all()
+    measured = torch.stack([raw[:, columns] for columns in tracker.kinematics.columns], 1)
+    assert (target - measured).abs().max() <= .020001
+    assert tracker.statistics['source_affine_arm_range_bypassed_rows'] == 2
+    assert tracker.statistics['affine_arm_goal_clamped_rows'] == 0
+    contract = cartesian_flap_probe_contract(contact_region=True, arm_goal_bounds='urdf')
+    assert contract['stored_teacher_goals_NOT_SAC_actor_actions']
+    assert contract['Q_import_eligible'] is False and contract['standalone_SAC'] is False
+
+
+@pytest.mark.parametrize('mode,region', [('unknown', True), ('urdf', False)])
+def test_URDF_bounds_require_a_known_explicit_contact_region_diagnostic(mode, region):
+    with pytest.raises(ValueError, match='URDF arm diagnostic'):
+        cartesian_flap_probe_contract(contact_region=region, arm_goal_bounds=mode)
+
+
+def test_URDF_teacher_still_rejects_learning_before_the_source_actor_runs():
+    class Pilot:
+        training = False; actor_updates = 1; critic_updates = 0; replay = SimpleNamespace(size=0)
+        def act(self, *args, **kwargs):
+            raise AssertionError('Changed teacher must reject learned Q before acting')
+        def report(self): return {}
+    manifest = SimpleNamespace(checkpoint_manifest_fields=lambda: {})
+    original = Pilot.act, Pilot.report, manifest.checkpoint_manifest_fields
+    restore = install_frozen_cartesian_flap_probe(Pilot, manifest, contact_region=True, arm_goal_bounds='urdf')
+    try:
+        with pytest.raises(ValueError, match='cannot train'):
+            Pilot().act(None, None, 0)
+        assert manifest.checkpoint_manifest_fields()['frozen_cartesian_flap_probe']['source_affine_arm_goal_bounds_bypassed']
+    finally:
+        restore()
+    assert (Pilot.act, Pilot.report, manifest.checkpoint_manifest_fields) == original
