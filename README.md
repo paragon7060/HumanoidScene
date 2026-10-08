@@ -29,7 +29,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 |---|---|
 | 양손 박스 파지의 대표 성능·학습 방법·평가 영상 | [10/06 간단 중간 보고](docs/RL_V2_GRASP_INTERIM_SUMMARY_20261006.md) |
 | 양손 SAC 장기 비교의 최신 전체 평가·남은 실패 | [10/09 실제 진행 결과](docs/RL_V2_SAC_PROGRESS_20261009.md) |
-| 연속 접촉 탐색·측정된 닫힘 정착 후 들기 | [실제 실패 진단·선택형 수정·실행 설정](docs/RL_V2_PERCEIVED_CONTACT_SAC_20261008.md) |
+| 연속 접촉 탐색·정밀 닫힘·flap 이동 추종 v4 | [실제 실패 진단·선택형 수정·실행 설정](docs/RL_V2_PERCEIVED_CONTACT_SAC_20261008.md) |
 | 평가 영상의 Q 값·실제 보상과 보상 항목·가중치 | [Q 표시 영상과 보상 설명](docs/RL_V2_EVAL_Q_REWARD_20261006.md) |
 | 안전한 성공의 보상 상대 가치와 fresh-Q SAC 비교 | [성공64 비교와 실제 경로 분석](docs/RL_V2_SAFE_SUCCESS_VALUE_20261007.md) |
 | 처음 설치하고 scene 실행 | [설치 및 첫 실행](docs/INSTALL.md) |
