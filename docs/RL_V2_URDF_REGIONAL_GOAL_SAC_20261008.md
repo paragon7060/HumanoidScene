@@ -35,6 +35,14 @@ DEV는 새 TRAIN384조건 뒤다. 중형·상단 왼쪽의0회가 남아 있으�
 업데이트 뒤 전체 모델의 유한성은 다음 실제 저장 checkpoint에서 확인한다.
 [실제 첫TRAIN/Q 갱신과 확인 범위](assets/rl_v2_URDF_initial_DEV14_first_TRAIN_20261008.json).
 
+16:53 KST 실제 저장된Q1,024회 checkpoint를 별도로 보존했다. 두 Q 네트워크가
+초기 값에서 실제 바뀌었고, 전체 모델/normalizer/optimizer316개 tensor는 유한했다.
+Q optimizer의20개 parameter state 모두 실제Adam step1,024였으며 actor와
+actor normalizer29개 tensor는 원래 값과 같았다. 초기Q warmup 동안 예상한
+동작이다. Frozen source/body anchor와 격리 소스728개도 보존했다.
+학습 로그만으로 모델 갱신을 추정하지 않았으며 첫 학습 후 전체 DEV는 아직 전이다.
+[실제Q1,024 모델·optimizer·동결 actor 대조](assets/rl_v2_URDF_first_Q1024_actual_model_20261008.json).
+
 ### 같은 초기 정책의 대표 영상
 
 [중간 왼쪽 small 실제 성공 영상](assets/rl_v2_URDF_initial_DEV_middle_left_small_success_20261008.mp4)은
