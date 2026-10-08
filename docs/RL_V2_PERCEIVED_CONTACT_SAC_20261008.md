@@ -43,6 +43,8 @@ TRAIN에서 생성한 bounded21차원 URDF 목표가 실제24차원 명령으로
 동작은 실제 TRAIN 경험으로 학습하는 것이며, 탐색 규칙을 평가에 붙여
 정책 성공으로 표시하지 않는다.
 
+![실제 TRAIN 탐색과 보조 없는 정책 평가](assets/rl_v2_perceived_contact_exploration_20261008.png)
+
 ## 유지한 설정
 
 S63·Leju twofinger, 중력보상18관절, torso pitch 고정·XZ 이동, base 접근 후
@@ -90,3 +92,11 @@ DEV128을 보조 없는 greedy 정책으로 평가한다. 평가 무효 초기 �
 검증된 오래된 checkpoint만 정리하며 최근2개를 보호한다. Writer 종료 뒤
 로그를 검증한다. Raw HDF/replay는 로컬에 남고 자동 삭제되지 않는다.
 [보관 범위](RL_GOOGLE_DRIVE.md).
+
+23:43 KST에 GPU2 writer3136255의 실제 첫 전체 DEV 진입을 확인했다.
+`CUDA_VISIBLE_DEVICES=2`·Kit 단일 GPU·고정 Python 소스741개,
+actor518/critic578·탐색 계약·65 wave·중력보상18관절·원래 환경 계약을 대조했다.
+초기 actor/Q/replay0이며 전체 초기 결과·학습 개선은 아직 확인 전이다.
+Writer 메모리는17561MiB이고, 기존 인증으로 첫 Drive
+검증을23:43:00 KST에 마쳤다. 기존 다섯 활성 학습은 유지한다.
+[실제 시작·계약·백업](assets/rl_v2_URDF_perceived_contact_SAC_actual_startup_20261008.json).
