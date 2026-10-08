@@ -112,3 +112,10 @@ Writer 메모리는17561MiB이고, 기존 인증으로 첫 Drive
 평가에서 준비한 동작을 보존한 확인이며 새 학습의 개선을 뜻하지 않는다.
 이후 실제TRAIN 수집에 진입했다.
 [전체 초기결과·같은 모델](assets/rl_v2_URDF_perceived_contact_first_full_DEV_20261008.json).
+
+00:29 KST의실제 첫TRAIN은step391까지진행했다.15환경에서탐색1,747행,
+닫힘명령22행·들기시도1회를실행하고Q658회·actor0회를기록했다.
+기존명령/그리퍼projection/보상일치guard가작동하며고정소스741개와CUDA2·
+Drive검증을다시확인했다.닫힘과들기시도는실제파지성공이아니며,
+첫TRAIN128전체결과와학습후greedy평가는대기중이다.
+[실제탐색·Q학습연결](assets/rl_v2_perceived_contact_first_live_TRAIN_20261009.json).
