@@ -86,6 +86,15 @@ DEV4는 아직 진행 전이므로 성공률 개선이나 일반화 성공의 �
 전체 DEV에서 성공이 감소하면 이 명령 변화와 Q/성공 유지 손실의 균형을
 함께 분석한다. 목표 오차만 작다고 성공 경로가 유지됐다고 판단하지 않는다.
 
+두 번째 TRAIN128조건은 성공7·안전 위반56·시간 초과65·초기 무효0회였다.
+성공은 중간 왼쪽small5회·상단 오른쪽small2회이며 탐색27조건의 성공은0이다.
+Actor가 수집 중 갱신됐고 시작 조건도 첫 TRAIN과 다르므로16→7을 동일한
+모델/조건의 성능 추세로 해석하지 않는다. 중형과 탐색 성공0, 정적 명령 변화는
+다음 전체 평가에서 확인할 위험 신호다. 현재 세 번째 TRAIN을 이어가며 종료
+뒤 첫 학습 후 전체 DEV4를 수행한다. 이 기록은 종료 결과 metadata 대조이고
+두 번째 TRAIN 종료 checkpoint 전체를 추가로 감사한 것은 아니다.
+[두 번째 TRAIN의 종료 결과와 판단 범위](assets/rl_v2_URDF_second_closed_TRAIN128_metadata_20261008.json).
+
 ### 같은 초기 정책의 대표 영상
 
 [중간 왼쪽 small 실제 성공 영상](assets/rl_v2_URDF_initial_DEV_middle_left_small_success_20261008.mp4)은
@@ -105,6 +114,11 @@ Notion 중간 보고의 native video2개로 업로드하고 caption·초기 기�
 실제TRAIN 시작을 재확인했다. 기존 media63개와 native table5개의 내용·순서를
 보존했으며 현재 media는65개다.
 [Notion 영상과 기존 자료 보존 검증](assets/rl_v2_URDF_initial_DEV14_Notion_native_videos_verified_20261008.json).
+
+17:25 KST Notion의 첫 TRAIN 성공16경로·7,666행과 실제 actor256/Q3,072 갱신,
+정적 servo 명령 차이·첫 학습 후 전체 DEV 미확인을 갱신하고 다시 읽어 대조했다.
+기존 native media65개·table5개의 내용과 순서를 보존했다.
+[학습 진행 기록·기존 Notion 자료 보존 검증](assets/rl_v2_URDF_first_TRAIN16_actor256_Notion_verified_20261008.json).
 
 ## 방법과 변경 범위
 
