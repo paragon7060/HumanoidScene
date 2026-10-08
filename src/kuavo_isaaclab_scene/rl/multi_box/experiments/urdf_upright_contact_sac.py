@@ -159,12 +159,25 @@ class URDFUprightContactSACPilot(URDFMotionFeedbackSACPilot):
                             effective_torso_std_includes_local_scale=True)
 
 
-def validate_upright_contact_state(state):
-    validate_urdf_servo_guard_state(state, artifact_type=URDFUprightContactSACPilot.artifact_type,
+class URDFInteriorContactSACPilot(URDFUprightContactSACPilot):
+    """Same v5 SAC distribution; TRAIN attempts target a 20mm inset point."""
+    artifact_type = 'staged_actual_flap_URDF_upright_interior_contact_exploration_sac_v6'
+    interior_contact = True
+
+    def validate_saved_state(self, state):
+        validate_interior_contact_state(state)
+        self._contact_statistics = contact_statistics(state['perceived_contact_statistics'])
+
+
+def validate_upright_contact_state(state, *, interior_contact=False):
+    if type(interior_contact) is not bool:
+        raise ValueError('Explicit interior-contact variant required')
+    pilot_class = URDFInteriorContactSACPilot if interior_contact else URDFUprightContactSACPilot
+    validate_urdf_servo_guard_state(state, artifact_type=pilot_class.artifact_type,
                                    servo_coefficient=STRONG_SERVO_COEFFICIENT)
     contract = state['goal_contract']
     expected = perceived_contact_contract(settled_close=True, precise_feedback=True,
-                                          motion_feedback=True, upright_feedback=True)
+                                          motion_feedback=True, upright_feedback=True, interior_contact=interior_contact)
     if contract.get('URDF_upright_support') != upright_support_contract() \
             or state['hybrid_contract'].get('URDF_upright_support') != upright_support_contract() \
             or contract.get('body_controller') != 'source_centered_absolute_URDF_arms_and_software_bounded_upright_XZ_v5' \
@@ -180,3 +193,7 @@ def validate_upright_contact_state(state):
             or not torch.equal(state['model']['upright_support_scale'].cpu(), radius):
         raise ValueError('Saved upright software bounds or affine density buffers differ')
     contact_statistics(state['perceived_contact_statistics'])
+
+
+def validate_interior_contact_state(state):
+    validate_upright_contact_state(state, interior_contact=True)

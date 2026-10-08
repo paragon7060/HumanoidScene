@@ -99,8 +99,10 @@ def restored_agent(state):
     )
     from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_upright_contact_sac import (
         URDFUprightContactSACPilot, UprightServoGuardSAC, validate_upright_contact_state,
+        URDFInteriorContactSACPilot, validate_interior_contact_state,
     )
-    upright_contact = state.get('artifact_type') == URDFUprightContactSACPilot.artifact_type
+    interior_contact = state.get('artifact_type') == URDFInteriorContactSACPilot.artifact_type
+    upright_contact = interior_contact or state.get('artifact_type') == URDFUprightContactSACPilot.artifact_type
     motion_feedback = upright_contact or state.get('artifact_type') == URDFMotionFeedbackSACPilot.artifact_type
     precise_feedback = motion_feedback or state.get('artifact_type') == URDFPreciseFeedbackSACPilot.artifact_type
     settled_contact = precise_feedback or state.get('artifact_type') == URDFSettledContactSACPilot.artifact_type
@@ -109,7 +111,9 @@ def restored_agent(state):
     full_arm = strong_success or state.get('artifact_type') == URDFFullArmSACPilot.artifact_type
     guard = full_arm or state.get('artifact_type') == URDFServoGuardSACPilot.artifact_type
     urdf = guard or state.get('artifact_type') == URDFRegionalGoalSACPilot.artifact_type
-    if upright_contact:
+    if interior_contact:
+        validate_interior_contact_state(state)
+    elif upright_contact:
         validate_upright_contact_state(state)
     elif perceived_contact:
         validate_perceived_contact_state(state,settled_close=settled_contact,precise_feedback=precise_feedback,motion_feedback=motion_feedback)
