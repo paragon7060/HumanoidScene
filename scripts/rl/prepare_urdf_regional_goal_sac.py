@@ -21,6 +21,9 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_physics import frozen_
 from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_regional_goal_sac import (
     URDFRegionalGoalSACPilot, regional_source_snapshot, validate_urdf_regional_state,
 )
+from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_servo_guard_sac import (
+    URDFServoGuardSACPilot, validate_urdf_servo_guard_state,
+)
 from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import select_reference_episode
 from kuavo_isaaclab_scene.rl.multi_box.rewards.contact_profile import frozen_actor_reward_contract
 from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
@@ -32,6 +35,7 @@ def main():
         parser.add_argument('--' + key, type=Path, required=True)
     parser.add_argument('--native-seed', type=Path, action='append', required=True)
     parser.add_argument('--replay-capacity', type=int, default=2000000)
+    parser.add_argument('--servo-retention-profile', choices=('uniform', 'guard-tail64'), default='uniform')
     args = parser.parse_args()
     if os.environ.get('CUDA_VISIBLE_DEVICES') != '':
         raise ValueError('Initialization is CPU-only; CUDA_VISIBLE_DEVICES must be empty')
@@ -58,7 +62,9 @@ def main():
     warm = PoseGoalSACPilot(source['frozen_warm_start'], args.native_seed,
         frozen_prior_lift_contract(frozen_actor_reward_contract(physical)), args.output_dir, training=False, device='cpu')
     stages = BatchedBaseStages(warm.coordinates, waypoints, raw)
-    pilot = URDFRegionalGoalSACPilot(warm, physical, args.output_dir, stages.stages[0],
+    pilot_class = URDFServoGuardSACPilot if args.servo_retention_profile == 'guard-tail64' else URDFRegionalGoalSACPilot
+    validator = validate_urdf_servo_guard_state if args.servo_retention_profile == 'guard-tail64' else validate_urdf_regional_state
+    pilot = pilot_class(warm, physical, args.output_dir, stages.stages[0],
         regional_source=packet, body_anchor_state=source['body_anchor_state'], training=False, device='cpu',
         replay_capacity=args.replay_capacity, train_success_retention=True, exploration_correlation=.98,
         measured_train_credit='measured-episode-return', jaw_behavior='joint-epsilon30',
@@ -71,13 +77,13 @@ def main():
     pilot.save(final=True)
     checkpoint = args.output_dir / 'checkpoint_00000000.pt'
     state = torch.load(checkpoint, map_location='cpu', weights_only=True)
-    validate_urdf_regional_state(state)
+    validator(state)
     assert state['goal_contract'] == pilot.contract and identical(state['model'], pilot.agent.state_dict())
     agent, _ = restored_agent(state)
     assert identical(agent.state_dict(), pilot.agent.state_dict())
     # The real runtime restoration must consume the new empty replay and
     # contract, not an old normalized-action bank or learned source Q.
-    resumed = URDFRegionalGoalSACPilot(warm, physical, args.output_dir, stages.stages[0],
+    resumed = pilot_class(warm, physical, args.output_dir, stages.stages[0],
         checkpoint=checkpoint, training=True, device='cpu')
     assert resumed.contract == pilot.contract and identical(resumed.agent.state_dict(), state['model'])
     assert resumed.replay.size == resumed.success_bank.size == resumed.measured_credit_bank.size == 0
@@ -91,6 +97,7 @@ def main():
         frozen_Q_video_restoration_exact=True, actor_Q_online_replay_success_return_banks0=True,
         replay_capacity=pilot.replay.capacity, original_task_physics_randomization_reward_success_safety_preserved=True,
         physical_simulation_or_training_NOT_started=True, no_physical_success_or_improvement_claim=True,
+        servo_retention_profile=args.servo_retention_profile,
         independent_FINAL_unused=True, goal_not_complete=True)
     for name, value in (('training_manifest.json', physical), ('waypoints.json', waypoints),
             ('training_waves.json', waves), ('initialization_verification.json', proof),

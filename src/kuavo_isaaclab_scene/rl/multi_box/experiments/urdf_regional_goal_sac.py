@@ -123,10 +123,11 @@ def urdf_regional_contract():
         fresh_Q_and_actual_future_TRAIN_only=True)
 
 
-def validate_urdf_regional_state(state):
+def validate_urdf_regional_state(state, *, artifact_type=None):
     contract = state.get('goal_contract', {})
     source = state.get('URDF_regional_source', {})
-    if state.get('artifact_type') != URDFRegionalGoalSACPilot.artifact_type \
+    expected_artifact = artifact_type or URDFRegionalGoalSACPilot.artifact_type
+    if state.get('artifact_type') != expected_artifact \
             or contract.get('URDF_regional_goals') != urdf_regional_contract() \
             or (contract.get('actor_dim'), contract.get('critic_dim'), state.get('action_dim')) != (518, 578, 21) \
             or contract.get('frozen_regional_source_checkpoint_SHA256') != source.get('source_checkpoint_SHA256') \
@@ -160,7 +161,7 @@ class URDFRegionalGoalSACPilot(ServoRetentionGentleSACPilot):
             if regional_source is not None:
                 raise ValueError('URDF continuation already owns its frozen source')
             regional_source = saved.get('URDF_regional_source')
-            validate_urdf_regional_state(saved)
+            self.validate_saved_state(saved)
         if regional_source is None:
             raise ValueError('An explicit actor-only original regional source is required')
         self.URDF_regional_source = deepcopy(regional_source)
@@ -169,6 +170,9 @@ class URDFRegionalGoalSACPilot(ServoRetentionGentleSACPilot):
         if not checkpoint:
             kwargs.setdefault('replay_capacity', 2000000)
         super().__init__(*args, checkpoint=checkpoint, device=device, **kwargs)
+
+    def validate_saved_state(self, state):
+        validate_urdf_regional_state(state)
 
     def learning_config(self, config):
         return replace(super().learning_config(config), actor_lr=ACTOR_LR)

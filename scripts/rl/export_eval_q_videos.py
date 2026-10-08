@@ -68,8 +68,15 @@ def restored_agent(state):
         URDFRegionalGoalSACPilot, validate_urdf_regional_state, frozen_regional_source,
         original_regional_body_goal, convert_original_body_goals,
     )
-    urdf = state.get('artifact_type') == URDFRegionalGoalSACPilot.artifact_type
-    if urdf:
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_servo_guard_sac import (
+        URDFServoGuardSACPilot, ServoGuardCorrectionSAC, validate_urdf_servo_guard_state,
+        servo_guard_retention_contract,
+    )
+    guard = state.get('artifact_type') == URDFServoGuardSACPilot.artifact_type
+    urdf = guard or state.get('artifact_type') == URDFRegionalGoalSACPilot.artifact_type
+    if guard:
+        validate_urdf_servo_guard_state(state)
+    elif urdf:
         validate_urdf_regional_state(state)
     support=state.get('artifact_type')==SupportConservativeRegionalSACPilot.artifact_type
     if support and state['goal_contract'].get('critic_support_regularization')!=support_conservative_contract():
@@ -90,7 +97,8 @@ def restored_agent(state):
     if (contract['actor_dim'], contract['critic_dim'], state['action_dim']) != (518, critic_dim, 21):
         raise ValueError('This exporter requires the actual-flap bounded held-base SAC contract')
     retained = conservative or state.get('artifact_type') == ServoRetentionGentleSACPilot.artifact_type
-    if retained and contract.get('success_body_retention')!=servo_success_retention_contract():
+    retention_contract = servo_guard_retention_contract() if guard else servo_success_retention_contract()
+    if retained and contract.get('success_body_retention')!=retention_contract:
         raise ValueError('Saved successful-servo retention contract differs')
     gentle = retained or state.get('artifact_type') == GentleServoCriticSACPilot.artifact_type
     if gentle:
@@ -133,7 +141,7 @@ def restored_agent(state):
                 contract['goal_center'], contract['goal_scale'])
         return nominal_goal
 
-    agent_class=(SupportConservativeHybridSAC if support else
+    agent_class=(ServoGuardCorrectionSAC if guard else SupportConservativeHybridSAC if support else
                  ServoRetainedCorrectionSAC if retained else BoundedCorrectionHybridSAC)
     agent = agent_class(518, critic_dim, 21, SACConfig(**state['config']), 'cpu',
         action_projector=AbsoluteGoalJawProjector(),
