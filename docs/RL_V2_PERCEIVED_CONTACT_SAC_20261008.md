@@ -265,3 +265,21 @@ greedy 정책이다. Base/torso/head 채널도 그대로며 curriculum은 없다
 완료 데이터 진단 도구는[scripts/rl/analyze_completed_contact_replay.py](../scripts/rl/analyze_completed_contact_replay.py)다.
 체크섬이 기록된우리 소유의읽기 전용snapshot만사용하고현재 HDF/GPU replay를
 열거나데이터를학습으로가져오지 않는다.
+
+03:22 KST에 v3 writer1,807,053의 실제 초기DEV 진행을 확인했다.
+`CUDA_VISIBLE_DEVICES=3`·Kit 단일GPU3·소스744개·중력보상18관절·
+메모리2,791MiB였으며 기존Drive의03:20 업로드/검증을 확인했다.
+원래 첫다섯배치의TRAIN384·초기/학습후DEV각128·replay25만 비교다.
+기존일곱장기학습은유지하며 실제평가 모델·초기전체 결과·첫TRAIN·
+학습후전체결과를 읽는CPU관찰작업네개도시작했다. 새파지/학습후성능은
+아직미확인이다.
+[실제시작과원래계약/백업](assets/rl_v2_URDF_precise_feedback_SAC_actual_startup_20261009.json),
+[실제읽기전용관찰작업](assets/rl_v2_URDF_precise_feedback_actual_CPU_observers_20261009.json).
+
+완료된v2 TRAIN의 실제양손 opposing pinch357행을 추가로 대조했다.
+현재flap의가까운패널점까지양손최대거리는중앙값1.62mm,356행은6mm이내였다.
+거리6mm와축0.25rad를동시에충족한행은318개다. 원래실제물리파지에서
+이기하조건이실현된근거이며 새v3의성공또는항상수렴가능하다는증거는아니다.
+여기서가까운패널점은v3가처음선택해유지하는접선좌표점과다를수있다.
+접촉label은완료snapshot의분석에만사용하며학습/탐색입력으로유입하지않는다.
+[실제파지와현재패널점기하분석](assets/rl_v2_completed_actual_pinch_geometry_20261009.json).
