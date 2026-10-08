@@ -87,3 +87,14 @@ PID1,283,615·빈GPU mask를 확인했다. 초기 actor/SAC분포·20mm지점·T
 설정은그대로이며v4의 정상종료·최종Drive검증 뒤 실제GPU3 여유를확인해
 이어실행한다. 옛PID589,524 대기는중단됐고 새v6의물리학습은아직시작전이다.
 [수정 실행과 새대기 PID](assets/rl_v2_URDF_upright_repaired_long_actual_launch_20261009.json).
+
+07:34 KST에 앞선 v4가 정상 종료·최종 Drive 검증을 마친 뒤 새 v6가 실제로 시작됐다.
+별도 폴더의 writer1,624,488·supervisor1,624,392·CUDA_VISIBLE_DEVICES=3·
+수정 소스3740689/749개 Python을 확인했다. 원래 첫 다섯 배치·TRAIN384·전체 DEV각128·
+replay25만·20mm 지점을 유지한다. 아직 초기화 중이며 물리 파지나 학습 개선은 미확인이다.
+CPU 대기 coordinator가 exit0으로 끝난 것은 시작 완료이며 새 GPU 학습 종료가 아니다.
+
+새 CPU 관찰 다섯 개도 등록했다. 첫 학습 후 평가 관찰은 초기 progress 파일 생성 전에
+읽어 종료하는 문제를 고쳐 PID1,652,910으로 교체했다. 수정 장기 v5의 같은 CPU
+관찰도 PID1,651,919로 복구했다. GPU writer나 Drive 업로드는 중단하지 않았다.
+[실제 시작·고정 소스·대기 완료·관찰 PID](assets/rl_v2_URDF_interior_contact_repaired_actual_launch_20261009.json).
