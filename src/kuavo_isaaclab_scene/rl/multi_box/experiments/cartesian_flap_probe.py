@@ -9,10 +9,12 @@ from ..demo_replay import _rotation_matrix
 from ....robots.end_effector import closed_closing_axes
 from ....workcell.workcell_layout import RACK_RAW_BOUNDS_M, scale as workcell_scale
 from ..metrics.potentials import FRONT_STAGE_CLEARANCE_M
+from ..geometry.grasp import nominal_flap_geometry
+from .kinematic_exploration import target_token
 
 
-def cartesian_flap_probe_contract():
-    return dict(name='frozen_actual_flap_cartesian_contact_diagnostic_v1',
+def cartesian_flap_probe_contract(*, contact_region=False):
+    contract = dict(name='frozen_actual_flap_cartesian_contact_diagnostic_v1',
         scope='original_full_TRAIN128_workplace_candidates8',
         handoff_both_midpoint_distance_m=.22, arm_joint_step_cap_rad=.02,
         orientation='calibrated_closing_axis_to_perceived_panel_normal',
@@ -21,10 +23,39 @@ def cartesian_flap_probe_contract():
         privileged_pinch_used_for_teacher_hold_and_lift=True,
         original_12cm_jaw_gate_controller_randomization_success_safety_preserved=True,
         standalone_SAC=False, Q_import_eligible=False)
+    if contact_region:
+        contract.update(name='frozen_actual_flap_region_contact_diagnostic_v2',
+            goal='once_selected_accessible_point_inside_perceived_panel_region',
+            tangent_margin_m=.005, supplemental_midpoint_observations_unchanged=True,
+            original_neural_jaw_choices_preserved=True,
+            orientation_held_after_real_pinch=True,
+            extra_assisted_close_point_tolerance_m=.018,
+            extra_assisted_close_axis_tolerance_rad=.25)
+    return contract
+
+
+def contact_region_offsets(relations, half_extents, *, margin=.005):
+    """One stable panel-frame grasp point; midpoint perception stays unchanged."""
+    if relations.ndim != 3 or relations.shape[1:] != (2, 9) or half_extents.shape != (*relations.shape[:2], 3):
+        raise ValueError('Two assigned perceived panels and known half extents required')
+    if not torch.isfinite(relations).all() or not torch.isfinite(half_extents).all() or (half_extents <= 0).any():
+        raise ValueError('Finite positive panel geometry required')
+    rotation = _rotation_matrix(relations[..., 3:])
+    local_tcp = -(rotation.transpose(-1, -2) @ relations[..., :3, None]).squeeze(-1)
+    inner = (half_extents - margin).clamp_min(0)
+    point = torch.maximum(-inner, torch.minimum(local_tcp, inner))
+    # The known stock panels have local-X thickness. Aim between the pads;
+    # retaining the tangential contact location avoids forcing every grasp
+    # to the panel midpoint (past actual successes are several cm away).
+    point[..., 0] = 0
+    return point
 
 
 class FrozenCartesianFlapProbe:
-    def __init__(self, num_envs, raw):
+    def __init__(self, num_envs, raw, *, contact_region=False):
+        if type(contact_region) is not bool:
+            raise ValueError('Contact-region diagnostic must be explicit')
+        self.contact_region = contact_region
         self.kinematics = TensorArmKinematics(device=raw.device, dtype=raw.dtype)
         axes = closed_closing_axes()
         self.axes = raw.new_tensor([axes[side] for side in ('left', 'right')])
@@ -33,10 +64,14 @@ class FrozenCartesianFlapProbe:
         self.pinch_ticks = torch.zeros_like(self.phase)
         self.lost_pinch_ticks = torch.zeros_like(self.phase)
         self.lift_targets_rack = raw.new_zeros(num_envs, 2, 3)
+        self.contact_offsets = raw.new_zeros(num_envs, 2, 3)
         self.front_y = RACK_RAW_BOUNDS_M[1][1] * workcell_scale('rack')[1] + FRONT_STAGE_CLEARANCE_M
         self.statistics = dict(held_rows=0, handoff_episodes=0, guided_rows=0,
             guided_close_rows=0, confirmed_lift_episodes=0,
             affine_arm_goal_clamped_rows=0, measured_fk_max_position_error_m=0.)
+        if contact_region:
+            self.statistics.update(original_neural_close_retained_rows=0,
+                extra_assisted_close_rows=0)
 
     @torch.no_grad()
     def step(self, pilot, raw, critic, result, ids, supplemental):
@@ -63,6 +98,15 @@ class FrozenCartesianFlapProbe:
         handoff = (self.phase[ids] < 0) & (distance.amax(-1) <= .22) & (supplemental[:, 36:38].sum(-1) > .5)
         self.phase[ids[handoff]] = 0
         self.assignment[ids[handoff]] = current_assignment[handoff]
+        if self.contact_region and handoff.any():
+            token, valid = target_token(raw)
+            if not valid[handoff].all():
+                raise ValueError('Contact point requires perceived selected box geometry')
+            _, halves, normal_axes = nominal_flap_geometry(token[:, 5:8], token[:, 3:5].argmax(-1))
+            if (normal_axes[handoff] != 0).any():
+                raise ValueError('Contact-region diagnostic requires known local-X panels')
+            offsets = contact_region_offsets(relation[rows, hands, flaps][handoff], halves[rows, flaps][handoff])
+            self.contact_offsets[ids[handoff]] = offsets
         self.statistics['handoff_episodes'] += int(handoff.sum())
         guided = self.phase[ids] >= 0
         if not guided.any():
@@ -71,6 +115,9 @@ class FrozenCartesianFlapProbe:
         selected = relation[rows, hands, flaps]
         centers = tcp[..., :3] + (observed_R @ selected[..., :3, None]).squeeze(-1)
         panel_R = observed_R @ _rotation_matrix(selected[..., 3:])
+        goal_points = centers
+        if self.contact_region:
+            goal_points = centers + (panel_R @ self.contact_offsets[ids, ..., None]).squeeze(-1)
         desired_axis = panel_R[..., 0]
         axis = (observed_R @ self.axes[None, ..., None]).squeeze(-1)
         dot = (axis * desired_axis).sum(-1)
@@ -83,8 +130,8 @@ class FrozenCartesianFlapProbe:
         rack_R = _rotation_matrix(rack[:, 3:])
         outward = rack_R[..., 1]
         front = rack[:, :3] + outward * self.front_y
-        offset = ((front[:, None] - centers) * outward[:, None]).sum(-1).clamp_min(0)
-        stage = centers + offset[..., None] * outward[:, None]
+        offset = ((front[:, None] - goal_points) * outward[:, None]).sum(-1).clamp_min(0)
+        stage = goal_points + offset[..., None] * outward[:, None]
         staged = (((stage - tcp[..., :3]).norm(dim=-1) <= .05) & (axis_error <= .25)).all(-1)
         self.phase[ids[(self.phase[ids] == 0) & staged]] = 1
         private = critic[:, raw.shape[1]:]
@@ -106,7 +153,7 @@ class FrozenCartesianFlapProbe:
         self.lift_targets_rack[ids[lift], :, 2] += .025
         self.phase[ids[lift]] = 2
         self.statistics['confirmed_lift_episodes'] += int(lift.sum())
-        target = torch.where((self.phase[ids] == 0)[:, None, None], stage, centers)
+        target = torch.where((self.phase[ids] == 0)[:, None, None], stage, goal_points)
         target = torch.where((pinching & (self.phase[ids] < 2)[:, None])[..., None], tcp[..., :3], target)
         lifted = rack[:, None, :3] + (rack_R[:, None] @ self.lift_targets_rack[ids, ..., None]).squeeze(-1)
         target = torch.where((self.phase[ids] == 2)[:, None, None], lifted, target)
@@ -114,6 +161,8 @@ class FrozenCartesianFlapProbe:
         norm = displacement.norm(dim=-1, keepdim=True)
         displacement = displacement * (.01 / norm.clamp_min(.01))
         angular = rotation_error * (1.5 / 30.)
+        if self.contact_region:
+            angular = torch.where(pinching[..., None], 0., angular)
         projector = torch.eye(3, device=raw.device, dtype=raw.dtype) - axis[..., :, None] * axis[..., None, :]
         weight = .04
         task_J = torch.cat((J[..., :3, :], weight * (projector @ J[..., 3:, :])), -2)
@@ -129,10 +178,20 @@ class FrozenCartesianFlapProbe:
         changed = (bounded[:, 1:15] - requested[:, 1:15]).abs().amax(-1) > 1e-6
         executed = original_goals.clone()
         executed[guided, 1:15] = bounded[guided, 1:15]
-        ready = ((centers - tcp[..., :3]).norm(dim=-1) <= .018) & (axis_error <= .25) & (self.phase[ids] >= 1)[:, None]
+        ready = ((goal_points - tcp[..., :3]).norm(dim=-1) <= .018) & (axis_error <= .25) & (self.phase[ids] >= 1)[:, None]
         close = ready | pinching | (self.phase[ids] == 2)[:, None]
         near = pilot.agent.action_projector.entropy_mask(actor)[:, 19:21].bool()
-        executed[guided, 19:21] = torch.where((close & near)[guided], 1., -1.)
+        if self.contact_region:
+            # Preserve the learned, production-projected jaws. The stricter
+            # diagnostic geometry may add a close request but cannot force
+            # an otherwise permitted neural close back open.
+            executed[guided, 19:21] = torch.where((close & near)[guided], 1., original_goals[guided, 19:21])
+            retained = (original_goals[:, 19:21] > 0) & near
+            assisted = (close & near) & ~retained
+            self.statistics['original_neural_close_retained_rows'] += int((guided & retained.any(-1)).sum())
+            self.statistics['extra_assisted_close_rows'] += int((guided & assisted.any(-1)).sum())
+        else:
+            executed[guided, 19:21] = torch.where((close & near)[guided], 1., -1.)
         command = held_goal_coordinates(pilot.coordinates, raw, pilot.center + pilot.scale * executed, pilot.stage)
         untouched = [0, 1, 2, 3, 18, 19, 22, 23]
         if not torch.allclose(command[:, untouched], physical[:, untouched], atol=2e-5, rtol=0):
@@ -140,21 +199,22 @@ class FrozenCartesianFlapProbe:
         if not torch.isfinite(command).all() or not torch.isfinite(executed).all():
             raise ValueError('Nonfinite proposed contact command')
         self.statistics['guided_rows'] += int(guided.sum())
-        self.statistics['guided_close_rows'] += int((guided & close.any(-1)).sum())
+        requested_close = (executed[:, 19:21] > 0) & near if self.contact_region else close
+        self.statistics['guided_close_rows'] += int((guided & requested_close.any(-1)).sum())
         self.statistics['affine_arm_goal_clamped_rows'] += int((guided & changed).sum())
         return command, (actor, critic_features, executed)
 
 
-def install_frozen_cartesian_flap_probe(pilot_class, manifest_module):
+def install_frozen_cartesian_flap_probe(pilot_class, manifest_module, *, contact_region=False):
     original_act, original_report = pilot_class.act, pilot_class.report
     original_manifest = manifest_module.checkpoint_manifest_fields
-    contract, tracker = cartesian_flap_probe_contract(), [None]
+    contract, tracker = cartesian_flap_probe_contract(contact_region=contact_region), [None]
     def act(self, raw, critic, index, **kwargs):
         if self.training or self.actor_updates or self.critic_updates or self.replay.size:
             raise ValueError('Cartesian diagnostic cannot train or consume learned Q/replay')
         result = original_act(self, raw, critic, index, **kwargs)
         if tracker[0] is None:
-            tracker[0] = FrozenCartesianFlapProbe(128, raw)
+            tracker[0] = FrozenCartesianFlapProbe(128, raw, contact_region=contact_region)
         return tracker[0].step(self, raw, critic, result, kwargs.get('exploration_ids'), kwargs.get('supplemental'))
     def report(self):
         stats = {} if tracker[0] is None else tracker[0].statistics

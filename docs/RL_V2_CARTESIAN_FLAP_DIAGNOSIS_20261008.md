@@ -2,7 +2,76 @@
 
 목표는 기존 박스·base·배경·움직이는 firm flap 무작위화를 유지한 SAC 양손
 파지다. GPU3의 여섯 조합 학습은 계속한다. 아래 보정은 학습된 SAC와 구분한
-별도 고정 정책 진단이며 아직 물리적 성공 결과가 없다.
+별도 고정 정책 진단이다. 첫 중간점 추종 진단은 정상 종료했고 성공0/128이었다.
+실제 접촉 영역에 맞춘 후속 방법은 아래에 기록한다.
+
+## 전체 종료: 중간점 추종 진단은 성공0/128
+
+12:13 KST에 원래 writer1476893의 정상 exit0·run complete를 확인했다.
+원래 전체128요청은 성공0·안전 위반38·시간 초과76·초기 무효14회다.
+안전 위반은 로봇–랙 충돌30·낙하8회였다. 84환경에서 보정30,017행을
+실행했지만28,600행은 기존 affine 목표 범위에 걸렸고 닫기·들기 전환은0이었다.
+모델·normalizer198개 및원래447개 Python SHA256은 **종료 당시** 그대로였다.
+같은 원래 요청의 공통 유효114조건은 기존3회·진단0회 성공이다. Flap 추첨·접촉
+이력까지 동일한 반복은 아니며 SAC 성능으로 집계하거나 이 방법을 채택하지 않는다.
+[전체128·모델·소스·물리 조건 검증](assets/rl_v2_cartesian_flap_full128_closed_20261008.json).
+
+정상 종료한 HDF의 유효114경로에서 전체24차원 명령을 모두 재구성했다.
+최대 차이는0.00011921이었고 decoder·model·checkpoint·HDF SHA256은 보존됐다.
+재구성한 전체 카운터도 실제 report와 일치했다. 삽입 단계에 들어간 환경은4개였고
+실제 opposing 양손 pinch는 모든 경로에서0이었다. 클램프 횟수만으로 모든 목표가
+도달 불가능하다고 단정하지 않는다.
+[실제 모든 명령·단계·접촉 재구성](assets/rl_v2_closed_cartesian_flap_actions_audit_20261008.json).
+
+| 종료 진단 영상 | 실제 결과 |
+| --- | --- |
+| [중형 왼쪽 env32](assets/rl_v2_cartesian_probe_20261008/env032_h264.mp4) | 왼손 gripper body–rack12.35N, 양손 pinch 없음 |
+| [중형 오른쪽 env104](assets/rl_v2_cartesian_probe_20261008/env104_h264.mp4) | 오른손 gripper body–rack130.90N, 양손 pinch 없음 |
+
+두 영상은 기존 물리 기록을 H264/avc1·yuv420p·faststart로 인코딩하고 전체 decode와
+원본 보존을 확인했다. 선택 영상은 별도 점수가 아니며 학습된 SAC나 Q-value 영상으로
+표시하지 않는다. [영상 형식·checksum·실제 종료 상태](assets/rl_v2_cartesian_probe_closed_video_evidence_20261008.json).
+
+## 실제 성공 위치와 새 닫기 조건의 불일치
+
+기존 정상 종료 TRAIN 진단의 성공3개를 확인했다. 실제 bilateral pinch85개 관측 중
+양손 모두 중간점1.8cm·닫힘 축0.25rad 조건을 만족한 관측은0이었다.
+
+| 기존 실제 성공 | 첫 양손 접촉 시 중간점 거리 좌/우 | 닫힘 축 오차 좌/우 |
+| --- | --- | --- |
+| 중간 왼쪽small env0 | 6.72cm / 4.50cm | 7.2° / 0.9° |
+| 중간 왼쪽small env64 | 6.98cm / 4.38cm | 8.3° / 1.3° |
+| 상단 오른쪽small env88 | 2.29cm / 4.81cm | 18.8° / 21.3° |
+
+이 관측은 이미 접촉한 과거 상태다. 닫기 전의 반사실 물리 결과나 중형의 성공을
+증명하지 않는다. 그러나 유효한 flap 접촉 영역을 중간점 주변의 작은 구로 제한하면
+이미 확인한 실제 파지 위치도 제외한다. 이전 로그의`flap_distances`는 중간점이
+아니라 **배정flap의 가장 가까운 표면까지 거리**임도 원래 계산 코드에서 확인했다.
+수치 자체는 보존하고 실패 분포 보고서의 거리 이름을 바로잡았다.
+[실제 접촉·중간점 좌표·critic terminal schema 대조](assets/rl_v2_existing_success_contact_geometry_20261008.json).
+
+## 접촉 영역을 사용하는 후속 진단
+
+기존 v1과 원래 학습의 관측·보상은 유지한다. 별도
+`scripts/rl/frozen_cartesian_region_probe.py`는 같은 전체128 guard를 사용한다.
+중간점38D 관측으로 두 손이22cm 이내에 들어오면, 해당 손의 위치를 알려진
+flap 직사각형 영역 안에 투영해 접촉점 하나를 선택한다. Normal 좌표는 두 pad
+사이의 panel plane에 두고 tangent 가장자리에서5mm 안쪽으로 제한한다. 한번
+선택한 panel 좌표를 유지하면서 움직이는flap을 따른다. 관측 자체를 이동하는
+최근접 점으로 바꾸지 않는다.
+
+기존 neural 그리퍼 닫기와 production12cm gate를 유지한다. 추가 보정의 엄격한
+위치·축 조건에 못 들어왔다는 이유로 원래 허용된 닫기를 다시 열지 않는다.
+실제 pinch를 확인한 손은 측정한 위치·방향을 유지하며 flap을 추가로 회전시키지
+않는다. 실제 opposing8tick 뒤2.5cm proof lift를 제안하는 privileged 교사 진단임은
+그대로이며 standalone SAC·새 Q 행으로 집계하지 않는다.
+
+팔 step0.02rad·기존 affine0.30 범위·비팔 neural 명령·무작위화·성공·안전 기준은
+유지한다. 이 tag가 있는 결과는 원래 waypoint/Q 준비 경로에서 계속 거부된다.
+관련21개 검사와 정상 종료한 기존 성공3경로의1,408개 입력에서 실제 decoder·
+비팔 명령·목표 범위·원래 닫기 보존을 확인했다. 후자는 실행하지 않은 제안이며
+새 접촉·들기 성공으로 표시하지 않는다.
+[원래 실제 입력에서의 제안 검사](assets/rl_v2_cartesian_region_closed_success_rehearsal_20261008.json).
 
 ## 확인한 원인
 
@@ -26,7 +95,7 @@ S63/leju-twofinger의 실제 관절각으로 계산한 calibrated closed TCP도 
 
 ![잡기 전 박스 이동과 박스 기준 flap 움직임](assets/rl_v2_box_vs_flap_motion_20261008.png)
 
-## 이번에 확인할 보정
+## 첫 진단 v1의 설계
 
 기존 neural 접근을 유지하다 두 손이 실제 배정 flap 중간점22cm 이내에 들어오면
 팔만 보정한다. 랙 앞 진입 위치에서 닫힘 축을 panel 법선에 맞춘 뒤 실제 중간점을
@@ -56,7 +125,7 @@ Actor/Q/replay는0이고 모델·normalizer198개 고정 검사를 재사용한�
 계속되면 미검증 checkpoint를 유지한다. 다른 사용자의 파일·프로세스와 기존
 학습 소스 worktree는 건드리지 않는다. 아래 실제 시작 기록에 고유 폴더와 PID를 기록했다.
 
-## 실행 전 확인
+## 첫 진단 v1의 실행 전 확인
 
 관련17개 검사에서 TCP Jacobian의 위치·각도 변화, 비팔 명령 보존·정확한 goal
 디코딩, 빈 닫힘·같은 flap의 들기 차단과 실제 opposing8tick 확인, 학습 거부·
@@ -65,18 +134,19 @@ hook 복구·기존 waypoint/Q 준비 거부를 확인했다. 추가로 정상 �
 비팔 명령이 일치했다. 제안을 물리적으로 실행한 데이터나 학습 성공으로 표시하지
 않는다. [실제 입력의 오프라인 제안 확인](assets/rl_v2_cartesian_probe_closed_state_rehearsal_20261008.json).
 
-## 실제 시작 확인
+## 첫 진단 v1의 시작 당시 기록
 
 10/08 11:34 KST에 별도GPU0 실행을 시작했다. 실제 writer1476893의 소유자·고유
 경로·CUDA_VISIBLE_DEVICES=0을 확인했다. 폴더는
 `GPU0_actual_flap_cartesian_contact_frozen_TRAIN128_20261008_113429/`
 `batch_sac_20261008_113431_535efb`다. Manifest의 진단 tag·원래128요청 일치와
-원래447개 Python source SHA256을 확인했다. 전체 물리 결과·종료 후198개
-모델 고정 검증은 대기 중이다. GPU3의 여섯 조합 SAC와 Q 보강 SAC는 유지했다.
+원래447개 Python source SHA256을 확인했다. 당시 전체 물리 결과·종료 후198개
+모델 고정 검증은 대기 중이었다. 이후 정상 종료 확인은 이 문서 맨 위에 기록했다.
+GPU3의 여섯 조합 SAC와 Q 보강 SAC는 유지했다.
 [실제 PID·장치·원래 요청·검증 범위](assets/rl_v2_cartesian_probe_actual_startup_20261008.json).
 
 11:46 KST에는 같은 writer가 실제 control step121·13,794행까지 진행했고
 유효한114환경 모두 base 정착 이후 단계에 들어갔다. Actor/Q/온라인 replay는
 모두0이다. 측정 관절로 계산한 TCP의 실시간 최대 위치 차이는0.0163mm다.
 이 시점에는 두 손22cm 진입 조건을 만족한 환경과 보정 명령 행이 아직0이므로
-물리 rollout 시작과 보정 성공을 구분한다. 전체128 종료 결과는 아직 없다.
+물리 rollout 시작과 보정 성공을 구분했다. 당시 전체128 종료 결과는 아직 없었다.
