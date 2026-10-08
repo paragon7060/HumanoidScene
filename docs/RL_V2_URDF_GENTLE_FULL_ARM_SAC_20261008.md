@@ -37,9 +37,20 @@ opposing pad5N·0.25초 유지·8mm 들기, 랙10N·장애물5N·drop10cm·selfO
 
 ## 실행과 판단
 
-GPU3 전용 고유 실행·동결 소스로 추가한다. 기존 네 장기 실행을 중단하지 않는다.
-실제 writer·CUDA_VISIBLE_DEVICES=3·VRAM·시작 계약·기존 Drive 백업 확인은
-준비 완료와 구분해 추가 기록한다. 이 파일 작성 시 새 물리 실행은 아직 시작하지 않았다.
+21:33 KST에 GPU3 전용 고유 실행을 시작했다. writer1,560,881의 소유자·실제run·
+CUDA_VISIBLE_DEVICES=3과동결 소스`a1ee62b53fb9fadc6a780ceb7daffdc00fb89e88`의
+Python736개를 대조했다. 21:39 KST에 실제 관측518/578·body19+jaw2·작은 bias·
+전체URDF 범위·읽기 전용 진단·원래65배치/6,144TRAIN/DEV128·중력 보상18관절·
+원래 물리/보상/성공/안전/DR를 확인했다. 실제 초기 입력257개tensor는 유한하며
+actor/Q/replay는0으로 전체 초기DEV에 들어갔다. 첫 Drive 백업은21:39:11 KST에
+검증됐다. 새 writer는17,561MiB였고 기존 네 실행을 포함한 GPU3는약75.5GB,
+여유5.5GB였다. VRAM 증가가 성능 개선을 의미하지 않는다.
+[실제 시작·계약·첫 백업](assets/rl_v2_URDF_gentle_full_arm_SAC_actual_startup_20261008.json).
+
+관리 폴더는`GPU3_URDF_gentle_full_arm_long_SAC128_20261008_213310`, 실제run은
+`batch_sac_20261008_213311_2b86dc`다. 기존 네 학습은 중단하지 않았다. 새 정책의
+전체 초기DEV와 학습 후 성능은 아직 미확인이다. CPU 관찰기는 각 전체 평가와
+정확히 같은 저장 모델을 보존하고 초기 모델·전체 결과를 대조한다.
 
 자기 초기 전체DEV128과 TRAIN384 단위 후속 DEV를 비교하며 중형과 오른쪽도 따로
 확인한다. 초기 무효도 성공률 분모에 포함한다. 독립FINAL은 사용하지 않았고 목표는
