@@ -52,8 +52,18 @@ replay200만을 사용한다. Q·replay·성공/return 은행은0에서 시작�
 GPU3의 기존 다섯 실행은 유지한다. 사용자가 허용한 다른 여유 GPU에서 비교할 수
 있도록 GPU1의 실제 기존51,690MiB 점유 프로세스 하나와29,454MiB 여유를 확인했다.
 해당 프로세스는 건드리지 않았다. 새17.6GB 실행을 추가해도약11.9GB 여유가 남는다.
-실제 새 실행·초기 전체평가·첫 Drive 백업은 준비와 구분해 추가 기록한다.
-현재 이 기록의 보강 정책은 실제 물리 학습을 아직 시작하지 않았다.
+22:32 KST에 GPU1에서 실제 비교를 시작했다. Writer2,292,102·supervisor2,291,777,
+`CUDA_VISIBLE_DEVICES=1`·Kit GPU1 제한과 main `a462399`의 고정 Python 소스738개를
+확인했다. 기존 GPU1 프로세스와 GPU3의 다섯 실행은 건드리지 않았다.
+22:38:35 KST에 실제 관측518/578·body19/jaw2·강한 계수1·작은 탐색0.01/0.02·
+원래65배치/6,144TRAIN/여섯 조합·중력 보상18관절과 첫 Drive 검증22:38:11을
+대조했다. Writer17,561MiB이며 GPU1 전체69,298MiB·여유11,856MiB였다.
+Actor/Q/replay0에서 초기 전체평가를 진행하며 학습 개선은 아직 미확인이다.
+[실제 설정·첫 백업·검증 범위](assets/rl_v2_URDF_strong_gentle_full_arm_SAC_actual_startup_20261008.json).
+[실제 별도 실행](assets/rl_v2_URDF_strong_gentle_full_arm_launch_20261008.json).
+읽기 전용 CPU 관찰자 네 개가 초기 모델·전체 평가·실제 설정·첫 백업과 이후
+TRAIN384마다의 평가 모델을 보호한다. 중형 성공과 실제 학습 개선은 아직 미확인이다.
+[Notion 보고·기존70개 자료/5개 table 보존](assets/rl_v2_strong_launch_Notion_report_verified_20261008.json).
 
 자기 전체 초기DEV128과 TRAIN384마다의 전체DEV를 비교하며 중형/오른쪽/상단도
 별도로 판단한다. 성능 개선 전에는 독립FINAL을 사용하거나 목표를 완료하지 않는다.
