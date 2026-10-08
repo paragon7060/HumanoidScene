@@ -75,8 +75,14 @@ checkpoint·HDF SHA256을 보존했다. 새 접촉을 실행하거나 새 Q 경�
 추적하며 다른 프로세스에 신호를 보내지 않는다.
 [실제 시작·manifest·소스·검증 범위](assets/rl_v2_cartesian_URDF_actual_startup_20261008.json).
 
-실행 중인 v2 writer2332935와 GPU3 SAC writer3987840은 유지한다. 비교 영상의
+시작할 때 v2 writer2332935와 GPU3 SAC writer3987840을 유지했다. 비교 영상의
 차이를 피하려고 기존 checkout의 사용자 영상 수정35c7e5d도 그대로 복사해
 실행하되 이 파일을 커밋하지 않았다. 인증은 기존 checkout의 Drive wrapper를
 사용하고300초 검사·최근2개 보호·미검증 원본 보존을 유지한다. 새 인증이나
 다른 사용자의 파일·프로세스 변경은 없다.
+
+V2는13:39 KST에 성공0/128로 정상 종료했다. 종료 당시 source448개와 모델198개,
+원래 물리 조건을 확인한 뒤 이 진단 코드를main에 통합했다. 실제 실행은 계속
+격리 source를 사용하므로 main 통합으로 활성URDF 또는GPU3 코드를 바꾸지 않는다.
+[V2 전체 종료 근거](assets/rl_v2_cartesian_region_full128_closed_20261008.json),
+[Notion 정적 그림·기존61개 media와5개 표 확인](assets/rl_v2_arm_range_Notion_verification_20261008.json).
