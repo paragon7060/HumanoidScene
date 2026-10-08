@@ -62,16 +62,21 @@ replay25만으로 한다. 여섯 위치/크기 조합과 독립 FINAL 미사용 
 기존 일곱 장기 비교는 TRAIN6,144·replay200만으로 진행한다. 실제 실행 여부는
 PID·GPU mask·런타임 상태로 확인하며 준비 파일의 존재만으로 실행을 주장하지 않는다.
 
-GPU3에서 앞선 v3 비교가 계획 종료하고 최종 checkpoint/log의 Drive 검증을
-마친 뒤 새 비교를 시작한다. 필요한 메모리와 3GiB 여유도 다시 확인한다.
-05:40 KST에 이를 수행하는 **CPU 대기 PID4,047,308**의 실제 소유자·명령과
-빈 `CUDA_VISIBLE_DEVICES`를 확인했다. 현재 v3 writer/supervisor가 살아 있어
-대기 중이며 새 GPU 학습이 이미 시작됐다는 뜻은 아니다. 고정 소스748개와
-검증한 초기 모델을 준비했다. 시작 후 전체 평가 모델 보존·초기/최종 전체
-결과·첫 TRAIN·런타임/Drive 확인용 CPU 관찰 다섯 개를 자동으로 시작한다.
-[실제 대기 작업과 시작 조건](assets/rl_v2_URDF_upright_contact_actual_GPU3_queue_20261009.json).
+GPU3의 앞선 v3는 TRAIN384 뒤 성공8/128회로 계획을 정상 종료하고 최종
+checkpoint/log의 Drive 검증을 마쳤다. 메모리와3GiB 여유를 다시 확인한 뒤
+**05:53 KST에 새 v5 writer84,979·supervisor84,473이 실제 시작됐다.**
+06:07 KST에 초기 전체평가step121·고정 소스748개·중력보상18관절·
+`CUDA_VISIBLE_DEVICES=3`·Kit단일GPU3·VRAM2,791MiB를 확인했다.
+새 버전의 초기/학습 후 성공률은 아직 대기 중이다. CPU 대기 coordinator는
+학습을 시작한 뒤exit0으로 종료했고, 새 학습의 중단을 뜻하지 않는다.
+전체 평가 모델 보존·초기/최종 전체 결과·첫 TRAIN·런타임/Drive 확인용
+CPU 관찰 다섯 개도 실제 시작했다.
+[실제 시작·런타임 계약](assets/rl_v2_URDF_upright_contact_SAC_actual_startup_20261009.json) ·
+[실제 CPU 관찰 작업](assets/rl_v2_URDF_upright_contact_actual_CPU_observers_20261009.json).
 기존 Drive 연결과 300초 업로드·크기/MD5 검증·최신 두 checkpoint 보호를
-재사용한다. Raw HDF/replay/영상은 checkpoint/log 전용 백업 범위에 없으므로
+재사용한다. 06:00의 첫 검증은manifest/env/agent 계약이며 초기 평가checkpoint는
+아직 저장 전이다. 이후 저장된 checkpoint도 같은 업로더가 검증한다.
+Raw HDF/replay/영상은 checkpoint/log 전용 백업 범위에 없으므로
 로컬에 남긴다. 다른 사용자의 실행은 종료하거나 변경하지 않는다.
 
 성능 판단에는 실제 파지/안전 종료와 같은 모델의 전체 128조건 평가를 사용한다.

@@ -1,0 +1,5356 @@
+{
+  "recorded_at": "2026-10-09T06:01:55.549374+09:00",
+  "source_commit": "a7e6ddbc72a2bc1ddd7bdaf2c8a66c134b7a69ea",
+  "run_directory_name": "batch_sac_20261008_233710_e96a77",
+  "writer_pid": 3136255,
+  "writer_live_owner_run_CUDA2_verified": true,
+  "isolated_source741_SHA256_unchanged": true,
+  "whole_original_DEV128_completed": true,
+  "all6_scope": true,
+  "exact_same_requested_DEV_layouts_as_own_initial_preserved": true,
+  "completed_TRAIN_conditions": 1152,
+  "actor_updates": 3149,
+  "critic_updates": 14644,
+  "matching_checkpoint_SHA256": "dfb52d0e3f5eabaca7166a21cd561d9c2f82d637f3030fe97f7b838e4598fdb4",
+  "actual_end_saved_checkpoint_SHA256": "dfb52d0e3f5eabaca7166a21cd561d9c2f82d637f3030fe97f7b838e4598fdb4",
+  "actual_end_saved_model_and_normalizer_equal_protected_pre_DEV_model": true,
+  "exact_frozen_source_and_body_anchor_preserved": true,
+  "all_checkpoint_model_and_optimizer_tensors_finite": true,
+  "finite_tensors_checked_in_pre_and_end_checkpoints": 1000,
+  "actual_optimizer_steps_equal_saved_counters_for_all_parameters": true,
+  "exact_actual_goal_contract_verified": true,
+  "counts": {
+    "requested": 128,
+    "success": 13,
+    "unsafe": 63,
+    "time_out": 52,
+    "initial_invalid": 0,
+    "numerical_failure": 0,
+    "other_terminal": 0
+  },
+  "by_region_size": {
+    "shelf_2_left/small": {
+      "requested": 16,
+      "success": 4,
+      "unsafe": 12,
+      "time_out": 0,
+      "initial_invalid": 0,
+      "numerical_failure": 0,
+      "other_terminal": 0
+    },
+    "shelf_2_right/small": {
+      "requested": 16,
+      "success": 0,
+      "unsafe": 0,
+      "time_out": 16,
+      "initial_invalid": 0,
+      "numerical_failure": 0,
+      "other_terminal": 0
+    },
+    "shelf_3_left/small": {
+      "requested": 32,
+      "success": 0,
+      "unsafe": 3,
+      "time_out": 29,
+      "initial_invalid": 0,
+      "numerical_failure": 0,
+      "other_terminal": 0
+    },
+    "shelf_3_right/small": {
+      "requested": 32,
+      "success": 9,
+      "unsafe": 16,
+      "time_out": 7,
+      "initial_invalid": 0,
+      "numerical_failure": 0,
+      "other_terminal": 0
+    },
+    "shelf_2_left/medium": {
+      "requested": 16,
+      "success": 0,
+      "unsafe": 16,
+      "time_out": 0,
+      "initial_invalid": 0,
+      "numerical_failure": 0,
+      "other_terminal": 0
+    },
+    "shelf_2_right/medium": {
+      "requested": 16,
+      "success": 0,
+      "unsafe": 16,
+      "time_out": 0,
+      "initial_invalid": 0,
+      "numerical_failure": 0,
+      "other_terminal": 0
+    }
+  },
+  "unsafe_causes": {
+    "robot_rack_collision": 63
+  },
+  "cases": [
+    {
+      "environment": 0,
+      "seed": 50001000,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.033224813640117645,
+        "flap_distances": [
+          0.00010387715883553028,
+          0.0
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 1,
+      "seed": 50001100,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.3396448493003845e-05,
+        "flap_distances": [
+          0.2105623483657837,
+          1.1591346263885498
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 2,
+      "seed": 50001200,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.138347089290619e-05,
+        "flap_distances": [
+          0.1477576196193695,
+          0.011167562566697598
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 3,
+      "seed": 50001300,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.035855285823345184,
+        "flap_distances": [
+          0.0004257399123162031,
+          0.0
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 4,
+      "seed": 50001001,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.007148990407586098,
+        "flap_distances": [
+          0.03520134091377258,
+          0.10919315367937088
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 5,
+      "seed": 50001101,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.001407155767083168,
+        "flap_distances": [
+          0.008697538636624813,
+          0.014081581495702267
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 6,
+      "seed": 50001201,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 3.456138074398041e-05,
+        "flap_distances": [
+          0.1616196483373642,
+          0.0
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 7,
+      "seed": 50001301,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.03242027014493942,
+        "flap_distances": [
+          0.0007768983487039804,
+          0.007625253405421972
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 8,
+      "seed": 50001002,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.035846225917339325,
+        "flap_distances": [
+          0.001177885802462697,
+          0.0040504783391952515
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 9,
+      "seed": 50001102,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.017779767513275e-05,
+        "flap_distances": [
+          0.17232279479503632,
+          1.1306997537612915
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 10,
+      "seed": 50001202,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.242919385433197e-05,
+        "flap_distances": [
+          0.1426192671060562,
+          0.0497199222445488
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 11,
+      "seed": 50001302,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.03594183176755905,
+        "flap_distances": [
+          0.0007112089078873396,
+          0.0
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 12,
+      "seed": 50001003,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.852244794368744e-05,
+        "flap_distances": [
+          0.05044597387313843,
+          0.1089729592204094
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 13,
+      "seed": 50001103,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -7.28461891412735e-05,
+        "flap_distances": [
+          0.01827426813542843,
+          0.023651568219065666
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 14,
+      "seed": 50001203,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -1.193024218082428e-05,
+        "flap_distances": [
+          0.06839730590581894,
+          0.12202552706003189
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 15,
+      "seed": 50001303,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.005063066259026527,
+        "flap_distances": [
+          0.09948796033859253,
+          0.07393473386764526
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 16,
+      "seed": 50001004,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.004145989194512367,
+        "flap_distances": [
+          0.13166193664073944,
+          0.12491519004106522
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 17,
+      "seed": 50001104,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -1.2636184692382812e-05,
+        "flap_distances": [
+          0.18007256090641022,
+          1.12440824508667
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 18,
+      "seed": 50001204,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -8.691288530826569e-05,
+        "flap_distances": [
+          0.22390572726726532,
+          0.1426699310541153
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 19,
+      "seed": 50001304,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.011616954579949379,
+        "flap_distances": [
+          0.08997688442468643,
+          0.06478819996118546
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 20,
+      "seed": 50001005,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 1.4057382941246033e-05,
+        "flap_distances": [
+          0.04720112681388855,
+          0.03331086039543152
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 21,
+      "seed": 50001105,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00585688091814518,
+        "flap_distances": [
+          0.04840882122516632,
+          0.04945826530456543
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 22,
+      "seed": 50001205,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.9237703680992126e-05,
+        "flap_distances": [
+          0.14866484701633453,
+          0.1710841953754425
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 23,
+      "seed": 50001305,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 1.1920928955078125e-07,
+        "flap_distances": [
+          0.333646684885025,
+          0.16810347139835358
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 24,
+      "seed": 50001006,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.005150685086846352,
+        "flap_distances": [
+          0.08044025301933289,
+          0.13355308771133423
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 25,
+      "seed": 50001106,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -5.042552947998047e-05,
+        "flap_distances": [
+          0.184378981590271,
+          1.137197732925415
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 26,
+      "seed": 50001206,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.673430860042572e-05,
+        "flap_distances": [
+          0.21315886080265045,
+          0.03302391618490219
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 27,
+      "seed": 50001306,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.315802991390228e-05,
+        "flap_distances": [
+          0.06046592444181442,
+          0.03807752579450607
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 28,
+      "seed": 50001007,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -5.746819078922272e-05,
+        "flap_distances": [
+          0.03296206146478653,
+          0.023790528997778893
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 29,
+      "seed": 50001107,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          true
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0006264541298151016,
+        "flap_distances": [
+          0.012449521571397781,
+          0.011522061191499233
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 30,
+      "seed": 50001207,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 3.2296404242515564e-05,
+        "flap_distances": [
+          0.06007993593811989,
+          0.04817565530538559
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 31,
+      "seed": 50001307,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.050897710025310516,
+        "flap_distances": [
+          0.00020162132568657398,
+          0.0009226973634213209
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 32,
+      "seed": 50001008,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.13180504739284515,
+        "flap_distances": [
+          0.05669054388999939,
+          0.01612631417810917
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 33,
+      "seed": 50001108,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.363486707210541e-05,
+        "flap_distances": [
+          0.2008187621831894,
+          1.1495869159698486
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 34,
+      "seed": 50001208,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.126426160335541e-05,
+        "flap_distances": [
+          0.13298502564430237,
+          0.01848609559237957
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 35,
+      "seed": 50001308,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.03808283060789108,
+        "flap_distances": [
+          0.0004964035470038652,
+          0.0009115810971707106
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 36,
+      "seed": 50001009,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00019503571093082428,
+        "flap_distances": [
+          0.03283170983195305,
+          0.03236734867095947
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 37,
+      "seed": 50001109,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.005364308133721352,
+        "flap_distances": [
+          0.08785641193389893,
+          0.0804506465792656
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 38,
+      "seed": 50001209,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.601905286312103e-05,
+        "flap_distances": [
+          0.16675075888633728,
+          0.2661007046699524
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 39,
+      "seed": 50001309,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.0045008063316345e-05,
+        "flap_distances": [
+          0.040320273488759995,
+          0.03944011405110359
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 40,
+      "seed": 50001010,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.051820509135723114,
+        "flap_distances": [
+          0.031228406354784966,
+          0.0
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 41,
+      "seed": 50001110,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -9.417533874511719e-06,
+        "flap_distances": [
+          0.1645842343568802,
+          1.115040898323059
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 42,
+      "seed": 50001210,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00713706947863102,
+        "flap_distances": [
+          0.07844589650630951,
+          0.050623174756765366
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 43,
+      "seed": 50001310,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 1.1673197150230408e-05,
+        "flap_distances": [
+          0.11424880474805832,
+          0.02033594809472561
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 44,
+      "seed": 50001011,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00040317513048648834,
+        "flap_distances": [
+          0.05625663325190544,
+          0.018581144511699677
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 45,
+      "seed": 50001111,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.005622277036309242,
+        "flap_distances": [
+          0.0026694792322814465,
+          0.03255920857191086
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 46,
+      "seed": 50001211,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.150268018245697e-05,
+        "flap_distances": [
+          0.1254214495420456,
+          0.026588527485728264
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 47,
+      "seed": 50001311,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.006458291783928871,
+        "flap_distances": [
+          0.0668981745839119,
+          0.02063155733048916
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 48,
+      "seed": 50001012,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.3978914618492126e-05,
+        "flap_distances": [
+          0.038627978414297104,
+          0.23837657272815704
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 49,
+      "seed": 50001112,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.30388206243515e-05,
+        "flap_distances": [
+          0.18367934226989746,
+          1.1377180814743042
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 50,
+      "seed": 50001212,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.3277239203453064e-05,
+        "flap_distances": [
+          0.1182628646492958,
+          0.028759105131030083
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 51,
+      "seed": 50001312,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.025446763262152672,
+        "flap_distances": [
+          0.0002008166629821062,
+          0.0
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 52,
+      "seed": 50001013,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00014174915850162506,
+        "flap_distances": [
+          0.054964400827884674,
+          0.036149367690086365
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 53,
+      "seed": 50001113,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0006284806877374649,
+        "flap_distances": [
+          0.0354834720492363,
+          0.07257172465324402
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 54,
+      "seed": 50001213,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.078742444515228e-05,
+        "flap_distances": [
+          0.1384175419807434,
+          0.02238750271499157
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 55,
+      "seed": 50001313,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.0034949686378240585,
+        "flap_distances": [
+          0.11572329699993134,
+          0.017985176295042038
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 56,
+      "seed": 50001014,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.014229884371161461,
+        "flap_distances": [
+          0.27797815203666687,
+          0.09783712774515152
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 57,
+      "seed": 50001114,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 3.898143768310547e-05,
+        "flap_distances": [
+          0.18021541833877563,
+          1.136269211769104
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 58,
+      "seed": 50001214,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.947612226009369e-05,
+        "flap_distances": [
+          0.48014429211616516,
+          0.12862427532672882
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 59,
+      "seed": 50001314,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.006226548925042152,
+        "flap_distances": [
+          0.14131323993206024,
+          0.00843198411166668
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 60,
+      "seed": 50001015,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0016486737877130508,
+        "flap_distances": [
+          0.025648603215813637,
+          0.06044842302799225
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 61,
+      "seed": 50001115,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.852244794368744e-05,
+        "flap_distances": [
+          0.2410314679145813,
+          0.0749584287405014
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 62,
+      "seed": 50001215,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.126426160335541e-05,
+        "flap_distances": [
+          0.145839661359787,
+          0.010419516824185848
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 63,
+      "seed": 50001315,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00022686459124088287,
+        "flap_distances": [
+          0.07930393517017365,
+          0.021105071529746056
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 64,
+      "seed": 50001016,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -9.608268737792969e-05,
+        "flap_distances": [
+          0.061742525547742844,
+          0.2620449364185333
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 65,
+      "seed": 50001116,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -9.5367431640625e-07,
+        "flap_distances": [
+          0.19274866580963135,
+          1.142768144607544
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 66,
+      "seed": 50001216,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -6.365776062011719e-05,
+        "flap_distances": [
+          0.0902351513504982,
+          0.02163645066320896
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 67,
+      "seed": 50001316,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.010086288675665855,
+        "flap_distances": [
+          0.004870103672146797,
+          0.0
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 68,
+      "seed": 50001017,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 9.44044440984726e-05,
+        "flap_distances": [
+          0.0348295122385025,
+          0.03415321931242943
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 69,
+      "seed": 50001117,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.007299074903130531,
+        "flap_distances": [
+          0.05528860166668892,
+          0.02581208199262619
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 70,
+      "seed": 50001217,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.6257471442222595e-05,
+        "flap_distances": [
+          0.15307457745075226,
+          0.006744339130818844
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 71,
+      "seed": 50001317,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.57942146062851e-05,
+        "flap_distances": [
+          0.07045292109251022,
+          0.05179780349135399
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 72,
+      "seed": 50001018,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.02652703784406185,
+        "flap_distances": [
+          0.0009690758306533098,
+          0.0
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 73,
+      "seed": 50001118,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -3.5762786865234375e-07,
+        "flap_distances": [
+          0.19012616574764252,
+          1.128428339958191
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 74,
+      "seed": 50001218,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -7.16187059879303e-06,
+        "flap_distances": [
+          0.21026474237442017,
+          0.006832394283264875
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 75,
+      "seed": 50001318,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04828952997922897,
+        "flap_distances": [
+          0.0006561784539371729,
+          0.0
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 76,
+      "seed": 50001019,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0007051322609186172,
+        "flap_distances": [
+          0.017743322998285294,
+          0.05144994333386421
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 77,
+      "seed": 50001119,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0005396697670221329,
+        "flap_distances": [
+          0.06675248593091965,
+          0.02216610126197338
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 78,
+      "seed": 50001219,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.009837517514824867,
+        "flap_distances": [
+          0.1983470618724823,
+          0.05841321498155594
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 79,
+      "seed": 50001319,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0011159274727106094,
+        "flap_distances": [
+          0.045213378965854645,
+          0.043271344155073166
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 80,
+      "seed": 50001020,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.009278425946831703,
+        "flap_distances": [
+          0.027622031047940254,
+          0.12754350900650024
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 81,
+      "seed": 50001120,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.601905286312103e-05,
+        "flap_distances": [
+          0.19173094630241394,
+          1.1297078132629395
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 82,
+      "seed": 50001220,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.484054028987885e-05,
+        "flap_distances": [
+          0.2417164146900177,
+          0.03392418473958969
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 83,
+      "seed": 50001320,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0002839658409357071,
+        "flap_distances": [
+          0.047030530869960785,
+          0.005341212265193462
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 84,
+      "seed": 50001021,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.001992473378777504,
+        "flap_distances": [
+          0.07008802145719528,
+          0.054876700043678284
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 85,
+      "seed": 50001121,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          true
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.0042939092963933945,
+        "flap_distances": [
+          0.028039436787366867,
+          0.0008439001394435763
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 86,
+      "seed": 50001221,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 3.694556653499603e-05,
+        "flap_distances": [
+          0.07293953001499176,
+          0.027295177802443504
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 87,
+      "seed": 50001321,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0006150100380182266,
+        "flap_distances": [
+          0.21631868183612823,
+          0.021905729547142982
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 88,
+      "seed": 50001022,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04555796831846237,
+        "flap_distances": [
+          0.0011864837724715471,
+          0.0005905504804104567
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 89,
+      "seed": 50001122,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -6.830692291259766e-05,
+        "flap_distances": [
+          0.18374541401863098,
+          1.1455471515655518
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 90,
+      "seed": 50001222,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.314444959163666e-05,
+        "flap_distances": [
+          0.09054137021303177,
+          0.0019398985896259546
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 91,
+      "seed": 50001322,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.007561216130852699,
+        "flap_distances": [
+          0.004163162782788277,
+          0.0721583440899849
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 92,
+      "seed": 50001023,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0008632037788629532,
+        "flap_distances": [
+          0.018697531893849373,
+          0.05425381660461426
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 93,
+      "seed": 50001123,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          true
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0012476537376642227,
+        "flap_distances": [
+          0.024680955335497856,
+          0.008706471882760525
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 94,
+      "seed": 50001223,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.400607526302338e-05,
+        "flap_distances": [
+          0.14769290387630463,
+          0.00845377054065466
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 95,
+      "seed": 50001323,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.864165723323822e-05,
+        "flap_distances": [
+          0.11124435812234879,
+          0.04460357502102852
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 96,
+      "seed": 50001024,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00028563477098941803,
+        "flap_distances": [
+          0.20670312643051147,
+          0.09128735959529877
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 97,
+      "seed": 50001124,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -3.5762786865234375e-07,
+        "flap_distances": [
+          0.17774885892868042,
+          1.1272523403167725
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 98,
+      "seed": 50001224,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.291961133480072e-05,
+        "flap_distances": [
+          0.16421212255954742,
+          0.01233686413615942
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 99,
+      "seed": 50001324,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 3.0269846320152283e-05,
+        "flap_distances": [
+          0.2203431874513626,
+          0.01404301356524229
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 100,
+      "seed": 50001025,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0008763168007135391,
+        "flap_distances": [
+          0.01564440317451954,
+          0.07829178124666214
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 101,
+      "seed": 50001125,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0024275872856378555,
+        "flap_distances": [
+          0.01184114534407854,
+          0.015224277041852474
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 102,
+      "seed": 50001225,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.009939560666680336,
+        "flap_distances": [
+          0.12322733551263809,
+          0.04524334520101547
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 103,
+      "seed": 50001325,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0018893573433160782,
+        "flap_distances": [
+          0.023878978565335274,
+          0.03644372895359993
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 104,
+      "seed": 50001026,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.003482470288872719,
+        "flap_distances": [
+          0.0016793895047158003,
+          0.13498085737228394
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 105,
+      "seed": 50001126,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -1.1920928955078125e-07,
+        "flap_distances": [
+          0.19334688782691956,
+          1.1373441219329834
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 106,
+      "seed": 50001226,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.612468183040619e-05,
+        "flap_distances": [
+          0.06520821899175644,
+          0.04982510954141617
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 107,
+      "seed": 50001326,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.38868659734726e-05,
+        "flap_distances": [
+          0.06085929274559021,
+          0.023872757330536842
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 108,
+      "seed": 50001027,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 2.1209940314292908e-05,
+        "flap_distances": [
+          0.05140131339430809,
+          0.0052546849474310875
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 109,
+      "seed": 50001127,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.001735815778374672,
+        "flap_distances": [
+          0.05325912684202194,
+          0.06474830210208893
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 110,
+      "seed": 50001227,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 2.907775342464447e-05,
+        "flap_distances": [
+          0.238785058259964,
+          0.030503084883093834
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 111,
+      "seed": 50001327,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.7330355048179626e-05,
+        "flap_distances": [
+          0.13975149393081665,
+          0.07291587442159653
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 112,
+      "seed": 50001028,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.16770420968532562,
+        "flap_distances": [
+          0.0909264013171196,
+          0.1054024025797844
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 113,
+      "seed": 50001128,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -2.5033950805664062e-06,
+        "flap_distances": [
+          0.1974886655807495,
+          1.1440165042877197
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 114,
+      "seed": 50001228,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.005833158269524574,
+        "flap_distances": [
+          0.23700730502605438,
+          0.02357754111289978
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 115,
+      "seed": 50001328,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "actual_terminal": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.034865014255046844,
+        "flap_distances": [
+          0.0005614298861473799,
+          0.0
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 116,
+      "seed": 50001029,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0009318683296442032,
+        "flap_distances": [
+          0.0729302242398262,
+          0.062460701912641525
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 117,
+      "seed": 50001129,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0006659124046564102,
+        "flap_distances": [
+          0.1707267463207245,
+          0.07830837368965149
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 118,
+      "seed": 50001229,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 3.849528729915619e-05,
+        "flap_distances": [
+          0.4444289803504944,
+          0.14171963930130005
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 119,
+      "seed": 50001329,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 7.449649274349213e-05,
+        "flap_distances": [
+          0.01888909749686718,
+          0.05236615613102913
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 120,
+      "seed": 50001030,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.0016528274863958359,
+        "flap_distances": [
+          0.15792423486709595,
+          0.12111972272396088
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 121,
+      "seed": 50001130,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.280040204524994e-05,
+        "flap_distances": [
+          0.19417770206928253,
+          1.1444441080093384
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 122,
+      "seed": 50001230,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.600547254085541e-05,
+        "flap_distances": [
+          0.031196197494864464,
+          0.08306583017110825
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 123,
+      "seed": 50001330,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.886649549007416e-05,
+        "flap_distances": [
+          0.25001198053359985,
+          0.005687250755727291
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 124,
+      "seed": 50001031,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 1.2626871466636658e-05,
+        "flap_distances": [
+          0.06264650076627731,
+          0.031569793820381165
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 125,
+      "seed": 50001131,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.001445302739739418,
+        "flap_distances": [
+          0.0033437081146985292,
+          0.024939341470599174
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 126,
+      "seed": 50001231,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.5767053961753845e-05,
+        "flap_distances": [
+          0.15948620438575745,
+          0.02916586399078369
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 127,
+      "seed": 50001331,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "actual_terminal": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false,
+        "numerical_failure": null,
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.92241233587265e-05,
+        "flap_distances": [
+          0.06309477984905243,
+          0.04143562167882919
+        ],
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    }
+  ],
+  "own_initial_baseline_success": 11,
+  "common_initial_valid": {
+    "requested": 115,
+    "initial_success": 11,
+    "latest_success": 12,
+    "lost_success": 5,
+    "gained_success": 6
+  },
+  "third_learned_DEV_NOT_compared_to_old_goal_SAC11_or_teacher1": true,
+  "repeated_request_NOT_identical_realized_flap_or_contact_history": true,
+  "original_randomization_reward_controller_success_safety_preserved": true,
+  "no_evaluation_data_imported_for_training": true,
+  "no_live_HDF_or_replay_read": true,
+  "no_process_signals": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true
+}
