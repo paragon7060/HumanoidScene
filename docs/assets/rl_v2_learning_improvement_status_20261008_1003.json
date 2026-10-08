@@ -1,0 +1,181 @@
+{
+  "checked_at": "2026-10-08T10:02:57+09:00",
+  "goal": "randomization을 유지한 SAC 양손 파지",
+  "goal_achieved": false,
+  "independent_FINAL_used": false,
+  "stable_learning_improvement_verified": false,
+  "jobs": [
+    {
+      "role": "기존 소형 SAC",
+      "pid": 712296,
+      "alive": false,
+      "verified_owner_run_CUDA": false,
+      "phase": "final_upload",
+      "exit": 0,
+      "current": {
+        "wave": 16,
+        "split": "validation",
+        "step": 841,
+        "active": 51
+      },
+      "learner": {
+        "training": false,
+        "actor_updates": 4316,
+        "critic_updates": 19312,
+        "online_rows": 873369,
+        "replay_size": 500000
+      },
+      "closed_DEV": [
+        {
+          "wave": 0,
+          "n": 128,
+          "success": 35,
+          "unsafe": 49,
+          "timeout": 33,
+          "initial_invalid": 11
+        },
+        {
+          "wave": 4,
+          "n": 128,
+          "success": 19,
+          "unsafe": 71,
+          "timeout": 37,
+          "initial_invalid": 1
+        },
+        {
+          "wave": 8,
+          "n": 128,
+          "success": 23,
+          "unsafe": 64,
+          "timeout": 40,
+          "initial_invalid": 1
+        },
+        {
+          "wave": 12,
+          "n": 128,
+          "success": 30,
+          "unsafe": 58,
+          "timeout": 40,
+          "initial_invalid": 0
+        },
+        {
+          "wave": 16,
+          "n": 128,
+          "success": 24,
+          "unsafe": 53,
+          "timeout": 51,
+          "initial_invalid": 0
+        }
+      ],
+      "closed_TRAIN_rows": 1536,
+      "closed_TRAIN_success": 250
+    },
+    {
+      "role": "Q 보강 비교",
+      "pid": 2318510,
+      "alive": true,
+      "verified_owner_run_CUDA": true,
+      "phase": "training",
+      "exit": null,
+      "current": {
+        "wave": 9,
+        "split": "train",
+        "step": 841,
+        "active": 41
+      },
+      "learner": {
+        "training": true,
+        "actor_updates": 2295,
+        "critic_updates": 11228,
+        "online_rows": 506654,
+        "replay_size": 500000
+      },
+      "closed_DEV": [
+        {
+          "wave": 0,
+          "n": 128,
+          "success": 35,
+          "unsafe": 49,
+          "timeout": 33,
+          "initial_invalid": 11
+        },
+        {
+          "wave": 4,
+          "n": 128,
+          "success": 22,
+          "unsafe": 65,
+          "timeout": 40,
+          "initial_invalid": 1
+        },
+        {
+          "wave": 8,
+          "n": 128,
+          "success": 16,
+          "unsafe": 70,
+          "timeout": 41,
+          "initial_invalid": 1
+        }
+      ],
+      "closed_TRAIN_rows": 768,
+      "closed_TRAIN_success": 124
+    },
+    {
+      "role": "6배치 새 SAC",
+      "pid": 3987840,
+      "alive": true,
+      "verified_owner_run_CUDA": true,
+      "phase": "training",
+      "exit": null,
+      "current": {
+        "wave": 2,
+        "split": "train",
+        "step": 811,
+        "active": 65
+      },
+      "learner": {
+        "training": true,
+        "actor_updates": 274,
+        "critic_updates": 3144,
+        "online_rows": 153825,
+        "replay_size": 153825
+      },
+      "closed_DEV": [
+        {
+          "wave": 0,
+          "n": 128,
+          "success": 11,
+          "unsafe": 49,
+          "timeout": 55,
+          "initial_invalid": 13
+        }
+      ],
+      "closed_TRAIN_rows": 128,
+      "closed_TRAIN_success": 9
+    },
+    {
+      "role": "양손 닫기 분리 진단",
+      "pid": 437496,
+      "alive": true,
+      "verified_owner_run_CUDA": true,
+      "phase": "training",
+      "exit": null,
+      "current": {
+        "wave": 0,
+        "split": "train",
+        "step": 211,
+        "active": 114
+      },
+      "learner": {
+        "training": false,
+        "actor_updates": 0,
+        "critic_updates": 0,
+        "online_rows": 0,
+        "replay_size": 0
+      },
+      "closed_DEV": [],
+      "closed_TRAIN_rows": 0,
+      "closed_TRAIN_success": 0
+    }
+  ],
+  "scope_note": "Old regular and Q-support DEVs are small-only. All6 initial11 is pre-update and not directly comparable. TRAIN outcomes are exploration, not DEV improvement. GPU0 close intervention is diagnostic, not learned SAC."
+}

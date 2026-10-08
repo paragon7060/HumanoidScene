@@ -62,3 +62,17 @@ def test_hooks_are_process_local_restored_and_refuse_training_before_act():
         assert Pilot().report()['frozen_bilateral_close_probe']['actual_statistics']['held_rows_checked']==0
     finally:restore()
     assert (Pilot.act,Pilot.report,module.checkpoint_manifest_fields)==original
+
+
+def test_changed_jaw_diagnosis_cannot_supply_original_waypoint_or_Q(tmp_path):
+    import json
+    from prepare_size_workplaces import closed_probe
+    run=tmp_path/'run';run.mkdir()
+    (tmp_path/'launch.json').write_text(json.dumps({'run':str(run),
+        'command':['--checkpoint',str(tmp_path/'checkpoint.pt'),
+                   '--waypoints',str(tmp_path/'waypoints.json')]}))
+    (tmp_path/'status.json').write_text(json.dumps({'training_exit_code':0,'training_pid':2147483647}))
+    (run/'status.json').write_text(json.dumps({'status':'complete'}))
+    (run/'manifest.json').write_text(json.dumps({'frozen_bilateral_close_probe':{'standalone_SAC':False}}))
+    with pytest.raises(ValueError,match='Changed jaw behavior'):
+        closed_probe(run)

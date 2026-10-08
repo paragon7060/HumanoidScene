@@ -4,6 +4,20 @@
 GPU3의 여섯 조합 학습은 유지한다. 아래는 닫기 선택을 분리하는 고정 정책
 진단이며, 이 결과를 SAC 개선이나 독립 일반화 점수로 집계하지 않는다.
 
+## 실제 실행 상태
+
+2026-10-08 09:47 KST에 별도GPU0 실행을 시작했고 10:03 KST에 실제
+writer437496의 소유자·고유 실행 경로·`CUDA_VISIBLE_DEVICES=0`을 확인했다.
+고유 폴더는`GPU0_bilateral_near_close_frozen_TRAIN128_20261008_094705`다.
+Manifest와 실제 learner report에 진단 tag가 있고 원래233개 소스 SHA256은
+유지됐다. 전체128요청 진행 중이며 actor/Q/온라인/replay는0이다.
+현재 물리 성공 결과와 종료 후198개 tensor 검증은 **대기 중**이다.
+
+기존 Drive wrapper·300초 검사·최근2개 보존을 재사용한다. 백업 범위는
+checkpoint·계약 metadata·종료 로그이며 raw HDF/replay/영상은 로컬에 남는다.
+인증 실패로 검증되지 않은 원본을 삭제하거나 새 인증을 만들지 않는다.
+기존 실행과 다른 사용자의 프로세스·파일을 건드리지 않았다.
+
 ## 정상 종료한 실제 기록에서 확인한 점
 
 원래 중간 좌우 small/medium·상단 좌우 small의 TRAIN16조건×접근 후보8개,
@@ -39,7 +53,10 @@ GPU3의 여섯 조합 학습은 유지한다. 아래는 닫기 선택을 분리�
 `frozen_bilateral_close_probe`와 실제 변경 행 수를 기록한다. 해당 tag가 있는
 결과는 원래 waypoint/Q 준비 경로에서 거부해 다른 정책의 성공으로 섞이지 않는다.
 
-일반 frozen TRAIN 진단 명령의 runner만 이 전용 스크립트로 바꾸며 다음을 유지한다.
+직접 실행 시 일반 frozen TRAIN runner 대신 이 스크립트에 원래 입력을 전달한다.
+관리자가 실행한 정확한 인자는 고유 실행 폴더의`launch.json.command`에 있다.
+직접 실행과 별도 Drive uploader를 연결할 때는[기존 백업 문서](RL_GOOGLE_DRIVE.md)를
+따르며 새 인증이나 credential 복사를 하지 않는다. 다음 frozen 옵션을 유지한다.
 
 ```bash
 --no-training --cpu-workplace-probe --base-waypoint-probe \
@@ -49,6 +66,8 @@ GPU3의 여섯 조합 학습은 유지한다. 아래는 닫기 선택을 분리�
 관련18개 검사에서 jaw만 변경, 실행·기록 goal 일치, 원본 입력 보존, 학습·축소
 범위 거부, hook 복구와 기존 manifest 경로를 확인했다. 물리 결과는 전체 종료와
 원래198개 tensor 검증 후 판단한다. 이 검사가 파지 성공을 증명하지는 않는다.
+추가 검사에서 이 진단의 manifest를 원래 waypoint/Q 준비가 실제로 거부하는지도
+확인했다(추가1개 통과). Controller·reward·관측에 추가 변경은 없다.
 
 진단으로 중형 파지가 생기면 이후 실제 TRAIN의 jaw 탐색을 arm 탐색 선택과
 분리하고 짧은 닫기 유지 구간을 검토한다. 중형 오른쪽처럼 근접 자체가 없으면
