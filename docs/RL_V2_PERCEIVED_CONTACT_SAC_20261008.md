@@ -113,9 +113,9 @@ Writer 메모리는17561MiB이고, 기존 인증으로 첫 Drive
 이후 실제TRAIN 수집에 진입했다.
 [전체 초기결과·같은 모델](assets/rl_v2_URDF_perceived_contact_first_full_DEV_20261008.json).
 
-00:29 KST의실제 첫TRAIN은step391까지진행했다.15환경에서탐색1,747행,
-닫힘명령22행·들기시도1회를실행하고Q658회·actor0회를기록했다.
-기존명령/그리퍼projection/보상일치guard가작동하며고정소스741개와CUDA2·
-Drive검증을다시확인했다.닫힘과들기시도는실제파지성공이아니며,
-첫TRAIN128전체결과와학습후greedy평가는대기중이다.
-[실제탐색·Q학습연결](assets/rl_v2_perceived_contact_first_live_TRAIN_20261009.json).
+00:29 KST에 실제 첫 TRAIN의 step391까지 진행했다. 15개 환경에서 탐색
+1,747행, 닫힘 명령22행·들기 시도1회를 실행하고 Q658회·actor0회를 기록했다.
+기존 명령·그리퍼 projection·보상 일치 검사가 작동하며 고정 소스741개와
+CUDA2·Drive 검증을 다시 확인했다. 닫힘과 들기 시도는 실제 파지 성공의
+증거가 아니며, 첫 TRAIN128 전체 결과와 학습 후 greedy 평가는 대기 중이다.
+[실제 탐색·Q 학습 연결](assets/rl_v2_perceived_contact_first_live_TRAIN_20261009.json).
