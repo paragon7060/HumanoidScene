@@ -158,6 +158,32 @@ success를 대조했다. 탐색 상태를 다시 계산한 통계가 실제 저�
 
 ![실제 들기 시작의 미완료 닫힘과 다음 비교](assets/rl_v2_perceived_contact_closing_failure_20261009.png)
 
+같은 완료 replay의 단계 전환도 원래 명령·통계와 대조했다. 탐색 선택47경로
+중27경로가 표면 접근을 시작했고 상단20경로는 모두 랙 앞 준비 단계에서
+막혔다. 그중 상단19경로는 실제 탐색이 활성화됐고 나머지1경로는 handoff
+전이었다. 구역별 선택/접근 수는 다음과 같다.
+
+| 박스 위치·크기 | 탐색 선택 경로 | 표면 접근 시작 |
+|---|---:|---:|
+| 중간 왼쪽 small | 7 | 7 |
+| 중간 오른쪽 small | 9 | 9 |
+| 중간 왼쪽 medium | 8 | 8 |
+| 중간 오른쪽 medium | 3 | 3 |
+| 상단 왼쪽 small | 9 | 0 |
+| 상단 오른쪽 small | 11 | 0 |
+
+랙 앞 준비 중 양손 닫힘 명령은0행, 한 손 닫힘은11행이었다. 따라서 준비
+단계의 조기 닫힘을 주된 원인으로 단정하거나 그리퍼를 강제로 여는 새 규칙을
+추가하지 않는다. 상단 거리·닫힘 축 정렬이 해결되는지, 수정 버전의 더 긴
+360틱 시도가 도움이 되는지 실제 수집에서 확인해야 한다.
+[전체 단계 분석·재계산 검증](assets/rl_v2_perceived_contact_completed_TRAIN_phase_analysis_20261009.json).
+
+02:07 KST에 이전 v1의 TRAIN384조건 뒤 전체greedy 평가가 완료돼 성공9·
+랙 충돌63·시간 초과56·초기 무효0/128이었다. 자기 초기11→9회, 공통 유효
+115조건도11→9회이고 중형은0이다. Actor695/Q4,828의 평가 전후 같은 실제
+모델을 확인했으며, 학습 효과가 있다고 주장하지 않는다.
+[첫 학습 후 전체평가·모델](assets/rl_v2_URDF_perceived_contact_first_learned_full_DEV4_20261008.json).
+
 ## 정착 후 들기 비교 프로필
 
 `full-arm-settled-contact`는별도v2 artifact이며기존v1 모델 계약·실행은
@@ -186,6 +212,12 @@ CPU 관찰기가각 평가의실제 모델을 별도 보존하고 첫전체TRAIN
 greedy평가를 검증한다. 초기 metadata 생성전에 종료된CPU 평가관찰기 하나는
 파일 생성대기를 추가해다시 시작했고GPU 학습 writer는그대로였다.
 [실제 CPU 관찰·수정 범위](assets/rl_v2_settled_contact_actual_CPU_observers_20261009.json).
+
+02:06 KST에 v2의 전체 초기DEV128이 끝나 성공11·안전 위반48·시간 초과56·
+초기 무효13회였다. 실제 종료 모델/정규화75개가 준비한 초기 모델과 같고
+전체257개tensor가 유한했다. Actor/Q 갱신0인 자기 초기 기준이며 새 학습의
+성능을 뜻하지 않는다. 이후 실제TRAIN 수집과Q 갱신을 시작했다.
+[전체 초기평가·같은 모델](assets/rl_v2_URDF_settled_contact_first_full_DEV_20261009.json).
 
 완료 데이터 진단 도구는[scripts/rl/analyze_completed_contact_replay.py](../scripts/rl/analyze_completed_contact_replay.py)다.
 체크섬이 기록된우리 소유의읽기 전용snapshot만사용하고현재 HDF/GPU replay를

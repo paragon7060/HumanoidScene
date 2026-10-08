@@ -4,6 +4,7 @@ No active HDF/GPU replay reads, policy updates or imports into training occur.
 Physical contact labels are diagnostic evidence only, never explorer inputs.
 """
 import argparse,os
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 from datetime import datetime
@@ -77,7 +78,30 @@ for wave in waves:
   pinch=priv[:,35:37]>.5;opposing=pinch.all(-1)&(priv[:,37:41].reshape(-1,2,2).argmax(-1)[:,0]!=priv[:,37:41].reshape(-1,2,2).argmax(-1)[:,1]);run=best=0
   for flag in opposing.tolist():run=run+1 if flag else 0;best=max(best,run)
   weaker=50*priv[:,15:23].reshape(-1,2,2,2).min(-1).values.max(-1).values
-  record=dict(wave=wave,environment=i,seed=case['layout']['seed'],region=case['layout']['target_region'],box_type=case['layout']['target_box_type'],mode=case['collection_policy_mode'],success=supported_success(case),unsafe=bool(term['unsafe']),time_out=bool(term['time_out']),unsafe_causes=term['unsafe_causes'],rack_peak_body=term['rack_peak_body'],held_rows=len(ix),reconstructed_guided_rows=sum(0<=p<3 for p in phases[i]),lift_attempt_events=events[i],ever_each_hand_pinched=pinch.any(0).tolist(),actual_opposing_pinch_rows=int(opposing.sum()),longest_actual_opposing_pinch_s=best/30,measured_closure_peak=raw[:,46:48].max(0).values.tolist(),best_actual_weaker_pad_force_n=weaker.max(0).values.tolist(),terminal_surface_distance_m=term['flap_distances'],terminal_actual_pinching=term['pinching'],terminal_stable_hands=term['stable_hands'])
+  guide=(torch.tensor(phases[i])>=0)&(torch.tensor(phases[i])<3)
+  geometry={}
+  if guide.any():
+   relation=data['critic_obs'][ix,533:569].reshape(-1,2,2,9)
+   assignment=int(tracker.assignment[i]);flaps=torch.tensor([assignment,1-assignment])
+   selected_relation=relation[torch.arange(len(ix))[:,None],torch.arange(2)[None],flaps[None]]
+   panel_relative=_rotation_matrix(selected_relation[...,3:])
+   point_hand=selected_relation[...,:3]+(panel_relative@tracker.contact_offsets[i,...,None]).squeeze(-1)
+   tcp=raw[:,50:68].reshape(-1,2,9);tcp_R=_rotation_matrix(tcp[...,3:])
+   points=tcp[...,:3]+(tcp_R@point_hand[...,None]).squeeze(-1)
+   rack_R=_rotation_matrix(raw[:,71:77]);outward=rack_R[...,1]
+   front=raw[:,68:71]+outward*tracker.front_y
+   depth=((front[:,None]-points)*outward[:,None]).sum(-1).clamp_min(0)
+   stage_dist=(points+depth[...,None]*outward[:,None]-tcp[...,:3]).norm(dim=-1)
+   angle=torch.acos((panel_relative[...,0]*tracker.axes[None]).sum(-1).abs().clamp(0,1))
+   last_guide=int(torch.where(guide)[0][-1]);geometry=dict(
+    guided_min_both_stage_distance_m=float(stage_dist[guide].amax(-1).min()),
+    guided_min_both_closing_line_error_rad=float(angle[guide].amax(-1).min()),
+    guided_min_both_surface_goal_distance_m=float(point_hand[guide].norm(dim=-1).amax(-1).min()),
+    last_guided_stage_distance_m=stage_dist[last_guide].tolist(),
+    last_guided_closing_line_error_rad=angle[last_guide].tolist(),
+    last_guided_surface_goal_distance_m=point_hand[last_guide].norm(dim=-1).tolist())
+  record=dict(wave=wave,environment=i,seed=case['layout']['seed'],region=case['layout']['target_region'],box_type=case['layout']['target_box_type'],mode=case['collection_policy_mode'],success=supported_success(case),unsafe=bool(term['unsafe']),time_out=bool(term['time_out']),unsafe_causes=term['unsafe_causes'],rack_peak_body=term['rack_peak_body'],held_rows=len(ix),reconstructed_guided_rows=sum(0<=p<3 for p in phases[i]),reconstructed_phase_counts=dict(Counter(phases[i])),approach_phase_rows_with_any_commanded_closed_jaw=int(((torch.tensor(phases[i])==0)&(data['action'][ix,19:21]>0).any(-1)).sum()),approach_phase_rows_with_both_commanded_closed_jaws=int(((torch.tensor(phases[i])==0)&(data['action'][ix,19:21]>0).all(-1)).sum()),first_surface_approach_clock=(phases[i].index(1) if 1 in phases[i] else None),lift_attempt_events=events[i],ever_each_hand_pinched=pinch.any(0).tolist(),actual_opposing_pinch_rows=int(opposing.sum()),longest_actual_opposing_pinch_s=best/30,measured_closure_peak=raw[:,46:48].max(0).values.tolist(),best_actual_weaker_pad_force_n=weaker.max(0).values.tolist(),terminal_surface_distance_m=term['flap_distances'],terminal_actual_pinching=term['pinching'],terminal_stable_hands=term['stable_hands'])
+  record.update(geometry)
   records.append(record)
 assert offset==len(data['reward']) and previous_stats==s['perceived_contact_statistics'],(offset,previous_stats,s['perceived_contact_statistics'])
 selected=[r for r in records if r['mode']=='perceived_contact_exploration'];greedy=[r for r in records if r['mode']=='greedy_current_policy'];lifts=[e for r in selected for e in r['lift_attempt_events']]
