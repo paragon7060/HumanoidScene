@@ -132,3 +132,18 @@ Q import 금지를 유지한다. 관련22개 검사와 실제 입력256개(처�
 v3와 bitwise 같았다. 정확한 decoder·비팔 보존·원래 모델과 HDF 보존을 확인했으며
 이 재구성을 새 접촉이나 학습 경험으로 표시하지 않는다.
 [새 명령 제안 검사](assets/rl_v2_pending_lift_closed_state_rehearsal_20261008.json).
+
+## 새 들기 진단의 실제 실행
+
+14:30 KST에 GPU0 writer3044438을 고유 실행
+`GPU0_actual_flap_pending_lift_frozen_TRAIN128_20261008_143015/`
+`batch_sac_20261008_143017_e00382`에서 시작했다. CUDA_VISIBLE_DEVICES=0,
+소유자·실제 경로·격리 소스450개·새 manifest와 원래128요청·8후보·같은
+checkpoint를 확인했다. 이후 실제 control step을 진행하고 actor/Q/replay는0이다.
+아직 들기 구간의 누적 명령 실행이나 전체 물리 성공을 확인한 것은 아니다.
+
+CPU 전용 확인기3054050은 이 writer의 정상 종료 뒤 전체128결과·모델198개
+고정·소스·물리 조건을 대조한다. 기존 GPU3 SAC는 계속하며 다른 프로세스에
+신호를 보내지 않는다. 기존 Drive wrapper의300초 검사와최근2개 보호를 쓰고
+인증 실패 시 미검증 원본을 보존한다. 사용자 영상 수정과 인증 파일은 커밋하지
+않았다. [실제 실행과 아직 미확인인 범위](assets/rl_v2_cartesian_pending_lift_actual_startup_20261008.json).
