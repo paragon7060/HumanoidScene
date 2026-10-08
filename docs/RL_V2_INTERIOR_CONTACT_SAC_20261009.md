@@ -81,3 +81,9 @@ image로 올렸다. 기존 미디어77개와표5개가 그대로 남았고 새 �
 수정과81검사·실제 관측 상태 재계산이 통과했으며 수정 소스를 고정한 뒤
 다시 연결한다. 기존 GPU 학습과 다른 사용자 실행은 유지했다.
 [오류·수정·실제 상태 검증](RL_V2_UPRIGHT_CONTACT_SAC_20261009.md#0704-몸통-ik-경계-오류와-복구-수정).
+
+07:12 KST에 수정 source3740689·749개Python 파일을 쓰는 새CPU 대기
+PID1,283,615·빈GPU mask를 확인했다. 초기 actor/SAC분포·20mm지점·TRAIN384
+설정은그대로이며v4의 정상종료·최종Drive검증 뒤 실제GPU3 여유를확인해
+이어실행한다. 옛PID589,524 대기는중단됐고 새v6의물리학습은아직시작전이다.
+[수정 실행과 새대기 PID](assets/rl_v2_URDF_upright_repaired_long_actual_launch_20261009.json).

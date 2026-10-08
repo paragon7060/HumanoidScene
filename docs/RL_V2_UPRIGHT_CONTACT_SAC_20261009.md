@@ -118,3 +118,14 @@ checkpoint와 닫힌 로그는06:55에 기존Drive 검증을 마쳤다. 부분 T
 다른 사용자 실행은 변경하지 않았다. 수정 소스를 별도로 고정한 뒤 같은
 초기 actor에서 다시 시작하며 새 물리 성공이나 성능 개선은 아직 미확인이다.
 [실제 상태·경계 오류·복구 근거](assets/rl_v2_upright_IK_projection_recovery_actual_state_20261009.json).
+
+07:10 KST에 수정 source3740689·749개Python 파일의 별도 장기 실행을
+GPU3에서 실제 시작했다. writer1,261,376·supervisor1,261,247·GPU mask3를
+확인했다. 기존 초기 actor/정규화와Q 이외의model37개·frozen body source는
+같고 새 Q/replay를 사용한다. TRAIN6,144·replay40만·전체DEV각128·65배치로
+늘렸고 첫다섯 배치는원래 요청과같다. 현재 여유에서3GiB를남기는것을 고려한
+초기 버퍼 크기이며 실제 사용량은 실행 상태로 다시확인한다. 기존 장기7개와
+v4를유지하고 새 초기/학습 후 결과는아직대기중이다. 기존Drive 인증·300초
+업로드·검증된 저장본만정리·최근2개보호를재사용한다. 모든17개DEV의실제
+모델보존과초기/첫TRAIN/첫학습후평가·완료replay분석 CPU 관찰6개를연결했다.
+[실제 수정 실행·설정·관찰 PID](assets/rl_v2_URDF_upright_repaired_long_actual_launch_20261009.json).
