@@ -22,6 +22,7 @@ class UprightContactControl:
         self.origin = raw.new_zeros(num_envs, 2)
         self.target = raw.new_zeros(num_envs, 2)
         self.initialized = torch.zeros(num_envs, dtype=torch.bool, device=raw.device)
+        self.projected_proposal_rejections = 0
 
     def reset(self, ids):
         self.initialized[ids] = False
@@ -75,13 +76,18 @@ class UprightContactControl:
                 raise ValueError('Measured contact handoff is outside attainable upright support')
             desired = torch.maximum(lower, torch.minimum(current + delta[:, :2].clamp(-.001, .001), upper))
             torso, achieved = upright_joint_step(q[:, :3], desired, pitch, self.links, limits)
-            # The IK can project an unreachable request. Store its achieved
-            # absolute goal, never an accumulated or unexecuted target.
-            if (torso.sum(-1) - pitch).abs().max() > 1e-5 \
-                    or ((achieved < lower - 1e-5) | (achieved > upper + 1e-5)).any():
-                raise ValueError('Upright IK violated fixed pitch or software/local support')
-            self.target[ids[rows]] = achieved
-            arms[rows] = delta[:, 2:].reshape(len(rows), 2, 7)
+            if not torch.isfinite(torso).all() or not torch.isfinite(achieved).all() \
+                    or (torso.sum(-1) - pitch).abs().max() > 1e-5:
+                raise ValueError('Upright IK violated finite fixed-pitch kinematics')
+            # Measured physics can temporarily move outside the goal support.
+            # The speed-limited IK then remains outside it even for a bounded
+            # request. Keep the last valid torso goal so the existing controller
+            # can recover, and use the arm-only solution for those rows. Never
+            # store the out-of-support achieved point or cancel other envs.
+            accepted = ((achieved >= lower) & (achieved <= upper)).all(-1)
+            self.projected_proposal_rejections += int((~accepted).sum())
+            self.target[ids[rows[accepted]]] = achieved[accepted]
+            arms[rows[accepted]] = delta[accepted, 2:].reshape(-1, 2, 7)
         if not self.initialized[ids[guided]].all():
             raise ValueError('Upright contact goals lack the measured handoff origin')
         # Even a handoff already at the front stage holds measured torso X/Z,

@@ -92,3 +92,29 @@ Raw HDF/replay/영상은 checkpoint/log 전용 백업 범위에 없으므로
 구현: `experiments/urdf_upright_contact_sac.py`, `upright_contact_control.py`,
 `perceived_contact_exploration.py`. 전체 진행과 재생 가능한 실제 성공/실패 영상은
 [진행 보고](RL_V2_SAC_PROGRESS_20261009.md)에 있다.
+
+## 07:04 몸통 IK 경계 오류와 복구 수정
+
+v5는06:54 KST에 첫 TRAIN 도중 `Upright IK violated fixed pitch or software/local support`
+오류로 종료했다. Actor0·Q732·실제 부분 수집44,020행을 저장했고 초기/오류
+checkpoint와 닫힌 로그는06:55에 기존Drive 검증을 마쳤다. 부분 TRAIN을
+완료된128회 수집이나 학습 후 성공률로 표시하지 않는다.
+
+종료된 실제 관측에서 몸통 X=-18.99mm인 상태에 허용 범위의 X=8.23mm를
+요청해도 속도 제한된 IK 결과는X=-10.72mm로 남았다. 목표가 범위 안이라는
+것과 물리가 한 틱 안에 그 범위로 돌아오는 것은 다르다. 이 상태를 다시
+계산하면 기존 경계 검사가 오류를 낸다. 원래 탐색 마스크·handoff 전체를
+재현한 결과는 아니며 실제 관측 상태에서 경계 원인을 확인한 계산이다.
+
+수정 버전은 이런 IK 제안을 채택하지 않고 해당 환경의 마지막 유효 몸통
+목표를 유지한다. 그 환경은 팔만의 DLS로 접근을 계속하고 다른 환경은
+유효한 몸통/팔 제안을 사용한다. 잘못된 목표·NaN이나 pitch 계산 오류를
+실행에 넘기지 않으며 원래 이동 범위·속도·보상·성공·안전 기준은 유지한다.
+현재 배치의 `upright_projected_proposal_rejections_current_wave`로 제외된
+제안 수를 기록한다. SAC 분포와greedy평가 동작은 바뀌지 않는다.
+
+관련81검사와 실제 관측 상태의 유효 목표 유지가 통과했다. 같은 제어기를
+쓰는 v6는 GPU 시작 전이어서 기존 CPU 대기만 중단했다. 기존 GPU 학습과
+다른 사용자 실행은 변경하지 않았다. 수정 소스를 별도로 고정한 뒤 같은
+초기 actor에서 다시 시작하며 새 물리 성공이나 성능 개선은 아직 미확인이다.
+[실제 상태·경계 오류·복구 근거](assets/rl_v2_upright_IK_projection_recovery_actual_state_20261009.json).

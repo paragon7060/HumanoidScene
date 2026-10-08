@@ -68,9 +68,14 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
             raise ValueError('Contact collection checkpoint/replay statistics differ')
 
     def report(self):
-        return super().report()|self.contact_extras()|dict(
+        result=super().report()|self.contact_extras()|dict(
             TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback,upright_feedback=self.upright_feedback,interior_contact=self.interior_contact),
             evaluated_policy_never_uses_contact_explorer=True)
+        if self.upright_feedback:
+            control=(self.contact_explorer.upright_control if self.contact_explorer is not None else None)
+            result['upright_projected_proposal_rejections_current_wave']=(
+                control.projected_proposal_rejections if control is not None else 0)
+        return result
 
 
 class URDFSettledContactSACPilot(URDFPerceivedContactSACPilot):

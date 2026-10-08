@@ -155,6 +155,44 @@ def test_closing_holds_measured_torso_instead_of_following_clock_source_then_res
     assert tracker.statistics['attempted_lift_episodes'] == 0
 
 
+def test_projected_IK_outside_support_keeps_valid_goal_and_arm_solution_per_row(monkeypatch):
+    values = contact_fixture(); pilot, raw, result, supp, tracker = values
+    from kuavo_isaaclab_scene.rl.multi_box.experiments import upright_contact_control as module
+    original = module.upright_joint_step
+    def projected(current, target, pitch, links, limits):
+        torso, achieved = original(current, target, pitch, links, limits)
+        # A speed-limited recovery from measured physics outside the rectangular
+        # goal support cannot jump straight back to an allowed target.
+        if len(current) == 2:
+            achieved = achieved.clone(); achieved[0, 0] = pilot.center[17] - .2
+        return torso, achieved
+    monkeypatch.setattr(module, 'upright_joint_step', projected)
+    before = raw.clone(), supp.clone(), torch.get_rng_state()
+    command, (_, _, goals) = contact_step(values, 0)
+    control = tracker.upright_control
+    assert control.projected_proposal_rejections == 1
+    assert torch.equal(control.target[5], control.origin[5])
+    assert not torch.equal(control.target[19], control.origin[19])
+    assert torch.isfinite(command).all() and command.abs().max() <= 1
+    assert torch.equal(command, held_goal_coordinates(pilot.coordinates, raw,
+        pilot.center + pilot.scale * goals, pilot.stage))
+    assert all(torch.equal(x, y) for x, y in zip(before, (raw, supp, torch.get_rng_state())))
+
+
+def test_nonfinite_upright_IK_still_fails_instead_of_sending_invalid_command(monkeypatch):
+    values = contact_fixture()
+    from kuavo_isaaclab_scene.rl.multi_box.experiments import upright_contact_control as module
+    original = module.upright_joint_step
+    def invalid(current, target, pitch, links, limits):
+        torso, achieved = original(current, target, pitch, links, limits)
+        if len(current) == 2:
+            achieved = achieved.clone(); achieved[0, 0] = float('nan')
+        return torso, achieved
+    monkeypatch.setattr(module, 'upright_joint_step', invalid)
+    with pytest.raises(ValueError, match='finite fixed-pitch'):
+        contact_step(values, 0)
+
+
 def test_explicit_variant_contract_and_unassisted_eval_preserve_old_defaults(monkeypatch):
     with pytest.raises(ValueError): perceived_contact_contract(upright_feedback=True)
     old = perceived_contact_contract(settled_close=True, precise_feedback=True, motion_feedback=True)
