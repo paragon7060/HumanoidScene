@@ -28,6 +28,9 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_full_arm_sac import (
     URDFFullArmSACPilot, validate_full_arm_state,
 )
 from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import select_reference_episode
+from kuavo_isaaclab_scene.rl.multi_box.experiments.body_behavior_exploration import (
+    GREEDY_REST_VARIANT, GENTLE_GREEDY_REST_VARIANT,
+)
 from kuavo_isaaclab_scene.rl.multi_box.rewards.contact_profile import frozen_actor_reward_contract
 from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
 
@@ -39,6 +42,8 @@ def main():
     parser.add_argument('--native-seed', type=Path, action='append', required=True)
     parser.add_argument('--replay-capacity', type=int, default=2000000)
     parser.add_argument('--servo-retention-profile', choices=('uniform', 'guard-tail64', 'full-arm-tail64'), default='uniform')
+    parser.add_argument('--body-behavior', choices=(GREEDY_REST_VARIANT, GENTLE_GREEDY_REST_VARIANT),
+        default=GREEDY_REST_VARIANT, help='Fresh TRAIN collection bias; policy/evaluation and original defaults are preserved')
     args = parser.parse_args()
     if os.environ.get('CUDA_VISIBLE_DEVICES') != '':
         raise ValueError('Initialization is CPU-only; CUDA_VISIBLE_DEVICES must be empty')
@@ -74,7 +79,7 @@ def main():
         regional_source=packet, body_anchor_state=source['body_anchor_state'], training=False, device='cpu',
         replay_capacity=args.replay_capacity, train_success_retention=True, exploration_correlation=.98,
         measured_train_credit='measured-episode-return', jaw_behavior='joint-epsilon30',
-        jaw_saturation='logit4-soft-strong', body_behavior='arm20-explore-rest-greedy',
+        jaw_saturation='logit4-soft-strong', body_behavior=args.body_behavior,
         body_saturation='mean3-soft', critic_episode_clock='task-remaining')
     assert pilot.actor_updates == pilot.critic_updates == pilot.online_rows == pilot.replay.size == 0
     assert pilot.success_bank.size == pilot.measured_credit_bank.size == 0
@@ -104,6 +109,7 @@ def main():
         replay_capacity=pilot.replay.capacity, original_task_physics_randomization_reward_success_safety_preserved=True,
         physical_simulation_or_training_NOT_started=True, no_physical_success_or_improvement_claim=True,
         servo_retention_profile=args.servo_retention_profile,
+        body_behavior_variant=args.body_behavior,
         independent_FINAL_unused=True, goal_not_complete=True)
     for name, value in (('training_manifest.json', physical), ('waypoints.json', waypoints),
             ('training_waves.json', waves), ('initialization_verification.json', proof),

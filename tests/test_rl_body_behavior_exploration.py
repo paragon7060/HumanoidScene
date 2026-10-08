@@ -3,7 +3,8 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.experiments.body_behavior_exploration import (
-    VARIANT, GREEDY_REST_VARIANT, RampedArmBehaviorExploration, body_behavior_config, body_behavior_statistics)
+    VARIANT, GREEDY_REST_VARIANT, GENTLE_GREEDY_REST_VARIANT,
+    RampedArmBehaviorExploration, body_behavior_config, body_behavior_statistics)
 
 
 def observation(n):
@@ -68,7 +69,7 @@ def test_configuration_and_persisted_statistics_fail_closed():
     with pytest.raises(ValueError): body_behavior_statistics(bad)
 
 
-@pytest.mark.parametrize('variant',[VARIANT,GREEDY_REST_VARIANT])
+@pytest.mark.parametrize('variant',[VARIANT,GREEDY_REST_VARIANT,GENTLE_GREEDY_REST_VARIANT])
 def test_managed_collection_option_is_allowed_in_TRAIN_and_rejected_in_frozen_probes(tmp_path,variant):
     import json
     from batched_staged_goal_with_drive import validate_managed_physics_device
@@ -98,3 +99,27 @@ def test_greedy_rest_reuses_original20percent_selection_bias_and_wave_identity()
     mixed.offset(raw[chosen],91,chosen)
     assert torch.equal(selection,mixed.selected[chosen])
     assert mixed.report()['episodes_drawn']==count
+
+
+def test_gentle_behavior_preserves_selection_ramp_and_reduces_bias_without_extra_draws():
+    count=2048;raw=observation(count);ids=torch.arange(count)
+    wide=RampedArmBehaviorExploration(count,'cpu',body_behavior_config(GREEDY_REST_VARIANT))
+    gentle=RampedArmBehaviorExploration(count,'cpu',body_behavior_config(GENTLE_GREEDY_REST_VARIANT))
+    torch.manual_seed(18);old=wide.offset(raw,45,ids);old_rng=torch.get_rng_state().clone()
+    torch.manual_seed(18);new=gentle.offset(raw,45,ids)
+    assert torch.equal(old_rng,torch.get_rng_state())
+    assert torch.equal(gentle.selected,wide.selected)
+    assert torch.allclose(new,old*.0125,atol=1e-9,rtol=1e-6)
+    assert new.abs().max()<=.01
+    assert gentle.greedy_unselected_policy
+    assert new[:,[0,15,16,17,18]].eq(0).all()
+    assert new[~gentle.selected].eq(0).all()
+    assert torch.equal(new[:,1:15],gentle.bias*.5)
+    selection=gentle.selected.clone()
+    full=gentle.offset(raw,90,ids)
+    assert torch.equal(gentle.selected,selection)
+    assert torch.equal(full[:,1:15],gentle.bias) and full.abs().max()<=.02
+    old_contract=body_behavior_config(GREEDY_REST_VARIANT)
+    new_contract=body_behavior_config(GENTLE_GREEDY_REST_VARIANT)
+    assert {k for k in old_contract if old_contract[k]!=new_contract[k]}=={
+        'variant','latent_bias_std','max_abs_latent_bias'}

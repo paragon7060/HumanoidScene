@@ -35,7 +35,7 @@ def main():
         help='Read-only measured held states: report production step clipping by region/box type every30steps')
     parser.add_argument('--jaw-behavior', choices=('policy', 'joint-epsilon10', 'joint-epsilon30'), default=None,
         help='Actual-flap TRAIN collection only: 10 or 30 percent correlated uniform joint jaws with unchanged production gate')
-    parser.add_argument('--body-behavior', choices=('off', 'ramped-arm-bias20', 'arm20-explore-rest-greedy'), default=None,
+    parser.add_argument('--body-behavior', choices=('off', 'ramped-arm-bias20', 'arm20-explore-rest-greedy', 'arm20-gentle-rest-greedy'), default=None,
         help='Actual-flap TRAIN only:20% coherent arm exploration; opt-in greedy current policy for remaining episodes')
     parser.add_argument('--body-saturation-penalty', choices=('off', 'mean3-soft'), default=None,
         help='Actual-flap TRAIN actor loss only: soft recovery of body means beyond abs3; no clipping')

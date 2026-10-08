@@ -11,7 +11,8 @@ import torch
 
 VARIANT = 'ramped-arm-bias20'
 GREEDY_REST_VARIANT = 'arm20-explore-rest-greedy'
-VARIANTS = (VARIANT, GREEDY_REST_VARIANT)
+GENTLE_GREEDY_REST_VARIANT = 'arm20-gentle-rest-greedy'
+VARIANTS = (VARIANT, GREEDY_REST_VARIANT, GENTLE_GREEDY_REST_VARIANT)
 
 
 def body_behavior_config(variant):
@@ -29,12 +30,18 @@ def body_behavior_config(variant):
         affine_goal_radius_and_physical_projection_unchanged=True,
         base_head_torso_bias_zero=True, privileged_inputs=False,
         scene_curriculum=False, active_episode_biases_reset_between_waves=True)
-    if variant == GREEDY_REST_VARIANT:
+    if variant in (GREEDY_REST_VARIANT, GENTLE_GREEDY_REST_VARIANT):
         result.update(unselected_episodes_keep_original_behavior_distribution=False,
             unselected_policy_sampling='greedy_current_learned_body_and_binary_jaws',
             selected_policy_sampling='existing_AR1_Gaussian_arm_bias_and_joint_jaw_behavior',
             selection_shared_with_existing_arm_bias_not_an_independent20_percent_mask=True,
             greedy_and_exploring_rows_are_actual_executed_TRAIN_not_demo_or_teacher=True)
+    if variant == GENTLE_GREEDY_REST_VARIANT:
+        # Full-arm URDF goals span many production servo steps. Measured
+        # initial-policy TRAIN states showed that a .2 bias still changed
+        # most arm commands by over half their step range. Keep the learned
+        # goal envelope intact and reduce only the episode collection bias.
+        result.update(latent_bias_std=.01, max_abs_latent_bias=.02)
     return result
 
 
@@ -84,7 +91,8 @@ class RampedArmBehaviorExploration:
                 or type(num_envs) is not int or num_envs < 1):
             raise ValueError('Declared body behavior and positive environment count required')
         self.config = deepcopy(config)
-        self.greedy_unselected_policy = config['variant'] == GREEDY_REST_VARIANT
+        self.greedy_unselected_policy = config['variant'] in (
+            GREEDY_REST_VARIANT, GENTLE_GREEDY_REST_VARIANT)
         self.statistics = body_behavior_statistics(statistics)
         self.bias = torch.zeros(num_envs, 14, device=device)
         self.selected = torch.zeros(num_envs, dtype=torch.bool, device=device)
