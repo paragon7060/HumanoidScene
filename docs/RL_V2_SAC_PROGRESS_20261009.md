@@ -447,3 +447,11 @@ DEV 모델을 보존한다. 실제 초기/학습 후 전체 결과와첫 checkpo
 Q19,478의 같은 실제 평가 모델을 확인했다. 기존 장기 학습은 계속하며
 최신 감소를 개선으로 보고하지 않는다.
 [강한 유지 네 번째 전체 결과](assets/rl_v2_URDF_strong_gentle_full_arm_fourth_learned_full_DEV16_20261008.json).
+
+07:17 KST에 수정 writer의 실제 초기 DEV0 step1과중력보상18관절·초기
+계약의 첫Drive 검증07:17:31을확인했다. Actor/Q0이고새전체결과는아직없다.
+첫checkpoint업로드를확인한것은아니며초기평가가끝난뒤저장된다.
+Notion에도옛실행의종료원인·복구수정·새장기설정·실제PID·후속대기를갱신했다.
+기존미디어78개와native table5개가모두보존됐고초기14회를새학습개선으로
+표시하지않는것을확인했다.
+[실제 수정 보고·미디어/표 보존 검증](assets/rl_v2_upright_repaired_long_Notion_verified_20261009.json).
