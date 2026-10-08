@@ -24,6 +24,9 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_regional_goal_sac import
 from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_servo_guard_sac import (
     URDFServoGuardSACPilot, validate_urdf_servo_guard_state,
 )
+from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_full_arm_sac import (
+    URDFFullArmSACPilot, validate_full_arm_state,
+)
 from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import select_reference_episode
 from kuavo_isaaclab_scene.rl.multi_box.rewards.contact_profile import frozen_actor_reward_contract
 from kuavo_isaaclab_scene.rl.multi_box.spec import MultiBoxSpec
@@ -35,7 +38,7 @@ def main():
         parser.add_argument('--' + key, type=Path, required=True)
     parser.add_argument('--native-seed', type=Path, action='append', required=True)
     parser.add_argument('--replay-capacity', type=int, default=2000000)
-    parser.add_argument('--servo-retention-profile', choices=('uniform', 'guard-tail64'), default='uniform')
+    parser.add_argument('--servo-retention-profile', choices=('uniform', 'guard-tail64', 'full-arm-tail64'), default='uniform')
     args = parser.parse_args()
     if os.environ.get('CUDA_VISIBLE_DEVICES') != '':
         raise ValueError('Initialization is CPU-only; CUDA_VISIBLE_DEVICES must be empty')
@@ -62,8 +65,11 @@ def main():
     warm = PoseGoalSACPilot(source['frozen_warm_start'], args.native_seed,
         frozen_prior_lift_contract(frozen_actor_reward_contract(physical)), args.output_dir, training=False, device='cpu')
     stages = BatchedBaseStages(warm.coordinates, waypoints, raw)
-    pilot_class = URDFServoGuardSACPilot if args.servo_retention_profile == 'guard-tail64' else URDFRegionalGoalSACPilot
-    validator = validate_urdf_servo_guard_state if args.servo_retention_profile == 'guard-tail64' else validate_urdf_regional_state
+    pilot_class, validator = {
+        'uniform': (URDFRegionalGoalSACPilot, validate_urdf_regional_state),
+        'guard-tail64': (URDFServoGuardSACPilot, validate_urdf_servo_guard_state),
+        'full-arm-tail64': (URDFFullArmSACPilot, validate_full_arm_state),
+    }[args.servo_retention_profile]
     pilot = pilot_class(warm, physical, args.output_dir, stages.stages[0],
         regional_source=packet, body_anchor_state=source['body_anchor_state'], training=False, device='cpu',
         replay_capacity=args.replay_capacity, train_success_retention=True, exploration_correlation=.98,

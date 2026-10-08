@@ -77,6 +77,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 여섯 배치 SAC의 최신 진행·실제 정책 기록 | [학습 결과](docs/RL_V2_SUPPORTED_SIZE_SAC_PROGRESS_20261008.md) · [정확한 실행 metadata](docs/RL_V2_RUNTIME_POLICY_METADATA_20261008.md) |
 | 실제 관절 범위의 새 SAC와 장기 학습 | [URDF 목표 좌표·fresh Q·200만 버퍼·초기화 사용법](docs/RL_V2_URDF_REGIONAL_GOAL_SAC_20261008.md) |
 | 성공 동작 유지·팔 탐색 단위를 보강한 선택형 SAC | [Servo guard·tail64 표본·초기화 옵션과 확인 범위](docs/RL_V2_URDF_SERVO_GUARD_20261008.md) |
+| 전체 팔 관절 목표를 표현하는 선택형 SAC | [Source 주변 반경 해소·국소 탐색 보존·실제 초기화](docs/RL_V2_URDF_FULL_ARM_SAC_20261008.md) |
 | 중형 박스의 안전 진입과 양손 닫기를 분리해 확인 | [종료 접촉 기록·고정 정책 진단·사용법](docs/RL_V2_BILATERAL_CLOSE_DIAGNOSIS_20261008.md) |
 | 실패 궤적의 제어기 미분과 실제 탐색 변화 | [정상 종료 TRAIN 분석·그림·재현 명령](docs/RL_V2_FAILED_TRAIN_SERVO_DIAGNOSIS_20261008.md) |
 | Quest로 V2 grasp SAC 시연 데이터 수집 | [Quest RL 시연 수집](docs/RL_QUEST_REWARD_DEBUG.md) |

@@ -56,6 +56,10 @@ class HybridGoalSAC(AsymmetricSAC):
         magnitude=math.log(confidence/(1-confidence))
         return torch.where(reference>0,magnitude,-magnitude)
 
+    def continuous_parameters(self, normalized, raw=None):
+        """Optional state-aware body distribution; defaults keep legacy behavior."""
+        return self.parameters_at(normalized)
+
     def body_from_latent(self, normalized, body, raw=None):
         """Map a squashed body sample once, before physical jaw projection."""
         return body
@@ -67,7 +71,7 @@ class HybridGoalSAC(AsymmetricSAC):
         return per_dim.sum(-1)
 
     def continuous_sample(self, normalized, *, deterministic=False,noise=None,body_latent_offset=None,raw=None):
-        mean,log_std,logits=self.parameters_at(normalized)
+        mean,log_std,logits=self.continuous_parameters(normalized,raw)
         if body_latent_offset is not None:
             if body_latent_offset.shape!=mean.shape or not torch.isfinite(body_latent_offset).all():
                 raise ValueError('Behavior offset needs one finite19-D latent vector per measured state')
@@ -129,7 +133,7 @@ class HybridGoalSAC(AsymmetricSAC):
         return torch.minimum(a(features),b(features)).reshape(n,4)
 
     def continuous_entropy_target(self,normalized,raw=None):
-        mean,_,_=self.parameters_at(normalized)
+        mean,_,_=self.continuous_parameters(normalized,raw)
         result=torch.full_like(mean,self.target_entropy_per_dim)
         if self.config.max_policy_std<=1:
             result+=2*(math.log(2)-mean-F.softplus(-2*mean))-self.config.max_policy_std**2
@@ -241,7 +245,7 @@ class HybridGoalSAC(AsymmetricSAC):
             alpha=alpha.item(),alpha_discrete=discrete_alpha.item(),
             **target_statistics,
             q_value_mean=torch.minimum(q1,q2).mean().item(),target_value_mean=target.mean().item(),
-            policy_gaussian_std_mean=self.parameters_at(ao)[1].exp().mean().item(),
+            policy_gaussian_std_mean=self.continuous_parameters(ao,batch['actor_obs'])[1].exp().mean().item(),
             success_goal_loss=0.,success_jaw_loss=0.,success_goal_weight=0.,success_jaw_weight=0.)
         report.update(auxiliary_statistics)
         if not update_actor:return report
@@ -256,7 +260,7 @@ class HybridGoalSAC(AsymmetricSAC):
             success_goal_loss=torch.zeros_like(teacher_loss);success_jaw_loss=torch.zeros_like(teacher_loss)
             if teacher is not None and teacher_weight:
                 normalized=self.actor_normalizer(self.actor_features(teacher['actor_obs']))
-                mean,_,jaw_logits=self.parameters_at(normalized)
+                mean,_,jaw_logits=self.continuous_parameters(normalized,teacher['actor_obs'])
                 labels=teacher['action']
                 teacher_loss=F.mse_loss(mean.tanh(),labels[:,:19])
                 teacher_logits=(self.prior_jaw_logits(normalized) if self.validated_jaw_prior_confidence
@@ -267,7 +271,7 @@ class HybridGoalSAC(AsymmetricSAC):
                 actor_loss+=teacher_weight*teacher_loss+self.discrete_prior_weight*discrete_prior
             if successful_train is not None and (success_goal_weight or success_jaw_weight):
                 raw=successful_train['actor_obs'];normalized=self.actor_normalizer(self.actor_features(raw))
-                mean,_,jaw_logits=self.parameters_at(normalized);labels=successful_train['action']
+                mean,_,jaw_logits=self.continuous_parameters(normalized,raw);labels=successful_train['action']
                 success_goal_loss=self.success_body_loss(raw,mean.tanh(),labels)
                 success_jaw_loss, success_jaw_statistics = self.successful_jaw_loss(raw, jaw_logits, labels)
                 report.update(success_jaw_statistics)

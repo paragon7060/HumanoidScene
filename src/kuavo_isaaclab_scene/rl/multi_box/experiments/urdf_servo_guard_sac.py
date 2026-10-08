@@ -127,8 +127,8 @@ class URDFServoGuardSACPilot(URDFRegionalGoalSACPilot):
             effective_continuous_std_max=(config.max_policy_std * self.agent.body_std_calibration).tolist())
 
 
-def validate_urdf_servo_guard_state(state):
-    validate_urdf_regional_state(state, artifact_type=URDFServoGuardSACPilot.artifact_type)
+def validate_urdf_servo_guard_state(state, *, artifact_type=None):
+    validate_urdf_regional_state(state, artifact_type=artifact_type or URDFServoGuardSACPilot.artifact_type)
     contract = state['goal_contract']
     scales = calibrated_body_noise_scales(contract['source_goal_scale'], contract['goal_scale'])
     saved_scales = state['model'].get('body_std_calibration', torch.empty(0))

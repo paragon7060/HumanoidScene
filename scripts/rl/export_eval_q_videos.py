@@ -72,9 +72,15 @@ def restored_agent(state):
         URDFServoGuardSACPilot, ServoGuardCorrectionSAC, validate_urdf_servo_guard_state,
         servo_guard_retention_contract,
     )
-    guard = state.get('artifact_type') == URDFServoGuardSACPilot.artifact_type
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_full_arm_sac import (
+        URDFFullArmSACPilot, FullArmServoGuardSAC, validate_full_arm_state,
+    )
+    full_arm = state.get('artifact_type') == URDFFullArmSACPilot.artifact_type
+    guard = full_arm or state.get('artifact_type') == URDFServoGuardSACPilot.artifact_type
     urdf = guard or state.get('artifact_type') == URDFRegionalGoalSACPilot.artifact_type
-    if guard:
+    if full_arm:
+        validate_full_arm_state(state)
+    elif guard:
         validate_urdf_servo_guard_state(state)
     elif urdf:
         validate_urdf_regional_state(state)
@@ -141,7 +147,7 @@ def restored_agent(state):
                 contract['goal_center'], contract['goal_scale'])
         return nominal_goal
 
-    agent_class=(ServoGuardCorrectionSAC if guard else SupportConservativeHybridSAC if support else
+    agent_class=(FullArmServoGuardSAC if full_arm else ServoGuardCorrectionSAC if guard else SupportConservativeHybridSAC if support else
                  ServoRetainedCorrectionSAC if retained else BoundedCorrectionHybridSAC)
     agent = agent_class(518, critic_dim, 21, SACConfig(**state['config']), 'cpu',
         action_projector=AbsoluteGoalJawProjector(),
