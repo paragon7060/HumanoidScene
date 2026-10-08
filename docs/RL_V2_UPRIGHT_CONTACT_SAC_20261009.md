@@ -179,3 +179,76 @@ Drive 검증을 확인했다. 경계 복구 수정의 실제 완료 수집과 �
 완료·파지 성공·학습 개선을 뜻하지 않는다. 실제 pitch/접촉 영향은 완료된
 첫 TRAIN 자료에서 별도로 확인한다.
 [실제 경계 복구 관찰](assets/rl_v2_upright_repaired_actual_boundary_recovery_20261009.json).
+
+## 완료 TRAIN에서 구역별 몸통 추종 비교
+
+`scripts/rl/analyze_completed_upright_tracking.py`는 원래 writer의 raw 파일 대신
+완료 wave를 별도로 복사·SHA256 검증·읽기 전용으로 만든 자료만 사용한다.
+저장된 실제 clock과 종료 contact를 대조해 각 행을 환경에 배정하고, 구역·크기·
+원래 탐색 선택별로 실제 자세와 논리 목표의 차이를 비교한다. 범위 밖의 정책
+목표, 실제 물리 추종 이탈, 랙 안전 종료의 동시 발생을 구별한다. 이 연관성만으로
+중력보상·torque 포화를 원인으로 단정하지 않으며 자료를 학습에 넣지 않는다.
+
+10개 검사로 완료128경로 매핑·clock/종료 contact 불일치 거부·검증되지 않은
+복사본/활성 경로/변경 파일 거부·실제 pitch와 목표의 구분을 확인했다.
+종료된 실제44,020행의 기존32개 보고 필드도 동일하게 재현됐다.
+08:23 KST에 빈 CUDA mask의 별도 CPU 작업을 연결했고, 08:25에 정상 종료했다.
+원래 writer가 다음 배치를 진행하는 동안 완료된 첫 TRAIN의 별도 읽기 전용
+복사본 80,977행·SHA256을 검증하고 전체128경로를 실제 종료 결과에 배정했다.
+같은 몸통 함수로 이전 종료 자료와 새 완료 wave를 비교했다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' python scripts/rl/analyze_completed_upright_tracking.py \
+  --snapshot-proof /absolute/path/to/verified-copy/snapshot_verified.json \
+  --output-json /absolute/path/to/new-diagnosis.json
+```
+
+[실제 CPU 관찰·검증 범위](assets/rl_v2_completed_TRAIN_torso_analysis_actual_observer_20261009.json).
+
+## 첫 완료 TRAIN의 실제 실패 원인
+
+08:23:48 KST의 첫 TRAIN128은 성공10·안전 위반46·시간 초과72회였다.
+초기 무효와 수치 오류는0회다. Greedy95회 중10회, 접근 안내를 선택한33회
+중0회 성공했고 actor0·Q1,590이었다. 첫 수집 성능이며 학습 후 전체DEV
+개선으로 표시하지 않는다. 이후 같은 writer는 두 번째 TRAIN과 actor 갱신을
+계속한다. 학습 후 성능은 보조 없는 전체128조건으로 확인한다.
+[실제 첫 TRAIN·같은 저장 모델](assets/rl_v2_upright_contact_repaired_first_TRAIN_actual_20261009.json).
+
+![완료된 첫 TRAIN의 접근 단계와 실제 랙 충돌 부위](assets/rl_v2_upright_repaired_completed_TRAIN_approach_failures_20261009.png)
+
+접근 안내33회 중26회는 표면 접근 단계에 도달했고11회는 닫기를 시도했지만
+실제 양손 opposing pinch와 들기 시도는0회였다. 다시 열린19개 구간은 모두
+선택한 점의 거리12mm 초과였고 축 오차0.30rad 초과는0회였다. 닫힘 유지
+틱은 중앙값6·범위5–10, 다시 열릴 때 실제 닫힘 중앙값은 좌36.0%·우42.9%였다.
+최근접 패널 점으로 계산해도19구간 모두 양손6mm 안에 있지는 않았다.
+단순히 점을 잘못 골라 거리가 커졌다고 보기는 어렵다.
+
+같은 닫힘 구간에서 flap 점 이동 중앙값은13.43mm, TCP 이동은10.85mm,
+두 이동량의 차이는9.18mm였다. 몸통 X/Z 이동 중앙값은0.33mm·최대2.19mm다.
+양쪽 pad 중 더 약한 측정 힘은 모두0N이었다. 다른 부위나 한쪽 pad의 접촉
+부재를 뜻하지 않는다. 움직이는 flap을 닫힘 완료까지 따라가지 못한 문제를
+다음 제어 비교에서 확인해야 하며, 거리 기준만 완화해 성공으로 만들지 않는다.
+
+랙 안전 종료44회의 최고 힘 부위는 오른쪽 그리퍼 몸체22·왼팔4번 링크12·
+왼쪽 그리퍼 몸체5·오른팔4번 링크4·오른팔7번 링크1회였다. 박스 낙하2회는
+이 집계에서 제외했다. 중간 왼쪽medium16회는 모두 안전 종료였다. 그중
+greedy10회의 몸통 pitch 오차 최대는2.42°·X 차이 최대7.54mm여서 몸통
+붕괴만으로 중형 실패를 설명할 수 없다. TCP/닫힘 축뿐 아니라 그리퍼 몸체와
+팔 링크의 랙 진입 여유를 확보하는 방향을 검토한다.
+[실제 단계·닫힘·충돌 부위·분석 한계](assets/rl_v2_upright_repaired_completed_TRAIN_approach_failures_20261009.json).
+
+몸통 전체 분석에서는 목표 대비 pitch 절대 오차 중앙값0.238°·99백분위
+5.223°·최대9.230°, X 차이 중앙값1.443mm·최대65.235mm였다. 대부분의
+추종 오차는 작지만 일부 경로의 이탈은 남아 있다. 모터 torque/effort 포화는
+기록하지 않았으므로 중력보상 부족을 원인으로 단정하지 않는다. Replay의
+critic 안전 flag는0인 반면 실제 종료 메트릭에는 랙44회가 있어, 충돌 통계는
+실제 종료 메트릭을 사용한다. Flag와 종료 기록의 차이는 추가 확인 대상이다.
+[전체128경로의 실제 몸통 추종](assets/rl_v2_upright_repaired_completed_TRAIN_torso_tracking_20261009.json).
+
+기존 접촉 분석은 몸통 연속 IK 재계산의 엄격한 오차 검사에서 멈췄다. GPU
+학습 오류가 아니며 원래 학습은 재시작하지 않았다. 기본3e-5 검사는 유지했고
+명시적 `--upright-phase-only` 분석에서 실제 저장된 jaw 명령·clock·정수 카운터·
+128개 종료 pinch/안정/성공 결과가 정확히 같음을 확인했다. 연속 몸통 목표는
+최대 정규화 차이0.0312로 일치하지 않으므로 완전한 제어 재현으로 보고하지
+않는다. 위 닫힘/이동 측정에는 실제 기록된 명령과 관측을 사용했다. 분석
+자료는 새 학습에 넣지 않았고 원래 무작위화·보상·성공·안전 조건을 유지했다.

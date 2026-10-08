@@ -108,3 +108,12 @@ VRAM2,791MiB와 첫 Drive 계약 검증도 확인했다. 이는 실행·초기 �
 Notion 보고에 이번 몸통 추종 그림을 native image로 추가했다. 기존 미디어78개와
 표5개를 그대로 보존했고 현재 미디어79개·native table5개를 다시 확인했다.
 [보고·그림·표 보존 검증](assets/rl_v2_upright_tracking_and_contact_launch_Notion_verified_20261009.json).
+
+## 수정 실행의 전체 초기 평가 완료
+
+08:20 KST에 수정 v6의 초기 전체128조건이 완료됐다. 성공14·안전 위반44·
+시간 초과57·초기 무효13회이며, 중간 왼쪽small9·상단 오른쪽small5·다른 네 조합
+0회다. 실제 저장 모델/정규화가 초기 입력과 같고 actor/Q0이다. 이는 학습 효과가
+아니며 TRAIN20% 탐색의 안쪽20mm 지점은 이 greedy 초기 평가에 사용되지 않는다.
+첫 TRAIN을 실제 시작했고 완료 수집과 학습 후 전체 결과를 기다린다.
+[전체 초기 평가·같은 실제 모델](assets/rl_v2_URDF_interior_contact_repaired_first_full_DEV_20261009.json).

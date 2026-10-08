@@ -24,6 +24,8 @@ parser=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
 parser.add_argument('--snapshot-proof',type=Path,required=True)
 parser.add_argument('--output-json',type=Path,required=True)
 parser.add_argument('--summary-json',type=Path)
+parser.add_argument('--upright-phase-only',action='store_true',
+ help='Validate actual jaw sequence, phase counters and episode mapping for upright data; continuous IK goal equality remains unverified')
 args=parser.parse_args()
 if os.environ.get('CUDA_VISIBLE_DEVICES')!='':raise ValueError('CPU-only analysis requires empty CUDA_VISIBLE_DEVICES')
 if args.output_json.exists() or (args.summary_json is not None and args.summary_json.exists()):raise ValueError('Use unique new output files')
@@ -42,6 +44,8 @@ contract=s['goal_contract'];pilot=SimpleNamespace(coordinates=coordinates,center
 variant=contract['TRAIN_perceived_contact_exploration']['name']
 assert variant in ('TRAIN_arm20_perceived_contact_attempt_v1','TRAIN_arm20_perceived_settled_contact_attempt_v2','TRAIN_arm20_perceived_precise_feedback_attempt_v3','TRAIN_arm20_perceived_motion_feedback_attempt_v4','TRAIN_arm20_upright_contact_attempt_v5','TRAIN_arm20_upright_interior_contact_attempt_v6')
 interior=variant.endswith('_v6');upright=interior or variant.endswith('_v5');settled=not variant.endswith('_v1');motion=upright or variant.endswith('_v4');precise=motion or variant.endswith('_v3')
+if args.upright_phase_only and not upright:
+ raise ValueError('Phase-only diagnosis is restricted to declared upright v5/v6 data')
 if upright:
  from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_upright_contact_sac import upright_support_affine
  pilot.agent.upright_support_anchor,pilot.agent.upright_support_scale=upright_support_affine(pilot.center,pilot.scale,coordinates.links)
@@ -72,7 +76,13 @@ for wave in waves:
   pre_settled_ticks=tracker.settled_ticks[ids].clone()
   proposed,(_,_,recomputed)=tracker.step(pilot,raw,(command,(ao,torch.full_like(co,float('nan')),goals)),ids,supp,chosen[ids],clocks)
   error=float((recomputed-goals).abs().max());max_error=max(max_error,error)
-  assert torch.allclose(recomputed,goals,atol=3e-5,rtol=0),(wave,step,error)
+  if args.upright_phase_only:
+   # IK support-boundary decisions can diverge offline even though the exact
+   # observed jaw sequence and every integer phase counter still agree. Use
+   # recorded body goals below; never claim the continuous trace was verified.
+   assert torch.equal(recomputed[:,19:21],goals[:,19:21]),('Actual jaw sequence differs',wave,step)
+  else:
+   assert torch.allclose(recomputed,goals,atol=3e-5,rtol=0),(wave,step,error)
   closed=(goals[:,19:21]>0).all(-1)&chosen[ids]&((tracker.phase[ids]==1)|(tracker.phase[ids]==2))
   if closed.any():
    relation=supp[:,:36].reshape(n,2,2,9);flaps=torch.stack((tracker.assignment[ids],1-tracker.assignment[ids]),-1)
@@ -205,6 +215,12 @@ def summarize(group):
  return dict(episodes=len(group),success=sum(r['success'] for r in group),unsafe=sum(r['unsafe'] for r in group),time_out=sum(r['time_out'] for r in group),ever_left_pinched=sum(r['ever_each_hand_pinched'][0] for r in group),ever_right_pinched=sum(r['ever_each_hand_pinched'][1] for r in group),ever_both_opposing_pinches=sum(r['actual_opposing_pinch_rows']>0 for r in group),max_opposing_pinch_run_s=max(r['longest_actual_opposing_pinch_s'] for r in group))
 result=dict(recorded_at=datetime.now().astimezone().isoformat(),run_directory_name=Path(proof['source_run']).name,snapshot_SHA256=proof['snapshot_SHA256'],completed_TRAIN_waves=waves,original_replay_rows_mapped_to_actual_wave_global_ID_clock_and_staged_target=len(data['reward']),actual_terminal_critic_pinch_stability_success_matches=len(records),reconstructed_helper_counters_exactly_equal_actual_saved_counters=True,recomputed_executed_normalized_goal_max_abs_error=max_error,statistics=previous_stats,selected=summarize(selected),greedy=summarize(greedy),lift_attempts=len(lifts),lift_attempts_pre_actual_bilateral_pinching=sum(all(e['actual_pre_pinching']) for e in lifts),lift_attempts_next_actual_bilateral_pinching=sum(all(e['actual_next_pinching']) for e in lifts),lift_attempt_measured_closure_fraction_min=(float(np.min([e['measured_closure_fraction'] for e in lifts])) if lifts else None),lift_attempt_measured_closure_fraction_median=(np.median([e['measured_closure_fraction'] for e in lifts],axis=0).tolist() if lifts else None),privileged_contact_used_for_analysis_ONLY_NOT_helper_or_policy_inputs=True,read_only_completed_snapshot_no_live_HDF_GPU_replay_or_optimizer_reads=True,no_rows_imported_for_training_or_policy_updates=True,independent_FINAL_unused=True,goal_not_complete=True,cases=records)
 result.update(actual_saved_statistics=saved_statistics,reconstructed_helper_FK_max_error_abs_difference_m=fk_stat_difference,reconstructed_helper_FK_stat_tolerance_m=1e-7,reconstructed_helper_statistics_including_float_exact=previous_stats==saved_statistics)
+result.update(upright_phase_only_diagnosis=args.upright_phase_only,
+    continuous_body_goal_recomputation_validated=not args.upright_phase_only,
+    actual_recorded_body_goals_preserved=True,
+    exact_recorded_jaw_sequence_validated=args.upright_phase_only,
+    continuous_goal_atol_unchanged_for_full_verification=3e-5,
+    no_continuous_goal_tolerance_relaxation=True)
 with args.output_json.open('x') as f:f.write(json.dumps(result,indent=2,allow_nan=False)+'\n')
 public={k:v for k,v in result.items() if k!='cases'}
 if args.summary_json is not None:

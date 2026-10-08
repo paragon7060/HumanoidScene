@@ -35,29 +35,8 @@ def distribution(value):
         torch.quantile(value, levels))}
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run-dir", type=Path, required=True)
-    parser.add_argument("--output-json", type=Path, required=True)
-    parser.add_argument("--output-plot", type=Path)
-    args = parser.parse_args()
-    assert os.environ.get("CUDA_VISIBLE_DEVICES") == "", "CPU-only diagnosis required"
-    torch.set_num_threads(1)
-    run = args.run_dir.resolve()
-    managed = json.loads((run.parent / "launch.json").read_text())
-    status = json.loads((run.parent / "status.json").read_text())
-    assert Path(managed["run"]).resolve() == run
-    for key in ("training_pid", "supervisor_pid"):
-        assert not Path("/proc", str(status[key])).exists(), f"{key} is still alive"
-    assert status.get("training_exit_code") is not None
-    path = run / "staged_goal_experience.pt"
-    before = path.stat()
-    blob = owned_stable_bytes(path)
-    saved = torch.load(io.BytesIO(blob), map_location="cpu", weights_only=True)
-    digest = hashlib.sha256(blob).hexdigest()
-    del blob
-    rows = saved["executed_goal_transitions"]
-    contract = saved["goal_contract"]
+def torso_tracking_summary(rows, contract):
+    """Compare saved executed goals, logical joint targets and measured physics."""
     n = len(rows["action"])
     assert n and rows["critic_obs"].shape == (n, 578)
     assert rows["next_critic_obs"].shape == (n, 578)
@@ -107,10 +86,7 @@ def main():
         measured_minus_commanded_pitch_deg=float(next_pitch_error[worst]),
         next_robot_rack_collision=bool(next_rack[worst]))
     proof = dict(recorded_at=datetime.now().astimezone().isoformat(),
-        source_run_directory_name=run.name, source_replay_SHA256=digest,
-        source_replay_bytes=before.st_size, actual_held_transition_rows=n,
-        actual_training_exit_code=status["training_exit_code"],
-        source_writer_and_supervisor_stopped_verified=True,
+        actual_held_transition_rows=n,
         partial_transitions_NOT_complete_episode_success_statistics=True,
         all_executed_torso_goals_inside_declared_support=True,
         unchanged_goal_support_XZ_m=dict(lower=lower.tolist(), upper=upper.tolist()),
@@ -136,12 +112,52 @@ def main():
         policy_goal_and_pending_target_are_distinct_from_measured_physics=True,
         no_training_data_import_or_controller_change=True, no_live_payload_reads=True,
         no_process_signals=True, goal_not_complete=True)
+    return proof
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--run-dir", type=Path, required=True)
+    parser.add_argument("--output-json", type=Path, required=True)
+    parser.add_argument("--output-plot", type=Path)
+    args = parser.parse_args()
+    assert os.environ.get("CUDA_VISIBLE_DEVICES") == "", "CPU-only diagnosis required"
+    torch.set_num_threads(1)
+    run = args.run_dir.resolve()
+    managed = json.loads((run.parent / "launch.json").read_text())
+    status = json.loads((run.parent / "status.json").read_text())
+    assert Path(managed["run"]).resolve() == run
+    for key in ("training_pid", "supervisor_pid"):
+        assert not Path("/proc", str(status[key])).exists(), f"{key} is still alive"
+    assert status.get("training_exit_code") is not None
+    path = run / "staged_goal_experience.pt"
+    before = path.stat()
+    blob = owned_stable_bytes(path)
+    saved = torch.load(io.BytesIO(blob), map_location="cpu", weights_only=True)
+    digest = hashlib.sha256(blob).hexdigest()
+    del blob
+    rows = saved["executed_goal_transitions"]
+    contract = saved["goal_contract"]
+    proof = torso_tracking_summary(rows, contract)
+    proof.update(source_run_directory_name=run.name, source_replay_SHA256=digest,
+        source_replay_bytes=before.st_size,
+        actual_training_exit_code=status["training_exit_code"],
+        source_writer_and_supervisor_stopped_verified=True)
     after = path.stat()
     assert (before.st_size, before.st_mtime_ns) == (after.st_size, after.st_mtime_ns)
     proof["source_replay_stat_unchanged"] = True
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(json.dumps(proof, indent=2, allow_nan=False)+"\n")
     if args.output_plot:
+        raw = rows["critic_obs"][:, :464]
+        pending = raw[:, :20] + raw[:, 416:436]
+        links = raw.new_tensor(torso_links_from_urdf(
+            resolve_robot_model("s63", "leju-twofinger").urdf_path))
+        measured_xz = planar_position(raw[:, :2], links)
+        pending_xz = planar_position(pending[:, :2], links)
+        n, degrees = len(raw), 180/torch.pi
+        example = proof["worst_next_pitch_tracking_example"]
+        lower = raw.new_tensor(proof["unchanged_goal_support_XZ_m"]["lower"])
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
