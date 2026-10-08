@@ -53,6 +53,11 @@ actor만 기준으로 사용하며 그 정책의 학습된 Q·replay·reward·en
 GPU3의500k 버퍼/3072조건을 실행 중에 바꾸지 않았다.
 [실제 시작·원래 계약·백업 확인](assets/rl_v2_URDF_regional_goal_SAC_actual_startup_20261008.json).
 
+Notion 중간 보고도 새 실제 실행·200만 버퍼·6144조건과 기존 SAC의 최신
+11→10→7→6→10회 결과로 갱신했다. 기존 native media63개와 table5개의 내용·
+순서가 동일하고 첫 전체 DEV0·학습 개선은 미확인으로 표시한 것을 재확인했다.
+[Notion 갱신·자료 보존 확인](assets/rl_v2_URDF_regional_goal_SAC_Notion_verification_20261008.json).
+
 ## 초기화 사용법
 
 ```bash
