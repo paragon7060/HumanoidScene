@@ -652,7 +652,9 @@ def main():
         if args.grasp_observation_audit:
             from kuavo_isaaclab_scene.rl.multi_box.debug.grasp_observation_audit import GraspObservationAudit
             grasp_audit=GraspObservationAudit(env,output)
-        (output/'manifest.json').write_text(json.dumps(contract|{'artifact_type':pilot_class.artifact_type,
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.policy_manifest import checkpoint_manifest_fields
+        policy_metadata=checkpoint_manifest_fields(contract,state,artifact_type=pilot_class.artifact_type)
+        (output/'manifest.json').write_text(json.dumps(contract|policy_metadata|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,'no_live_VR_or_IK':True,
             'layout_generation_contract':layout_generation_contract(),
             'frozen_physics_backend_evaluation':backend_eval,
