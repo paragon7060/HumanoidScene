@@ -157,3 +157,15 @@ X 추종 오차의 중앙값은1.390mm·최대40.273mm, Z는1.171mm·최대15.50
 `--output-json`과 선택형 `--output-plot`을 지정한다. CPU 전용이며 원래 writer와
 supervisor의 종료·안정된 파일·입력 불변·실행 목표 범위를 확인한다.
 [실제 관절 목표·추종 오차 근거](assets/rl_v2_closed_upright_torso_tracking_20261009.json).
+
+
+## 수정 장기의 실제 초기 평가와 첫 TRAIN
+
+07:56 KST에 수정 실행의 원래 전체128조건 초기평가가 완료됐다. 성공14·안전
+위반44·시간 초과57·초기 무효13회이며 중간 왼쪽small9·상단 오른쪽small5·
+다른 네 조합0회였다. Actor/Q0이므로 학습 효과가 아니다. 실제 평가 후 저장
+모델/정규화77개가 초기 입력과 같고259개 tensor가 유한했다.
+08:04 KST에 같은 writer의 첫 TRAIN step151·Q178·수집9,064행과 기존
+Drive 검증을 확인했다. 경계 복구 수정의 실제 완료 수집과 학습 후 전체
+성능은 아직 대기 중이다. TRAIN6,144·replay40만과 원래 무작위화를 유지한다.
+[전체 초기 평가 근거](assets/rl_v2_URDF_upright_contact_repaired_first_full_DEV_20261009.json).
