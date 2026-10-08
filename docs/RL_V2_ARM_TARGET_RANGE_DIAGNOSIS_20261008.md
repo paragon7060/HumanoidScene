@@ -34,6 +34,8 @@ TCP 계산은 측정값과30μm 이내로 일치했다. 입력별 waist·torso·
 늘리는 방법과 관절 목표 전체 범위를 바꾸는 방법을 구분할 필요가 있다.
 [원래114경로·각 상태·동시 위치/정렬·모델과 HDF 보존](assets/rl_v2_closed_arm_target_envelopes_20261008.json).
 
+![원래84개 진입 상태에서 같은 자세의 양손 진입·정렬 후보를 찾은 수. 실제 파지 성공률은 아니다.](assets/rl_v2_arm_target_range_candidates_20261008.png)
+
 ## 다음 별도 진단
 
 `scripts/rl/frozen_cartesian_urdf_probe.py`는 v2의 실제 flap 영역 추종·원래
@@ -61,3 +63,20 @@ checkpoint·HDF SHA256을 보존했다. 새 접촉을 실행하거나 새 Q 경�
 종료·당시 모델/소스 고정·원래128결과가 확인될 때 실행 근거를 추가한다.
 후속 SAC에 적용하려면 새로운 goal 정규화·실제 실행 action label·fresh Q/replay
 계약을 따로 구현하고 보정 없는 같은 전체 개발 평가와 독립FINAL로 검증해야 한다.
+
+## 실제 시작
+
+13:30 KST에 별도 GPU0 writer2569616을 시작했다. 고유 폴더는
+`GPU0_actual_flap_URDF_contact_frozen_TRAIN128_20261008_133020/`
+`batch_sac_20261008_133022_9770d9`다. 실제 소유자·고유 경로·CUDA_VISIBLE_DEVICES=0,
+격리 소스448개·원래 전체128·8후보·물리/보상/DR/안전 기준을 확인했다.
+새 manifest에는 변경한 팔 범위와 교사 goal의 의미를 명시했다. 모델198개 고정과
+전체 물리 결과는 정상 종료 뒤 확인한다. CPU 전용 확인기2591312가 같은 writer를
+추적하며 다른 프로세스에 신호를 보내지 않는다.
+[실제 시작·manifest·소스·검증 범위](assets/rl_v2_cartesian_URDF_actual_startup_20261008.json).
+
+실행 중인 v2 writer2332935와 GPU3 SAC writer3987840은 유지한다. 비교 영상의
+차이를 피하려고 기존 checkout의 사용자 영상 수정35c7e5d도 그대로 복사해
+실행하되 이 파일을 커밋하지 않았다. 인증은 기존 checkout의 Drive wrapper를
+사용하고300초 검사·최근2개 보호·미검증 원본 보존을 유지한다. 새 인증이나
+다른 사용자의 파일·프로세스 변경은 없다.
