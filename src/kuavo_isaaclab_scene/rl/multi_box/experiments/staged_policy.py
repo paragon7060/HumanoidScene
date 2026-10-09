@@ -17,7 +17,7 @@ from .urdf_servo_guard_sac import URDFServoGuardSACPilot
 from .urdf_full_arm_sac import URDFFullArmSACPilot
 from .urdf_strong_success_sac import URDFStrongSuccessSACPilot
 from .urdf_perceived_contact_sac import URDFPerceivedContactSACPilot,URDFSettledContactSACPilot,URDFPreciseFeedbackSACPilot,URDFMotionFeedbackSACPilot
-from .urdf_upright_contact_sac import URDFUprightContactSACPilot, URDFInteriorContactSACPilot, URDFPredictiveContactSACPilot, URDFWholeArmClearanceSACPilot
+from .urdf_upright_contact_sac import URDFUprightContactSACPilot, URDFInteriorContactSACPilot, URDFPredictiveContactSACPilot, URDFWholeArmClearanceSACPilot, URDFIndependentHandCloseSACPilot
 
 
 def staged_policy_class(artifact_type):
@@ -43,6 +43,7 @@ def staged_policy_class(artifact_type):
         URDFInteriorContactSACPilot,
         URDFPredictiveContactSACPilot,
         URDFWholeArmClearanceSACPilot,
+        URDFIndependentHandCloseSACPilot,
     )}.get(artifact_type)
 
 

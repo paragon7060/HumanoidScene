@@ -20,7 +20,7 @@ from ....robots.end_effector import closed_closing_axes
 from ....workcell.workcell_layout import RACK_RAW_BOUNDS_M, scale as workcell_scale
 
 
-def perceived_contact_contract(*, settled_close=False, precise_feedback=False, motion_feedback=False, upright_feedback=False, interior_contact=False, predictive_feedback=False, whole_arm_clearance=False):
+def perceived_contact_contract(*, settled_close=False, precise_feedback=False, motion_feedback=False, upright_feedback=False, interior_contact=False, predictive_feedback=False, whole_arm_clearance=False, independent_hand_close=False):
     if type(settled_close) is not bool:raise ValueError('Explicit settled-close variant required')
     if type(precise_feedback) is not bool or (precise_feedback and not settled_close):
         raise ValueError('Precise feedback requires the explicit settled-close variant')
@@ -34,6 +34,8 @@ def perceived_contact_contract(*, settled_close=False, precise_feedback=False, m
         raise ValueError('Predictive feedback requires upright control with the original contact target')
     if type(whole_arm_clearance) is not bool or (whole_arm_clearance and not predictive_feedback):
         raise ValueError('Whole-arm clearance requires the explicit predictive upright variant')
+    if type(independent_hand_close) is not bool or (independent_hand_close and not whole_arm_clearance):
+        raise ValueError('Independent hand closing requires explicit whole-arm clearance')
     result=dict(name='TRAIN_arm20_perceived_contact_attempt_v1',
         scope='selected_original20percent_actual_TRAIN_episodes_only',
         selection='existing_gentle_arm_episode_mask_no_second_draw',
@@ -115,6 +117,14 @@ def perceived_contact_contract(*, settled_close=False, precise_feedback=False, m
         from .rack_entry_clearance import rack_clearance_contract
         result.update(name='TRAIN_arm20_upright_whole_arm_rack_clearance_attempt_v8',
                       whole_arm_rack_clearance=rack_clearance_contract())
+    if independent_hand_close:
+        result.update(name='TRAIN_arm20_upright_independent_hand_close_attempt_v9',
+            both_jaws_open_until_precise_closing_gate=False,
+            each_jaw_open_until_its_own_precise_closing_gate=True,
+            closed_reacquisition='same_12mm_and_0p30rad_checked_per_hand',
+            closing_tracking_and_prediction='only_each_actually_projected_closed_hand',
+            both_measured_settled_and_original_bilateral_geometry_required_for_lift=True,
+            individual_closing_NOT_confirmed_pinch_or_success=True)
     return result
 
 
@@ -144,15 +154,16 @@ def contact_statistics(saved=None):
 
 
 class PerceivedContactExploration:
-    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False,motion_feedback=False,upright_feedback=False,interior_contact=False,predictive_feedback=False, whole_arm_clearance=False):
+    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False,motion_feedback=False,upright_feedback=False,interior_contact=False,predictive_feedback=False, whole_arm_clearance=False, independent_hand_close=False):
         if type(num_envs) is not int or num_envs<1:
             raise ValueError('Positive global environment count required')
-        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback,motion_feedback=motion_feedback,upright_feedback=upright_feedback,interior_contact=interior_contact,predictive_feedback=predictive_feedback,whole_arm_clearance=whole_arm_clearance)
+        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback,motion_feedback=motion_feedback,upright_feedback=upright_feedback,interior_contact=interior_contact,predictive_feedback=predictive_feedback,whole_arm_clearance=whole_arm_clearance,independent_hand_close=independent_hand_close)
         self.settled_close=settled_close
         self.precise_feedback=precise_feedback
         self.motion_feedback=motion_feedback
         self.upright_feedback=upright_feedback
         self.predictive_feedback=predictive_feedback
+        self.independent_hand_close=independent_hand_close
         self.upright_control=None
         if upright_feedback:
             from .upright_contact_control import UprightContactControl
@@ -169,6 +180,8 @@ class PerceivedContactExploration:
         self.lift_targets_rack=raw.new_zeros(num_envs,2,3)
         self.close_targets_rack=raw.new_zeros(num_envs,2,3)
         self.closing=torch.zeros(num_envs,dtype=torch.bool,device=raw.device)
+        self.hand_closing=torch.zeros(num_envs,2,dtype=torch.bool,device=raw.device)
+        self.individual_close_statistics=dict(projected_closed_hand_rows=[0,0],unilateral_closed_rows=0)
         self.settled_ticks=torch.zeros_like(self.phase)
         self.previous_closure=raw.new_zeros(num_envs,2)
         self.closure_initialized=torch.zeros_like(self.closing)
@@ -196,6 +209,7 @@ class PerceivedContactExploration:
         if self.upright_control is not None:self.upright_control.reset(ids[reset])
         self.phase[ids[reset]]=-1;self.closed_ticks[ids[reset]]=0
         self.closing[ids[reset]]=False;self.settled_ticks[ids[reset]]=0
+        self.hand_closing[ids[reset]]=False
         self.closure_initialized[ids[reset]]=False
         self.previous_target_clock[ids[reset]]=-1
         self.previous_target_phase[ids[reset]]=-1
@@ -260,9 +274,24 @@ class PerceivedContactExploration:
         close=guided&(((self.phase[ids]==1)&(ready.all(-1)|latched))|(self.phase[ids]==2))
         requested=original_goals.clone()
         if self.precise_feedback:requested[guided,19:21]=-1
-        requested[close,19:21]=1
+        if self.independent_hand_close:
+            per_hand_latch=self.hand_closing[ids]&(point_distance<=.012)&(axis_error<=.30)
+            close_hands=guided[:,None]&(((self.phase[ids]==1)[:,None]&(ready|per_hand_latch))|
+                                        (self.phase[ids]==2)[:,None])
+            requested[:,19:21]=torch.where(close_hands,1.,requested[:,19:21])
+        else:
+            requested[close,19:21]=1
         requested=pilot.agent.action_projector(actor,requested)
-        closed=close&(requested[:,19:21]>0).all(-1)
+        if self.independent_hand_close:
+            actual_closed_hands=close_hands&(requested[:,19:21]>0)
+            self.hand_closing[ids]=actual_closed_hands&(self.phase[ids]==1)[:,None]
+            closed=actual_closed_hands.all(-1)
+            counts=actual_closed_hands.sum(0).tolist()
+            self.individual_close_statistics['projected_closed_hand_rows']=[
+                a+b for a,b in zip(self.individual_close_statistics['projected_closed_hand_rows'],counts)]
+            self.individual_close_statistics['unilateral_closed_rows']+=int(actual_closed_hands.sum(-1).eq(1).sum())
+        else:
+            closed=close&(requested[:,19:21]>0).all(-1)
         self.closed_ticks[ids]=torch.where(closed,self.closed_ticks[ids]+1,0)
         lift_ready=self.closed_ticks[ids]>=self.contract['sustained_projected_closed_command_ticks_before_attempt_lift']
         if self.settled_close:
@@ -297,7 +326,8 @@ class PerceivedContactExploration:
             # the closing interval. The task's drives and effort caps stay
             # unchanged. Prediction uses deployable panel poses, never force.
             closing_feedback=closed&(self.phase[ids]==1)
-            displacement=torch.where(closing_feedback[:,None,None],
+            feedback_mask=(actual_closed_hands&(self.phase[ids]==1)[:,None]) if self.independent_hand_close else closing_feedback[:,None]
+            displacement=torch.where(feedback_mask[...,None],
                 (target-p)*(self.contract['closed_position_feedback_gain_per_s']/30),displacement)
             target_rack=(rack_R.transpose(-1,-2)[:,None]@(target-rack[:,None,:3])[...,None]).squeeze(-1)
             consecutive=(clocks-self.previous_target_clock[ids]==1)&(self.previous_target_phase[ids]==self.phase[ids])
@@ -307,15 +337,15 @@ class PerceivedContactExploration:
                     horizon_ticks=self.contract['closed_panel_prediction_horizon_control_ticks'],
                     maximum_offset_m=self.contract['closed_panel_prediction_maximum_offset_m'])
                 predicted=(rack_R[:,None]@predicted[...,None]).squeeze(-1)
-                # Compensate short tracking delay only while both jaws are
-                # actually commanded closed. A skipped clock, phase change,
+                # Compensate short tracking delay only for the hands actually
+                # commanded closed in this variant. A skipped clock, phase change,
                 # reopening or lift cannot carry an old panel velocity forward.
-                displacement+=torch.where((closing_feedback&consecutive)[:,None,None],
+                displacement+=torch.where((feedback_mask&consecutive[:,None])[...,None],
                     predicted*(self.contract['closed_position_feedback_gain_per_s']/30),0.)
             motion=delta*self.contract['current_panel_motion_feedforward_fraction']
             motion*=self.contract['panel_motion_feedforward_cap_m_per_tick']/motion.norm(dim=-1,keepdim=True).clamp_min(self.contract['panel_motion_feedforward_cap_m_per_tick'])
             motion=(rack_R[:,None]@motion[...,None]).squeeze(-1)
-            displacement+=torch.where((closing_feedback&consecutive)[:,None,None],motion,0.)
+            displacement+=torch.where((feedback_mask&consecutive[:,None])[...,None],motion,0.)
             self.previous_target_rack[ids[guided]]=target_rack[guided]
             self.previous_target_clock[ids[guided]]=clocks[guided]
             self.previous_target_phase[ids[guided]]=self.phase[ids[guided]]

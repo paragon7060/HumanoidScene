@@ -4,6 +4,41 @@
 짧게 드는 **학습된 정책**이다. 현재 목표는 미달성이고 중형 박스 성공도0이다.
 원래 위치·크기 여섯 조합의 전체128개 조건으로 비교한다.
 
+**13:38 KST 실제 새 학습과 닫기 병목:** v7은 TRAIN384 뒤 성공9·안전
+위반51·시간 초과68/128회로 끝났다. 자기 초기14회보다 낮고 중형0이다.
+Actor695/Q4,828의 같은 실제 평가 전후 모델과 원래 전체 조건을 확인했다.
+정상 종료·최종 checkpoint/log Drive 검증 뒤 GPU3에서 손바닥·팔뚝 회피v8을
+실제로 시작했다. Writer2,638,036·supervisor2,637,821·CUDA3·소스767개를
+확인했으며 초기 DEV를 진행 중이다. 기존 장기8개도 계속한다.
+[v7 전체 평가](assets/rl_v2_URDF_predictive_contact_first_learned_full_DEV4_20261009.json) ·
+[v8 실제 시작](assets/rl_v2_URDF_whole_arm_rack_clearance_actual_GPU3_start_20261009.json).
+
+종료 v7의 실제 TRAIN384요청·238,980행에서 탐색75회는 성공0·안전 위반46·
+시간 초과29회였다. 닫기231행은 생겼지만 양손 pinch와 lift 시도는0이었다.
+원래 helper의 실제 선택 접촉 지점과 단계로 확인하면, 표면 접근13,951행 중
+두 손이 동시에6mm/축0.25rad 준비 상태인 행은76개, 한 손만 준비된 행은
+2,125개였다. 탐색31경로에서 준비된 손을 열린 채 기다리는 상황이 나타났다.
+손별 닫기 비교v9를 추가하되 각 손의6mm 진입/12mm 재진입 제한과 기존
+양손24틱 닫기·실제85% 닫힘·6틱 안정·양손 기하 확인 뒤 lift 조건은 유지한다.
+이 분석은 준비 기하이며 pinch나 새 방법의 성공을 뜻하지 않는다.
+[실제 손별 준비 상태·명령·검증 한계](assets/rl_v2_predictive_contact_closed_TRAIN_individual_readiness_20261009.json).
+
+별도 종료 v6에서 실제 표면6mm/축 준비 상태를 기존 nominal12cm jaw gate가
+막은 hand-row는0이었다. 따라서 그 gate를 이번 원인으로 단정하거나 넓히지
+않았다. 표면 거리 자체는 helper의 한 번 선택한 접촉 지점 거리와 다르다.
+[기존 gate 진단](assets/rl_v2_closed_TRAIN_nominal_jaw_gate_surface_readiness_20261009.json).
+
+새 장기 전체 평가도 강한 유지 TRAIN2,688 뒤7/128, guard TRAIN3,456 뒤1/128로
+최고13회와 각 초기값을 넘지 못했다. 반복 학습만으로 개선됐다고 하지 않는다.
+[강한 유지 전체28](assets/rl_v2_URDF_strong_gentle_full_arm_seventh_learned_full_DEV28_20261008.json) ·
+[guard 전체36](assets/rl_v2_URDF_servo_guard_ninth_learned_full_DEV36_20261008.json).
+
+소스 checkout11개의 동일한 보고용 이미지·영상 복사2,305개를 정리해 실제
+할당량0.576GiB를 확보했다. 원본 보고 미디어·코드·물리 assets·학습 데이터·
+체크포인트·로그와 기록한 물리 소스 SHA는 유지했다. 종료 raw29.8GiB의 추가
+Drive 전송/삭제는 자동 승인 검토의 별도 승인 요구로 아직 실행하지 않았다.
+[정리 범위·원본 보존](assets/rl_v2_identical_frozen_documentation_media_cleanup_20261009.json).
+
 **13:00 KST 후속 분석도 연결:** v7·손/팔 랙 회피v8·성공 비중 비교에 실제
 CPU 관찰자3개를 추가했다. 각 원래 writer/supervisor가 정상 종료하고 최종
 checkpoint/log Drive 검증을 마친 뒤에만 종료 TRAIN을 읽는다. 진단 도구는

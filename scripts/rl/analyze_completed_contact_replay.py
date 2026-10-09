@@ -60,10 +60,10 @@ assert all(torch.isfinite(t).all() for t in data.values())
 coordinates=PoseGoalCoordinates(exact_projected_base=True)
 contract=s['goal_contract'];pilot=SimpleNamespace(coordinates=coordinates,center=torch.tensor(contract['goal_center']),scale=torch.tensor(contract['goal_scale']),agent=SimpleNamespace(action_projector=AbsoluteGoalJawProjector()))
 variant=contract['TRAIN_perceived_contact_exploration']['name']
-assert variant in ('TRAIN_arm20_perceived_contact_attempt_v1','TRAIN_arm20_perceived_settled_contact_attempt_v2','TRAIN_arm20_perceived_precise_feedback_attempt_v3','TRAIN_arm20_perceived_motion_feedback_attempt_v4','TRAIN_arm20_upright_contact_attempt_v5','TRAIN_arm20_upright_interior_contact_attempt_v6','TRAIN_arm20_upright_predictive_contact_attempt_v7','TRAIN_arm20_upright_whole_arm_rack_clearance_attempt_v8')
-clearance=variant.endswith('_v8');predictive=clearance or variant.endswith('_v7');interior=variant.endswith('_v6');upright=predictive or interior or variant.endswith('_v5');settled=not variant.endswith('_v1');motion=upright or variant.endswith('_v4');precise=motion or variant.endswith('_v3')
+assert variant in ('TRAIN_arm20_perceived_contact_attempt_v1','TRAIN_arm20_perceived_settled_contact_attempt_v2','TRAIN_arm20_perceived_precise_feedback_attempt_v3','TRAIN_arm20_perceived_motion_feedback_attempt_v4','TRAIN_arm20_upright_contact_attempt_v5','TRAIN_arm20_upright_interior_contact_attempt_v6','TRAIN_arm20_upright_predictive_contact_attempt_v7','TRAIN_arm20_upright_whole_arm_rack_clearance_attempt_v8','TRAIN_arm20_upright_independent_hand_close_attempt_v9')
+independent=variant.endswith('_v9');clearance=independent or variant.endswith('_v8');predictive=clearance or variant.endswith('_v7');interior=variant.endswith('_v6');upright=predictive or interior or variant.endswith('_v5');settled=not variant.endswith('_v1');motion=upright or variant.endswith('_v4');precise=motion or variant.endswith('_v3')
 if args.upright_phase_only and not upright:
- raise ValueError('Phase-only diagnosis is restricted to declared upright v5/v6/v7/v8 data')
+ raise ValueError('Phase-only diagnosis is restricted to declared upright v5/v6/v7/v8/v9 data')
 if upright:
  from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_upright_contact_sac import upright_support_affine
  pilot.agent.upright_support_anchor,pilot.agent.upright_support_scale=upright_support_affine(pilot.center,pilot.scale,coordinates.links)
@@ -99,7 +99,7 @@ for wave in waves:
   assert torch.equal(ao[:,-5:-3],xy) and torch.allclose(ao[:,-3],yaw.sin(),atol=1e-7,rtol=0) and torch.allclose(ao[:,-2],yaw.cos(),atol=1e-7,rtol=0)
   pilot.stage=SimpleNamespace(target_xy=xy,target_yaw=yaw)
   command=held_goal_coordinates(coordinates,raw,pilot.center+pilot.scale*goals,pilot.stage)
-  if tracker is None:tracker=PerceivedContactExploration(128,raw,previous_stats,settled_close=settled,precise_feedback=precise,motion_feedback=motion,upright_feedback=upright,interior_contact=interior,predictive_feedback=predictive,whole_arm_clearance=clearance)
+  if tracker is None:tracker=PerceivedContactExploration(128,raw,previous_stats,settled_close=settled,precise_feedback=precise,motion_feedback=motion,upright_feedback=upright,interior_contact=interior,predictive_feedback=predictive,whole_arm_clearance=clearance,independent_hand_close=independent)
   pre=tracker.phase[ids].clone()
   pre_closed=tracker.closing[ids].clone()
   pre_closed_ticks=tracker.closed_ticks[ids].clone()
@@ -221,6 +221,23 @@ for wave in waves:
    depth=((front[:,None]-points)*outward[:,None]).sum(-1).clamp_min(0)
    stage_dist=(points+depth[...,None]*outward[:,None]-tcp[...,:3]).norm(dim=-1)
    angle=torch.acos((panel_relative[...,0]*tracker.axes[None]).sum(-1).abs().clamp(0,1))
+   surface_phase=torch.tensor(phases[i])==1
+   individual_ready=(point_hand.norm(dim=-1)<=tracker.contract['close_point_tolerance_m'])&(angle<=.25)
+   actual_closed=data['action'][ix,19:21]>0
+   def longest_true_run(mask):
+    best=run=0
+    for flag in mask.tolist():
+     run=run+1 if flag else 0;best=max(best,run)
+    return best
+   ready_audit=dict(
+    measured_surface_phase_rows=int(surface_phase.sum()),
+    measured_latched_contact_point_ready_hand_rows=(individual_ready&surface_phase[:,None]).sum(0).tolist(),
+    measured_both_latched_contact_points_ready_rows=int((individual_ready.all(-1)&surface_phase).sum()),
+    measured_exactly_one_latched_contact_point_ready_rows=int((individual_ready.sum(-1).eq(1)&surface_phase).sum()),
+    measured_ready_hand_while_that_jaw_commanded_open_rows=(individual_ready&surface_phase[:,None]&~actual_closed).sum(0).tolist(),
+    maximum_consecutive_individual_ready_surface_phase_ticks=[longest_true_run(individual_ready[:,h]&surface_phase) for h in range(2)],
+    readiness_is_deployable_geometry_NOT_pinch_or_success=True,
+    per_hand_closing_counterfactual_NOT_executed=True)
    first_guide=int(torch.where(guide)[0][0]);last_guide=int(torch.where(guide)[0][-1]);torso=planar_position(raw[:,:2],coordinates.links.to(raw));geometry=dict(
     guided_min_both_stage_distance_m=float(stage_dist[guide].amax(-1).min()),
     guided_min_both_closing_line_error_rad=float(angle[guide].amax(-1).min()),
@@ -238,6 +255,7 @@ for wave in waves:
   closure_summary['precise_feedback_variant']=precise
   record=dict(wave=wave,environment=i,seed=case['layout']['seed'],region=case['layout']['target_region'],box_type=case['layout']['target_box_type'],mode=case['collection_policy_mode'],initial_layout_valid=True,success=supported_success(case),unsafe=bool(term['unsafe']),time_out=bool(term['time_out']),unsafe_causes=term['unsafe_causes'],rack_peak_body=term['rack_peak_body'],held_rows=len(ix),reconstructed_guided_rows=sum(0<=p<3 for p in phases[i]),reconstructed_phase_counts=dict(Counter(phases[i])),approach_phase_rows_with_any_commanded_closed_jaw=int(((torch.tensor(phases[i])==0)&(data['action'][ix,19:21]>0).any(-1)).sum()),approach_phase_rows_with_both_commanded_closed_jaws=int(((torch.tensor(phases[i])==0)&(data['action'][ix,19:21]>0).all(-1)).sum()),first_surface_approach_clock=(phases[i].index(1) if 1 in phases[i] else None),lift_attempt_events=events[i],ever_each_hand_pinched=pinch.any(0).tolist(),actual_opposing_pinch_rows=int(opposing.sum()),longest_actual_opposing_pinch_s=best/30,measured_closure_peak=raw[:,46:48].max(0).values.tolist(),best_actual_weaker_pad_force_n=weaker.max(0).values.tolist(),terminal_surface_distance_m=term['flap_distances'],terminal_actual_pinching=term['pinching'],terminal_stable_hands=term['stable_hands'])
   record.update(geometry)
+  if guide.any():record['measured_individual_close_readiness']=ready_audit
   record['measured_closing_gate_diagnosis']=closure_summary
   record['precise_feedback_reopen_events']=reopens[i]
   records.append(record)

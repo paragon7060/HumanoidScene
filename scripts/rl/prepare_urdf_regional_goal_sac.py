@@ -38,6 +38,7 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.urdf_upright_contact_sac impo
     URDFInteriorContactSACPilot, validate_interior_contact_state,
     URDFPredictiveContactSACPilot, validate_predictive_contact_state,
     URDFWholeArmClearanceSACPilot, validate_whole_arm_clearance_state,
+    URDFIndependentHandCloseSACPilot, validate_independent_hand_close_state,
 )
 from kuavo_isaaclab_scene.rl.multi_box.experiments.vr_reference import select_reference_episode
 from kuavo_isaaclab_scene.rl.multi_box.experiments.body_behavior_exploration import (
@@ -59,12 +60,12 @@ def main():
         help='Fresh critic return sampling; existing initialization default is preserved')
     parser.add_argument('--servo-retention-profile',
         choices=('uniform', 'guard-tail64', 'full-arm-tail64', 'full-arm-tail64-strong-servo',
-                 'full-arm-contact-exploration','full-arm-settled-contact','full-arm-precise-feedback','full-arm-motion-feedback','full-arm-upright-contact','full-arm-interior-contact','full-arm-predictive-contact','full-arm-rack-clearance'),
+                 'full-arm-contact-exploration','full-arm-settled-contact','full-arm-precise-feedback','full-arm-motion-feedback','full-arm-upright-contact','full-arm-interior-contact','full-arm-predictive-contact','full-arm-rack-clearance','full-arm-independent-hand-close'),
         default='uniform')
     parser.add_argument('--body-behavior', choices=(GREEDY_REST_VARIANT, GENTLE_GREEDY_REST_VARIANT),
         default=GREEDY_REST_VARIANT, help='Fresh TRAIN collection bias; policy/evaluation and original defaults are preserved')
     args = parser.parse_args()
-    if args.servo_retention_profile in ('full-arm-contact-exploration','full-arm-settled-contact','full-arm-precise-feedback','full-arm-motion-feedback','full-arm-upright-contact','full-arm-interior-contact','full-arm-predictive-contact','full-arm-rack-clearance') and args.body_behavior != GENTLE_GREEDY_REST_VARIANT:
+    if args.servo_retention_profile in ('full-arm-contact-exploration','full-arm-settled-contact','full-arm-precise-feedback','full-arm-motion-feedback','full-arm-upright-contact','full-arm-interior-contact','full-arm-predictive-contact','full-arm-rack-clearance','full-arm-independent-hand-close') and args.body_behavior != GENTLE_GREEDY_REST_VARIANT:
         parser.error('Contact exploration requires explicit --body-behavior arm20-gentle-rest-greedy')
     if os.environ.get('CUDA_VISIBLE_DEVICES') != '':
         raise ValueError('Initialization is CPU-only; CUDA_VISIBLE_DEVICES must be empty')
@@ -107,6 +108,7 @@ def main():
         'full-arm-interior-contact': (URDFInteriorContactSACPilot, validate_interior_contact_state),
         'full-arm-predictive-contact': (URDFPredictiveContactSACPilot, validate_predictive_contact_state),
         'full-arm-rack-clearance': (URDFWholeArmClearanceSACPilot, validate_whole_arm_clearance_state),
+        'full-arm-independent-hand-close': (URDFIndependentHandCloseSACPilot, validate_independent_hand_close_state),
     }[args.servo_retention_profile]
     pilot = pilot_class(warm, physical, args.output_dir, stages.stages[0],
         regional_source=packet, body_anchor_state=source['body_anchor_state'], training=False, device='cpu',

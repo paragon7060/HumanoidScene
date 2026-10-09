@@ -102,8 +102,10 @@ def restored_agent(state):
         URDFInteriorContactSACPilot, validate_interior_contact_state,
         URDFPredictiveContactSACPilot, validate_predictive_contact_state,
         URDFWholeArmClearanceSACPilot, validate_whole_arm_clearance_state,
+        URDFIndependentHandCloseSACPilot, validate_independent_hand_close_state,
     )
-    whole_arm_clearance = state.get("artifact_type") == URDFWholeArmClearanceSACPilot.artifact_type
+    independent_hand_close = state.get("artifact_type") == URDFIndependentHandCloseSACPilot.artifact_type
+    whole_arm_clearance = independent_hand_close or state.get("artifact_type") == URDFWholeArmClearanceSACPilot.artifact_type
     predictive_contact = whole_arm_clearance or state.get('artifact_type') == URDFPredictiveContactSACPilot.artifact_type
     interior_contact = state.get('artifact_type') == URDFInteriorContactSACPilot.artifact_type
     upright_contact = predictive_contact or interior_contact or state.get('artifact_type') == URDFUprightContactSACPilot.artifact_type
@@ -115,7 +117,9 @@ def restored_agent(state):
     full_arm = strong_success or state.get('artifact_type') == URDFFullArmSACPilot.artifact_type
     guard = full_arm or state.get('artifact_type') == URDFServoGuardSACPilot.artifact_type
     urdf = guard or state.get('artifact_type') == URDFRegionalGoalSACPilot.artifact_type
-    if whole_arm_clearance:
+    if independent_hand_close:
+        validate_independent_hand_close_state(state)
+    elif whole_arm_clearance:
         validate_whole_arm_clearance_state(state)
     elif predictive_contact:
         validate_predictive_contact_state(state)

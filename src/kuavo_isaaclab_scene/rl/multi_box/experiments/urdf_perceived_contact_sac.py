@@ -18,6 +18,7 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
     interior_contact=False
     predictive_feedback=False
     whole_arm_clearance=False
+    independent_hand_close=False
 
     def __init__(self,*args,**kwargs):
         self.contact_explorer=None
@@ -36,7 +37,7 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
     def contract(self):
         result=super().contract
         if self._URDF_configuring_source:return result
-        return result|dict(TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback,upright_feedback=self.upright_feedback,interior_contact=self.interior_contact,predictive_feedback=self.predictive_feedback,whole_arm_clearance=self.whole_arm_clearance))
+        return result|dict(TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback,upright_feedback=self.upright_feedback,interior_contact=self.interior_contact,predictive_feedback=self.predictive_feedback,whole_arm_clearance=self.whole_arm_clearance,independent_hand_close=self.independent_hand_close))
 
     def reset_exploration(self,num_envs):
         if self.contact_explorer is not None:self._contact_statistics=self.contact_explorer.report()
@@ -54,7 +55,7 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
         if not chosen.any():return result
         if self.contact_explorer is None:
             self.contact_explorer=PerceivedContactExploration(self._contact_num_envs,raw,self._contact_statistics,
-                settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback,upright_feedback=self.upright_feedback,interior_contact=self.interior_contact,predictive_feedback=self.predictive_feedback,whole_arm_clearance=self.whole_arm_clearance)
+                settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback,upright_feedback=self.upright_feedback,interior_contact=self.interior_contact,predictive_feedback=self.predictive_feedback,whole_arm_clearance=self.whole_arm_clearance,independent_hand_close=self.independent_hand_close)
         return self.contact_explorer.step(self,raw,result,ids,kwargs.get('supplemental'),chosen,index)
 
     def contact_extras(self):
@@ -71,7 +72,7 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
 
     def report(self):
         result=super().report()|self.contact_extras()|dict(
-            TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback,upright_feedback=self.upright_feedback,interior_contact=self.interior_contact,predictive_feedback=self.predictive_feedback,whole_arm_clearance=self.whole_arm_clearance),
+            TRAIN_perceived_contact_exploration=perceived_contact_contract(settled_close=self.settled_close,precise_feedback=self.precise_feedback,motion_feedback=self.motion_feedback,upright_feedback=self.upright_feedback,interior_contact=self.interior_contact,predictive_feedback=self.predictive_feedback,whole_arm_clearance=self.whole_arm_clearance,independent_hand_close=self.independent_hand_close),
             evaluated_policy_never_uses_contact_explorer=True)
         if self.upright_feedback:
             control=(self.contact_explorer.upright_control if self.contact_explorer is not None else None)
@@ -80,6 +81,10 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
             if self.whole_arm_clearance:
                 result['rack_clearance_statistics_current_wave'] = (control.clearance.report()
                     if control is not None and control.clearance is not None else None)
+        if self.independent_hand_close:
+            result['individual_close_statistics_current_wave'] = (
+                deepcopy(self.contact_explorer.individual_close_statistics)
+                if self.contact_explorer is not None else None)
         return result
 
 
