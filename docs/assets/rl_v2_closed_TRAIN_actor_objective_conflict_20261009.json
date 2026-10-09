@@ -1,0 +1,199 @@
+{
+  "recorded_at": "2026-10-09T16:21:25.835190+09:00",
+  "role": "closed_actual_TRAIN_actor_objective_and_disposable_Adam_diagnostic_NOT_rollout",
+  "run_directory_name": "batch_sac_20261009_102504_29009c",
+  "model_SHA256": "b789973af1109f197113766eda41d394d21773d71900c2ea718fd9414fb32cf6",
+  "experience_SHA256": "f3f20fe956b17585d8a77f4d7b0e1cefcfba143a86e8f20b178e84932001385e",
+  "actor_updates": 695,
+  "critic_updates": 4828,
+  "replay_rows": 238980,
+  "actual_success_bank": {
+    "rows": 7498,
+    "by_region": {
+      "shelf_2_right": {
+        "episodes": 0,
+        "rows": 0
+      },
+      "shelf_2_left": {
+        "episodes": 10,
+        "rows": 3938
+      },
+      "shelf_3_right": {
+        "episodes": 6,
+        "rows": 3560
+      },
+      "shelf_3_left": {
+        "episodes": 0,
+        "rows": 0
+      }
+    },
+    "TRAIN_only": true,
+    "evaluation_rows": 0
+  },
+  "seeds": [
+    9154,
+    9155
+  ],
+  "main_batch_rows": 256,
+  "successful_actor_batch_rows": 64,
+  "actual_goal_retention_weight": 11.11111111111111,
+  "actual_jaw_retention_weight": 0.05,
+  "actual_success_Q_replay_fraction": 0.17915,
+  "by_region": {
+    "shelf_2_right": {
+      "actual_retained_success_episodes": 0,
+      "queried_batches": 16,
+      "Q_retention_direction_available": 0,
+      "Q_retention_negative_cosine_batches": 0,
+      "Q_retention_cosine_median": null,
+      "component_gradient_norm_medians": {
+        "Q": 0.9370469748973846,
+        "continuous_entropy": 0.00020463582768570632,
+        "discrete_entropy": 0.02139745093882084,
+        "successful_goal_retention": 0.0,
+        "successful_jaw_retention": 0.0,
+        "jaw_saturation": 0.03196687810122967,
+        "body_saturation": 0.0
+      },
+      "copied_Adam_increases_retention_loss_first_order_batches": 0,
+      "copied_Adam_retention_loss_first_order_change_median": 0.0
+    },
+    "shelf_2_left": {
+      "actual_retained_success_episodes": 10,
+      "queried_batches": 16,
+      "Q_retention_direction_available": 16,
+      "Q_retention_negative_cosine_batches": 16,
+      "Q_retention_cosine_median": -0.7933661937713623,
+      "component_gradient_norm_medians": {
+        "Q": 5.192928075790405,
+        "continuous_entropy": 0.00011488482050481252,
+        "discrete_entropy": 0.027129524387419224,
+        "successful_goal_retention": 3.4983794689178467,
+        "successful_jaw_retention": 0.1658032387495041,
+        "jaw_saturation": 0.023820058442652225,
+        "body_saturation": 0.0
+      },
+      "copied_Adam_increases_retention_loss_first_order_batches": 16,
+      "copied_Adam_retention_loss_first_order_change_median": 9.729558314575115e-06
+    },
+    "shelf_3_right": {
+      "actual_retained_success_episodes": 6,
+      "queried_batches": 16,
+      "Q_retention_direction_available": 16,
+      "Q_retention_negative_cosine_batches": 0,
+      "Q_retention_cosine_median": 0.517962247133255,
+      "component_gradient_norm_medians": {
+        "Q": 3.7816532850265503,
+        "continuous_entropy": 0.0002126248218701221,
+        "discrete_entropy": 0.013843416702002287,
+        "successful_goal_retention": 1.8725351691246033,
+        "successful_jaw_retention": 0.07653475180268288,
+        "jaw_saturation": 0.142372727394104,
+        "body_saturation": 0.0
+      },
+      "copied_Adam_increases_retention_loss_first_order_batches": 1,
+      "copied_Adam_retention_loss_first_order_change_median": -1.606583055036026e-06
+    },
+    "shelf_3_left": {
+      "actual_retained_success_episodes": 0,
+      "queried_batches": 16,
+      "Q_retention_direction_available": 0,
+      "Q_retention_negative_cosine_batches": 0,
+      "Q_retention_cosine_median": null,
+      "component_gradient_norm_medians": {
+        "Q": 0.3952222913503647,
+        "continuous_entropy": 0.00011995873501291499,
+        "discrete_entropy": 0.03549100458621979,
+        "successful_goal_retention": 0.0,
+        "successful_jaw_retention": 0.0,
+        "jaw_saturation": 0.002679870114661753,
+        "body_saturation": 0.0
+      },
+      "copied_Adam_increases_retention_loss_first_order_batches": 0,
+      "copied_Adam_retention_loss_first_order_change_median": 0.0
+    }
+  },
+  "Q_contributions_by_actual_region_size": {
+    "shelf_2_right/small": {
+      "queried_batches": 16,
+      "actual_mixed_batch_Q_gradient_norm_median": 0.38323527574539185,
+      "Q_vs_region_retention_negative_batches": 0,
+      "Q_vs_region_retention_cosine_median": null
+    },
+    "shelf_2_right/medium": {
+      "queried_batches": 16,
+      "actual_mixed_batch_Q_gradient_norm_median": 0.6646162569522858,
+      "Q_vs_region_retention_negative_batches": 0,
+      "Q_vs_region_retention_cosine_median": null
+    },
+    "shelf_2_left/small": {
+      "queried_batches": 16,
+      "actual_mixed_batch_Q_gradient_norm_median": 4.110576629638672,
+      "Q_vs_region_retention_negative_batches": 16,
+      "Q_vs_region_retention_cosine_median": -0.8174310624599457
+    },
+    "shelf_2_left/medium": {
+      "queried_batches": 16,
+      "actual_mixed_batch_Q_gradient_norm_median": 1.2026689052581787,
+      "Q_vs_region_retention_negative_batches": 16,
+      "Q_vs_region_retention_cosine_median": -0.6249622404575348
+    },
+    "shelf_3_right/small": {
+      "queried_batches": 16,
+      "actual_mixed_batch_Q_gradient_norm_median": 3.7816532850265503,
+      "Q_vs_region_retention_negative_batches": 0,
+      "Q_vs_region_retention_cosine_median": 0.517962247133255
+    },
+    "shelf_3_left/small": {
+      "queried_batches": 16,
+      "actual_mixed_batch_Q_gradient_norm_median": 0.3952222913503647,
+      "Q_vs_region_retention_negative_batches": 0,
+      "Q_vs_region_retention_cosine_median": null
+    }
+  },
+  "all_actor_only_TRAIN_loss_configs": {
+    "body_saturation": {
+      "variant": "mean3-soft",
+      "format_version": 1,
+      "mean_limit": 3.0,
+      "weight": 0.001,
+      "scope": "actual_flap_TRAIN_actor_updates_only",
+      "loss": "mean_rows_sum_active_body_relu_abs_mean_minus_limit_squared_over_active_count",
+      "active_coordinates": "positive_available_affine_goal_radius",
+      "symmetric_positive_negative": true,
+      "hard_mean_clipping": false,
+      "physical_goal_envelope_and_projection_unchanged": true,
+      "reward_success_labels_Q_targets_and_behavior_distribution_unchanged": true
+    },
+    "jaw_saturation": {
+      "variant": "logit4-soft-strong",
+      "format_version": 1,
+      "logit_limit": 4.0,
+      "weight": 0.001,
+      "scope": "actual_flap_TRAIN_actor_updates_only",
+      "loss": "mean_rows_sum_eligible_jaws_relu_abs_logit_minus_limit_squared_over_active_count",
+      "eligible_jaws": "unchanged_production_nominal_near_gate",
+      "symmetric_open_close": true,
+      "reward_or_success_labels_used": false,
+      "hard_logit_clipping": false,
+      "probability_floor": false,
+      "Q_target_and_behavior_distribution_unchanged": true
+    },
+    "success_jaw_balance": null
+  },
+  "source_reports_SHA256": [
+    "ec615fe612923439371db0f4a1c7987ab3f31a8e611bc39ddfca13928aba8a29",
+    "5478ca1733ca87e057ae1a1f46fcde8333615bfe216ea92ead75ced831c6161c"
+  ],
+  "same_saved_model_optimizer_current_normalizers_and_original_TRAIN_only": true,
+  "all_safe_success_bank_terminals_matched_original_outcomes": true,
+  "sum_class_Q_gradients_matches_original_Q_gradient": true,
+  "production_norm1_clipping_and_mature_Adam_in_disposable_parameters": true,
+  "Adam_prediction_is_one_step_local_first_order_NOT_future_rollout": true,
+  "no_main_model_optimizer_replay_physics_or_evaluation_training_import": true,
+  "raw_observations_joints_actions_NOT_exported": true,
+  "independent_FINAL_unused": true,
+  "goal_not_complete": true,
+  "final_audit_tool_SHA256": "e81bd5bb038a1ce1386c0381d3a3972d38981b5b12fa0804adb22a8b9368f6d2",
+  "all_actual_region_heads_present_in_each_copied_Adam_batch": true
+}

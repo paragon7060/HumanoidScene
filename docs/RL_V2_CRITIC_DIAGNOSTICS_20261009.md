@@ -1,5 +1,42 @@
 # 실제 성공 경로의 SAC 가치 추정 확인
 
+## 성공 동작 유지와 SAC actor 갱신 방향
+
+종료v7의 같은 actor695/Q4,828 모델과 실제 TRAIN replay238,980행, 남은 안전
+성공16경로/7,498행을 확인했다. 두 CPU 표본 seed에서 각각8개의 실제 학습
+형태 batch를 질의했다. 원래256행 replay/success 혼합과64행 성공 actor
+표본, goal 가중치11.111·jaw 가중치0.05를 사용했다. 평가 데이터를 넣지 않았다.
+Inference 복원에서 생략되는 TRAIN 전용 body/jaw saturation과 jaw balance도
+저장된 계약으로 복원했다. 원래 clipped servo와 네 binary jaw branch를 쓴다.
+
+| 실제 성공 경험이 남은 구역 | Q·성공 유지 gradient cosine 중앙값 | 반대 방향 batch | 복제 Adam의 성공 유지 손실 증가 방향 |
+|---|---:|---:|---:|
+| 중간 왼쪽·small10경로 | −0.793 | 16/16 | 16/16 |
+| 상단 오른쪽·small6경로 | +0.518 | 0/16 | 1/16 |
+
+![실제 TRAIN의 actor 목적함수와 복제 Adam 방향](assets/rl_v2_closed_TRAIN_actor_objective_conflict_20261009.png)
+
+각 batch에서 원래 Q gradient를 실제 여섯 위치/크기별 기여로 분해했고 그 합이
+원래 gradient와 같음을 확인했다. 중간 왼쪽은 small 경험만의 Q 기여도16/16회
+성공 유지 방향과 반대였고 medium 기여도16/16회 반대였다. 따라서 중형
+실패가 같은 head에 섞이는 문제만으로 설명하거나 head 분리만으로 해결된다고
+가정하지 않는다. 성공 경험이 없는 중간 오른쪽·상단 왼쪽에는 유지 방향을
+측정할 수 없다. Continuous entropy gradient norm은 이 모델에서 약0.0001–
+0.0002로 Q와 성공 goal 유지 norm보다 훨씬 작았다.
+
+원래 Adam moment와 gradient norm1 clipping을 복제하여 batch별 다음 한 번의
+parameter 변화만 계산했다. 원래 모델·Adam·normalizer·파일은 그대로다.
+손실 변화는 국소적인1차 예측이고 미래 critic/normalizer 갱신이나 실제 rollout을
+포함하지 않는다. 실제 성공을 방해한다는 원인 확정이나 새 성능 결과는 아니다.
+현재 GPU3의 성공/실패 return 비중 비교로 critic 추정과 실제 전체 성공률이
+함께 개선되는지 먼저 확인한다. 전역 reward/유지 가중치는 바꾸지 않았다.
+
+[실제 모델·TRAIN 범위·모든 손실·두 표본 집계](assets/rl_v2_closed_TRAIN_actor_objective_conflict_20261009.json).
+재현 도구는 `scripts/rl/audit_closed_train_actor_gradients.py`다. 종료된 원래
+writer/supervisor와 최종 Drive 검증, 전체 DEV의 전후 같은 모델·checksum·
+계약·모든 model/optimizer tensor의 유한성·실제 성공 outcome을 확인해야 한다.
+이 도구는 원시 observation/joint/action을 보고서에 내보내지 않는다.
+
 ## 실제 성공 명령과 현재 명령의 Q 순위
 
 종료v7의 실제 actor695/Q4,828 모델과 해당 전체 DEV의 전후 같은 모델을
