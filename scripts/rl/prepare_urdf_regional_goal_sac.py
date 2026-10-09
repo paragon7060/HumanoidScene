@@ -53,6 +53,10 @@ def main():
         parser.add_argument('--' + key, type=Path, required=True)
     parser.add_argument('--native-seed', type=Path, action='append', required=True)
     parser.add_argument('--replay-capacity', type=int, default=2000000)
+    parser.add_argument('--measured-train-credit',
+        choices=('measured-episode-return', 'measured-episode-return-balanced50'),
+        default='measured-episode-return',
+        help='Fresh critic return sampling; existing initialization default is preserved')
     parser.add_argument('--servo-retention-profile',
         choices=('uniform', 'guard-tail64', 'full-arm-tail64', 'full-arm-tail64-strong-servo',
                  'full-arm-contact-exploration','full-arm-settled-contact','full-arm-precise-feedback','full-arm-motion-feedback','full-arm-upright-contact','full-arm-interior-contact','full-arm-predictive-contact','full-arm-rack-clearance'),
@@ -107,7 +111,7 @@ def main():
     pilot = pilot_class(warm, physical, args.output_dir, stages.stages[0],
         regional_source=packet, body_anchor_state=source['body_anchor_state'], training=False, device='cpu',
         replay_capacity=args.replay_capacity, train_success_retention=True, exploration_correlation=.98,
-        measured_train_credit='measured-episode-return', jaw_behavior='joint-epsilon30',
+        measured_train_credit=args.measured_train_credit, jaw_behavior='joint-epsilon30',
         jaw_saturation='logit4-soft-strong', body_behavior=args.body_behavior,
         body_saturation='mean3-soft', critic_episode_clock='task-remaining')
     assert pilot.actor_updates == pilot.critic_updates == pilot.online_rows == pilot.replay.size == 0
@@ -139,6 +143,7 @@ def main():
         physical_simulation_or_training_NOT_started=True, no_physical_success_or_improvement_claim=True,
         servo_retention_profile=args.servo_retention_profile,
         body_behavior_variant=args.body_behavior,
+        measured_train_credit=pilot.measured_train_credit,
         independent_FINAL_unused=True, goal_not_complete=True)
     for name, value in (('training_manifest.json', physical), ('waypoints.json', waypoints),
             ('training_waves.json', waves), ('initialization_verification.json', proof),

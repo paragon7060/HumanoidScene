@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from kuavo_isaaclab_scene.rl.multi_box.experiments.measured_train_credit import (
-    EPISODE_RETURN_VARIANT, VARIANT, MeasuredTrainCreditBank, measured_credit_config,
+    BALANCED_RETURN_VARIANT, EPISODE_RETURN_VARIANT, VARIANT, MeasuredTrainCreditBank, measured_credit_config,
 )
 from kuavo_isaaclab_scene.rl.multi_box.experiments.physical_train_credit import completed_episode_returns
 from test_rl_measured_train_credit import path
@@ -98,14 +98,15 @@ def test_full_return_target_never_evaluates_terminal_next_state_and_keeps_actor(
         pilot.agent.validate_critic_auxiliary(aux, .1)
 
 
-def test_episode_return_objective_and_bank_resume_without_mixing_nstep_contract(tmp_path):
+@pytest.mark.parametrize('credit_variant', [EPISODE_RETURN_VARIANT, BALANCED_RETURN_VARIANT])
+def test_episode_return_objective_and_bank_resume_without_mixing_nstep_contract(tmp_path, credit_variant):
     from kuavo_isaaclab_scene.rl.multi_box.experiments.actual_flap_residual_sac import ActualFlapResidualSACPilot
     _, old, warm, physical, stage, _ = pilots(tmp_path)
     old.directory.mkdir()
     old.save(final=True)
     cp = next(old.directory.glob('checkpoint_*.pt'))
     enabled = ActualFlapResidualSACPilot(warm, physical, tmp_path/'enabled', stage,
-        checkpoint=cp, measured_train_credit=EPISODE_RETURN_VARIANT)
+        checkpoint=cp, measured_train_credit=credit_variant)
     assert enabled.contract == old.contract
     assert all(torch.equal(v, enabled.agent.state_dict()[k]) for k, v in old.agent.state_dict().items())
     rows, outcome = path(n=40)
@@ -114,7 +115,7 @@ def test_episode_return_objective_and_bank_resume_without_mixing_nstep_contract(
     enabled.save(final=True)
     saved = next(enabled.directory.glob('checkpoint_*.pt'))
     restored = ActualFlapResidualSACPilot(warm, physical, tmp_path/'restored', stage, checkpoint=saved)
-    assert restored.measured_train_credit == measured_credit_config(EPISODE_RETURN_VARIANT)
+    assert restored.measured_train_credit == measured_credit_config(credit_variant)
     assert restored.agent.measured_train_credit_config == restored.measured_train_credit
     assert restored.measured_credit_bank.report() == enabled.measured_credit_bank.report()
     with pytest.raises(ValueError, match='differs from checkpoint'):

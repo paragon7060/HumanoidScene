@@ -4,6 +4,22 @@
 짧게 드는 **학습된 정책**이다. 현재 목표는 미달성이고 중형 박스 성공도0이다.
 원래 위치·크기 여섯 조합의 전체128개 조건으로 비교한다.
 
+**11:45 KST 학습 비중 후보 준비:** 종료된 v6의 실제 TRAIN만 사용해 TD와
+return 손실의 갱신 방향을 비교했다. 원래 sampling16batch는 두 gradient가
+모두 반대 방향이어서 가중치 증가는 보류했다. 성공/실패 비중을 조절하는
+옵션은 두 CPU 표본에서 성공 경로의 Q-return 오차를 더 일관되게 줄였다.
+관련 test39개와 새 초기 모델의 실제 저장·학습 재개·Q 복원을 통과했다.
+새 물리 writer나 성공률 개선은 아직 아니며 기존9개 학습과 v8 대기는 유지했다.
+[실제 값·변경·한계](RL_V2_CRITIC_DIAGNOSTICS_20261009.md).
+
+**11:38 KST v7 첫 실제 TRAIN128 완료:** 성공10·안전 위반53·시간 초과65회,
+초기 무효0회였다. Actor0/Q1,590인 critic warmup이므로 학습 후 greedy 성능이
+아니다. 원래 탐색 배정33회는 성공0·안전 위반23·시간 초과10회, 나머지95회는
+성공10회였다. 안내 경로의 lift 시도도0회였다. 안전 종료53회 중 rack48·box drop3·
+lift limit2회였다. 원래 DR·성공·안전 기준을 유지하며 TRAIN2를 이어가고,
+뒤이은 전체 DEV128로 학습 성능을 판단한다.
+[첫 TRAIN의 실제 원래 조건·mode·종료 근거](assets/rl_v2_URDF_predictive_contact_first_TRAIN128_20261009.json).
+
 **11:16 KST 새 전체 결과:** 강한 성공 유지 비교는 TRAIN2,304조건 뒤 성공6·
 안전 위반55·시간 초과67/128회였다. 직전5회보다1회 늘었지만 자기 초기11회보다
 낮고 중형0이다. Actor6,778/Q29,158의 실제 평가 전후 모델·optimizer·원래 전체
@@ -45,9 +61,10 @@ v7의 새 회귀가 아니다. 무효8개는 안정된 background 박스의 영�
 [실제 초기 기록·비교](assets/rl_v2_predictive_initial_guard_comparison_20261009.json).
 
 현재 실제 SAC writer9개는 계속하며 기존 여덟 장기의 TRAIN6,144조건 계획도
-유지한다. v7은 GPU3에서 초기 DEV0 step451까지 진행했고 actor/Q0인 기준이다.
-완료된 startup 계약·고정 소스757개·기존 Drive를 확인했다. 성공 명령 유지
-장기의 TRAIN3,072 뒤 DEV32를 확인하는 새 CPU 관찰PID379,902도 실제 등록했다.
+유지한다. 11:36 실제 PID·CUDA·메타데이터 확인에서는 v5 DEV8·닫힘 정착 DEV20·
+접촉 탐색 DEV24·작은 탐색 DEV28·uniform DEV40을 평가했고, 다른 장기들은
+TRAIN을 계속했다. v7도 첫 TRAIN을 끝내고 다음 수집을 이어간다. 고정 소스757개와
+기존 Drive를 사용하며9개 관리자 모두 최근 백업 검증과 오류 없음이 확인됐다.
 v8은 CPU4,186,466이 앞선 v7의 정상 종료·최종 Drive 검증을 기다린다.
 [실제 v7 startup](assets/rl_v2_URDF_predictive_contact_SAC_actual_startup_20261009.json).
 

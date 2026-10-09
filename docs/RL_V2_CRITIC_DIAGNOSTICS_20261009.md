@@ -51,6 +51,57 @@ TRAIN 성공 경로 자체에서도 시작 Q 중앙값0.790과 실제 return4.79
 [실제 TRAIN 성공 bank·critic 연결·수치](assets/rl_v2_interior_contact_repaired_closed_TRAIN_success_critic_diagnostic_20261009.json) ·
 [같은 상태의 정책 기대값 진단](assets/rl_v2_interior_contact_repaired_closed_TRAIN_policy_expectation_diagnostic_20261009.json).
 
+## TD와 실제 TRAIN return 갱신 방향 비교
+
+종료된 같은 v6의 replay234,396행과 검증된 실제 TRAIN bank만 CPU에서 읽었다.
+모델과 Adam moment를 복제하여 actor·정규화를 고정하고 critic만32번씩
+갱신했다. 두 CPU 표본 seed로 비교했으며 원래 물리 학습에는 반영하지 않았다.
+
+기존 return 목적함수는 가중치0.1에서도 TD gradient norm의약1.49–4.20배였다.
+원래 sampling의16개 진단 batch에서 TD와 return gradient의 cosine은 모두
+음수였다. 따라서 낮은 Q를 보고 return 가중치부터 높이는 판단은 보류한다.
+가중치0.3·1.0은 과거 return 오차를 일부 줄였지만 마지막 TD 손실도 커졌고,
+성공 경로에 대한 개선은 두 표본 seed에서 일관되지 않았다.
+
+새 `measured-episode-return-balanced50`은 각 구역에서 **실제 안전 성공과
+실패를 절반씩** 뽑고, 같은 class 안에서 episode와 row를 균등하게 뽑는다.
+실제 성공이 없는 구역은 실패만 사용한다. 성공은 양손 opposing pinch·
+hold≥0.25초·proof lift·안전 증거까지 검증하며 DEV/FINAL을 넣지 않는다.
+batch64·가중치0.1·온라인 TD·실제 보상·종료·구역 균형은 유지한다.
+
+| 기존 모델에서 복제 critic32회 갱신 | 성공21경로의 Q-return 절대 차이 중앙값, 표본seed1 / seed2 |
+|---|---:|
+| 갱신 전 | 4.276 / 4.276 |
+| 기존 sampling·weight0.1 | 4.032 / 3.903 |
+| 기존 sampling·weight0.3 | 3.956 / 4.155 |
+| 기존 sampling·weight1.0 | 3.699 / 3.882 |
+| 성공/실패 비중 조절·weight0.1 | 3.774 / 3.693 |
+
+두 번째 표본의 균형 sampling8batch에서는 gradient cosine이 모두 양수였다.
+이는 실제 TRAIN에서의 학습 후보 근거이며 **실제 성공률 개선이나 일반화
+검증이 아니다.** 균형 sampling의 unsafe return 오차는 기존 방식보다 한
+표본에서 컸다. 같은 학습 데이터의 calibration이고, 과거 behavior return은
+현재 정책의 편향 없는 target이 아니므로 원래 안전 기준과 전체128평가로
+다음 물리 비교를 판단해야 한다.
+
+![종료 TRAIN에서의 critic 갱신 방향과 두 표본의 오차 비교](assets/rl_v2_closed_TRAIN_critic_balance_20261009.png)
+
+옵션은 training entrypoint와 fresh URDF initializer에서 선택할 수 있다.
+기본값과 이미 실행 중인 source는 유지했다. checkpoint와 replay에 sampling
+설정을 함께 저장하고, 재개 시 서로 다른 설정을 섞으면 거부한다.
+관련 CPU test39개와 실제 새 초기 모델의 저장·TRAIN 재개·Q exporter 복원을
+확인했다. 균형 sampling의 물리 writer는 아직 시작하지 않았다.
+
+```bash
+# Fresh initialization and its subsequent matching training both use this option.
+--measured-train-credit measured-episode-return-balanced50
+```
+
+[두 CPU 표본의 loss·gradient·bank 범위·실제 수치](assets/rl_v2_closed_TRAIN_critic_balance_20261009.json).
+재현 도구는 `scripts/rl/audit_closed_train_critic_gradients.py`다. 종료된 원본의
+Drive 검증·writer 종료·model checksum·bank provenance를 확인하고, 원본 파일과
+현재 학습을 변경하지 않은 CPU 복제 갱신만 수행한다.
+
 ## 초기 무효 조건과 상단 왼쪽 성공의 해석
 
 v5·v6·v7의 첫 배치 guard 파일은 SHA256까지 같았다. 원래 요청128개 중

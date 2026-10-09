@@ -1,0 +1,820 @@
+{
+  "recorded_at": "2026-10-09T11:46:23.639344+09:00",
+  "role": "closed_actual_TRAIN_critic_only_two_local_sample_seeds_NOT_physics_evaluation",
+  "records": [
+    {
+      "recorded_at": "2026-10-09T11:40:42.702440+09:00",
+      "role": "closed_actual_TRAIN_disposable_CPU_critic_gradient_diagnostic_NOT_evaluation",
+      "source_run_directory_name": "batch_sac_20261009_073423_3f1269",
+      "source_model_SHA256": "61fbb833b5a585c44b0eee101815d0f28a1ceec5b14e3bfa522c39ce05c5ff29",
+      "source_experience_SHA256": "1e46e040861d9c35b53b4286cb2b08ff5dfbd6b7da1b905b1057ca4487d7be53",
+      "actor_updates": 695,
+      "critic_updates": 4828,
+      "seed": 20261009,
+      "replay_rows": 234396,
+      "success_bank": {
+        "rows": 10549,
+        "by_region": {
+          "shelf_2_right": {
+            "episodes": 0,
+            "rows": 0
+          },
+          "shelf_2_left": {
+            "episodes": 10,
+            "rows": 3990
+          },
+          "shelf_3_right": {
+            "episodes": 6,
+            "rows": 3573
+          },
+          "shelf_3_left": {
+            "episodes": 5,
+            "rows": 2986
+          }
+        },
+        "TRAIN_only": true,
+        "evaluation_rows": 0
+      },
+      "measured_bank": {
+        "rows": 31700,
+        "by_region": {
+          "shelf_2_right": {
+            "episodes": 11,
+            "successes": 0,
+            "failures": 11,
+            "rows": 7562
+          },
+          "shelf_2_left": {
+            "episodes": 19,
+            "successes": 2,
+            "failures": 17,
+            "rows": 7918
+          },
+          "shelf_3_right": {
+            "episodes": 14,
+            "successes": 2,
+            "failures": 12,
+            "rows": 8077
+          },
+          "shelf_3_left": {
+            "episodes": 11,
+            "successes": 3,
+            "failures": 8,
+            "rows": 8143
+          }
+        },
+        "TRAIN_only": true,
+        "evaluation_rows": 0,
+        "auxiliary_target": "actual_discounted_rewards_through_real_terminal_no_bootstrap",
+        "bootstrap_allowed": false,
+        "episode_length_bias_removed": true
+      },
+      "successful_TRAIN_Q_replay_fraction": 0.17915,
+      "actual_batch_size": 256,
+      "return_batch_size": 64,
+      "return_weight_in_existing_training": 0.1,
+      "gradient_batches": [
+        {
+          "batch": 0,
+          "one_step_loss": 0.1814168393611908,
+          "return_loss": 23.8746395111084,
+          "TD_gradient_norm": 2.748680591583252,
+          "return_gradient_norm": 52.06911849975586,
+          "gradient_cosine": -0.18719379603862762,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 1.894331455230713,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 1,
+          "one_step_loss": 0.12996996939182281,
+          "return_loss": 33.62604522705078,
+          "TD_gradient_norm": 3.1640381813049316,
+          "return_gradient_norm": 56.960601806640625,
+          "gradient_cosine": -0.2955748438835144,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 1.8002501726150513,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 2,
+          "one_step_loss": 0.12310071289539337,
+          "return_loss": 35.915985107421875,
+          "TD_gradient_norm": 3.4096193313598633,
+          "return_gradient_norm": 60.57658767700195,
+          "gradient_cosine": -0.11111176013946533,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 1.7766377925872803,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 3,
+          "one_step_loss": 0.13269750773906708,
+          "return_loss": 27.715194702148438,
+          "TD_gradient_norm": 2.2282931804656982,
+          "return_gradient_norm": 52.93107223510742,
+          "gradient_cosine": -0.24126970767974854,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 2.375408887863159,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 4,
+          "one_step_loss": 0.08788441121578217,
+          "return_loss": 21.68255043029785,
+          "TD_gradient_norm": 2.252218008041382,
+          "return_gradient_norm": 45.572322845458984,
+          "gradient_cosine": -0.23849831521511078,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 2.023442029953003,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 5,
+          "one_step_loss": 0.12984217703342438,
+          "return_loss": 37.254276275634766,
+          "TD_gradient_norm": 2.0958001613616943,
+          "return_gradient_norm": 68.61442565917969,
+          "gradient_cosine": -0.040751878172159195,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 3.2739012241363525,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 6,
+          "one_step_loss": 0.1017819344997406,
+          "return_loss": 28.451114654541016,
+          "TD_gradient_norm": 2.682366132736206,
+          "return_gradient_norm": 48.482845306396484,
+          "gradient_cosine": -0.16329006850719452,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 1.807465672492981,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 7,
+          "one_step_loss": 0.09645655751228333,
+          "return_loss": 18.415180206298828,
+          "TD_gradient_norm": 2.4118685722351074,
+          "return_gradient_norm": 45.8097038269043,
+          "gradient_cosine": -0.3795660138130188,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 1.8993449211120605,
+          "retained_success_rows": 46
+        }
+      ],
+      "baseline_calibration": {
+        "success": {
+          "episodes": 21,
+          "Q_mean_episode_median": 1.0408028364181519,
+          "return_mean_episode_median": 5.472589015960693,
+          "Q_minus_recorded_return_episode_median": -4.27554988861084,
+          "absolute_difference_episode_median": 4.27554988861084
+        },
+        "unsafe": {
+          "episodes": 29,
+          "Q_mean_episode_median": -4.777779579162598,
+          "return_mean_episode_median": -6.931284427642822,
+          "Q_minus_recorded_return_episode_median": 2.440220594406128,
+          "absolute_difference_episode_median": 2.5312395095825195
+        },
+        "time_out": {
+          "episodes": 19,
+          "Q_mean_episode_median": -0.9442518949508667,
+          "return_mean_episode_median": -2.1858832836151123,
+          "Q_minus_recorded_return_episode_median": 0.979371190071106,
+          "absolute_difference_episode_median": 0.981897234916687
+        }
+      },
+      "comparisons": [
+        {
+          "return_weight": 0.1,
+          "return_sampling": "measured-episode-return",
+          "disposable_critic_updates": 32,
+          "final_calibration": {
+            "success": {
+              "episodes": 21,
+              "Q_mean_episode_median": 1.5234037637710571,
+              "return_mean_episode_median": 5.472589015960693,
+              "Q_minus_recorded_return_episode_median": -4.031900882720947,
+              "absolute_difference_episode_median": 4.031900882720947
+            },
+            "unsafe": {
+              "episodes": 29,
+              "Q_mean_episode_median": -5.49097204208374,
+              "return_mean_episode_median": -6.931284427642822,
+              "Q_minus_recorded_return_episode_median": 1.666167974472046,
+              "absolute_difference_episode_median": 1.698621392250061
+            },
+            "time_out": {
+              "episodes": 19,
+              "Q_mean_episode_median": -1.2210267782211304,
+              "return_mean_episode_median": -2.1858832836151123,
+              "Q_minus_recorded_return_episode_median": 0.9152134656906128,
+              "absolute_difference_episode_median": 0.9289184212684631
+            }
+          },
+          "first_update": {
+            "q_loss": 2.568880796432495,
+            "one_step_q_loss": 0.1814168393611908,
+            "measured_episode_return_q_loss": 23.8746395111084,
+            "measured_episode_return_weight": 0.1
+          },
+          "last_update": {
+            "q_loss": 2.8123579025268555,
+            "one_step_q_loss": 0.6630316972732544,
+            "measured_episode_return_q_loss": 21.49325942993164,
+            "measured_episode_return_weight": 0.1
+          },
+          "actor_and_normalizers_unchanged": true
+        },
+        {
+          "return_weight": 0.3,
+          "return_sampling": "measured-episode-return",
+          "disposable_critic_updates": 32,
+          "final_calibration": {
+            "success": {
+              "episodes": 21,
+              "Q_mean_episode_median": 1.7314453125,
+              "return_mean_episode_median": 5.472589015960693,
+              "Q_minus_recorded_return_episode_median": -3.9556150436401367,
+              "absolute_difference_episode_median": 3.9556150436401367
+            },
+            "unsafe": {
+              "episodes": 29,
+              "Q_mean_episode_median": -6.012997627258301,
+              "return_mean_episode_median": -6.931284427642822,
+              "Q_minus_recorded_return_episode_median": 1.2836735248565674,
+              "absolute_difference_episode_median": 1.3564319610595703
+            },
+            "time_out": {
+              "episodes": 19,
+              "Q_mean_episode_median": -1.5012620687484741,
+              "return_mean_episode_median": -2.1858832836151123,
+              "Q_minus_recorded_return_episode_median": 0.6559681296348572,
+              "absolute_difference_episode_median": 0.7152524590492249
+            }
+          },
+          "first_update": {
+            "q_loss": 7.343809127807617,
+            "one_step_q_loss": 0.1814168393611908,
+            "measured_episode_return_q_loss": 23.8746395111084,
+            "measured_episode_return_weight": 0.3
+          },
+          "last_update": {
+            "q_loss": 6.3564348220825195,
+            "one_step_q_loss": 1.7452980279922485,
+            "measured_episode_return_q_loss": 15.370455741882324,
+            "measured_episode_return_weight": 0.3
+          },
+          "actor_and_normalizers_unchanged": true
+        },
+        {
+          "return_weight": 1.0,
+          "return_sampling": "measured-episode-return",
+          "disposable_critic_updates": 32,
+          "final_calibration": {
+            "success": {
+              "episodes": 21,
+              "Q_mean_episode_median": 1.6175941228866577,
+              "return_mean_episode_median": 5.472589015960693,
+              "Q_minus_recorded_return_episode_median": -3.698758363723755,
+              "absolute_difference_episode_median": 3.698758363723755
+            },
+            "unsafe": {
+              "episodes": 29,
+              "Q_mean_episode_median": -6.296635150909424,
+              "return_mean_episode_median": -6.931284427642822,
+              "Q_minus_recorded_return_episode_median": 0.7587073445320129,
+              "absolute_difference_episode_median": 0.8088775873184204
+            },
+            "time_out": {
+              "episodes": 19,
+              "Q_mean_episode_median": -1.8071541786193848,
+              "return_mean_episode_median": -2.1858832836151123,
+              "Q_minus_recorded_return_episode_median": 0.40677157044410706,
+              "absolute_difference_episode_median": 0.7420307397842407
+            }
+          },
+          "first_update": {
+            "q_loss": 24.05605697631836,
+            "one_step_q_loss": 0.1814168393611908,
+            "measured_episode_return_q_loss": 23.8746395111084,
+            "measured_episode_return_weight": 1.0
+          },
+          "last_update": {
+            "q_loss": 15.018607139587402,
+            "one_step_q_loss": 4.544560432434082,
+            "measured_episode_return_q_loss": 10.47404670715332,
+            "measured_episode_return_weight": 1.0
+          },
+          "actor_and_normalizers_unchanged": true
+        },
+        {
+          "return_weight": 0.1,
+          "return_sampling": "measured-episode-return-balanced50",
+          "disposable_critic_updates": 32,
+          "final_calibration": {
+            "success": {
+              "episodes": 21,
+              "Q_mean_episode_median": 1.687413215637207,
+              "return_mean_episode_median": 5.472589015960693,
+              "Q_minus_recorded_return_episode_median": -3.7740297317504883,
+              "absolute_difference_episode_median": 3.7740297317504883
+            },
+            "unsafe": {
+              "episodes": 29,
+              "Q_mean_episode_median": -5.284770965576172,
+              "return_mean_episode_median": -6.931284427642822,
+              "Q_minus_recorded_return_episode_median": 1.9692784547805786,
+              "absolute_difference_episode_median": 1.9692784547805786
+            },
+            "time_out": {
+              "episodes": 19,
+              "Q_mean_episode_median": -1.098883867263794,
+              "return_mean_episode_median": -2.1858832836151123,
+              "Q_minus_recorded_return_episode_median": 0.9676167368888855,
+              "absolute_difference_episode_median": 0.9917446374893188
+            }
+          },
+          "first_update": {
+            "q_loss": 4.58835506439209,
+            "one_step_q_loss": 0.1814168393611908,
+            "measured_episode_return_q_loss": 44.06938171386719,
+            "measured_episode_return_weight": 0.1
+          },
+          "last_update": {
+            "q_loss": 3.4803996086120605,
+            "one_step_q_loss": 0.851640522480011,
+            "measured_episode_return_q_loss": 26.28759002685547,
+            "measured_episode_return_weight": 0.1
+          },
+          "actor_and_normalizers_unchanged": true
+        }
+      ],
+      "normalizers_frozen_for_controlled_diagnostic": true,
+      "actor_updates_per_trial": 0,
+      "target_network_Polyak_updates_retained": true,
+      "no_actual_training_files_changed": true,
+      "closed_originals_unchanged": true,
+      "no_GPU_or_physics": true,
+      "no_DEV_or_FINAL_rows": true,
+      "raw_observations_actions_NOT_exported": true,
+      "recorded_behavior_return_is_off_policy_NOT_unbiased_current_policy_target": true,
+      "no_new_physical_success_claim": true,
+      "goal_not_complete": true,
+      "same_one_step_batches_target_sampling_seeds_and_mature_Adam": true,
+      "original_sampling_weight_trials_same_return_batches": true,
+      "balanced_trial_changes_only_return_sampling": true
+    },
+    {
+      "recorded_at": "2026-10-09T11:42:39.653539+09:00",
+      "role": "closed_actual_TRAIN_disposable_CPU_critic_gradient_diagnostic_NOT_evaluation",
+      "source_run_directory_name": "batch_sac_20261009_073423_3f1269",
+      "source_model_SHA256": "61fbb833b5a585c44b0eee101815d0f28a1ceec5b14e3bfa522c39ce05c5ff29",
+      "source_experience_SHA256": "1e46e040861d9c35b53b4286cb2b08ff5dfbd6b7da1b905b1057ca4487d7be53",
+      "actor_updates": 695,
+      "critic_updates": 4828,
+      "seed": 20261010,
+      "replay_rows": 234396,
+      "success_bank": {
+        "rows": 10549,
+        "by_region": {
+          "shelf_2_right": {
+            "episodes": 0,
+            "rows": 0
+          },
+          "shelf_2_left": {
+            "episodes": 10,
+            "rows": 3990
+          },
+          "shelf_3_right": {
+            "episodes": 6,
+            "rows": 3573
+          },
+          "shelf_3_left": {
+            "episodes": 5,
+            "rows": 2986
+          }
+        },
+        "TRAIN_only": true,
+        "evaluation_rows": 0
+      },
+      "measured_bank": {
+        "rows": 31700,
+        "by_region": {
+          "shelf_2_right": {
+            "episodes": 11,
+            "successes": 0,
+            "failures": 11,
+            "rows": 7562
+          },
+          "shelf_2_left": {
+            "episodes": 19,
+            "successes": 2,
+            "failures": 17,
+            "rows": 7918
+          },
+          "shelf_3_right": {
+            "episodes": 14,
+            "successes": 2,
+            "failures": 12,
+            "rows": 8077
+          },
+          "shelf_3_left": {
+            "episodes": 11,
+            "successes": 3,
+            "failures": 8,
+            "rows": 8143
+          }
+        },
+        "TRAIN_only": true,
+        "evaluation_rows": 0,
+        "auxiliary_target": "actual_discounted_rewards_through_real_terminal_no_bootstrap",
+        "bootstrap_allowed": false,
+        "episode_length_bias_removed": true
+      },
+      "successful_TRAIN_Q_replay_fraction": 0.17915,
+      "actual_batch_size": 256,
+      "return_batch_size": 64,
+      "return_weight_in_existing_training": 0.1,
+      "gradient_batches": [
+        {
+          "batch": 0,
+          "return_sampling": "measured-episode-return",
+          "one_step_loss": 0.11120516806840897,
+          "return_loss": 31.402877807617188,
+          "TD_gradient_norm": 1.8126802444458008,
+          "return_gradient_norm": 55.70225143432617,
+          "gradient_cosine": -0.32280924916267395,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 3.0729222297668457,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 1,
+          "return_sampling": "measured-episode-return",
+          "one_step_loss": 0.29824864864349365,
+          "return_loss": 44.378334045410156,
+          "TD_gradient_norm": 2.4977376461029053,
+          "return_gradient_norm": 73.07660675048828,
+          "gradient_cosine": -0.04335997998714447,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 2.9257118701934814,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 2,
+          "return_sampling": "measured-episode-return",
+          "one_step_loss": 0.0961240604519844,
+          "return_loss": 27.644563674926758,
+          "TD_gradient_norm": 2.5151469707489014,
+          "return_gradient_norm": 55.652099609375,
+          "gradient_cosine": -0.15635687112808228,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 2.2126777172088623,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 3,
+          "return_sampling": "measured-episode-return",
+          "one_step_loss": 0.10892614722251892,
+          "return_loss": 30.96599578857422,
+          "TD_gradient_norm": 2.6836819648742676,
+          "return_gradient_norm": 52.92047882080078,
+          "gradient_cosine": -0.2043275535106659,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 1.9719356298446655,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 4,
+          "return_sampling": "measured-episode-return",
+          "one_step_loss": 0.06332879513502121,
+          "return_loss": 34.016319274902344,
+          "TD_gradient_norm": 1.7257298231124878,
+          "return_gradient_norm": 72.44910430908203,
+          "gradient_cosine": -0.3549376428127289,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 4.198172092437744,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 5,
+          "return_sampling": "measured-episode-return",
+          "one_step_loss": 0.09709476679563522,
+          "return_loss": 19.549943923950195,
+          "TD_gradient_norm": 2.275190591812134,
+          "return_gradient_norm": 45.50810241699219,
+          "gradient_cosine": -0.18170014023780823,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 2.0001885890960693,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 6,
+          "return_sampling": "measured-episode-return",
+          "one_step_loss": 0.11337496340274811,
+          "return_loss": 25.73599624633789,
+          "TD_gradient_norm": 3.029571294784546,
+          "return_gradient_norm": 51.25547409057617,
+          "gradient_cosine": -0.4214983880519867,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 1.6918392181396484,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 7,
+          "return_sampling": "measured-episode-return",
+          "one_step_loss": 0.19904281198978424,
+          "return_loss": 25.308786392211914,
+          "TD_gradient_norm": 3.443732261657715,
+          "return_gradient_norm": 51.233680725097656,
+          "gradient_cosine": -0.2023041695356369,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 1.4877370595932007,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 0,
+          "return_sampling": "measured-episode-return-balanced50",
+          "one_step_loss": 0.11120516806840897,
+          "return_loss": 37.27486801147461,
+          "TD_gradient_norm": 1.8126802444458008,
+          "return_gradient_norm": 77.7498779296875,
+          "gradient_cosine": 0.10952522605657578,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 4.28922176361084,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 1,
+          "return_sampling": "measured-episode-return-balanced50",
+          "one_step_loss": 0.29824864864349365,
+          "return_loss": 47.7685546875,
+          "TD_gradient_norm": 2.4977376461029053,
+          "return_gradient_norm": 81.25251770019531,
+          "gradient_cosine": 0.1800898313522339,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 3.253044605255127,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 2,
+          "return_sampling": "measured-episode-return-balanced50",
+          "one_step_loss": 0.0961240604519844,
+          "return_loss": 56.131370544433594,
+          "TD_gradient_norm": 2.5151469707489014,
+          "return_gradient_norm": 117.61734771728516,
+          "gradient_cosine": 0.3558076024055481,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 4.676361083984375,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 3,
+          "return_sampling": "measured-episode-return-balanced50",
+          "one_step_loss": 0.10892614722251892,
+          "return_loss": 46.2440185546875,
+          "TD_gradient_norm": 2.6836819648742676,
+          "return_gradient_norm": 86.97521209716797,
+          "gradient_cosine": 0.15036065876483917,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 3.240891218185425,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 4,
+          "return_sampling": "measured-episode-return-balanced50",
+          "one_step_loss": 0.06332879513502121,
+          "return_loss": 45.095985412597656,
+          "TD_gradient_norm": 1.7257298231124878,
+          "return_gradient_norm": 82.80754852294922,
+          "gradient_cosine": 0.33813437819480896,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 4.798407554626465,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 5,
+          "return_sampling": "measured-episode-return-balanced50",
+          "one_step_loss": 0.09709476679563522,
+          "return_loss": 46.11963653564453,
+          "TD_gradient_norm": 2.275190591812134,
+          "return_gradient_norm": 82.83999633789062,
+          "gradient_cosine": 0.19455936551094055,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 3.6410133838653564,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 6,
+          "return_sampling": "measured-episode-return-balanced50",
+          "one_step_loss": 0.11337496340274811,
+          "return_loss": 44.024436950683594,
+          "TD_gradient_norm": 3.029571294784546,
+          "return_gradient_norm": 81.47506713867188,
+          "gradient_cosine": 0.0418122336268425,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 2.689326524734497,
+          "retained_success_rows": 46
+        },
+        {
+          "batch": 7,
+          "return_sampling": "measured-episode-return-balanced50",
+          "one_step_loss": 0.19904281198978424,
+          "return_loss": 54.00792694091797,
+          "TD_gradient_norm": 3.443732261657715,
+          "return_gradient_norm": 110.34492492675781,
+          "gradient_cosine": 0.03187479078769684,
+          "weighted_return_to_TD_gradient_norm_at_0p1": 3.2042248249053955,
+          "retained_success_rows": 46
+        }
+      ],
+      "baseline_calibration": {
+        "success": {
+          "episodes": 21,
+          "Q_mean_episode_median": 1.0408028364181519,
+          "return_mean_episode_median": 5.472589015960693,
+          "Q_minus_recorded_return_episode_median": -4.27554988861084,
+          "absolute_difference_episode_median": 4.27554988861084
+        },
+        "unsafe": {
+          "episodes": 29,
+          "Q_mean_episode_median": -4.777779579162598,
+          "return_mean_episode_median": -6.931284427642822,
+          "Q_minus_recorded_return_episode_median": 2.440220594406128,
+          "absolute_difference_episode_median": 2.5312395095825195
+        },
+        "time_out": {
+          "episodes": 19,
+          "Q_mean_episode_median": -0.9442518949508667,
+          "return_mean_episode_median": -2.1858832836151123,
+          "Q_minus_recorded_return_episode_median": 0.979371190071106,
+          "absolute_difference_episode_median": 0.981897234916687
+        }
+      },
+      "comparisons": [
+        {
+          "return_weight": 0.1,
+          "return_sampling": "measured-episode-return",
+          "disposable_critic_updates": 32,
+          "final_calibration": {
+            "success": {
+              "episodes": 21,
+              "Q_mean_episode_median": 1.3525466918945312,
+              "return_mean_episode_median": 5.472589015960693,
+              "Q_minus_recorded_return_episode_median": -3.9033474922180176,
+              "absolute_difference_episode_median": 3.9033474922180176
+            },
+            "unsafe": {
+              "episodes": 29,
+              "Q_mean_episode_median": -5.083067417144775,
+              "return_mean_episode_median": -6.931284427642822,
+              "Q_minus_recorded_return_episode_median": 1.870964765548706,
+              "absolute_difference_episode_median": 1.9616206884384155
+            },
+            "time_out": {
+              "episodes": 19,
+              "Q_mean_episode_median": -1.0546072721481323,
+              "return_mean_episode_median": -2.1858832836151123,
+              "Q_minus_recorded_return_episode_median": 0.9354166984558105,
+              "absolute_difference_episode_median": 0.954766035079956
+            }
+          },
+          "first_update": {
+            "q_loss": 3.251492977142334,
+            "one_step_q_loss": 0.11120516806840897,
+            "measured_episode_return_q_loss": 31.402877807617188,
+            "measured_episode_return_weight": 0.1
+          },
+          "last_update": {
+            "q_loss": 2.5753424167633057,
+            "one_step_q_loss": 0.41198673844337463,
+            "measured_episode_return_q_loss": 21.633556365966797,
+            "measured_episode_return_weight": 0.1
+          },
+          "actor_and_normalizers_unchanged": true
+        },
+        {
+          "return_weight": 0.3,
+          "return_sampling": "measured-episode-return",
+          "disposable_critic_updates": 32,
+          "final_calibration": {
+            "success": {
+              "episodes": 21,
+              "Q_mean_episode_median": 1.6016628742218018,
+              "return_mean_episode_median": 5.472589015960693,
+              "Q_minus_recorded_return_episode_median": -4.154792308807373,
+              "absolute_difference_episode_median": 4.154792308807373
+            },
+            "unsafe": {
+              "episodes": 29,
+              "Q_mean_episode_median": -5.643032550811768,
+              "return_mean_episode_median": -6.931284427642822,
+              "Q_minus_recorded_return_episode_median": 1.3865728378295898,
+              "absolute_difference_episode_median": 1.3865728378295898
+            },
+            "time_out": {
+              "episodes": 19,
+              "Q_mean_episode_median": -1.4807631969451904,
+              "return_mean_episode_median": -2.1858832836151123,
+              "Q_minus_recorded_return_episode_median": 0.6421313285827637,
+              "absolute_difference_episode_median": 0.7906873822212219
+            }
+          },
+          "first_update": {
+            "q_loss": 9.532069206237793,
+            "one_step_q_loss": 0.11120516806840897,
+            "measured_episode_return_q_loss": 31.402877807617188,
+            "measured_episode_return_weight": 0.3
+          },
+          "last_update": {
+            "q_loss": 5.96372127532959,
+            "one_step_q_loss": 1.4884507656097412,
+            "measured_episode_return_q_loss": 14.917566299438477,
+            "measured_episode_return_weight": 0.3
+          },
+          "actor_and_normalizers_unchanged": true
+        },
+        {
+          "return_weight": 1.0,
+          "return_sampling": "measured-episode-return",
+          "disposable_critic_updates": 32,
+          "final_calibration": {
+            "success": {
+              "episodes": 21,
+              "Q_mean_episode_median": 1.434280514717102,
+              "return_mean_episode_median": 5.472589015960693,
+              "Q_minus_recorded_return_episode_median": -3.8820722103118896,
+              "absolute_difference_episode_median": 3.8820722103118896
+            },
+            "unsafe": {
+              "episodes": 29,
+              "Q_mean_episode_median": -6.404945373535156,
+              "return_mean_episode_median": -6.931284427642822,
+              "Q_minus_recorded_return_episode_median": 0.6925234794616699,
+              "absolute_difference_episode_median": 0.6925234794616699
+            },
+            "time_out": {
+              "episodes": 19,
+              "Q_mean_episode_median": -1.7711178064346313,
+              "return_mean_episode_median": -2.1858832836151123,
+              "Q_minus_recorded_return_episode_median": 0.4428078532218933,
+              "absolute_difference_episode_median": 0.8005710244178772
+            }
+          },
+          "first_update": {
+            "q_loss": 31.514083862304688,
+            "one_step_q_loss": 0.11120516806840897,
+            "measured_episode_return_q_loss": 31.402877807617188,
+            "measured_episode_return_weight": 1.0
+          },
+          "last_update": {
+            "q_loss": 13.614727020263672,
+            "one_step_q_loss": 4.3398118019104,
+            "measured_episode_return_q_loss": 9.27491569519043,
+            "measured_episode_return_weight": 1.0
+          },
+          "actor_and_normalizers_unchanged": true
+        },
+        {
+          "return_weight": 0.1,
+          "return_sampling": "measured-episode-return-balanced50",
+          "disposable_critic_updates": 32,
+          "final_calibration": {
+            "success": {
+              "episodes": 21,
+              "Q_mean_episode_median": 1.826821208000183,
+              "return_mean_episode_median": 5.472589015960693,
+              "Q_minus_recorded_return_episode_median": -3.6927621364593506,
+              "absolute_difference_episode_median": 3.6927621364593506
+            },
+            "unsafe": {
+              "episodes": 29,
+              "Q_mean_episode_median": -5.338507175445557,
+              "return_mean_episode_median": -6.931284427642822,
+              "Q_minus_recorded_return_episode_median": 1.9002680778503418,
+              "absolute_difference_episode_median": 1.9002680778503418
+            },
+            "time_out": {
+              "episodes": 19,
+              "Q_mean_episode_median": -1.0893816947937012,
+              "return_mean_episode_median": -2.1858832836151123,
+              "Q_minus_recorded_return_episode_median": 0.8745419383049011,
+              "absolute_difference_episode_median": 0.9636889100074768
+            }
+          },
+          "first_update": {
+            "q_loss": 3.8386919498443604,
+            "one_step_q_loss": 0.11120516806840897,
+            "measured_episode_return_q_loss": 37.27486801147461,
+            "measured_episode_return_weight": 0.1
+          },
+          "last_update": {
+            "q_loss": 3.2774291038513184,
+            "one_step_q_loss": 0.6508615016937256,
+            "measured_episode_return_q_loss": 26.265674591064453,
+            "measured_episode_return_weight": 0.1
+          },
+          "actor_and_normalizers_unchanged": true
+        }
+      ],
+      "same_one_step_batches_target_sampling_seeds_and_mature_Adam": true,
+      "original_sampling_weight_trials_same_return_batches": true,
+      "balanced_trial_changes_only_return_sampling": true,
+      "normalizers_frozen_for_controlled_diagnostic": true,
+      "actor_updates_per_trial": 0,
+      "target_network_Polyak_updates_retained": true,
+      "no_actual_training_files_changed": true,
+      "closed_originals_unchanged": true,
+      "no_GPU_or_physics": true,
+      "no_DEV_or_FINAL_rows": true,
+      "raw_observations_actions_NOT_exported": true,
+      "recorded_behavior_return_is_off_policy_NOT_unbiased_current_policy_target": true,
+      "no_new_physical_success_claim": true,
+      "goal_not_complete": true
+    }
+  ],
+  "CPU_tests_passed": 39,
+  "existing9physical_writers_and_v8_queue_unchanged": true,
+  "balanced50_physical_training_NOT_started": true,
+  "goal_not_complete": true
+}
