@@ -64,6 +64,9 @@ GPU 학습에 사용하지 않았다.
 와 `--body-behavior arm20-gentle-rest-greedy`다. 새 고유 실행 폴더와 고정 소스,
 `CUDA_VISIBLE_DEVICES=3`·learner `cuda:0`를 사용한다. 기존 v7의 정상 종료·최종
 Drive 검증과 실제 GPU/디스크 여유 뒤에 순차 실행하며 다른 작업을 중단하지 않는다.
+RAM의 우리 고유 실행 경로로 raw payload를 저장해 일반 디스크의 장기 저장량과
+분산한다. 실제 CPU 대기 PID4,186,466을 확인했으며 v8 GPU writer는 아직 시작 전이다.
+[실제 대기·고정 소스·기존 writer 검증](assets/rl_v2_whole_arm_clearance_actual_GPU3_queue_verified_20261009.json).
 TRAIN384조건·초기/학습 후 DEV128조건을 원래 여섯 조합으로 비교하고,
 전체 학습 후 효과가 확인되면 장기를 이어 간다. 준비 파일만으로 실행됐다고
 표시하지 않으며 실제 대기/시작 PID는 별도 증거로 기록한다. 기존 장기 학습은 유지한다.

@@ -20,6 +20,21 @@
 새 파지 성공은 아직 아니다. GPU3 순차 대기와 실제 시작은 별도 PID로 확인한다.
 [변경·방법·수치·검증 한계](RL_V2_WHOLE_ARM_CLEARANCE_SAC_20261009.md).
 
+10:22까지 추가로 끝난 전체평가에서도 큰 탐색은5→8회, 닫힘 정착은7→8회로
+조금 늘었지만 둘 다 초기11회보다 낮고 중형0회였다. 작은 탐색6회·접촉 탐색7회도
+유지됐다. 모든 결과는 같은 실제 평가 모델과 원래 전체128조건으로 확인했다.
+기존 최고13회 모델을 보존하며 단기 변화만으로 일반화 개선을 주장하지 않는다.
+[큰 탐색 DEV28](assets/rl_v2_URDF_full_arm_seventh_learned_full_DEV28_20261008.json),
+[닫힘 정착 DEV16](assets/rl_v2_URDF_settled_contact_fourth_learned_full_DEV16_20261009.json),
+[작은 탐색 DEV24](assets/rl_v2_URDF_gentle_full_arm_sixth_learned_full_DEV24_20261008.json),
+[접촉 탐색 DEV20](assets/rl_v2_URDF_perceived_contact_fifth_learned_full_DEV20_20261008.json).
+
+v8의 실제 CPU 대기 PID4,186,466은 v7 정상 종료·최종 Drive와 GPU3 여유를
+기다린다. v8 GPU 학습은 아직 시작 전이다. 새 payload는 기존 우리 RAM 경로에
+쓰며 일반 디스크와 RAM의 남은 저장량을 나눠 관리한다. 기존 checkpoint/log
+백업과 진행 중인 장기는 유지한다.
+[실제 대기·소스767개·기존 writer9개 확인](assets/rl_v2_whole_arm_clearance_actual_GPU3_queue_verified_20261009.json).
+
 **09:06 KST의 진행:** 원래 무작위화를 유지한 SAC writer9개와 기존 Drive
 검증을 재확인했다. 수정 GPU3 장기는 첫 TRAIN128을 성공10·안전 위반46·
 시간 초과72회로 마쳤다. Actor0·Q1,590인 첫 수집이며 학습 후 성능은 아니다.
