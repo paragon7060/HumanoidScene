@@ -30,6 +30,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 양손 박스 파지의 대표 성능·학습 방법·평가 영상 | [10/06 간단 중간 보고](docs/RL_V2_GRASP_INTERIM_SUMMARY_20261006.md) |
 | 양손 SAC 장기 비교의 최신 전체 평가·남은 실패 | [10/09 실제 진행 결과](docs/RL_V2_SAC_PROGRESS_20261009.md) |
 | 성공 경로의 Q 과소추정·실제 TRAIN 성공/실패 비중 옵션 | [Critic 진단·balanced50 설정·검증 한계](docs/RL_V2_CRITIC_DIAGNOSTICS_20261009.md) |
+| 접근 후 물러남·닫기 전 충돌 원인과 종료 자료 진단 | [실제 TRAIN 단계·양손 거리·도구 사용법](docs/RL_V2_CRITIC_DIAGNOSTICS_20261009.md#닫기-전에-막히는-실제-train-단계-확인) |
 | 연속 접촉 탐색·정밀 닫힘·flap 이동 추종 v4 | [실제 실패 진단·선택형 수정·실행 설정](docs/RL_V2_PERCEIVED_CONTACT_SAC_20261008.md) |
 | 몸통 위치와 양팔을 함께 조절하는 SAC v5 | [진입 실패·action 범위·몸통 유지·검증](docs/RL_V2_UPRIGHT_CONTACT_SAC_20261009.md) |
 | Flap 모서리를 피해 잡는 SAC v6 | [접촉 지점 실패·20mm 여유·초기 정책 대조](docs/RL_V2_INTERIOR_CONTACT_SAC_20261009.md) |

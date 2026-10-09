@@ -137,3 +137,35 @@ CUDA_VISIBLE_DEVICES='' python scripts/rl/audit_closed_dev_critics.py \
 출력은 Q·return·실제 종료의 진단이다. 원시 관측/action payload를 출력하지
 않고 물리 재실행·optimizer 갱신·replay 입력·새 인증을 사용하지 않는다.
 [전체 평가의 같은 모델·Q 분석 범위](assets/rl_v2_interior_contact_repaired_closed_DEV4_critic_diagnostic_20261009.json).
+
+## 닫기 전에 막히는 실제 TRAIN 단계 확인
+
+Q 비중뿐 아니라 실제 접근을 완료하는지도 확인한다. 종료된 원본을 직접
+읽는 선택형 `--closed-run`을 추가해2.29GiB replay의 새 디스크 복사를 피했다.
+두 writer 종료·정상 완료·최종 checkpoint/log Drive 검증·소유자·원본 SHA256과
+검사 전후 파일 identity를 확인한다. 기존 `--snapshot-proof`도 유지한다.
+원래 무효1조건은384요청에 남고, 전이가 없는 교체 조건은 진단이나 학습에 넣지 않는다.
+
+실제234,396행에서 각 전이의 wave·원래 global ID·held clock·base 목표·jaw
+명령·종료의 pinch/stability/success를 대조했다. 단계와 모든 집계는 같았지만
+연속 팔 목표는 최대0.03504 오차로 재현 검증하지 않았다. `--upright-phase-only`는
+그 한계를 명시하며 기존 연속 목표 허용 오차0.00003은 바꾸지 않는다.
+
+```bash
+CUDA_VISIBLE_DEVICES='' python scripts/rl/analyze_completed_contact_replay.py \
+  --closed-run /absolute/path/to/complete-owned-run \
+  --upright-phase-only \
+  --output-json /absolute/path/to/unique-local-diagnostic.json \
+  --summary-json /absolute/path/to/scalar-summary.json
+
+CUDA_VISIBLE_DEVICES='' python scripts/rl/audit_closed_train_hand_approach.py \
+  --run-dir /absolute/path/to/complete-owned-run \
+  --wave 1 --plot --output-dir /absolute/path/to/unique-approach-diagnostic
+```
+
+상세 phase 출력은 raw joint/action 정보가 포함될 수 있어 로컬에 보관한다.
+공개 자료에는 scalar 집계와 거리 그림만 넣는다. 손 midpoint 거리의 조건
+통과는 탐색 활성화나 물리 파지 증거가 아니므로 실제 단계 재현과 구분한다.
+새 physics/optimizer 갱신·평가 데이터 입력·현재 replay 읽기는 수행하지 않는다.
+[실제 단계 집계·검증 범위](assets/rl_v2_interior_contact_repaired_closed_TRAIN_contact_phases_20261009.json) ·
+[양손 접근 거리의 실제 집계](assets/rl_v2_interior_contact_repaired_closed_TRAIN_hand_approach_20261009.json).

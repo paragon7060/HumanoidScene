@@ -19,9 +19,14 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_goal_sac import held_g
 from kuavo_isaaclab_scene.rl.multi_box.demo_replay import _rotation_matrix
 from kuavo_isaaclab_scene.rl.multi_box.geometry.upright_torso import planar_position
 from summarize_batched_staged_run import supported_success
+from audit_closed_dev_critics import identity, require_closed_run
+from export_eval_q_videos import sha256
 torch.set_num_threads(1)
 parser=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
-parser.add_argument('--snapshot-proof',type=Path,required=True)
+source=parser.add_mutually_exclusive_group(required=True)
+source.add_argument('--snapshot-proof',type=Path)
+source.add_argument('--closed-run',type=Path,
+ help='Inspect an owned, complete original replay after both writers stopped and final checkpoint/log backup was verified; no disk copy is created')
 parser.add_argument('--output-json',type=Path,required=True)
 parser.add_argument('--summary-json',type=Path)
 parser.add_argument('--upright-phase-only',action='store_true',
@@ -29,14 +34,27 @@ parser.add_argument('--upright-phase-only',action='store_true',
 args=parser.parse_args()
 if os.environ.get('CUDA_VISIBLE_DEVICES')!='':raise ValueError('CPU-only analysis requires empty CUDA_VISIBLE_DEVICES')
 if args.output_json.exists() or (args.summary_json is not None and args.summary_json.exists()):raise ValueError('Use unique new output files')
-dest=args.snapshot_proof.parent
-proof=json.loads(args.snapshot_proof.read_text());path=Path(proof['snapshot'])
+if args.closed_run is not None:
+ dest=args.closed_run.resolve()
+ require_closed_run(dest)
+ path=dest/'staged_goal_experience.pt'
+ replay_identity=identity(path)
+ m=json.loads((dest/'metrics.json').read_text())
+ waves=sorted({r['wave'] for r in m['outcomes'] if r['split']=='train'})
+ proof=dict(snapshot=str(path),snapshot_SHA256=sha256(path),source_run=str(dest),
+  completed_TRAIN_waves=waves,completed_online_rows=m['learner']['online_rows'])
+else:
+ dest=args.snapshot_proof.parent
+ proof=json.loads(args.snapshot_proof.read_text());path=Path(proof['snapshot'])
+ replay_identity=identity(path)
+ m=json.loads((dest/'completed_waves_metrics.json').read_text())
 assert path.is_file() and not path.is_symlink() and path.stat().st_uid==os.getuid()
 sha=hashlib.sha256()
 with path.open('rb') as f:
  for chunk in iter(lambda:f.read(8*1024*1024),b''):sha.update(chunk)
-assert sha.hexdigest()==proof['snapshot_SHA256'] and path.stat().st_mode&0o222==0
-s=torch.load(path,map_location='cpu',weights_only=False);data=s['executed_goal_transitions'];m=json.loads((dest/'completed_waves_metrics.json').read_text())
+assert sha.hexdigest()==proof['snapshot_SHA256']
+assert args.closed_run is not None or path.stat().st_mode&0o222==0
+s=torch.load(path,map_location='cpu',weights_only=args.closed_run is not None);data=s['executed_goal_transitions']
 assert len(data['reward'])==proof['completed_online_rows'] and s['perceived_contact_statistics']==m['learner']['perceived_contact_statistics']
 assert all(torch.isfinite(t).all() for t in data.values())
 coordinates=PoseGoalCoordinates(exact_projected_base=True)
@@ -51,11 +69,23 @@ if upright:
  pilot.agent.upright_support_anchor,pilot.agent.upright_support_scale=upright_support_affine(pilot.center,pilot.scale,coordinates.links)
 waves=proof['completed_TRAIN_waves']
 assert waves and len(waves)==len(set(waves))
-offset=0;previous_stats=None;records=[];max_error=0.
+offset=0;previous_stats=None;records=[];max_error=0.;measured_terminals=0
 for wave in waves:
  cases=sorted([r for r in m['outcomes'] if r['wave']==wave],key=lambda r:r['environment'])
- assert len(cases)==128 and all(r['complete'] and r['initial_layout_valid'] and not r['result'].get('numerical_failure') for r in cases)
- starts=np.array([r['result']['staged_base']['manipulation_start'] for r in cases]);ends=np.array([r['result']['steps'] for r in cases]);chosen=torch.tensor([r['collection_policy_mode']=='perceived_contact_exploration' for r in cases])
+ assert len(cases)==128 and {r['environment'] for r in cases}==set(range(128))
+ assert all(r['complete'] and not r['result'].get('numerical_failure') for r in cases)
+ if args.closed_run is not None:
+  manifest=json.loads((dest/'manifest.json').read_text())
+  expected={'shelf_2_left/small':16,'shelf_2_right/small':16,
+   'shelf_2_left/medium':16,'shelf_2_right/medium':16,'shelf_3_left/small':32,'shelf_3_right/small':32}
+  assert Counter(r['layout']['target_region']+'/'+r['layout']['target_box_type'] for r in cases)==expected
+  assert manifest['layout_waves'][wave]['split']=='train'
+  assert all(r['layout']==manifest['layout_waves'][wave]['layouts'][r['environment']]['layout'] for r in cases)
+ for r in cases:
+  if not r['initial_layout_valid']:
+   assert r['executed_transition_rows']==0 and r['result']['steps']==0 and not supported_success(r)
+   assert r.get('collection_policy_mode')=='no_held_mode_draw'
+ starts=np.array([r['result']['staged_base']['manipulation_start'] if r['initial_layout_valid'] else 0 for r in cases]);ends=np.array([r['result']['steps'] for r in cases]);chosen=torch.tensor([r['collection_policy_mode']=='perceived_contact_exploration' for r in cases])
  assert all(type(x) is int for x in starts.tolist())
  tracker=None;indices=[[] for _ in cases];phases=[[] for _ in cases];events=[[] for _ in cases];close_gates=[[] for _ in cases];reopens=[[] for _ in cases]
  for step in range(int(ends.max())):
@@ -161,9 +191,18 @@ for wave in waves:
        tcp_displacement_along_start_panel_normal_m=(tcp_delta*start_normal).sum(-1).tolist())))
  previous_stats=tracker.report()
  for i,case in enumerate(cases):
+  if not case['initial_layout_valid']:
+   assert not indices[i] and not phases[i]
+   records.append(dict(wave=wave,environment=i,seed=case['layout']['seed'],
+    region=case['layout']['target_region'],box_type=case['layout']['target_box_type'],
+    mode=case['collection_policy_mode'],initial_layout_valid=False,success=False,
+    excluded_from_phase_diagnosis_reason='Original initial invalid request has no executed or TRAIN rows',
+    original_requested_denominator_retained=True))
+   continue
   ix=torch.tensor(indices[i]);assert len(ix)==ends[i]-starts[i]
   priv=data['next_critic_obs'][ix,464:530];final=priv[-1];term=case['result'];raw=data['critic_obs'][ix,:464]
   assert (final[35:37]>.5).tolist()==term['pinching'] and (final[41:43]>.5).tolist()==term['stable_hands'] and bool(final[54]>.5)==term['success']
+  measured_terminals+=1
   pinch=priv[:,35:37]>.5;opposing=pinch.all(-1)&(priv[:,37:41].reshape(-1,2,2).argmax(-1)[:,0]!=priv[:,37:41].reshape(-1,2,2).argmax(-1)[:,1]);run=best=0
   for flag in opposing.tolist():run=run+1 if flag else 0;best=max(best,run)
   weaker=50*priv[:,15:23].reshape(-1,2,2,2).min(-1).values.max(-1).values
@@ -197,7 +236,7 @@ for wave in waves:
    closure_summary.update(measured_closed_command_closure_median=np.median([r['closure'] for r in gates],axis=0).tolist(),minimum_both_current_contact_point_distance_m=min(r['current_point_distance_m'] for r in gates))
    if settled and not precise:closure_summary.update(minimum_both_fixed_close_point_distance_m=min(r['fixed_point_distance_m'] for r in gates),closed_rows_fixed_point_within6mm=sum(r['fixed_point_distance_m']<=.006 for r in gates),closed_rows_all_actual_v2_lift_gates_passed=sum(r['closed_ticks']>=24 and r['settled_ticks']>=6 and r['current_point_distance_m']<=.006 and r['fixed_point_distance_m']<=.006 and r['axis_error_rad']<=.25 for r in gates))
   closure_summary['precise_feedback_variant']=precise
-  record=dict(wave=wave,environment=i,seed=case['layout']['seed'],region=case['layout']['target_region'],box_type=case['layout']['target_box_type'],mode=case['collection_policy_mode'],success=supported_success(case),unsafe=bool(term['unsafe']),time_out=bool(term['time_out']),unsafe_causes=term['unsafe_causes'],rack_peak_body=term['rack_peak_body'],held_rows=len(ix),reconstructed_guided_rows=sum(0<=p<3 for p in phases[i]),reconstructed_phase_counts=dict(Counter(phases[i])),approach_phase_rows_with_any_commanded_closed_jaw=int(((torch.tensor(phases[i])==0)&(data['action'][ix,19:21]>0).any(-1)).sum()),approach_phase_rows_with_both_commanded_closed_jaws=int(((torch.tensor(phases[i])==0)&(data['action'][ix,19:21]>0).all(-1)).sum()),first_surface_approach_clock=(phases[i].index(1) if 1 in phases[i] else None),lift_attempt_events=events[i],ever_each_hand_pinched=pinch.any(0).tolist(),actual_opposing_pinch_rows=int(opposing.sum()),longest_actual_opposing_pinch_s=best/30,measured_closure_peak=raw[:,46:48].max(0).values.tolist(),best_actual_weaker_pad_force_n=weaker.max(0).values.tolist(),terminal_surface_distance_m=term['flap_distances'],terminal_actual_pinching=term['pinching'],terminal_stable_hands=term['stable_hands'])
+  record=dict(wave=wave,environment=i,seed=case['layout']['seed'],region=case['layout']['target_region'],box_type=case['layout']['target_box_type'],mode=case['collection_policy_mode'],initial_layout_valid=True,success=supported_success(case),unsafe=bool(term['unsafe']),time_out=bool(term['time_out']),unsafe_causes=term['unsafe_causes'],rack_peak_body=term['rack_peak_body'],held_rows=len(ix),reconstructed_guided_rows=sum(0<=p<3 for p in phases[i]),reconstructed_phase_counts=dict(Counter(phases[i])),approach_phase_rows_with_any_commanded_closed_jaw=int(((torch.tensor(phases[i])==0)&(data['action'][ix,19:21]>0).any(-1)).sum()),approach_phase_rows_with_both_commanded_closed_jaws=int(((torch.tensor(phases[i])==0)&(data['action'][ix,19:21]>0).all(-1)).sum()),first_surface_approach_clock=(phases[i].index(1) if 1 in phases[i] else None),lift_attempt_events=events[i],ever_each_hand_pinched=pinch.any(0).tolist(),actual_opposing_pinch_rows=int(opposing.sum()),longest_actual_opposing_pinch_s=best/30,measured_closure_peak=raw[:,46:48].max(0).values.tolist(),best_actual_weaker_pad_force_n=weaker.max(0).values.tolist(),terminal_surface_distance_m=term['flap_distances'],terminal_actual_pinching=term['pinching'],terminal_stable_hands=term['stable_hands'])
   record.update(geometry)
   record['measured_closing_gate_diagnosis']=closure_summary
   record['precise_feedback_reopen_events']=reopens[i]
@@ -221,8 +260,18 @@ result.update(upright_phase_only_diagnosis=args.upright_phase_only,
     exact_recorded_jaw_sequence_validated=args.upright_phase_only,
     continuous_goal_atol_unchanged_for_full_verification=3e-5,
     no_continuous_goal_tolerance_relaxation=True)
+assert identity(path)==replay_identity, 'Original closed replay changed during inspection'
+if args.closed_run is not None:
+ require_closed_run(dest)
+ result.update(original_closed_replay_read_without_disk_copy=True,
+  original_replay_unchanged=True,original_writers_stopped_and_final_backup_verified=True)
+result.update(original_TRAIN_requests=len(records),
+ initial_invalid_requests_retained=sum(not r['initial_layout_valid'] for r in records),
+ actual_terminal_critic_pinch_stability_success_matches=measured_terminals)
 with args.output_json.open('x') as f:f.write(json.dumps(result,indent=2,allow_nan=False)+'\n')
 public={k:v for k,v in result.items() if k!='cases'}
+public.update(original_TRAIN_requests=len(records),initial_invalid_requests_retained=sum(not r['initial_layout_valid'] for r in records),
+ actual_terminal_critic_pinch_stability_success_matches=measured_terminals)
 if args.summary_json is not None:
  with args.summary_json.open('x') as f:f.write(json.dumps(public,indent=2,allow_nan=False)+'\n')
 print(json.dumps(public,ensure_ascii=False))
