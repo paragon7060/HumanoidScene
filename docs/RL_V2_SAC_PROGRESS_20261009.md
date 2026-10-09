@@ -14,7 +14,7 @@ actor694/Q4,822의 평가 전후 동일 모델·유한 optimizer·원래 조건�
 
 원래 writer/supervisor의 정상 종료와 최종 checkpoint/log Drive 검증 후,
 16:08 GPU3에서 성공/실패 return 비중 비교가 실제 시작했다. Writer1,136,497·
-supervisor1,136,237·CUDA3·고정 소스770개를 다시 확인했다. 현재 초기화 중이며
+supervisor1,136,237·CUDA3·고정 소스770개를 다시 확인했다. 이후 초기 전체 평가를 시작했으며
 새 actor/Q 갱신이나 성공을 주장하지 않는다. 성공이 있는 구역은 실제 안전
 성공/실패를 절반씩 사용하는 critic 보조 sampling이고, 없는 구역은 실제
 실패만 사용한다. 모든 원래 reward·DR·성공·안전 기준은 유지한다.
@@ -918,3 +918,8 @@ Notion에도옛실행의종료원인·복구수정·새장기설정·실제PID·
 07:22 KST GPU3의실제VRAM여유는3,749MiB였다. 현재초기평가중이며새학습
 후성공률을뜻하지않는다.
 [실제 시작·설정·백업 검증](assets/rl_v2_URDF_upright_contact_repaired_SAC_actual_startup_20261009.json).
+
+16:28 Notion에 실제 v8 결과·새 GPU3 시작·actor 신호 충돌 그림을 기록했다.
+기존89개 native 미디어와5개 table을 모두 보존했고 새 그림을 포함한90개
+미디어를 다시 읽어 확인했다.
+[native 그림과 기존 영상/표 보존](assets/rl_v2_actor_objective_conflict_Notion_native_verified_20261009.json).
