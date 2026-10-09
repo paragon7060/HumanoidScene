@@ -60,3 +60,17 @@ GPU3 실행은 현재 v6의 정상 종료·최종 Drive 검증 뒤 별도 고정
 비교에서 닫힘 경험과 학습 효과를 먼저 확인한다. 다른 활성 장기 실행과 다른
 사용자의 프로세스는 유지한다. 기존 Drive 인증·300초 checkpoint 업로드·
 크기/MD5 검증·최근2개 보호를 재사용하며 raw 추가 전송 범위를 바꾸지 않는다.
+
+## 실제 대기열 등록
+
+2026-10-09 09:06 KST에 CPU 대기열 PID3023114의 소유자·스크립트·빈
+`CUDA_VISIBLE_DEVICES`·활성 상태를 확인했다. 고정 소스757개와 초기 checkpoint
+SHA256이 준비 기록과 같다. 현재 v6 writer1624488와 supervisor1624392가 살아
+있어 정상 종료와 최종 Drive 검증을 기다린다. **v7 GPU writer는 아직 시작하지
+않았다.** 실행 시 GPU3 여유6500MiB·로컬25GiB를 다시 확인하고 초기/첫 TRAIN/
+학습 후 전체 평가의 실제 모델을 별도 CPU 관찰자5개가 대조한다.
+
+동시에 기존 SAC writer9개의 소유자·run·GPU 지정·고정 소스·Drive 검증을
+재확인했다. v5 장기는 TRAIN3번째 배치에서 actor477·Q3956회까지 진행했고
+기존 장기7개도 계속한다. 초기/안내 수집을 새 학습 성공으로 표시하지 않는다.
+[실제 CPU 대기·기존 학습·보존 범위](assets/rl_v2_predictive_contact_actual_GPU3_queue_verified_20261009.json).
