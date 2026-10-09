@@ -86,3 +86,22 @@ checkpoint/log300초 업로드·체크섬 검증·최신2개 유지 규칙을 �
 Notion 보고에는 손별 준비 그림을 native image로 첨부했다. 기존86개 미디어와
 native table5개를 모두 유지했고 현재87개 미디어를 다시 읽어 확인했다.
 [그림·기존 자료 보존 검증](assets/rl_v2_individual_readiness_Notion_native_verified_20261009.json).
+
+## 대기 실험의 초기 입력 확인
+
+후속 실행의 초기 확인 기록 생성 누락으로 평가 보고 관찰자가 기다릴 수 있어
+CPU-only [확인 도구](../scripts/rl/verify_staged_initial_receipt.py)를 연결했다.
+실제 고유 launch와 준비한 초기 모델 증거를 입력받아, 명시한 checkpoint·
+SHA256·zero-update·finite tensor·엄격한 artifact 복원을 확인한다. 이 기록은
+초기 입력의 신원이며 실제 runtime 모델과 같다는 증거는 별도 전체128평가의
+동일 모델 검사로 확인한다. 현재 학습에는 신호나 변경을 가하지 않는다.
+관련 검사6개와 실제v8 입력 복원을 통과했고 후속 두 실험을 기다리는
+CPU PID3,465,283을 확인했다.
+[실제 등록과 검사 범위](assets/rl_v2_future_initial_receipts_actual_CPU_registration_20261009.json).
+
+```bash
+CUDA_VISIBLE_DEVICES='' python scripts/rl/verify_staged_initial_receipt.py \
+  --launch /absolute/path/to/actual-launch.json \
+  --ready /absolute/path/to/verified-initial-input.json \
+  --output /absolute/path/to/named-initial-input-receipt.json
+```
