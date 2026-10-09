@@ -169,3 +169,21 @@ CUDA_VISIBLE_DEVICES='' python scripts/rl/audit_closed_train_hand_approach.py \
 새 physics/optimizer 갱신·평가 데이터 입력·현재 replay 읽기는 수행하지 않는다.
 [실제 단계 집계·검증 범위](assets/rl_v2_interior_contact_repaired_closed_TRAIN_contact_phases_20261009.json) ·
 [양손 접근 거리의 실제 집계](assets/rl_v2_interior_contact_repaired_closed_TRAIN_hand_approach_20261009.json).
+
+## 실제 actor의 Q gradient 연결과 servo clipping
+
+종료v7의 원래 TRAIN replay238,980행만 사용해 각 구역256행, 총1,024행을
+질의했다. 실제 actor695/Q4,828과 원래 네 jaw branch의 확률 기대값을
+엄격히 복원했다. 학습·정규화·물리·replay 입력이나 원래 제한은 바꾸지 않았다.
+
+실제 명령이 포화되어 팔14좌표의 goal-to-Q gradient가0인 비율은
+중간 왼쪽56.2%, 중간 오른쪽24.6%, 상단 왼쪽26.3%, 상단 오른쪽33.1%였다.
+모든 팔14좌표의 Q gradient가0인 상태는62/1,024회였으므로
+팔 Q가 전부 빠진 연결 오류라고 판단하지 않는다. Zero gradient는 원래
+servo clipping의 결과다. Clip을 무시하는 기울기나 controller 제한 해제는
+적용하지 않았고, 별도 servo feature 질의를 actor gradient로 사용하지 않았다.
+Goal과 servo의 gradient 단위도 다르므로 norm 크기를 직접 비교하지 않는다.
+
+이 진단만으로 학습 실패 원인을 확정하지 않는다. 다음 실제 성공/실패 비중
+조절과 보조 없는 전체 평가에서 성공 가치 추정과 실제 파지 성능을 확인한다.
+[같은 실제 모델·TRAIN 범위·기울기 수치](assets/rl_v2_closed_TRAIN_servo_Q_gradient_20261009.json).
