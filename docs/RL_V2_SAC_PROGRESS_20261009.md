@@ -4,6 +4,21 @@
 짧게 드는 **학습된 정책**이다. 현재 목표는 미달성이고 중형 박스 성공도0이다.
 원래 위치·크기 여섯 조합의 전체128개 조건으로 비교한다.
 
+**13:00 KST 후속 분석도 연결:** v7·손/팔 랙 회피v8·성공 비중 비교에 실제
+CPU 관찰자3개를 추가했다. 각 원래 writer/supervisor가 정상 종료하고 최종
+checkpoint/log Drive 검증을 마친 뒤에만 종료 TRAIN을 읽는다. 진단 도구는
+commit e177c7c, 같은 helper 정의를 가진 dependency770개는89fa6d1에 고정했다.
+세밀한 joint/action 진단은 로컬에만 두고 scalar 요약으로 판단한다. 관찰자가
+등록됐다는 사실을 분석 완료나 새 GPU writer 시작으로 해석하지 않는다.
+실제 replay가 전체 수집을 담지 못하거나 단계 재현이 다르면 분석을 실패로
+기록하고 현재 학습에는 신호·자료 입력·변경을 가하지 않는다.
+[실제 CPU PID·실행 전제](assets/rl_v2_future_closed_contact_phase_actual_CPU_observers_20261009.json).
+
+Notion 중간보고에도 접근 그림과 최신 다섯 평가·현재9개 writer를 기록했다.
+기존85개 미디어와 native table5개는 그대로 있고 새 그림을 포함한86개
+미디어를 다시 읽어 확인했다.
+[그림·기존 표와 영상 보존 검증](assets/rl_v2_closed_TRAIN_hand_approach_Notion_verified_20261009.json).
+
 **12:30 KST 접근 병목을 실제 TRAIN에서 확인:** 정상 종료·최종 Drive 검증을
 마친 v6의 원래 TRAIN384요청과234,396행을 분석했다. 초기 무효1요청은
 분모에 남기고 전이383경로만 진단했다. 탐색78회는 성공0·안전 위반47·시간
