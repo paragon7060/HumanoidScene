@@ -29,6 +29,12 @@
 회피까지 해결하지 못하고 있다는 근거**다. 원래 충돌 힘 기준을 낮추거나
 물리 충돌을 무시하지 않는다.
 
+같은 실제 종료44회는 greedy25·안내 선택19회였다. 별도로 검증한 phase/jaw
+기록과 대조하면 안내 선택19회 모두 실제 guided 행이 있었다. 이번 랙 실패를
+안내 handoff가 전혀 시작되지 않은 문제로 설명하지 않는다. 안내 중 손·팔의
+기둥 회피를 보강해야 한다. 이 phase 분석은 실제 jaw·정수 counter·episode
+mapping만 검증했고 연속 몸체 목표 재계산은 미검증이다.
+
 ## 계산의 범위
 
 기록한 마지막 관측은 마지막 action **전**의 자세이며 실제 종료 순간 자세가
@@ -70,3 +76,9 @@ CUDA_VISIBLE_DEVICES= python scripts/rl/analyze_completed_rack_entry_geometry.py
 현재 S63 Leju 두손·완료 유효128경로·900틱 clock·held goal replay 형식을 검증한다.
 다른 형식이나 활성 replay를 이 입력으로 지정하지 않는다. 공용 진입점으로
 다시 실행한128개 결과와 첫 진단의 모든 사례/거리 값이 정확히 같았다.
+
+Notion 중간보고에도 실제 분석과 새 그림을 반영했다. 다시 읽어 기존 미디어
+81개와 native table5개가 그대로이고 새 그림까지82개가 표시됨을 확인했다.
+수정 장기의 첫 학습 후 전체 평가가 진행 중이며 아직 결과가 끝나지 않았다는
+상태도 명시했다.
+[실제 Notion 갱신·기존 미디어/표 보존 검증](assets/rl_v2_rack_entry_geometry_Notion_verified_20261009.json).
