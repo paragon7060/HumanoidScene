@@ -74,3 +74,9 @@ SHA256이 준비 기록과 같다. 현재 v6 writer1624488와 supervisor1624392�
 재확인했다. v5 장기는 TRAIN3번째 배치에서 actor477·Q3956회까지 진행했고
 기존 장기7개도 계속한다. 초기/안내 수집을 새 학습 성공으로 표시하지 않는다.
 [실제 CPU 대기·기존 학습·보존 범위](assets/rl_v2_predictive_contact_actual_GPU3_queue_verified_20261009.json).
+
+Notion 중간보고에도 실제 실패·변경 방법·대기 상태와 새 그림을 반영했다.
+본문을 다시 읽어 기존 미디어80개와 native table5개가 그대로이고 새 그림을
+포함한81개 미디어가 표시됨을 확인했다. 최신 강한 유지 비교5/128회와 중형0회도
+보고했으며 대기 중인 v7을 실행/성공으로 표시하지 않았다.
+[실제 Notion 갱신·미디어/표 보존 검증](assets/rl_v2_predictive_contact_Notion_verified_20261009.json).
