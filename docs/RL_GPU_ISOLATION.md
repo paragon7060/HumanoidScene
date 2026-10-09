@@ -38,4 +38,10 @@ GPU와 `single_GPU_graphics_isolation`, `status.json`에는 실제 writer PID와
 CUDA UUID 마스크를 기록한다. 감독 프로세스는 private namespace 안에서
 writer를 생성하므로 writer PID는 호스트에서 보이는 실제 PID다.
 
+2026-10-10 실행 조회 수정: 장치의 minor number는 이 서버의 NVIDIA 드라이버에서
+`--query-gpu` 필드로 지원되지 않아 새 관리자가 시작 전에 실패했다. 이제
+`nvidia-smi --id=<gpu> -q -x`의 XML inventory에서 UUID·minor number·PCI 주소를
+읽는다. 호스트 GPU index와 장치 minor number가 다를 수도 있으므로 별도로
+보존한다. 이 수정은 학습·보상·초기 model을 변경하지 않는다.
+
 관련 근거: [NVIDIA의 Vulkan/CUDA 장치 선택 설명](https://docs-prod.omniverse.nvidia.com/dev-guide/latest/linux-troubleshooting.html#q9-how-to-specify-what-gpus-to-run-omniverse-apps-on).

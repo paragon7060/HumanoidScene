@@ -13,8 +13,25 @@ import shutil
 import stat
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 MARKER = 'HUMANOIDSCENE_SINGLE_GPU_NAMESPACE'
+
+
+def parse_gpu_inventory(xml, gpu):
+    # minor_number is present in the supported XML inventory, but is not a
+    # --query-gpu CSV field on all NVIDIA driver versions.
+    devices = ET.fromstring(xml).findall('gpu')
+    if len(devices) != 1:
+        raise ValueError('Inventory must contain exactly the requested GPU')
+    device = devices[0]
+    uuid = device.findtext('uuid')
+    minor = int(device.findtext('minor_number'))
+    bus = device.findtext('pci/pci_bus_id')
+    if minor < 0 or not bus or not re.fullmatch(r'GPU-[0-9a-fA-F-]{36}', uuid or ''):
+        raise ValueError('Incomplete selected GPU inventory')
+    return dict(physical_gpu=gpu, uuid=uuid, minor_number=minor,
+        PCI_bus_id=bus, renderer_gpu=0, drm_render_nodes=[])
 
 
 def validate_namespace(record, gpu, *, devices, cuda_mask):
@@ -54,12 +71,10 @@ def ensure_single_gpu_namespace(gpu):
             cuda_mask=os.environ.get('CUDA_VISIBLE_DEVICES'))
     if sys.platform != 'linux' or shutil.which('bwrap') is None:
         raise RuntimeError('Graphics isolation requires Linux bubblewrap; no fallback to other GPUs')
-    row = subprocess.check_output(['nvidia-smi', '--id='+str(gpu),
-        '--query-gpu=uuid,minor_number,pci.bus_id', '--format=csv,noheader,nounits'], text=True).strip()
-    uuid, minor, bus = [v.strip() for v in row.split(',')]
-    record = dict(physical_gpu=gpu, uuid=uuid, minor_number=int(minor),
-        PCI_bus_id=bus, renderer_gpu=0, drm_render_nodes=[])
-    device = Path('/dev/nvidia'+minor)
+    xml = subprocess.check_output(['nvidia-smi', '--id='+str(gpu), '-q', '-x'], text=True)
+    record = parse_gpu_inventory(xml, gpu)
+    uuid, minor, bus = record['uuid'], record['minor_number'], record['PCI_bus_id']
+    device = Path('/dev/nvidia'+str(minor))
     if not stat.S_ISCHR(device.stat().st_mode):
         raise RuntimeError('Selected NVIDIA device is not a character device')
     pci = bus.lower().removeprefix('00000000:')

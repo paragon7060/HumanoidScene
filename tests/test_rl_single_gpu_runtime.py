@@ -1,10 +1,21 @@
 import pytest
-from single_gpu_runtime import validate_namespace, namespace_command
+from single_gpu_runtime import validate_namespace, namespace_command, parse_gpu_inventory
 
 
 def record():
     return dict(physical_gpu=3, uuid='GPU-00000000-0000-0000-0000-000000000003',
         minor_number=3, renderer_gpu=0, drm_render_nodes=[])
+
+
+def test_supported_xml_inventory_keeps_minor_and_physical_index_distinct():
+    xml='''<nvidia_smi_log><gpu><uuid>GPU-00000000-0000-0000-0000-000000000003</uuid>
+    <minor_number>7</minor_number><pci><pci_bus_id>00000000:E3:00.0</pci_bus_id></pci>
+    </gpu></nvidia_smi_log>'''
+    r=parse_gpu_inventory(xml,3)
+    assert r['physical_gpu']==3 and r['minor_number']==7
+    assert '/dev/nvidia7' in namespace_command(r,'/python',[],device_exists=lambda _:True)
+    with pytest.raises(ValueError):parse_gpu_inventory('<nvidia_smi_log/>',3)
+    with pytest.raises(ValueError):parse_gpu_inventory(xml.replace('</gpu>','</gpu><gpu/>'),3)
 
 
 def test_uuid_mask_and_only_selected_device_are_required():
