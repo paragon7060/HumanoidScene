@@ -48,3 +48,25 @@ flap randomization과 독립 FINAL 분리는 유지한다. 이 계획만으로 �
 실행·새 성공을 주장하지 않는다. 새 실행은 원래 pilot 종료·최종 Drive 검증·
 실제 동일 checkpoint/replay 복원·GPU/저장 여유를 확인해야 한다.
 실제 크기 분포·seed 분리·unbalanced 입력 거부를 포함한 관련4검사가 통과했다.
+
+**15:21 실제 대기 등록:** CPU PID363,942, unit
+`humanoid-rl-independent-hand-close-long-gpu3-queue-20261009-1520.service`가
+현재v9 pilot의 실제 시작을 기다리고 있다. 이후 원래 소유 writer/supervisor의
+정상 종료와 최종 checkpoint/log Drive 검증, 실제 whole DEV128 전후 모델 일치,
+유한한 동일 모델·실제 held replay와 두 TRAIN bank를 확인한다. GPU3 여유
+6,500MiB·일반 디스크20GiB·RAM 저장소35GiB 이상일 때만 새 고유 폴더를 만든다.
+저장량은 성공률/경로 길이에 따라 달라져 이 기준이 장기 전체 기록량을
+보장하지 않는다. 기존 raw 정리는 승인 없이 수행하지 않는다.
+
+source는 commit `92f78cc51c03723ded8df7cfd9fc95d04389b28c`에 고정했고
+778개 코드/기하 SHA를 기록했다. 원래v9의 모든 runtime 모듈과 물리 assets는
+같으며 HDF 기록 entrypoint와 장기 계획 생성기만 달라졌다. 문서용 미디어와
+인증은 복사하지 않았다. 현재 사용자 renderer overlay는 같은 checksum으로
+보존했다. Actor·Q·Adam·normalizer·bounded replay·실제 TRAIN bank를 원래
+matching continuation 경로로 이어받고 새 Q 초기화로 바꾸지 않는다.
+
+전체 DEV17회의 정확한 경계 모델 보존·전후 비교용 CPU observer2개도
+준비했다. 새 GPU writer가 관측된 뒤에만 등록한다. 현재 대기열과 준비
+파일은 새 GPU 실행이나 성공의 증거가 아니다. 전체 TRAIN HDF를 요구하는
+기존 접촉 단계 분석은 이 줄인 기록 모드에 연결하지 않는다.
+[실제 PID·CUDA·단계](assets/rl_v2_independent_hand_close_long_actual_CPU_queue_20261009.json).
