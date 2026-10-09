@@ -88,9 +88,22 @@ actor/Q 갱신·online replay·success/return bank는 모두 0에서 시작한�
 7개는 정상 종료했고 1개는 supervisor의 120초 종료 제한이 적용됐으며 저장된
 체크포인트와 닫힌 로그의 검증은 완료했다. raw replay와
 HDF는 삭제하거나 업로드하지 않았다. 기존 GPU 3 balanced-return 비교는
-새 graphics isolation 적용을 위해 종료 승인을 요청한 상태다. GPU 1·2에서는
-우리 학습을 실행하지 않는다. 새 실행은 실제 PID가 확인되기 전까지 시작으로
-기록하지 않는다.
+10/09 18:47 정상 종료했고 최종 Drive 검증을 마쳤다. TRAIN 384조건 뒤 전체
+DEV 128조건의 성공은 8회로 자기 초기 14회보다 낮았다.
+
+사용자 승인 후 10/10 01:06 GPU 3에서 수정판을 시작했다. writer PID는
+2224444이며 우리 학습은 이 1개다. 기존 CPU PhysX 계약과 GPU 3의 CUDA 학습을
+유지했다. 선택 GPU UUID를 CUDA 마스크에 사용하고 해당 프로세스에는 물리
+GPU 3 장치만 노출했다. 실제 연산·그래픽 컨텍스트도 GPU 3에만 생성됐으며
+GPU 1·2에는 우리 학습을 실행하지 않는다. 다른 사용자의 실행은 유지했다.
+NVIDIA의 CSV `minor_number` 조회 미지원으로 실패한 시작 경로는 지원되는
+XML inventory 조회로 수정했다.
+
+환경 초기화 후 초기 DEV 수집이 시작됐고 실제 manifest에서 성공 갱신 보호와
+새 접촉 보상을 확인했다. 첫 설정 파일 Drive 업로드·검증도 완료했다.
+이 단계의 actor/Q 갱신 횟수는 0이며 새 성공률 개선을 뜻하지 않는다.
+[실제 시작 확인 기록](assets/rl_v2_guarded_staged_contact_SAC_actual_startup_20261010.json)에
+GPU 격리와 저장 상태를 기록했다.
 
 업로더는 기존 Drive 연결을 이용해 300초마다 checksum을 검증하고 형식별
 최근 checkpoint 2개를 유지한다. 종료 후 로그도 검증한다. 상세 저장 범위는

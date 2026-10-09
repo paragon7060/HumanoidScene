@@ -1,0 +1,64 @@
+{
+  "recorded_at": "2026-10-10T01:15:59.597594+09:00",
+  "parent_basename": "GPU3_URDF_guarded_staged_contact_SAC128_pilot_20261010_010658",
+  "run_basename": "batch_sac_20261010_010659_15308d",
+  "physical_gpu": 3,
+  "writer_pid": 2224444,
+  "supervisor_pid": 2224251,
+  "phase": "training",
+  "CUDA_mask_matches_selected_GPU_UUID": true,
+  "private_nvidia_devices": [
+    "nvidia3"
+  ],
+  "own_contexts": [
+    {
+      "gpu": 3,
+      "type": "C+G",
+      "used_memory": "2800 MiB"
+    }
+  ],
+  "physics_backend": "CPU_PhysX_v1",
+  "progress": {
+    "wave": 0,
+    "split": "validation",
+    "step": 31,
+    "active": 115,
+    "actual_rows": 3565
+  },
+  "learner": {
+    "training": false,
+    "actor_updates": 0,
+    "critic_updates": 0,
+    "replay_size": 0
+  },
+  "actor_success_guard": "train-success-Adam-backtrack",
+  "staged_contact_reward": {
+    "name": "precision_and_pinch_hold_progress_v1",
+    "precision_weight": 1.0,
+    "pinch_hold_weight": 1.0,
+    "precision_distance_scale_m": 0.03,
+    "precision_capture_scale_m": 0.025,
+    "precision": "per_hand_reach_times_axis_alignment_times_capture_then_weak_hand",
+    "pinch_hold_seconds": 0.25,
+    "pinch_hold": "continuous_actual_opposed_two_pad_pinch_on_same_flap",
+    "final_relative_pose_stability_success_predicate_unchanged": true,
+    "aggregation": "0.25*(left+right)+0.5*min(left,right)",
+    "both_hands_on_same_flap_cannot_get_bilateral_score": true,
+    "reward": "gamma_times_next_potential_minus_previous",
+    "terminal_potential_zero": true,
+    "reset_and_assignment_rebase": true,
+    "new_sensors_or_physics_substeps": false,
+    "source_Q_replay_optimizer_or_reward_labels_import_allowed": false
+  },
+  "source_commit": "0099a9fe72e0647910701e6e466341dd93cdf606",
+  "initial_checkpoint_SHA256": "ef62c354e1a96a9b12e759f1cd2378347d61f20192f879449c6bb5f36b237063",
+  "backup_scope": "checkpoint_contract_logs_only",
+  "upload_interval_seconds": 300,
+  "keep": 2,
+  "first_backup_verified_at": "2026-10-10T01:14:04.135591+09:00",
+  "backup_error": null,
+  "original_randomization_success_safety_preserved": true,
+  "independent_FINAL_unused": true,
+  "actual_success_improvement_measured": false,
+  "other_user_processes_untouched": true
+}
