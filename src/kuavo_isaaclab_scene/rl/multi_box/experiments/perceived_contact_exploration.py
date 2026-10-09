@@ -20,7 +20,7 @@ from ....robots.end_effector import closed_closing_axes
 from ....workcell.workcell_layout import RACK_RAW_BOUNDS_M, scale as workcell_scale
 
 
-def perceived_contact_contract(*, settled_close=False, precise_feedback=False, motion_feedback=False, upright_feedback=False, interior_contact=False, predictive_feedback=False):
+def perceived_contact_contract(*, settled_close=False, precise_feedback=False, motion_feedback=False, upright_feedback=False, interior_contact=False, predictive_feedback=False, whole_arm_clearance=False):
     if type(settled_close) is not bool:raise ValueError('Explicit settled-close variant required')
     if type(precise_feedback) is not bool or (precise_feedback and not settled_close):
         raise ValueError('Precise feedback requires the explicit settled-close variant')
@@ -32,6 +32,8 @@ def perceived_contact_contract(*, settled_close=False, precise_feedback=False, m
         raise ValueError('Interior contact requires the explicit upright-feedback variant')
     if type(predictive_feedback) is not bool or (predictive_feedback and (not upright_feedback or interior_contact)):
         raise ValueError('Predictive feedback requires upright control with the original contact target')
+    if type(whole_arm_clearance) is not bool or (whole_arm_clearance and not predictive_feedback):
+        raise ValueError('Whole-arm clearance requires the explicit predictive upright variant')
     result=dict(name='TRAIN_arm20_perceived_contact_attempt_v1',
         scope='selected_original20percent_actual_TRAIN_episodes_only',
         selection='existing_gentle_arm_episode_mask_no_second_draw',
@@ -109,6 +111,10 @@ def perceived_contact_contract(*, settled_close=False, precise_feedback=False, m
             position_joint_and_pending_lead_limits_unchanged=True,
             no_privileged_contact_or_force_prediction=True,
             SAC_distribution_and_unassisted_eval_same_as_upright_v5=True)
+    if whole_arm_clearance:
+        from .rack_entry_clearance import rack_clearance_contract
+        result.update(name='TRAIN_arm20_upright_whole_arm_rack_clearance_attempt_v8',
+                      whole_arm_rack_clearance=rack_clearance_contract())
     return result
 
 
@@ -138,10 +144,10 @@ def contact_statistics(saved=None):
 
 
 class PerceivedContactExploration:
-    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False,motion_feedback=False,upright_feedback=False,interior_contact=False,predictive_feedback=False):
+    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False,motion_feedback=False,upright_feedback=False,interior_contact=False,predictive_feedback=False, whole_arm_clearance=False):
         if type(num_envs) is not int or num_envs<1:
             raise ValueError('Positive global environment count required')
-        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback,motion_feedback=motion_feedback,upright_feedback=upright_feedback,interior_contact=interior_contact,predictive_feedback=predictive_feedback)
+        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback,motion_feedback=motion_feedback,upright_feedback=upright_feedback,interior_contact=interior_contact,predictive_feedback=predictive_feedback,whole_arm_clearance=whole_arm_clearance)
         self.settled_close=settled_close
         self.precise_feedback=precise_feedback
         self.motion_feedback=motion_feedback
@@ -150,7 +156,7 @@ class PerceivedContactExploration:
         self.upright_control=None
         if upright_feedback:
             from .upright_contact_control import UprightContactControl
-            self.upright_control=UprightContactControl(num_envs,raw)
+            self.upright_control=UprightContactControl(num_envs,raw,whole_arm_clearance=whole_arm_clearance)
         self.kinematics=TensorArmKinematics(device=raw.device,dtype=raw.dtype)
         self.axes=raw.new_tensor([closed_closing_axes()[s] for s in ('left','right')])
         self.phase=torch.full((num_envs,),-1,dtype=torch.long,device=raw.device)

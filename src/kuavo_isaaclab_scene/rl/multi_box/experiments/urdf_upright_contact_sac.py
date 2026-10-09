@@ -179,18 +179,33 @@ class URDFPredictiveContactSACPilot(URDFUprightContactSACPilot):
         self._contact_statistics = contact_statistics(state['perceived_contact_statistics'])
 
 
-def validate_upright_contact_state(state, *, interior_contact=False, predictive_feedback=False):
+class URDFWholeArmClearanceSACPilot(URDFPredictiveContactSACPilot):
+    """Same unassisted v5 SAC; selected TRAIN IK considers palm/forearm clearance."""
+    artifact_type = 'staged_actual_flap_URDF_upright_whole_arm_rack_clearance_sac_v8'
+    whole_arm_clearance = True
+
+    def validate_saved_state(self, state):
+        validate_whole_arm_clearance_state(state)
+        self._contact_statistics = contact_statistics(state['perceived_contact_statistics'])
+
+
+def validate_upright_contact_state(state, *, interior_contact=False, predictive_feedback=False,
+                                   whole_arm_clearance=False):
     if type(interior_contact) is not bool or type(predictive_feedback) is not bool \
+            or type(whole_arm_clearance) is not bool \
+            or (whole_arm_clearance and not predictive_feedback) \
             or (predictive_feedback and interior_contact):
         raise ValueError('Explicit compatible contact variant required')
-    pilot_class = (URDFPredictiveContactSACPilot if predictive_feedback else
+    pilot_class = (URDFWholeArmClearanceSACPilot if whole_arm_clearance else
+        URDFPredictiveContactSACPilot if predictive_feedback else
         URDFInteriorContactSACPilot if interior_contact else URDFUprightContactSACPilot)
     validate_urdf_servo_guard_state(state, artifact_type=pilot_class.artifact_type,
                                    servo_coefficient=STRONG_SERVO_COEFFICIENT)
     contract = state['goal_contract']
     expected = perceived_contact_contract(settled_close=True, precise_feedback=True,
                                           motion_feedback=True, upright_feedback=True, interior_contact=interior_contact,
-                                          predictive_feedback=predictive_feedback)
+                                          predictive_feedback=predictive_feedback,
+                                          whole_arm_clearance=whole_arm_clearance)
     if contract.get('URDF_upright_support') != upright_support_contract() \
             or state['hybrid_contract'].get('URDF_upright_support') != upright_support_contract() \
             or contract.get('body_controller') != 'source_centered_absolute_URDF_arms_and_software_bounded_upright_XZ_v5' \
@@ -214,3 +229,7 @@ def validate_interior_contact_state(state):
 
 def validate_predictive_contact_state(state):
     validate_upright_contact_state(state, predictive_feedback=True)
+
+
+def validate_whole_arm_clearance_state(state):
+    validate_upright_contact_state(state, predictive_feedback=True, whole_arm_clearance=True)
