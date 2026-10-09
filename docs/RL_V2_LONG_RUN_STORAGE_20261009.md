@@ -4,6 +4,21 @@
 원래 base·box·flap 무작위화와 양손 파지·유지·들기·안전 기준을 유지한다.
 학습 성능은 [진행 기록](RL_V2_SAC_PROGRESS_20261009.md)에서 확인한다.
 
+## 종료된 소스 복사본 정리
+
+11:58에는 종료된 motion feedback·precise feedback의 미사용 Git worktree
+두 개만 정리하여1,470,971,904bytes(약1.37GiB)를 확보했다. 원래 writer와
+supervisor 종료·최종 Drive 검증, 살아 있는 process의 참조 없음, 정확한
+commit이 origin/main에 있음을 재확인했다. 별도 branch는 유지했고, 사용자
+renderer와 diff는 ignored `artifacts/rl/closed_source_reconstruction_20261009`
+아래 보존했다. source commit으로 checkout하고 renderer patch를 적용하면
+동일 소스를 다시 만들 수 있다. ignored 파일은 Python 캐시뿐이었다.
+
+현재 v5가 함께 쓰는 projection recovery 소스는 살아 있는 참조가 있어
+보존했다. raw HDF·replay·checkpoint·로그·영상·인증 파일은 정리하지 않았다.
+현재·대기 중인 모든 소스는 유지했다. 이는 Drive raw 추가 업로드·삭제와
+별개의, 재구성 가능한 코드 복사본 정리다.
+
 ## 실제 수행한 로컬 이동
 
 RAM 저장소의 불변 DEV 모델38개, 3,718,858,260bytes(약3.46GiB)를
