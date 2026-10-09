@@ -6,6 +6,15 @@
 
 ## 종료된 소스 복사본 정리
 
+13:13에는 같은 SHA256을 가진 보고 이미지·영상 복사2,305개를 고정 checkout
+11개에서만 정리해 할당량618,917,888bytes(0.576GiB)를 확보했다. 루트 보고
+원본과 기록한 모든 물리 Python·geometry·필수 assets의 SHA256은 유지했다.
+13:54에는 새v9 checkout의 동일 보고 복사224개도 정리해60,088,320bytes를
+추가 확보했다. 코드·필수 자산·학습 raw·checkpoint·로그·인증은 유지하며,
+원래 Git commit과 루트 원본으로 보고 복사본을 다시 만들 수 있다.
+[11개 checkout 정리](assets/rl_v2_identical_frozen_documentation_media_cleanup_20261009.json) ·
+[새 고정 소스772개 보존](assets/rl_v2_independent_hand_close_frozen_documentation_cleanup_20261009.json).
+
 11:58에는 종료된 motion feedback·precise feedback의 미사용 Git worktree
 두 개만 정리하여1,470,971,904bytes(약1.37GiB)를 확보했다. 원래 writer와
 supervisor 종료·최종 Drive 검증, 살아 있는 process의 참조 없음, 정확한
@@ -40,6 +49,17 @@ RAM 저장소의 불변 DEV 모델38개, 3,718,858,260bytes(약3.46GiB)를
 검사한7개 테스트가 통과했다.
 
 ## 장기 용량 추정의 한계
+
+13:54 KST에는 실제 학습9개에 이미 시작한v8을 포함하고, 아직 CPU 대기인
+비중 조절·손별 닫기v9만 별도로 더했다. 현재 일반 디스크57.19GiB·RAM
+저장소80.89GiB가 비어 있지만, 모든 계획이 끝날 때까지의 증가량을 포함하면
+모델 이동이 계속되는 가정에서도 일반 디스크 잔여약5.08GiB·RAM약9.54GiB
+부족으로 추정된다. 이는 즉시 full 상태를 뜻하지 않으며 다른 작업 증가량도
+포함하지 않아 공간 보장은 아니다. 실제 checkpoint/log 백업은 유지하고,
+후속 비교는 정상 종료·최종 검증과 실제 디스크/RAM 여유를 확인해 대기한다.
+종료 raw 추가 전송/삭제의 승인은 아직 없으므로 그 공간을 확보했다고 세지
+않는다. 현행 HDF 기록은 이미 LZF 압축을 사용한다.
+[실제9개·미시작 비교2개의 중복 없는 전망](assets/rl_v2_current9_balanced50_v9_storage_forecast_20261009.json).
 
 10:52 KST에는 종료된 v6의 미래 증가량을 빼고 실제 활성9개와 다음 RAM
 실행v8의 전체 예정 기록을 포함해 다시 계산했다. 일반 디스크 여유70.82GiB,

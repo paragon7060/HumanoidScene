@@ -75,3 +75,14 @@ helper가 들어가지 않는다. 성공/실패 비중 조절은 별도 비교�
 새 물리 학습 시작이나 성공으로 보고하지 않는다. 기존 Drive 연결과
 checkpoint/log300초 업로드·체크섬 검증·최신2개 유지 규칙을 재사용한다.
 독립 FINAL은 아직 사용하지 않는다.
+
+13:51 KST 실제 CPU 대기 PID3,195,196을 등록하고 GPU mask가 비어 있음을
+확인했다. 물리 소스772개를 commit6818166에 고정했다. 현재 GPU3의v8,
+성공/실패 비중 조절 비교, v9 순서로 정상 종료·최종 Drive 검증을 확인한다.
+실제 GPU3 여유6,500MiB·일반 디스크45GiB·RAM 저장소25GiB가 부족하면
+대기하고 다른 실행에는 신호를 보내지 않는다. V9 물리 학습은 아직 시작 전이다.
+[실제 등록·소스·실행 전제](assets/rl_v2_independent_hand_close_actual_CPU_queue_20261009.json).
+
+Notion 보고에는 손별 준비 그림을 native image로 첨부했다. 기존86개 미디어와
+native table5개를 모두 유지했고 현재87개 미디어를 다시 읽어 확인했다.
+[그림·기존 자료 보존 검증](assets/rl_v2_individual_readiness_Notion_native_verified_20261009.json).
