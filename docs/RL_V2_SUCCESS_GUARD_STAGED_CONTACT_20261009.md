@@ -105,6 +105,22 @@ XML inventory 조회로 수정했다.
 [실제 시작 확인 기록](assets/rl_v2_guarded_staged_contact_SAC_actual_startup_20261010.json)에
 GPU 격리와 저장 상태를 기록했다.
 
+10/10 사용자 요청에 따라 종료 후속 점검도 연결했다. CPU 전용 감시 서비스
+`humanoid-rl-guarded-contact-completion-followup-20261010_012543.service`는 빈
+CUDA 마스크로 실행되며 실제 PID 2988767의 종료 대기 상태를 확인했다.
+이 실행의 writer·supervisor·서비스 종료와 최종 Drive 검증을 확인한 뒤,
+기존 대화에 결과 요약과 다음 개선 지시를 등록한다. 새 에이전트나 중복 학습을
+생성하거나 프로세스를 종료하지 않는다. 기존 Codex 로컬 서버의 같은 대화
+연결도 읽기 전용으로 시험했다. 서버와 기존 Codex 서비스가 계속 실행돼야 한다.
+이 설정은 ChatGPT Scheduled 화면에 등록한 시간 예약과는 별도의 종료 감시다.
+
+후속 검토는 같은 DEV 128조건의 학습 전후 실제 성공률, lost/gained 성공과
+구역별 충돌·시간 초과·초기화 실패를 비교한다. 실제 TRAIN 성공은행 및
+Adam 투영·축소·거절 동작도 확인한다. 결과가 개선되면 더 긴 학습을 검토하고,
+퇴행·정체이면 원인에 맞는 수정과 최소 확인 후 GPU 3에서 다음 실행을 진행한다.
+독립 FINAL은 이 수정 과정에 사용하지 않는다. 현재 상태는 종료 대기이며
+후속 평가나 개선 작업을 이미 마친 것으로 기록하지 않는다.
+
 업로더는 기존 Drive 연결을 이용해 300초마다 checksum을 검증하고 형식별
 최근 checkpoint 2개를 유지한다. 종료 후 로그도 검증한다. 상세 저장 범위는
 [Drive 문서](RL_GOOGLE_DRIVE.md), 다른 GPU의 6MiB 컨텍스트 방지는
