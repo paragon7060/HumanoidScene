@@ -79,7 +79,8 @@ CUDA_VISIBLE_DEVICES='' python scripts/rl/audit_closed_dev_critics.py \
   --checkpoint /absolute/path/to/matching-protected-checkpoint.pt \
   --matching-model-proof /absolute/path/to/matching-model-proof.json \
   --whole-eval-proof /absolute/path/to/completed-whole-DEV-proof.json \
-  --wave 4 --output-dir /absolute/path/to/unique-analysis-directory
+  --wave 4 --output-dir /absolute/path/to/unique-analysis-directory \
+  --plot-envs 78 90
 ```
 
 출력은 Q·return·실제 종료의 진단이다. 원시 관측/action payload를 출력하지

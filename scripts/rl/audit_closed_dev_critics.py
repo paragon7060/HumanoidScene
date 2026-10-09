@@ -100,6 +100,25 @@ def audit(run, checkpoint, matching, whole, wave):
                for x in rows) != expected:
         raise ValueError('All six original region and size groups must be retained')
     proven = {x['environment']: x for x in whole['cases']}
+    if set(proven) != set(range(128)):
+        raise ValueError('Whole evaluation proof must cover each original condition once')
+    counts = Counter()
+    for row in rows:
+        actual = row['result']
+        category = ('initial_invalid' if not row['initial_layout_valid'] else
+                    'success' if supported_success(row) else
+                    'numerical_failure' if actual.get('numerical_failure') else
+                    'unsafe' if actual.get('unsafe') else
+                    'time_out' if actual.get('time_out') else 'other_terminal')
+        counts[category] += 1
+        case = proven[row['environment']]
+        if (case['category'] != category or case['seed'] != row['layout']['seed']
+                or case['region'] != row['layout']['target_region']
+                or case['box_type'] != row['layout']['target_box_type']):
+            raise ValueError('Proof and recorded outcome differ for an original condition')
+    if (whole['counts']['requested'] != 128
+            or any(whole['counts'][k] != counts[k] for k in whole['counts'] if k != 'requested')):
+        raise ValueError('Proof and recorded whole evaluation score differ')
     agent, prior = restored_agent(state)
     hdf = run / 'executed_transitions.hdf5'
     before = identity(hdf)
@@ -186,6 +205,48 @@ def audit(run, checkpoint, matching, whole, wave):
     return proof, traces
 
 
+def plot_diagnostic(proof, traces, output, env_indices):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    records = {r['environment']: r for r in proof['records']}
+    if any(i not in records for i in env_indices):
+        raise ValueError('Plot traces require command-verified episodes')
+    colors = {'success': '#15936d', 'unsafe': '#d15a4d', 'time_out': '#667795'}
+    fig, axes = plt.subplots(1, 1+len(env_indices), figsize=(5*(1+len(env_indices)), 4.6),
+                             layout='constrained', squeeze=False)
+    ax = axes[0, 0]
+    for category in sorted({r['category'] for r in records.values()}):
+        rows = [r for r in records.values() if r['category'] == category]
+        ax.scatter([r['observed_return_first'] for r in rows], [r['Q_first'] for r in rows],
+                   s=23, alpha=.7, color=colors.get(category, '#7c648f'),
+                   label=f'{category} ({len(rows)})')
+    limits = [min(r['observed_return_first'] for r in records.values())-1,
+              max(r['observed_return_first'] for r in records.values())+1]
+    ax.plot(limits, limits, ':', color='#889199', label='Q = observed return')
+    ax.set(xlabel='Observed discounted return at held entry',
+           ylabel='Matching Qmin at held entry', title='Recorded DEV: critic estimate vs outcome')
+    ax.legend(fontsize=8)
+    ax.grid(alpha=.2)
+    for ax, index in zip(axes[0, 1:], env_indices):
+        rows = [r for r in traces[str(index)] if r['q_min'] is not None]
+        times = [r['control_step']/30 for r in rows]
+        ax.plot(times, [r['q_min'] for r in rows], color='#3c71be', label='Matching Qmin')
+        ax.plot(times, [r['observed_return'] for r in rows], color='#d4932c',
+                label='Observed return (retrospective)')
+        record = records[index]
+        ax.set(xlabel='Recorded control time (s)', ylabel='Cumulative reward estimate',
+               title=f"Env{index}: {record['region']} / {record['category']}")
+        ax.legend(fontsize=8)
+        ax.grid(alpha=.2)
+    fig.suptitle(f"Closed SAC: actor updates={proof['actor_updates']}, critic updates={proof['critic_updates']}"
+                 f" | {proof['original_full_DEV_counts']['success']}/128 actual successes", fontsize=13)
+    fig.text(.5, -.027, f"{len(records)} command-verified episodes; {len(proof['skipped'])} excluded from Q analysis only. "
+             "Q is not a success probability. No new physics evaluation.", ha='center', fontsize=9)
+    fig.savefig(output, dpi=160, bbox_inches='tight')
+    plt.close(fig)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run-dir', type=Path, required=True)
@@ -194,7 +255,12 @@ def main():
     parser.add_argument('--whole-eval-proof', type=Path, required=True)
     parser.add_argument('--wave', type=int, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
+    parser.add_argument('--plot-envs', type=int, nargs='*', help='Optional verified episode traces in the diagnostic PNG')
     args = parser.parse_args()
+    if args.plot_envs is not None and (len(args.plot_envs) > 6
+            or len(set(args.plot_envs)) != len(args.plot_envs)
+            or any(i < 0 or i >= 128 for i in args.plot_envs)):
+        parser.error('Choose up to six distinct original DEV environment indices for the plot')
     if args.output_dir.exists():
         raise ValueError('A distinct diagnostic output directory is required')
     proof, traces = audit(args.run_dir.resolve(), args.checkpoint.resolve(),
@@ -202,6 +268,8 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=False)
     (args.output_dir / 'verification.json').write_text(json.dumps(proof, indent=2, allow_nan=False)+'\n')
     (args.output_dir / 'critic_traces.json').write_text(json.dumps(traces, allow_nan=False)+'\n')
+    if args.plot_envs is not None:
+        plot_diagnostic(proof, traces, args.output_dir / 'critic_diagnostic.png', args.plot_envs)
     print(json.dumps({k: proof[k] for k in ('analyzed_held_episodes', 'by_outcome',
                                           'original_full_DEV_counts')}, ensure_ascii=False))
 
