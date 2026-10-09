@@ -20,7 +20,7 @@ from ....robots.end_effector import closed_closing_axes
 from ....workcell.workcell_layout import RACK_RAW_BOUNDS_M, scale as workcell_scale
 
 
-def perceived_contact_contract(*, settled_close=False, precise_feedback=False, motion_feedback=False, upright_feedback=False, interior_contact=False):
+def perceived_contact_contract(*, settled_close=False, precise_feedback=False, motion_feedback=False, upright_feedback=False, interior_contact=False, predictive_feedback=False):
     if type(settled_close) is not bool:raise ValueError('Explicit settled-close variant required')
     if type(precise_feedback) is not bool or (precise_feedback and not settled_close):
         raise ValueError('Precise feedback requires the explicit settled-close variant')
@@ -30,6 +30,8 @@ def perceived_contact_contract(*, settled_close=False, precise_feedback=False, m
         raise ValueError('Upright feedback requires the explicit motion-feedback variant')
     if type(interior_contact) is not bool or (interior_contact and not upright_feedback):
         raise ValueError('Interior contact requires the explicit upright-feedback variant')
+    if type(predictive_feedback) is not bool or (predictive_feedback and (not upright_feedback or interior_contact)):
+        raise ValueError('Predictive feedback requires upright control with the original contact target')
     result=dict(name='TRAIN_arm20_perceived_contact_attempt_v1',
         scope='selected_original20percent_actual_TRAIN_episodes_only',
         selection='existing_gentle_arm_episode_mask_no_second_draw',
@@ -97,7 +99,27 @@ def perceived_contact_contract(*, settled_close=False, precise_feedback=False, m
             contact_tangent_margin_m=.020,
             tangent_target_margin_NOT_physical_contact_or_success_relaxation=True,
             SAC_distribution_and_unassisted_eval_same_as_upright_v5=True)
+    if predictive_feedback:
+        result.update(name='TRAIN_arm20_upright_predictive_contact_attempt_v7',
+            closed_panel_prediction_horizon_control_ticks=3,
+            closed_panel_prediction_maximum_offset_m=.008,
+            prediction_coordinates='consecutive_measured_rack_frame_points_same_phase',
+            prediction_scope='selected_closed_surface_tracking_only',
+            closing_and_lift_gates_use_current_unpredicted_perception=True,
+            position_joint_and_pending_lead_limits_unchanged=True,
+            no_privileged_contact_or_force_prediction=True,
+            SAC_distribution_and_unassisted_eval_same_as_upright_v5=True)
     return result
+
+
+def bounded_panel_prediction(delta, *, horizon_ticks, maximum_offset_m):
+    """Predict a short measured motion without changing actual close/lift gates."""
+    if delta.ndim != 3 or delta.shape[1:] != (2, 3) or not torch.isfinite(delta).all() \
+            or type(horizon_ticks) is not int or horizon_ticks < 1 \
+            or type(maximum_offset_m) not in (float, int) or not 0 < maximum_offset_m <= .01:
+        raise ValueError('Finite bilateral measured motion and bounded prediction required')
+    offset = delta * horizon_ticks
+    return offset * maximum_offset_m / offset.norm(dim=-1, keepdim=True).clamp_min(maximum_offset_m)
 
 
 def contact_statistics(saved=None):
@@ -116,14 +138,15 @@ def contact_statistics(saved=None):
 
 
 class PerceivedContactExploration:
-    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False,motion_feedback=False,upright_feedback=False,interior_contact=False):
+    def __init__(self,num_envs,raw,statistics=None,*,settled_close=False,precise_feedback=False,motion_feedback=False,upright_feedback=False,interior_contact=False,predictive_feedback=False):
         if type(num_envs) is not int or num_envs<1:
             raise ValueError('Positive global environment count required')
-        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback,motion_feedback=motion_feedback,upright_feedback=upright_feedback,interior_contact=interior_contact)
+        self.contract=perceived_contact_contract(settled_close=settled_close,precise_feedback=precise_feedback,motion_feedback=motion_feedback,upright_feedback=upright_feedback,interior_contact=interior_contact,predictive_feedback=predictive_feedback)
         self.settled_close=settled_close
         self.precise_feedback=precise_feedback
         self.motion_feedback=motion_feedback
         self.upright_feedback=upright_feedback
+        self.predictive_feedback=predictive_feedback
         self.upright_control=None
         if upright_feedback:
             from .upright_contact_control import UprightContactControl
@@ -272,7 +295,18 @@ class PerceivedContactExploration:
                 (target-p)*(self.contract['closed_position_feedback_gain_per_s']/30),displacement)
             target_rack=(rack_R.transpose(-1,-2)[:,None]@(target-rack[:,None,:3])[...,None]).squeeze(-1)
             consecutive=(clocks-self.previous_target_clock[ids]==1)&(self.previous_target_phase[ids]==self.phase[ids])
-            motion=(target_rack-self.previous_target_rack[ids])*self.contract['current_panel_motion_feedforward_fraction']
+            delta=target_rack-self.previous_target_rack[ids]
+            if self.predictive_feedback:
+                predicted=bounded_panel_prediction(delta,
+                    horizon_ticks=self.contract['closed_panel_prediction_horizon_control_ticks'],
+                    maximum_offset_m=self.contract['closed_panel_prediction_maximum_offset_m'])
+                predicted=(rack_R[:,None]@predicted[...,None]).squeeze(-1)
+                # Compensate short tracking delay only while both jaws are
+                # actually commanded closed. A skipped clock, phase change,
+                # reopening or lift cannot carry an old panel velocity forward.
+                displacement+=torch.where((closing_feedback&consecutive)[:,None,None],
+                    predicted*(self.contract['closed_position_feedback_gain_per_s']/30),0.)
+            motion=delta*self.contract['current_panel_motion_feedforward_fraction']
             motion*=self.contract['panel_motion_feedforward_cap_m_per_tick']/motion.norm(dim=-1,keepdim=True).clamp_min(self.contract['panel_motion_feedforward_cap_m_per_tick'])
             motion=(rack_R[:,None]@motion[...,None]).squeeze(-1)
             displacement+=torch.where((closing_feedback&consecutive)[:,None,None],motion,0.)

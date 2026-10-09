@@ -117,3 +117,12 @@ Notion 보고에 이번 몸통 추종 그림을 native image로 추가했다. �
 아니며 TRAIN20% 탐색의 안쪽20mm 지점은 이 greedy 초기 평가에 사용되지 않는다.
 첫 TRAIN을 실제 시작했고 완료 수집과 학습 후 전체 결과를 기다린다.
 [전체 초기 평가·같은 실제 모델](assets/rl_v2_URDF_interior_contact_repaired_first_full_DEV_20261009.json).
+
+08:46:55 KST에 첫 TRAIN128도 완료됐다. 성공12·랙 안전 종료51·시간 초과65회,
+초기 무효/수치 오류0회였다. Greedy95회 중12회 성공했지만 안내33회는 성공0·
+handoff32·guided9,072행·닫힘0행·들기0회였다. Actor0·Q1,590인 수집이며
+학습 후 평가 성능이 아니다. 안쪽 지점만으로 닫힘 경험이 생기지 않았고
+중형은 여전히0회다. 원래 학습/전체 평가는 유지한다. 다음 예측 추종 비교는
+실제로 닫힘에 도달했던 v5의5mm 지점에서 진행한다.
+[실제 첫 TRAIN](assets/rl_v2_interior_contact_repaired_first_TRAIN_actual_20261009.json) ·
+[후속 예측 추종 비교](RL_V2_PREDICTIVE_CONTACT_SAC_20261009.md).
