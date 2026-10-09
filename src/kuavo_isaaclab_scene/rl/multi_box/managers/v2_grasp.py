@@ -227,6 +227,10 @@ class V2GraspReward(ManagerTermBase):
         self.contact_progress=(ContactProgressReward(env.num_envs,env.device,
             discount=self.model.weights.discount,config=profile['contact_shaping'])
             if profile and 'contact_shaping' in profile else None)
+        from ..rewards.staged_contact import StagedContactProgress
+        self.staged_contact_progress = (StagedContactProgress(env.num_envs, env.device,
+            discount=self.model.weights.discount, config=profile['staged_contact'])
+            if profile and 'staged_contact' in profile else None)
         self.previous = {
             name: torch.zeros(env.num_envs, device=env.device)
             for name in ("approach", "front_staging", "alignment", "capture", "jaw_gap", "proof_lift")
@@ -247,6 +251,7 @@ class V2GraspReward(ManagerTermBase):
         for value in self.previous.values():
             value[ids] = 0.0
         if self.contact_progress is not None:self.contact_progress.reset(env_ids)
+        if self.staged_contact_progress is not None:self.staged_contact_progress.reset(env_ids)
 
     def __call__(self, env, reward_profile=None) -> torch.Tensor:
         grasp = privileged_grasp_step(env)
@@ -342,6 +347,14 @@ class V2GraspReward(ManagerTermBase):
             terms=dict(breakdown.terms,contact_quality_progress=contact_reward)
             breakdown=RewardBreakdown(terms,torch.stack(tuple(terms.values())).sum(0))
             env._multi_box_contact_quality=self.contact_progress.last_quality
+        if self.staged_contact_progress is not None:
+            stage_terms = self.staged_contact_progress.step(
+                precision=current['precision_readiness'], hand_pinching=grasp.pinch.hand_pinching,
+                hand_flap_index=grasp.pinch.hand_flap_index,
+                trainable=trainable, terminated=geometry_terminal, assignment_changed=assignment_changed,
+                dt=float(env.step_dt))
+            terms = dict(breakdown.terms, **stage_terms)
+            breakdown = RewardBreakdown(terms, torch.stack(tuple(terms.values())).sum(0))
         if not bool(trainable.all()):
             terms = {
                 name: torch.where(trainable, value, torch.zeros_like(value))

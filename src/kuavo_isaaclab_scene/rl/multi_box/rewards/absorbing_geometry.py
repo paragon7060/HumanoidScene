@@ -15,6 +15,8 @@ def absorbing_geometry_contract():
 
 def frozen_geometry_actor_contract(contract):
     """Strip only the recognized reward change when reading frozen actor inputs."""
+    from .staged_contact import without_staged_contact
+    contract = without_staged_contact(contract)
     from .success_value import frozen_success_value_actor_contract
     contract=frozen_success_value_actor_contract(contract)
     profile=contract.get('reward_profile',{})

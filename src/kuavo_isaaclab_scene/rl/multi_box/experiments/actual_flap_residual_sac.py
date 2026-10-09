@@ -142,8 +142,17 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def __init__(self,*args,body_anchor_state=None,checkpoint=None,device='cpu',
                  measured_train_credit=None,jaw_behavior=None,jaw_saturation=None,
-                 success_jaw_balance=None,body_behavior=None,body_saturation=None,critic_episode_clock=None,**kwargs):
+                 success_jaw_balance=None,body_behavior=None,body_saturation=None,critic_episode_clock=None,
+                 actor_success_guard=None,**kwargs):
         saved=torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
+        from ...algorithms.success_update_guard import (
+            success_update_guard_config, validate_success_update_guard_state)
+        requested_guard = success_update_guard_config(actor_success_guard)
+        if saved is not None:
+            validate_success_update_guard_state(saved)
+            if actor_success_guard is not None and requested_guard != saved.get('actor_success_guard'):
+                raise ValueError('Actor guard activation requires a distinct fresh experiment')
+        self.actor_success_guard = deepcopy(saved.get('actor_success_guard') if saved else requested_guard)
         from ..observations.task_timing import resolve_critic_episode_clock
         self.critic_episode_clock = resolve_critic_episode_clock(saved, critic_episode_clock)
         if saved is not None and saved.get('artifact_type')!=self.artifact_type:
@@ -372,6 +381,7 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         self.agent.jaw_saturation_config = self.jaw_saturation
         self.agent.body_saturation_config = self.body_saturation
         self.agent.success_jaw_balance_config = self.success_jaw_balance
+        self.agent.actor_success_guard_config = self.actor_success_guard
         with torch.no_grad():
             old=self.body_anchor['actor'].state_dict();new=self.agent.actor.state_dict()
             prefix=self.warm_start.actor_dim
@@ -419,10 +429,14 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
             old_observation_control_Q_replay_imported=False)
         if self.critic_episode_clock is not None:
             result['critic_episode_clock'] = self.critic_episode_clock
+        if self.actor_success_guard is not None:
+            result['actor_success_guard'] = deepcopy(self.actor_success_guard)
         return result
 
     def checkpoint_extras(self):
         result = dict(body_anchor_state=self.body_anchor_state, **self.body_behavior_extras())
+        if self.actor_success_guard is not None:
+            result['actor_success_guard'] = deepcopy(self.actor_success_guard)
         if self.critic_episode_clock is not None:
             result['critic_episode_clock'] = self.critic_episode_clock
         if self.body_saturation is not None:
@@ -441,6 +455,8 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
         return result
 
     def restore_experience_extras(self, state):
+        if state.get('actor_success_guard') != self.actor_success_guard:
+            raise ValueError('Replay and checkpoint actor success guard differ')
         if state.get('critic_episode_clock') != self.critic_episode_clock:
             raise ValueError('Critic episode clock checkpoint/replay provenance differs')
         if state.get('body_saturation') != self._saved_body_saturation:
@@ -471,6 +487,8 @@ class ActualFlapResidualSACPilot(StagedHybridGoalSACPilot):
 
     def experience_extras(self):
         result = self.body_behavior_extras()
+        if self.actor_success_guard is not None:
+            result['actor_success_guard'] = deepcopy(self.actor_success_guard)
         if self.critic_episode_clock is not None:
             result['critic_episode_clock'] = self.critic_episode_clock
         if self.body_saturation is not None:

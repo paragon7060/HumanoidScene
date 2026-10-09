@@ -116,6 +116,7 @@ class IsaacPrivilegedGraspAdapter:
         capture_geometry = configured_capture_geometry(
             env.cfg.rewards.grasp.params.get('reward_profile'))
         self.capture_aggregation = capture_geometry['capture_aggregation']
+        self.staged_contact_enabled = 'staged_contact' in (env.cfg.rewards.grasp.params.get('reward_profile') or {})
         self.reward_scale = MetricScaleConfig(
             grasp_approach_m=GRASP_APPROACH_REWARD_SCALE_M,
             grasp_capture_m=capture_geometry['capture_scale_m'])
@@ -358,6 +359,9 @@ class IsaacPrivilegedGraspAdapter:
             capture_scale_m=self.reward_scale.grasp_capture_m,
             capture_aggregation=self.capture_aggregation,
         )
+        if self.staged_contact_enabled:
+            from ..rewards.staged_contact import precision_readiness
+            potentials['precision_readiness'] = precision_readiness(matched_distance, alignment_cos, capture)
         rack_pose = self.env.scene["rack"].data.root_pose_w
         tcp_in_rack = relative_pose(rack_pose, tcp_pose)[..., :3]
         center_world = flap_pose[..., :3] + quat_apply(flap_pose[..., 3:], centers)

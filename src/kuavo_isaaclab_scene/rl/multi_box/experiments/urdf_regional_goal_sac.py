@@ -8,6 +8,7 @@ from copy import deepcopy
 from dataclasses import replace
 
 import torch
+from ..rewards.staged_contact import actor_only_physics_equal
 from torch import nn
 
 from ...algorithms.common import ObservationNormalizer
@@ -137,7 +138,7 @@ def validate_urdf_regional_state(state, *, artifact_type=None):
         raise ValueError('URDF state has incompatible coordinates or imported training data')
     old = source['source_goal_contract']
     if old['goal_center'] != contract['source_goal_center'] or old['goal_scale'] != contract['source_goal_scale'] \
-            or old['physical_contract'] != contract['physical_contract'] \
+            or not actor_only_physics_equal(old['physical_contract'], contract['physical_contract']) \
             or old['shelf_templates'] != contract['shelf_templates'] \
             or source['source_frozen_body_anchor_SHA256'] != structure_sha256(state['body_anchor_state']):
         raise ValueError('URDF state source, physical contract or frozen anchor differs')
@@ -183,7 +184,7 @@ class URDFRegionalGoalSACPilot(ServoRetentionGentleSACPilot):
         if source['goal_center'] != self.center.tolist() or source['goal_scale'] != self.scale.tolist() \
                 or self.URDF_regional_source['source_frozen_body_anchor_SHA256'] != structure_sha256(self.body_anchor_state) \
                 or source['source_warm_start'] != self.warm_start.contract \
-                or source['physical_contract'] != self.physical_contract \
+                or not actor_only_physics_equal(source['physical_contract'], self.physical_contract) \
                 or source['shelf_templates'] != self.stage.templates:
             raise ValueError('Original source goals, physical contract, anchor or stages differ')
         super().configure_controller(saved)

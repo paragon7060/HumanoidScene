@@ -1,0 +1,219 @@
+{
+  "recorded_at": "2026-10-09T17:19:27.581188+09:00",
+  "role": "actual_closed_TRAIN_disposable_Adam_guard_comparison_NOT_rollout",
+  "run_directory_name": "batch_sac_20261009_102504_29009c",
+  "checkpoint_SHA256": "b789973af1109f197113766eda41d394d21773d71900c2ea718fd9414fb32cf6",
+  "experience_SHA256": "f3f20fe956b17585d8a77f4d7b0e1cefcfba143a86e8f20b178e84932001385e",
+  "actual_completed_TRAIN_success_paths": 16,
+  "guard": {
+    "name": "train-success-Adam-backtrack",
+    "format_version": 1,
+    "source": "same_completed_safe_TRAIN_actor_batch_only",
+    "grouping": "each_available_rack_region",
+    "protect_body_and_jaw_losses_separately": true,
+    "protect_actual_greedy_jaw_label_agreement": true,
+    "absolute_loss_tolerance": 1e-09,
+    "relative_loss_tolerance": 1e-06,
+    "project_actual_Adam_displacement_against_regional_body_and_jaw_gradients": true,
+    "per_hand_near_jaw_gradients_also_projected": true,
+    "projection_cycles": 4,
+    "candidate_parameter_scales": [
+      1.0,
+      0.5,
+      0.25,
+      0.125,
+      0.0625,
+      0.03125,
+      0.015625
+    ],
+    "reject_restores_parameters_and_Adam_moments": true,
+    "accepted_interpolation_keeps_proposed_Adam_moments": true,
+    "reject_skips_actor_counter_and_temperature_updates": true,
+    "critic_and_replay_updates_unchanged": true,
+    "freeze_actor_normalizer_required": true,
+    "absent_success_batch": "ordinary_actor_update",
+    "pilot_waits_for_first_completed_safe_TRAIN_success": true,
+    "local_batch_protection_is_not_rollout_success_guarantee": true
+  },
+  "batches": [
+    {
+      "seed": 9250,
+      "before": {
+        "1": {
+          "body": 0.000654009054414928,
+          "jaw": 0.1068122386932373,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 6.968867819523439e-05,
+          "jaw": 0.004698214121162891,
+          "jaw_errors": 0
+        }
+      },
+      "ordinary_after": {
+        "1": {
+          "body": 0.0006563321803696454,
+          "jaw": 0.1067417711019516,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 7.013250433374196e-05,
+          "jaw": 0.00470733642578125,
+          "jaw_errors": 0
+        }
+      },
+      "ordinary_passes_same_protection": false,
+      "guarded_after": {
+        "1": {
+          "body": 0.0006540082977153361,
+          "jaw": 0.10680738091468811,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 6.960036989767104e-05,
+          "jaw": 0.004698185715824366,
+          "jaw_errors": 0
+        }
+      },
+      "accepted": true,
+      "scale": 0.0625,
+      "projected_constraints": 8
+    },
+    {
+      "seed": 9251,
+      "before": {
+        "1": {
+          "body": 0.0006475091213360429,
+          "jaw": 0.0633658692240715,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 9.163321374217048e-05,
+          "jaw": 0.01118400413542986,
+          "jaw_errors": 0
+        }
+      },
+      "ordinary_after": {
+        "1": {
+          "body": 0.0006523904157802463,
+          "jaw": 0.06332859396934509,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 9.075725392904133e-05,
+          "jaw": 0.011176695115864277,
+          "jaw_errors": 0
+        }
+      },
+      "ordinary_passes_same_protection": false,
+      "guarded_after": {
+        "1": {
+          "body": 0.0006475101690739393,
+          "jaw": 0.06336313486099243,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 9.150568803306669e-05,
+          "jaw": 0.011183291673660278,
+          "jaw_errors": 0
+        }
+      },
+      "accepted": true,
+      "scale": 0.0625,
+      "projected_constraints": 4
+    },
+    {
+      "seed": 9252,
+      "before": {
+        "1": {
+          "body": 0.0005738802719861269,
+          "jaw": 0.10113158077001572,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 0.00010056573955807835,
+          "jaw": 0.009965608827769756,
+          "jaw_errors": 0
+        }
+      },
+      "ordinary_after": {
+        "1": {
+          "body": 0.0005813577445223927,
+          "jaw": 0.10108009725809097,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 9.688989666756243e-05,
+          "jaw": 0.009959708899259567,
+          "jaw_errors": 0
+        }
+      },
+      "ordinary_passes_same_protection": false,
+      "guarded_after": {
+        "1": {
+          "body": 0.0005738799809478223,
+          "jaw": 0.10112772136926651,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 0.00010023253707913682,
+          "jaw": 0.009965123608708382,
+          "jaw_errors": 0
+        }
+      },
+      "accepted": true,
+      "scale": 0.0625,
+      "projected_constraints": 3
+    },
+    {
+      "seed": 9253,
+      "before": {
+        "1": {
+          "body": 0.0005157855921424925,
+          "jaw": 0.11834728717803955,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 6.623565423069522e-05,
+          "jaw": 0.019865158945322037,
+          "jaw_errors": 0
+        }
+      },
+      "ordinary_after": {
+        "1": {
+          "body": 0.0005217544385232031,
+          "jaw": 0.11826012283563614,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 6.299751839833334e-05,
+          "jaw": 0.019854221493005753,
+          "jaw_errors": 0
+        }
+      },
+      "ordinary_passes_same_protection": false,
+      "guarded_after": {
+        "1": {
+          "body": 0.0005157849518582225,
+          "jaw": 0.11834389716386795,
+          "jaw_errors": 1
+        },
+        "2": {
+          "body": 6.608948024222627e-05,
+          "jaw": 0.019864631816744804,
+          "jaw_errors": 0
+        }
+      },
+      "accepted": true,
+      "scale": 0.03125,
+      "projected_constraints": 2
+    }
+  ],
+  "ordinary_regressing_batches": 4,
+  "guarded_regressing_batches": 0,
+  "guarded_accepted_batches": 4,
+  "original_model_optimizer_replay_unchanged": true,
+  "DEV_FINAL_training_import": false,
+  "no_actual_physics_or_success_rate_improvement_claim": true,
+  "goal_not_complete": true
+}

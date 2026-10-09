@@ -58,6 +58,8 @@ def frozen_actor_reward_contract(contract):
     Never use this derived contract to label, seed, or resume new-reward Q.
     Every non-reward observation/action/safety field remains untouched.
     """
+    from .staged_contact import without_staged_contact
+    contract = without_staged_contact(contract)
     from .precision_capture import frozen_capture_actor_contract
     contract=frozen_capture_actor_contract(contract)
     profile=contract.get('reward_profile',{})

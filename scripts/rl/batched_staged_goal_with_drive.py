@@ -112,11 +112,23 @@ def main():
     parser.add_argument('--learner-device', choices=('cuda:0','cpu'), default=None,
         help='Managed GPU learner uses cuda:0 within CUDA_VISIBLE_DEVICES; default follows physics')
     parser.add_argument('--python',type=Path,default=Path.home()/'miniconda3/envs/env_isaaclab_232/bin/python')
+    parser.add_argument('--training-source-root', type=Path, default=ROOT,
+        help='Use a separate immutable trainer source; authentication and uploader remain in this checkout')
+    parser.add_argument('--isolate-graphics-devices', action=argparse.BooleanOptionalAction, default=True,
+        help='Expose only the selected GPU to this process; isolates Vulkan/GL as well as CUDA')
     parser.add_argument('--remote-root',default=os.environ.get('RL_DRIVE_REMOTE_ROOT'))
     parser.add_argument('--checkpoint-log-backup-only',action='store_true',
         help='Upload checkpoints, contract metadata and closed logs; keep replay/HDF/media local')
     args,child=parser.parse_known_args()
     if args.gpu<0 or not args.python.is_file():parser.error('Valid GPU/Isaac Python required')
+    isolation = None
+    if args.isolate_graphics_devices:
+        from single_gpu_runtime import ensure_single_gpu_namespace
+        isolation = ensure_single_gpu_namespace(args.gpu)
+    code = args.training_source_root.resolve()
+    trainer = code/'scripts/rl/train_batched_staged_goal.py'
+    if not trainer.is_file() or trainer.is_symlink() or trainer.stat().st_uid != os.getuid():
+        parser.error('An owned regular trainer source is required')
     if any(s.split('=')[0] in ('--output-dir','--device','--learner-device','--kit_args') for s in child):
         parser.error('Managed run owns its output/device/renderer isolation')
     learner_device=args.learner_device or args.physics_device
@@ -132,14 +144,18 @@ def main():
         parser.error('Existing remote and dedicated folder required')
     parent=args.experiment_dir.expanduser().resolve();parent.mkdir(parents=True,exist_ok=False)
     run=parent/('batch_sac_'+datetime.now().strftime('%Y%m%d_%H%M%S')+'_'+uuid.uuid4().hex[:6])
-    command=[str(args.python),'-u',str(ROOT/'scripts/rl/train_batched_staged_goal.py'),*child,
+    renderer_gpu = isolation['renderer_gpu'] if isolation else args.gpu
+    cuda_mask = isolation['CUDA_VISIBLE_DEVICES'] if isolation else str(args.gpu)
+    command=[str(args.python),'-u',str(trainer),*child,
         '--output-dir',str(run),'--device',args.physics_device,'--learner-device',learner_device,'--headless','--kit_args',
-        f'--/renderer/activeGpu={args.gpu} --/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false']
-    environment=os.environ.copy();environment.update(CUDA_VISIBLE_DEVICES=str(args.gpu),OMNI_KIT_ACCEPT_EULA='YES',
-        PYTHONPATH=str(ROOT/'src')+':'+str(ROOT/'scripts/rl'),OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1')
+        f'--/renderer/activeGpu={renderer_gpu} --/renderer/multiGpu/enabled=false --/renderer/multiGpu/autoEnable=false --/renderer/multiGpu/maxGpuCount=1']
+    environment=os.environ.copy();environment.update(CUDA_VISIBLE_DEVICES=cuda_mask,OMNI_KIT_ACCEPT_EULA='YES',
+        PYTHONPATH=str(code/'src')+':'+str(code/'scripts/rl'),OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1')
     (parent/'launch.json').write_text(json.dumps(dict(command=command,gpu=args.gpu,run=str(run),
         physics_device=args.physics_device,learner_device=learner_device,frozen_device_diagnostic=device_audit,
-        backup_scope='checkpoint_contract_logs_only' if args.checkpoint_log_backup_only else 'pilot_payloads'),indent=2)+'\n')
+        backup_scope='checkpoint_contract_logs_only' if args.checkpoint_log_backup_only else 'pilot_payloads',
+        training_source_root=str(code), original_Drive_wrapper_root=str(ROOT),
+        single_GPU_graphics_isolation=isolation),indent=2)+'\n')
     return supervise(command,parent,environment,
         lambda source,finished:archive_batched(source,args.remote_root,finished,
             checkpoint_log_only=args.checkpoint_log_backup_only),

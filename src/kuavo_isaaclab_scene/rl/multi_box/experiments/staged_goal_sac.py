@@ -539,6 +539,10 @@ class StagedGoalSACPilot:
                 self.agent.update_normalizers(actual['actor_obs'], actual['critic_obs'])
                 update_actor = (self.critic_updates >= self.warmup and self.critic_updates % 4 == 0
                                 and self.replay.size>=self.actor_min_replay_rows)
+                guard_waiting = (getattr(self.agent, 'actor_success_guard_config', None) is not None
+                    and (self.success_bank is None or not self.success_bank.size))
+                if guard_waiting:
+                    update_actor = False
                 teacher, weight = None, self.prior_weight if update_actor else 0.
                 if weight:
                     with torch.no_grad():
@@ -555,13 +559,15 @@ class StagedGoalSACPilot:
                 success_options, success_actor_statistics = self.successful_actor_options(update_actor)
                 self.latest = self.agent.update(actual, teacher=teacher, teacher_weight=weight,
                     update_actor=update_actor, **success_options, **self.critic_auxiliary_options())
+                if getattr(self.agent, 'actor_success_guard_config', None) is not None:
+                    self.latest['actor_success_guard_waiting_first_completed_TRAIN_success'] = guard_waiting
                 if self.success_bank is not None:
                     self.latest.update(successful_train_rows_in_Q_batch=success_rows,
                         successful_train_replay_fraction=self.success_replay_fraction,
                         **success_actor_statistics)
                 if update_actor:
                     self.latest_actor = dict(self.latest, critic_update=self.critic_updates+1)
-                self.actor_updates += int(update_actor)
+                self.actor_updates += int(self.latest['actor_updated'])
                 self.critic_updates += 1
 
     def report(self):

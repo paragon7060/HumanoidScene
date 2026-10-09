@@ -230,6 +230,9 @@ def restored_agent(state):
         agent.actor_normalizer.load_state_dict({k.removeprefix('actor_normalizer.'):v
             for k,v in state['model'].items() if k.startswith('actor_normalizer.')})
         install_regional_actor(agent)
+    from kuavo_isaaclab_scene.rl.algorithms.success_update_guard import validate_success_update_guard_state
+    validate_success_update_guard_state(state)
+    agent.actor_success_guard_config = state.get('actor_success_guard')
     agent.restore(state, training=False)
     agent.requires_grad_(False)
     if not all(torch.equal(value, agent.state_dict()[key]) for key, value in state['model'].items()):

@@ -54,6 +54,9 @@ def main():
         parser.add_argument('--' + key, type=Path, required=True)
     parser.add_argument('--native-seed', type=Path, action='append', required=True)
     parser.add_argument('--replay-capacity', type=int, default=2000000)
+    parser.add_argument('--actor-success-guard', choices=('train-success-Adam-backtrack',))
+    parser.add_argument('--staged-contact-reward', action='store_true',
+        help='Add precision readiness and sustained actual pinch potentials; fresh Q/replay only')
     parser.add_argument('--measured-train-credit',
         choices=('measured-episode-return', 'measured-episode-return-balanced50'),
         default='measured-episode-return',
@@ -84,6 +87,9 @@ def main():
     waves = json.loads(args.waves_json.read_text())
     if source['goal_contract']['physical_contract'] != {k: physical.get(k) for k in source['goal_contract']['physical_contract']}:
         raise ValueError('Original physical manifest differs')
+    if args.staged_contact_reward:
+        from kuavo_isaaclab_scene.rl.multi_box.rewards.staged_contact import with_staged_contact_profile
+        physical = with_staged_contact_profile(physical)
     batch, _ = load_v2_grasp_demonstrations(args.demo_dataset, self_collision_enabled=False)
     references = {i: select_reference_episode(batch, i)['actor_obs'][0] for i in
         {r['episode_index'] for r in waves[0]['layouts']}}
@@ -115,7 +121,8 @@ def main():
         replay_capacity=args.replay_capacity, train_success_retention=True, exploration_correlation=.98,
         measured_train_credit=args.measured_train_credit, jaw_behavior='joint-epsilon30',
         jaw_saturation='logit4-soft-strong', body_behavior=args.body_behavior,
-        body_saturation='mean3-soft', critic_episode_clock='task-remaining')
+        body_saturation='mean3-soft', critic_episode_clock='task-remaining',
+        actor_success_guard=args.actor_success_guard)
     assert pilot.actor_updates == pilot.critic_updates == pilot.online_rows == pilot.replay.size == 0
     assert pilot.success_bank.size == pilot.measured_credit_bank.size == 0
     assert all(not o.state for o in pilot.agent.optimizers)
@@ -141,7 +148,10 @@ def main():
         arm_URDF_goals_and_original_non_arm_coordinates=True,
         exact_initial_checkpoint_and_training_resume_model_optimizer_contract=True,
         frozen_Q_video_restoration_exact=True, actor_Q_online_replay_success_return_banks0=True,
-        replay_capacity=pilot.replay.capacity, original_task_physics_randomization_reward_success_safety_preserved=True,
+        replay_capacity=pilot.replay.capacity, original_task_physics_randomization_success_safety_preserved=True,
+        original_reward_preserved=not args.staged_contact_reward,
+        actor_success_guard=pilot.actor_success_guard,
+        staged_contact_reward=args.staged_contact_reward,
         physical_simulation_or_training_NOT_started=True, no_physical_success_or_improvement_claim=True,
         servo_retention_profile=args.servo_retention_profile,
         body_behavior_variant=args.body_behavior,

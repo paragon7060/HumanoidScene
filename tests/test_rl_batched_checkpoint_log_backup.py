@@ -7,6 +7,7 @@ import pytest
 
 import batched_staged_goal_with_drive as managed
 import train_with_drive as storage
+import single_gpu_runtime as runtime
 
 
 def test_checkpoint_log_scope_keeps_physical_payloads_local(tmp_path, monkeypatch):
@@ -46,7 +47,12 @@ def test_existing_pilot_backup_scope_is_preserved(monkeypatch,tmp_path):
 @pytest.mark.parametrize('minimal',[False,True])
 def test_manager_forwards_checkpoint_exactly_without_consuming_child_flag(tmp_path,monkeypatch,minimal):
     parent=tmp_path/'new_run';checkpoint=tmp_path/'checkpoint_00019396.pt';calls=[]
-    def simulated(command,*args,**kwargs):calls.append(command);return 0
+    mask='GPU-00000000-0000-0000-0000-000000000003'
+    monkeypatch.setattr(runtime,'ensure_single_gpu_namespace',lambda gpu:dict(
+        physical_gpu=gpu,renderer_gpu=0,CUDA_VISIBLE_DEVICES=mask))
+    def simulated(command,parent,environment,*args,**kwargs):
+        assert environment['CUDA_VISIBLE_DEVICES']==mask
+        calls.append(command);return 0
     monkeypatch.setattr(managed,'supervise',simulated)
     argv=['manager','--experiment-dir',str(parent),'--gpu','3','--python',sys.executable,
           '--remote-root','test:HumanoidScene-RL','--checkpoint',str(checkpoint),'--training']
@@ -58,3 +64,5 @@ def test_manager_forwards_checkpoint_exactly_without_consuming_child_flag(tmp_pa
     assert '--checkpoint-log-backup-only' not in command and '--training' in command
     actual=json.loads((parent/'launch.json').read_text())
     assert actual['backup_scope']==('checkpoint_contract_logs_only' if minimal else 'pilot_payloads')
+    assert actual['single_GPU_graphics_isolation']['physical_gpu']==3
+    assert '--/renderer/activeGpu=0' in command[-1]

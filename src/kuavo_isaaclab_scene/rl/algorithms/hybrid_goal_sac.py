@@ -286,9 +286,16 @@ class HybridGoalSAC(AsymmetricSAC):
                 extra_loss, extra_statistics = body_regularization
                 actor_loss = actor_loss+extra_loss
                 report.update(extra_statistics)
-            optimize(self.actor_optimizer,actor_loss,self.actor.parameters())
+            from .success_update_guard import guarded_actor_step
+            actor_accepted, guard_statistics = guarded_actor_step(self, actor_loss, successful_train)
+            report.update(guard_statistics)
         finally:
             self.q1.requires_grad_(True);self.q2.requires_grad_(True)
+        if not actor_accepted:
+            report.update(actor_loss=actor_loss.item(), actor_updated=False,
+                success_goal_loss=success_goal_loss.item(), success_jaw_loss=success_jaw_loss.item(),
+                success_goal_weight=success_goal_weight, success_jaw_weight=success_jaw_weight)
+            return report
         target_entropy=self.continuous_entropy_target(ao,raw=batch['actor_obs']).detach()
         optimize(self.alpha_optimizer,-(self.log_alpha*(continuous_logp.detach()+target_entropy)).mean(),[self.log_alpha])
         observed_entropy=-(probability*discrete_logp).sum(-1).detach()
@@ -326,6 +333,8 @@ class HybridGoalSAC(AsymmetricSAC):
         result=dict(continuous_dims=19,binary_jaws=2,exact_branches=4,
             discrete_entropy_target_per_jaw=self.discrete_entropy_target_per_jaw,
             discrete_prior_weight=self.discrete_prior_weight)
+        if getattr(self, 'actor_success_guard_config', None) is not None:
+            result['actor_success_guard'] = self.actor_success_guard_config
         if self.validated_jaw_prior_confidence:
             result.update(validated_jaw_prior_confidence=self.validated_jaw_prior_confidence,
                 jaw_prior_residual_gain=self.jaw_prior_residual_gain,

@@ -439,6 +439,9 @@ def main():
         success_value=configured_success_value(contract['reward_profile'])
         if success_value is not None:
             profile['success_value']=success_value
+        if 'staged_contact' in contract['reward_profile']:
+            from kuavo_isaaclab_scene.rl.multi_box.rewards.staged_contact import staged_contact_contract
+            profile['staged_contact'] = staged_contact_contract()
         from kuavo_isaaclab_scene.rl.multi_box.geometry.box_drop import (
             grasp_drop_safety_thresholds, configured_drop_limit, DROP_REFERENCE)
         drop_limit=configured_drop_limit(contract)
