@@ -1,0 +1,5797 @@
+{
+  "recorded_at": "2026-10-09T10:52:52.694027+09:00",
+  "role": "matching_closed_DEV_critic_diagnostic_NOT_new_evaluation",
+  "source_run_directory_name": "batch_sac_20261009_073423_3f1269",
+  "wave": 4,
+  "actor_updates": 695,
+  "critic_updates": 4828,
+  "source_checkpoint_SHA256": "61fbb833b5a585c44b0eee101815d0f28a1ceec5b14e3bfa522c39ce05c5ff29",
+  "source_HDF_SHA256": "5206fad553193933e3b5619ea5ef5d143ce8514e1c2b904bb922aa3b0f7c1b93",
+  "original_full_DEV_counts": {
+    "requested": 128,
+    "success": 11,
+    "unsafe": 54,
+    "time_out": 63,
+    "initial_invalid": 0,
+    "numerical_failure": 0,
+    "other_terminal": 0
+  },
+  "requested_conditions": 128,
+  "analyzed_held_episodes": 124,
+  "skipped": [
+    {
+      "environment": 1,
+      "reason": "restored_command_precision_verification_failed",
+      "actual_category": "time_out",
+      "detail": "Policy goals do not match the executed commands: max error 0.00028014183044433594"
+    },
+    {
+      "environment": 25,
+      "reason": "restored_command_precision_verification_failed",
+      "actual_category": "time_out",
+      "detail": "Policy goals do not match the executed commands: max error 0.00028312206268310547"
+    },
+    {
+      "environment": 41,
+      "reason": "restored_command_precision_verification_failed",
+      "actual_category": "time_out",
+      "detail": "Policy goals do not match the executed commands: max error 0.00028014183044433594"
+    },
+    {
+      "environment": 105,
+      "reason": "restored_command_precision_verification_failed",
+      "actual_category": "time_out",
+      "detail": "Policy goals do not match the executed commands: max error 0.00027120113372802734"
+    }
+  ],
+  "by_outcome": {
+    "unsafe": {
+      "count": 54,
+      "Q_first_median": -2.819297432899475,
+      "Q_last_median": -6.249396085739136,
+      "observed_return_first_median": -4.78937124393039,
+      "Q_mean_absolute_return_difference_median": 2.7392986839275437,
+      "reward_sum_median": -8.15586524516857
+    },
+    "time_out": {
+      "count": 59,
+      "Q_first_median": -0.9077150225639343,
+      "Q_last_median": -0.8985792994499207,
+      "observed_return_first_median": -1.1162895900077507,
+      "Q_mean_absolute_return_difference_median": 1.2173414166576286,
+      "reward_sum_median": -3.1077573748443683
+    },
+    "success": {
+      "count": 11,
+      "Q_first_median": 0.5230255722999573,
+      "Q_last_median": 2.195652961730957,
+      "observed_return_first_median": 4.613507357070928,
+      "Q_mean_absolute_return_difference_median": 4.09426730280208,
+      "reward_sum_median": 7.537707399445935
+    }
+  },
+  "records": [
+    {
+      "environment": 0,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 640,
+      "manipulation_start_control_step": 105,
+      "max_reconstructed_executed_command_error": 0.00013113021850585938,
+      "Q_first": 2.3320469856262207,
+      "Q_last": -7.9537763595581055,
+      "Q_range": [
+        -7.9537763595581055,
+        2.4015860557556152
+      ],
+      "observed_return_first": -4.204514217660978,
+      "Q_mean_absolute_return_difference": 7.159932378792094,
+      "reward_sum": -8.216083205065843,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.001688370481133461,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 2,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 66,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -0.6498592495918274,
+      "Q_last": -1.8440673351287842,
+      "Q_range": [
+        -1.920666217803955,
+        -0.255179762840271
+      ],
+      "observed_return_first": -1.1268807655306943,
+      "Q_mean_absolute_return_difference": 0.9353150100609167,
+      "reward_sum": -3.1067264507910295,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.898570477962494e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 3,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 88,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": 0.48891913890838623,
+      "Q_last": -2.626981496810913,
+      "Q_range": [
+        -3.750826835632324,
+        3.0951247215270996
+      ],
+      "observed_return_first": -0.8179279100095527,
+      "Q_mean_absolute_return_difference": 2.2722336462690462,
+      "reward_sum": -3.0578621569729876,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          true
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.000368485227227211,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 4,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 439,
+      "manipulation_start_control_step": 102,
+      "max_reconstructed_executed_command_error": 5.364418029785156e-05,
+      "Q_first": -6.490042209625244,
+      "Q_last": -9.70534896850586,
+      "Q_range": [
+        -9.70534896850586,
+        -6.178577899932861
+      ],
+      "observed_return_first": -5.256076276568257,
+      "Q_mean_absolute_return_difference": 0.7153006612723146,
+      "reward_sum": -7.9065414071810665,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0008016917854547501,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 5,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 676,
+      "manipulation_start_control_step": 71,
+      "max_reconstructed_executed_command_error": 0.00011324882507324219,
+      "Q_first": -1.908684253692627,
+      "Q_last": -3.101637363433838,
+      "Q_range": [
+        -6.540677070617676,
+        -1.392813801765442
+      ],
+      "observed_return_first": -4.471401708343563,
+      "Q_mean_absolute_return_difference": 2.1621315617681587,
+      "reward_sum": -8.680266286669394,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.3074568510055542,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 6,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 65,
+      "max_reconstructed_executed_command_error": 0.00010728836059570312,
+      "Q_first": -1.990349531173706,
+      "Q_last": -3.008504867553711,
+      "Q_range": [
+        -5.2538933753967285,
+        -1.3100508451461792
+      ],
+      "observed_return_first": -1.061824872731398,
+      "Q_mean_absolute_return_difference": 0.5558429025118611,
+      "reward_sum": -3.092329163941031,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.910491406917572e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 7,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 672,
+      "manipulation_start_control_step": 82,
+      "max_reconstructed_executed_command_error": 7.748603820800781e-05,
+      "Q_first": 1.6330325603485107,
+      "Q_last": 2.604243278503418,
+      "Q_range": [
+        1.4353156089782715,
+        5.288331508636475
+      ],
+      "observed_return_first": 4.751778298411484,
+      "Q_mean_absolute_return_difference": 3.3398234900913004,
+      "reward_sum": 7.691515390731183,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04326533526182175,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 8,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 492,
+      "manipulation_start_control_step": 107,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -1.0616042613983154,
+      "Q_last": 2.0985939502716064,
+      "Q_range": [
+        -1.6054463386535645,
+        4.54382848739624
+      ],
+      "observed_return_first": 5.90090206018215,
+      "Q_mean_absolute_return_difference": 6.3469843197728055,
+      "reward_sum": 7.978340672751074,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.014454236254096031,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 9,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 74,
+      "max_reconstructed_executed_command_error": 0.00011920928955078125,
+      "Q_first": 0.6463242173194885,
+      "Q_last": -0.192641943693161,
+      "Q_range": [
+        -1.3849601745605469,
+        0.8353416323661804
+      ],
+      "observed_return_first": -1.4465041587646144,
+      "Q_mean_absolute_return_difference": 1.886380198870584,
+      "reward_sum": -3.2344992051366717,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -7.152557373046875e-07,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 10,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 71,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -0.9077150225639343,
+      "Q_last": -1.8756728172302246,
+      "Q_range": [
+        -2.557931423187256,
+        -0.47906237840652466
+      ],
+      "observed_return_first": -0.6973347599266755,
+      "Q_mean_absolute_return_difference": 0.9150436474081334,
+      "reward_sum": -2.709635571036415,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -4.9114227294921875e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 11,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 665,
+      "manipulation_start_control_step": 75,
+      "max_reconstructed_executed_command_error": 7.748603820800781e-05,
+      "Q_first": -0.372482568025589,
+      "Q_last": 2.1456139087677,
+      "Q_range": [
+        -0.5720560550689697,
+        3.8803515434265137
+      ],
+      "observed_return_first": 4.590820636199734,
+      "Q_mean_absolute_return_difference": 5.328132747314531,
+      "reward_sum": 7.476096107965532,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.02740561030805111,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 12,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 434,
+      "manipulation_start_control_step": 116,
+      "max_reconstructed_executed_command_error": 5.364418029785156e-05,
+      "Q_first": -5.317227840423584,
+      "Q_last": -9.8532133102417,
+      "Q_range": [
+        -9.8532133102417,
+        -5.317227840423584
+      ],
+      "observed_return_first": -5.322688453883738,
+      "Q_mean_absolute_return_difference": 0.19873970574364205,
+      "reward_sum": -7.86075301830715,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.042979657649994e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 13,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 631,
+      "manipulation_start_control_step": 81,
+      "max_reconstructed_executed_command_error": 0.00011622905731201172,
+      "Q_first": -1.20292067527771,
+      "Q_last": -1.583531141281128,
+      "Q_range": [
+        -3.1889092922210693,
+        -1.0372262001037598
+      ],
+      "observed_return_first": -4.625728568947041,
+      "Q_mean_absolute_return_difference": 4.670934684808359,
+      "reward_sum": -8.49670168844932,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.01091826893389225,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 14,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 64,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -0.9962970018386841,
+      "Q_last": -1.3638637065887451,
+      "Q_range": [
+        -2.3212499618530273,
+        -0.5407496094703674
+      ],
+      "observed_return_first": 0.609244647979272,
+      "Q_mean_absolute_return_difference": 1.7896808087794627,
+      "reward_sum": -0.9214177620306145,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -7.689930498600006e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 15,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 564,
+      "manipulation_start_control_step": 76,
+      "max_reconstructed_executed_command_error": 7.748603820800781e-05,
+      "Q_first": -3.518798589706421,
+      "Q_last": -5.074382781982422,
+      "Q_range": [
+        -5.5828537940979,
+        -3.2583909034729004
+      ],
+      "observed_return_first": -4.786094084604639,
+      "Q_mean_absolute_return_difference": 2.3202293471889,
+      "reward_sum": -8.157252279715976,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.3740496039390564e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 16,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 627,
+      "manipulation_start_control_step": 84,
+      "max_reconstructed_executed_command_error": 7.748603820800781e-05,
+      "Q_first": -1.128150463104248,
+      "Q_last": -6.946574687957764,
+      "Q_range": [
+        -7.142406940460205,
+        1.8259611129760742
+      ],
+      "observed_return_first": -2.6648024389265146,
+      "Q_mean_absolute_return_difference": 4.176033379663501,
+      "reward_sum": -5.95571093345643,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.007399449124932289,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 17,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 85,
+      "max_reconstructed_executed_command_error": 0.0001251697540283203,
+      "Q_first": -0.5518187284469604,
+      "Q_last": -0.5675097107887268,
+      "Q_range": [
+        -1.8272709846496582,
+        -0.4510682225227356
+      ],
+      "observed_return_first": -1.433151387235008,
+      "Q_mean_absolute_return_difference": 0.9258050193097122,
+      "reward_sum": -3.143233654726828,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -5.888938903808594e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 18,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 51,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -1.4600163698196411,
+      "Q_last": -1.5160391330718994,
+      "Q_range": [
+        -1.635978102684021,
+        -0.5624094009399414
+      ],
+      "observed_return_first": -1.12785262565301,
+      "Q_mean_absolute_return_difference": 1.0802570315493445,
+      "reward_sum": -3.08473216180937,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.554221570491791e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 19,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 607,
+      "manipulation_start_control_step": 68,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -3.5204498767852783,
+      "Q_last": -4.2074384689331055,
+      "Q_range": [
+        -5.088103294372559,
+        -2.403414249420166
+      ],
+      "observed_return_first": -4.616898340611652,
+      "Q_mean_absolute_return_difference": 3.282767723995013,
+      "reward_sum": -8.28394377107179,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.8760866522789e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 20,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 425,
+      "manipulation_start_control_step": 82,
+      "max_reconstructed_executed_command_error": 4.76837158203125e-05,
+      "Q_first": -4.434375762939453,
+      "Q_last": -9.435211181640625,
+      "Q_range": [
+        -9.560897827148438,
+        -4.434375762939453
+      ],
+      "observed_return_first": -5.210179180839918,
+      "Q_mean_absolute_return_difference": 0.2716155406412083,
+      "reward_sum": -7.920222633409139,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.4946169257164e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 21,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 670,
+      "manipulation_start_control_step": 65,
+      "max_reconstructed_executed_command_error": 0.00011324882507324219,
+      "Q_first": -2.9735467433929443,
+      "Q_last": -2.3430371284484863,
+      "Q_range": [
+        -6.241965293884277,
+        -2.240448236465454
+      ],
+      "observed_return_first": -4.481554983017792,
+      "Q_mean_absolute_return_difference": 2.1803815714714503,
+      "reward_sum": -8.69930928409849,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.26096200942993164,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 22,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 67,
+      "max_reconstructed_executed_command_error": 0.00013113021850585938,
+      "Q_first": -1.2341763973236084,
+      "Q_last": -0.6127306222915649,
+      "Q_range": [
+        -1.303378939628601,
+        0.003704667091369629
+      ],
+      "observed_return_first": -1.1035824073348075,
+      "Q_mean_absolute_return_difference": 1.565748842937324,
+      "reward_sum": -3.0806449281844834,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 2.3832544684410095e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 23,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 82,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -3.7242844104766846,
+      "Q_last": -2.6344833374023438,
+      "Q_range": [
+        -4.355230331420898,
+        -1.252349853515625
+      ],
+      "observed_return_first": -1.188061007406768,
+      "Q_mean_absolute_return_difference": 1.048159389425131,
+      "reward_sum": -3.2011752899252315,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.30388206243515e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 24,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 485,
+      "manipulation_start_control_step": 78,
+      "max_reconstructed_executed_command_error": 0.00011324882507324219,
+      "Q_first": 2.963379383087158,
+      "Q_last": 2.6526379585266113,
+      "Q_range": [
+        1.6983239650726318,
+        4.910111904144287
+      ],
+      "observed_return_first": 5.783564457325055,
+      "Q_mean_absolute_return_difference": 1.8941209660631413,
+      "reward_sum": 7.9033662007968815,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04192959517240524,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 26,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 69,
+      "max_reconstructed_executed_command_error": 0.00010728836059570312,
+      "Q_first": -0.7159005999565125,
+      "Q_last": -1.625903606414795,
+      "Q_range": [
+        -2.4519388675689697,
+        -0.03446105122566223
+      ],
+      "observed_return_first": -0.750643756004472,
+      "Q_mean_absolute_return_difference": 1.0576587311781775,
+      "reward_sum": -2.716142958670389,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.4350122809410095e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 27,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 526,
+      "manipulation_start_control_step": 90,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": 1.1662406921386719,
+      "Q_last": -2.1807875633239746,
+      "Q_range": [
+        -2.1807875633239746,
+        1.3582322597503662
+      ],
+      "observed_return_first": -4.858229106877721,
+      "Q_mean_absolute_return_difference": 6.996513728180055,
+      "reward_sum": -8.043259972471787,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.9952959418296814e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 28,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 425,
+      "manipulation_start_control_step": 85,
+      "max_reconstructed_executed_command_error": 5.9604644775390625e-05,
+      "Q_first": -4.955204486846924,
+      "Q_last": -9.256314277648926,
+      "Q_range": [
+        -9.434433937072754,
+        -4.955204486846924
+      ],
+      "observed_return_first": -5.222424367260195,
+      "Q_mean_absolute_return_difference": 0.11380636396644174,
+      "reward_sum": -7.878584412486816,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00016261078417301178,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 29,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 621,
+      "manipulation_start_control_step": 96,
+      "max_reconstructed_executed_command_error": 0.00011324882507324219,
+      "Q_first": -0.28879040479660034,
+      "Q_last": -1.2988672256469727,
+      "Q_range": [
+        -1.7441411018371582,
+        -0.08231352269649506
+      ],
+      "observed_return_first": -4.677689434012665,
+      "Q_mean_absolute_return_difference": 5.938528858970386,
+      "reward_sum": -8.43752048927513,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.126426160335541e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 30,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 67,
+      "max_reconstructed_executed_command_error": 0.0001430511474609375,
+      "Q_first": 1.1363998651504517,
+      "Q_last": 0.15785010159015656,
+      "Q_range": [
+        -0.20759430527687073,
+        1.991663932800293
+      ],
+      "observed_return_first": -0.8115316733236085,
+      "Q_mean_absolute_return_difference": 2.970016119968345,
+      "reward_sum": -2.7510160211313632,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.005036959424614906,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 31,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 89,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -3.4095780849456787,
+      "Q_last": -1.7033601999282837,
+      "Q_range": [
+        -7.815829277038574,
+        -1.594081997871399
+      ],
+      "observed_return_first": -0.8174236059955897,
+      "Q_mean_absolute_return_difference": 2.9779857732809467,
+      "reward_sum": -2.7375775129930844,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          true
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.001775512471795082,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 32,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 670,
+      "manipulation_start_control_step": 80,
+      "max_reconstructed_executed_command_error": 0.00014901161193847656,
+      "Q_first": -1.3711614608764648,
+      "Q_last": -6.0905656814575195,
+      "Q_range": [
+        -7.6410136222839355,
+        -1.2451735734939575
+      ],
+      "observed_return_first": -4.074901640737781,
+      "Q_mean_absolute_return_difference": 3.425103051969322,
+      "reward_sum": -8.276619827819559,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.08932077139616013,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 33,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 81,
+      "max_reconstructed_executed_command_error": 0.00011324882507324219,
+      "Q_first": -0.37126198410987854,
+      "Q_last": -0.5348087549209595,
+      "Q_range": [
+        -1.234322428703308,
+        -0.30745816230773926
+      ],
+      "observed_return_first": -1.4373544629914434,
+      "Q_mean_absolute_return_difference": 1.2762680731926386,
+      "reward_sum": -3.151892292100456,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 2.5033950805664062e-06,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 34,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 74,
+      "max_reconstructed_executed_command_error": 8.64267349243164e-05,
+      "Q_first": -1.8879854679107666,
+      "Q_last": -1.7782286405563354,
+      "Q_range": [
+        -2.7233071327209473,
+        -0.638300359249115
+      ],
+      "observed_return_first": -1.1162895900077507,
+      "Q_mean_absolute_return_difference": 0.6632485930742565,
+      "reward_sum": -3.090087437576585,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 2.8243288397789e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 35,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 88,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -0.1667095571756363,
+      "Q_last": -3.572735548019409,
+      "Q_range": [
+        -3.572735548019409,
+        2.375302791595459
+      ],
+      "observed_return_first": -0.8713039668995858,
+      "Q_mean_absolute_return_difference": 1.9392720172857694,
+      "reward_sum": -3.001612069820112,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.02706693671643734,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 36,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 417,
+      "manipulation_start_control_step": 80,
+      "max_reconstructed_executed_command_error": 5.9604644775390625e-05,
+      "Q_first": -4.584859848022461,
+      "Q_last": -9.4319429397583,
+      "Q_range": [
+        -9.526354789733887,
+        -4.584859848022461
+      ],
+      "observed_return_first": -5.234781437681228,
+      "Q_mean_absolute_return_difference": 0.20856655996440818,
+      "reward_sum": -7.912926553002762,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00023520924150943756,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 37,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 607,
+      "manipulation_start_control_step": 84,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -0.35548773407936096,
+      "Q_last": -2.5574610233306885,
+      "Q_range": [
+        -4.527218818664551,
+        -0.2777668833732605
+      ],
+      "observed_return_first": -4.6820634120860545,
+      "Q_mean_absolute_return_difference": 4.130579092661357,
+      "reward_sum": -8.402389508861233,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0004013869911432266,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 38,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 59,
+      "max_reconstructed_executed_command_error": 7.748603820800781e-05,
+      "Q_first": -0.5984904170036316,
+      "Q_last": -0.8985792994499207,
+      "Q_range": [
+        -0.9620485901832581,
+        -0.26912903785705566
+      ],
+      "observed_return_first": -1.129010927515514,
+      "Q_mean_absolute_return_difference": 1.580286313645639,
+      "reward_sum": -3.1066061010023986,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.4694170355796814e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 39,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 537,
+      "manipulation_start_control_step": 86,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": 1.0655357837677002,
+      "Q_last": 0.06652741134166718,
+      "Q_range": [
+        -0.615250289440155,
+        1.6488816738128662
+      ],
+      "observed_return_first": -4.826835839420766,
+      "Q_mean_absolute_return_difference": 7.422513867610347,
+      "reward_sum": -8.084001696181076,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.4230913519859314e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 40,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 700,
+      "manipulation_start_control_step": 105,
+      "max_reconstructed_executed_command_error": 0.00015497207641601562,
+      "Q_first": -0.5081716775894165,
+      "Q_last": -5.482564926147461,
+      "Q_range": [
+        -6.441178321838379,
+        -0.22715842723846436
+      ],
+      "observed_return_first": -4.040052933863269,
+      "Q_mean_absolute_return_difference": 4.799062502387402,
+      "reward_sum": -8.31875970270994,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.14110063016414642,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 42,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 53,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -0.6813221573829651,
+      "Q_last": -0.8329939842224121,
+      "Q_range": [
+        -2.035540819168091,
+        -0.03847271203994751
+      ],
+      "observed_return_first": -1.0920882889954706,
+      "Q_mean_absolute_return_difference": 1.7296477225676246,
+      "reward_sum": -3.2886845595612613,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.266761243343353e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 43,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 95,
+      "max_reconstructed_executed_command_error": 0.00011920928955078125,
+      "Q_first": -2.470350980758667,
+      "Q_last": -1.2972720861434937,
+      "Q_range": [
+        -6.3853254318237305,
+        -0.8362379670143127
+      ],
+      "observed_return_first": -0.7776039457679433,
+      "Q_mean_absolute_return_difference": 1.5427086481250194,
+      "reward_sum": -2.7728465754626086,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          true
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0024193618446588516,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 44,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 426,
+      "manipulation_start_control_step": 86,
+      "max_reconstructed_executed_command_error": 5.364418029785156e-05,
+      "Q_first": -4.424983978271484,
+      "Q_last": -9.532320976257324,
+      "Q_range": [
+        -9.685680389404297,
+        -4.424983978271484
+      ],
+      "observed_return_first": -5.222752961212723,
+      "Q_mean_absolute_return_difference": 0.3478470178399146,
+      "reward_sum": -7.9135692410272895,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.888007581233978e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 45,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 57,
+      "max_reconstructed_executed_command_error": 0.0001251697540283203,
+      "Q_first": -0.9369648098945618,
+      "Q_last": -0.630973756313324,
+      "Q_range": [
+        -3.6538405418395996,
+        -0.3193175494670868
+      ],
+      "observed_return_first": -1.409223909656813,
+      "Q_mean_absolute_return_difference": 0.6854296668387158,
+      "reward_sum": -3.36405594833559,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.21403132379055023,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 46,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 53,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -1.0640134811401367,
+      "Q_last": -1.2529520988464355,
+      "Q_range": [
+        -1.3167328834533691,
+        -0.6201637983322144
+      ],
+      "observed_return_first": -1.1251479318893904,
+      "Q_mean_absolute_return_difference": 1.2402898011925738,
+      "reward_sum": -3.1163812915683593,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.552863538265228e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 47,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 529,
+      "manipulation_start_control_step": 83,
+      "max_reconstructed_executed_command_error": 0.00010132789611816406,
+      "Q_first": -1.3190515041351318,
+      "Q_last": -6.608578681945801,
+      "Q_range": [
+        -7.06328821182251,
+        -1.2133774757385254
+      ],
+      "observed_return_first": -4.818275040227125,
+      "Q_mean_absolute_return_difference": 2.8576319427995758,
+      "reward_sum": -8.067483125598358,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0021165702491998672,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 48,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 625,
+      "manipulation_start_control_step": 83,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -1.6069689989089966,
+      "Q_last": -7.949721336364746,
+      "Q_range": [
+        -7.978121757507324,
+        -1.429893970489502
+      ],
+      "observed_return_first": -4.5552048455603895,
+      "Q_mean_absolute_return_difference": 3.5640559971553762,
+      "reward_sum": -8.613216093850497,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00831974484026432,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 49,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 77,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -3.0419440269470215,
+      "Q_last": -0.5599254369735718,
+      "Q_range": [
+        -7.0504374504089355,
+        -0.5211461186408997
+      ],
+      "observed_return_first": -1.4557389197705595,
+      "Q_mean_absolute_return_difference": 2.0172381116637257,
+      "reward_sum": -3.2280124045864795,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 3.837607800960541e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 50,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 64,
+      "max_reconstructed_executed_command_error": 0.00010728836059570312,
+      "Q_first": -1.3771733045578003,
+      "Q_last": -1.186847448348999,
+      "Q_range": [
+        -1.3771733045578003,
+        -0.5247358083724976
+      ],
+      "observed_return_first": -1.1015203771038804,
+      "Q_mean_absolute_return_difference": 1.1799286540708105,
+      "reward_sum": -3.111122790231093,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.529021680355072e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 51,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 667,
+      "manipulation_start_control_step": 74,
+      "max_reconstructed_executed_command_error": 7.152557373046875e-05,
+      "Q_first": 0.879128634929657,
+      "Q_last": 2.2553696632385254,
+      "Q_range": [
+        0.4883842468261719,
+        3.7977700233459473
+      ],
+      "observed_return_first": 4.519728623962208,
+      "Q_mean_absolute_return_difference": 3.9945635857774664,
+      "reward_sum": 7.362219205922884,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.051617614924907684,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 52,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 464,
+      "manipulation_start_control_step": 87,
+      "max_reconstructed_executed_command_error": 7.152557373046875e-05,
+      "Q_first": -4.413511753082275,
+      "Q_last": -9.490835189819336,
+      "Q_range": [
+        -9.872919082641602,
+        -4.413511753082275
+      ],
+      "observed_return_first": -5.0759375294999725,
+      "Q_mean_absolute_return_difference": 0.3813989111743136,
+      "reward_sum": -8.031182857575914,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00036443211138248444,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 53,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 635,
+      "manipulation_start_control_step": 94,
+      "max_reconstructed_executed_command_error": 0.00010728836059570312,
+      "Q_first": -0.20010286569595337,
+      "Q_last": -2.1575582027435303,
+      "Q_range": [
+        -2.647529363632202,
+        0.04367031157016754
+      ],
+      "observed_return_first": -4.64757073979809,
+      "Q_mean_absolute_return_difference": 6.049641567685726,
+      "reward_sum": -8.520373768667923,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0016414020210504532,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 54,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 65,
+      "max_reconstructed_executed_command_error": 0.00013113021850585938,
+      "Q_first": -0.22940391302108765,
+      "Q_last": -0.23415695130825043,
+      "Q_range": [
+        -2.747955799102783,
+        0.22149266302585602
+      ],
+      "observed_return_first": -1.0297448162560547,
+      "Q_mean_absolute_return_difference": 1.806221251357472,
+      "reward_sum": -3.1803428630300914,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0005194041877985001,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 55,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 678,
+      "manipulation_start_control_step": 96,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": 0.7330899834632874,
+      "Q_last": -1.5753188133239746,
+      "Q_range": [
+        -3.548316717147827,
+        1.2436126470565796
+      ],
+      "observed_return_first": -4.412270658269333,
+      "Q_mean_absolute_return_difference": 6.787408499022055,
+      "reward_sum": -8.554021522810217,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.768798291683197e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 56,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 621,
+      "manipulation_start_control_step": 79,
+      "max_reconstructed_executed_command_error": 0.00010728836059570312,
+      "Q_first": -1.9376201629638672,
+      "Q_last": -8.479846954345703,
+      "Q_range": [
+        -8.986054420471191,
+        -1.7352001667022705
+      ],
+      "observed_return_first": -4.220884226647959,
+      "Q_mean_absolute_return_difference": 2.5969406118248415,
+      "reward_sum": -8.128359189038747,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0002012345939874649,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 57,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 79,
+      "max_reconstructed_executed_command_error": 0.00011920928955078125,
+      "Q_first": -0.2643143832683563,
+      "Q_last": -0.5048412680625916,
+      "Q_range": [
+        -1.384238362312317,
+        0.4699893593788147
+      ],
+      "observed_return_first": -1.4412535485789266,
+      "Q_mean_absolute_return_difference": 1.444300149466389,
+      "reward_sum": -3.149322474608198,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -5.0902366638183594e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 58,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 67,
+      "max_reconstructed_executed_command_error": 0.00011324882507324219,
+      "Q_first": -1.2595523595809937,
+      "Q_last": -0.7679567933082581,
+      "Q_range": [
+        -1.276471734046936,
+        0.06973996758460999
+      ],
+      "observed_return_first": -1.1105695359269216,
+      "Q_mean_absolute_return_difference": 1.6539613167337623,
+      "reward_sum": -3.128689649005537,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.9118494391441345e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 59,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 78,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -0.8960540294647217,
+      "Q_last": -0.7379968762397766,
+      "Q_range": [
+        -2.617384433746338,
+        0.1960858404636383
+      ],
+      "observed_return_first": -1.1161036358226917,
+      "Q_mean_absolute_return_difference": 1.6519296766612295,
+      "reward_sum": -3.268804874191119,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.697272717952728e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 60,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 416,
+      "manipulation_start_control_step": 99,
+      "max_reconstructed_executed_command_error": 7.152557373046875e-05,
+      "Q_first": -6.359932899475098,
+      "Q_last": -9.521195411682129,
+      "Q_range": [
+        -9.64728832244873,
+        -6.359932899475098
+      ],
+      "observed_return_first": -5.328261114375134,
+      "Q_mean_absolute_return_difference": 0.8989935882043192,
+      "reward_sum": -7.833896295964223,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0002623889595270157,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 61,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 603,
+      "manipulation_start_control_step": 85,
+      "max_reconstructed_executed_command_error": 0.00010728836059570312,
+      "Q_first": -1.334781289100647,
+      "Q_last": -5.357824802398682,
+      "Q_range": [
+        -6.336218357086182,
+        -1.06075918674469
+      ],
+      "observed_return_first": -4.655944969163526,
+      "Q_mean_absolute_return_difference": 3.2362326332847133,
+      "reward_sum": -8.464508465885956,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0006449315696954727,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 62,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 56,
+      "max_reconstructed_executed_command_error": 8.940696716308594e-05,
+      "Q_first": -1.7973734140396118,
+      "Q_last": -1.5424697399139404,
+      "Q_range": [
+        -2.00900936126709,
+        -0.826215922832489
+      ],
+      "observed_return_first": -1.1721808994633949,
+      "Q_mean_absolute_return_difference": 0.7619205104481369,
+      "reward_sum": -3.058535959557048,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.305240094661713e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 63,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 507,
+      "manipulation_start_control_step": 73,
+      "max_reconstructed_executed_command_error": 7.152557373046875e-05,
+      "Q_first": -2.2853009700775146,
+      "Q_last": -7.1189045906066895,
+      "Q_range": [
+        -7.282593250274658,
+        -1.8518593311309814
+      ],
+      "observed_return_first": -4.891032894845189,
+      "Q_mean_absolute_return_difference": 3.096642118078871,
+      "reward_sum": -7.972198049275903,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.959533154964447e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 64,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 657,
+      "manipulation_start_control_step": 69,
+      "max_reconstructed_executed_command_error": 0.00011324882507324219,
+      "Q_first": 1.240817904472351,
+      "Q_last": -2.664562225341797,
+      "Q_range": [
+        -6.8499345779418945,
+        3.499387502670288
+      ],
+      "observed_return_first": -2.7088368524004163,
+      "Q_mean_absolute_return_difference": 6.3435383156874074,
+      "reward_sum": -6.434508181228011,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.010037669911980629,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 65,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 78,
+      "max_reconstructed_executed_command_error": 0.0001251697540283203,
+      "Q_first": -1.2513775825500488,
+      "Q_last": -0.8151286840438843,
+      "Q_range": [
+        -2.7023003101348877,
+        -0.8151286840438843
+      ],
+      "observed_return_first": -1.4611758151766399,
+      "Q_mean_absolute_return_difference": 0.3357053801564029,
+      "reward_sum": -3.189422170647049,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -7.152557373046875e-07,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 66,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 69,
+      "max_reconstructed_executed_command_error": 0.00010132789611816406,
+      "Q_first": -0.33361995220184326,
+      "Q_last": 0.8075612187385559,
+      "Q_range": [
+        -1.2115600109100342,
+        1.5945501327514648
+      ],
+      "observed_return_first": -0.7835393281091847,
+      "Q_mean_absolute_return_difference": 2.244571053159936,
+      "reward_sum": -2.9025715131429024,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0018920991569757462,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 67,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 88,
+      "max_reconstructed_executed_command_error": 8.940696716308594e-05,
+      "Q_first": -0.24978217482566833,
+      "Q_last": -0.7147019505500793,
+      "Q_range": [
+        -1.4133836030960083,
+        0.831732988357544
+      ],
+      "observed_return_first": -1.1372074863674337,
+      "Q_mean_absolute_return_difference": 2.108859988005542,
+      "reward_sum": -3.2490488607109,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.015449175611138344,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 68,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 427,
+      "manipulation_start_control_step": 91,
+      "max_reconstructed_executed_command_error": 5.6624412536621094e-05,
+      "Q_first": -5.234055042266846,
+      "Q_last": -9.364872932434082,
+      "Q_range": [
+        -9.467086791992188,
+        -5.234055042266846
+      ],
+      "observed_return_first": -5.238894088551199,
+      "Q_mean_absolute_return_difference": 0.14120462828067565,
+      "reward_sum": -7.926950018714706,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.00013875029981136322,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 69,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 84,
+      "max_reconstructed_executed_command_error": 0.00011026859283447266,
+      "Q_first": -1.1167131662368774,
+      "Q_last": -0.5528005361557007,
+      "Q_range": [
+        -6.278507232666016,
+        -0.4653574228286743
+      ],
+      "observed_return_first": -1.2828138626927221,
+      "Q_mean_absolute_return_difference": 0.8365666856455928,
+      "reward_sum": -3.091649578564102,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.7316774725914e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 70,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 69,
+      "max_reconstructed_executed_command_error": 0.00011622905731201172,
+      "Q_first": -0.8340508937835693,
+      "Q_last": -0.8248314261436462,
+      "Q_range": [
+        -0.9470260143280029,
+        -0.2530580759048462
+      ],
+      "observed_return_first": -1.1151872798462446,
+      "Q_mean_absolute_return_difference": 1.5465001783287124,
+      "reward_sum": -3.1130133837577887,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.2906031012535095e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 71,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 522,
+      "manipulation_start_control_step": 88,
+      "max_reconstructed_executed_command_error": 8.13603401184082e-05,
+      "Q_first": 0.9352018237113953,
+      "Q_last": -3.8689520359039307,
+      "Q_range": [
+        -3.8689520359039307,
+        1.0531034469604492
+      ],
+      "observed_return_first": -4.865850379987346,
+      "Q_mean_absolute_return_difference": 6.355588802018819,
+      "reward_sum": -8.027578643564539,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.387328565120697e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 72,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 520,
+      "manipulation_start_control_step": 111,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": 0.5230255722999573,
+      "Q_last": 2.404010534286499,
+      "Q_range": [
+        0.4169369339942932,
+        4.305750370025635
+      ],
+      "observed_return_first": 5.779260674361477,
+      "Q_mean_absolute_return_difference": 4.09426730280208,
+      "reward_sum": 7.86159499650239,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04337989538908005,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 73,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 86,
+      "max_reconstructed_executed_command_error": 0.00015497207641601562,
+      "Q_first": -1.1466145515441895,
+      "Q_last": -0.7228518128395081,
+      "Q_range": [
+        -3.0674240589141846,
+        -0.7228518128395081
+      ],
+      "observed_return_first": -1.4424157589429418,
+      "Q_mean_absolute_return_difference": 0.2328581642524693,
+      "reward_sum": -3.1249071736183396,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -4.887580871582031e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 74,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 56,
+      "max_reconstructed_executed_command_error": 0.00010728836059570312,
+      "Q_first": -1.455505132675171,
+      "Q_last": -2.5059125423431396,
+      "Q_range": [
+        -3.15177059173584,
+        -0.3748505711555481
+      ],
+      "observed_return_first": -1.0188805120358855,
+      "Q_mean_absolute_return_difference": 0.9604945376710334,
+      "reward_sum": -3.2740372135522193,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0026052091270685196,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 75,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 97,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": 1.9535938501358032,
+      "Q_last": 1.5015218257904053,
+      "Q_range": [
+        -1.8668326139450073,
+        2.33498477935791
+      ],
+      "observed_return_first": -0.8235212160419804,
+      "Q_mean_absolute_return_difference": 3.4203726287872978,
+      "reward_sum": -2.747680358144862,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.005360493436455727,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 76,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 449,
+      "manipulation_start_control_step": 115,
+      "max_reconstructed_executed_command_error": 6.556510925292969e-05,
+      "Q_first": -3.538639783859253,
+      "Q_last": -6.401133060455322,
+      "Q_range": [
+        -6.44304084777832,
+        -3.263335704803467
+      ],
+      "observed_return_first": -5.268751388028653,
+      "Q_mean_absolute_return_difference": 2.5895274565964392,
+      "reward_sum": -7.911902332947648,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0004925820976495743,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 77,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 71,
+      "max_reconstructed_executed_command_error": 0.00011026859283447266,
+      "Q_first": -0.14365148544311523,
+      "Q_last": -0.9110705256462097,
+      "Q_range": [
+        -2.0228519439697266,
+        0.18780946731567383
+      ],
+      "observed_return_first": -1.4269953305836838,
+      "Q_mean_absolute_return_difference": 1.2173414166576286,
+      "reward_sum": -3.1938238841685234,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 3.277324140071869e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 78,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 657,
+      "manipulation_start_control_step": 62,
+      "max_reconstructed_executed_command_error": 8.940696716308594e-05,
+      "Q_first": 1.0312976837158203,
+      "Q_last": 1.8993293046951294,
+      "Q_range": [
+        0.7989280819892883,
+        3.2455098628997803
+      ],
+      "observed_return_first": 4.589409396335197,
+      "Q_mean_absolute_return_difference": 3.9187786995111473,
+      "reward_sum": 7.526712473947555,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04615771025419235,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 79,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 679,
+      "manipulation_start_control_step": 90,
+      "max_reconstructed_executed_command_error": 0.00011324882507324219,
+      "Q_first": 0.10412946343421936,
+      "Q_last": 2.195652961730957,
+      "Q_range": [
+        -0.07185173034667969,
+        4.439124584197998
+      ],
+      "observed_return_first": 4.613507357070928,
+      "Q_mean_absolute_return_difference": 4.928430783138233,
+      "reward_sum": 7.4305408006975995,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.03429567068815231,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 80,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 638,
+      "manipulation_start_control_step": 96,
+      "max_reconstructed_executed_command_error": 7.748603820800781e-05,
+      "Q_first": -3.4127094745635986,
+      "Q_last": -8.226537704467773,
+      "Q_range": [
+        -8.8266019821167,
+        -3.288679361343384
+      ],
+      "observed_return_first": -4.221204651622128,
+      "Q_mean_absolute_return_difference": 1.191559937402347,
+      "reward_sum": -8.165364973363467,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.00012790225446224213,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 81,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 62,
+      "max_reconstructed_executed_command_error": 0.00013113021850585938,
+      "Q_first": -1.264780879020691,
+      "Q_last": -0.8009352087974548,
+      "Q_range": [
+        -2.0821194648742676,
+        -0.7640174031257629
+      ],
+      "observed_return_first": -1.4583348920623442,
+      "Q_mean_absolute_return_difference": 0.5869268613064033,
+      "reward_sum": -3.213485532643972,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 2.7418136596679688e-06,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 82,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 54,
+      "max_reconstructed_executed_command_error": 0.00010728836059570312,
+      "Q_first": -1.3778351545333862,
+      "Q_last": -0.974888801574707,
+      "Q_range": [
+        -1.5901672840118408,
+        -0.46946030855178833
+      ],
+      "observed_return_first": -1.1106534307825975,
+      "Q_mean_absolute_return_difference": 1.2747968333909974,
+      "reward_sum": -3.0957523056931677,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.838965833187103e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 83,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 505,
+      "manipulation_start_control_step": 74,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -1.7669578790664673,
+      "Q_last": -6.941600799560547,
+      "Q_range": [
+        -7.124889373779297,
+        -1.2986762523651123
+      ],
+      "observed_return_first": -4.902442737824066,
+      "Q_mean_absolute_return_difference": 3.4726206705137193,
+      "reward_sum": -7.961255355483445,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.409812390804291e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 84,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 419,
+      "manipulation_start_control_step": 78,
+      "max_reconstructed_executed_command_error": 5.9604644775390625e-05,
+      "Q_first": -3.447364330291748,
+      "Q_last": -6.398949146270752,
+      "Q_range": [
+        -6.6666035652160645,
+        -3.2148325443267822
+      ],
+      "observed_return_first": -5.243295102348252,
+      "Q_mean_absolute_return_difference": 2.5002867256094903,
+      "reward_sum": -7.882365137916167,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0010614488273859024,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 85,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 87,
+      "max_reconstructed_executed_command_error": 0.00011920928955078125,
+      "Q_first": -0.6811651587486267,
+      "Q_last": -2.083493232727051,
+      "Q_range": [
+        -3.0408265590667725,
+        -0.46670883893966675
+      ],
+      "observed_return_first": -1.401725189262434,
+      "Q_mean_absolute_return_difference": 0.8766739299932668,
+      "reward_sum": -3.2405281488063338,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.09243559092283249,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 86,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 66,
+      "max_reconstructed_executed_command_error": 0.00011324882507324219,
+      "Q_first": -0.607951819896698,
+      "Q_last": -3.0591044425964355,
+      "Q_range": [
+        -3.6170170307159424,
+        -0.11831431090831757
+      ],
+      "observed_return_first": -0.7380982109967195,
+      "Q_mean_absolute_return_difference": 1.0499181877245034,
+      "reward_sum": -2.882785756903104,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          true
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00028813816606998444,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 87,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 574,
+      "manipulation_start_control_step": 90,
+      "max_reconstructed_executed_command_error": 8.940696716308594e-05,
+      "Q_first": -3.295642137527466,
+      "Q_last": -4.895848751068115,
+      "Q_range": [
+        -5.363879203796387,
+        -2.982788324356079
+      ],
+      "observed_return_first": -4.792648403256141,
+      "Q_mean_absolute_return_difference": 2.4665987403764364,
+      "reward_sum": -8.194165663015156,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.1025843024253845e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 88,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 478,
+      "manipulation_start_control_step": 97,
+      "max_reconstructed_executed_command_error": 7.748603820800781e-05,
+      "Q_first": -1.526402235031128,
+      "Q_last": 1.8755018711090088,
+      "Q_range": [
+        -1.78987717628479,
+        3.3750224113464355
+      ],
+      "observed_return_first": 5.9264154676003455,
+      "Q_mean_absolute_return_difference": 7.2168537181056145,
+      "reward_sum": 8.014879058900988,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.02421378158032894,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 89,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 76,
+      "max_reconstructed_executed_command_error": 0.00012218952178955078,
+      "Q_first": -0.4393015503883362,
+      "Q_last": -0.5055968165397644,
+      "Q_range": [
+        -1.3631423711776733,
+        -0.32424962520599365
+      ],
+      "observed_return_first": -1.443845867789744,
+      "Q_mean_absolute_return_difference": 1.25624308817548,
+      "reward_sum": -3.2243536877685983,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -2.86102294921875e-06,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 90,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 657,
+      "manipulation_start_control_step": 61,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": 0.3599175810813904,
+      "Q_last": 1.8292714357376099,
+      "Q_range": [
+        -1.420533299446106,
+        2.352379322052002
+      ],
+      "observed_return_first": 4.5777906013554865,
+      "Q_mean_absolute_return_difference": 4.8504668936146755,
+      "reward_sum": 7.537707399445935,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04812072962522507,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 91,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 75,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -0.7505399584770203,
+      "Q_last": -4.5958170890808105,
+      "Q_range": [
+        -5.881414413452148,
+        -0.3951635956764221
+      ],
+      "observed_return_first": -1.1261547391450215,
+      "Q_mean_absolute_return_difference": 0.5886522876655246,
+      "reward_sum": -3.0980830759981473,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.7330355048179626e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 92,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 424,
+      "manipulation_start_control_step": 106,
+      "max_reconstructed_executed_command_error": 4.76837158203125e-05,
+      "Q_first": -3.645369052886963,
+      "Q_last": -5.9320387840271,
+      "Q_range": [
+        -7.395671844482422,
+        -3.5043091773986816
+      ],
+      "observed_return_first": -5.3349043258627,
+      "Q_mean_absolute_return_difference": 2.274322954999567,
+      "reward_sum": -7.837965682061622,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.9118494391441345e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 93,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 603,
+      "manipulation_start_control_step": 83,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": 0.13205622136592865,
+      "Q_last": -0.9299044013023376,
+      "Q_range": [
+        -1.0304908752441406,
+        0.312419593334198
+      ],
+      "observed_return_first": -4.718007804220888,
+      "Q_mean_absolute_return_difference": 6.430787196684712,
+      "reward_sum": -8.372200975587475,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.910491406917572e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 94,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 58,
+      "max_reconstructed_executed_command_error": 0.00010132789611816406,
+      "Q_first": -0.724966824054718,
+      "Q_last": -0.6449210047721863,
+      "Q_range": [
+        -0.7783347964286804,
+        -0.02990371733903885
+      ],
+      "observed_return_first": -1.1226533480324912,
+      "Q_mean_absolute_return_difference": 1.7146194492959927,
+      "reward_sum": -3.1077573748443683,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 4.266761243343353e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 95,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 78,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -0.9510889649391174,
+      "Q_last": -3.9316179752349854,
+      "Q_range": [
+        -6.263511657714844,
+        -0.3807814419269562
+      ],
+      "observed_return_first": -1.1405066578348335,
+      "Q_mean_absolute_return_difference": 0.6789568584883644,
+      "reward_sum": -3.0853814576694276,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.578063428401947e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 96,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 687,
+      "manipulation_start_control_step": 98,
+      "max_reconstructed_executed_command_error": 0.00013113021850585938,
+      "Q_first": -3.4232089519500732,
+      "Q_last": -7.325368404388428,
+      "Q_range": [
+        -9.398736000061035,
+        -3.3115298748016357
+      ],
+      "observed_return_first": -4.080851193610002,
+      "Q_mean_absolute_return_difference": 0.6185546082086444,
+      "reward_sum": -8.346236955789209,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.0006363298743963242,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 97,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 84,
+      "max_reconstructed_executed_command_error": 0.00013113021850585938,
+      "Q_first": -0.781667172908783,
+      "Q_last": -0.7603264451026917,
+      "Q_range": [
+        -2.727036476135254,
+        -0.2975696623325348
+      ],
+      "observed_return_first": -1.450547023078493,
+      "Q_mean_absolute_return_difference": 0.7581954801481894,
+      "reward_sum": -3.2254804872391105,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 2.2649765014648438e-06,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 98,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 54,
+      "max_reconstructed_executed_command_error": 0.00016689300537109375,
+      "Q_first": -1.5146206617355347,
+      "Q_last": -0.9698771238327026,
+      "Q_range": [
+        -1.5658925771713257,
+        -0.1302737146615982
+      ],
+      "observed_return_first": -1.0986175526175015,
+      "Q_mean_absolute_return_difference": 1.4398842661881408,
+      "reward_sum": -3.154950997028209,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.8999285101890564e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 99,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 570,
+      "manipulation_start_control_step": 77,
+      "max_reconstructed_executed_command_error": 7.152557373046875e-05,
+      "Q_first": -4.005861282348633,
+      "Q_last": -6.763826370239258,
+      "Q_range": [
+        -6.763826370239258,
+        -3.213989019393921
+      ],
+      "observed_return_first": -4.7235177493727045,
+      "Q_mean_absolute_return_difference": 1.97508977427855,
+      "reward_sum": -8.166426154399232,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.3515657782554626e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 100,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 470,
+      "manipulation_start_control_step": 109,
+      "max_reconstructed_executed_command_error": 6.854534149169922e-05,
+      "Q_first": -3.333325147628784,
+      "Q_last": -6.432738780975342,
+      "Q_range": [
+        -7.127130031585693,
+        -3.195399761199951
+      ],
+      "observed_return_first": -5.162836189259938,
+      "Q_mean_absolute_return_difference": 2.6935620047534576,
+      "reward_sum": -7.996162106654083,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.68535178899765e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 101,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 65,
+      "max_reconstructed_executed_command_error": 0.00011360645294189453,
+      "Q_first": -0.31904375553131104,
+      "Q_last": -0.7745643258094788,
+      "Q_range": [
+        -2.836775302886963,
+        -0.029908299446105957
+      ],
+      "observed_return_first": -1.3918696049899855,
+      "Q_mean_absolute_return_difference": 1.0459456822422297,
+      "reward_sum": -3.2113950220846164,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0025676582008600235,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 102,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 74,
+      "max_reconstructed_executed_command_error": 0.00010728836059570312,
+      "Q_first": -1.0076987743377686,
+      "Q_last": -2.1721837520599365,
+      "Q_range": [
+        -4.51975154876709,
+        -0.6137588024139404
+      ],
+      "observed_return_first": -0.736230140435159,
+      "Q_mean_absolute_return_difference": 0.49122582930116115,
+      "reward_sum": -2.7856441839176114,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.02916635014116764,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 103,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 83,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -1.1052536964416504,
+      "Q_last": -0.5546200275421143,
+      "Q_range": [
+        -3.1928720474243164,
+        1.6445419788360596
+      ],
+      "observed_return_first": 0.5916917902483064,
+      "Q_mean_absolute_return_difference": 1.7720620118543144,
+      "reward_sum": -0.5730152395808545,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          true
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0029404256492853165,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 104,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 655,
+      "manipulation_start_control_step": 66,
+      "max_reconstructed_executed_command_error": 0.00011920928955078125,
+      "Q_first": -3.8464910984039307,
+      "Q_last": -8.280192375183105,
+      "Q_range": [
+        -9.073030471801758,
+        -3.7698075771331787
+      ],
+      "observed_return_first": -4.084324223809038,
+      "Q_mean_absolute_return_difference": 0.49749850641909943,
+      "reward_sum": -8.289017026894726,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0006400439888238907,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 106,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 56,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -0.8177120089530945,
+      "Q_last": -0.445387601852417,
+      "Q_range": [
+        -0.8177120089530945,
+        -0.0725877434015274
+      ],
+      "observed_return_first": -1.0733802626402413,
+      "Q_mean_absolute_return_difference": 1.9479100987061924,
+      "reward_sum": -3.1591958401695592,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 6.543658673763275e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 107,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 565,
+      "manipulation_start_control_step": 74,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -2.9918501377105713,
+      "Q_last": -5.4788689613342285,
+      "Q_range": [
+        -5.6689772605896,
+        -2.562824249267578
+      ],
+      "observed_return_first": -4.740262504106348,
+      "Q_mean_absolute_return_difference": 2.5243632229409725,
+      "reward_sum": -8.154478210621164,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.673430860042572e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 108,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 441,
+      "manipulation_start_control_step": 103,
+      "max_reconstructed_executed_command_error": 5.364418029785156e-05,
+      "Q_first": -2.6101226806640625,
+      "Q_last": -7.54594612121582,
+      "Q_range": [
+        -7.54594612121582,
+        -2.3597071170806885
+      ],
+      "observed_return_first": -5.23900176646482,
+      "Q_mean_absolute_return_difference": 2.7256852977863586,
+      "reward_sum": -7.908074479714287,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.001480231061577797,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 109,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 665,
+      "manipulation_start_control_step": 51,
+      "max_reconstructed_executed_command_error": 0.00011485815048217773,
+      "Q_first": -2.665048122406006,
+      "Q_last": -1.9969288110733032,
+      "Q_range": [
+        -7.1610236167907715,
+        -1.1668684482574463
+      ],
+      "observed_return_first": -7.703924820407239,
+      "Q_mean_absolute_return_difference": 6.258858517297845,
+      "reward_sum": -14.646493345462659,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.28164196014404297,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": true,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 110,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 71,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -1.5330625772476196,
+      "Q_last": -1.13151216506958,
+      "Q_range": [
+        -1.6700409650802612,
+        -0.4157779812812805
+      ],
+      "observed_return_first": -1.0732909897751957,
+      "Q_mean_absolute_return_difference": 1.3164159480077275,
+      "reward_sum": -3.1504740555046737,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -4.470348358154297e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 111,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 578,
+      "manipulation_start_control_step": 93,
+      "max_reconstructed_executed_command_error": 0.00011324882507324219,
+      "Q_first": -3.454557180404663,
+      "Q_last": -4.3419365882873535,
+      "Q_range": [
+        -4.688683986663818,
+        -2.9650542736053467
+      ],
+      "observed_return_first": -4.795475861353817,
+      "Q_mean_absolute_return_difference": 2.752912070068729,
+      "reward_sum": -8.211015440161646,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -5.8302655816078186e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 112,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 672,
+      "manipulation_start_control_step": 82,
+      "max_reconstructed_executed_command_error": 0.00011920928955078125,
+      "Q_first": -2.0246572494506836,
+      "Q_last": -6.285595893859863,
+      "Q_range": [
+        -9.508589744567871,
+        -1.9210841655731201
+      ],
+      "observed_return_first": -4.0592526663695585,
+      "Q_mean_absolute_return_difference": 2.1170803137119183,
+      "reward_sum": -8.271884973481065,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": true,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 0.022770633921027184,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 113,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 83,
+      "max_reconstructed_executed_command_error": 0.00013113021850585938,
+      "Q_first": -1.4157755374908447,
+      "Q_last": -0.8637647032737732,
+      "Q_range": [
+        -2.8731698989868164,
+        -0.8295721411705017
+      ],
+      "observed_return_first": -1.4614645448394004,
+      "Q_mean_absolute_return_difference": 0.3590765653635961,
+      "reward_sum": -3.1305282589128183,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -1.1920928955078125e-07,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 114,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 64,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -1.2130827903747559,
+      "Q_last": -0.8968713879585266,
+      "Q_range": [
+        -1.6818923950195312,
+        -0.08727983385324478
+      ],
+      "observed_return_first": -1.095019206719062,
+      "Q_mean_absolute_return_difference": 1.4650593136275791,
+      "reward_sum": -3.0807212503423216,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 1.3938173651695251e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 115,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "success",
+      "initial_base_offset": null,
+      "actual_success": true,
+      "steps": 674,
+      "manipulation_start_control_step": 86,
+      "max_reconstructed_executed_command_error": 7.152557373046875e-05,
+      "Q_first": 1.0881328582763672,
+      "Q_last": 2.586582899093628,
+      "Q_range": [
+        0.9278960824012756,
+        5.575295448303223
+      ],
+      "observed_return_first": 4.601473641279728,
+      "Q_mean_absolute_return_difference": 3.3214441096641445,
+      "reward_sum": 7.444353634286017,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.021255245432257652,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 116,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 427,
+      "manipulation_start_control_step": 88,
+      "max_reconstructed_executed_command_error": 5.364418029785156e-05,
+      "Q_first": -2.9963042736053467,
+      "Q_last": -5.497136116027832,
+      "Q_range": [
+        -5.630309104919434,
+        -2.8761026859283447
+      ],
+      "observed_return_first": -5.251064568261418,
+      "Q_mean_absolute_return_difference": 3.1074984702522204,
+      "reward_sum": -7.873561378907652,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0005414579063653946,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 117,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 593,
+      "manipulation_start_control_step": 73,
+      "max_reconstructed_executed_command_error": 7.748603820800781e-05,
+      "Q_first": -0.44267547130584717,
+      "Q_last": -2.3543639183044434,
+      "Q_range": [
+        -2.6161952018737793,
+        -0.3322274684906006
+      ],
+      "observed_return_first": -4.68206196061799,
+      "Q_mean_absolute_return_difference": 5.695216064697518,
+      "reward_sum": -8.35389113442929,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.005305776372551918,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 118,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 54,
+      "max_reconstructed_executed_command_error": 0.00011622905731201172,
+      "Q_first": -1.5747804641723633,
+      "Q_last": -2.342036247253418,
+      "Q_range": [
+        -2.6619362831115723,
+        -0.9150635600090027
+      ],
+      "observed_return_first": -1.1812408527073042,
+      "Q_mean_absolute_return_difference": 0.3814864920727192,
+      "reward_sum": -3.0170051605637127,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.011776218190789223,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 119,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 464,
+      "manipulation_start_control_step": 78,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -1.782904028892517,
+      "Q_last": -6.213196277618408,
+      "Q_range": [
+        -6.677506446838379,
+        -0.945580244064331
+      ],
+      "observed_return_first": -5.0346705440281685,
+      "Q_mean_absolute_return_difference": 4.668692214802834,
+      "reward_sum": -7.821081279696955,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0033993814140558243,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 120,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 662,
+      "manipulation_start_control_step": 80,
+      "max_reconstructed_executed_command_error": 0.00011920928955078125,
+      "Q_first": -3.838218927383423,
+      "Q_last": -7.319205284118652,
+      "Q_range": [
+        -9.35684871673584,
+        -3.6228904724121094
+      ],
+      "observed_return_first": -4.094971713423994,
+      "Q_mean_absolute_return_difference": 0.6084063404922373,
+      "reward_sum": -8.298923363337963,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.00012577511370182037,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 121,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 69,
+      "max_reconstructed_executed_command_error": 0.00011920928955078125,
+      "Q_first": -1.1787633895874023,
+      "Q_last": -0.643000066280365,
+      "Q_range": [
+        -2.351161479949951,
+        -0.6153277158737183
+      ],
+      "observed_return_first": -1.4574125847836255,
+      "Q_mean_absolute_return_difference": 0.5006556905367119,
+      "reward_sum": -3.2292687145363743,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -2.8133392333984375e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 122,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 62,
+      "max_reconstructed_executed_command_error": 0.0001430511474609375,
+      "Q_first": -0.5652825832366943,
+      "Q_last": -1.3420281410217285,
+      "Q_range": [
+        -4.534613609313965,
+        -0.004742950201034546
+      ],
+      "observed_return_first": -0.7301156893090164,
+      "Q_mean_absolute_return_difference": 1.0602490986478799,
+      "reward_sum": -2.6394462074094918,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.589984357357025e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 123,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 577,
+      "manipulation_start_control_step": 78,
+      "max_reconstructed_executed_command_error": 9.5367431640625e-05,
+      "Q_first": -3.5471744537353516,
+      "Q_last": -4.664149284362793,
+      "Q_range": [
+        -4.792537689208984,
+        -2.9754040241241455
+      ],
+      "observed_return_first": -4.751588643880209,
+      "Q_mean_absolute_return_difference": 2.763479815297752,
+      "reward_sum": -8.201246122800512,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": 5.9118494391441345e-05,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 124,
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 435,
+      "manipulation_start_control_step": 98,
+      "max_reconstructed_executed_command_error": 5.364418029785156e-05,
+      "Q_first": -5.469542026519775,
+      "Q_last": -9.458921432495117,
+      "Q_range": [
+        -9.536079406738281,
+        -5.469542026519775
+      ],
+      "observed_return_first": -5.238597122107304,
+      "Q_mean_absolute_return_difference": 0.3058374873839447,
+      "reward_sum": -7.909296282894502,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.0003970954567193985,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": true,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 125,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "category": "unsafe",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 703,
+      "manipulation_start_control_step": 89,
+      "max_reconstructed_executed_command_error": 0.0001251697540283203,
+      "Q_first": -1.2131824493408203,
+      "Q_last": -0.8487535119056702,
+      "Q_range": [
+        -3.9722394943237305,
+        -0.4591703712940216
+      ],
+      "observed_return_first": -7.628496643223535,
+      "Q_mean_absolute_return_difference": 8.714735650929088,
+      "reward_sum": -14.58033309352686,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.20249725878238678,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": true,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 126,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 68,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": -0.6968501806259155,
+      "Q_last": -2.262347459793091,
+      "Q_range": [
+        -2.3238070011138916,
+        -0.20328988134860992
+      ],
+      "observed_return_first": -1.1423191660100007,
+      "Q_mean_absolute_return_difference": 0.6888073409587487,
+      "reward_sum": -3.0932020494292374,
+      "actual_terminal": {
+        "pinching": [
+          false,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -8.702278137207031e-06,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 127,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "category": "time_out",
+      "initial_base_offset": null,
+      "actual_success": false,
+      "steps": 857,
+      "manipulation_start_control_step": 75,
+      "max_reconstructed_executed_command_error": 8.344650268554688e-05,
+      "Q_first": 1.0148752927780151,
+      "Q_last": -5.191631317138672,
+      "Q_range": [
+        -5.350277900695801,
+        1.2000820636749268
+      ],
+      "observed_return_first": 0.36850939590696963,
+      "Q_mean_absolute_return_difference": 0.8235287969021243,
+      "reward_sum": -0.9916658627748802,
+      "actual_terminal": {
+        "pinching": [
+          true,
+          false
+        ],
+        "stable_hands": [
+          false,
+          false
+        ],
+        "opposing_flaps": false,
+        "proof_lift": false,
+        "hold_time_s": 0.0,
+        "rack_clearance_m": -0.001324305310845375,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    }
+  ],
+  "discount": 0.999,
+  "reward_scale": 1.0,
+  "entropy_backup": false,
+  "Q_definition": "matching online min(Q1,Q2) at recorded pre-action state and executed deterministic goal",
+  "Q_is_success_probability": false,
+  "observed_return_is_retrospective": true,
+  "realized_return_difference_alone_does_not_prove_Bellman_or_learning_error": true,
+  "command_verification_tolerance_NOT_relaxed": true,
+  "unverified_commands_excluded_from_Q_diagnostic_NOT_evaluation_denominator": true,
+  "closed_sources_unchanged": true,
+  "no_physics_replay": true,
+  "no_GPU_used": true,
+  "optimizer_updates": 0,
+  "replay_rows_imported": 0,
+  "raw_observation_action_payload_NOT_exported": true,
+  "original_full_DEV_score_unchanged": true,
+  "goal_not_complete": true,
+  "analyzed_source_commands_match_restored_greedy_policy": true
+}
