@@ -29,6 +29,15 @@ def build(reference_waves, output, *, seed_origin, train_waves=12, validate_ever
     if set(quotas)!=set(REGIONS) or len(set(quotas.values()))!=1:
         raise ValueError('Whole DEV must contain equal counts for all four rack regions')
     per_region=next(iter(quotas.values()))
+    size_quotas=Counter((e['layout']['target_region'], e['layout'].get('target_box_type'))
+                        for e in development['layouts'])
+    mixed_middle_box_types=any(size=='medium' for region,size in size_quotas)
+    if mixed_middle_box_types:
+        expected={(region,size):per_region//2 for region in REGIONS if region.startswith('shelf_2')
+                  for size in ('small','medium')}
+        expected.update({(region,'small'):per_region for region in REGIONS if region.startswith('shelf_3')})
+        if per_region%2 or size_quotas!=expected:
+            raise ValueError('Mixed-size control requires the original balanced six region/size groups')
     seen={e['layout']['seed'] for w in reference for e in w['layouts']}
     for entry in development['layouts']:
         layout=entry['layout']
@@ -38,7 +47,8 @@ def build(reference_waves, output, *, seed_origin, train_waves=12, validate_ever
     waves=[development];training_seeds=[];recipes=[]
     for index in range(train_waves):
         recipe_dir=output/'reset_recipes'/f'train_{index:03d}'
-        recipe=prepare(recipe_dir,seed_origin+1000*index,per_region,0,1)
+        recipe=prepare(recipe_dir,seed_origin+1000*index,per_region,0,2 if mixed_middle_box_types else 1,
+                       mixed_middle_box_types=mixed_middle_box_types)
         records=[e for e in recipe['records'] if e['group']=='train']
         entries=[dict(episode_index=e['reference_episode_index'],layout=e['layout']) for e in records]
         seeds=[e['layout']['seed'] for e in entries]
@@ -46,6 +56,8 @@ def build(reference_waves, output, *, seed_origin, train_waves=12, validate_ever
             raise ValueError('New TRAIN seeds overlap the control, DEV or another wave')
         assert all(e['layout']['split']=='train' for e in entries)
         assert Counter(e['layout']['target_region'] for e in entries)==quotas
+        if Counter((e['layout']['target_region'], e['layout'].get('target_box_type')) for e in entries)!=size_quotas:
+            raise ValueError('Long TRAIN plan changed the original region/size distribution')
         seen.update(seeds);training_seeds.extend(seeds);recipes.append(str(recipe_dir.relative_to(output)))
         waves.append(dict(split='train',layouts=entries))
         if (index+1)%validate_every==0 or index+1==train_waves:
@@ -59,6 +71,8 @@ def build(reference_waves, output, *, seed_origin, train_waves=12, validate_ever
         validation_waves=sum(w['split']=='validation' for w in waves),
         requested_per_wave=len(development['layouts']),requested_TRAIN_cases=len(training_seeds),
         train_per_region_per_wave=per_region,training_seeds=training_seeds,reset_recipe_directories=recipes,
+        mixed_middle_box_types=mixed_middle_box_types,
+        original_region_size_quotas={region+'/'+str(size):count for (region,size),count in size_quotas.items()},
         randomization_recipe='unchanged_prepare_region_grasp_layouts',
         lower_base_lateral_m=[-.20,.20],lower_base_outward_m=[.03,.25],lower_base_yaw_deg=[-15.,15.],
         upper_base_lateral_m=[-.08,.08],upper_base_outward_m=[.03,.10],upper_base_yaw_deg=[-5.,5.],

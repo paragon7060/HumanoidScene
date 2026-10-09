@@ -1,5 +1,5 @@
 {
-  "recorded_at": "2026-10-09T14:31:43.136744+09:00",
+  "recorded_at": "2026-10-09T14:46:52.491361+09:00",
   "role": "closed_TRAIN_servo_action_and_Q_gradient_readonly_diagnostic",
   "source_run_directory_name": "batch_sac_20261009_102504_29009c",
   "actual_model_SHA256": "b789973af1109f197113766eda41d394d21773d71900c2ea718fd9414fb32cf6",
@@ -9,7 +9,8 @@
   "original_TRAIN_requests": 384,
   "original_actual_TRAIN_rows": 238980,
   "by_region": {
-    "shelf_2_left": {
+    "shelf_2_right": {
+      "actual_observation_region_one_hot_column": 0,
       "queried_actual_TRAIN_rows": 256,
       "available_actual_TRAIN_rows": 67295,
       "greedy_arm_servo_clipped_fraction": 0.5622209906578064,
@@ -20,7 +21,8 @@
       "goal_Q_gradient_arm_L2_median": 2.6010212898254395,
       "hypothetical_servo_feature_Q_gradient_arm_L2_median": 0.08277960866689682
     },
-    "shelf_2_right": {
+    "shelf_2_left": {
+      "actual_observation_region_one_hot_column": 1,
       "queried_actual_TRAIN_rows": 256,
       "available_actual_TRAIN_rows": 39857,
       "greedy_arm_servo_clipped_fraction": 0.24609375,
@@ -31,7 +33,8 @@
       "goal_Q_gradient_arm_L2_median": 16.42011260986328,
       "hypothetical_servo_feature_Q_gradient_arm_L2_median": 0.2678270936012268
     },
-    "shelf_3_left": {
+    "shelf_3_right": {
+      "actual_observation_region_one_hot_column": 2,
       "queried_actual_TRAIN_rows": 256,
       "available_actual_TRAIN_rows": 57183,
       "greedy_arm_servo_clipped_fraction": 0.2628348171710968,
@@ -42,7 +45,8 @@
       "goal_Q_gradient_arm_L2_median": 8.292895317077637,
       "hypothetical_servo_feature_Q_gradient_arm_L2_median": 0.13915546238422394
     },
-    "shelf_3_right": {
+    "shelf_3_left": {
+      "actual_observation_region_one_hot_column": 3,
       "queried_actual_TRAIN_rows": 256,
       "available_actual_TRAIN_rows": 74645,
       "greedy_arm_servo_clipped_fraction": 0.3309151828289032,
@@ -54,6 +58,12 @@
       "hypothetical_servo_feature_Q_gradient_arm_L2_median": 0.04972247779369354
     }
   },
+  "actual_observation_region_names_by_column": [
+    "shelf_2_right",
+    "shelf_2_left",
+    "shelf_3_right",
+    "shelf_3_left"
+  ],
   "query_sampling": "up_to256_evenly_spaced_actual_rows_per_present_region_no_DEV_FINAL",
   "exact_restored_artifact_and_goal_contract": true,
   "queried_greedy_body_with_exact_current_four_jaw_probability_expectation": true,
@@ -66,5 +76,9 @@
   "raw_observation_joint_action_payload_NOT_exported": true,
   "gradient_diagnosis_NOT_a_new_success_result": true,
   "independent_FINAL_unused": true,
-  "goal_not_complete": true
+  "goal_not_complete": true,
+  "region_labels_corrected_to_actual_observation_schema": true,
+  "previous_report_SHA256": "e60125380545cbce73c0c944692968fbe2d0bac0a90885249826a040245e826a",
+  "actual_numeric_gradients_and_total1024_unchanged": true,
+  "correction_does_NOT_change_any_policy_data_or_physical_evaluation": true
 }

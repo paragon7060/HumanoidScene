@@ -1,5 +1,38 @@
 # 실제 성공 경로의 SAC 가치 추정 확인
 
+## 15:15 실제 성공 명령과 현재 명령의 Q 순위
+
+종료v7의 실제 actor695/Q4,828 모델과 해당 전체 DEV의 전후 같은 모델을
+확인했다. 현재 checkpoint의 성공 bank에는 **실제 TRAIN16경로/7,498행**이
+남아 있다. 이는 원래 성공30경로 전체가 아니며 중간 왼쪽small10경로와
+상단 오른쪽small6경로만 포함한다. 각 경로에서 균등한 전체32상태와 마지막
+64행의16상태를 질의했다. 관측 one-hot 순서는 실제 스키마의 오른쪽→왼쪽이다.
+
+| 첫 held 상태, 경로별 중앙값 | 기록된 성공 명령 Q | 현재 greedy 명령 Q | 기록된 성공 경로의 할인 return |
+|---|---:|---:|---:|
+| 중간 왼쪽small10경로 | −0.250 | −0.211 | 5.918 |
+| 상단 오른쪽small6경로 | −0.184 | −0.180 | 4.624 |
+
+![같은 모델이 실제 성공 명령과 현재 명령에 매긴 값](assets/rl_v2_closed_successful_TRAIN_action_ranking_20261009.png)
+
+현재 명령의 Q가 각 경로의 시작에서는 약간 높지만 차이는 작다. 질의한
+모든 상태에서 두 그리퍼의 binary 선택은 기록된 성공 명령과 같았다.
+그러므로 이 두 구역의 성공 문맥에서 Q가 그리퍼 열기를 강하게 선호한다는
+근거는 없다. 팔/몸통 목표는 다를 수 있고, 성공 경로의 상태들만 본 결과여서
+실패 문맥이나 성공이 없는 중형·다른 구역으로 일반화하지 않는다.
+
+연속 body16표본과 정확한 네 jaw branch의 기대 Q도 계산했지만 초반 return
+차이를 설명할 정도로 낮아지지 않았다. 과거 behavior return은 현재 정책의
+편향 없는 가치가 아니므로 높은 return만으로 critic target 오류를 확정하거나
+return 가중치를 올리지 않는다. 실제 성공/실패 비중 조절 비교와 전체128평가를
+계속한다. 모델·Adam·정규화·replay 입력·물리 실행은 변경하지 않았다.
+
+[같은 실제 모델·원래 TRAIN 성공 증거·수치와 한계](assets/rl_v2_closed_successful_TRAIN_action_ranking_20261009.json).
+재현 도구는 `scripts/rl/audit_closed_train_action_ranking.py`다. CPU mask가
+비어 있어야 하고 원래 두 writer 종료·최종 Drive 검증·checkpoint checksum·
+계약·모든 tensor 유한성·실제 성공 bank·원래 outcome 일치를 확인한다.
+Raw observation/joint/action은 보고서에 내보내지 않는다.
+
 학습된 정책의 일부 성공은 확인했지만 원래 여섯 배치의 일반화는 아직
 부족하다. 안쪽 파지점 v6의 TRAIN384 뒤 전체 평가128회는 성공11·안전
 위반54·시간 초과63회였고 중형 성공은0회였다. 전체 점수를 바꾸거나 평가
@@ -177,7 +210,7 @@ CUDA_VISIBLE_DEVICES='' python scripts/rl/audit_closed_train_hand_approach.py \
 엄격히 복원했다. 학습·정규화·물리·replay 입력이나 원래 제한은 바꾸지 않았다.
 
 실제 명령이 포화되어 팔14좌표의 goal-to-Q gradient가0인 비율은
-중간 왼쪽56.2%, 중간 오른쪽24.6%, 상단 왼쪽26.3%, 상단 오른쪽33.1%였다.
+중간 오른쪽56.2%, 중간 왼쪽24.6%, 상단 오른쪽26.3%, 상단 왼쪽33.1%였다.
 모든 팔14좌표의 Q gradient가0인 상태는62/1,024회였으므로
 팔 Q가 전부 빠진 연결 오류라고 판단하지 않는다. Zero gradient는 원래
 servo clipping의 결과다. Clip을 무시하는 기울기나 controller 제한 해제는
@@ -187,3 +220,9 @@ Goal과 servo의 gradient 단위도 다르므로 norm 크기를 직접 비교하
 이 진단만으로 학습 실패 원인을 확정하지 않는다. 다음 실제 성공/실패 비중
 조절과 보조 없는 전체 평가에서 성공 가치 추정과 실제 파지 성능을 확인한다.
 [같은 실제 모델·TRAIN 범위·기울기 수치](assets/rl_v2_closed_TRAIN_servo_Q_gradient_20261009.json).
+
+10/09 14:49 진단의 좌우 표기를 실제 관측 one-hot 순서
+`[shelf_2_right, shelf_2_left, shelf_3_right, shelf_3_left]`로 바로잡았다.
+같은 모델·실제1024행의 재질의 수치는 이전과 정확히 같고 전체 집계도 유지됐다.
+진단의 이름 매핑 오류이며 실제 actor 라우팅과 성공 bank는 원래 같은
+스키마 순서를 사용하므로 현재 학습이나 물리 평가에는 변경이 없다.

@@ -26,6 +26,8 @@ def main():
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--native-seed',type=Path,action='append',required=True)
     parser.add_argument('--training',action=argparse.BooleanOptionalAction,default=False)
+    parser.add_argument('--train-trajectory-storage', choices=('all', 'successful-train'), default='all',
+        help='HDF recording only: keep all DEV/FINAL paths and optionally only successful TRAIN paths; replay/outcomes unchanged')
     parser.add_argument('--measured-train-credit',
                         choices=('one-step', 'measured-nstep16', 'measured-nstep16-terminal25',
                                  'measured-episode-return', 'measured-episode-return-balanced50'), default=None,
@@ -650,6 +652,10 @@ def main():
         meta['frozen_evaluation_uses_learned_policy_without_behavior_mixture'] = True
         if args.reset_failure_diagnostics or args.workplace_reset_diagnostics:
             meta['reset_diagnostic_physics_device']=str(env.device)
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.trajectory_storage import (
+            record_completed_trajectory, trajectory_storage_contract)
+        trajectory_storage = trajectory_storage_contract(args.train_trajectory_storage)
+        meta['executed_trajectory_storage'] = trajectory_storage
         recorder=RlTransitionRecorder(output/'executed_transitions.hdf5',meta)
         base_attitude_probe=verify_base_attitude_probe(env,base_attitude_probe)
         if base_trace_contract is not None:
@@ -662,6 +668,7 @@ def main():
         policy_metadata=checkpoint_manifest_fields(contract,state,artifact_type=pilot_class.artifact_type)
         (output/'manifest.json').write_text(json.dumps(contract|policy_metadata|{'artifact_type':pilot_class.artifact_type,
             'training':args.training,'layout_waves':waves,
+            'executed_trajectory_storage':trajectory_storage,
             'no_live_VR_or_IK':not(args.training and contact_collection is not None),
             'layout_generation_contract':layout_generation_contract(),
             'frozen_physics_backend_evaluation':backend_eval,
@@ -992,22 +999,15 @@ def main():
                     exploratory_mode=('perceived_contact_exploration' if contact_collection is not None else 'coherent_arm_exploration')
                     collection_mode=(exploratory_mode if body_sampler.selected[i] else
                         'greedy_current_policy') if body_sampler.initialized[i] else 'no_held_mode_draw'
-                if samples:
-                    recorder.start_episode(initial_state=snapshots[i])
-                    recorder.episode.attrs['wave']=wave_index
-                    recorder.episode.attrs['environment']=i
-                    recorder.episode.attrs['layout_json']=json.dumps(wave['layouts'][i]['layout'],sort_keys=True)
-                    recorder.episode.attrs['initial_layout_guard_valid']=bool(valid_layout[i])
-                    if collection_mode is not None:
-                        recorder.episode.attrs['collection_policy_mode']=collection_mode
-                    recorder.append_many(samples)
-                    recorder.finish_episode(success=success,reason='numerical_failure_excluded_corrupt_row'
-                        if last[i].get('numerical_failure') else 'success' if success else 'failure'
-                        if not active[i] else 'interrupted_or_step_limit')
                 outcomes.append(dict(wave=wave_index,split=wave['split'],environment=i,
                     layout=wave['layouts'][i]['layout'],result=last[i],complete=bool(not active[i]),
                     initial_layout_valid=bool(valid_layout[i]),initial_settling_steps=settled,
                     initial_layout_guard=layout_guard_references[i],executed_transition_rows=len(samples)))
+                recorded_rows=record_completed_trajectory(recorder,samples,outcomes[-1],snapshots[i],
+                    mode=args.train_trajectory_storage,collection_mode=collection_mode)
+                if args.train_trajectory_storage!='all':
+                    outcomes[-1]['trajectory_storage']=dict(recorded_HDF_rows=recorded_rows,
+                        full_HDF_episode_kept=bool(recorded_rows),mode=args.train_trajectory_storage)
                 if wave['split']=='train' and getattr(pilot,'jaw_behavior',None) is not None:
                     outcomes[-1]['collection_jaw_behavior']=pilot.jaw_behavior
                 if wave['split']=='train' and getattr(pilot,'body_behavior',None) is not None:
