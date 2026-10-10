@@ -10,9 +10,9 @@ from kuavo_isaaclab_scene.rl.algorithms.success_update_guard import (
 from kuavo_isaaclab_scene.rl.algorithms import success_cohort_guard as cohort
 
 
-def sample():
+def sample(variant=cohort.VARIANT):
     agent, success = fixture()
-    agent.actor_success_guard_config = success_update_guard_config(cohort.VARIANT)
+    agent.actor_success_guard_config = success_update_guard_config(variant)
     raw = success['actor_obs'][:4].clone(); raw[:, -6] = 1.
     labels = agent.act(raw, True).detach()
     outcome = dict(wave=1, split='train', environment=0, initial_layout_valid=True, complete=True,
@@ -25,6 +25,42 @@ def sample():
     bank = SimpleNamespace(episodes={'shelf_2_right': [episode]})
     cohort.synchronize(agent, bank)
     return agent, bank
+
+
+def test_rejected_region_restores_mature_Adam_while_unprotected_region_can_update():
+    from dataclasses import replace
+    from kuavo_isaaclab_scene.rl.algorithms.common import optimize
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.regional_actor_servo import install_regional_actor
+    a,bank=sample(cohort.STABLE_VARIANT)
+    a.config=replace(a.config,actor_lr=a.actor_optimizer.param_groups[0]['lr'])
+    install_regional_actor(a)
+    a.action_projector.entropy_mask=lambda raw:raw.new_zeros(len(raw),21)
+    heads=a.actor.network.heads
+    for _ in range(5):
+        optimize(a.actor_optimizer,-heads[0][-1].bias[19]-heads[1][-1].bias[19],a.actor.parameters())
+    with torch.no_grad():heads[0][-1].bias[19]=0.
+    a.success_guard_memory=cohort.empty_memory()
+    cohort.synchronize(a,bank)
+    original=deepcopy(heads[0].state_dict())
+    moments={p:deepcopy(a.actor_optimizer.state.get(p)) for p in heads[0].parameters()}
+    other=heads[1][-1].bias.detach().clone()
+    accepted,report=guarded_actor_step(a,-heads[0][-1].bias[19]-heads[1][-1].bias[19],None)
+    assert accepted
+    assert report['actor_success_guard_region_parameter_scales']['shelf_2_right']==0.
+    assert report['actor_success_guard_region_parameter_scales']['shelf_2_left']==1.
+    assert equal(original,heads[0].state_dict())
+    assert all(equal(before,a.actor_optimizer.state.get(p)) for p,before in moments.items())
+    assert heads[1][-1].bias[19]>other[19]
+    batch,groups=cohort.cohort_batch(a);values,correct=cohort.metrics(a,batch,groups)
+    assert cohort.within_ceilings(values,correct,a.success_guard_memory,a.actor_success_guard_config)
+
+
+def test_stable_guard_does_not_count_zero_parameter_motion_as_an_actor_update():
+    a,_=sample(cohort.STABLE_VARIANT)
+    before=deepcopy(a.actor_optimizer.state_dict())
+    accepted,report=guarded_actor_step(a,a.actor.network[-1].bias.sum()*0.,None)
+    assert not accepted and report['actor_success_guard_parameter_delta_norm']==0.
+    assert equal(before,a.actor_optimizer.state_dict())
 
 
 def test_first_success_cohort_survives_eviction_and_repeated_synchronization():
@@ -77,11 +113,12 @@ def test_one_arm_improvement_cannot_pay_for_the_other_arms_regression():
     assert not cohort.within_ceilings(candidate, correct, memory, a.actor_success_guard_config)
 
 
-def test_persistent_paths_and_counters_round_trip_with_the_actual_optimizer():
-    a, _ = sample()
+@pytest.mark.parametrize('variant',[cohort.VARIANT,cohort.STABLE_VARIANT])
+def test_persistent_paths_and_counters_round_trip_with_the_actual_optimizer(variant):
+    a, _ = sample(variant)
     accepted, report = guarded_actor_step(a, a.actor.network[-1].bias[19], None)
     assert accepted and report['actor_success_guard_cohort']['episodes'] == 1
-    b, _ = sample(); b.restore(a.checkpoint())
+    b, _ = sample(variant); b.restore(a.checkpoint())
     assert equal(a.success_guard_memory, b.success_guard_memory)
     assert equal(a.actor.state_dict(), b.actor.state_dict())
     assert equal(a.actor_optimizer.state_dict(), b.actor_optimizer.state_dict())
@@ -136,3 +173,26 @@ def test_rejected_cohort_update_restores_actor_and_Adam_but_keeps_critic_learnin
     assert equal(before[0], a.actor.state_dict()) and equal(before[1], a.actor_optimizer.state_dict())
     assert not equal(q, a.q1.state_dict())
     assert all(torch.equal(x, y) for x, y in zip(temperatures, (a.log_alpha, a.log_alpha_discrete)))
+
+
+def test_stable_guard_fixed_path_forward_does_not_change_when_cohort_grows():
+    a, bank = sample(cohort.STABLE_VARIANT)
+    original=a.continuous_parameters
+    # Model GEMM kernels can vary at different batch sizes. Deliberately
+    # amplify that dependence so the regression is deterministic on CPU.
+    def batch_sensitive(normalized, raw):
+        mean,std,logits=original(normalized,raw)
+        return mean,std,logits+len(raw)*1e-4
+    a.continuous_parameters=batch_sensitive
+    a.success_guard_memory=cohort.empty_memory();cohort.synchronize(a,bank)
+    old=deepcopy(a.success_guard_memory['ceilings'])
+    other=deepcopy(bank.episodes['shelf_2_right'][0]);other['identity']='test/wave2/env0/seed60000000'
+    other['outcome']['wave']=2
+    other['rows']={k:v[:3].clone() for k,v in other['rows'].items()}
+    bank.episodes['shelf_2_right'].append(other);cohort.synchronize(a,bank)
+    batch,groups=cohort.cohort_batch(a);values,correct=cohort.metrics(a,batch,groups)
+    assert all(values[k]==v for k,v in old.items())
+    assert all(a.success_guard_memory['ceilings'][k]==v for k,v in old.items())
+    assert cohort.within_ceilings(values,correct,a.success_guard_memory,a.actor_success_guard_config)
+    losses,_=cohort.losses_and_jaws(a,batch,groups)
+    assert all(v.dtype==torch.float64 for terms in losses.values() for v in terms.values())

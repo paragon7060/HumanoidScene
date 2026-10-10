@@ -8,6 +8,7 @@ import torch
 from torch.nn import functional as F
 
 VARIANT = 'train-success-cohort-Adam-backtrack'
+STABLE_VARIANT = 'train-success-cohort-stable-Adam-backtrack'
 BODY_GROUPS = {'left_arm': list(range(1, 8)), 'right_arm': list(range(8, 15)),
                'rest': [0, 15, 16, 17, 18]}
 
@@ -17,7 +18,11 @@ def empty_memory():
 
 
 def enabled(agent):
-    return (getattr(agent, 'actor_success_guard_config', None) or {}).get('name') == VARIANT
+    return (getattr(agent, 'actor_success_guard_config', None) or {}).get('name') in (VARIANT, STABLE_VARIANT)
+
+
+def stable(agent):
+    return (getattr(agent, 'actor_success_guard_config', None) or {}).get('name') == STABLE_VARIANT
 
 
 def cohort_batch(agent):
@@ -38,7 +43,7 @@ def cohort_batch(agent):
     return dict(actor_obs=torch.cat(raw).to(device), action=torch.cat(actions).to(device)), groups
 
 
-def losses_and_jaws(agent, batch, groups):
+def _losses_and_jaws(agent, batch, groups):
     raw, labels = batch['actor_obs'], batch['action']
     normalized = agent.actor_normalizer(agent.actor_features(raw))
     mean, _, logits = agent.continuous_parameters(normalized, raw)
@@ -49,7 +54,10 @@ def losses_and_jaws(agent, batch, groups):
     recorded = encoder(raw, labels)[:, :19].detach()
     error = torch.where(recorded >= 1, (1-predicted).clamp_min(0),
         torch.where(recorded <= -1, (predicted+1).clamp_min(0), predicted-recorded))
-    goal_error = (body-labels[:, :19]).square()
+    goal_difference = body-labels[:, :19]
+    if stable(agent):
+        goal_difference, error = goal_difference.double(), error.double()
+    goal_error = goal_difference.square()
     servo_error = F.smooth_l1_loss(error, torch.zeros_like(error), beta=1., reduction='none')
     near = agent.action_projector.entropy_mask(raw)[:, 19:].bool()
     executed = agent.projected_command(raw, body, logits > 0)
@@ -60,11 +68,44 @@ def losses_and_jaws(agent, batch, groups):
                  for name, columns in BODY_GROUPS.items()}
         for hand in range(2):
             active = near[rows, hand]
+            jaw_logits, targets = logits[rows, hand][active], (labels[rows, 19+hand][active]+1)/2
+            if stable(agent):
+                jaw_logits, targets = jaw_logits.double(), targets.double()
             terms['jaw'+str(hand)] = F.binary_cross_entropy_with_logits(
-                logits[rows, hand][active], (labels[rows, 19+hand][active]+1)/2) \
-                if bool(active.any()) else logits.new_zeros(())
+                jaw_logits, targets) \
+                if bool(active.any()) else jaw_logits.new_zeros(())
         losses[key] = terms
     return losses, correct
+
+
+def losses_and_jaws(agent, batch, groups):
+    if not stable(agent):
+        return _losses_and_jaws(agent, batch, groups)
+    # Adding another successful path must not change the GEMM batch shape
+    # used to check an existing path's fixed ceiling. Production decoding and
+    # model tensors remain float32; only scalar loss reductions use float64.
+    result = {}; correct = torch.empty(len(batch['action']), 2, dtype=torch.bool,
+                                      device=batch['actor_obs'].device)
+    for key, rows in groups.items():
+        part = {name: values[rows] for name, values in batch.items()}
+        terms, jaws = _losses_and_jaws(agent, part, {key: slice(None)})
+        result.update(terms); correct[rows] = jaws
+    return result, correct
+
+
+def violations(values, correct, memory, config):
+    exceeded = []
+    for key, terms in values.items():
+        for name, value in terms.items():
+            limit = memory['ceilings'][key][name]
+            tolerance = config['absolute_loss_tolerance']+config['relative_loss_tolerance']*abs(limit)
+            if not torch.isfinite(torch.tensor(value)) or value > limit+tolerance:
+                exceeded.append(dict(group=key,term=name,excess=value-limit-tolerance))
+    offset = wrong = 0
+    for e in memory['entries']:
+        n=len(e['action']); wrong+=int((e['protected_correct_jaws'] & ~correct[offset:offset+n]).sum());offset+=n
+    return dict(exceeded_terms=len(exceeded),protected_jaw_regressions=wrong,
+        worst_term=max(exceeded,key=lambda x:x['excess']) if exceeded else None)
 
 
 @torch.no_grad()

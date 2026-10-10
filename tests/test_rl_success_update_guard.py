@@ -93,6 +93,7 @@ def test_rejected_real_hybrid_update_still_updates_critic_and_skips_temperatures
 
 
 def test_projecting_actual_Adam_displacement_preserves_success_instead_of_only_shrinking_it():
+    torch.manual_seed(0)
     a, success = fixture()
     accepted, report = guarded_actor_step(a, -a.actor.network[-1].bias[19], success)
     assert accepted and report['actor_success_guard_projected_constraints'] > 0

@@ -55,7 +55,8 @@ def main():
     parser.add_argument('--native-seed', type=Path, action='append', required=True)
     parser.add_argument('--replay-capacity', type=int, default=2000000)
     parser.add_argument('--actor-success-guard', choices=('train-success-Adam-backtrack',
-                                                        'train-success-cohort-Adam-backtrack'))
+                                                        'train-success-cohort-Adam-backtrack',
+                                                        'train-success-cohort-stable-Adam-backtrack'))
     parser.add_argument('--staged-contact-reward', action='store_true',
         help='Add precision readiness and sustained actual pinch potentials; fresh Q/replay only')
     parser.add_argument('--measured-train-credit',

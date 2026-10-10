@@ -17,8 +17,8 @@ VARIANT = 'train-success-Adam-backtrack'
 def success_update_guard_config(variant):
     if variant is None:
         return None
-    from .success_cohort_guard import VARIANT as COHORT_VARIANT
-    if variant not in (VARIANT, COHORT_VARIANT):
+    from .success_cohort_guard import VARIANT as COHORT_VARIANT, STABLE_VARIANT
+    if variant not in (VARIANT, COHORT_VARIANT, STABLE_VARIANT):
         raise ValueError('Unknown successful TRAIN update guard')
     result = dict(name=VARIANT, format_version=1,
         source='same_completed_safe_TRAIN_actor_batch_only',
@@ -38,7 +38,7 @@ def success_update_guard_config(variant):
         absent_success_batch='ordinary_actor_update',
         pilot_waits_for_first_completed_safe_TRAIN_success=True,
         local_batch_protection_is_not_rollout_success_guarantee=True)
-    if variant == COHORT_VARIANT:
+    if variant in (COHORT_VARIANT, STABLE_VARIANT):
         result.update(name=variant, format_version=2,
             source='persistent_first_two_safe_TRAIN_paths_per_region_and_size',
             grouping='each_episode_approach_and_tail64_with_separate_arms_and_jaws',
@@ -48,6 +48,17 @@ def success_update_guard_config(variant):
             first_success_paths_survive_replay_eviction=True,
             actor_training_minibatch_and_Q_replay_unchanged=True,
             absent_success_batch='pilot_waits_for_first_completed_safe_TRAIN_success')
+    if variant == STABLE_VARIANT:
+        result.update(format_version=3,
+            guard_forward_batch='fixed_each_episode_phase_independent_of_added_cohort_paths',
+            loss_reduction='float64_from_unchanged_float32_production_outputs',
+            guard_loss_tolerances_unchanged=True,
+            candidate_rejection_reasons_recorded=True,
+            candidate_parameter_scales=[2.**-i for i in range(11)],
+            independent_region_heads_backtracked_separately=True,
+            rejected_region_restores_its_Adam_moments=True,
+            final_whole_cohort_check_required=True,
+            parameter_scale_statistic='minimum_nonzero_accepted_region_scale')
     return result
 
 
@@ -126,7 +137,7 @@ def guarded_actor_step(agent, loss, successful):
     previous_servo_statistics = deepcopy(getattr(agent, '_success_servo_statistics', None))
     if persistent:
         successful, groups = cohort.cohort_batch(agent)
-        before, _ = cohort.metrics(agent, successful, groups)
+        before, before_correct = cohort.metrics(agent, successful, groups)
     else:
         before = success_metrics(agent, successful)
     parameters = list(agent.actor.parameters())
@@ -137,6 +148,10 @@ def guarded_actor_step(agent, loss, successful):
     # Metrics may update diagnostic attributes, but never parameters or RNG.
     accepted_scale = 0.
     after = before
+    checks=[]
+    region_scales={}
+    baseline_allowed=(cohort.within_ceilings(before,before_correct,agent.success_guard_memory,config)
+                      if cohort.stable(agent) else None)
     try:
         optimize(agent.actor_optimizer, loss, parameters)
         proposal = [p.detach().clone() for p in parameters]
@@ -156,21 +171,56 @@ def guarded_actor_step(agent, loss, successful):
             count = old.numel()
             proposal[index] = old + delta[offset:offset+count].reshape_as(old)
             offset += count
-        for scale in config['candidate_parameter_scales']:
-            with torch.no_grad():
-                for p, old, new in zip(parameters, previous, proposal):
-                    p.copy_(new if scale == 1. else old + scale * (new - old))
-            if persistent:
-                candidate, correct = cohort.metrics(agent, successful, groups)
-                allowed = cohort.within_ceilings(candidate, correct, agent.success_guard_memory, config)
-            else:
-                candidate = success_metrics(agent, successful)
-                allowed = acceptable(before, candidate, config)
-            if allowed:
-                accepted_scale, after = scale, candidate
+        if cohort.stable(agent) and hasattr(agent.actor.network, 'heads'):
+            from ..multi_box.experiments.staged_train_success import REGIONS
+            named=list(agent.actor.named_parameters())
+            if len(agent.actor.network.heads)!=len(REGIONS) or any(
+                    not name.startswith('network.heads.') for name,_ in named):
+                raise ValueError('Regional backtracking requires exactly independent region heads')
+            partitions={region:[j for j,(name,_) in enumerate(named)
+                                if name.startswith('network.heads.'+str(i)+'.')]
+                        for i,region in enumerate(REGIONS)}
+        else:
+            partitions={'all':list(range(len(parameters)))}
+        with torch.no_grad():
+            for p,old in zip(parameters,previous):p.copy_(old)
+        for region,indices in partitions.items():
+            local_scale=0.
+            for scale in config['candidate_parameter_scales']:
+                with torch.no_grad():
+                    for i in indices:
+                        parameters[i].copy_(proposal[i] if scale==1. else previous[i]+scale*(proposal[i]-previous[i]))
                 if persistent:
-                    cohort.tighten(agent.success_guard_memory, candidate, correct)
-                break
+                    candidate, correct = cohort.metrics(agent, successful, groups)
+                    allowed = cohort.within_ceilings(candidate, correct, agent.success_guard_memory, config)
+                    if cohort.stable(agent):
+                        checks.append(dict(region=region,scale=scale,allowed=allowed,
+                            **cohort.violations(candidate,correct,agent.success_guard_memory,config)))
+                else:
+                    candidate = success_metrics(agent, successful)
+                    allowed = acceptable(before, candidate, config)
+                if allowed:
+                    moved=any(not torch.equal(parameters[i].detach(),previous[i]) for i in indices)
+                    local_scale,after=(scale if moved or not cohort.stable(agent) else 0.),candidate
+                    break
+            region_scales[region]=local_scale
+            if not local_scale:
+                with torch.no_grad():
+                    for i in indices:parameters[i].copy_(previous[i])
+                # A rejected region must not advance its Adam momentum just
+                # because another independent region had an accepted step.
+                for i in indices:
+                    pid=optimizer['param_groups'][0]['params'][i]
+                    if pid in optimizer['state']:
+                        agent.actor_optimizer.state[parameters[i]]=deepcopy(optimizer['state'][pid])
+                    else:
+                        agent.actor_optimizer.state.pop(parameters[i],None)
+        accepted_scale=min((s for s in region_scales.values() if s),default=0.)
+        if persistent and accepted_scale:
+            after,correct=cohort.metrics(agent,successful,groups)
+            if not cohort.within_ceilings(after,correct,agent.success_guard_memory,config):
+                accepted_scale=0.
+            else:cohort.tighten(agent.success_guard_memory,after,correct)
     finally:
         if not accepted_scale:
             with torch.no_grad():
@@ -198,6 +248,17 @@ def guarded_actor_step(agent, loss, successful):
     if persistent:
         stats['actor_success_guard_groups'] = len(before)
         stats['actor_success_guard_cohort'] = cohort.report(agent)
+    if cohort.stable(agent):
+        stats.update(actor_success_guard_baseline_allowed=baseline_allowed,
+                     actor_success_guard_candidate_checks=checks,
+                     actor_success_guard_region_parameter_scales=region_scales,
+                     actor_success_guard_parameter_delta_norm=float(torch.cat([
+                         (p.detach()-old).flatten() for p,old in zip(parameters,previous)]).norm()))
+        counters['baseline_outside_fixed_ceiling']=counters.get('baseline_outside_fixed_ceiling',0)+int(not baseline_allowed)
+        counts=counters.setdefault('region_parameter_scale_counts',{})
+        for region,scale in region_scales.items():
+            local=counts.setdefault(region,{})
+            key=str(scale);local[key]=local.get(key,0)+1
     return bool(accepted_scale), stats
 
 

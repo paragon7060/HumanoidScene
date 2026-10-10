@@ -86,6 +86,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | 성공 동작 유지·팔 탐색 단위를 보강한 선택형 SAC | [Servo guard·tail64 표본·초기화 옵션과 확인 범위](docs/RL_V2_URDF_SERVO_GUARD_20261008.md) |
 | 전체 팔 관절 목표를 표현하는 선택형 SAC | [Source 주변 반경 해소·국소 탐색 보존·실제 초기화](docs/RL_V2_URDF_FULL_ARM_SAC_20261008.md) |
 | 실제 TRAIN 성공을 보존하는 SAC·정밀 접촉 보상 | [Adam 갱신 보호·pinch hold progress·확인 범위](docs/RL_V2_SUCCESS_GUARD_STAGED_CONTACT_20261009.md) |
+| SAC actor 갱신0회 원인과 구역별 보호 수정 | [DEV128 실측·숫자 안정성·구역별 Adam·최소 TRAIN 확인](docs/RL_V2_STABLE_SUCCESS_GUARD_20261010.md) |
 | 사용하는 GPU에만 CUDA·그래픽 컨텍스트 생성 | [실행별 장치 격리와 GPU UUID 마스크](docs/RL_GPU_ISOLATION.md) |
 | 중형 박스의 안전 진입과 양손 닫기를 분리해 확인 | [종료 접촉 기록·고정 정책 진단·사용법](docs/RL_V2_BILATERAL_CLOSE_DIAGNOSIS_20261008.md) |
 | 실패 궤적의 제어기 미분과 실제 탐색 변화 | [정상 종료 TRAIN 분석·그림·재현 명령](docs/RL_V2_FAILED_TRAIN_SERVO_DIAGNOSIS_20261008.md) |
