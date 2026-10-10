@@ -107,7 +107,43 @@ optimizer, 보상 라벨 또는 종료 평가 데이터를 가져오지 않는�
 다음 비교는 CPU PhysX + GPU3 CUDA learner, DEV128→TRAIN384→DEV128이다.
 box/base/flap randomization과 양손 성공·안전 기준을 유지하고 curriculum은
 추가하지 않는다. GPU3 UUID의 CUDA 마스크와 single-GPU 장치 namespace를
-재사용하며 GPU1·2에는 실행하지 않는다. 실제 실행 확인은 시작 후 추가한다.
+재사용하며 GPU1·2에는 실행하지 않는다.
+
+10/10 12:44 수정판을 실제 시작했다. writer PID601096, supervisor PID601066이며
+고유 실행은 `GPU3_URDF_persistent_success_guard_SAC128_pilot_20261010_124431` /
+`batch_sac_20261010_124431_d9733f`다. 학습 소스는 커밋 `e3cc386`의 고정 복사본이다.
+실제 manifest에서 새 cohort 계약과 기존 정밀 접근·pinch hold 보상을 확인했다.
+writer 장치 namespace에는 `nvidia3`만 있고 연산·그래픽 컨텍스트도 GPU3에만 있다.
+12:50 첫 구성 파일의 기존 Drive 업로드·검증을 확인했다. 초기 DEV 준비 단계이며
+새 성공률 개선은 아직 판단하지 않는다.
+[실제 시작 증거](assets/rl_v2_persistent_success_guard_SAC_actual_startup_20261010.json)
+
+CPU 종료 감시 PID624602는 빈 CUDA 마스크로 실행 중이다. 새 writer·supervisor의
+종료와 최종 Drive 검증 후 **같은 대화**에서 DEV128 비교와 다음 개선을 이어간다.
+기존 대화 연결을 읽기 전용으로 시험했고 새 에이전트나 중복 학습을 만들지 않았다.
+기존 Codex 서비스와 서버가 계속 실행돼야 한다. 현재 감시 상태는 종료 대기다.
+
+## 재생 가능한 평가 자료
+
+기존 [Notion 중간보고의 10/10 비교 영상](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)에
+H264 MP43개와 성공 집계 그림을 추가했다. 기존 native media91개와 table5개는
+모두 유지했고 현재 media는95개다. 영상은 당시 측정한 몸체 자세의 렌더링이며
+새 물리 replay나 추정 동작이 아니다. 영상의 `actor420/Q4828`은 갱신 횟수다.
+그 표기를 Q value나 성공 확률로 해석하지 않는다.
+
+아래는 같은 요청 조건인 상단 오른쪽small DEV env3의 마지막 자세다.
+초기 모델은 양손 파지·hold·proof-lift에 성공했지만 학습 후에는 왼손만
+pinch하고 proof-lift 없이 시간 초과했다. 실제 재초기화 물리 상태가 완전히
+동일하다고 주장하지 않는다. 그림을 클릭하면 비교 영상이 있는 보고서를 연다.
+
+[![초기 성공 · 상단 오른쪽small](assets/rl_v2_guarded_contact_initial_upperright_success_20261010.png)](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)
+
+[![학습 후 시간 초과 · 같은 상단 오른쪽small](assets/rl_v2_guarded_contact_learned_upperright_timeout_20261010.png)](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)
+
+중간 왼쪽small DEV env0의 최종 영상도 포함했다. 오른쪽 gripper base가 rack에
+16.0N으로 충돌해 실패했으며 양손 pinch는 없었다.
+
+[![학습 후 rack 충돌 · 중간 왼쪽small](assets/rl_v2_guarded_contact_learned_midleft_collision_20261010.png)](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)
 
 기존 best 모델·평가 영상과 종료 raw replay/HDF를 보존한다. 기존 Drive 연결로
 300초 업로드·크기/MD5 검증·형식별 최근 checkpoint2개 보호와 종료 로그 검증을
