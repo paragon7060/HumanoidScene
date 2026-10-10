@@ -131,7 +131,7 @@ class TrainSuccessBank:
                 self.add_episode(episode['rows'],episode['outcome'],source_run=episode['identity'].split('/wave')[0],split='train')
 
 
-def add_completed_training_wave(bank,wave,outcomes,measured_batches,*,source_run):
+def add_completed_training_wave(bank,wave,outcomes,measured_batches,*,source_run,after_success_added=None):
     if wave['split']!='train':
         if measured_batches:raise ValueError('Evaluation cannot contribute successful learner batches')
         return 0
@@ -144,6 +144,8 @@ def add_completed_training_wave(bank,wave,outcomes,measured_batches,*,source_run
             if bool(mask.any()):parts.append({k:v[mask] for k,v in batch.items()})
         if not parts:raise ValueError('Physical success is missing its measured held-goal actions')
         bank.add_episode({k:torch.cat([p[k] for p in parts]) for k in KEYS},outcome,source_run=source_run,split='train');added+=1
+        if after_success_added is not None:
+            after_success_added()
     return added
 
 

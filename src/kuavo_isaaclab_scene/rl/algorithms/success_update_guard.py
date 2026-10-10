@@ -183,7 +183,8 @@ def guarded_actor_step(agent, loss, successful):
         actor_success_guard_accepted=bool(accepted_scale),
         actor_success_guard_parameter_scale=accepted_scale,
         actor_success_guard_projected_constraints=projected,
-        actor_success_guard_regions=len(before),
+        actor_success_guard_regions=len({e['outcome']['layout']['target_region']
+            for e in agent.success_guard_memory['entries']}) if persistent else len(before),
         actor_success_guard_before=before, actor_success_guard_after=after)
     counters = getattr(agent, 'success_guard_statistics', None)
     if not counters:
@@ -195,6 +196,7 @@ def guarded_actor_step(agent, loss, successful):
     key = str(accepted_scale)
     counters['parameter_scale_counts'][key] = counters['parameter_scale_counts'].get(key, 0)+1
     if persistent:
+        stats['actor_success_guard_groups'] = len(before)
         stats['actor_success_guard_cohort'] = cohort.report(agent)
     return bool(accepted_scale), stats
 

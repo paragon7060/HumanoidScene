@@ -77,6 +77,20 @@ def test_capacity_removes_whole_episodes_and_never_truncates_a_path():
     assert all(len(e['rows']['reward'])==900 for e in bank.episodes[REGIONS[0]])
 
 
+def test_success_hook_sees_first_path_before_later_same_wave_eviction():
+    bank=TrainSuccessBank(480,539); outcomes=[]; batches=[]; first_observed=[]
+    for i in range(5):
+        rows,outcome=episode(n=900,env=i); outcomes.append(outcome)
+        batches.append((torch.full((900,),i),rows))
+    def keep_first():
+        if not first_observed:
+            first_observed.append(deepcopy(bank.episodes[REGIONS[0]][0]))
+    assert add_completed_training_wave(bank,dict(split='train'),outcomes,batches,
+        source_run='fixture',after_success_added=keep_first)==5
+    assert first_observed[0]['outcome']['environment']==0
+    assert bank.episodes[REGIONS[0]][0]['outcome']['environment']==1
+
+
 def test_approach_region_mismatch_or_nonterminal_rows_are_rejected():
     for kind in ['approach','region','terminal']:
         bank=TrainSuccessBank(480,539);rows,outcome=episode()
