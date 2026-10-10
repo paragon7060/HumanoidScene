@@ -326,6 +326,12 @@ class HybridGoalSAC(AsymmetricSAC):
     def checkpoint(self):
         state=super().checkpoint();state['algorithm']='hybrid_goal_sac'
         state['hybrid_contract']=self.hybrid_contract
+        if getattr(self, 'actor_success_guard_config', None) is not None:
+            from copy import deepcopy
+            state['success_guard_statistics'] = deepcopy(getattr(self, 'success_guard_statistics', {}))
+            from . import success_cohort_guard as cohort
+            if cohort.enabled(self):
+                state['success_guard_memory'] = deepcopy(getattr(self, 'success_guard_memory', cohort.empty_memory()))
         return state
 
     @property
@@ -347,3 +353,7 @@ class HybridGoalSAC(AsymmetricSAC):
         if training and len(state.get('optimizers',[]))!=4:
             raise ValueError('Hybrid SAC requires both entropy optimizer states')
         super().restore(state,training)
+        from copy import deepcopy
+        self.success_guard_statistics = deepcopy(state.get('success_guard_statistics', {})) or None
+        from .success_cohort_guard import restore_memory
+        restore_memory(self, state)

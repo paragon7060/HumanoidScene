@@ -1036,6 +1036,7 @@ def main():
             if args.training and pilot.success_bank is not None:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import add_completed_training_wave
                 add_completed_training_wave(pilot.success_bank,wave,outcomes[-n:],measured_goal_batches,source_run=output.name)
+                pilot.sync_success_guard_cohort()
             if args.training and getattr(pilot, 'measured_credit_bank', None) is not None:
                 pilot.add_measured_training_wave(wave, outcomes[-n:], measured_goal_batches,
                     source_run=output.name)

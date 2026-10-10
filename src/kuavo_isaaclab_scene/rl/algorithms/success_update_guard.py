@@ -17,9 +17,10 @@ VARIANT = 'train-success-Adam-backtrack'
 def success_update_guard_config(variant):
     if variant is None:
         return None
-    if variant != VARIANT:
+    from .success_cohort_guard import VARIANT as COHORT_VARIANT
+    if variant not in (VARIANT, COHORT_VARIANT):
         raise ValueError('Unknown successful TRAIN update guard')
-    return dict(name=VARIANT, format_version=1,
+    result = dict(name=VARIANT, format_version=1,
         source='same_completed_safe_TRAIN_actor_batch_only',
         grouping='each_available_rack_region',
         protect_body_and_jaw_losses_separately=True,
@@ -37,6 +38,17 @@ def success_update_guard_config(variant):
         absent_success_batch='ordinary_actor_update',
         pilot_waits_for_first_completed_safe_TRAIN_success=True,
         local_batch_protection_is_not_rollout_success_guarantee=True)
+    if variant == COHORT_VARIANT:
+        result.update(name=variant, format_version=2,
+            source='persistent_first_two_safe_TRAIN_paths_per_region_and_size',
+            grouping='each_episode_approach_and_tail64_with_separate_arms_and_jaws',
+            absolute_loss_tolerance=1e-9, relative_loss_tolerance=1e-6,
+            loss_ceiling='lowest_accepted_loss_on_same_fixed_cohort_not_previous_random_batch',
+            protected_correct_jaws='each_row_hand_correct_label_cannot_become_wrong',
+            first_success_paths_survive_replay_eviction=True,
+            actor_training_minibatch_and_Q_replay_unchanged=True,
+            absent_success_batch='pilot_waits_for_first_completed_safe_TRAIN_success')
+    return result
 
 
 @torch.no_grad()
@@ -102,19 +114,26 @@ def acceptable(before, after, config):
 
 def guarded_actor_step(agent, loss, successful):
     config = getattr(agent, 'actor_success_guard_config', None)
-    if config is None or successful is None:
+    from . import success_cohort_guard as cohort
+    persistent = cohort.enabled(agent)
+    if config is None or (successful is None and not persistent):
         optimize(agent.actor_optimizer, loss, agent.actor.parameters())
         return True, {}
-    if config != success_update_guard_config(VARIANT) or not agent.config.freeze_actor_normalizer:
+    if config != success_update_guard_config(config['name']) or not agent.config.freeze_actor_normalizer:
         raise ValueError('Success guard requires its exact contract and frozen actor normalization')
-    if agent.actor_obs_dim != 518 or not len(successful['action']):
+    if agent.actor_obs_dim != 518 or (not persistent and not len(successful['action'])):
         raise ValueError('Success guard requires measured held TRAIN actor states')
     previous_servo_statistics = deepcopy(getattr(agent, '_success_servo_statistics', None))
-    before = success_metrics(agent, successful)
+    if persistent:
+        successful, groups = cohort.cohort_batch(agent)
+        before, _ = cohort.metrics(agent, successful, groups)
+    else:
+        before = success_metrics(agent, successful)
     parameters = list(agent.actor.parameters())
     previous = [p.detach().clone() for p in parameters]
     optimizer = deepcopy(agent.actor_optimizer.state_dict())
-    constraints = retention_gradients(agent, successful, parameters)
+    constraints = (cohort.gradient_constraints(agent, successful, groups, parameters)
+                   if persistent else retention_gradients(agent, successful, parameters))
     # Metrics may update diagnostic attributes, but never parameters or RNG.
     accepted_scale = 0.
     after = before
@@ -141,9 +160,16 @@ def guarded_actor_step(agent, loss, successful):
             with torch.no_grad():
                 for p, old, new in zip(parameters, previous, proposal):
                     p.copy_(new if scale == 1. else old + scale * (new - old))
-            candidate = success_metrics(agent, successful)
-            if acceptable(before, candidate, config):
+            if persistent:
+                candidate, correct = cohort.metrics(agent, successful, groups)
+                allowed = cohort.within_ceilings(candidate, correct, agent.success_guard_memory, config)
+            else:
+                candidate = success_metrics(agent, successful)
+                allowed = acceptable(before, candidate, config)
+            if allowed:
                 accepted_scale, after = scale, candidate
+                if persistent:
+                    cohort.tighten(agent.success_guard_memory, candidate, correct)
                 break
     finally:
         if not accepted_scale:
@@ -159,12 +185,23 @@ def guarded_actor_step(agent, loss, successful):
         actor_success_guard_projected_constraints=projected,
         actor_success_guard_regions=len(before),
         actor_success_guard_before=before, actor_success_guard_after=after)
+    counters = getattr(agent, 'success_guard_statistics', None)
+    if not counters:
+        counters = agent.success_guard_statistics = dict(attempted=0, accepted=0, rejected=0,
+            projected_constraints=0, parameter_scale_counts={})
+    counters['attempted'] += 1
+    counters['accepted' if accepted_scale else 'rejected'] += 1
+    counters['projected_constraints'] += projected
+    key = str(accepted_scale)
+    counters['parameter_scale_counts'][key] = counters['parameter_scale_counts'].get(key, 0)+1
+    if persistent:
+        stats['actor_success_guard_cohort'] = cohort.report(agent)
     return bool(accepted_scale), stats
 
 
 def validate_success_update_guard_state(state):
     config = state.get('actor_success_guard')
-    if (config is not None and config != success_update_guard_config(VARIANT)) \
+    if (config is not None and config != success_update_guard_config(config.get('name'))) \
             or state.get('goal_contract', {}).get('actor_success_guard') != config \
             or state.get('hybrid_contract', {}).get('actor_success_guard') != config:
         raise ValueError('Saved actor success guard contract differs')

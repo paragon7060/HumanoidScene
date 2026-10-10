@@ -171,7 +171,7 @@ def summarize(run):
     progress_fields = ('actor_updates', 'critic_updates', 'online_rows', 'replay_size',
         'critic_warmup_remaining', 'actor_collection_warmup_remaining', 'prior_weight',
         'effective_prior_mse_weight', 'successful_train_bank', 'successful_train_replay_fraction',
-        'latest', 'latest_actor')
+        'latest', 'latest_actor', 'actor_success_guard_statistics', 'actor_success_guard_cohort')
     return dict(run_dir=str(run), recorded_writer_status=read_snapshot(run / 'status.json'),
         writer_liveness_not_inferred=True, last_recorded_collection_rows_all_splits=metrics.get('actual_rows'),
         collection_rows_include_DEV_and_base_approach=True,

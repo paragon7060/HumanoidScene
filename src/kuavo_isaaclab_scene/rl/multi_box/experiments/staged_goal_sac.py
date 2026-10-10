@@ -520,6 +520,7 @@ class StagedGoalSACPilot:
     def observe(self, previous, next_raw, next_critic, reward, terminated, index,*,supplemental=None,critic_episode_remaining=None):
         if not self.training:
             return
+        self.sync_success_guard_cohort()
         ao, co, action = previous
         na, nc = self.observations(next_raw, next_critic, index+1,supplemental,
             critic_episode_remaining=critic_episode_remaining)
@@ -570,6 +571,11 @@ class StagedGoalSACPilot:
                 self.actor_updates += int(self.latest['actor_updated'])
                 self.critic_updates += 1
 
+    def sync_success_guard_cohort(self):
+        if self.success_bank is not None:
+            from ...algorithms.success_cohort_guard import synchronize
+            synchronize(self.agent, self.success_bank)
+
     def report(self):
         report=dict(training=self.training, actor_updates=self.actor_updates,
             critic_updates=self.critic_updates, online_rows=self.online_rows,
@@ -591,6 +597,11 @@ class StagedGoalSACPilot:
                 success_schedule_actor_origin=self.success_schedule_actor_origin)
         if self.episode_arm_exploration is not None:
             report['episode_arm_behavior']=self.arm_behavior.latest if self.arm_behavior is not None else {}
+        if getattr(self.agent, 'actor_success_guard_config', None) is not None:
+            report['actor_success_guard_statistics'] = getattr(self.agent, 'success_guard_statistics', None)
+            from ...algorithms import success_cohort_guard as cohort
+            if cohort.enabled(self.agent):
+                report['actor_success_guard_cohort'] = cohort.report(self.agent)
         return report
 
     def save(self, final=False):

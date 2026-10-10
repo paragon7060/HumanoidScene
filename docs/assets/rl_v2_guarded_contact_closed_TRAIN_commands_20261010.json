@@ -1,0 +1,4004 @@
+{
+  "recorded_at": "2026-10-10T12:24:53.694097+09:00",
+  "role": "closed_TRAIN_observation_command_agreement_NOT_rollout",
+  "run": "batch_sac_20261010_010659_15308d",
+  "initial_checkpoint_SHA256": "ef62c354e1a96a9b12e759f1cd2378347d61f20192f879449c6bb5f36b237063",
+  "final_checkpoint_SHA256": "ca289e3c672d001b4dd26c421f0ff2deba5af94994fd3e3641b2a9d8e2a0b277",
+  "actual_retained_successful_TRAIN_paths": 18,
+  "actor_updates": 420,
+  "critic_updates": 4828,
+  "by_region": {
+    "shelf_2_left": {
+      "episodes": 10,
+      "initial": {
+        "whole": {
+          "actual_next_body_servo_command_MAE": 0.0005096998303088185,
+          "servo_equivalent_interval_Huber": 4.255713996467736e-07,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0
+        },
+        "tail64": {
+          "actual_next_body_servo_command_MAE": 0.000431502911123971,
+          "servo_equivalent_interval_Huber": 3.0020555508158964e-07,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0
+        }
+      },
+      "learned": {
+        "whole": {
+          "actual_next_body_servo_command_MAE": 0.0010924318572506308,
+          "servo_equivalent_interval_Huber": 1.1069607296576579e-06,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 0.9965352475643158
+        },
+        "tail64": {
+          "actual_next_body_servo_command_MAE": 0.0006055923935491591,
+          "servo_equivalent_interval_Huber": 3.417999330679322e-07,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 0.996424013376236
+        }
+      }
+    },
+    "shelf_3_left": {
+      "episodes": 2,
+      "initial": {
+        "whole": {
+          "actual_next_body_servo_command_MAE": 0.0047199580585584044,
+          "servo_equivalent_interval_Huber": 4.167102542851353e-05,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0
+        },
+        "tail64": {
+          "actual_next_body_servo_command_MAE": 0.014505981933325529,
+          "servo_equivalent_interval_Huber": 0.00023492124455515295,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0
+        }
+      },
+      "learned": {
+        "whole": {
+          "actual_next_body_servo_command_MAE": 0.003419267013669014,
+          "servo_equivalent_interval_Huber": 1.3977315575175453e-05,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0
+        },
+        "tail64": {
+          "actual_next_body_servo_command_MAE": 0.006169986678287387,
+          "servo_equivalent_interval_Huber": 3.934789674531203e-05,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0
+        }
+      }
+    },
+    "shelf_3_right": {
+      "episodes": 6,
+      "initial": {
+        "whole": {
+          "actual_next_body_servo_command_MAE": 0.00012943631910881473,
+          "servo_equivalent_interval_Huber": 6.073139299789254e-08,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0
+        },
+        "tail64": {
+          "actual_next_body_servo_command_MAE": 0.0001741680983589807,
+          "servo_equivalent_interval_Huber": 8.572062970326384e-08,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0
+        }
+      },
+      "learned": {
+        "whole": {
+          "actual_next_body_servo_command_MAE": 0.0013111515727359802,
+          "servo_equivalent_interval_Huber": 1.7367168254622811e-06,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0
+        },
+        "tail64": {
+          "actual_next_body_servo_command_MAE": 0.0009643324350084489,
+          "servo_equivalent_interval_Huber": 9.351675428111624e-07,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0
+        }
+      }
+    }
+  },
+  "episodes": [
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave2/env32/seed60010008",
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 383,
+          "normalized_absolute_goal_MAE": 2.0955710056114185e-07,
+          "actual_next_body_servo_command_MAE": 7.762982932035811e-06,
+          "servo_equivalent_interval_Huber": 1.8144237501349636e-10,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 114,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9310414791107178
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 138,
+              "recorded_closed_rows": 53,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.94830322265625
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 8.737916687096003e-06,
+              "normalized_goal_MAE": 1.5023564969851577e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 9.908964784699492e-06,
+              "normalized_goal_MAE": 1.5462563851542654e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 1.955676452780608e-06,
+              "normalized_goal_MAE": 4.10737158063057e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 5.550740752369165e-06,
+              "normalized_goal_MAE": 3.076720247463527e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 7.886624757702521e-07,
+          "actual_next_body_servo_command_MAE": 2.308338116563391e-05,
+          "servo_equivalent_interval_Huber": 9.403533507423845e-10,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 56,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9310414791107178
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 53,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.94830322265625
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 2.376369411649648e-05,
+              "normalized_goal_MAE": 4.3863110477104783e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 2.7776695787906647e-05,
+              "normalized_goal_MAE": 4.177615551270719e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 9.795719051908236e-06,
+              "normalized_goal_MAE": 2.0803465758945094e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 2.420716919004917e-05,
+              "normalized_goal_MAE": 1.3743992894887924e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 383,
+          "normalized_absolute_goal_MAE": 6.243185634957626e-05,
+          "actual_next_body_servo_command_MAE": 0.0018503550672903657,
+          "servo_equivalent_interval_Huber": 2.8560939426824916e-06,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 114,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9295138120651245
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 138,
+              "recorded_closed_rows": 53,
+              "greedy_agreement_on_active_rows": 0.9927536249160767,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9500173926353455
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0019243386341258883,
+              "normalized_goal_MAE": 3.411982470424846e-05,
+              "identical_servo_command_different_goal_fraction": 0.0007459903135895729,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.002291932702064514,
+              "normalized_goal_MAE": 4.451690983842127e-05,
+              "identical_servo_command_different_goal_fraction": 0.02909362129867077,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0007247303146868944,
+              "normalized_goal_MAE": 0.00014405237743631005,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0017343265935778618,
+              "normalized_goal_MAE": 0.00010179547098232433,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 4.406894731801003e-05,
+          "actual_next_body_servo_command_MAE": 0.0008442271500825882,
+          "servo_equivalent_interval_Huber": 6.469140316767152e-07,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 56,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9295138120651245
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 53,
+              "greedy_agreement_on_active_rows": 0.984375,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9500173926353455
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0008482511038891971,
+              "normalized_goal_MAE": 1.3716021385334898e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0007863097707740963,
+              "normalized_goal_MAE": 1.3012786439503543e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0008605013135820627,
+              "normalized_goal_MAE": 0.00017376428877469152,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0010084433015435934,
+              "normalized_goal_MAE": 6.445776671171188e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave2/env40/seed60010010",
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 383,
+          "normalized_absolute_goal_MAE": 2.3834431317482085e-07,
+          "actual_next_body_servo_command_MAE": 8.21769663161831e-06,
+          "servo_equivalent_interval_Huber": 2.1133447769550173e-10,
+          "recorded_both_jaws_closed_rows": 32,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 80,
+              "recorded_closed_rows": 44,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9300258159637451
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 134,
+              "recorded_closed_rows": 65,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9553857445716858
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 8.934527613746468e-06,
+              "normalized_goal_MAE": 1.5853791524023109e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 1.040568167809397e-05,
+              "normalized_goal_MAE": 1.6439177841220953e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 2.4036335162236355e-06,
+              "normalized_goal_MAE": 5.041312078901683e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 6.771935659344308e-06,
+              "normalized_goal_MAE": 3.778202994908497e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 9.610869255993748e-07,
+          "actual_next_body_servo_command_MAE": 2.63670262938831e-05,
+          "servo_equivalent_interval_Huber": 1.12254849859994e-09,
+          "recorded_both_jaws_closed_rows": 31,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 34,
+              "recorded_closed_rows": 31,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9499236345291138
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9624894857406616
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 2.5375213226652704e-05,
+              "normalized_goal_MAE": 4.906292474515794e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 3.179967825417407e-05,
+              "normalized_goal_MAE": 4.865691494160274e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 1.2412881915224716e-05,
+              "normalized_goal_MAE": 2.6320460619899677e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 3.175530582666397e-05,
+              "normalized_goal_MAE": 1.7620623111724854e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 383,
+          "normalized_absolute_goal_MAE": 4.2214356653857976e-05,
+          "actual_next_body_servo_command_MAE": 0.0010243518045172095,
+          "servo_equivalent_interval_Huber": 8.953125529842509e-07,
+          "recorded_both_jaws_closed_rows": 32,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 80,
+              "recorded_closed_rows": 44,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9283350110054016
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 134,
+              "recorded_closed_rows": 65,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9570401906967163
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0009171227575279772,
+              "normalized_goal_MAE": 1.770202834450174e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0012340630637481809,
+              "normalized_goal_MAE": 2.6710764359449968e-05,
+              "identical_servo_command_different_goal_fraction": 0.004848937038332224,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0005097310640849173,
+              "normalized_goal_MAE": 0.00010720208956627175,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0014375956961885095,
+              "normalized_goal_MAE": 8.478850213577971e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 3.647993435151875e-05,
+          "actual_next_body_servo_command_MAE": 0.0006301046232692897,
+          "servo_equivalent_interval_Huber": 2.9986031790940615e-07,
+          "recorded_both_jaws_closed_rows": 31,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 34,
+              "recorded_closed_rows": 31,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9488338232040405
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9640184640884399
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0005235912394709885,
+              "normalized_goal_MAE": 8.685144166520331e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0006314117345027626,
+              "normalized_goal_MAE": 1.1191087651241105e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0006651182775385678,
+              "normalized_goal_MAE": 0.0001433994621038437,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0009458060376346111,
+              "normalized_goal_MAE": 6.189337000250816e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave2/env48/seed60010012",
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 409,
+          "normalized_absolute_goal_MAE": 5.846684416610515e-07,
+          "actual_next_body_servo_command_MAE": 1.6954110833466984e-05,
+          "servo_equivalent_interval_Huber": 1.01116170991844e-09,
+          "recorded_both_jaws_closed_rows": 62,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 122,
+              "recorded_closed_rows": 81,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.958838164806366
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 161,
+              "recorded_closed_rows": 86,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9648857712745667
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 1.8835820810636505e-05,
+              "normalized_goal_MAE": 3.271708521879191e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 1.875626912806183e-05,
+              "normalized_goal_MAE": 2.96512666864146e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 7.188740255514858e-06,
+              "normalized_goal_MAE": 1.5393540024888352e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 1.870861706265714e-05,
+              "normalized_goal_MAE": 1.0624272590575856e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 3.228803052479634e-06,
+          "actual_next_body_servo_command_MAE": 8.333649748237804e-05,
+          "servo_equivalent_interval_Huber": 6.306398958599857e-09,
+          "recorded_both_jaws_closed_rows": 58,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 61,
+              "recorded_closed_rows": 58,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9763544797897339
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.978239119052887
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 8.96722631296143e-05,
+              "normalized_goal_MAE": 1.578938963575638e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 8.613237150711939e-05,
+              "normalized_goal_MAE": 1.3538735856855055e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 4.385825013741851e-05,
+              "normalized_goal_MAE": 9.426235919818282e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.00011059315875172615,
+              "normalized_goal_MAE": 6.2694307416677475e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 409,
+          "normalized_absolute_goal_MAE": 4.961672311765142e-05,
+          "actual_next_body_servo_command_MAE": 0.0011252803960815072,
+          "servo_equivalent_interval_Huber": 1.0855314940272365e-06,
+          "recorded_both_jaws_closed_rows": 62,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 0.9838709831237793,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 122,
+              "recorded_closed_rows": 81,
+              "greedy_agreement_on_active_rows": 0.9918032884597778,
+              "greedy_closed_fraction_on_recorded_closed_rows": 0.9876543283462524,
+              "policy_close_probability_on_recorded_closed_rows": 0.9576346278190613
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 161,
+              "recorded_closed_rows": 86,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9663728475570679
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.001010723877698183,
+              "normalized_goal_MAE": 1.9396205971133895e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0012886780314147472,
+              "normalized_goal_MAE": 2.8322961952653714e-05,
+              "identical_servo_command_different_goal_fraction": 0.014320642687380314,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0006485756603069603,
+              "normalized_goal_MAE": 0.0001363204064546153,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0016693937359377742,
+              "normalized_goal_MAE": 9.986124496208504e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 5.243094346951693e-05,
+          "actual_next_body_servo_command_MAE": 0.0008418054203502834,
+          "servo_equivalent_interval_Huber": 5.401895464274276e-07,
+          "recorded_both_jaws_closed_rows": 58,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 0.982758641242981,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 61,
+              "recorded_closed_rows": 58,
+              "greedy_agreement_on_active_rows": 0.9836065769195557,
+              "greedy_closed_fraction_on_recorded_closed_rows": 0.982758641242981,
+              "policy_close_probability_on_recorded_closed_rows": 0.9757584929466248
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9793728590011597
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0007098537753336132,
+              "normalized_goal_MAE": 1.2270432307559531e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0007672485080547631,
+              "normalized_goal_MAE": 1.4284572898759507e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0009535741992294788,
+              "normalized_goal_MAE": 0.0002081415877910331,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0013969315914437175,
+              "normalized_goal_MAE": 9.293900802731514e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave2/env112/seed60010028",
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 409,
+          "normalized_absolute_goal_MAE": 6.214646646185429e-07,
+          "actual_next_body_servo_command_MAE": 1.7668910004431382e-05,
+          "servo_equivalent_interval_Huber": 1.0603350419913227e-09,
+          "recorded_both_jaws_closed_rows": 61,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 122,
+              "recorded_closed_rows": 80,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9590805172920227
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 161,
+              "recorded_closed_rows": 86,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9639697670936584
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 1.9489758415147662e-05,
+              "normalized_goal_MAE": 3.3690454870338726e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 1.929415338963736e-05,
+              "normalized_goal_MAE": 3.072750018873194e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 7.751221346552484e-06,
+              "normalized_goal_MAE": 1.6625390344415791e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 2.0484123524511233e-05,
+              "normalized_goal_MAE": 1.1554775483091362e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 3.4689755921135657e-06,
+          "actual_next_body_servo_command_MAE": 8.784300734987482e-05,
+          "servo_equivalent_interval_Huber": 6.616460268560331e-09,
+          "recorded_both_jaws_closed_rows": 57,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 61,
+              "recorded_closed_rows": 57,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9771118760108948
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.976729154586792
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 9.407681500306353e-05,
+              "normalized_goal_MAE": 1.655623577789811e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 8.972793875727803e-05,
+              "normalized_goal_MAE": 1.4297469306256971e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 4.743739191326313e-05,
+              "normalized_goal_MAE": 1.0216502232651692e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0001200358965434134,
+              "normalized_goal_MAE": 6.831716746091843e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 409,
+          "normalized_absolute_goal_MAE": 4.9167814722750336e-05,
+          "actual_next_body_servo_command_MAE": 0.0011145013850182295,
+          "servo_equivalent_interval_Huber": 1.0653549225025927e-06,
+          "recorded_both_jaws_closed_rows": 61,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 122,
+              "recorded_closed_rows": 80,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9578835368156433
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 161,
+              "recorded_closed_rows": 86,
+              "greedy_agreement_on_active_rows": 0.9937888383865356,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9654892086982727
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.000998987932689488,
+              "normalized_goal_MAE": 1.9206041542929597e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0012768723536282778,
+              "normalized_goal_MAE": 2.804938776534982e-05,
+              "identical_servo_command_different_goal_fraction": 0.01397135853767395,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0006425829487852752,
+              "normalized_goal_MAE": 0.00013509945711120963,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.001658378285355866,
+              "normalized_goal_MAE": 9.905108163366094e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 5.175843762117438e-05,
+          "actual_next_body_servo_command_MAE": 0.0008305744268000126,
+          "servo_equivalent_interval_Huber": 5.255951691651717e-07,
+          "recorded_both_jaws_closed_rows": 57,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 61,
+              "recorded_closed_rows": 57,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9765301942825317
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9779146909713745
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0006975663709454238,
+              "normalized_goal_MAE": 1.2081883141945582e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0007586187566630542,
+              "normalized_goal_MAE": 1.40550064315903e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0009441628935746849,
+              "normalized_goal_MAE": 0.00020584413141477853,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.001377565786242485,
+              "normalized_goal_MAE": 9.14598349481821e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave2/env120/seed60010030",
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 409,
+          "normalized_absolute_goal_MAE": 7.904186531959567e-07,
+          "actual_next_body_servo_command_MAE": 2.132944791810587e-05,
+          "servo_equivalent_interval_Huber": 1.2964800344406058e-09,
+          "recorded_both_jaws_closed_rows": 54,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 133,
+              "recorded_closed_rows": 54,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9731246829032898
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 162,
+              "recorded_closed_rows": 78,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9560292363166809
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 2.3551501726615243e-05,
+              "normalized_goal_MAE": 4.0613528540234256e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 2.239268178527709e-05,
+              "normalized_goal_MAE": 3.6620505738937936e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 1.0051208846562076e-05,
+              "normalized_goal_MAE": 2.1855989871255588e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 2.674829556781333e-05,
+              "normalized_goal_MAE": 1.5273872122634202e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 4.328744580561761e-06,
+          "actual_next_body_servo_command_MAE": 0.00010333103273296729,
+          "servo_equivalent_interval_Huber": 7.85163756233942e-09,
+          "recorded_both_jaws_closed_rows": 54,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 61,
+              "recorded_closed_rows": 54,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9731246829032898
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9697537422180176
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.00011046024883398786,
+              "normalized_goal_MAE": 1.950743580891867e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.00010008557728724554,
+              "normalized_goal_MAE": 1.6668925582052907e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 5.9799847804242745e-05,
+              "normalized_goal_MAE": 1.3061883691989351e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0001550346496514976,
+              "normalized_goal_MAE": 8.868519216775894e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 409,
+          "normalized_absolute_goal_MAE": 5.102298018755391e-05,
+          "actual_next_body_servo_command_MAE": 0.0012045498006045818,
+          "servo_equivalent_interval_Huber": 1.2391708423820091e-06,
+          "recorded_both_jaws_closed_rows": 54,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 0.9814814925193787,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 133,
+              "recorded_closed_rows": 54,
+              "greedy_agreement_on_active_rows": 0.9924812316894531,
+              "greedy_closed_fraction_on_recorded_closed_rows": 0.9814814925193787,
+              "policy_close_probability_on_recorded_closed_rows": 0.9724612832069397
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 162,
+              "recorded_closed_rows": 78,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9577069282531738
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0010944581590592861,
+              "normalized_goal_MAE": 2.1060177459730767e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0014151481445878744,
+              "normalized_goal_MAE": 3.0462177164736204e-05,
+              "identical_servo_command_different_goal_fraction": 0.023751309141516685,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0006576883024536073,
+              "normalized_goal_MAE": 0.000136623639264144,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0016730688512325287,
+              "normalized_goal_MAE": 9.945461351890117e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 4.992695539840497e-05,
+          "actual_next_body_servo_command_MAE": 0.0007702694274485111,
+          "servo_equivalent_interval_Huber": 4.6840082745802647e-07,
+          "recorded_both_jaws_closed_rows": 54,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 0.9814814925193787,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 61,
+              "recorded_closed_rows": 54,
+              "greedy_agreement_on_active_rows": 0.9836065769195557,
+              "greedy_closed_fraction_on_recorded_closed_rows": 0.9814814925193787,
+              "policy_close_probability_on_recorded_closed_rows": 0.9724612832069397
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9711936712265015
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0006153867579996586,
+              "normalized_goal_MAE": 1.1008189176209271e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0007033132133074105,
+              "normalized_goal_MAE": 1.3038910765317269e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0009382010321132839,
+              "normalized_goal_MAE": 0.0002028549206443131,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.001294807530939579,
+              "normalized_goal_MAE": 8.585886098444462e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave3/env24/seed60020006",
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 410,
+          "normalized_absolute_goal_MAE": 4.2252133425790817e-05,
+          "actual_next_body_servo_command_MAE": 0.0011333234142512083,
+          "servo_equivalent_interval_Huber": 1.0365156413172372e-06,
+          "recorded_both_jaws_closed_rows": 29,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 150,
+              "recorded_closed_rows": 46,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9483910202980042
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 165,
+              "recorded_closed_rows": 29,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9747001528739929
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.001276922645047307,
+              "normalized_goal_MAE": 2.2852496840641834e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0012194402515888214,
+              "normalized_goal_MAE": 2.3403725208481774e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0005292178830131888,
+              "normalized_goal_MAE": 0.0001085665644495748,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.001235474948771298,
+              "normalized_goal_MAE": 7.66486264183186e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 5.6058939662761986e-05,
+          "actual_next_body_servo_command_MAE": 0.001136130653321743,
+          "servo_equivalent_interval_Huber": 1.2839298051403603e-06,
+          "recorded_both_jaws_closed_rows": 29,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 46,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9483910202980042
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 29,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9747001528739929
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0011152628576382995,
+              "normalized_goal_MAE": 1.9560315195121802e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0011119907721877098,
+              "normalized_goal_MAE": 1.7880431187222712e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0010034420993179083,
+              "normalized_goal_MAE": 0.00020296138245612383,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0014926905278116465,
+              "normalized_goal_MAE": 9.707524441182613e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 410,
+          "normalized_absolute_goal_MAE": 4.0596190956421196e-05,
+          "actual_next_body_servo_command_MAE": 0.0009927119826897979,
+          "servo_equivalent_interval_Huber": 8.480944302391435e-07,
+          "recorded_both_jaws_closed_rows": 29,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 150,
+              "recorded_closed_rows": 46,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9468635320663452
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 165,
+              "recorded_closed_rows": 29,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9762657880783081
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.001001687371172011,
+              "normalized_goal_MAE": 1.6603886251687072e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0011964605655521154,
+              "normalized_goal_MAE": 2.384780782449525e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0006161971832625568,
+              "normalized_goal_MAE": 0.00013270112685859203,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0008129512425512075,
+              "normalized_goal_MAE": 4.5031236368231475e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 3.2194780942518264e-05,
+          "actual_next_body_servo_command_MAE": 0.0005792215815745294,
+          "servo_equivalent_interval_Huber": 3.770550449644361e-07,
+          "recorded_both_jaws_closed_rows": 29,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 46,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9468635320663452
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 29,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9762657880783081
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0006553581333719194,
+              "normalized_goal_MAE": 1.0475393537490163e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0005457467050291598,
+              "normalized_goal_MAE": 8.465007340419106e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0006363097345456481,
+              "normalized_goal_MAE": 0.00014649350487161428,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0003442735178396106,
+              "normalized_goal_MAE": 1.9818777218461037e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave3/env56/seed60020014",
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 408,
+          "normalized_absolute_goal_MAE": 3.0315060939756222e-05,
+          "actual_next_body_servo_command_MAE": 0.0006176183233037591,
+          "servo_equivalent_interval_Huber": 3.262556163008412e-07,
+          "recorded_both_jaws_closed_rows": 59,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 117,
+              "recorded_closed_rows": 76,
+              "greedy_agreement_on_active_rows": 0.9914529919624329,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9569826722145081
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 161,
+              "recorded_closed_rows": 86,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.961022675037384
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0005915195215493441,
+              "normalized_goal_MAE": 1.176668047264684e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0006098665180616081,
+              "normalized_goal_MAE": 1.3460213267535437e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.00043267561704851687,
+              "normalized_goal_MAE": 9.137434972217306e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0010135098127648234,
+              "normalized_goal_MAE": 6.26374312560074e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 4.444219666766003e-05,
+          "actual_next_body_servo_command_MAE": 0.0006563770584762096,
+          "servo_equivalent_interval_Huber": 3.4447953112248797e-07,
+          "recorded_both_jaws_closed_rows": 56,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 59,
+              "recorded_closed_rows": 56,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9740220308303833
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.97332364320755
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.00046796302194707096,
+              "normalized_goal_MAE": 8.943307875597384e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0005762841319665313,
+              "normalized_goal_MAE": 1.0711645700212102e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0008629246731288731,
+              "normalized_goal_MAE": 0.00017983978614211082,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0012863297015428543,
+              "normalized_goal_MAE": 8.364883251488209e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 408,
+          "normalized_absolute_goal_MAE": 2.7784313715528697e-05,
+          "actual_next_body_servo_command_MAE": 0.0005785971297882497,
+          "servo_equivalent_interval_Huber": 2.973607138301304e-07,
+          "recorded_both_jaws_closed_rows": 59,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 117,
+              "recorded_closed_rows": 76,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.955773115158081
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 161,
+              "recorded_closed_rows": 86,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9626361727714539
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.000504741386976093,
+              "normalized_goal_MAE": 8.563664778193925e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.000700514588970691,
+              "normalized_goal_MAE": 1.4705363355460577e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0004383881750982255,
+              "normalized_goal_MAE": 9.868024790193886e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0006206943071447313,
+              "normalized_goal_MAE": 3.448902862146497e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 2.540519562899135e-05,
+          "actual_next_body_servo_command_MAE": 0.0003205262473784387,
+          "servo_equivalent_interval_Huber": 9.060018157924787e-08,
+          "recorded_both_jaws_closed_rows": 56,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 59,
+              "recorded_closed_rows": 56,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9733800888061523
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9746406078338623
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.00032553254277445376,
+              "normalized_goal_MAE": 5.049951141700149e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0002587596536614001,
+              "normalized_goal_MAE": 4.416823685460258e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0005610101507045329,
+              "normalized_goal_MAE": 0.0001317067799391225,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.00015846156748011708,
+              "normalized_goal_MAE": 1.0655494406819344e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave3/env64/seed60020016",
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 409,
+          "normalized_absolute_goal_MAE": 3.889499930664897e-05,
+          "actual_next_body_servo_command_MAE": 0.0009864767780527472,
+          "servo_equivalent_interval_Huber": 7.65463596508198e-07,
+          "recorded_both_jaws_closed_rows": 28,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 149,
+              "recorded_closed_rows": 49,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9468345046043396
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 164,
+              "recorded_closed_rows": 28,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9619284868240356
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0010815440909937024,
+              "normalized_goal_MAE": 1.9782011804636568e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0010440123733133078,
+              "normalized_goal_MAE": 2.0639776266762055e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.000499473768286407,
+              "normalized_goal_MAE": 0.00010315351391909644,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.001182871637865901,
+              "normalized_goal_MAE": 7.329600339289755e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 5.10434438183438e-05,
+          "actual_next_body_servo_command_MAE": 0.0009465154143981636,
+          "servo_equivalent_interval_Huber": 7.215138566607493e-07,
+          "recorded_both_jaws_closed_rows": 28,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 49,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9468345046043396
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 28,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9619284868240356
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0008729277178645134,
+              "normalized_goal_MAE": 1.5450668797711842e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.000885438290424645,
+              "normalized_goal_MAE": 1.4777657270315103e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0009451818186789751,
+              "normalized_goal_MAE": 0.00019123799575027078,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.00141984224319458,
+              "normalized_goal_MAE": 9.225658141076565e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 409,
+          "normalized_absolute_goal_MAE": 3.915437628165819e-05,
+          "actual_next_body_servo_command_MAE": 0.0009142852504737675,
+          "servo_equivalent_interval_Huber": 7.169883815549838e-07,
+          "recorded_both_jaws_closed_rows": 28,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 149,
+              "recorded_closed_rows": 49,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9452887773513794
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 164,
+              "recorded_closed_rows": 28,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9640520811080933
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.000892682233825326,
+              "normalized_goal_MAE": 1.4930703400750645e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.001095250598154962,
+              "normalized_goal_MAE": 2.2382348106475547e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0006045192712917924,
+              "normalized_goal_MAE": 0.0001305839541601017,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.000821166206151247,
+              "normalized_goal_MAE": 4.5494958612835035e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 3.054852277273312e-05,
+          "actual_next_body_servo_command_MAE": 0.0005188737995922565,
+          "servo_equivalent_interval_Huber": 2.296828540693241e-07,
+          "recorded_both_jaws_closed_rows": 28,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 49,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9452887773513794
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 28,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9640520811080933
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0005572318332269788,
+              "normalized_goal_MAE": 8.74639499670593e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.00048641147441230714,
+              "normalized_goal_MAE": 7.627523700648453e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.000607405265327543,
+              "normalized_goal_MAE": 0.0001414890866726637,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0003654420142993331,
+              "normalized_goal_MAE": 2.066860906779766e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave3/env88/seed60020022",
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 383,
+          "normalized_absolute_goal_MAE": 3.6465418816078454e-05,
+          "actual_next_body_servo_command_MAE": 0.0010551721788942814,
+          "servo_equivalent_interval_Huber": 8.850674362292921e-07,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 115,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.931892991065979
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 137,
+              "recorded_closed_rows": 53,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9487855434417725
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0012268758146092296,
+              "normalized_goal_MAE": 2.143220990546979e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0011617280542850494,
+              "normalized_goal_MAE": 2.2094600353739224e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0004258868284523487,
+              "normalized_goal_MAE": 8.735248411539942e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0010251919738948345,
+              "normalized_goal_MAE": 6.3048952142708e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 3.46760825777892e-05,
+          "actual_next_body_servo_command_MAE": 0.0006250058067962527,
+          "servo_equivalent_interval_Huber": 3.2915099268393533e-07,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 57,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.931892991065979
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 53,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9487855434417725
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0005742975627072155,
+              "normalized_goal_MAE": 9.545025932311546e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0005885675782337785,
+              "normalized_goal_MAE": 9.675851288193371e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0006866899784654379,
+              "normalized_goal_MAE": 0.0001377639564452693,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0008374917088076472,
+              "normalized_goal_MAE": 5.550379864871502e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 383,
+          "normalized_absolute_goal_MAE": 3.718868538271636e-05,
+          "actual_next_body_servo_command_MAE": 0.0009724819101393223,
+          "servo_equivalent_interval_Huber": 8.305119649776316e-07,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 115,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9303747415542603
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 137,
+              "recorded_closed_rows": 53,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9504669308662415
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0009908012580126524,
+              "normalized_goal_MAE": 1.643155155761633e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0012102415785193443,
+              "normalized_goal_MAE": 2.3724005586700514e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0005377674242481589,
+              "normalized_goal_MAE": 0.00011516050290083513,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0007282765000127256,
+              "normalized_goal_MAE": 4.0007282223086804e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 2.2193542463355698e-05,
+          "actual_next_body_servo_command_MAE": 0.00035477252095006406,
+          "servo_equivalent_interval_Huber": 1.148625514701962e-07,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 57,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9303747415542603
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 53,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9504669308662415
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.00041107082506641746,
+              "normalized_goal_MAE": 6.5785488914116286e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0002952225913759321,
+              "normalized_goal_MAE": 4.628006081475178e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0004652327625080943,
+              "normalized_goal_MAE": 0.00010722935985540971,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.00020046287681907415,
+              "normalized_goal_MAE": 1.0771676898002625e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave3/env112/seed60020028",
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 412,
+          "normalized_absolute_goal_MAE": 3.887828279403038e-05,
+          "actual_next_body_servo_command_MAE": 0.0012324744602665305,
+          "servo_equivalent_interval_Huber": 1.2386509524731082e-06,
+          "recorded_both_jaws_closed_rows": 55,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 145,
+              "recorded_closed_rows": 55,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9572245478630066
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 143,
+              "recorded_closed_rows": 85,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9775075316429138
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0014829434221610427,
+              "normalized_goal_MAE": 2.4876269890228286e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.001403596019372344,
+              "normalized_goal_MAE": 2.4832039343891665e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0004493730084504932,
+              "normalized_goal_MAE": 9.112483530770987e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0009315611096099019,
+              "normalized_goal_MAE": 5.8677338529378176e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 4.0344697481486946e-05,
+          "actual_next_body_servo_command_MAE": 0.0006270392332226038,
+          "servo_equivalent_interval_Huber": 3.001439665695216e-07,
+          "recorded_both_jaws_closed_rows": 55,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 55,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9572245478630066
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9899349808692932
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0005189018556848168,
+              "normalized_goal_MAE": 8.789307685219683e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.000578010396566242,
+              "normalized_goal_MAE": 9.44297880778322e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0008609004435129464,
+              "normalized_goal_MAE": 0.00017477590881753713,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.000826328934635967,
+              "normalized_goal_MAE": 5.7297758758068085e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 412,
+          "normalized_absolute_goal_MAE": 4.054115561302751e-05,
+          "actual_next_body_servo_command_MAE": 0.0011472038459032774,
+          "servo_equivalent_interval_Huber": 1.2351880513961078e-06,
+          "recorded_both_jaws_closed_rows": 55,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 145,
+              "recorded_closed_rows": 55,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9562946557998657
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 143,
+              "recorded_closed_rows": 85,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9781412482261658
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0012480501318350434,
+              "normalized_goal_MAE": 2.0635176042560488e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0014337562024593353,
+              "normalized_goal_MAE": 2.688661334104836e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0005722912028431892,
+              "normalized_goal_MAE": 0.0001214594958582893,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0006536772125400603,
+              "normalized_goal_MAE": 3.662550079752691e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 2.4449880584143102e-05,
+          "actual_next_body_servo_command_MAE": 0.00036554873804561794,
+          "servo_equivalent_interval_Huber": 1.248388059593708e-07,
+          "recorded_both_jaws_closed_rows": 55,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 55,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9562946557998657
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 64,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9904031157493591
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.00046914766426198184,
+              "normalized_goal_MAE": 7.504434961447259e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.00028544204542413354,
+              "normalized_goal_MAE": 4.362515028333291e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0005246623768471181,
+              "normalized_goal_MAE": 0.00012501905439421535,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 4.4655404053628445e-05,
+              "normalized_goal_MAE": 3.210967406630516e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave1/env59/seed60000314",
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 591,
+          "normalized_absolute_goal_MAE": 1.1850501380195055e-07,
+          "actual_next_body_servo_command_MAE": 5.339646577340318e-06,
+          "servo_equivalent_interval_Huber": 4.301050834931708e-11,
+          "recorded_both_jaws_closed_rows": 25,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 213,
+              "recorded_closed_rows": 25,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9778426289558411
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 233,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9952288866043091
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 6.0460583881649654e-06,
+              "normalized_goal_MAE": 1.0714718712279137e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 7.227349215099821e-06,
+              "normalized_goal_MAE": 1.212182354493052e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 6.254670665839512e-07,
+              "normalized_goal_MAE": 1.2406596283653926e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 3.3315125165245263e-06,
+              "normalized_goal_MAE": 1.4041972917766543e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 1.5982847401119216e-07,
+          "actual_next_body_servo_command_MAE": 7.80220034357626e-06,
+          "servo_equivalent_interval_Huber": 7.389389794498769e-11,
+          "recorded_both_jaws_closed_rows": 25,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 25,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9778426289558411
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9952288866043091
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 9.935216439771466e-06,
+              "normalized_goal_MAE": 1.5543108133897476e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 9.719015906739514e-06,
+              "normalized_goal_MAE": 1.4378954915628128e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 1.0567127901595086e-06,
+              "normalized_goal_MAE": 2.0849863346938946e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 3.7460122257471085e-06,
+              "normalized_goal_MAE": 1.58350303536281e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 591,
+          "normalized_absolute_goal_MAE": 6.098668382037431e-05,
+          "actual_next_body_servo_command_MAE": 0.0011422636453062296,
+          "servo_equivalent_interval_Huber": 1.1819450946859433e-06,
+          "recorded_both_jaws_closed_rows": 25,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 213,
+              "recorded_closed_rows": 25,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.978895902633667
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 233,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9953991174697876
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0011997678084298968,
+              "normalized_goal_MAE": 2.3281643734662794e-05,
+              "identical_servo_command_different_goal_fraction": 0.000241721048951149,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0009453882230445743,
+              "normalized_goal_MAE": 1.9423603589530103e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0011497625382617116,
+              "normalized_goal_MAE": 0.00022474915022030473,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0016188145382329822,
+              "normalized_goal_MAE": 9.278135985368863e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 5.4834170441608876e-05,
+          "actual_next_body_servo_command_MAE": 0.00083135039312765,
+          "servo_equivalent_interval_Huber": 6.401449468285136e-07,
+          "recorded_both_jaws_closed_rows": 25,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 25,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.978895902633667
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9953991174697876
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0007973103201948106,
+              "normalized_goal_MAE": 1.4243348232412245e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0006004036986269057,
+              "normalized_goal_MAE": 1.1348564839863684e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.001179840532131493,
+              "normalized_goal_MAE": 0.0002352625160710886,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0012360690161585808,
+              "normalized_goal_MAE": 7.845916843507439e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave1/env107/seed60000326",
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 593,
+          "normalized_absolute_goal_MAE": 1.200601928985634e-07,
+          "actual_next_body_servo_command_MAE": 5.4493698371516075e-06,
+          "servo_equivalent_interval_Huber": 4.4748267591376845e-11,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 213,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.97664874792099
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 237,
+              "recorded_closed_rows": 27,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9824565052986145
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 6.180438958836021e-06,
+              "normalized_goal_MAE": 1.0797852212363068e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 7.329627351282397e-06,
+              "normalized_goal_MAE": 1.2173204311238806e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 6.327097707981011e-07,
+              "normalized_goal_MAE": 1.2675226912506332e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 3.5347163702681428e-06,
+              "normalized_goal_MAE": 1.464563581521361e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 1.655379975318283e-07,
+          "actual_next_body_servo_command_MAE": 8.029394848563243e-06,
+          "servo_equivalent_interval_Huber": 7.566768739364349e-11,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.97664874792099
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 27,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9824565052986145
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 9.883660823106766e-06,
+              "normalized_goal_MAE": 1.5170579104051285e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 1.0447443855809979e-05,
+              "normalized_goal_MAE": 1.60935869075729e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 1.0909546972470707e-06,
+              "normalized_goal_MAE": 2.1661010407569847e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 3.483961336314678e-06,
+              "normalized_goal_MAE": 1.5344994608312845e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 593,
+          "normalized_absolute_goal_MAE": 0.00010719292185967788,
+          "actual_next_body_servo_command_MAE": 0.0025701646227389574,
+          "servo_equivalent_interval_Huber": 5.2134673751425e-06,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 213,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9779853224754333
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 237,
+              "recorded_closed_rows": 27,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9831014275550842
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.002951781265437603,
+              "normalized_goal_MAE": 5.250188769423403e-05,
+              "identical_servo_command_different_goal_fraction": 0.005540833342820406,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0024320965167135,
+              "normalized_goal_MAE": 4.390094181871973e-05,
+              "identical_servo_command_different_goal_fraction": 0.009877137839794159,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0018263185629621148,
+              "normalized_goal_MAE": 0.00035432568984106183,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.002833514241501689,
+              "normalized_goal_MAE": 0.00014943427231628448,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 8.212689135689288e-05,
+          "actual_next_body_servo_command_MAE": 0.001734333229251206,
+          "servo_equivalent_interval_Huber": 2.5260719667130616e-06,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9779853224754333
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 27,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9831014275550842
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0020563206635415554,
+              "normalized_goal_MAE": 3.160491542075761e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0014801576035097241,
+              "normalized_goal_MAE": 2.446274993417319e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0016244211001321673,
+              "normalized_goal_MAE": 0.00032019056379795074,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0016618603840470314,
+              "normalized_goal_MAE": 0.0001036828471114859,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave1/env115/seed60000328",
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 604,
+          "normalized_absolute_goal_MAE": 1.193481438122035e-07,
+          "actual_next_body_servo_command_MAE": 5.269945631880546e-06,
+          "servo_equivalent_interval_Huber": 4.0257765870910234e-11,
+          "recorded_both_jaws_closed_rows": 38,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 228,
+              "recorded_closed_rows": 38,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9957463145256042
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 244,
+              "recorded_closed_rows": 39,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9981033205986023
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 5.875921488041058e-06,
+              "normalized_goal_MAE": 1.0437118191930495e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 7.133151939342497e-06,
+              "normalized_goal_MAE": 1.2156553452769003e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 6.673000711998611e-07,
+              "normalized_goal_MAE": 1.3192294545660843e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 3.5317725632921793e-06,
+              "normalized_goal_MAE": 1.451444688882475e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 1.5570741140891187e-07,
+          "actual_next_body_servo_command_MAE": 7.655072295165155e-06,
+          "servo_equivalent_interval_Huber": 6.885035597203881e-11,
+          "recorded_both_jaws_closed_rows": 38,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 38,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9957463145256042
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 39,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9981033205986023
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 9.363117897009943e-06,
+              "normalized_goal_MAE": 1.405299201451271e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 9.798844075703528e-06,
+              "normalized_goal_MAE": 1.4837964101843681e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 1.064226466951368e-06,
+              "normalized_goal_MAE": 2.1120892768067279e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 4.059984348714352e-06,
+              "normalized_goal_MAE": 1.5122350305318832e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 604,
+          "normalized_absolute_goal_MAE": 5.0867278332589194e-05,
+          "actual_next_body_servo_command_MAE": 0.0009925956837832928,
+          "servo_equivalent_interval_Huber": 8.675281719661143e-07,
+          "recorded_both_jaws_closed_rows": 38,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 228,
+              "recorded_closed_rows": 38,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9959841370582581
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 244,
+              "recorded_closed_rows": 39,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9981306791305542
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0010193503694608808,
+              "normalized_goal_MAE": 1.963829345186241e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0008664811030030251,
+              "normalized_goal_MAE": 1.7171812942251563e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0009242250816896558,
+              "normalized_goal_MAE": 0.00018214578449260443,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0014429106377065182,
+              "normalized_goal_MAE": 8.118507685139775e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 4.2377261706860736e-05,
+          "actual_next_body_servo_command_MAE": 0.000842707697302103,
+          "servo_equivalent_interval_Huber": 5.999118570798601e-07,
+          "recorded_both_jaws_closed_rows": 38,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 38,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9959841370582581
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 39,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9981306791305542
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0008766473620198667,
+              "normalized_goal_MAE": 1.3449412108457182e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0007351228268817067,
+              "normalized_goal_MAE": 1.1415553672122769e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0008004840929061174,
+              "normalized_goal_MAE": 0.00016460860206279904,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0011638011783361435,
+              "normalized_goal_MAE": 6.864371243864298e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave2/env11/seed60010302",
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 596,
+          "normalized_absolute_goal_MAE": 3.3848657494672807e-06,
+          "actual_next_body_servo_command_MAE": 7.399207970593125e-05,
+          "servo_equivalent_interval_Huber": 8.989428756933648e-09,
+          "recorded_both_jaws_closed_rows": 29,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 218,
+              "recorded_closed_rows": 29,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9863379001617432
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 236,
+              "recorded_closed_rows": 31,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.98492830991745
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 6.556812149938196e-05,
+              "normalized_goal_MAE": 9.826851510297274e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 8.266099030151963e-05,
+              "normalized_goal_MAE": 1.362697275908431e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 5.374943793867715e-05,
+              "normalized_goal_MAE": 1.1570660717552528e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.00010349874355597422,
+              "normalized_goal_MAE": 6.59139504932682e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 1.0290785212418996e-05,
+          "actual_next_body_servo_command_MAE": 0.00017763808136805892,
+          "servo_equivalent_interval_Huber": 2.6788645968167657e-08,
+          "recorded_both_jaws_closed_rows": 29,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 29,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9863379001617432
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 31,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.98492830991745
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.00015928603534121066,
+              "normalized_goal_MAE": 2.357244056838681e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.00016360011068172753,
+              "normalized_goal_MAE": 2.766859552139067e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.00018475856631994247,
+              "normalized_goal_MAE": 3.966653821407817e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0002803223906084895,
+              "normalized_goal_MAE": 2.0328297978267074e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 596,
+          "normalized_absolute_goal_MAE": 7.066483522066846e-05,
+          "actual_next_body_servo_command_MAE": 0.001332801766693592,
+          "servo_equivalent_interval_Huber": 1.532924557068327e-06,
+          "recorded_both_jaws_closed_rows": 29,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 218,
+              "recorded_closed_rows": 29,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.987220287322998
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 236,
+              "recorded_closed_rows": 31,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9854567646980286
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0014478000812232494,
+              "normalized_goal_MAE": 2.742090873653069e-05,
+              "identical_servo_command_different_goal_fraction": 0.00047938639181666076,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0011128062615171075,
+              "normalized_goal_MAE": 2.2277978132478893e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0013600579695776105,
+              "normalized_goal_MAE": 0.0002674977877177298,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.001659406698308885,
+              "normalized_goal_MAE": 9.612315625417978e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 6.379052501870319e-05,
+          "actual_next_body_servo_command_MAE": 0.0010451555717736483,
+          "servo_equivalent_interval_Huber": 9.388685953126696e-07,
+          "recorded_both_jaws_closed_rows": 29,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 29,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.987220287322998
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 31,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9854567646980286
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.001189069589599967,
+              "normalized_goal_MAE": 1.9876652004313655e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0007958284695632756,
+              "normalized_goal_MAE": 1.4887424185872078e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0013921180507168174,
+              "normalized_goal_MAE": 0.0002848064759746194,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0008936590747907758,
+              "normalized_goal_MAE": 5.712603888241574e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave2/env119/seed60010329",
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 596,
+          "normalized_absolute_goal_MAE": 2.465005309204571e-06,
+          "actual_next_body_servo_command_MAE": 5.395460539148189e-05,
+          "servo_equivalent_interval_Huber": 4.7404564718078745e-09,
+          "recorded_both_jaws_closed_rows": 30,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 210,
+              "recorded_closed_rows": 30,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9808033108711243
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 235,
+              "recorded_closed_rows": 31,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9941948652267456
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 4.9447004130342975e-05,
+              "normalized_goal_MAE": 7.592744850626332e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 5.779112325399183e-05,
+              "normalized_goal_MAE": 9.81393213805859e-07,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 3.821697100647725e-05,
+              "normalized_goal_MAE": 8.2391861724318e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 7.990982703631744e-05,
+              "normalized_goal_MAE": 4.9664367907098494e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 8.375321158382576e-06,
+          "actual_next_body_servo_command_MAE": 0.00016139168292284012,
+          "servo_equivalent_interval_Huber": 1.907300806180956e-08,
+          "recorded_both_jaws_closed_rows": 30,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 30,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9808033108711243
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 31,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9941948652267456
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.00016079284250736237,
+              "normalized_goal_MAE": 2.4796795514703263e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.00014897169603500515,
+              "normalized_goal_MAE": 2.531068730604602e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.00013929250417277217,
+              "normalized_goal_MAE": 3.0042361686355434e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0002401063684374094,
+              "normalized_goal_MAE": 1.6964389942586422e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 596,
+          "normalized_absolute_goal_MAE": 6.491184467449784e-05,
+          "actual_next_body_servo_command_MAE": 0.001210238435305655,
+          "servo_equivalent_interval_Huber": 1.2750430187224993e-06,
+          "recorded_both_jaws_closed_rows": 30,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 210,
+              "recorded_closed_rows": 30,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9817599654197693
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 235,
+              "recorded_closed_rows": 31,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9944500923156738
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0013122021919116378,
+              "normalized_goal_MAE": 2.5350040232297033e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0009942678734660149,
+              "normalized_goal_MAE": 2.0412444428075105e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0012407915201038122,
+              "normalized_goal_MAE": 0.00024376995861530304,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0015634325100108981,
+              "normalized_goal_MAE": 9.083886834559962e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 5.7470744650345296e-05,
+          "actual_next_body_servo_command_MAE": 0.0009876267286017537,
+          "servo_equivalent_interval_Huber": 8.007662586351216e-07,
+          "recorded_both_jaws_closed_rows": 30,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 30,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9817599654197693
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 31,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9944500923156738
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.001138051156885922,
+              "normalized_goal_MAE": 1.8638176698004827e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0007577273645438254,
+              "normalized_goal_MAE": 1.3555699297285173e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0012361902045086026,
+              "normalized_goal_MAE": 0.000251699035288766,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0008929431205615401,
+              "normalized_goal_MAE": 5.574493116000667e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave3/env71/seed60020317",
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 590,
+          "normalized_absolute_goal_MAE": 3.662781819002703e-05,
+          "actual_next_body_servo_command_MAE": 0.0006326122675091028,
+          "servo_equivalent_interval_Huber": 3.505304562168021e-07,
+          "recorded_both_jaws_closed_rows": 24,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 209,
+              "recorded_closed_rows": 24,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9875056147575378
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 233,
+              "recorded_closed_rows": 25,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9908115863800049
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0006125657819211483,
+              "normalized_goal_MAE": 1.1998241461697035e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0005188150098547339,
+              "normalized_goal_MAE": 1.0029461009253282e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0007193638011813164,
+              "normalized_goal_MAE": 0.00013959668285679072,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.000970938359387219,
+              "normalized_goal_MAE": 6.147228123154491e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 4.704620732809417e-05,
+          "actual_next_body_servo_command_MAE": 0.0006824921583756804,
+          "servo_equivalent_interval_Huber": 4.682437122482952e-07,
+          "recorded_both_jaws_closed_rows": 24,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 24,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9875056147575378
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 25,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9908115863800049
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0005077137611806393,
+              "normalized_goal_MAE": 8.806802725302987e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0005451031029224396,
+              "normalized_goal_MAE": 9.864668754744343e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0010421577608212829,
+              "normalized_goal_MAE": 0.00020328689424786717,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0012355799553915858,
+              "normalized_goal_MAE": 7.665848534088582e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 590,
+          "normalized_absolute_goal_MAE": 3.566145824152045e-05,
+          "actual_next_body_servo_command_MAE": 0.0006188452825881541,
+          "servo_equivalent_interval_Huber": 3.4939273518830305e-07,
+          "recorded_both_jaws_closed_rows": 24,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 209,
+              "recorded_closed_rows": 24,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9883074760437012
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 233,
+              "recorded_closed_rows": 25,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9911799430847168
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0006614128360524774,
+              "normalized_goal_MAE": 1.3256888450996485e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0005452067125588655,
+              "normalized_goal_MAE": 1.133024943555938e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.000680599536281079,
+              "normalized_goal_MAE": 0.00014784843369852751,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.000634961761534214,
+              "normalized_goal_MAE": 3.095624560955912e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 2.052525815088302e-05,
+          "actual_next_body_servo_command_MAE": 0.0003448209899943322,
+          "servo_equivalent_interval_Huber": 1.0524163229774786e-07,
+          "recorded_both_jaws_closed_rows": 24,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 24,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9883074760437012
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 25,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9911799430847168
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.0004542177193798125,
+              "normalized_goal_MAE": 8.238296686613467e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.00025636982172727585,
+              "normalized_goal_MAE": 4.669750978791853e-06,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0004201000847388059,
+              "normalized_goal_MAE": 9.238569327862933e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.00015859294217079878,
+              "normalized_goal_MAE": 1.1233230907237157e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave3/env30/seed60020207",
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 436,
+          "normalized_absolute_goal_MAE": 7.526697299908847e-05,
+          "actual_next_body_servo_command_MAE": 0.003895528381690383,
+          "servo_equivalent_interval_Huber": 2.3413040253217332e-05,
+          "recorded_both_jaws_closed_rows": 44,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 44,
+              "recorded_closed_rows": 44,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.8453348278999329
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 76,
+              "recorded_closed_rows": 51,
+              "greedy_agreement_on_active_rows": 0.9868420958518982,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9299513101577759
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.00464315852150321,
+              "normalized_goal_MAE": 7.524141255998984e-05,
+              "identical_servo_command_different_goal_fraction": 0.007208387833088636,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.005538538098335266,
+              "normalized_goal_MAE": 8.359414641745389e-05,
+              "identical_servo_command_different_goal_fraction": 0.015072084031999111,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0003488762304186821,
+              "normalized_goal_MAE": 6.664722604909912e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0008482619887217879,
+              "normalized_goal_MAE": 5.914095163461752e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 0.00017938666860572994,
+          "actual_next_body_servo_command_MAE": 0.010679376311600208,
+          "servo_equivalent_interval_Huber": 0.00010914308950304985,
+          "recorded_both_jaws_closed_rows": 44,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 44,
+              "recorded_closed_rows": 44,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.8453348278999329
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 51,
+              "greedy_agreement_on_active_rows": 0.984375,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9299513101577759
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.013366072438657284,
+              "normalized_goal_MAE": 0.00019608672300819308,
+              "identical_servo_command_different_goal_fraction": 0.013392857275903225,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.014840093441307545,
+              "normalized_goal_MAE": 0.00019926592358388007,
+              "identical_servo_command_different_goal_fraction": 0.004464285913854837,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0007527487468905747,
+              "normalized_goal_MAE": 0.00013305079482961446,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0016033835709095001,
+              "normalized_goal_MAE": 0.00012086308561265469,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 436,
+          "normalized_absolute_goal_MAE": 7.14864581823349e-05,
+          "actual_next_body_servo_command_MAE": 0.003569577122107148,
+          "servo_equivalent_interval_Huber": 1.4829188330622856e-05,
+          "recorded_both_jaws_closed_rows": 44,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 44,
+              "recorded_closed_rows": 44,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.8409847021102905
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 76,
+              "recorded_closed_rows": 51,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9272856712341309
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.005154995713382959,
+              "normalized_goal_MAE": 8.180788427125663e-05,
+              "identical_servo_command_different_goal_fraction": 0.046854522079229355,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0037876726128160954,
+              "normalized_goal_MAE": 6.604661757592112e-05,
+              "identical_servo_command_different_goal_fraction": 0.03145478293299675,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.00026754714781418443,
+              "normalized_goal_MAE": 5.154551035957411e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0022103218361735344,
+              "normalized_goal_MAE": 8.43122907099314e-05,
+              "identical_servo_command_different_goal_fraction": 0.016055045649409294,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 0.00011807741248048842,
+          "actual_next_body_servo_command_MAE": 0.006992070470005274,
+          "servo_equivalent_interval_Huber": 4.563232869259082e-05,
+          "recorded_both_jaws_closed_rows": 44,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 44,
+              "recorded_closed_rows": 44,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.8409847021102905
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 51,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9272856712341309
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.010015922598540783,
+              "normalized_goal_MAE": 0.0001376711152261123,
+              "identical_servo_command_different_goal_fraction": 0.008928571827709675,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0077834841795265675,
+              "normalized_goal_MAE": 0.0001184521897812374,
+              "identical_servo_command_different_goal_fraction": 0.0022321429569274187,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.00034013597178272903,
+              "normalized_goal_MAE": 6.55722469673492e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0036165337078273296,
+              "normalized_goal_MAE": 0.00012694555334746838,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "identity": "batch_sac_20261010_010659_15308d/wave3/env94/seed60020223",
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "initial": {
+        "whole": {
+          "rows": 599,
+          "normalized_absolute_goal_MAE": 9.961788600776345e-05,
+          "actual_next_body_servo_command_MAE": 0.005544387735426426,
+          "servo_equivalent_interval_Huber": 5.992901060380973e-05,
+          "recorded_both_jaws_closed_rows": 67,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 204,
+              "recorded_closed_rows": 67,
+              "greedy_agreement_on_active_rows": 0.9950980544090271,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.8232043385505676
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 240,
+              "recorded_closed_rows": 157,
+              "greedy_agreement_on_active_rows": 0.9958333373069763,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.7865559458732605
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.006939173676073551,
+              "normalized_goal_MAE": 0.00010388483497081324,
+              "identical_servo_command_different_goal_fraction": 0.004769854713231325,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.007562445476651192,
+              "normalized_goal_MAE": 0.00010950483556371182,
+              "identical_servo_command_different_goal_fraction": 0.0069162892177701,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0004414647992234677,
+              "normalized_goal_MAE": 7.964968972373754e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0012538231676444411,
+              "normalized_goal_MAE": 8.003156108316034e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 0.00031127608963288367,
+          "actual_next_body_servo_command_MAE": 0.01833258755505085,
+          "servo_equivalent_interval_Huber": 0.00036069939960725605,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9282797574996948
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 27,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9373509883880615
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.024510039016604424,
+              "normalized_goal_MAE": 0.00034774414962157607,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.023670127615332603,
+              "normalized_goal_MAE": 0.00033603893825784326,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0012860781280323863,
+              "normalized_goal_MAE": 0.00021748132712673396,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.003599870018661022,
+              "normalized_goal_MAE": 0.00023765990044921637,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      },
+      "learned": {
+        "whole": {
+          "rows": 599,
+          "normalized_absolute_goal_MAE": 6.303060217760503e-05,
+          "actual_next_body_servo_command_MAE": 0.00326895690523088,
+          "servo_equivalent_interval_Huber": 1.312544281972805e-05,
+          "recorded_both_jaws_closed_rows": 67,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 204,
+              "recorded_closed_rows": 67,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.8189147114753723
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 240,
+              "recorded_closed_rows": 157,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.781927764415741
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.004775690846145153,
+              "normalized_goal_MAE": 7.269580964930356e-05,
+              "identical_servo_command_different_goal_fraction": 0.019794896245002747,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.0034632307942956686,
+              "normalized_goal_MAE": 5.764098750660196e-05,
+              "identical_servo_command_different_goal_fraction": 0.00882423110306263,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0002473417844157666,
+              "normalized_goal_MAE": 4.809963138541207e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.0018478559795767069,
+              "normalized_goal_MAE": 7.04624762875028e-05,
+              "identical_servo_command_different_goal_fraction": 0.001669449033215642,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        },
+        "tail64": {
+          "rows": 64,
+          "normalized_absolute_goal_MAE": 9.11942042876035e-05,
+          "actual_next_body_servo_command_MAE": 0.0053479028865695,
+          "servo_equivalent_interval_Huber": 3.306346479803324e-05,
+          "recorded_both_jaws_closed_rows": 26,
+          "greedy_both_closed_fraction_on_recorded_both_closed_rows": 1.0,
+          "hands": [
+            {
+              "hand": "left",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 26,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9243714809417725
+            },
+            {
+              "hand": "right",
+              "measured_gate_active_rows": 64,
+              "recorded_closed_rows": 27,
+              "greedy_agreement_on_active_rows": 1.0,
+              "greedy_closed_fraction_on_recorded_closed_rows": 1.0,
+              "policy_close_probability_on_recorded_closed_rows": 0.9332080483436584
+            }
+          ],
+          "body_groups": {
+            "left_arm": {
+              "next_servo_command_MAE": 0.008359392173588276,
+              "normalized_goal_MAE": 0.0001116898565669544,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "right_arm": {
+              "next_servo_command_MAE": 0.005648418329656124,
+              "normalized_goal_MAE": 8.963287837104872e-05,
+              "identical_servo_command_different_goal_fraction": 0.0022321429569274187,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "waist_head": {
+              "next_servo_command_MAE": 0.0003399935376364738,
+              "normalized_goal_MAE": 6.642544030910358e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            },
+            "torso_fore_aft_height": {
+              "next_servo_command_MAE": 0.001267754239961505,
+              "normalized_goal_MAE": 6.207724800333381e-05,
+              "identical_servo_command_different_goal_fraction": 0.0,
+              "opposite_saturated_command_fraction": 0.0
+            }
+          }
+        }
+      }
+    }
+  ],
+  "original_inputs_unchanged": true,
+  "DEV_FINAL_training_import": false,
+  "physical_success_improvement_claim": false
+}
