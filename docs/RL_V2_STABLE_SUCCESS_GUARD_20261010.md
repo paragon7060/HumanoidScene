@@ -101,7 +101,17 @@ production 전체 학습이나 성공률 개선의 증거로 보지 않는다.
 
 ## 다음 GPU3 비교
 
-DEV128→TRAIN384→DEV128의 고유 실행을 준비한다. CPU PhysX와 GPU3 CUDA learner,
+10/10 18:25 고유 실행을 시작했다. writer782720·supervisor782467이며
+`GPU3_URDF_stable_success_guard_SAC128_pilot_20261010_182507` /
+`batch_sac_20261010_182508_5a4520`이다. 학습 소스는 커밋`638e904`의 고정
+복사본이다. 실제 manifest에서 새 보호 계약과 현재 보상을 확인했다.
+writer namespace에는 `nvidia3`만 있고 그래픽·연산 컨텍스트도 GPU3에만 있다.
+18:31 첫 manifest·env·agent의 기존 Drive 업로드·checksum 검증을 완료했다.
+18:31 초기 DEV wave0의 실제 수집을 확인했다(step1·115행). actor/Q 갱신은0이며
+이 수집을 TRAIN 학습량이나 성공률 개선으로 집계하지 않는다.
+[실제 시작 증거](assets/rl_v2_stable_success_guard_SAC_actual_startup_20261010.json)
+
+DEV128→TRAIN384→DEV128을 비교한다. CPU PhysX와 GPU3 CUDA learner,
 box/base/flap randomization, 양손 성공·안전 기준, no curriculum을 유지한다.
 20% gentle arm/80% greedy 수집, AR1 rho0.98, actor LR1e-6, replay250,000도 같다.
 실제 contact guidance에는77handoff/23,311행,67close-command행이 있었지만 lift
@@ -117,10 +127,22 @@ box/base/flap randomization, 양손 성공·안전 기준, no curriculum을 유�
 300초 업로드·크기/MD5 검증·최신 checkpoint2개 보호·종료 로그 검증을 유지한다.
 raw replay/HDF는 업로드하거나 삭제하지 않는다. 기존 best 모델·영상을 보존한다.
 
+CPU 감시833773은 빈 CUDA 마스크로 종료·최종 Drive 검증을 기다린다. 같은
+대화 연결을 읽기 전용으로 확인했고, writer·supervisor가 끝난 후 실제 DEV128·
+parameter 변화·구역별 갱신을 재검토하고 다음 개선을 이어간다. 새 에이전트나
+중복 학습을 만들지 않는다. 기존 Codex 서비스와 서버가 계속 실행돼야 한다.
+
 ## 실제 평가 자료
 
 [Notion 중간보고](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)에
-최종 평가의 성공/실패 H264 영상과 비교 그림을 기록한다. 영상은 당시 측정한
+최종 평가의 성공/실패 H264 영상2개와 비교 그림을 기록했다. 기존 media95개와
+table5개를 모두 보존했고 현재 media는98개다. 영상은 당시 측정한
 몸체 자세를 렌더링한 것이며 새 물리 replay가 아니다. `actor0/Q4828`은 갱신
 횟수다. Q value나 성공 확률이 아니다. 이번 actor는 초기와 동일하므로 개별
 영상의 성공을 새로운 SAC 학습 성과로 설명하지 않는다.
+
+[![최종 중간 왼쪽small 성공·actor0](assets/rl_v2_persistent_final_midleft_success_actor0_20261010.png)](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)
+
+[![최종 상단 오른쪽small 시간 초과·actor0](assets/rl_v2_persistent_final_upperright_timeout_actor0_20261010.png)](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)
+
+[영상의 실제 결과·base 초기 randomization·H264 검증](assets/rl_v2_persistent_final_video_evidence_20261010.json)

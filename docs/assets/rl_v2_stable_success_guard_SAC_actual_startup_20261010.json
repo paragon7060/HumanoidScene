@@ -1,0 +1,217 @@
+{
+  "recorded_at": "2026-10-10T18:31:08.314220+09:00",
+  "run_directory_name": "batch_sac_20261010_182508_5a4520",
+  "parent_directory_name": "GPU3_URDF_stable_success_guard_SAC128_pilot_20261010_182507",
+  "source_commit": "638e90473ab8e17f3d7225cc4cf9f194e5d67666",
+  "writer_PID": 782720,
+  "supervisor_PID": 782467,
+  "selected_GPU": 3,
+  "CUDA_VISIBLE_DEVICES_selection": "selected_GPU3_UUID",
+  "writer_graphics_and_compute_contexts": [
+    {
+      "gpu": 3,
+      "type": "C+G",
+      "used_memory": "2800 MiB"
+    }
+  ],
+  "writer_namespace_nvidia_devices": [
+    "nvidia-caps",
+    "nvidia-uvm",
+    "nvidia-uvm-tools",
+    "nvidia3",
+    "nvidiactl"
+  ],
+  "initial_checkpoint_SHA256": "ee221d1a79ea91f8a482952fd30de1e3df5d349cec414aa6fccd9b05cf7834fe",
+  "backup_scope": "checkpoint_contract_logs_only",
+  "original_CPU_PhysX_and_randomization_success_safety_preserved": true,
+  "independent_FINAL_requested_or_imported": false,
+  "no_success_improvement_yet": true,
+  "actor_guard": {
+    "name": "train-success-cohort-stable-Adam-backtrack",
+    "format_version": 3,
+    "source": "persistent_first_two_safe_TRAIN_paths_per_region_and_size",
+    "grouping": "each_episode_approach_and_tail64_with_separate_arms_and_jaws",
+    "protect_body_and_jaw_losses_separately": true,
+    "protect_actual_greedy_jaw_label_agreement": true,
+    "absolute_loss_tolerance": 1e-09,
+    "relative_loss_tolerance": 1e-06,
+    "project_actual_Adam_displacement_against_regional_body_and_jaw_gradients": true,
+    "per_hand_near_jaw_gradients_also_projected": true,
+    "projection_cycles": 4,
+    "candidate_parameter_scales": [
+      1.0,
+      0.5,
+      0.25,
+      0.125,
+      0.0625,
+      0.03125,
+      0.015625,
+      0.0078125,
+      0.00390625,
+      0.001953125,
+      0.0009765625
+    ],
+    "reject_restores_parameters_and_Adam_moments": true,
+    "accepted_interpolation_keeps_proposed_Adam_moments": true,
+    "reject_skips_actor_counter_and_temperature_updates": true,
+    "critic_and_replay_updates_unchanged": true,
+    "freeze_actor_normalizer_required": true,
+    "absent_success_batch": "pilot_waits_for_first_completed_safe_TRAIN_success",
+    "pilot_waits_for_first_completed_safe_TRAIN_success": true,
+    "local_batch_protection_is_not_rollout_success_guarantee": true,
+    "loss_ceiling": "lowest_accepted_loss_on_same_fixed_cohort_not_previous_random_batch",
+    "protected_correct_jaws": "each_row_hand_correct_label_cannot_become_wrong",
+    "first_success_paths_survive_replay_eviction": true,
+    "actor_training_minibatch_and_Q_replay_unchanged": true,
+    "guard_forward_batch": "fixed_each_episode_phase_independent_of_added_cohort_paths",
+    "loss_reduction": "float64_from_unchanged_float32_production_outputs",
+    "guard_loss_tolerances_unchanged": true,
+    "candidate_rejection_reasons_recorded": true,
+    "independent_region_heads_backtracked_separately": true,
+    "rejected_region_restores_its_Adam_moments": true,
+    "final_whole_cohort_check_required": true,
+    "parameter_scale_statistic": "minimum_nonzero_accepted_region_scale"
+  },
+  "actual_reward_profile": {
+    "approach_scale_m": 0.22,
+    "assignment_scale_m": 0.08333333333333333,
+    "capture_scale_m": 0.025,
+    "front_stage_clearance_m": 0.08,
+    "front_stage_lane_tolerance_m": 0.1,
+    "front_stage_scale_m": 0.8,
+    "geometry_profile": "rack_front_lane_then_opposing_flap_reach_v3",
+    "weights": {
+      "discount": 0.999,
+      "common": {
+        "robot_rack_collision": 6.0,
+        "self_collision": 4.0,
+        "box_drop": 12.0,
+        "obstacle_collision": 4.0,
+        "workspace_limit": 12.0,
+        "base_motion": 0.002,
+        "action_rate": 0.001,
+        "joint_limit": 0.002
+      },
+      "grasp": {
+        "base_motion": 0.0002,
+        "action_rate": 0.0001,
+        "approach_progress": 2.0,
+        "front_staging_progress": 1.0,
+        "front_distance_cost": 0.002,
+        "approach_distance_cost": 0.002,
+        "alignment_progress": 0.5,
+        "capture_progress": 0.5,
+        "jaw_gap_progress": 0.0,
+        "premature_close": 0.002,
+        "proof_lift_progress": 0.4,
+        "one_hand_pinch_event": 0.5,
+        "bilateral_pinch_event": 2.0,
+        "success_event": 8.0
+      },
+      "carry": {
+        "extraction_progress": 0.6,
+        "belt_progress": 1.0,
+        "free_space_progress": 0.5,
+        "pre_place_height_progress": 0.4,
+        "grasp_loss_event": 3.0,
+        "placed_box_disturbance_event": 1.0,
+        "success_event": 4.0
+      },
+      "place": {
+        "footprint_progress": 0.8,
+        "alignment_progress": 0.8,
+        "free_space_progress": 0.6,
+        "descent_progress": 0.5,
+        "stability_progress": 0.3,
+        "support_event": 0.5,
+        "correct_release_event": 1.0,
+        "premature_release_event": 2.5,
+        "success_event": 5.0
+      },
+      "high_level": {
+        "first_placement": 5.0,
+        "displacement": 3.0,
+        "full_success_event": 12.0,
+        "failure_event": 12.0,
+        "elapsed_second": 0.01
+      }
+    },
+    "contact_shaping": {
+      "name": "opposing_pad_contact_progress_v1",
+      "min_jaw_force_n": 5.0,
+      "contact_progress_weight": 1.0,
+      "pad_force_saturates_at_success_threshold": true,
+      "score": "weaker_pad_then_weaker_hand_opposing_flaps",
+      "geometry": "filtered_contact_in_panel_region_and_opposed_jaws",
+      "terminal_potential_zero": true,
+      "time_limit_is_absorbing_for_Q": true,
+      "closing_without_contact_reward": false
+    },
+    "precision_capture": {
+      "name": "weak_hand_capture_25mm_v1",
+      "scale_m": 0.025,
+      "aggregation": "weak-hand",
+      "score": "0.25*(left+right)+0.5*min(left,right)",
+      "geometry": "actual_calibrated_finger_straddle_and_flap_tangent_error",
+      "approach_front_contact_success_and_safety_unchanged": true,
+      "source_Q_replay_optimizer_import_allowed": false
+    },
+    "absorbing_geometry": {
+      "name": "absorbing_geometric_potentials_v1",
+      "terminal_states": [
+        "success",
+        "unsafe",
+        "task_time_out"
+      ],
+      "zero_terminal_potentials": [
+        "approach",
+        "front_staging",
+        "alignment",
+        "capture",
+        "jaw_gap",
+        "proof_lift"
+      ],
+      "alignment_potential": "alignment_mean_times_proximity_mean",
+      "alignment_progress": "discount_times_next_potential_minus_previous_potential",
+      "reset_and_assignment_rebase": true,
+      "weights_geometry_success_safety_unchanged": true,
+      "source_Q_replay_optimizer_or_reward_labels_import_allowed": false
+    },
+    "staged_contact": {
+      "name": "precision_and_pinch_hold_progress_v1",
+      "precision_weight": 1.0,
+      "pinch_hold_weight": 1.0,
+      "precision_distance_scale_m": 0.03,
+      "precision_capture_scale_m": 0.025,
+      "precision": "per_hand_reach_times_axis_alignment_times_capture_then_weak_hand",
+      "pinch_hold_seconds": 0.25,
+      "pinch_hold": "continuous_actual_opposed_two_pad_pinch_on_same_flap",
+      "final_relative_pose_stability_success_predicate_unchanged": true,
+      "aggregation": "0.25*(left+right)+0.5*min(left,right)",
+      "both_hands_on_same_flap_cannot_get_bilateral_score": true,
+      "reward": "gamma_times_next_potential_minus_previous",
+      "terminal_potential_zero": true,
+      "reset_and_assignment_rebase": true,
+      "new_sensors_or_physics_substeps": false,
+      "source_Q_replay_optimizer_or_reward_labels_import_allowed": false
+    }
+  },
+  "current_run_phase": "training",
+  "first_Drive_verification": "2026-10-10T18:31:13.218440+09:00",
+  "next_same_chat_completion_followup_connected": true,
+  "CPU_watcher_PID": 833773,
+  "initial_DEV_progress_snapshot": {
+    "wave": 0,
+    "split": "validation",
+    "step": 31,
+    "actual_rows": 3565,
+    "learner": {
+      "actor_updates": 0,
+      "critic_updates": 0,
+      "online_rows": 0,
+      "replay_size": 0
+    }
+  },
+  "upload_interval_seconds": 300,
+  "local_checkpoint_keep": 2
+}
