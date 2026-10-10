@@ -114,8 +114,9 @@ box/base/flap randomization과 양손 성공·안전 기준을 유지하고 curr
 `batch_sac_20261010_124431_d9733f`다. 학습 소스는 커밋 `e3cc386`의 고정 복사본이다.
 실제 manifest에서 새 cohort 계약과 기존 정밀 접근·pinch hold 보상을 확인했다.
 writer 장치 namespace에는 `nvidia3`만 있고 연산·그래픽 컨텍스트도 GPU3에만 있다.
-12:50 첫 구성 파일의 기존 Drive 업로드·검증을 확인했다. 초기 DEV 준비 단계이며
-새 성공률 개선은 아직 판단하지 않는다.
+12:50 첫 구성 파일의 기존 Drive 업로드·검증을 확인했다. 이후 실제 초기 DEV
+수집 snapshot을 확인했다. 이 평가에서는 actor/Q/replay 갱신은0이며
+수집 행을 TRAIN 학습량이나 새 성공률 개선으로 계산하지 않는다.
 [실제 시작 증거](assets/rl_v2_persistent_success_guard_SAC_actual_startup_20261010.json)
 
 CPU 종료 감시 PID624602는 빈 CUDA 마스크로 실행 중이다. 새 writer·supervisor의
