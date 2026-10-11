@@ -111,6 +111,41 @@ DEV/독립 FINAL은 읽지 않았다. 이는 현재 writer의 Q·RNG·새 TRAIN 
 
 ## 다음 실제 확인과 저장
 
+10/12 새 상단 왼쪽이 등록된 actor1254/Q7062·cohort6경로3,042행 모델에서도
+독립된 두 복사본 제안을 확인했다. 현재 완료 저장 모델과 공개된 완료 TRAIN metadata를
+대조했고, mixed replay/return 보조 표본은 이전 종료·검증된 TRAIN만 사용했다.
+같은 critic·투영 Adam·입력 optimizer 불변을 확인했다. 현재 writer의 새 분포 재현은 아니다.
+
+| 제안 | 기존 중간 왼쪽 norm | fallback | 기존 상단 오른쪽 norm | fallback |
+|---|---:|---:|---:|---:|
+|1|0|0.000207523|0|0.000154131|
+|2|0|0.000207099|0|0.000154201|
+
+기존에 수용된 상단 왼쪽과 성공 cohort 없는 중간 오른쪽의 실제 parameter 이동은
+두 판에서 정확히 같았다. 고정 전체 한도·행/손별 jaw 정답을 모두 통과하고 실제
+body mean/jaw logit 변화도 확인했다. **물리 성공률 개선은 아니다.**
+동시 CUDA 진단의 무제한 경합 위험은 자동 검토에서 거부됐다. GPU3의 실제 여유
+73,996MiB 확인과 진단 자체의2GiB allocator 상한·여유 감소 시 진단만 종료·180초
+제한을 둔 방식은 허용돼 완료됐다. 실제 Torch 최대 allocated309MiB/reserved332MiB이며
+driver/context 추가 메모리는 이 수치에 포함되지 않는다. 기존 writer는 계속 진행했다.
+
+[새 실제 TRAIN10경로 provenance·6cohort·같은 critic/Adam·전체 보호 검사](assets/rl_v2_quantized_body_guard_completed_TRAIN1254_disposable_20261012.json).
+
+**실제 CPU 순차 전환 대기 PID2006098이 실행 중이다.** 두 번째 TRAIN128이 모두
+완료됐을 때, 기존 두 보호 구역이 각각100제안 이상이고 이동0 비율75% 이상이면
+등록된 우리 writer만 정상 종료한다. PID 시작 시각·명령 hash·고유 run을 재확인하며
+감독자나 다른 사용자 프로세스에 신호를 보내지 않는다. 이 수치는 운영상의 정체
+판단이며 task의 성공 기준이 아니다. 갱신이 회복됐으면 기존 학습을 유지한다.
+
+기존 writer·supervisor 종료와 원래 Drive 최종 checksum 검증 뒤에만 수정판의
+새 고유 GPU3 실행을 시작한다. 완료 모델/Q/replay/optimizer/은행/cohort를 이어받고,
+새 TRAIN256조건(2배치128)·동일 DEV128의 초기/종료로 물리 효과를 먼저 확인한다.
+Box/base/flap DR·reward·물리·성공·안전 기준과 curriculum 없음은 유지한다.
+Source의 최종 DEV가 없으면 있다고 말하지 않으며 새 초기 DEV를 실제로 측정한다.
+새 GPU 학습은 아직 시작하지 않았다. 파일의 존재만으로 실행을 추정하지 않는다.
+
+[실제 CPU worker·조건부 종료 범위·검증 후 순차 시작](assets/rl_v2_quantized_body_guard_transition_waiter_20261012.json).
+
 다음 TRAIN에서6조건별 성공·invalid reset·unsafe·timeout·numerical failure를 확인한다.
 상단 왼쪽2경로가 등록된 뒤에도 실제 보호 갱신과 탐색이 유지되는지 확인한다.
 초기 DEV10/128과 같은128요청 조건의 중간/종료 평가를 비교하며, 공통 유효 조건의
