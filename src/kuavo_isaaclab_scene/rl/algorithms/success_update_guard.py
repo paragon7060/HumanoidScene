@@ -163,6 +163,7 @@ def guarded_actor_step(agent, loss, successful):
     region_trust_norms={}
     repairs=[]
     quantum_fallback_regions={}
+    final_cohort_check_executed=False
     baseline_allowed=(cohort.within_ceilings(before,before_correct,agent.success_guard_memory,config)
                       if cohort.stable(agent) else None)
     try:
@@ -196,6 +197,11 @@ def guarded_actor_step(agent, loss, successful):
                         for i,region in enumerate(REGIONS)}
         else:
             partitions={'all':list(range(len(parameters)))}
+        metric_cache=None
+        if cohort.stable(agent) and 'all' not in partitions:
+            from ..multi_box.experiments.regional_actor_servo import RegionRoutedNetwork
+            if type(agent.actor.network) is RegionRoutedNetwork:
+                metric_cache=cohort.RegionalMetricCache(agent,successful,groups,before,before_correct)
         with torch.no_grad():
             for p,old in zip(parameters,previous):p.copy_(old)
         for region,indices in partitions.items():
@@ -203,6 +209,9 @@ def guarded_actor_step(agent, loss, successful):
             initial_delta=torch.cat([(proposal[i]-previous[i]).flatten() for i in indices])
             trust_norm=initial_delta.norm()
             region_trust_norms[region]=float(trust_norm)
+            def candidate_metrics():
+                return (metric_cache.evaluate(region) if metric_cache is not None else
+                        cohort.metrics(agent,successful,groups))
             def repair_candidate(corrector, reserve_ULPs=0):
                 attempted=False
                 local_parameters=[parameters[i] for i in indices]
@@ -210,10 +219,12 @@ def guarded_actor_step(agent, loss, successful):
                     with torch.no_grad():
                         for i in indices:parameters[i].copy_(proposal[i])
                     for cycle in range(config['projection_cycles']):
-                        candidate,correct=cohort.metrics(agent,successful,groups)
+                        candidate,correct=candidate_metrics()
                         if cohort.within_ceilings(candidate,correct,agent.success_guard_memory,config):
                             break
-                        correction,kinds=corrector(agent,successful,groups,local_parameters)
+                        correction,kinds=corrector(agent,successful,
+                            metric_cache.groups[region] if metric_cache is not None else groups,
+                            local_parameters)
                         repairs.append(dict(region=region,cycle=cycle,
                             internal_body_reserve_ULPs=reserve_ULPs,**kinds))
                         if correction is None:
@@ -239,7 +250,7 @@ def guarded_actor_step(agent, loss, successful):
                                     count=previous[i].numel()
                                     parameters[i].copy_(previous[i]+adjusted[offset:offset+count].reshape_as(previous[i]))
                                     offset+=count
-                            trial,jaws=cohort.metrics(agent,successful,groups)
+                            trial,jaws=candidate_metrics()
                             score=cohort.restoration_score(trial,jaws,agent.success_guard_memory,config)
                             if len(gains)==1 or score<best_score:
                                 best_score=score;selected_gain=gain
@@ -262,7 +273,7 @@ def guarded_actor_step(agent, loss, successful):
                         for i in indices:
                             parameters[i].copy_(proposal[i] if scale==1. else previous[i]+scale*(proposal[i]-previous[i]))
                     if persistent:
-                        candidate, correct = cohort.metrics(agent, successful, groups)
+                        candidate, correct = candidate_metrics()
                         allowed = cohort.within_ceilings(candidate, correct, agent.success_guard_memory, config)
                         if cohort.stable(agent):
                             checks.append(dict(region=region,scale=scale,allowed=allowed,
@@ -301,8 +312,11 @@ def guarded_actor_step(agent, loss, successful):
                         agent.actor_optimizer.state[parameters[i]]=deepcopy(optimizer['state'][pid])
                     else:
                         agent.actor_optimizer.state.pop(parameters[i],None)
+            elif metric_cache is not None:
+                metric_cache.commit(region)
         accepted_scale=min((s for s in region_scales.values() if s),default=0.)
         if persistent and accepted_scale:
+            final_cohort_check_executed=True
             after,correct=cohort.metrics(agent,successful,groups)
             if not cohort.within_ceilings(after,correct,agent.success_guard_memory,config):
                 accepted_scale=0.
@@ -345,6 +359,12 @@ def guarded_actor_step(agent, loss, successful):
                          for region,indices in partitions.items()},
                      actor_success_guard_parameter_delta_norm=float(torch.cat([
                          (p.detach()-old).flatten() for p,old in zip(parameters,previous)]).norm()))
+        if metric_cache is not None:
+            stats['actor_success_guard_candidate_metric_cache']=dict(
+                independent_heads_only=True,fixed_phase_forward_shapes=True,
+                evaluations=metric_cache.evaluations,phase_forwards=metric_cache.phase_forwards,
+                final_whole_cohort_check_required_for_acceptance=True,
+                final_whole_cohort_check_executed=final_cohort_check_executed)
         counters['baseline_outside_fixed_ceiling']=counters.get('baseline_outside_fixed_ceiling',0)+int(not baseline_allowed)
         counts=counters.setdefault('region_parameter_scale_counts',{})
         for region,scale in region_scales.items():

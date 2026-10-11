@@ -176,6 +176,48 @@ def metrics(agent, batch, groups):
     return {k: {name: float(value) for name, value in terms.items()} for k, terms in losses.items()}, correct.cpu()
 
 
+class RegionalMetricCache:
+    """Reuse unchanged independent heads during a temporary candidate search.
+
+    Each changed phase keeps its original forward batch shape. A committed
+    region updates the cache before the next region is tried. The caller must
+    still run the original uncached whole-cohort acceptance check at the end.
+    """
+    def __init__(self, agent, batch, groups, values, correct):
+        from ..multi_box.experiments.staged_train_success import REGIONS
+        from ..multi_box.experiments.regional_actor_servo import RegionRoutedNetwork
+        if not stable(agent) or type(agent.actor.network) is not RegionRoutedNetwork:
+            raise ValueError('Regional metric caching requires independent stable actor heads')
+        self.agent, self.batch = agent, batch
+        self.values, self.correct = deepcopy(values), correct.clone()
+        self.groups = {region: {} for region in REGIONS}
+        covered = torch.zeros(len(batch['action']), dtype=torch.bool)
+        for key, rows in groups.items():
+            indices = batch['actor_obs'][rows, 94:98].argmax(-1).unique()
+            if len(indices) != 1:
+                raise ValueError('A fixed TRAIN phase cannot span regional heads')
+            self.groups[REGIONS[int(indices.item())]][key] = rows
+            covered[rows] = True
+        if not covered.all() or set(values) != set(groups) or correct.shape != (len(covered), 2):
+            raise ValueError('Regional cache must cover the whole fixed TRAIN cohort')
+        self.evaluations = self.phase_forwards = 0
+
+    @torch.no_grad()
+    def evaluate(self, region):
+        values, correct = deepcopy(self.values), self.correct.clone()
+        for key, rows in self.groups[region].items():
+            part = {name: tensor[rows] for name, tensor in self.batch.items()}
+            terms, jaws = _losses_and_jaws(self.agent, part, {key: slice(None)})
+            values[key] = {name: float(value) for name, value in terms[key].items()}
+            correct[rows] = jaws.cpu()
+            self.phase_forwards += 1
+        self.evaluations += 1
+        return values, correct
+
+    def commit(self, region):
+        self.values, self.correct = self.evaluate(region)
+
+
 def within_ceilings(values, correct, memory, config):
     if values.keys() != memory['ceilings'].keys():
         return False
