@@ -9,6 +9,14 @@ actor1657/Q8676에서 새 TRAIN 갱신 전에 측정했으므로 fallback의 학
 직전 초기10회/최선15회를 이번 초기값으로 대입하지 않는다.
 **수정판 TRAIN의 물리적 성공률 개선은 아직 확인 전이며 목표는 미달성이다.**
 
+**step691의 실제 부분 TRAIN은 성공14·안전60·초기 무효1·진행53(요청128)이다.**
+중간 왼쪽small9건과 상단 오른쪽small5건을 각각 양손 pinch·안정·opposing flap·
+hold0.2667초·proof-lift·안전으로 확인했다. 상단 오른쪽은 이번 TRAIN에서 두 번째로
+성공을 관측한 조건이며, 이미 초기 DEV에서도 성공한 구역을 새로 학습했다고 설명하지
+않는다. 나머지4조건은 아직 관측 성공0이고 전체 wave·수집 방식·은행 등록·같은128조건의
+종료 DEV가 남아 있다. 이번 초기 DEV13/128이나 이전 최선15회를 TRAIN14건으로 바꾸지 않는다.
+[14건의 실제 성공 조건·6조건·초기 base 증거](assets/rl_v2_quantized_body_guard_first_four_TRAIN_successes_20261012.json).
+
 **step571의 부분 TRAIN128은 실제 양손 성공9·안전29·초기 무효1·진행89다.**
 9건 모두 중간 왼쪽small에서 opposing two-pad pinch·양손 안정·hold0.2667초·
 proof-lift·안전을 만족했다. 같은 wave를 수집 중이며 고정 모델의 성공률이 아니다.
@@ -223,6 +231,22 @@ DEV의 실제 성공을 확인하고, 반복될 경우 저장 모델에서 위�
 
 [첫6개의 실제 갱신](assets/rl_v2_quantized_body_guard_first_six_actual_TRAIN_updates_20261012.json) ·
 [21개 이후 정체·위반 term·실제 norm·entropy 및 추가51개 snapshot](assets/rl_v2_quantized_body_guard_first_21_actual_TRAIN_updates_20261012.json).
+
+## 저장 모델의 entropy·표준편차 추가 진단
+
+초기actor1657/Q8676와 저장actor1792/Q9216를 **같은 닫힌 TRAIN 성공은행512개 상태**로
+CPU에서 조회했다. 두 모델 모두4구역의 표준편차 출력이 설정 min0.0075/max0.03 바깥으로
+clamp된 비율은0이었다. 보정 후 실제 latent std는 이 표본에서 평균0.0085\~0.0091이다.
+Entropy 추정은 상태별8회 Gaussian sample을 사용했고 각 구역의 관측 entropy는 해당
+상태의 보정된 목표보다 약0.66\~1.84nats 높았다. 같은 scalar loss의 gradient descent는
+alpha를 낮추는 방향이다. 저장 alpha6.087e-6→5.849e-6도 이 제한된 진단과 일치한다.
+
+이 표본에서는 variance 출력이 하한 밖에서 막혀 있거나 alpha loss 부호가 반대라는 근거가
+없어 해당 코드를 바꾸지 않는다. **현재 실패 상태·실제 production minibatch/RNG·actor
+수용 전후 조합을 재현하지 않았고, 이론상 정책분포와80%greedy/20%접촉 탐색 수집은 서로
+다르다.** 물리적 탐색이 충분하거나 실패 원인이 해소됐다는 보장은 아니다. 모델·파일은
+불변이며 DEV/FINAL 행이나 raw replay/HDF를 읽지 않았다.
+[두 모델·같은512 TRAIN 상태·구역별 logstd/entropy/alpha 방향·진단 범위](assets/rl_v2_quantized_body_guard_saved_entropy_CPU_20261012.json).
 
 ## 다음 평가 영상의 실제 Q값 기록 옵션
 
