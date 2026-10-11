@@ -1,13 +1,49 @@
 # SAC 갱신 정체의 수치 원인과 다음 수정
 
-GPU3의 body-restoration 실행은 계속 진행한다. 초기 DEV는 **10/128**이며,
-23:04 KST 첫 TRAIN128의 일부 종료 결과는 성공8·unsafe54·진행 중66이다.
-성공은 실제 양손 opposing two-pad pinch·hold0.2667초·proof-lift·안전을 확인한
-경로만 셌다. 상단 왼쪽small에서도1회 성공했다. 아직 수집 방식이 전체 wave
-결과에 공개되지 않아 greedy policy의 일반화나 DEV 개선으로 설명하지 않는다.
-같은128조건의 중간/종료 DEV가 필요하다. 이전 최선15회 모델·영상도 보존한다.
+GPU3의 body-restoration 실행은 계속 진행한다. **첫 전체 TRAIN128은 실제 성공10/128,
+초기 유효128·무효0·unsafe69·timeout49·numerical failure0이다.** 10회 모두 현재
+정책의 greedy 수집에서 나왔으며 상단 왼쪽small에서도2회 성공했다. 양손 opposing
+two-pad pinch·hold0.2667초·proof-lift·안전을 확인한 경로만 셌다. 학습 중 actor가
+바뀌므로 고정된 마지막 모델의 성공률이 아니다. 초기 DEV10/128과 다른 요청 조건의
+TRAIN10/128을 직접 성능 비교로 쓰지 않는다. 같은128조건의 중간/종료 DEV가 필요하다.
+이전 최선15회 모델·영상도 보존한다.
 
-[부분 TRAIN의6조건·실제 성공 증거](assets/rl_v2_body_restoration_partial_TRAIN_20261011.json).
+[전체 TRAIN128·수집 방식·은행/cohort·모델 checksum](assets/rl_v2_body_restoration_first_full_TRAIN128_20261011.json).
+23:04의[부분 TRAIN 기록](assets/rl_v2_body_restoration_partial_TRAIN_20261011.json)은 역사적 진행 snapshot이다.
+
+## 첫 전체 TRAIN의 실제 변화
+
+| 구역·크기 | 성공/요청 | 초기 유효 | 안전 실패 | timeout |
+|---|---:|---:|---:|---:|
+| 중간 왼쪽small |7/16|16|9|0|
+| 중간 오른쪽small |0/16|16|1|15|
+| 상단 왼쪽small |2/32|32|9|21|
+| 상단 오른쪽small |1/32|32|19|12|
+| 중간 왼쪽medium |0/16|16|16|0|
+| 중간 오른쪽medium |0/16|16|15|1|
+
+Greedy 수집108조건에서성공10·unsafe58·timeout40, 접촉 탐색20조건에서성공0·
+unsafe11·timeout9였다. 서로 다른 조건의 수집 결과이며 두 방식의 통제 비교가 아니다.
+상단 왼쪽의 env38/seed64000209와env78/seed64000219는 실제 greedy 성공이었다.
+은행은7,534→8,591행, 고정 cohort는4경로2,013행→6경로3,042행으로 늘었다.
+새 상단 왼쪽2경로1,029행이 등록됐고 원래4경로의 obs/action·고정 명령 한도와
+기존 보호 jaw 정답은 checkpoint에서 보존됨을 확인했다. 미래 성공의 보장은 아니다.
+
+새 actor403회·critic1,612회 중 중간 왼쪽87회, 상단 오른쪽50회만 실제 parameter가
+움직였다. 각각316/403·353/403(78.4%·87.6%)은 이동0이었다. 이 wave 동안 성공
+cohort가 없던 중간 오른쪽·상단 왼쪽은403회 모두 움직였다. 첫95제안에서 중간 왼쪽의
+이동0이13.7%였던 사실을 이후에도 정상 갱신이 유지됐다는 근거로 쓰지 않는다.
+새 상단 왼쪽 cohort는 wave 종료 뒤 등록돼 그 구역의 다음 보호 갱신은 아직 별도 확인이 필요하다.
+
+안전69회는rack67·drop2다. Rack은 모두held_grasp 단계이며 종료 시 최대힘241.81N이다.
+최대힘 몸체는 오른손 gripper base30·왼팔4번째link16·왼손 gripper base14·
+오른팔7번째link4·오른팔4번째link2·왼팔7번째link1이었다. 첫 접촉/전체 접촉 이력은 아니다.
+초기화128개가 모두 유효했는데도 오른쪽small과medium 실패가 남아 policy 문제를 확인했다.
+
+actor1254/Q7062 완료 저장 모델77개 tensor는 모두 유한했고 SHA256
+`f0cb64d7ac3732043af41347c61e82bbe3fd5add3c124b06fac703d2bbc007d7`으로 별도 로컬 보존했다.
+이 모델은 새 구역 성공을 수집한 TRAIN 실행의 저장점이며 최종 DEV 개선 모델로 설명하지 않는다.
+새 구역의 실제 greedy 성공이 있어 현재 전체 학습을 유지한다. 준비한 fallback은 다음 실행용이다.
 
 ## 원인과 비교 과정에서 발견한 오류
 
@@ -75,8 +111,8 @@ DEV/독립 FINAL은 읽지 않았다. 이는 현재 writer의 Q·RNG·새 TRAIN 
 
 ## 다음 실제 확인과 저장
 
-전체 TRAIN에서6조건별 성공·invalid reset·unsafe·timeout·numerical failure를 확인한다.
-상단 왼쪽seed64000219 성공은 collection mode와 경로가 공개된 뒤 greedy/탐색을 구분한다.
+다음 TRAIN에서6조건별 성공·invalid reset·unsafe·timeout·numerical failure를 확인한다.
+상단 왼쪽2경로가 등록된 뒤에도 실제 보호 갱신과 탐색이 유지되는지 확인한다.
 초기 DEV10/128과 같은128요청 조건의 중간/종료 평가를 비교하며, 공통 유효 조건의
 lost/gained와 안전 실패 단계·최대힘·몸체를 별도 표시한다. 독립 FINAL로 조정하지 않는다.
 
