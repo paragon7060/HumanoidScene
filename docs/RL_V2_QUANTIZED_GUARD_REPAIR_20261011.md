@@ -9,6 +9,61 @@ actor1657/Q8676에서 새 TRAIN 갱신 전에 측정했으므로 fallback의 학
 직전 초기10회/최선15회를 이번 초기값으로 대입하지 않는다.
 **수정판 TRAIN의 물리적 성공률 개선은 아직 확인 전이며 목표는 미달성이다.**
 
+## 10/12 수정판 첫 전체 TRAIN128 확정
+
+**실제 양손 성공15/128·초기 유효127/무효1·안전67·timeout45·수치 오류0이다.**
+수집 중 actor가 바뀌는 TRAIN 결과다. 이번 초기 DEV13/128·직전 다른 TRAIN10/128·
+이전 최선 DEV15/128과 직접 성능 비교하지 않는다. 두 번째 TRAIN128과 동일 조건의
+종료 DEV128을 기존 GPU3 실행에서 계속 진행한다.
+
+| 구역·크기 | 성공/요청 | 초기 무효 | 안전 실패 | timeout | 수치 오류 |
+|---|---:|---:|---:|---:|---:|
+| 중간 왼쪽small |9/16|0|6|1|0|
+| 중간 오른쪽small |0/16|0|3|13|0|
+| 상단 왼쪽small |0/32|0|12|20|0|
+| 상단 오른쪽small |6/32|1|15|10|0|
+| 중간 왼쪽medium |0/16|0|16|0|0|
+| 중간 오른쪽medium |0/16|0|15|1|0|
+
+성공15건 모두 서로 다른 opposing flap의 실제 two-pad pinch·양손 안정·hold0.2667초·
+proof-lift·안전을 만족했고 **greedy 수집112조건에서 나왔다**. 접촉 탐색15조건은
+성공0·안전11·timeout4, 초기 무효1조건은 held 수집 방식이 배정되지 않았다.
+서로 다른 조건의 수집 결과이므로 greedy와 탐색의 통제 비교로 설명하지 않는다.
+
+새 actor 제안404개·critic 갱신1,616개를 확인했다. 실제 parameter 이동은 중간 왼쪽
+403/404, 중간 오른쪽45/404, 상단 왼쪽394/404, 상단 오른쪽6/404다. 오른쪽 이동0은
+각각88.9%·98.5%로 **정체가 남는다**. 전역 수용404가 모든 구역의 정상 갱신을 뜻하지
+않는다. 새 projected constraints13,708·restoration trials27,641, body2ULP fallback
+861시도/93수용·고정 baseline 초과0을 저장 checkpoint와 대조했다. Alpha도 연속
+6.087e-6→5.403e-6, 이산0.01556→0.01721로 갱신됐다.
+
+안전67회는 rack65·drop1·비정상 lift1이며 모두 held_grasp 단계다. Rack 종료 시
+최대힘231.08N, 최대힘 몸체는 오른손 gripper base30·왼손 gripper base19·왼팔4번째
+link12·오른팔4번째link3·오른팔7번째link1이다. 첫 접촉 이력은 아니다.
+Medium32조건은 모두 초기 유효하지만 안전31/timeout1로 실패했다. 초기화 문제와
+구역·크기의 진입 경로 및 policy 문제를 구분하며 보호 한도·충돌 기준은 완화하지 않는다.
+
+15개 실제 성공 경로 모두 성공은행에 등록됐다. 은행은9,022행이며 원래7경로3,507행/
+14phase group의 obs/action·고정 goal/servo 한도·기존 행/손별 greedy jaw 정답은 보존됐다.
+첫4경로가 현재 성공은행에서 빠져도 고정 cohort에는 남아 있음을 확인했다. 현재 raw
+replay의 eviction을 검사한 것은 아니며 표본 보존이 미래 물리 성공을 보장하지 않는다.
+
+Actor2061/Q10292 저장 모델77개 tensor와 optimizer는 유한하며 SHA256
+`ae66bcad022beb08ef7f95c1945e6dd6634b0d263274dbb748d641b5b6b4a3ac`로 별도 보존했다.
+초기 모델과 같은 고정 TRAIN cohort의 CPU 진단에서도 각 head의 body mean/goal·jaw
+변화를 확인했지만 상단 오른쪽의 최대 normalized body goal 변화는5.58e-5로 작다.
+이 CPU 진단은 현재 CUDA 후보/RNG·물리 성공률 재현이 아니다.
+
+![같은 첫 전체 TRAIN128의 실제 결과와 새 actor404제안의 구역별 parameter 이동. 고정 모델 DEV 성능 개선을 뜻하지 않는다.](assets/rl_v2_quantized_body_guard_first_full_TRAIN128_20261012.png)
+
+[전체128·6조건·15성공 증거·수집 방식·안전·은행/cohort·모델 checksum·새 갱신량](assets/rl_v2_quantized_body_guard_first_full_TRAIN128_20261012.json).
+현재 영상은 기존 초기 DEV 모델의 영상이며 이번 TRAIN15건의 영상으로 설명하지 않는다.
+현재 writer에 후속 cache/sparse body 출력 교정을 hotpatch하지 않았다. 전체 실행 종료·
+Drive 검증 후 CUDA의 같은 후보 조건에서 준비 교정을 비교하고, 실제 최종 DEV 결과와
+오른쪽 정체 원인에 맞춰 다음 실행을 결정한다. 초기13·이전 최선15 모델/영상은 보존한다.
+
+아래는 완료 전의 진행 snapshot과 직전 실행의 기록이다.
+
 **step691의 실제 부분 TRAIN은 성공14·안전60·초기 무효1·진행53(요청128)이다.**
 중간 왼쪽small9건과 상단 오른쪽small5건을 각각 양손 pinch·안정·opposing flap·
 hold0.2667초·proof-lift·안전으로 확인했다. 상단 오른쪽은 이번 TRAIN에서 두 번째로
