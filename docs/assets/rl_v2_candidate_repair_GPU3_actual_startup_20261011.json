@@ -1,0 +1,186 @@
+{
+  "recorded_at": "2026-10-11T19:48:29.450305+09:00",
+  "launch": {
+    "recorded_at": "2026-10-11T19:44:28.385084+09:00",
+    "unit": "humanoid-rl-gpu3-urdf-candidate-repair-sac1024-20261011_194428.service",
+    "parent": "/dev/shm/HumanoidScene_rl_seonho/GPU3_URDF_candidate_repair_SAC1024_20261011_194428",
+    "command": [
+      "/home/seonho/miniconda3/envs/env_isaaclab_232/bin/python",
+      "/home/seonho/HumanoidScene/scripts/rl/batched_staged_goal_with_drive.py",
+      "--experiment-dir",
+      "/dev/shm/HumanoidScene_rl_seonho/GPU3_URDF_candidate_repair_SAC1024_20261011_194428",
+      "--gpu",
+      "3",
+      "--physics-device",
+      "cpu",
+      "--learner-device",
+      "cuda:0",
+      "--training-source-root",
+      "/tmp/HumanoidScene_candidate_repair_afae2971_20261011",
+      "--checkpoint-log-backup-only",
+      "--checkpoint",
+      "/dev/shm/HumanoidScene_rl_seonho/GPU3_URDF_servo_tube_SAC1024_runtime2_20261011_174153/batch_sac_20261011_174153_51f68c/checkpoint_00003836.pt",
+      "--waves-json",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/CPU_candidate_repair_TRAIN1024_reset_plan_20261011_194000/continuation_waves.json",
+      "--waypoints",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/CPU_URDF_servo_tube_initial_20261011_173300/waypoints.json",
+      "--training-manifest",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/CPU_URDF_servo_tube_initial_20261011_173300/training_manifest.json",
+      "--demo-dataset",
+      "/home/seonho/HumanoidScene/examples/demos/v2_grasp_quest_success.hdf5",
+      "--training",
+      "--steps",
+      "900",
+      "--cpu-physics-training",
+      "--policy-servo-diagnostics",
+      "--train-trajectory-storage",
+      "successful-train",
+      "--measured-train-credit",
+      "measured-episode-return-balanced50",
+      "--critic-episode-clock",
+      "task-remaining",
+      "--jaw-behavior",
+      "joint-epsilon30",
+      "--jaw-saturation-penalty",
+      "logit4-soft-strong",
+      "--body-behavior",
+      "arm20-gentle-rest-greedy",
+      "--body-saturation-penalty",
+      "mean3-soft",
+      "--minimum-validation-region-success-rate",
+      "0",
+      "--validation-regression-significance",
+      "0",
+      "--eval-video-env-indices",
+      "0",
+      "4",
+      "1",
+      "5",
+      "2",
+      "3",
+      "--native-seed",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/lower_new_travel_seed_eula_gpu2_20261003_202146/diagnostic_lower_new_travel_20261003_202146/executed_transitions.hdf5",
+      "--native-seed",
+      "/home/seonho/HumanoidScene/artifacts/rl/drive_runs/upper_up6_reference_jaws_gpu0_20261003_183758/diagnostic_upper_up6_reference_jaws_20261003_183758/executed_transitions.hdf5"
+    ],
+    "source_commit": "afae2971c8e0c5112d4f586119bbb13b185b3896",
+    "source_actor_updates": 447,
+    "source_critic_updates": 3836,
+    "source_checkpoint_SHA256": "b857401cfe6f28c9d3e9b92f9a39990972e035a0d37e52eef2408d3eb57cece0",
+    "same_contract_Q_replay_optimizer_cohort_continuation": true,
+    "predecessor_verified": true,
+    "intentional_predecessor_exit_code": 1,
+    "CUDA_VISIBLE_DEVICES": "GPU-47b6036e-4fde-e399-5515-f73eed752c6d",
+    "fresh_TRAIN_requested": 1024,
+    "DEV_same_128_requested_layouts": true,
+    "goal_not_complete": true,
+    "run": "/dev/shm/HumanoidScene_rl_seonho/GPU3_URDF_candidate_repair_SAC1024_20261011_194428/batch_sac_20261011_194428_4db44b",
+    "gpu": 3,
+    "writer_pid_at_launch": 712795,
+    "supervisor_pid": 712761,
+    "backup_scope": "checkpoint_contract_logs_only",
+    "runtime_environment": {
+      "LD_LIBRARY_PATH": "/home/seonho/HumanoidScene/.external/nvidia-userspace-595.91.07/driver",
+      "VK_ICD_FILENAMES": "/home/seonho/HumanoidScene/.external/nvidia-userspace-595.91.07/nvidia_icd.json",
+      "__EGL_VENDOR_LIBRARY_FILENAMES": "/home/seonho/HumanoidScene/.external/nvidia-userspace-595.91.07/nvidia_egl.json"
+    },
+    "selected_device_only_namespace": {
+      "physical_gpu": 3,
+      "uuid": "GPU-47b6036e-4fde-e399-5515-f73eed752c6d",
+      "minor_number": 3,
+      "PCI_bus_id": "00000000:E3:00.0",
+      "renderer_gpu": 0,
+      "drm_render_nodes": [
+        "/dev/dri/renderD131"
+      ],
+      "CUDA_VISIBLE_DEVICES": "GPU-47b6036e-4fde-e399-5515-f73eed752c6d",
+      "graphics_device_access": "selected_device_only_private_mount_namespace"
+    },
+    "upload_interval_seconds": 300,
+    "keep": 2,
+    "physical_success_improvement_not_yet_measured": true,
+    "receipt_recovered_from_same_existing_request_no_relaunch": true
+  },
+  "closed_same_contract_source": {
+    "run": "/dev/shm/HumanoidScene_rl_seonho/GPU3_URDF_servo_tube_SAC1024_runtime2_20261011_174153/batch_sac_20261011_174153_51f68c",
+    "checkpoint_identity": {
+      "size": 104735409,
+      "mtime_ns": 1791715132472819288,
+      "SHA256": "b857401cfe6f28c9d3e9b92f9a39990972e035a0d37e52eef2408d3eb57cece0"
+    },
+    "experience_identity": {
+      "size": 2064412869,
+      "mtime_ns": 1791715135029819210,
+      "SHA256": "3293ce4a68569e593c47c772ac6e2636abfcf702ebeebd0d5e8adbc8bf937f40"
+    },
+    "writer_and_supervisor_stopped": true,
+    "final_Drive_verified": true,
+    "verification": {
+      "training_exit_code": 1,
+      "stop_reason": null,
+      "run_status": {
+        "status": "interrupted",
+        "completed_waves": 3,
+        "recorded_waves": 4
+      },
+      "writers_stopped_at": "2026-10-11T19:39:03.941165+09:00"
+    },
+    "source_actor_updates": 447,
+    "source_critic_updates": 3836,
+    "source_success_guard_statistics": {
+      "attempted": 447,
+      "accepted": 447,
+      "rejected": 0,
+      "projected_constraints": 3753,
+      "parameter_scale_counts": {
+        "0.0625": 1,
+        "0.03125": 2,
+        "0.0078125": 2,
+        "0.001953125": 2,
+        "0.125": 1,
+        "0.0009765625": 3,
+        "1.0": 436
+      },
+      "baseline_outside_fixed_ceiling": 0,
+      "region_parameter_scale_counts": {
+        "shelf_2_right": {
+          "1.0": 447
+        },
+        "shelf_2_left": {
+          "0.0625": 1,
+          "0.03125": 1,
+          "0.0078125": 1,
+          "0.001953125": 1,
+          "0.0": 442,
+          "0.0009765625": 1
+        },
+        "shelf_3_right": {
+          "1.0": 1,
+          "0.25": 2,
+          "0.0625": 1,
+          "0.03125": 1,
+          "0.125": 1,
+          "0.001953125": 1,
+          "0.0009765625": 2,
+          "0.0078125": 1,
+          "0.0": 437
+        },
+        "shelf_3_left": {
+          "1.0": 447
+        }
+      }
+    },
+    "goal_contract_unchanged": true,
+    "no_replay_HDF_upload_delete": true
+  },
+  "predecessor_completed_DEV_TRAIN_only_not_final_DEV": true,
+  "new_initial_full_DEV_success_not_yet_measured": true,
+  "initial_source_Q_and_actor_counters_are_NOT_new_training": true,
+  "completion_watcher": {
+    "unit": "humanoid-rl-candidate-repair-completion-followup-20261011_194000.service",
+    "PID": 721069,
+    "CUDA_VISIBLE_DEVICES": "",
+    "phase": "waiting_run_and_final_Drive_verification"
+  },
+  "goal_not_complete": true
+}

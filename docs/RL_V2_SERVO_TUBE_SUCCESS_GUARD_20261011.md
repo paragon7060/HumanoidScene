@@ -3,7 +3,8 @@
 10/11 새 실행의 초기 DEV는 실제14/128이고 완료 TRAIN 두 배치는9/128·13/128이다.
 아직 학습 후 같은 DEV 개선을 확인하지 못했다. 성공 구역 갱신의98%/97%가 이동0으로
 막혀 실제 후보 위반을 교정하는 작은 수정을 완료했다. GPU3 저장 모델의 복사본과25개
-검사에서 갱신을 확인했으며 아래에 수치와 검증 범위를 기록한다. 목표는 미달성이다.
+검사에서 갱신을 확인했다. 19:44 GPU3 수정판을 시작했고 실제 환경 초기화와 기존
+PGS 계약을 확인했다. 같은 DEV128의 초기 평가를 먼저 진행한다. 목표는 미달성이다.
 
 10/10 18:25 GPU3 실행은 정상 종료했고 마지막 모델·로그의 기존 Drive 검증을
 마쳤다. **이번 실측은 초기14/128 → 최종13/128로 개선이 없다.** actor가713회
@@ -302,3 +303,39 @@ UUID·single-GPU 장치 namespace에서 조회했을 때 원래 baseline이 유�
 
 [실제 완료 TRAIN·구역별 이동0 비율](assets/rl_v2_servo_tube_guard_stagnation_before_repair_20261011.json) ·
 [GPU3 동일 저장 모델의 교정 전후 실제 SAC 갱신](assets/rl_v2_servo_tube_candidate_feasibility_GPU3_20261011.json).
+
+## GPU3 수정판의 실제 시작과 계속 학습
+
+10/11 19:44:28 GPU3의 새 고유 실행
+`GPU3_URDF_candidate_repair_SAC1024_20261011_194428/batch_sac_20261011_194428_4db44b`를
+시작했다. writer712795·supervisor712761의 실행 경로·UID·GPU UUID를 확인했다.
+source commit은 `afae297`이고 사용자 로컬 renderer 수정은 checksum 그대로 별도
+frozen source에 보존했다. 실제 환경 초기화의 PGS/0.008333초 physics·0.033333초
+control 계약과 curriculum0을 확인했다. 선택 GPU3의 renderD131만 노출됐고 CUDA는
+기존 사설595.91.07 라이브러리를 로드했다. 다른 GPU에 실행하지 않았다.
+
+이전 실행은 보호 구역의 갱신 정체를 확인한 뒤 우리 writer에만 정상 종료 신호를 보냈다.
+마지막 기록은 actor447/Q3,836·실제 replay193,482행이었다. 중간 왼쪽442/447·상단
+오른쪽437/447이 이동0이고 baseline 위반0이었다. interrupted/exit1로 기록됐으며
+failure.json은 없고 마지막 모델은 모두 유한했다. writer·supervisor가 모두 사라진 뒤
+기존 Drive의 마지막 checkpoint와 닫힌 logs 검증을 재확인했다. 성공 종료나 전체 최종
+DEV 결과로 설명하지 않는다. 중단된 세 번째 TRAIN을128회 완료 배치로 세지 않는다.
+
+마지막 모델 SHA256은
+`b857401cfe6f28c9d3e9b92f9a39990972e035a0d37e52eef2408d3eb57cece0`.
+**물리·보상·controller 계약이 같으므로 Q/replay/optimizer/성공 cohort를 그대로 이어간다.**
+raw replay/HDF는 닫힌 원본 위치에 보존하며 업로드하거나 삭제하지 않는다. 새 실행의
+누적 actor447/Q3,836은 이미 수행한 학습이며 새 수정판의 갱신 수로 중복 계산하지 않는다.
+
+새 TRAIN은 기존 생성기의 같은 DR 범위로 seed63,000,000부터1,024개를 만들었다.
+이전 seed와 겹치지 않으며 구역·크기의16/16/32/32/16/16 분포와 같은 전체 DEV128을
+유지한다. 새 초기/중간/최종 DEV의 실제 pinch·hold·proof-lift·안전 성공을 비교한다.
+새 초기값은 아직 미측정이므로 이전14회를 대신 넣지 않는다. 실제 파지 성능 개선은
+아직 확인하지 못했다.
+
+300초 checksum 백업·최근2개 checkpoint·닫힌 logs 검증을 유지한다. 종료 후 같은
+대화 점검을 새 CPU watcher721069 하나로 다시 연결했고 기존 watcher와 writer는
+종료됐다. 이 watcher는 빈 CUDA 마스크이며 writer/supervisor 종료 및 최종 검증 뒤에만
+요약과 후속 점검을 요청한다. 서버와 기존 Codex 서비스가 계속 실행돼야 한다.
+
+[실제 시작·원본 종료 검증·재개 counter와 checksum](assets/rl_v2_candidate_repair_GPU3_actual_startup_20261011.json).
