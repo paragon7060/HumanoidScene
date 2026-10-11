@@ -723,6 +723,13 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 정책·reward·replay를 바꾸지 않는다. 출력과 최신 전체 성능은
 [실제 수집 상태 진단](docs/RL_V2_MEASURED_SERVO_DIAGNOSTICS_20261008.md)에 있다.
 
+랙 충돌의 종료 최대힘과 진입 중 경고 접촉을 구분하려면 기존 batched runner command에
+`--rack-contact-summary`를 추가한다. 기존 pre-reset 센서 값만 재사용해 첫 경고·파지
+단계 첫 경고·관측 최대힘의 몸체와 손 상태를 `metrics.json`의 각 outcome에 기록한다.
+현재10N 안전 기준에서는 진단 경고가1N이며 실패 기준은 그대로다. 기본은 꺼져 있고
+현재 frozen GPU3 학습에는 적용하지 않았다.
+[기록 범위·사용법·최소 검증](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#다음-실행의-랙-접촉-요약-옵션)을 참고한다.
+
 CPU/GPU PhysX 비교와 CPU 물리·별도 GPU SAC learner, 전체 DEV128 중 선택한
 실제 자세 영상 녹화는 [CPU/GPU 중간 보고와 평가 사용법](docs/RL_V2_CPU_GPU_INTERIM_REPORT_20261006.md)에 정리했다.
 기존 정책을 CPU에서 평가한 결과와 CPU 물리에서 새로 학습한 성과를 구분하며,

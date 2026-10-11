@@ -317,6 +317,32 @@ alpha를 낮추는 방향이다. 저장 alpha6.087e-6→5.849e-6도 이 제한�
 불변이며 DEV/FINAL 행이나 raw replay/HDF를 읽지 않았다.
 [두 모델·같은512 TRAIN 상태·구역별 logstd/entropy/alpha 방향·진단 범위](assets/rl_v2_quantized_body_guard_saved_entropy_CPU_20261012.json).
 
+## 다음 실행의 랙 접촉 요약 옵션
+
+기존 batched runner command에 `--rack-contact-summary`를 추가한다. 기본은 꺼져 있고
+현재 frozen d32b2f6 writer에는 적용하지 않았다. 새 source로 실행한 각 outcome의
+`metrics.json.outcomes[*].rack_contact_summary`에 다음 세 값만 남긴다.
+
+- 첫 처리 control step에서 경고 힘을 넘은 프레임의 최대힘 몸체·단계·손 거리/pinch/hold.
+- `held_grasp` 단계에서 처음 경고를 넘은 프레임의 같은 값.
+- 처리한 control 프레임 중 가장 큰 랙 힘과 당시 같은 값.
+
+경고는 기존 실패 힘의10%다. 현재10N 기준에서는1N이며 **진단 전용**으로 보상이나
+성공·실패 기준을 바꾸지 않는다. 안전 grace와 별개로 처리한 프레임의 센서 값이다.
+기존 `capture_before_reset`→`last[i]` scalar packet을 재사용해 새 센서·물리 query·
+substep·tensor 전송을 추가하지 않는다. 환경당 최대 세 packet만 보관하고 wave마다
+초기화한다. 초기 settling과 이미 완료/수치 실패로 제외된 환경의 프레임은 기록하지 않는다.
+관측·action·raw replay/HDF를 저장하거나 읽지 않는다. 기존 checkpoint/log 전용 백업
+범위를 확대하지 않으며 현재 user renderer/record 파일도 변경하지 않는다.
+손 거리는 기존 `result.flap_distances`와 같은 matched flap 거리이며 중점 거리로 가정하지 않는다.
+
+이는 **측정된 control 프레임의 경고**이며 PhysX 최초 접촉 substep이나 힘이1N 이하인
+모든 접촉의 이력이 아니다. CPU 최소 검사6개는 접근/파지 경고와 나중 peak 구분,
+10N 기준 보존·strict threshold, pre-reset 입력/스냅샷 보존, 중복 step·wave 초기화,
+비정상 scalar의 유한 JSON, 다른 기존 충돌 기준에서의 진단 비율을 확인했다.
+실제 Isaac 실행과 물리 성공 개선은 아직 검증하지 않았다.
+[코드 SHA·CPU 검사·제한된 기록량·현재 미적용 상태](assets/rl_v2_rack_contact_summary_preparation_20261012.json).
+
 ## 다음 평가 영상의 실제 Q값 기록 옵션
 
 다음 코드로 시작하는 실행의 기존 command에 아래 두 옵션을 추가한다.

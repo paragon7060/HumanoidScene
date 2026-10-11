@@ -95,6 +95,8 @@ def main():
         help='Record up to6 actual DEV environments before reset; complete original distribution remains evaluated')
     parser.add_argument('--eval-video-q-values', action='store_true',
         help='Record frozen DEV Q1/Q2 of actual held state/actions on the same frames without reading raw HDF')
+    parser.add_argument('--rack-contact-summary', action='store_true',
+        help='Keep first measured rack warning and largest force from existing pre-reset packets; no new sensors or steps')
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
@@ -870,7 +872,10 @@ def main():
             last=[None if valid_layout[i] else dict(steps=0,success=False,unsafe=False,
                 invalid_reset=True,time_out=False,pinching=[False,False],flap_distances=None,
                 original_layout_replaced_during_settling=True,replay_rows=0) for i in range(n)]
-            buffer={};scene_videos=None
+            buffer={};scene_videos=None;rack_contacts=None
+            if args.rack_contact_summary:
+                from rack_contact_summary import RackContactSummary
+                rack_contacts=RackContactSummary(n,float(cfg.multi_box.rack_contact_force))
             if args.eval_video_env_indices and (wave['split']=='validation' or workplace_eval):
                 from selected_scene_videos import SelectedSceneVideos
                 scene_videos=SelectedSceneVideos(env,output,wave_index,wave['layouts'],args.eval_video_env_indices,
@@ -980,6 +985,7 @@ def main():
                                 unsafe_causes={k:bool(v[i]) for k,v in bc['causes'].items()},
                                 staged_base=stages.stages[i].report())
                             if 'contact_quality' in bc:last[i]['contact_quality']=float(bc['contact_quality'][i])
+                            if rack_contacts is not None:rack_contacts.observe(i,last[i])
                         active&=~(terminated|truncated)
                         if step%30==0:
                             progress=dict(wave=wave_index,split=wave['split'],step=step+1,
@@ -1012,6 +1018,7 @@ def main():
                     layout=wave['layouts'][i]['layout'],result=last[i],complete=bool(not active[i]),
                     initial_layout_valid=bool(valid_layout[i]),initial_settling_steps=settled,
                     initial_layout_guard=layout_guard_references[i],executed_transition_rows=len(samples)))
+                if rack_contacts is not None:outcomes[-1]['rack_contact_summary']=rack_contacts.snapshot(i)
                 recorded_rows=record_completed_trajectory(recorder,samples,outcomes[-1],snapshots[i],
                     mode=args.train_trajectory_storage,collection_mode=collection_mode)
                 if args.train_trajectory_storage!='all':
