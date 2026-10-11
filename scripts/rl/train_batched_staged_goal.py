@@ -28,6 +28,9 @@ def main():
     parser.add_argument('--training',action=argparse.BooleanOptionalAction,default=False)
     parser.add_argument('--train-trajectory-storage', choices=('all', 'successful-train'), default='all',
         help='HDF recording only: keep all DEV/FINAL paths and optionally only successful TRAIN paths; replay/outcomes unchanged')
+    parser.add_argument('--train-success-registration', choices=('completed-episode','wave'),
+        default='completed-episode',
+        help='Register complete safe TRAIN paths before the next control step; wave preserves legacy timing')
     parser.add_argument('--measured-train-credit',
                         choices=('one-step', 'measured-nstep16', 'measured-nstep16-terminal25',
                                  'measured-episode-return', 'measured-episode-return-balanced50'), default=None,
@@ -866,6 +869,12 @@ def main():
                     frozen_network_snapshot,verify_frozen_network_snapshot)
                 frozen_integrity=frozen_network_snapshot(pilot)
             active=valid_layout.clone()
+            success_registration=None
+            if pilot.training and pilot.success_bank is not None:
+                from kuavo_isaaclab_scene.rl.multi_box.experiments.success_registration import CompletedTrainSuccessRegistration
+                success_registration=CompletedTrainSuccessRegistration(pilot.success_bank,
+                    source_run=output.name,after_success_added=pilot.sync_success_guard_cohort,
+                    mode=args.train_success_registration)
             snapshots=[capture_rl_initial_state(env,observation,env_index=i) if valid_layout[i] else None for i in range(n)]
             rows=[[] for _ in range(n)]
             measured_goal_batches=[]
@@ -956,6 +965,7 @@ def main():
                         te=terminated.cpu().numpy();tr=truncated.cpu().numpy()
                         bc={k:({a:b.cpu().numpy() for a,b in v.items()} if isinstance(v,dict)
                                else v.cpu().numpy()) for k,v in buffer.items()}
+                        ended_successes=[]
                         for i in torch.where(active)[0].tolist():
                             r=dict(actor_obs=pc['policy'][i].copy(),
                                 critic_obs=np.concatenate((pc['policy'][i],pc['critic'][i])),
@@ -986,6 +996,14 @@ def main():
                                 staged_base=stages.stages[i].report())
                             if 'contact_quality' in bc:last[i]['contact_quality']=float(bc['contact_quality'][i])
                             if rack_contacts is not None:rack_contacts.observe(i,last[i])
+                            if r['success'] and (te[i] or tr[i]):
+                                ended_successes.append(dict(wave=wave_index,split=wave['split'],
+                                    environment=i,layout=wave['layouts'][i]['layout'],result=last[i],
+                                    complete=True,initial_layout_valid=bool(valid_layout[i])))
+                        if success_registration is not None and ended_successes:
+                            success_registration.register(wave,ended_successes,measured_goal_batches,
+                                control_step=step+1,actor_updates=pilot.actor_updates,
+                                critic_updates=pilot.critic_updates)
                         active&=~(terminated|truncated)
                         if step%30==0:
                             progress=dict(wave=wave_index,split=wave['split'],step=step+1,
@@ -994,6 +1012,8 @@ def main():
                             progress['rollout_transition_per_s']=wave_rows/(time.monotonic()-rollout_start)
                             if policy_servo_diagnostics and policy_servo_diagnostics[-1]['step']==step+1:
                                 progress['policy_servo_diagnostics']=policy_servo_diagnostics[-1]
+                            if success_registration is not None:
+                                progress['TRAIN_success_registration']=success_registration.report()
                             (output/'progress.json').write_text(json.dumps(progress)+'\n')
                             print('[BATCHED SAC] '+json.dumps({k:v for k,v in progress.items() if k not in ('learner','last')})+
                                 f' actor={pilot.actor_updates} critic={pilot.critic_updates}',flush=True)
@@ -1047,9 +1067,23 @@ def main():
                 frozen_eval_contract['replay_rows_imported']=pilot.replay.size
             pilot.training=args.training
             if args.training and pilot.success_bank is not None:
-                from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import add_completed_training_wave
-                add_completed_training_wave(pilot.success_bank,wave,outcomes[-n:],measured_goal_batches,
-                    source_run=output.name,after_success_added=pilot.sync_success_guard_cohort)
+                if success_registration is not None:
+                    success_registration.register(wave,outcomes[-n:],measured_goal_batches,
+                        control_step=max((x or {}).get('steps',0) for x in last),
+                        actor_updates=pilot.actor_updates,critic_updates=pilot.critic_updates,
+                        at_wave_end=True)
+                    registration_report=success_registration.report()
+                    (output/f'TRAIN_success_registration_wave_{wave_index:04d}.json').write_text(
+                        json.dumps(registration_report,indent=2)+'\n')
+                    registration_events={x['environment']:x for x in registration_report['events']}
+                    for outcome in outcomes[-n:]:
+                        outcome['TRAIN_success_registration_mode']=args.train_success_registration
+                        if outcome['environment'] in registration_events:
+                            outcome['TRAIN_success_registration_event']=registration_events[outcome['environment']]
+                else:
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import add_completed_training_wave
+                    add_completed_training_wave(pilot.success_bank,wave,outcomes[-n:],measured_goal_batches,
+                        source_run=output.name,after_success_added=pilot.sync_success_guard_cohort)
             if args.training and getattr(pilot, 'measured_credit_bank', None) is not None:
                 pilot.add_measured_training_wave(wave, outcomes[-n:], measured_goal_batches,
                     source_run=output.name)

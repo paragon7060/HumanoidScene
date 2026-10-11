@@ -6,6 +6,7 @@ from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import (
     TrainSuccessBank,REGIONS,add_completed_training_wave,retention_config,
     match_measured_success_paths,
 )
+from kuavo_isaaclab_scene.rl.multi_box.experiments.success_registration import CompletedTrainSuccessRegistration
 
 
 def episode(region=REGIONS[0],n=3,env=0,wave=1):
@@ -111,3 +112,78 @@ def test_matching_uses_exact_real_critic_rewards_terminal_and_clock_not_inverse_
     with pytest.raises(ValueError,match='0 matching'):match_measured_success_paths(rows,[changed],raw_critic_dim=530,clock_horizon=410)
     duplicated={k:torch.cat((v,v)) for k,v in rows.items()}
     with pytest.raises(ValueError,match='2 matching'):match_measured_success_paths(duplicated,[path],raw_critic_dim=530,clock_horizon=410)
+
+
+def test_completed_episode_registration_seeds_bank_before_remaining_environment_finishes():
+    bank=TrainSuccessBank(480,539);rows,done=episode(env=7);done['result']['steps']=3
+    pending=deepcopy(done);pending.update(environment=4,complete=False);pending['result']['success']=False
+    calls=[]
+    tracker=CompletedTrainSuccessRegistration(bank,source_run='fixture',
+        after_success_added=lambda:calls.append(bank.size))
+    batches=[(torch.full((3,),7),rows)]
+    assert tracker.register(dict(split='train'),[pending,done],batches,
+        control_step=3,actor_updates=10,critic_updates=40)==1
+    assert bank.size==3 and calls==[3] and not pending['complete']
+    for k in rows:assert torch.equal(bank.episodes[REGIONS[0]][0]['rows'][k],rows[k])
+    report=tracker.report();assert report['events'][0]['registration_control_step']==3
+    assert report['events'][0]['terminal_control_step']==3
+    assert tracker.register(dict(split='train'),[done],batches,
+        control_step=9,actor_updates=13,critic_updates=52,at_wave_end=True)==0
+    assert calls==[3] and bank.size==3
+
+
+def test_wave_registration_mode_preserves_delayed_legacy_timing():
+    bank=TrainSuccessBank(480,539);rows,done=episode()
+    tracker=CompletedTrainSuccessRegistration(bank,source_run='fixture',mode='wave')
+    batches=[(torch.zeros(3,dtype=torch.long),rows)]
+    assert tracker.register(dict(split='train'),[done],batches,
+        control_step=3,actor_updates=10,critic_updates=40)==0
+    assert bank.size==0
+    assert tracker.register(dict(split='train'),[done],batches,
+        control_step=9,actor_updates=13,critic_updates=52,at_wave_end=True)==1
+    assert tracker.report()['events'][0]['boundary']=='wave_end'
+
+
+@pytest.mark.parametrize('bad',['incomplete','unsafe','hold','one_hand'])
+def test_early_registration_cannot_bypass_completed_physical_success(bad):
+    bank=TrainSuccessBank(480,539);rows,done=episode()
+    if bad=='incomplete':done['complete']=False
+    if bad=='unsafe':done['result']['unsafe']=True
+    if bad=='hold':done['result']['hold_time_s']=.1
+    if bad=='one_hand':done['result']['pinching']=[True,False]
+    tracker=CompletedTrainSuccessRegistration(bank,source_run='fixture')
+    with pytest.raises(ValueError):tracker.register(dict(split='train'),[done],
+        [(torch.zeros(3,dtype=torch.long),rows)],control_step=3,actor_updates=10,critic_updates=40)
+    assert bank.size==0 and tracker.report()['registered_completed_TRAIN_episodes']==0
+
+
+def test_registration_never_imports_evaluation_or_another_environments_rows():
+    bank=TrainSuccessBank(480,539);rows,done=episode(env=7)
+    tracker=CompletedTrainSuccessRegistration(bank,source_run='fixture')
+    for split in ('validation','test'):
+        assert tracker.register(dict(split=split),[done],[],
+            control_step=3,actor_updates=10,critic_updates=40)==0
+        with pytest.raises(ValueError,match='Evaluation'):tracker.register(dict(split=split),[done],
+            [(torch.full((3,),7),rows)],control_step=3,actor_updates=10,critic_updates=40)
+    with pytest.raises(ValueError,match='missing'):tracker.register(dict(split='train'),[done],
+        [(torch.full((3,),4),rows)],control_step=3,actor_updates=10,critic_updates=40)
+    assert bank.size==0
+
+
+def test_registration_remembers_completed_identity_after_bank_eviction():
+    bank=TrainSuccessBank(480,539);tracker=CompletedTrainSuccessRegistration(bank,source_run='fixture')
+    outcomes=[];batches=[]
+    for i in range(5):
+        rows,done=episode(n=900,env=i);outcomes.append(done);batches.append((torch.full((900,),i),rows))
+        assert tracker.register(dict(split='train'),[done],batches,
+            control_step=900,actor_updates=i,critic_updates=4*i)==1
+    assert bank.size==3600
+    assert tracker.register(dict(split='train'),outcomes,batches,
+        control_step=900,actor_updates=5,critic_updates=20,at_wave_end=True)==0
+    assert bank.size==3600 and tracker.report()['registered_completed_TRAIN_episodes']==5
+    altered=deepcopy(outcomes[0]);altered['layout']['seed']+=1
+    with pytest.raises(ValueError,match='identity changed'):tracker.register(dict(split='train'),[altered],batches,
+        control_step=900,actor_updates=5,critic_updates=20,at_wave_end=True)
+    contradicted=deepcopy(outcomes[0]);contradicted['result']['success']=False
+    with pytest.raises(ValueError,match='successful attempt'):tracker.register(dict(split='train'),[contradicted],batches,
+        control_step=900,actor_updates=5,critic_updates=20,at_wave_end=True)

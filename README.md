@@ -731,6 +731,12 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 현재 frozen GPU3 학습에는 적용하지 않았다.
 [기록 범위·사용법·최소 검증](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#다음-실행의-랙-접촉-요약-옵션)을 참고한다.
 
+새 batched 학습의 성공은행 등록 기본값은 `--train-success-registration completed-episode`다.
+안전한 양손 성공 episode가 끝나면 그 실제 경로를 다음 control step 전에 등록한다.
+다른 환경은 계속 진행하고 초기화·보상·성공·안전 조건은 유지한다. 기존 배치 종료 시점에
+등록하려면 `--train-success-registration wave`를 사용한다. 현재 frozen 실행은 기존 방식이다.
+[실제 등록 지연과 수정 범위](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#완료된-train-성공의-등록-지연-수정)를 참고한다.
+
 CPU/GPU PhysX 비교와 CPU 물리·별도 GPU SAC learner, 전체 DEV128 중 선택한
 실제 자세 영상 녹화는 [CPU/GPU 중간 보고와 평가 사용법](docs/RL_V2_CPU_GPU_INTERIM_REPORT_20261006.md)에 정리했다.
 기존 정책을 CPU에서 평가한 결과와 CPU 물리에서 새로 학습한 성과를 구분하며,

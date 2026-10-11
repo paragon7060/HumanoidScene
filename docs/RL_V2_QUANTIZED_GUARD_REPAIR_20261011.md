@@ -327,6 +327,41 @@ alpha를 낮추는 방향이다. 저장 alpha6.087e-6→5.849e-6도 이 제한�
 불변이며 DEV/FINAL 행이나 raw replay/HDF를 읽지 않았다.
 [두 모델·같은512 TRAIN 상태·구역별 logstd/entropy/alpha 방향·진단 범위](assets/rl_v2_quantized_body_guard_saved_entropy_CPU_20261012.json).
 
+## 완료된 TRAIN 성공의 등록 지연 수정
+
+완료된 첫 TRAIN에서 env0의 실제 성공은step460이었지만 성공은행/cohort 등록은 마지막
+환경이 끝난step857까지 기다렸다. **397 control step의 지연 동안 actor 제안이 최소188회,
+최대203회 더 진행됐다.** Console의step451/481 counter와 완료 모델actor2061을 대조한
+범위다. 성공한 행동을 잃을 여지는 있지만 이 지연이 물리 성능 퇴행의 원인이라는 통제
+실험은 아직 없다. 기존 replay에는 해당 실제 transition이 이미 들어간다.
+
+새 source의 기본값은 `--train-success-registration completed-episode`다. 해당 환경의
+실제 episode가 끝나고 현재 step의 learner observation을 처리한 뒤, **다음 control step
+전에** 기존 성공은행 검증을 거쳐 경로를 복사하고 cohort를 동기화한다. 현재 step의
+learner 갱신 자체를 보호했다고 주장하지 않는다. 나머지 환경은 계속 진행하며 초기화·
+물리·reward·박스/base/flap randomization·양손 성공·안전 기준은 바꾸지 않는다.
+Curriculum도 없고 독립 FINAL/DEV는 학습에 들어가지 않는다.
+
+배치 종료 때에는 이미 등록된 episode를 다시 넣지 않는다. 은행에서 경로가 eviction돼도
+그 wave의 등록 identity를 보관하므로 중복 재삽입하지 않는다. 전체 경로·기존 bank capacity·
+행동/보상 labels·구역 균형·샘플링 설정·첫 안전한 경로2개/구역·크기와 고정 보호 기준은
+유지한다. 새 경로의 첫 등록 순서는 실제 episode 완료 순서가 된다. 기존 등록 순서/시점을
+재현하려면 `--train-success-registration wave`를 지정한다. 데이터 사용 시점을 변경하며,
+source Q/replay의 observation/action/reward 호환 기준은 그대로다.
+
+각 실제 등록의 종료/등록 control step과 actor/Q counter를 `metrics.json`의 TRAIN outcome
+`TRAIN_success_registration_event`에 남긴다. 같은 wave의 별도 요약 JSON도 로컬에 쓴다.
+기존 체크포인트·종료 metrics/log checksum 백업으로 event 근거가 보존되며 raw replay/HDF
+업로드·삭제 범위를 확대하지 않는다.
+
+새 CPU 최소 검사8개와 compile이 통과했다. 아직 끝나지 않은 다른 환경과의 분리,
+진짜 terminal 경로/label 일치와 callback 순서, wave 방식의 보존, 미완료/unsafe/짧은hold/
+한 손 성공의 거부, DEV/FINAL/다른 env 경로 차단, eviction 뒤 중복/identity 모순을 확인했다.
+이는 데이터 경계 검사이며 실제 물리 성공 개선은 아니다. **현재 frozen d32b2f6 writer에는
+적용하지 않았다.** 기존 배치와 동일 DEV128이 끝난 뒤 다음 source의 실제 TRAIN으로 효과를
+확인한다. 표본 보호가 미래 물리 성공을 보장하지 않는다.
+[첫 실제397-step 등록 지연·188~203개 제안 범위·source SHA·최소검사·미적용 상태](assets/rl_v2_completed_TRAIN_success_registration_preparation_20261012.json).
+
 ## 다음 실행의 랙 접촉 요약 옵션
 
 기존 batched runner command에 `--rack-contact-summary`를 추가한다. 기본은 꺼져 있고
