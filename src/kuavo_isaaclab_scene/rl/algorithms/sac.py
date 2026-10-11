@@ -158,4 +158,4 @@ class SAC(nn.Module):
         self.load_state_dict(state["model"])
         if training:
             for optimizer, saved in zip(self.optimizers, state["optimizers"]):
-                optimizer.load_state_dict(saved)
+                optimizer.load_state_dict(deepcopy(saved))

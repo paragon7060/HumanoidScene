@@ -162,6 +162,7 @@ def guarded_actor_step(agent, loss, successful):
     region_scales={}
     region_trust_norms={}
     repairs=[]
+    quantum_fallback_regions={}
     baseline_allowed=(cohort.within_ceilings(before,before_correct,agent.success_guard_memory,config)
                       if cohort.stable(agent) else None)
     try:
@@ -202,7 +203,8 @@ def guarded_actor_step(agent, loss, successful):
             initial_delta=torch.cat([(proposal[i]-previous[i]).flatten() for i in indices])
             trust_norm=initial_delta.norm()
             region_trust_norms[region]=float(trust_norm)
-            if cohort.tube(agent) and baseline_allowed:
+            def repair_candidate(corrector, reserve_ULPs=0):
+                attempted=False
                 local_parameters=[parameters[i] for i in indices]
                 if trust_norm > 0:
                     with torch.no_grad():
@@ -211,11 +213,12 @@ def guarded_actor_step(agent, loss, successful):
                         candidate,correct=cohort.metrics(agent,successful,groups)
                         if cohort.within_ceilings(candidate,correct,agent.success_guard_memory,config):
                             break
-                        correction,kinds=cohort.violation_correction(
-                            agent,successful,groups,local_parameters)
-                        repairs.append(dict(region=region,cycle=cycle,**kinds))
+                        correction,kinds=corrector(agent,successful,groups,local_parameters)
+                        repairs.append(dict(region=region,cycle=cycle,
+                            internal_body_reserve_ULPs=reserve_ULPs,**kinds))
                         if correction is None:
                             break
+                        attempted=True
                         current=torch.cat([(parameters[i].detach()-previous[i]).flatten() for i in indices])
                         # An exact-bound correction can stall when the max
                         # row changes or a float32 drive goal does not move.
@@ -251,23 +254,41 @@ def guarded_actor_step(agent, loss, successful):
                     for i in indices:proposal[i]=parameters[i].detach().clone()
                     with torch.no_grad():
                         for i in indices:parameters[i].copy_(previous[i])
-            for scale in config['candidate_parameter_scales']:
-                with torch.no_grad():
-                    for i in indices:
-                        parameters[i].copy_(proposal[i] if scale==1. else previous[i]+scale*(proposal[i]-previous[i]))
-                if persistent:
-                    candidate, correct = cohort.metrics(agent, successful, groups)
-                    allowed = cohort.within_ceilings(candidate, correct, agent.success_guard_memory, config)
-                    if cohort.stable(agent):
-                        checks.append(dict(region=region,scale=scale,allowed=allowed,
-                            **cohort.violations(candidate,correct,agent.success_guard_memory,config)))
-                else:
-                    candidate = success_metrics(agent, successful)
-                    allowed = acceptable(before, candidate, config)
-                if allowed:
-                    moved=any(not torch.equal(parameters[i].detach(),previous[i]) for i in indices)
-                    local_scale,after=(scale if moved or not cohort.stable(agent) else 0.),candidate
-                    break
+                return attempted
+
+            def backtrack_candidate(reserve_ULPs=0):
+                for scale in config['candidate_parameter_scales']:
+                    with torch.no_grad():
+                        for i in indices:
+                            parameters[i].copy_(proposal[i] if scale==1. else previous[i]+scale*(proposal[i]-previous[i]))
+                    if persistent:
+                        candidate, correct = cohort.metrics(agent, successful, groups)
+                        allowed = cohort.within_ceilings(candidate, correct, agent.success_guard_memory, config)
+                        if cohort.stable(agent):
+                            checks.append(dict(region=region,scale=scale,allowed=allowed,
+                                internal_body_reserve_ULPs=reserve_ULPs,
+                                **cohort.violations(candidate,correct,agent.success_guard_memory,config)))
+                    else:
+                        candidate = success_metrics(agent, successful)
+                        allowed = acceptable(before, candidate, config)
+                    if allowed:
+                        moved=any(not torch.equal(parameters[i].detach(),previous[i]) for i in indices)
+                        return (scale if moved or not cohort.stable(agent) else 0.),candidate
+                return 0.,None
+
+            if cohort.tube(agent) and baseline_allowed:
+                repair_candidate(cohort.violation_correction)
+            local_scale,checked=backtrack_candidate()
+            if checked is not None:after=checked
+            if not local_scale and cohort.tube(agent) and baseline_allowed and trust_norm > 0:
+                # Keep an accepted ordinary proposal exactly. Only an already
+                # rejected region gets a body-only, quantization-aware inward
+                # repair; every original fixed hard check still applies.
+                attempted=repair_candidate(cohort.quantized_body_correction, reserve_ULPs=2)
+                if attempted:
+                    local_scale,checked=backtrack_candidate(reserve_ULPs=2)
+                    if checked is not None:after=checked
+                quantum_fallback_regions[region]=dict(attempted=attempted,accepted=bool(local_scale))
             region_scales[region]=local_scale
             if not local_scale:
                 with torch.no_grad():
@@ -331,6 +352,13 @@ def guarded_actor_step(agent, loss, successful):
             key=str(scale);local[key]=local.get(key,0)+1
     if cohort.tube(agent):
         stats['actor_success_guard_candidate_repairs']=repairs
+        stats['actor_success_guard_quantized_body_fallback_regions']={
+            region:dict(attempted=value['attempted'],accepted=value['accepted'] and bool(accepted_scale))
+            for region,value in quantum_fallback_regions.items()}
+        for name in ('attempted','accepted'):
+            key='quantized_body_fallback_regions_'+name
+            counters[key]=counters.get(key,0)+sum(value[name] for value in
+                stats['actor_success_guard_quantized_body_fallback_regions'].values())
         counters['candidate_repair_cycles']=counters.get('candidate_repair_cycles',0)+len(repairs)
         counts=counters.setdefault('candidate_repair_constraint_counts',{})
         for repair in repairs:

@@ -56,7 +56,7 @@ def cohort_batch(agent):
     return batch, groups
 
 
-def _losses_and_jaws(agent, batch, groups):
+def _losses_and_jaws(agent, batch, groups, *, body_quanta=None):
     raw, labels = batch['actor_obs'], batch['action']
     normalized = agent.actor_normalizer(agent.actor_features(raw))
     mean, _, logits = agent.continuous_parameters(normalized, raw)
@@ -76,8 +76,20 @@ def _losses_and_jaws(agent, batch, groups):
         # Check every recorded row/joint against fixed physical command
         # tolerances. An improvement elsewhere cannot pay for this error.
         bounded = encoder(raw, goals)[:, :19].double()
-        errors = torch.maximum(goal_difference.abs()/batch['goal_error_limits'],
-            (bounded-recorded.double()).abs()/batch['servo_error_limits'])
+        goal_ratios = goal_difference.abs()/batch['goal_error_limits']
+        servo_ratios = (bounded-recorded.double()).abs()/batch['servo_error_limits']
+        errors = torch.maximum(goal_ratios, servo_ratios)
+        if body_quanta is not None:
+            # Internal restoration only: the hard ratios and fixed limits
+            # above remain unchanged. One physical float32 drive-goal ULP
+            # can exceed a tiny linear correction at a servo-tube boundary.
+            with torch.no_grad():
+                physical = encoder.physical_inputs(raw, goals)[1][:, :19]
+                physical_ulp = (torch.nextafter(physical, torch.full_like(physical, float('inf')))-physical).abs().double()
+                goal_ulp = (torch.nextafter(body, torch.full_like(body, float('inf')))-body).abs().double()
+                scales = raw.new_tensor(list(encoder.coordinates.joints.scales)+[.1/30, .1/30])
+                goal_quanta = goal_ulp/batch['goal_error_limits']
+                servo_quanta = physical_ulp/scales/batch['servo_error_limits']
     goal_error = goal_difference.square()
     servo_error = F.smooth_l1_loss(error, torch.zeros_like(error), beta=1., reduction='none')
     near = agent.action_projector.entropy_mask(raw)[:, 19:].bool()
@@ -88,6 +100,16 @@ def _losses_and_jaws(agent, batch, groups):
         terms = {name: (errors[rows][:, columns].max() if tube(agent) else
                       (goal_error[rows][:, columns]+servo_error[rows][:, columns]).mean())
                  for name, columns in BODY_GROUPS.items()}
+        if body_quanta is not None:
+            for name, columns in BODY_GROUPS.items():
+                local = errors[rows][:, columns].detach()
+                flat = int(local.argmax()); row, column = divmod(flat, len(columns))
+                goal = goal_ratios[rows][:, columns][row, column]
+                servo = servo_ratios[rows][:, columns][row, column]
+                g = goal_quanta[rows][:, columns][row, column]
+                s = servo_quanta[rows][:, columns][row, column]
+                body_quanta[key, name] = float(torch.where(goal > servo, g,
+                    torch.where(servo > goal, s, torch.maximum(g, s))))
         for hand in range(2):
             active = near[rows, hand]
             jaw_logits, targets = logits[rows, hand][active], (labels[rows, 19+hand][active]+1)/2
@@ -271,6 +293,22 @@ def gradient_constraints(agent, batch, groups, parameters):
 
 
 def violation_correction(agent, batch, groups, parameters):
+    return _violation_correction(agent, batch, groups, parameters)
+
+
+def quantized_body_correction(agent, batch, groups, parameters):
+    """Body-only fallback aimed two representable drive steps inside bounds.
+
+    It changes no recorded ceiling, goal limit, greedy jaw rule or final
+    acceptance test. Jaw violations are left to the ordinary correction.
+    """
+    correction, kinds = _violation_correction(agent, batch, groups, parameters, reserve_ULPs=2)
+    if not kinds['body'] or kinds['jaw_loss'] or kinds['jaw_label']:
+        return None, kinds
+    return correction, kinds
+
+
+def _violation_correction(agent, batch, groups, parameters, *, reserve_ULPs=0):
     """Repair current violations while keeping the original hard checks.
 
     Every phase uses its fixed forward shape. The most regressed protected
@@ -298,13 +336,15 @@ def violation_correction(agent, batch, groups, parameters):
 
     for key, rows in groups.items():
         part = {name: values[rows] for name, values in batch.items()}
-        terms, correct = _losses_and_jaws(agent, part, {key: slice(None)})
+        quanta = {} if reserve_ULPs else None
+        terms, correct = _losses_and_jaws(agent, part, {key: slice(None)}, body_quanta=quanta)
         for name, loss in terms[key].items():
             limit = agent.success_guard_memory['ceilings'][key][name]
             config = agent.actor_success_guard_config
             tolerance = config['absolute_loss_tolerance']+config['relative_loss_tolerance']*abs(limit)
             if float(loss.detach()) > limit+tolerance:
-                add(loss, float(loss.detach())-limit+tolerance,
+                reserve = reserve_ULPs*quanta[key, name] if reserve_ULPs and name in BODY_GROUPS else 0.
+                add(loss, float(loss.detach())-limit+tolerance+reserve,
                     'body' if name in BODY_GROUPS else 'jaw_loss')
         wrong = protected[rows] & ~correct
         if wrong.any():

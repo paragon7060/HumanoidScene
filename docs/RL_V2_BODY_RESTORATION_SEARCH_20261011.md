@@ -38,8 +38,14 @@ CPU PhysX/GPU3 CUDA learner·controller·reward·DR·curriculum 없음·성공·
 
 ## 최소 검증 결과와 한계
 
+**10/11 23시 정정:** 아래 복사본 비교에서는 복원 Adam의 CPU step tensor 공유가
+발견됐다. 당시 ‘같은 Adam’ 통제 주장은 철회하며 숫자를 변경의 인과적 효과로 사용하지
+않는다. 디스크 원본과 실제 TRAIN/DEV 결과는 별개다. optimizer를 독립 복원하도록
+수정하고 같은 critic·Adam norm을 확인해 다시 비교한 결과와 적용 범위는
+[새 수치 진단·수정 기록](RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md)에 있다.
+
 실제 완료 TRAIN provenance를 대조한 저장 모델의 복사본으로 두 번 비교했다.
-같은 RNG·Adam·TRAIN 성공 Q256행·보호64행을 사용했고 모든 고정 한도와 전체
+같은 RNG·TRAIN 성공 Q256행·보호64행을 사용했고 모든 고정 한도와 전체
 보호 jaw를 확인했다. 원본 모델과 한도는 그대로였다.
 
 | GPU3 복사본 제안 | 기존 중간 왼쪽 norm | 변경 후 | 기존 상단 오른쪽 norm | 변경 후 |
@@ -233,7 +239,7 @@ Production 보호 구역의 이동0 비율·선택 교정gain·원래 Adam norm�
 critic/entropy를 확인한다. 초기/중간/종료 DEV128의 실제 성공·invalid reset·안전 원인·timeout·
 수치 오류를 비교하며 공통 유효 조건의 lost/gained success를 별도 표시한다.
 표본의 보호 검사가 실제 성공 보존을 보장하지 않는다. 독립 FINAL은 수정·탐색에 사용하지 않는다.
-목표는 미달성이다. Notion의 기존 native image57/video47·table5개와 기존 미디어 주소를 보존하고
+목표는 미달성이다. Notion의 기존 image57(외부1 포함)/video47·table5개와 기존 미디어 주소를 보존하고
 최신 상태와 수정·근거만 갱신했다.
 
 [이전 실제 초기·첫 갱신·실패 영상](RL_V2_SERVO_TUBE_SUCCESS_GUARD_20261011.md).

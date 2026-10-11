@@ -310,3 +310,27 @@ def test_inward_body_search_cannot_trade_a_correct_jaw_for_lower_body_error(monk
     assert correct.all() and torch.equal(agent.act(batch['actor_obs'],True)[:,19:],batch['action'][:,19:])
     assert cohort.within_ceilings(values,correct,agent.success_guard_memory,agent.actor_success_guard_config)
     assert agent.success_guard_memory['ceilings']==initial['ceilings']
+
+
+def test_quantized_fallback_never_replaces_an_accepted_ordinary_proposal(monkeypatch):
+    agent,_=sample(cohort.TUBE_VARIANT)
+    initial=deepcopy(agent.success_guard_memory)
+    def forbidden_fallback(*args):
+        raise AssertionError('An already accepted ordinary step must remain unchanged')
+    monkeypatch.setattr(cohort,'quantized_body_correction',forbidden_fallback)
+    accepted,report=guarded_actor_step(agent,-agent.actor.network[-1].bias[1],None)
+    assert accepted and report['actor_success_guard_parameter_delta_norm']>0
+    assert report['actor_success_guard_quantized_body_fallback_regions']=={}
+    assert agent.success_guard_memory['ceilings']==initial['ceilings']
+
+
+def test_quantized_body_fallback_does_not_repair_a_candidate_with_a_wrong_protected_jaw():
+    agent,_=sample(cohort.TUBE_VARIANT)
+    initial=deepcopy(agent.success_guard_memory)
+    with torch.no_grad():
+        agent.actor.network[-1].bias[1]=.03
+        agent.actor.network[-1].bias[19]=.0001
+    batch,groups=cohort.cohort_batch(agent)
+    correction,kinds=cohort.quantized_body_correction(agent,batch,groups,list(agent.actor.parameters()))
+    assert correction is None and kinds['body']>0 and kinds['jaw_label']>0
+    assert equal(agent.success_guard_memory,initial)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import asdict
 import math
 
@@ -519,4 +520,7 @@ class AsymmetricSAC(nn.Module):
         self.load_state_dict(state["model"])
         if training:
             for optimizer, saved in zip(self.optimizers, state["optimizers"]):
-                optimizer.load_state_dict(saved)
+                # Adam can retain CPU step/moment tensors from the supplied
+                # dictionary. Restored learners must not mutate their input
+                # checkpoint or another learner restored from that input.
+                optimizer.load_state_dict(deepcopy(saved))
