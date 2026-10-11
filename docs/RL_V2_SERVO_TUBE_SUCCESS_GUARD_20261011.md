@@ -39,8 +39,10 @@ gained2/env0·59다. 요청 layout은 같지만 반복 reset의 실제 물리 �
 몸체 기록이며 첫 접촉이나 전체 이력이 아니다. 최종 reset128개가 모두 유효해도
 실패가 지속되므로 초기화 문제만으로 설명할 수 없다. 특히 중간 오른쪽 medium의
 rack 실패4→12는 성공 없는 구역의 실제 갱신도 유용하다는 보장이 없음을 보여준다.
+TRAIN의 최대 rack 종료힘은403.1N이었다.
 
 [실제 결과·안전·모델 checksum](assets/rl_v2_stable_success_DEV128_result_20261011.json)
+[실제 checkpoint·첫 성공 cohort·구역별 parameter 재확인](assets/rl_v2_stable_success_actual_learner_audit_20261011.json)
 
 ## TRAIN과 갱신에서 확인한 병목
 
@@ -114,3 +116,31 @@ archive SHA256 `93e0487897e843be767a3d259dffea8ac32dffff846e83df8d3abbf30be754ae
 및 최종 H264 성공·실패 영상은 `artifacts/rl/protected_dev_models_20261011/`에도 보존했다.
 [Notion 중간보고의 재생 가능한 실제 eval 자료](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)에
 초기→최종 성능과 수정 내용을 추가한다. 영상의 actor713/Q4900은 갱신 횟수이며 Q value가 아니다.
+[선택 영상의 실제 outcome·모델 갱신 횟수·H264 검증](assets/rl_v2_stable_success_selected_actual_eval_20261011.json)
+
+## 실제 새 실행과 후속 점검
+
+10/11 17:35 첫 시도는 수집 전 초기화에서 중단했다. `/proc/PID/maps`에서 Isaac이
+unversioned `libcuda.so`·`libnvidia-ml.so`를 통해 기본595.99.02를 함께 로드하는
+것을 확인했다. 사설 라이브러리의 두 이름을 보완하고 NVIDIA vendor 라이브러리만
+선택해 generic GL dispatch 교체로 인한 Mesa symbol 오류도 피했다. 기존 supervisor의
+정상 종료 절차가120초 뒤 멈추지 않은 우리 writer만 강제 종료했고, 최종 로그는
+Drive checksum 검증을 완료했다. 다른 사용자 프로세스는 변경하지 않았다.
+
+**10/11 17:41 새 GPU3 실행을 시작했다.**
+`GPU3_URDF_servo_tube_SAC1024_runtime2_20261011_174153/`
+`batch_sac_20261011_174153_51f68c`, writer214251/supervisor214215다.
+고정 학습 소스 commit은`4e5de12`이며 사용자 수정 renderer는 별도로 checksum
+확인해 고정 소스에만 복사했다. 초기 모델 SHA256은
+`20fe1f76a0d4c0d789ea8a8f8e7099e795f3d71bdaff92f7975c825fec47d483`.
+이전 초기와 actor/normalizer29개 tensor 및 물리·보상 계약이 정확히 같다.
+
+실제 로드된 CUDA/NVML은595.91.07이며 앞선 초기화 오류는 없다. 환경128개,
+CPU PGS와18개 관절 중력보상 계약을 확인했다. 우리 GPU 계산은 GPU3 writer1개,
+GPU1·2에는 실행하지 않는다. 초기평가·setup을 학습량이나 성능 개선으로 설명하지 않는다.
+이전 속도로6~8시간을 예상하지만 실제 학습 속도·평가·마지막 업로드에 따라 달라진다.
+
+빈 CUDA 마스크의 CPU 종료 감시223942를 기존 같은 대화에 연결했다.
+writer·supervisor 종료와 마지막 Drive 검증 뒤 실측 요약·DEV128·TRAIN/Adam/entropy·
+실패 원인을 확인해 다음 개선을 이어간다. 새 승인이나 에이전트 요청이 아니다.
+Notion 기존98개 미디어와 표5개를 유지하고 영상2개·그림1개를 추가했으며 현재101개다.
