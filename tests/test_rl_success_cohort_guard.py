@@ -266,3 +266,47 @@ def test_candidate_body_repair_uses_the_exceeded_fixed_bound_instead_of_widening
     batch,groups=cohort.cohort_batch(agent);values,correct=cohort.metrics(agent,batch,groups)
     assert cohort.within_ceilings(values,correct,agent.success_guard_memory,agent.actor_success_guard_config)
     assert report['actor_success_guard_parameter_delta_norm']<=.03+1e-6
+
+
+def test_inward_search_recovers_an_underpowered_body_correction_without_wider_bounds(monkeypatch):
+    agent,_=sample(cohort.TUBE_VARIANT)
+    initial=deepcopy(agent.success_guard_memory)
+    agent.actor_optimizer.param_groups[0]['lr']=.03
+    original=cohort.violation_correction
+    # An approximate max-row restoration can underestimate the needed step.
+    # The real encoder, Adam step and unchanged full acceptance checks run.
+    def short_correction(*args):
+        delta,kinds=original(*args)
+        return (None if delta is None else delta*.25),kinds
+    monkeypatch.setattr(cohort,'violation_correction',short_correction)
+    accepted,report=guarded_actor_step(agent,-agent.actor.network[-1].bias[1],None)
+    assert accepted and report['actor_success_guard_parameter_delta_norm']>0
+    assert any(x.get('selected_restoration_gain',0)>1 for x in report['actor_success_guard_candidate_repairs'])
+    assert agent.success_guard_memory['ceilings']==initial['ceilings']
+    batch,groups=cohort.cohort_batch(agent);values,correct=cohort.metrics(agent,batch,groups)
+    assert cohort.within_ceilings(values,correct,agent.success_guard_memory,agent.actor_success_guard_config)
+    assert report['actor_success_guard_parameter_delta_norm']<=.03+1e-6
+
+
+def test_inward_body_search_cannot_trade_a_correct_jaw_for_lower_body_error(monkeypatch):
+    agent,_=sample(cohort.TUBE_VARIANT)
+    agent.actor_optimizer.param_groups[0]['lr']=.03
+    bias=agent.actor.network[-1].bias
+    with torch.no_grad():bias[19]=-.00003
+    original=cohort.violation_correction
+    parameters=list(agent.actor.parameters())
+    jaw_offset=sum(p.numel() for p in parameters[:next(i for i,p in enumerate(parameters) if p is bias)])+19
+    def coupled_correction(*args):
+        delta,kinds=original(*args)
+        if delta is not None:
+            delta=delta*.25;delta[jaw_offset]=.00001
+        return delta,kinds
+    monkeypatch.setattr(cohort,'violation_correction',coupled_correction)
+    initial=deepcopy(agent.success_guard_memory)
+    accepted,report=guarded_actor_step(agent,-bias[1],None)
+    assert accepted
+    assert all(x.get('selected_restoration_gain',0)<4 for x in report['actor_success_guard_candidate_repairs'])
+    batch,groups=cohort.cohort_batch(agent);values,correct=cohort.metrics(agent,batch,groups)
+    assert correct.all() and torch.equal(agent.act(batch['actor_obs'],True)[:,19:],batch['action'][:,19:])
+    assert cohort.within_ceilings(values,correct,agent.success_guard_memory,agent.actor_success_guard_config)
+    assert agent.success_guard_memory['ceilings']==initial['ceilings']

@@ -130,6 +130,24 @@ def violations(values, correct, memory, config):
         worst_term=max(exceeded,key=lambda x:x['excess']) if exceeded else None)
 
 
+def restoration_score(values, correct, memory, config):
+    """Rank temporary optimizer candidates; acceptance still uses hard checks.
+
+    Prefer preserving every protected jaw, then reducing all normalized
+    violations. This is not a task reward or a relaxed acceptance threshold.
+    """
+    if values.keys() != memory['ceilings'].keys():
+        raise ValueError('Restoration requires the same fixed cohort groups')
+    excess = []
+    for key, terms in values.items():
+        for name, value in terms.items():
+            limit = memory['ceilings'][key][name]
+            tolerance = config['absolute_loss_tolerance']+config['relative_loss_tolerance']*abs(limit)
+            excess.append(max(0., (value-limit-tolerance)/max(abs(limit), 1e-8)))
+    wrong = violations(values, correct, memory, config)['protected_jaw_regressions']
+    return (wrong, sum(excess), max(excess, default=0.))
+
+
 @torch.no_grad()
 def metrics(agent, batch, groups):
     losses, correct = losses_and_jaws(agent, batch, groups)

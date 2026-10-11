@@ -160,6 +160,7 @@ def guarded_actor_step(agent, loss, successful):
     after = before
     checks=[]
     region_scales={}
+    region_trust_norms={}
     repairs=[]
     baseline_allowed=(cohort.within_ceilings(before,before_correct,agent.success_guard_memory,config)
                       if cohort.stable(agent) else None)
@@ -198,10 +199,11 @@ def guarded_actor_step(agent, loss, successful):
             for p,old in zip(parameters,previous):p.copy_(old)
         for region,indices in partitions.items():
             local_scale=0.
+            initial_delta=torch.cat([(proposal[i]-previous[i]).flatten() for i in indices])
+            trust_norm=initial_delta.norm()
+            region_trust_norms[region]=float(trust_norm)
             if cohort.tube(agent) and baseline_allowed:
                 local_parameters=[parameters[i] for i in indices]
-                initial_delta=torch.cat([(proposal[i]-previous[i]).flatten() for i in indices])
-                trust_norm=initial_delta.norm()
                 if trust_norm > 0:
                     with torch.no_grad():
                         for i in indices:parameters[i].copy_(proposal[i])
@@ -215,17 +217,37 @@ def guarded_actor_step(agent, loss, successful):
                         if correction is None:
                             break
                         current=torch.cat([(parameters[i].detach()-previous[i]).flatten() for i in indices])
-                        current=current+correction
-                        # Keep each region within its original projected Adam
-                        # proposal norm. Hard checks follow this trust bound.
-                        current=current*torch.minimum(current.new_tensor(1.),
-                            trust_norm/current.norm().clamp_min(1e-30))
-                        offset=0
+                        # An exact-bound correction can stall when the max
+                        # row changes or a float32 drive goal does not move.
+                        # Search inward only for body-only violations. Every
+                        # trial keeps the original projected Adam trust norm;
+                        # the original whole-cohort hard checks still decide.
+                        gains=(1.,2.,4.) if kinds['body'] and not kinds['jaw_loss'] and not kinds['jaw_label'] else (1.,)
+                        best_score=cohort.restoration_score(candidate,correct,agent.success_guard_memory,config)
+                        best=[parameters[i].detach().clone() for i in indices]
+                        selected_gain=0.
+                        for trial_count,gain in enumerate(gains,1):
+                            adjusted=current+gain*correction
+                            adjusted=adjusted*torch.minimum(adjusted.new_tensor(1.),
+                                trust_norm/adjusted.norm().clamp_min(1e-30))
+                            offset=0
+                            with torch.no_grad():
+                                for i in indices:
+                                    count=previous[i].numel()
+                                    parameters[i].copy_(previous[i]+adjusted[offset:offset+count].reshape_as(previous[i]))
+                                    offset+=count
+                            trial,jaws=cohort.metrics(agent,successful,groups)
+                            score=cohort.restoration_score(trial,jaws,agent.success_guard_memory,config)
+                            if len(gains)==1 or score<best_score:
+                                best_score=score;selected_gain=gain
+                                best=[parameters[i].detach().clone() for i in indices]
+                            if cohort.within_ceilings(trial,jaws,agent.success_guard_memory,config):
+                                break
                         with torch.no_grad():
-                            for i in indices:
-                                count=previous[i].numel()
-                                parameters[i].copy_(previous[i]+current[offset:offset+count].reshape_as(previous[i]))
-                                offset+=count
+                            for i,value in zip(indices,best):parameters[i].copy_(value)
+                        repairs[-1].update(restoration_trials=trial_count,
+                            selected_restoration_gain=selected_gain,
+                            restoration_score_after=list(best_score))
                     for i in indices:proposal[i]=parameters[i].detach().clone()
                     with torch.no_grad():
                         for i in indices:parameters[i].copy_(previous[i])
@@ -270,6 +292,7 @@ def guarded_actor_step(agent, loss, successful):
                 for p, old in zip(parameters, previous):
                     p.copy_(old)
             agent.actor_optimizer.load_state_dict(optimizer)
+            region_scales={region:0. for region in region_scales}
         if previous_servo_statistics is not None:
             agent._success_servo_statistics = previous_servo_statistics
     stats = dict(actor_success_guard_checked=True,
@@ -295,6 +318,10 @@ def guarded_actor_step(agent, loss, successful):
         stats.update(actor_success_guard_baseline_allowed=baseline_allowed,
                      actor_success_guard_candidate_checks=checks,
                      actor_success_guard_region_parameter_scales=region_scales,
+                     actor_success_guard_region_projected_Adam_norms=region_trust_norms,
+                     actor_success_guard_region_actual_delta_norms={region:float(torch.cat([
+                         (parameters[i].detach()-previous[i]).flatten() for i in indices]).norm())
+                         for region,indices in partitions.items()},
                      actor_success_guard_parameter_delta_norm=float(torch.cat([
                          (p.detach()-old).flatten() for p,old in zip(parameters,previous)]).norm()))
         counters['baseline_outside_fixed_ceiling']=counters.get('baseline_outside_fixed_ceiling',0)+int(not baseline_allowed)
@@ -309,6 +336,10 @@ def guarded_actor_step(agent, loss, successful):
         for repair in repairs:
             for kind in ('body','jaw_loss','jaw_label'):
                 counts[kind]=counts.get(kind,0)+repair[kind]
+            counters['restoration_trials']=counters.get('restoration_trials',0)+repair.get('restoration_trials',0)
+            selected=counters.setdefault('restoration_gain_counts',{})
+            gain=str(repair.get('selected_restoration_gain',0.))
+            selected[gain]=selected.get(gain,0)+1
     return bool(accepted_scale), stats
 
 

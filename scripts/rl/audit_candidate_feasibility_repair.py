@@ -8,6 +8,7 @@ optimizer import into a live learner, or physical improvement is claimed.
 import argparse
 from copy import deepcopy
 from datetime import datetime
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -18,10 +19,11 @@ from audit_closed_dev_critics import identity
 from export_eval_q_videos import restored_agent, sha256
 from summarize_batched_staged_run import read_snapshot, supported_success
 from kuavo_isaaclab_scene.rl.algorithms import success_cohort_guard as cohort
+from kuavo_isaaclab_scene.rl.algorithms import success_update_guard as update_guard
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import TrainSuccessBank, REGIONS
 
 
-def audit(checkpoint, metrics, output, device='cpu'):
+def audit(checkpoint, metrics, output, device='cpu', baseline_source_root=None):
     if output.exists():
         raise ValueError('Unique output required')
     if device=='cpu':
@@ -46,6 +48,18 @@ def audit(checkpoint, metrics, output, device='cpu'):
                     recorded[k]!=o[k] for k in ('layout','result','complete','initial_layout_valid')):
                 raise ValueError('Exact completed actual safe TRAIN outcomes required')
     repair = cohort.violation_correction
+    current_guard = update_guard.guarded_actor_step
+    baseline_guard = baseline_identity = None
+    if baseline_source_root is not None:
+        file = baseline_source_root/'src/kuavo_isaaclab_scene/rl/algorithms/success_update_guard.py'
+        specification = importlib.util.spec_from_file_location(
+            'kuavo_isaaclab_scene.rl.algorithms._disposable_baseline_guard', file)
+        module = importlib.util.module_from_spec(specification)
+        specification.loader.exec_module(module)
+        if module.success_update_guard_config(cohort.TUBE_VARIANT) != state['actor_success_guard']:
+            raise ValueError('Baseline optimizer must preserve the same fixed guard contract')
+        baseline_guard = module.guarded_actor_step
+        baseline_identity = dict(file=str(file),SHA256=sha256(file))
     records=[]
     try:
         for index in range(2):
@@ -65,7 +79,11 @@ def audit(checkpoint, metrics, output, device='cpu'):
                 with torch.no_grad():
                     mean0,_,jaw0=agent.continuous_parameters(norm,raw)
                     alpha0=[float(p.detach()) for p in (agent.log_alpha,agent.log_alpha_discrete)]
-                cohort.violation_correction=repair if enabled else lambda *args:(None,dict(body=0,jaw_loss=0,jaw_label=0))
+                if baseline_guard is None:
+                    cohort.violation_correction=repair if enabled else lambda *args:(None,dict(body=0,jaw_loss=0,jaw_label=0))
+                else:
+                    cohort.violation_correction=repair
+                    update_guard.guarded_actor_step=current_guard if enabled else baseline_guard
                 torch.set_rng_state(rng)
                 if cuda_rng is not None:torch.cuda.set_rng_state(cuda_rng)
                 report=agent.update(batch,successful_train=success,
@@ -88,7 +106,8 @@ def audit(checkpoint, metrics, output, device='cpu'):
                     raise AssertionError('Fixed whole cohort protection was changed or violated')
                 if not all(torch.isfinite(v).all() for v in agent.state_dict().values()):
                     raise FloatingPointError('Nonfinite disposable model')
-                records.append(dict(batch=index,candidate_repair_enabled=enabled,
+                records.append(dict(batch=index,candidate_repair_enabled=enabled if baseline_guard is None else True,
+                    body_restoration_search_enabled=enabled if baseline_guard is not None else None,
                     Q_minibatch_actual_successful_TRAIN_rows=256,
                     actor_retention_actual_successful_TRAIN_rows=64,
                     movement_by_region=movement,
@@ -99,6 +118,7 @@ def audit(checkpoint, metrics, output, device='cpu'):
                        or k.startswith('actor_success_guard')}))
     finally:
         cohort.violation_correction=repair
+        update_guard.guarded_actor_step=current_guard
     if identity(checkpoint)!=original or sha256(checkpoint)!=checksum:
         raise AssertionError('Saved original model changed')
     result=dict(recorded_at=datetime.now().astimezone().isoformat(),
@@ -106,6 +126,7 @@ def audit(checkpoint, metrics, output, device='cpu'):
         device=device,single_GPU_isolation=isolation,
         CUDA_matmul_allow_tf32=torch.backends.cuda.matmul.allow_tf32,
         checkpoint_SHA256=checksum,source_actor_updates=state['actor_updates'],source_critic_updates=state['critic_updates'],
+        baseline_optimizer=baseline_identity,
         actual_TRAIN_bank_rows=bank.size,records=records,
         no_production_replay_distribution_or_actual_GPU_proposal_reconstruction=True,
         teacher_and_episode_return_auxiliary_not_reconstructed=True,
@@ -122,4 +143,7 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     for name in ('checkpoint','metrics','output'):p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--device',choices=('cpu','cuda:0'),default='cpu')
-    a=p.parse_args();audit(a.checkpoint.resolve(),a.metrics.resolve(),a.output,a.device)
+    p.add_argument('--baseline-source-root',type=Path,
+        help='Trusted frozen source of the original optimizer; same fixed guard contract required')
+    a=p.parse_args();audit(a.checkpoint.resolve(),a.metrics.resolve(),a.output,a.device,
+        a.baseline_source_root.resolve() if a.baseline_source_root else None)
