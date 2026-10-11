@@ -143,4 +143,52 @@ GPU1·2에는 실행하지 않는다. 초기평가·setup을 학습량이나 성
 빈 CUDA 마스크의 CPU 종료 감시223942를 기존 같은 대화에 연결했다.
 writer·supervisor 종료와 마지막 Drive 검증 뒤 실측 요약·DEV128·TRAIN/Adam/entropy·
 실패 원인을 확인해 다음 개선을 이어간다. 새 승인이나 에이전트 요청이 아니다.
-Notion 기존98개 미디어와 표5개를 유지하고 영상2개·그림1개를 추가했으며 현재101개다.
+Notion 기존98개 미디어와 표5개를 유지하고 영상2개·그림1개를 추가했다. 추가 Q 진단 그림1개를 포함해 현재102개이며 표5개와 기존 media는 유지했다.
+
+## 추가 원인 점검: Q 신호의 일부가 servo clipping에서 끊김
+
+새 실행을 변경하지 않고, 완료된 TRAIN replay236,800행에서 구역·크기별64상태씩
+추출해 기존 최종 actor713/Q4900을 조회했다. 이384개 상태는 DEV/FINAL이 아니다.
+production과 같은 jaw4조합의 확률 평균 Q, 실제 bounded servo decoder, 실제
+Gaussian draw를 사용했다. Q-command gradient와 그 gradient가 목표 latent까지
+전달되는 chain rule을 분리했다. 팔 autograd는 독립적인 analytic servo Jacobian과
+일치했고 모델·normalizer·원본 replay는 변경하지 않았다. optimizer/물리 재실행은 없다.
+
+| 구역·크기 | greedy의 Q-gradient0 팔 좌표 | Gaussian 표본 |
+|---|---:|---:|
+| 중간 왼쪽 small |20.1%|24.3%|
+| 중간 오른쪽 small |50.0%|51.9%|
+| 상단 왼쪽 small |38.6%|39.2%|
+| 상단 오른쪽 small |24.3%|27.6%|
+| 중간 왼쪽 medium |15.7%|18.2%|
+| 중간 오른쪽 medium |57.7%|59.7%|
+
+![실제 제어기 clipping 구간에서 끊기는 Q-gradient 비율](assets/rl_v2_stable_success_TRAIN_servo_Q_gradients_20261011.png)
+
+이 비율은 **상태×14팔 관절 좌표**의 비율이며 성공률·실패 episode 비율이 아니다.
+모든 clipping 좌표에서 servo에 대한 Q 기울기는 있었지만, clipping의 미분이0이어서
+absolute goal까지 전달되지 않았다. 중간 오른쪽의 Q-to-goal gradient 중앙값은0이다.
+그러나 small1/64·medium7/64상태만 모든 팔 Q-gradient가0이었고, 다른 관절에는
+학습 신호가 남아 있다. 중간 왼쪽 medium은 이 비율이 가장 낮아도 성공0/rack16이므로
+clipping 하나를 실패의 유일한 원인으로 설명할 수 없다.
+
+같은384상태의 실제 held clock과 손별 배정 flap midpoint 거리를 분리했다.
+중간 오른쪽small의 초기0~149스텝11상태에서는55.2%, 450스텝 이상30상태에서도48.6%였다.
+medium은 초기20상태52.5%, 450스텝 이상15상태61.9%였다. 초기 최대속도 접근만의
+현상은 아니다. 반면 양손 midpoint10cm 이내인 중간 왼쪽small10상태·상단 오른쪽small
+5상태는 각각5.0%·1.4%였고, 실제 양손 pinch 상태2개는0%였다. 중간 오른쪽small의
+근접 표본은1상태, medium은0상태라서 **정밀 접촉 단계의 병목**이라고 일반화할 근거가
+부족하다. midpoint 거리는 실제 contact-region 거리나 pinch 성공이 아니다.
+phase/proximity 구분은 같은 조회 배치·같은 Q scaling을 유지하며 추가 물리 실행 없이
+원래384상태를 나눈 것이다. 세부 표본 수와 단계별 값은 아래 JSON에 포함했다.
+
+이것은 과거 TRAIN 상태에 대한 **최종 모델의 국소 진단**이며 당시 optimizer나
+전체 AR1/guidance 탐색을 재구성한 결과가 아니다. entropy·성공 유지·regularizer의
+기울기는 이 수치에 포함하지 않는다. 현재 새 actor의 gradient나 물리 성공 개선을
+주장하지 않는다. 먼저 새 보호 예산의 실제 TRAIN/DEV 결과를 비교한다. 교정 갱신이
+정상인데 성공이 정체된다면, 같은 물리 제어기·원래 action/replay 의미를 유지하면서
+목표 매개변수에서 이 clipping 병목을 줄이는 방법을 다음 후보로 검토한다.
+
+[측정값·모델/replay checksum·분석 범위](assets/rl_v2_stable_success_TRAIN_servo_Q_gradients_20261011.json).
+재현 진입점은 `scripts/rl/audit_closed_train_servo_q_gradients.py`이며 반드시 빈 CUDA
+마스크·종료 run·checksum 일치 checkpoint·해당 whole DEV128 결과 JSON을 사용한다.
