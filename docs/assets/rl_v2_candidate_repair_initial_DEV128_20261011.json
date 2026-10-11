@@ -1,0 +1,1032 @@
+{
+  "recorded_at": "2026-10-11T20:29:51.008443+09:00",
+  "role": "this_run_completed_initial_DEV128_before_new_candidate_repair_TRAIN_updates",
+  "run_directory_name": "batch_sac_20261011_194428_4db44b",
+  "fixed_requested_DEV_denominator": 128,
+  "complete": 128,
+  "counts": {
+    "initial_valid": 115,
+    "supported_successes": 15,
+    "invalid_reset": 13,
+    "unsafe": 45,
+    "time_out": 55,
+    "numerical_failure": 0
+  },
+  "six_scopes": [
+    {
+      "region": "shelf_2_left",
+      "box_type": "medium",
+      "requested": 16,
+      "initial_valid": 16,
+      "supported_successes": 0,
+      "invalid_reset": 0,
+      "unsafe": 16,
+      "time_out": 0,
+      "numerical_failure": 0
+    },
+    {
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "requested": 16,
+      "initial_valid": 16,
+      "supported_successes": 9,
+      "invalid_reset": 0,
+      "unsafe": 7,
+      "time_out": 0,
+      "numerical_failure": 0
+    },
+    {
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "requested": 16,
+      "initial_valid": 15,
+      "supported_successes": 0,
+      "invalid_reset": 1,
+      "unsafe": 8,
+      "time_out": 7,
+      "numerical_failure": 0
+    },
+    {
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "requested": 16,
+      "initial_valid": 13,
+      "supported_successes": 0,
+      "invalid_reset": 3,
+      "unsafe": 0,
+      "time_out": 13,
+      "numerical_failure": 0
+    },
+    {
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "requested": 32,
+      "initial_valid": 28,
+      "supported_successes": 0,
+      "invalid_reset": 4,
+      "unsafe": 0,
+      "time_out": 28,
+      "numerical_failure": 0
+    },
+    {
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "requested": 32,
+      "initial_valid": 27,
+      "supported_successes": 6,
+      "invalid_reset": 5,
+      "unsafe": 14,
+      "time_out": 7,
+      "numerical_failure": 0
+    }
+  ],
+  "actual_initial_source_actor_updates": 447,
+  "actual_initial_source_critic_updates": 3836,
+  "initial_held_TRAIN_online_rows": 0,
+  "initial_replay_rows": 193482,
+  "checkpoint_SHA256": "6371faf801671a0c751f2f52ad703f28a659f1fff83d40d3cb67668dac6c00a1",
+  "checkpoint_bytes": 104745329,
+  "all_agent_tensors_equal_to_closed_source": true,
+  "changed_agent_tensors": [],
+  "preserved_local_checkpoint": "artifacts/rl/protected_dev_models_20261011/batch_sac_20261011_194428_4db44b/checkpoint_00003836.pt",
+  "summary": {
+    "wave": 0,
+    "split": "validation",
+    "by_region": {
+      "shelf_2_left": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 9,
+        "supported_successes": 9,
+        "unsafe": 23,
+        "timeout": 0
+      },
+      "shelf_2_right": {
+        "attempts": 32,
+        "initial_valid": 28,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 8,
+        "timeout": 20
+      },
+      "shelf_3_left": {
+        "attempts": 32,
+        "initial_valid": 28,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 0,
+        "timeout": 28
+      },
+      "shelf_3_right": {
+        "attempts": 32,
+        "initial_valid": 27,
+        "complete": 32,
+        "task_success_flags": 6,
+        "supported_successes": 6,
+        "unsafe": 14,
+        "timeout": 7
+      }
+    },
+    "supported_successes": 15,
+    "attempts": 128,
+    "initial_valid": 115,
+    "unsupported_success_environments": [],
+    "safety_causes_on_valid_completed_attempts": {
+      "robot_rack_collision": 44,
+      "box_drop": 1
+    },
+    "simultaneous_safety_cause_sets": {
+      "robot_rack_collision": 44,
+      "box_drop": 1
+    },
+    "rack_collision_terminal_diagnostics": {
+      "by_region": {
+        "shelf_2_left": {
+          "count": 23,
+          "phase_counts": {
+            "held_grasp": 23
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 7,
+            "zarm_l4_link": 15,
+            "l_twofinger_base": 1
+          },
+          "peak_force_n": {
+            "count": 23,
+            "mean": 38.38340506346329,
+            "median": 18.57408332824707,
+            "p90": 81.53303527832034,
+            "maximum": 255.37606811523438
+          }
+        },
+        "shelf_3_right": {
+          "count": 14,
+          "phase_counts": {
+            "held_grasp": 14
+          },
+          "peak_body_counts": {
+            "zarm_r4_link": 4,
+            "r_twofinger_base": 10
+          },
+          "peak_force_n": {
+            "count": 14,
+            "mean": 51.855767658778596,
+            "median": 43.713056564331055,
+            "p90": 84.83282546997073,
+            "maximum": 146.78762817382812
+          }
+        },
+        "shelf_2_right": {
+          "count": 7,
+          "phase_counts": {
+            "held_grasp": 7
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 7
+          },
+          "peak_force_n": {
+            "count": 7,
+            "mean": 21.95650795527867,
+            "median": 19.25938606262207,
+            "p90": 31.82540855407715,
+            "maximum": 34.0622444152832
+          }
+        }
+      },
+      "valid_completed_unsafe_attempts_only": true,
+      "failure_step_peak_body_not_first_contact_or_contact_history": true
+    },
+    "end_pinching_hand_counts": {
+      "0": 97,
+      "1": 3,
+      "2": 15
+    },
+    "end_contact_quality": {
+      "count": 115,
+      "mean": 0.14180841441873623,
+      "median": 0.0,
+      "p90": 1.0,
+      "maximum": 1.0
+    },
+    "end_matched_flap_surface_distance_m": [
+      {
+        "count": 115,
+        "mean": 0.09373874283881616,
+        "median": 0.06472332775592804,
+        "p90": 0.23732523620128632,
+        "maximum": 0.5733734965324402
+      },
+      {
+        "count": 115,
+        "mean": 0.23468822779883022,
+        "median": 0.06125302612781525,
+        "p90": 1.0692957878112792,
+        "maximum": 1.0942730903625488
+      }
+    ],
+    "end_flap_surface_distance_by_outcome_m": {
+      "supported_success": [
+        {
+          "count": 15,
+          "mean": 0.0007115281652659178,
+          "median": 0.0006762270350009203,
+          "p90": 0.0011790808755904436,
+          "maximum": 0.0012186889071017504
+        },
+        {
+          "count": 15,
+          "mean": 2.4626078084111213e-05,
+          "median": 0.0,
+          "p90": 0.0,
+          "maximum": 0.0003693911712616682
+        }
+      ],
+      "safe_timeout": [
+        {
+          "count": 55,
+          "mean": 0.1405225428032943,
+          "median": 0.125173419713974,
+          "p90": 0.2436021685600281,
+          "maximum": 0.3757193684577942
+        },
+        {
+          "count": 55,
+          "mean": 0.4116982255808332,
+          "median": 0.0803021565079689,
+          "p90": 1.0775945663452149,
+          "maximum": 1.0942730903625488
+        }
+      ],
+      "unsafe": [
+        {
+          "count": 45,
+          "mean": 0.06756761444008184,
+          "median": 0.04759177565574646,
+          "p90": 0.11296966969966891,
+          "maximum": 0.5733734965324402
+        },
+        {
+          "count": 45,
+          "mean": 0.09656387552774201,
+          "median": 0.07011506706476212,
+          "p90": 0.16804221868515015,
+          "maximum": 0.8672663569450378
+        }
+      ]
+    },
+    "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+    "end_contact_statistics_are_not_ever_contact_rates": true
+  },
+  "actual_supported_success_evidence": [
+    {
+      "environment": 7,
+      "seed": 50001301,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.03918110579252243,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 8,
+      "seed": 50001002,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.01906548999249935,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 16,
+      "seed": 50001004,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.016668668016791344,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 24,
+      "seed": 50001006,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04732810705900192,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 40,
+      "seed": 50001010,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.045267216861248016,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 51,
+      "seed": 50001312,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.047748200595378876,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 64,
+      "seed": 50001016,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04384087771177292,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 67,
+      "seed": 50001316,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.038866035640239716,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 72,
+      "seed": 50001018,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04850732535123825,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 75,
+      "seed": 50001318,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.035077087581157684,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 79,
+      "seed": 50001319,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.02823447249829769,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 88,
+      "seed": 50001022,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.01678275130689144,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 104,
+      "seed": 50001026,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.0098335649818182,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 112,
+      "seed": 50001028,
+      "region": "shelf_2_left",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.010608306154608727,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 115,
+      "seed": 50001328,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "evidence": {
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.03290974348783493,
+        "unsafe": false,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    }
+  ],
+  "invalid_reset_guard_details": [
+    {
+      "environment": 26,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 2.5272853235946968e-05,
+        "invalid": 0,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": false,
+        "surrounding_stable_ticks": 13,
+        "surrounding_unsettled": false
+      }
+    },
+    {
+      "environment": 31,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 1.8817241652868688e-05,
+        "invalid": 0,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": false,
+        "surrounding_stable_ticks": 11,
+        "surrounding_unsettled": false
+      }
+    },
+    {
+      "environment": 33,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 0.22055599093437195,
+        "invalid": 1,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": true,
+        "surrounding_stable_ticks": 0,
+        "surrounding_unsettled": true
+      }
+    },
+    {
+      "environment": 39,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 0.4321688115596771,
+        "invalid": 1,
+        "footprint_invalid": 0,
+        "ready": false,
+        "valid_original_layout": false,
+        "failed_during_settle": true,
+        "surrounding_stable_ticks": 0,
+        "surrounding_unsettled": true
+      }
+    },
+    {
+      "environment": 42,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 3.563344944268465e-05,
+        "invalid": 0,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": false,
+        "surrounding_stable_ticks": 13,
+        "surrounding_unsettled": false
+      }
+    },
+    {
+      "environment": 57,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 3.627377009252086e-05,
+        "invalid": 0,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": false,
+        "surrounding_stable_ticks": 13,
+        "surrounding_unsettled": false
+      }
+    },
+    {
+      "environment": 63,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 1.0238127288175747e-05,
+        "invalid": 0,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": false,
+        "surrounding_stable_ticks": 13,
+        "surrounding_unsettled": false
+      }
+    },
+    {
+      "environment": 78,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 1.026921654556645e-05,
+        "invalid": 0,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": false,
+        "surrounding_stable_ticks": 11,
+        "surrounding_unsettled": false
+      }
+    },
+    {
+      "environment": 83,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 0.44649845361709595,
+        "invalid": 1,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": true,
+        "surrounding_stable_ticks": 0,
+        "surrounding_unsettled": true
+      }
+    },
+    {
+      "environment": 106,
+      "region": "shelf_3_left",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 3.583736179280095e-05,
+        "invalid": 0,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": false,
+        "surrounding_stable_ticks": 13,
+        "surrounding_unsettled": false
+      }
+    },
+    {
+      "environment": 109,
+      "region": "shelf_2_right",
+      "box_type": "medium",
+      "recorded_guard": {
+        "rack_error": 2.478404712746851e-05,
+        "invalid": 0,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": false,
+        "surrounding_stable_ticks": 8,
+        "surrounding_unsettled": false
+      }
+    },
+    {
+      "environment": 113,
+      "region": "shelf_2_right",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 0.7686277627944946,
+        "invalid": 1,
+        "footprint_invalid": 0,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": true,
+        "surrounding_stable_ticks": 0,
+        "surrounding_unsettled": true
+      }
+    },
+    {
+      "environment": 127,
+      "region": "shelf_3_right",
+      "box_type": "small",
+      "recorded_guard": {
+        "rack_error": 0.27228260040283203,
+        "invalid": 1,
+        "footprint_invalid": 1,
+        "ready": true,
+        "valid_original_layout": false,
+        "failed_during_settle": true,
+        "surrounding_stable_ticks": 0,
+        "surrounding_unsettled": true
+      }
+    }
+  ],
+  "same_DEV_against_predecessor_initial": {
+    "reference_wave": 0,
+    "current_wave": 0,
+    "unmatched_environments": [],
+    "different_requested_layout_environments": [],
+    "by_region": {
+      "shelf_2_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 32,
+        "baseline_successes": 9,
+        "current_successes": 9,
+        "lost_successes": 0,
+        "gained_successes": 0
+      },
+      "shelf_2_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 28,
+        "baseline_successes": 0,
+        "current_successes": 0,
+        "lost_successes": 0,
+        "gained_successes": 0
+      },
+      "shelf_3_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 28,
+        "baseline_successes": 0,
+        "current_successes": 0,
+        "lost_successes": 0,
+        "gained_successes": 0
+      },
+      "shelf_3_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 27,
+        "baseline_successes": 5,
+        "current_successes": 6,
+        "lost_successes": 1,
+        "gained_successes": 2
+      }
+    },
+    "common_valid_comparison_is_diagnostic_not_the_primary_success_rate": true,
+    "repeated_reset_physics_are_not_asserted_identical": true,
+    "common_initial_valid_count": 115,
+    "lost_success_environments": [
+      3
+    ],
+    "gained_success_environments": [
+      7,
+      51
+    ],
+    "comparison_is_pre_repair_continuation_actor_not_new_repair_learning": true
+  },
+  "independent_FINAL_not_read": true,
+  "active_replay_HDF_not_read": true,
+  "no_new_physical_success_improvement_claim": true,
+  "goal_not_complete": true
+}

@@ -330,8 +330,8 @@ raw replay/HDF는 닫힌 원본 위치에 보존하며 업로드하거나 삭제
 새 TRAIN은 기존 생성기의 같은 DR 범위로 seed63,000,000부터1,024개를 만들었다.
 이전 seed와 겹치지 않으며 구역·크기의16/16/32/32/16/16 분포와 같은 전체 DEV128을
 유지한다. 새 초기/중간/최종 DEV의 실제 pinch·hold·proof-lift·안전 성공을 비교한다.
-새 초기값은 아직 미측정이므로 이전14회를 대신 넣지 않는다. 실제 파지 성능 개선은
-아직 확인하지 못했다.
+이번 초기값은 아래의 실제15/128이며 이전14회를 대신 넣지 않는다. 새 수정판의
+학습 후 파지 성능 개선은 아직 확인하지 못했다.
 
 300초 checksum 백업·최근2개 checkpoint·닫힌 logs 검증을 유지한다. 종료 후 같은
 대화 점검을 새 CPU watcher721069 하나로 다시 연결했고 기존 watcher와 writer는
@@ -381,3 +381,63 @@ GPU 경계 보호 검사와도 다르다. 현재 수정판의 물리 성공 개�
 actor의 실제 이동과 같은 DEV128 결과로 다음 수정을 판단한다.
 
 [완료56경로·기록 보상·Q·분석 한계](assets/rl_v2_closed_TRAIN_reward_Q_signals_20261011.json).
+
+## 수정판의 실제 초기 DEV128과 첫 production SAC 갱신
+
+10/11 수정판의 전체 초기 DEV128이 완료됐다. 실제 양손 opposing two-pad
+pinch·stable hold0.2667초·proof-lift·rack clearance8mm 이상·안전 성공은 **15/128**이다.
+초기 유효115/실패13, 안전 실패45(rack44/drop1), timeout55, 수치 오류0이다.
+이는 이어받은 actor447/Q3,836의 **새 학습 전 기준값**이다. 모든77개 모델 tensor가
+닫힌 원본과 같았고 새 TRAIN 행0이었다. 보관 모델 SHA256은
+`6371faf801671a0c751f2f52ad703f28a659f1fff83d40d3cb67668dac6c00a1`이며 별도 로컬에
+같은 checksum으로 보존했다. 과거 초기14회와의 차이를 이번 수정의 효과로 설명하지 않는다.
+같은 요청 layout128개·공통 initial-valid115개에서 과거 초기 대비 lost1(env3)·
+gained2(env7/51)였다. 물리 reset 결과까지 같다고 주장하지 않는다.
+
+| 초기 DEV 조건 | 요청 | 유효 | 실제 성공 | 초기화 실패 | 안전 실패 | Timeout |
+|---|---:|---:|---:|---:|---:|---:|
+| 중간 왼쪽 small |16|16|9|0|7|0|
+| 중간 오른쪽 small |16|13|0|3|0|13|
+| 상단 왼쪽 small |32|28|0|4|0|28|
+| 상단 오른쪽 small |32|27|6|5|14|7|
+| 중간 왼쪽 medium |16|16|0|0|16|0|
+| 중간 오른쪽 medium |16|15|0|1|8|7|
+
+![새 학습 전 초기 DEV128의 실제 성공·안전·timeout·초기화 실패](assets/rl_v2_candidate_repair_initial_DEV128_20261011.png)
+
+중간 왼쪽 medium은 유효16개 모두 충돌, 중간 오른쪽 small·상단 왼쪽 small은 유효
+13/28개 모두 timeout이어서 초기화 실패만으로 설명할 수 없다. 초기화 실패13개 중5개는
+settling 중 실패가 기록됐고8개는 원래 layout의 invalid 판정이 유지됐다. 초기화·수치
+오류를 policy 성공/실패로 합치거나 분모에서 빼지 않는다. rack 실패44개는 모두 held_grasp
+단계이며 실패 시 최대힘의 몸체는 r_twofinger_base24, zarm_l4_link15,
+zarm_r4_link4, l_twofinger_base1이다. 구역별 최대힘은 중간 왼쪽255.38N,
+상단 오른쪽146.79N, 중간 오른쪽34.06N이다. 이는 종료 frame의 최대힘이며
+첫 접촉이나 전체 접촉 이력이 아니다.
+
+20:34 첫 주기 저장 모델 Q4,096/actor512에서 실제 새 **Q260회·actor65회**를 확인했다.
+중간 왼쪽47/65·상단 오른쪽20/65 제안이 실제 parameter를 옮겼고, 성공이 없는
+중간 오른쪽·상단 왼쪽은 각각65/65 옮겼다. 보호 구역의 누적 parameter norm은
+각각0.00330/0.00132였다. 같은 보존 TRAIN 상태의 CPU 조회에서도 body mean 최대 변화
+0.00329/0.00139, jaw logit0.0643/0.0855를 확인했다. CPU 조회를 GPU 경계 판정으로
+쓰지 않는다. critic/target20개 tensor와 두 entropy 계수도 바뀌었고 actor normalizer는
+그대로였다. baseline ceiling 위반0이며 원래4경로·2,013행과 phase별 고정 한도는
+초기 모델과 동일했다. 첫4경로는 성공 sampling bank에서 이미 빠졌지만 독립 cohort에
+남아 있었다. 전체250k replay의 eviction까지 관측했다는 뜻은 아니다.
+
+**갱신 정체가 완전히 해결된 것은 아니다.** 상단 오른쪽45/65, 중간 왼쪽18/65는 이동0이고
+특히 상단 오른쪽은 이65개 중 뒤29개가 모두0이다. 마지막 상단 오른쪽 후보는 scale1과
+1/1024 모두 같은 tail64 right_arm 위반0.000462로 거절됐다. 작은 float32 이동의
+양자화 문턱 가능성을 다음 진단 항목으로 남기지만 별도 검증 전 원인으로 확정하지 않는다.
+전체 actor65회라는 수만으로 보호 구역의 정상 갱신·성공 보존을 주장하지 않는다.
+물리·보상·DR·성공·안전 계약은 그대로 학습하며 다음 실제 TRAIN과 같은 DEV128으로
+성공 유지, 구역별 정체, 충돌 변화를 판정한다. 목표는 미달성이다.
+
+이번 초기 중간 왼쪽 medium의 env4는 step439에서 zarm_l4_link–rack36.36N으로
+종료됐다. 손 거리는 약2.95/4.50cm지만 양손 pinch·proof-lift가 없어 실패다.
+해당 **실제 실패 영상**을 H.264/avc1/yuv420p/faststart와 전체 decode를 확인해
+기존 [Notion 중간보고](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)에 추가했다.
+기존 성공 모델·영상과 native media·table은 유지한다. 성공 영상으로 설명하지 않는다.
+
+[이번 실제 초기128개·성공 근거·초기화/안전 사유·checksum](assets/rl_v2_candidate_repair_initial_DEV128_20261011.json) ·
+[첫 실제 production 갱신·구역별 이동·cohort·entropy](assets/rl_v2_candidate_repair_first_actual_SAC_updates_20261011.json) ·
+[완료 초기 실패 영상의 실제 판정·포맷·checksum](assets/rl_v2_candidate_repair_initial_eval_video_20261011.json).
