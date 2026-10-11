@@ -73,14 +73,74 @@ python scripts/rl/audit_candidate_feasibility_repair.py \
   --device cuda:0 --output /path/to/unique/audit.json
 ```
 
+## 직전 완료 TRAIN128과 실제 전환
+
+Candidate-repair 실행의 첫 TRAIN128은 실제 성공9/128, invalid reset1, unsafe58,
+timeout60, numerical failure0이었다. 유효127개를 별도 표시하되 분모128을 유지한다.
+9회 모두 실제 양손 opposing two-pad pinch·hold0.2667초·proof-lift·안전을 확인했다.
+
+| 구역·크기 | 성공/요청 | 초기 유효 | 안전 실패 | timeout |
+|---|---:|---:|---:|---:|
+| 중간 왼쪽small |5/16|16|11|0|
+| 중간 오른쪽small |0/16|16|1|15|
+| 상단 왼쪽small |0/32|32|0|32|
+| 상단 오른쪽small |4/32|31|15|12|
+| 중간 왼쪽medium |0/16|16|16|0|
+| 중간 오른쪽medium |0/16|16|15|1|
+
+상단 오른쪽의 초기화 실패1개와 별개로 상단 왼쪽32개는 모두 유효timeout,
+양쪽medium은 유효16개 중16/15개가 안전 종료였다. 초기화뿐 아니라 policy 문제가
+남았다. 안전58회는rack55·drop3이며, rack55회 모두held_grasp 단계였다. 종료 시
+최대힘은220.74N이었다. 종료 시 최대힘 몸체는 오른손 gripper base33·왼팔4번째link11·
+왼손 gripper base6·오른팔4번째link3·오른팔7번째link2였다. 첫 접촉/전체 접촉 이력은 아니다.
+
+새 actor404회·critic1,614회에서 중간 왼쪽324/404(80.2%)·상단 오른쪽384/404(95.0%)는
+실제 이동0이었다. 성공 없는 두 구역은 모든404회 갱신했고 보호 baseline 한도 초과는0이었다.
+성공 구역의 반복 정체 때문에 현재 설정을 계속 반복하지 않고 개선판으로 전환했다.
+첫 완료 TRAIN 결과와 실패 원인을 기록한 뒤 우리 writer에만 정상 종료 신호를 보냈다.
+다음 TRAIN은step1에서 중단되어 완료 성공률을 계산하지 않는다. 최종 전체 DEV는 없으므로
+초기 DEV15회와 TRAIN9회를 전후 성능 비교나 lost/gained success로 쓰지 않는다.
+
+[완료된 첫 TRAIN128·6조건·안전 원인·실제 새 갱신](assets/rl_v2_candidate_repair_first_TRAIN128_20261011.json).
+
 ## 실제 적용과 다음 확인
 
-현재 진행 배치의 실제128개 TRAIN 결과를 먼저 기록하고 안전하게 전환한다.
-새 고유 GPU3 실행에서 같은 계약의 유한 모델·Q·replay·Adam·성공 cohort를 이어간다.
-이번 새 초기 DEV를 실제 측정하며 이전15회나14회를 대신 넣지 않는다. 새 TRAIN
-seed는 기존 실행과 겹치지 않고 같은6개 구역/크기·box/base/flap DR을 유지한다.
-새 실제 보호 구역의 이동0 비율·body/jaw 이동·critic/entropy를 확인하고, 초기/중간/종료
-DEV128의 실제 성공·invalid reset·안전 원인·timeout·수치 오류를 비교한다.
-독립 FINAL은 수정·탐색에 사용하지 않는다. 목표는 미달성이다.
+10/11 21:26 KST GPU3 새 고유 실행
+`GPU3_URDF_body_restoration_SAC1024_20261011_212605`를 시작했다.
+실제 run은`batch_sac_20261011_212605_6a2d4a`, writer1171480·supervisor1171443이다.
+Frozen source는`758d6a3838fb8060c740cec1ed0113f8107febcb`이다.
+
+직전 writer·supervisor 종료, 유한 model/optimizer, 최종 Drive 검증·닫힌 logs를 확인했다.
+의도적 중단의 원래exit1/interrupted를 보존했다. 실제 source model SHA256은
+`5f4ab3ef6d844345c897d963b215599a6dac7205775c73c63f2e7649d41bc74d`이다.
+Raw replay/HDF는 업로드하거나 삭제하지 않았다. 기존 최선 모델·평가 영상도 보존했다.
+
+새 DEV의 실제 learner는actor851/Q5,450·replay250,000·TRAIN 성공은행7,534행
+(중간 왼쪽10경로3,963행·상단 오른쪽6경로3,571행)·고정 cohort4경로2,013행을 복원했다.
+이 누적 counter를 새 학습량으로 세지 않는다. 최신 성공은행에서 이미 빠진 첫4경로의
+actor obs/action·손별 보호 정답·고정 한도는 이전 모델과 tensor가 동일했다.
+Global replay capacity만으로 해당 경로 전체가 eviction됐다고 주장하지 않는다.
+상속된 최초 actor-only 초기화의`old_Q_or_replay_imported:false` 같은 설명은
+이번 같은 CPU 계약의 재개 상태가 아니다. 실제 복원된 row 수·counter와 restore 코드로 판단했다.
+
+새 TRAIN seed는 기존 실행과 겹치지 않는1,024조건이다. 중간/상단·왼쪽/오른쪽·small/medium의
+같은6조건과 box/base/flap DR을 유지한다. 이번 초기/중간/종료 DEV는 동일128개 요청 조건이다.
+새 초기 성공률은 아직 미측정이며 이전15회/14회를 대신 넣지 않는다. GPU3 UUID와
+private namespace에서`nvidia3`/`renderD131`만 노출됨을 확인했다. PGS·physics dt1/120·
+control dt1/30·curriculum0 계약을 유지하고 GPU1·2 또는 다른 사용자 실행은 건드리지 않았다.
+
+첫300초 백업 검증이 완료됐고 오류는 없었다. 기존 checksum 업로드·최근2개 checkpoint·
+writer 종료 후 logs 검증을 유지한다. 빈 CUDA 마스크의 CPU 감시1179294가 실제 실행되며,
+새 writer·supervisor 종료 및 최종 Drive 검증 뒤 같은 대화에서 한 번 후속 점검한다.
+기존 감시721069는 종료했다. 이 연결은 기존 Codex 서비스와 서버가 계속 실행돼야 한다.
+
+[실제 초기화·재개·첫 cohort 보존·GPU 격리·백업·후속 점검](assets/rl_v2_body_restoration_SAC_actual_startup_20261011.json).
+
+Production 보호 구역의 이동0 비율·선택 교정gain·원래 Adam norm과 실제 이동·body/jaw 변화·
+critic/entropy를 확인한다. 초기/중간/종료 DEV128의 실제 성공·invalid reset·안전 원인·timeout·
+수치 오류를 비교하며 공통 유효 조건의 lost/gained success를 별도 표시한다.
+표본의 보호 검사가 실제 성공 보존을 보장하지 않는다. 독립 FINAL은 수정·탐색에 사용하지 않는다.
+목표는 미달성이다. Notion의 기존 native image57/video47·table5개와 기존 미디어 주소를 보존하고
+최신 상태와 수정·근거만 갱신했다.
 
 [이전 실제 초기·첫 갱신·실패 영상](RL_V2_SERVO_TUBE_SUCCESS_GUARD_20261011.md).
