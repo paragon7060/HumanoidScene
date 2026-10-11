@@ -105,7 +105,7 @@ timeout60, numerical failure0이었다. 유효127개를 별도 표시하되 분�
 
 ## 실패 구역에서 실제 제어 추종과 접근을 분리
 
-현재 새 초기 평가를 기다리며 직전 candidate-repair의 **학습 전 DEV128**의 닫힌 기록을
+새 초기 평가가 진행되는 동안 직전 candidate-repair의 **학습 전 DEV128**의 닫힌 기록을
 CPU로 분석했다. 실제 출발 model counter는manifest의actor447/Q3,836으로 대조했다.
 전체128개 중 유효115경로를 읽었고, 각 경로의 종료 전60행에서만 관절 오차를 계산했다.
 Controller telemetry는절대 목표가 아니라`pending target − measured joint position`
@@ -153,7 +153,7 @@ Global replay capacity만으로 해당 경로 전체가 eviction됐다고 주장
 
 새 TRAIN seed는 기존 실행과 겹치지 않는1,024조건이다. 중간/상단·왼쪽/오른쪽·small/medium의
 같은6조건과 box/base/flap DR을 유지한다. 이번 초기/중간/종료 DEV는 동일128개 요청 조건이다.
-새 초기 성공률은 아직 미측정이며 이전15회/14회를 대신 넣지 않는다. GPU3 UUID와
+새 초기 성공률은 아래 실제10/128로 확인했다. 이전15회/14회를 대신 넣지 않는다. GPU3 UUID와
 private namespace에서`nvidia3`/`renderD131`만 노출됨을 확인했다. PGS·physics dt1/120·
 control dt1/30·curriculum0 계약을 유지하고 GPU1·2 또는 다른 사용자 실행은 건드리지 않았다.
 
@@ -163,6 +163,71 @@ writer 종료 후 logs 검증을 유지한다. 빈 CUDA 마스크의 CPU 감시1
 기존 감시721069는 종료했다. 이 연결은 기존 Codex 서비스와 서버가 계속 실행돼야 한다.
 
 [실제 초기화·재개·첫 cohort 보존·GPU 격리·백업·후속 점검](assets/rl_v2_body_restoration_SAC_actual_startup_20261011.json).
+
+## 이번 출발 모델의 실제 초기 DEV128
+
+**초기 성공10/128(7.8%), initial-valid115, invalid reset13, unsafe57, timeout48,
+numerical failure0이다.** 성공10회는 실제 양손 opposing two-pad pinch·hold·proof-lift·
+안전을 만족한 경로만 센 것이다. 새 TRAIN 갱신 전 actor851/Q5,450의 평가이며,
+원본 종료 모델과77개 model tensor가 모두 동일하다. 이번 수정판의 학습 효과가 아니다.
+
+| 구역·크기 | 성공/요청 | 초기 유효 | 초기 무효 | 안전 실패 | timeout |
+|---|---:|---:|---:|---:|---:|
+| 중간 왼쪽small |7/16|16|0|9|0|
+| 중간 오른쪽small |0/16|13|3|0|13|
+| 상단 왼쪽small |0/32|28|4|1|27|
+| 상단 오른쪽small |3/32|27|5|17|7|
+| 중간 왼쪽medium |0/16|16|0|16|0|
+| 중간 오른쪽medium |0/16|15|1|14|1|
+
+동일128 요청 조건의 직전 초기 actor447/Q3,836(15/128)과 공통 유효115개에서
+lost6·gained1이다. 중간 왼쪽small은9→7(lost3/gained1), 상단 오른쪽small은6→3
+(lost3/gained0), 나머지4조건은0→0이다. Unsafe45→57·timeout55→48이었다.
+**실제 reset의 물리 상태까지 같다고 주장하거나, 서로 다른 run의 초기 평가를 같은
+run의 최종 평가로 설명하지 않는다.** 이전 학습을 거친 출발 모델에서 성공 퇴행이 보였다.
+
+Unsafe57은rack55·drop2이며 rack55회 모두held_grasp 단계였다. 종료 시 최대힘은
+314.57N이다. 종료 시 최대힘 몸체는 오른손 gripper base25·왼팔4번째link15·
+오른팔4번째link8·왼손 gripper base5·왼팔7번째link1·오른팔7번째link1이었다.
+초기화 실패와 별개로 중간 오른쪽small의 유효13개 모두timeout, 중간 왼쪽medium의
+유효16개 모두rack이므로 policy 문제가 남는다. 이 최대힘 통계는 첫 접촉 이력이 아니다.
+
+이번 초기 모델은`artifacts/rl/protected_dev_models_20261011/` 아래 별도로 보존했다.
+SHA256은`4a3fa67140fbf9c42fd285fefceb966c87628db4a438f861ae5f27113b17b9c4`이다.
+이전15회 성공 모델과 영상도 보존한다. 이후 같은 run의 중간/최종 DEV는 이번 실측10회를
+기준으로 비교하고, 이전 최선15회와의 비교는 별도로 표시한다.
+
+[이번 실제128개·6조건·초기 모델 checksum·lost/gained](assets/rl_v2_body_restoration_initial_DEV128_20261011.json).
+
+## 첫 TRAIN 진행 중 실제 갱신 확인
+
+10/11 22:24 KST 첫 TRAIN128의step241에서 새 actor95회·critic380회를 확인했다.
+누적actor946/Q5,830에서 출발actor851/Q5,450을 뺀 값이다. TRAIN wave는 진행 중이므로
+완료 성공률을 계산하지 않는다. 고정 cohort4경로2,013행과 TRAIN 성공은행7,534행을 유지했다.
+
+| 구역 | 실제 이동/새95제안 | 이동0 | 이동0 비율 |
+|---|---:|---:|---:|
+| 중간 왼쪽 |82/95|13|13.7%|
+| 상단 오른쪽 |12/95|83|87.4%|
+| 중간 오른쪽 · 성공 cohort 없음 |95/95|0|0%|
+| 상단 왼쪽 · 성공 cohort 없음 |95/95|0|0%|
+
+직전 완료 TRAIN의 중간 왼쪽 이동0은80.2%였고 이번 부분 구간에서는13.7%로 줄었다.
+서로 다른 학습 구간·상태·Q이므로 통제된 효과 비교는 아니다. 상단 오른쪽은 여전히
+87.4%에서 이동0이며 최근 보호 검사에서 tail64 팔 명령 한도가 막았다. 모든 actor
+counter 증가를 양쪽 성공 구역의 갱신으로 설명하지 않는다. 실제 이동0은 갱신으로 세지 않는다.
+
+Baseline 고정 한도 초과는0이고, 내부 교정gain1/2/4가 실제 선택됐다. 성공 없는 구역은
+계속 갱신되며 보호 대기 상태가 아니다. Critic과 entropy도 갱신했다: 현재 연속alpha
+0.000007527·이산alpha0.013140·Gaussian std 평균0.008829이다. Parameter norm 기록은
+body mean/jaw 출력 변화나 실제 성공 보존의 보장이 아니다. 다음 완료 TRAIN와 같은
+전체 DEV128에서 실제 성공·안전 실패를 확인한다. 상단 오른쪽 정체가 지속되면 닫힌
+실제 TRAIN/model을 사용해 위반 행·관절과 교정 방향을 분석한 뒤 작은 개선을 선택한다.
+
+22:21의300초 Drive 검증은 완료됐고 backup error는 없었다. 체크포인트·계약·닫힌
+로그만 백업하며 현재 raw replay/HDF는 읽거나 업로드·삭제하지 않았다.
+
+[새 갱신95회·구역별 실제 이동·최신 보호 후보·critic/entropy·백업](assets/rl_v2_body_restoration_first_TRAIN_guard_snapshot_20261011.json).
 
 Production 보호 구역의 이동0 비율·선택 교정gain·원래 Adam norm과 실제 이동·body/jaw 변화·
 critic/entropy를 확인한다. 초기/중간/종료 DEV128의 실제 성공·invalid reset·안전 원인·timeout·

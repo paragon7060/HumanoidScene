@@ -1,0 +1,343 @@
+{
+  "recorded_at": "2026-10-11T22:12:55.995772+09:00",
+  "run_name": "batch_sac_20261011_212605_6a2d4a",
+  "experiment_name": "GPU3_URDF_body_restoration_SAC1024_20261011_212605",
+  "role": "actual_initial_DEV128_before_body_restoration_TRAIN",
+  "denominator": 128,
+  "counts": {
+    "success": 10,
+    "initial_invalid": 13,
+    "unsafe": 57,
+    "time_out": 48,
+    "numerical_failure": 0
+  },
+  "initial_valid": 115,
+  "by_scope": {
+    "shelf_2_left/medium": {
+      "requested": 16,
+      "initial_valid": 16,
+      "success": 0,
+      "initial_invalid": 0,
+      "unsafe": 16,
+      "time_out": 0,
+      "numerical_failure": 0
+    },
+    "shelf_2_left/small": {
+      "requested": 16,
+      "initial_valid": 16,
+      "success": 7,
+      "initial_invalid": 0,
+      "unsafe": 9,
+      "time_out": 0,
+      "numerical_failure": 0
+    },
+    "shelf_2_right/medium": {
+      "requested": 16,
+      "initial_valid": 15,
+      "success": 0,
+      "initial_invalid": 1,
+      "unsafe": 14,
+      "time_out": 1,
+      "numerical_failure": 0
+    },
+    "shelf_2_right/small": {
+      "requested": 16,
+      "initial_valid": 13,
+      "success": 0,
+      "initial_invalid": 3,
+      "unsafe": 0,
+      "time_out": 13,
+      "numerical_failure": 0
+    },
+    "shelf_3_left/small": {
+      "requested": 32,
+      "initial_valid": 28,
+      "success": 0,
+      "initial_invalid": 4,
+      "unsafe": 1,
+      "time_out": 27,
+      "numerical_failure": 0
+    },
+    "shelf_3_right/small": {
+      "requested": 32,
+      "initial_valid": 27,
+      "success": 3,
+      "initial_invalid": 5,
+      "unsafe": 17,
+      "time_out": 7,
+      "numerical_failure": 0
+    }
+  },
+  "summary": {
+    "wave": 0,
+    "split": "validation",
+    "by_region": {
+      "shelf_2_left": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 7,
+        "supported_successes": 7,
+        "unsafe": 25,
+        "timeout": 0
+      },
+      "shelf_2_right": {
+        "attempts": 32,
+        "initial_valid": 28,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 14,
+        "timeout": 14
+      },
+      "shelf_3_left": {
+        "attempts": 32,
+        "initial_valid": 28,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 1,
+        "timeout": 27
+      },
+      "shelf_3_right": {
+        "attempts": 32,
+        "initial_valid": 27,
+        "complete": 32,
+        "task_success_flags": 3,
+        "supported_successes": 3,
+        "unsafe": 17,
+        "timeout": 7
+      }
+    },
+    "supported_successes": 10,
+    "attempts": 128,
+    "initial_valid": 115,
+    "unsupported_success_environments": [],
+    "safety_causes_on_valid_completed_attempts": {
+      "robot_rack_collision": 55,
+      "box_drop": 2
+    },
+    "simultaneous_safety_cause_sets": {
+      "robot_rack_collision": 55,
+      "box_drop": 2
+    },
+    "rack_collision_terminal_diagnostics": {
+      "by_region": {
+        "shelf_2_left": {
+          "count": 25,
+          "phase_counts": {
+            "held_grasp": 25
+          },
+          "peak_body_counts": {
+            "zarm_l4_link": 15,
+            "zarm_r4_link": 3,
+            "r_twofinger_base": 5,
+            "l_twofinger_base": 1,
+            "zarm_r7_link": 1
+          },
+          "peak_force_n": {
+            "count": 25,
+            "mean": 71.7265760421753,
+            "median": 28.20298957824707,
+            "p90": 213.97578125000004,
+            "maximum": 314.5743408203125
+          }
+        },
+        "shelf_2_right": {
+          "count": 12,
+          "phase_counts": {
+            "held_grasp": 12
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 8,
+            "l_twofinger_base": 3,
+            "zarm_l7_link": 1
+          },
+          "peak_force_n": {
+            "count": 12,
+            "mean": 53.665481408437095,
+            "median": 45.37885856628418,
+            "p90": 91.50291213989259,
+            "maximum": 97.09349060058594
+          }
+        },
+        "shelf_3_right": {
+          "count": 17,
+          "phase_counts": {
+            "held_grasp": 17
+          },
+          "peak_body_counts": {
+            "zarm_r4_link": 5,
+            "r_twofinger_base": 12
+          },
+          "peak_force_n": {
+            "count": 17,
+            "mean": 55.1030746347764,
+            "median": 39.440921783447266,
+            "p90": 111.03787689208984,
+            "maximum": 131.43429565429688
+          }
+        },
+        "shelf_3_left": {
+          "count": 1,
+          "phase_counts": {
+            "held_grasp": 1
+          },
+          "peak_body_counts": {
+            "l_twofinger_base": 1
+          },
+          "peak_force_n": {
+            "count": 1,
+            "mean": 26.645822525024414,
+            "median": 26.645822525024414,
+            "p90": 26.645822525024414,
+            "maximum": 26.645822525024414
+          }
+        }
+      },
+      "valid_completed_unsafe_attempts_only": true,
+      "failure_step_peak_body_not_first_contact_or_contact_history": true
+    },
+    "end_pinching_hand_counts": {
+      "2": 11,
+      "0": 97,
+      "1": 7
+    },
+    "end_contact_quality": {
+      "count": 115,
+      "mean": 0.11595441867880847,
+      "median": 0.0,
+      "p90": 0.4102882504463209,
+      "maximum": 1.0
+    },
+    "end_matched_flap_surface_distance_m": [
+      {
+        "count": 115,
+        "mean": 0.09747207356495378,
+        "median": 0.06530371308326721,
+        "p90": 0.22462352514266967,
+        "maximum": 0.4350999891757965
+      },
+      {
+        "count": 115,
+        "mean": 0.20807218988142584,
+        "median": 0.06385859847068787,
+        "p90": 1.048264813423157,
+        "maximum": 1.068604588508606
+      }
+    ],
+    "end_flap_surface_distance_by_outcome_m": {
+      "supported_success": [
+        {
+          "count": 10,
+          "mean": 0.0006574726197868585,
+          "median": 0.0006986528169363737,
+          "p90": 0.00104658012278378,
+          "maximum": 0.0011375036556273699
+        },
+        {
+          "count": 10,
+          "mean": 0.00032104949932545426,
+          "median": 0.0,
+          "p90": 0.0009857014520093794,
+          "maximum": 0.0023796800523996353
+        }
+      ],
+      "safe_timeout": [
+        {
+          "count": 48,
+          "mean": 0.14154245604974372,
+          "median": 0.1473105400800705,
+          "p90": 0.2332910627126694,
+          "maximum": 0.24643634259700775
+        },
+        {
+          "count": 48,
+          "mean": 0.3403056116755276,
+          "median": 0.07869194447994232,
+          "p90": 1.0613993406295776,
+          "maximum": 1.068604588508606
+        }
+      ],
+      "unsafe": [
+        {
+          "count": 57,
+          "mean": 0.07734519023480907,
+          "median": 0.050210654735565186,
+          "p90": 0.1682760864496231,
+          "maximum": 0.4350999891757965
+        },
+        {
+          "count": 57,
+          "mean": 0.1331652979113227,
+          "median": 0.06840349733829498,
+          "p90": 0.36684173345565796,
+          "maximum": 0.9102602005004883
+        }
+      ]
+    },
+    "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+    "end_contact_statistics_are_not_ever_contact_rates": true
+  },
+  "source_actor_updates": 851,
+  "source_critic_updates": 5450,
+  "new_actor_updates_at_evaluation": 0,
+  "new_critic_updates_at_evaluation": 0,
+  "model_all_tensor_count": 77,
+  "all_initial_model_tensors_equal_verified_closed_source": true,
+  "model_SHA256": "4a3fa67140fbf9c42fd285fefceb966c87628db4a438f861ae5f27113b17b9c4",
+  "protected_local_model": "artifacts/rl/protected_dev_models_20261011/batch_sac_20261011_212605_6a2d4a/checkpoint_00005450.pt",
+  "previous_best_initial15_model_preserved": true,
+  "paired_against_previous_initialDEV_15_source_actor447": {
+    "reference_wave": 0,
+    "current_wave": 0,
+    "unmatched_environments": [],
+    "different_requested_layout_environments": [],
+    "by_region": {
+      "shelf_2_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 32,
+        "baseline_successes": 9,
+        "current_successes": 7,
+        "lost_successes": 3,
+        "gained_successes": 1
+      },
+      "shelf_2_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 28,
+        "baseline_successes": 0,
+        "current_successes": 0,
+        "lost_successes": 0,
+        "gained_successes": 0
+      },
+      "shelf_3_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 28,
+        "baseline_successes": 0,
+        "current_successes": 0,
+        "lost_successes": 0,
+        "gained_successes": 0
+      },
+      "shelf_3_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 27,
+        "baseline_successes": 6,
+        "current_successes": 3,
+        "lost_successes": 3,
+        "gained_successes": 0
+      }
+    },
+    "common_valid_comparison_is_diagnostic_not_the_primary_success_rate": true,
+    "repeated_reset_physics_are_not_asserted_identical": true
+  },
+  "same_requested_layouts_but_actual_reset_physics_not_asserted_identical": true,
+  "comparison_not_effect_of_new_guard_TRAIN": true,
+  "previous_initial_successes": 15,
+  "previous_invalid": 13,
+  "previous_unsafe": 45,
+  "previous_timeout": 55,
+  "previous_numerical": 0,
+  "success_improvement_not_shown": true,
+  "independent_FINAL_used": false,
+  "goal_not_complete": true
+}
