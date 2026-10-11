@@ -339,3 +339,45 @@ raw replay/HDF는 닫힌 원본 위치에 보존하며 업로드하거나 삭제
 요약과 후속 점검을 요청한다. 서버와 기존 Codex 서비스가 계속 실행돼야 한다.
 
 [실제 시작·원본 종료 검증·재개 counter와 checksum](assets/rl_v2_candidate_repair_GPU3_actual_startup_20261011.json).
+
+## 완료 TRAIN에서 보상·Q 신호 확인
+
+수정판의 초기 평가가 진행되는 동안, 종료·Drive 검증을 마친 이전 actor447/Q3,836의
+실제 **보관 중인 완료 TRAIN56경로**를 CPU로만 조회했다. 현재 replay/HDF와 DEV/FINAL은
+읽지 않았고 모델·보상·optimizer를 바꾸지 않았다. 이56경로는 credit bank의 보관 선택을
+거친 표본이므로 전체 TRAIN 성공률이나 일반화 성능의 분모로 사용하지 않는다.
+
+| 보관 완료 TRAIN 조건 | 경로 수 | 실제 할인 return 중앙값 | 첫 held 상태 Q 중앙값 |
+|---|---:|---:|---:|
+| 중간 왼쪽 small 성공 |5|6.06|4.33|
+| 중간 왼쪽 small 안전 실패 |4|-4.09|-2.46|
+| 상단 오른쪽 small 성공 |4|4.63|1.77|
+| 상단 오른쪽 small timeout |2|-0.92|1.54|
+| 상단 오른쪽 small 안전 실패 |9|-4.89|-3.05|
+| 중간 왼쪽 medium 안전 실패 |11|-5.25|-4.10|
+| 중간 오른쪽 medium 안전 실패 |4|-4.70|-3.69|
+| 중간 오른쪽 medium timeout |2|-1.43|-1.53|
+| 중간 오른쪽 small timeout |5|-1.45|-0.70|
+| 상단 왼쪽 small timeout |10|-1.13|-0.77|
+
+return은 각 기록 행동 이후의 실제 reward를 실제 learner의 gamma0.999·reward_scale1로
+할인한 값이다. 물리 manifest에 남은 legacy exploration의 scale10이나 LR3e-5를 실제
+learner 설정으로 대신 쓰지 않았다. 실제 actor LR은1e-6이다. 성공9경로 모두 양손
+opposing pinch·hold·proof-lift와 안전 근거가 일치했다. 해당 성공 경로의 원래 reward 합은
+중간 왼쪽8.13~8.51, 상단 오른쪽7.62~7.81이고 실패 합은 모두 음수였다. 성공 보상이나
+실제 접촉 신호가 통째로 빠진 상태라는 근거는 없다.
+
+Q는 같은 기록 state와 **실행된 behavior action**의 min(Q1,Q2) 추정이며 성공 확률이
+아니다. 현재 정책의 기대 return과 과거 탐색 behavior의 실현 return은 다르므로 두 수의
+차이만으로 Bellman 오류·critic underfit을 판정하지 않는다. 상단 오른쪽 성공/timeout
+표본의 초기 Q가 비슷한 점은 다음 실제 갱신·평가에서 확인할 진단 항목이다. timeout은
+2경로뿐이고 표본 선택도 있어 이를 모든 상태의 순위 오류로 일반화하지 않는다. CPU 조회는
+GPU 경계 보호 검사와도 다르다. 현재 수정판의 물리 성공 개선으로 설명하지 않는다.
+
+현재 보상 코드의 손별 정밀 접근은 거리3cm·capture2.5cm·축 정렬의 곱과 약한 손을
+반영하고, 실제 opposed two-pad pinch의 연속0.25초 potential을 적용한다. 두 항은 weight1,
+흡수 terminal potential0이며 gripper 명령만으로 pinch 보상을 주지 않는다. 코드와 실제
+기록에서 신호가 연결돼 있으므로 현재 비교 중에 보상을 다시 바꾸지 않고, 우선 교정된
+actor의 실제 이동과 같은 DEV128 결과로 다음 수정을 판단한다.
+
+[완료56경로·기록 보상·Q·분석 한계](assets/rl_v2_closed_TRAIN_reward_Q_signals_20261011.json).
