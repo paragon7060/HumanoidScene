@@ -96,7 +96,7 @@ def main():
     parser.add_argument('--eval-video-q-values', action='store_true',
         help='Record frozen DEV Q1/Q2 of actual held state/actions on the same frames without reading raw HDF')
     parser.add_argument('--rack-contact-summary', action='store_true',
-        help='Keep first measured rack warning and largest force from existing pre-reset packets; no new sensors or steps')
+        help='TRAIN/DEV only: keep rack warnings and largest force from existing pre-reset packets; no new sensors or steps')
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
@@ -873,7 +873,7 @@ def main():
                 invalid_reset=True,time_out=False,pinching=[False,False],flap_distances=None,
                 original_layout_replaced_during_settling=True,replay_rows=0) for i in range(n)]
             buffer={};scene_videos=None;rack_contacts=None
-            if args.rack_contact_summary:
+            if args.rack_contact_summary and wave['split'] in ('train','validation'):
                 from rack_contact_summary import RackContactSummary
                 rack_contacts=RackContactSummary(n,float(cfg.multi_box.rack_contact_force))
             if args.eval_video_env_indices and (wave['split']=='validation' or workplace_eval):

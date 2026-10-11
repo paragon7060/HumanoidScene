@@ -322,6 +322,7 @@ alpha를 낮추는 방향이다. 저장 alpha6.087e-6→5.849e-6도 이 제한�
 기존 batched runner command에 `--rack-contact-summary`를 추가한다. 기본은 꺼져 있고
 현재 frozen d32b2f6 writer에는 적용하지 않았다. 새 source로 실행한 각 outcome의
 `metrics.json.outcomes[*].rack_contact_summary`에 다음 세 값만 남긴다.
+추가 진단은 TRAIN/DEV만 기록하며 독립 FINAL에는 적용하지 않는다.
 
 - 첫 처리 control step에서 경고 힘을 넘은 프레임의 최대힘 몸체·단계·손 거리/pinch/hold.
 - `held_grasp` 단계에서 처음 경고를 넘은 프레임의 같은 값.
