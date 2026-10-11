@@ -1,5 +1,10 @@
 # SAC 성공 경로의 과도한 갱신 제한 수정
 
+10/11 새 실행의 초기 DEV는 실제14/128이고 완료 TRAIN 두 배치는9/128·13/128이다.
+아직 학습 후 같은 DEV 개선을 확인하지 못했다. 성공 구역 갱신의98%/97%가 이동0으로
+막혀 실제 후보 위반을 교정하는 작은 수정을 완료했다. GPU3 저장 모델의 복사본과25개
+검사에서 갱신을 확인했으며 아래에 수치와 검증 범위를 기록한다. 목표는 미달성이다.
+
 10/10 18:25 GPU3 실행은 정상 종료했고 마지막 모델·로그의 기존 Drive 검증을
 마쳤다. **이번 실측은 초기14/128 → 최종13/128로 개선이 없다.** actor가713회
 갱신됐지만 성공했던 두 구역은 대부분 갱신을 거절했다. 실제 모델과 성공·실패
@@ -230,3 +235,70 @@ writer가 살아 있으므로 최종 로그 검증이 끝났다고 주장하지 
 300초 Drive 업로드·최근2개 보호·종료 후 같은 대화의 후속 점검은 유지한다.
 
 [이번 초기 실측·보호 모델·개별 Drive checksum 근거](assets/rl_v2_servo_tube_this_run_initial_DEV128_20261011.json).
+
+## 첫 실제 TRAIN128·성공 은행 등록
+
+10/11 18:44 첫 새 TRAIN128조건을 모두 완료했다. 실제 성공9/128, 유효127·
+초기화 실패1·안전50·timeout68·수치 오류0이었다. 중간 왼쪽 small7/16·상단 오른쪽
+small2/32이고 나머지4조건은0이다. 중간 왼쪽 medium은 초기화가 유효한16개 모두
+안전 실패, 중간 오른쪽 small과 상단 왼쪽 small은 유효16/32개 모두 timeout이다.
+안전 원인은 rack46·box-drop3·비정상 lift1이다. TRAIN은 새 layout이므로 초기 DEV14와
+짝지어 퇴행/개선으로 비교하지 않는다. 이때 actor는0회여서 학습된 정책의 새 성과도 아니다.
+
+새 TRAIN79,509행·critic1,596회를 확인했다. 성공 은행9경로·3,986행과 각 성공
+구역·크기의 첫 등록2경로씩 총4경로·2,013행을 별도 cohort로 저장했다. 접근/tail64
+8그룹의 goal·servo 한도는 float64이며 고정 예산과 모든 행·손별 greedy jaw 보호를
+확인했다. 아직 replay eviction 전이므로 이 실행에서 eviction 후 보존을 실측했다고
+주장하지 않는다. 저장 모델의 CPU 전체 cohort 조회에서 한도 위반·jaw 퇴행은0이다.
+이 점검은 GPU에서 실제 Adam proposal 수용이나 향후 물리 성공을 검증한 결과가 아니다.
+
+Q1,024 저장 모델도 초기 모델과 비교했다. 두 critic과 두 target은 각10개 tensor가 모두
+실제로 변경됐고 actor26개·actor normalizer3개·두 entropy 계수는 정확히 그대로였다.
+모든 모델 값은 유한했다. critic normalizer의 큰 변화값에는 표본 count가 포함되므로
+그 숫자를 관측 평균의 변화나 불안정성으로 해석하지 않는다. counter만으로 갱신을
+판정하지 않았다. 첫 완료 성공 은행 등록과 Q2,048 warmup 뒤 actor 갱신이 시작됐다.
+
+[첫 실제 Q1,024 모델 변화](assets/rl_v2_servo_tube_first_actual_Q1024_20261011.json) ·
+[첫 전체 TRAIN128·성공 cohort·CPU 한도 점검](assets/rl_v2_servo_tube_first_TRAIN128_cohort_20261011.json).
+
+## 실제 GPU 갱신 정체와 후보 위반 교정
+
+두 번째 새 TRAIN128의 안전한 실제 성공은13/128이었다. 유효128·안전56(rack54/drop2)·
+timeout59·수치 오류0이다. 중간 왼쪽 small7/16·상단 오른쪽 small6/32이며 나머지4조건은
+여전히0이다. 첫 TRAIN9회와 다른 layout·reset이므로 9→13을 SAC 성공률 개선으로 세지 않는다.
+학습 후 같은 전체 DEV128 비교는 아직 완료되지 않았다.
+
+두 번째 TRAIN 종료 시 actor293/critic3,220회였다. 전역 actor 제안293회가 수용됐지만,
+중간 왼쪽288/293(98.3%)·상단 오른쪽283/293(96.6%)는 실제 parameter 이동0이었다.
+성공이 없는 중간 오른쪽·상단 왼쪽은 모두 전체 크기로 갱신됐다. GPU baseline 한도 위반은0이다.
+
+원인은 baseline에서 계산한 최악 오차의 기울기와 실제 Adam 후보의 위반 행·관절이 다르고,
+phase 평균 jaw BCE가 좋아져도 특정 행의 greedy jaw는 틀릴 수 있다는 점이다. 실제 cohort의
+중간 왼쪽 접근 경로에서 왼손 signed logit 최솟값은 약0.000746이었다. 한 jaw가 경계를 넘으면
+팔의 유용한 교정도 구역 전체 축소·거절로 함께 막혔다. 기존 고정 명령 예산이 있어도 이 병목은 남았다.
+
+수정은 실제 Adam 후보에서 위반한 body 한도·jaw BCE·행별 jaw 경계의 기울기를 구하고,
+그 위반을 줄이는 작은 교정을 먼저 적용하는 것이다. 구역별 변위 norm은 원래 투영 Adam
+후보보다 커질 수 없다. 기존1~1/1024 축소·거절, 모든 행·손의 정답 jaw, 고정 goal/servo
+한도, 마지막 전체 cohort 검사는 유지한다. 물리·보상·randomization·task 기준은 바꾸지 않는다.
+
+GPU3 저장 모델 actor256/Q3,072(SHA256
+`0b7334441199e0648e68616f03f6bc15a7af85aeb3c68b24d1a80837b4afa7a2`)의
+**복사본에서 실제 SAC 갱신2개**를 비교했다. 각 비교는 완료된 TRAIN 성공 은행의 Q256행·
+actor 보호64행만 사용했으며 같은 RNG·모델·Adam 상태였다. 수정 전은 두 번 모두 양 구역
+이동0·actor/entropy 갱신 거절이었다. 수정 후는 두 번 모두 양 구역 scale0.5로 수용됐고,
+전체 parameter norm 약0.000202/0.000201, 실제 body mean·jaw logit·두 entropy 계수가
+변했다. 전체 고정 cohort 검사를 통과했고 한도와 원본 모델은 그대로였다. 구역별 parameter
+norm은 중간 왼쪽 약0.000129/0.000127, 상단 오른쪽 약0.000155/0.000156이었다.
+
+CPU로 동일 GPU 경계 모델을 조회하면 연산 차이로 한도·jaw 판정이 달랐다. GPU3의 기존
+UUID·single-GPU 장치 namespace에서 조회했을 때 원래 baseline이 유효했다. 한도를
+재계산하거나 완화해 검사를 통과시킨 것이 아니다. 임시 GPU 진단은 종료됐으며 Isaac/물리를
+실행하지 않았다. CPU의 warmup 직후 actor0 모델 두 제안에서도 중간 왼쪽 이동이8배 커졌다.
+
+관련25개 검사는 통과했다. **성공 경로 표본의 갱신 가능성 확인이며 실제 파지 성능 개선은 아니다.**
+진단 Q batch는 성공 은행만 쓰므로 production 혼합 replay와 동일하지 않고, teacher/episode-return
+보조 critic loss도 재구성하지 않았다. 성공 유지 보장은 같은 전체 DEV128의 실제 결과로 확인한다.
+
+[실제 완료 TRAIN·구역별 이동0 비율](assets/rl_v2_servo_tube_guard_stagnation_before_repair_20261011.json) ·
+[GPU3 동일 저장 모델의 교정 전후 실제 SAC 갱신](assets/rl_v2_servo_tube_candidate_feasibility_GPU3_20261011.json).

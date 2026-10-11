@@ -252,6 +252,70 @@ def gradient_constraints(agent, batch, groups, parameters):
     return gradients
 
 
+def violation_correction(agent, batch, groups, parameters):
+    """Repair current violations while keeping the original hard checks.
+
+    Every phase uses its fixed forward shape. The most regressed protected
+    jaw per hand/phase adds a decision-boundary derivative; a mean BCE alone
+    can improve while that particular jaw changes its greedy label.
+    """
+    if not tube(agent):
+        raise ValueError('Candidate repair requires fixed servo tube bounds')
+    protected = torch.cat([e['protected_correct_jaws']
+                           for e in agent.success_guard_memory['entries']]).to(batch['actor_obs'].device)
+    constraints = []
+    kinds = {'body': 0, 'jaw_loss': 0, 'jaw_label': 0}
+
+    def add(loss, excess, kind):
+        if not loss.requires_grad:
+            return
+        parts = torch.autograd.grad(loss, parameters, allow_unused=True, retain_graph=True)
+        gradient = torch.cat([(torch.zeros_like(p) if v is None else v).detach().flatten()
+                              for p, v in zip(parameters, parts)])
+        if not torch.isfinite(gradient).all() or not torch.isfinite(torch.tensor(excess)):
+            raise FloatingPointError('Nonfinite candidate feasibility derivative')
+        if gradient.square().sum() > 1e-20:
+            constraints.append((gradient, excess))
+            kinds[kind] += 1
+
+    for key, rows in groups.items():
+        part = {name: values[rows] for name, values in batch.items()}
+        terms, correct = _losses_and_jaws(agent, part, {key: slice(None)})
+        for name, loss in terms[key].items():
+            limit = agent.success_guard_memory['ceilings'][key][name]
+            config = agent.actor_success_guard_config
+            tolerance = config['absolute_loss_tolerance']+config['relative_loss_tolerance']*abs(limit)
+            if float(loss.detach()) > limit+tolerance:
+                add(loss, float(loss.detach())-limit+tolerance,
+                    'body' if name in BODY_GROUPS else 'jaw_loss')
+        wrong = protected[rows] & ~correct
+        if wrong.any():
+            raw, labels = part['actor_obs'], part['action'][:, 19:]
+            logits = agent.continuous_parameters(agent.actor_normalizer(agent.actor_features(raw)), raw)[2]
+            signed = logits.double()*labels.double()
+            for hand in range(2):
+                bad = torch.where(wrong[:, hand])[0]
+                if not len(bad):
+                    continue
+                index = bad[signed[bad, hand].detach().argmin()]
+                loss = -signed[index, hand]
+                # A few float32 ulps of optimizer feasibility reserve. The
+                # production predicate remains logits>0, with no deadband.
+                reserve = 8*torch.finfo(logits.dtype).eps
+                add(loss, float(loss.detach())+reserve, 'jaw_label')
+    if not constraints:
+        return None, kinds
+    correction = torch.zeros_like(constraints[0][0])
+    for _ in range(agent.actor_success_guard_config['projection_cycles']):
+        for gradient, excess in constraints:
+            remaining = torch.dot(gradient, correction)+excess
+            if remaining > 0:
+                correction -= remaining/gradient.square().sum()*gradient
+    if not torch.isfinite(correction).all():
+        raise FloatingPointError('Nonfinite candidate feasibility displacement')
+    return correction, kinds
+
+
 def report(agent):
     memory = getattr(agent, 'success_guard_memory', None) or empty_memory()
     return dict(episodes=len(memory['entries']), rows=sum(len(e['action']) for e in memory['entries']),

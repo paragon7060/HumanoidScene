@@ -160,6 +160,7 @@ def guarded_actor_step(agent, loss, successful):
     after = before
     checks=[]
     region_scales={}
+    repairs=[]
     baseline_allowed=(cohort.within_ceilings(before,before_correct,agent.success_guard_memory,config)
                       if cohort.stable(agent) else None)
     try:
@@ -197,6 +198,37 @@ def guarded_actor_step(agent, loss, successful):
             for p,old in zip(parameters,previous):p.copy_(old)
         for region,indices in partitions.items():
             local_scale=0.
+            if cohort.tube(agent) and baseline_allowed:
+                local_parameters=[parameters[i] for i in indices]
+                initial_delta=torch.cat([(proposal[i]-previous[i]).flatten() for i in indices])
+                trust_norm=initial_delta.norm()
+                if trust_norm > 0:
+                    with torch.no_grad():
+                        for i in indices:parameters[i].copy_(proposal[i])
+                    for cycle in range(config['projection_cycles']):
+                        candidate,correct=cohort.metrics(agent,successful,groups)
+                        if cohort.within_ceilings(candidate,correct,agent.success_guard_memory,config):
+                            break
+                        correction,kinds=cohort.violation_correction(
+                            agent,successful,groups,local_parameters)
+                        repairs.append(dict(region=region,cycle=cycle,**kinds))
+                        if correction is None:
+                            break
+                        current=torch.cat([(parameters[i].detach()-previous[i]).flatten() for i in indices])
+                        current=current+correction
+                        # Keep each region within its original projected Adam
+                        # proposal norm. Hard checks follow this trust bound.
+                        current=current*torch.minimum(current.new_tensor(1.),
+                            trust_norm/current.norm().clamp_min(1e-30))
+                        offset=0
+                        with torch.no_grad():
+                            for i in indices:
+                                count=previous[i].numel()
+                                parameters[i].copy_(previous[i]+current[offset:offset+count].reshape_as(previous[i]))
+                                offset+=count
+                    for i in indices:proposal[i]=parameters[i].detach().clone()
+                    with torch.no_grad():
+                        for i in indices:parameters[i].copy_(previous[i])
             for scale in config['candidate_parameter_scales']:
                 with torch.no_grad():
                     for i in indices:
@@ -270,6 +302,13 @@ def guarded_actor_step(agent, loss, successful):
         for region,scale in region_scales.items():
             local=counts.setdefault(region,{})
             key=str(scale);local[key]=local.get(key,0)+1
+    if cohort.tube(agent):
+        stats['actor_success_guard_candidate_repairs']=repairs
+        counters['candidate_repair_cycles']=counters.get('candidate_repair_cycles',0)+len(repairs)
+        counts=counters.setdefault('candidate_repair_constraint_counts',{})
+        for repair in repairs:
+            for kind in ('body','jaw_loss','jaw_label'):
+                counts[kind]=counts.get(kind,0)+repair[kind]
     return bool(accepted_scale), stats
 
 

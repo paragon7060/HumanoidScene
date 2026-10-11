@@ -229,3 +229,40 @@ def test_servo_tube_cannot_accumulate_slack_or_lose_a_correct_jaw():
     saved=a.checkpoint();saved['success_guard_memory']['entries'][0]['servo_error_limits'][0,0]=float('nan')
     b,_=sample(cohort.TUBE_VARIANT)
     with pytest.raises(ValueError,match='physical command tube'):b.restore(saved)
+
+
+def test_candidate_repair_keeps_a_useful_body_step_when_mean_BCE_misses_a_jaw_flip(monkeypatch):
+    old,_=sample(cohort.TUBE_VARIANT)
+    new,_=sample(cohort.TUBE_VARIANT);new.restore(old.checkpoint())
+    original=deepcopy(new.success_guard_memory)
+    # The mean BCE change fits its budget, but any positive logit changes the
+    # initially correct open jaw. Shrinking that whole head never fixes it.
+    monkeypatch.setattr(cohort,'violation_correction',lambda *args:(None,dict(body=0,jaw_loss=0,jaw_label=0)))
+    accepted,_=guarded_actor_step(old,-old.actor.network[-1].bias[1]-old.actor.network[-1].bias[19],None)
+    assert not accepted
+    monkeypatch.undo()
+    bias=new.actor.network[-1].bias
+    accepted,report=guarded_actor_step(new,-bias[1]-bias[19],None)
+    assert accepted and bias[1]>0 and report['actor_success_guard_parameter_delta_norm']>0
+    assert any(x['jaw_label'] for x in report['actor_success_guard_candidate_repairs'])
+    batch,groups=cohort.cohort_batch(new);values,correct=cohort.metrics(new,batch,groups)
+    assert cohort.within_ceilings(values,correct,new.success_guard_memory,new.actor_success_guard_config)
+    assert new.success_guard_memory['ceilings']==original['ceilings']
+    assert all(torch.equal(e['goal_error_limits'],f['goal_error_limits']) and
+               torch.equal(e['servo_error_limits'],f['servo_error_limits'])
+               for e,f in zip(original['entries'],new.success_guard_memory['entries']))
+    assert torch.equal(new.act(batch['actor_obs'],True)[:,19:],batch['action'][:,19:])
+
+
+def test_candidate_body_repair_uses_the_exceeded_fixed_bound_instead_of_widening_it():
+    agent,_=sample(cohort.TUBE_VARIANT)
+    initial=deepcopy(agent.success_guard_memory)
+    agent.actor_optimizer.param_groups[0]['lr']=.03
+    bias=agent.actor.network[-1].bias
+    accepted,report=guarded_actor_step(agent,-bias[1],None)
+    assert accepted and report['actor_success_guard_parameter_delta_norm']>0
+    assert any(x['body'] for x in report['actor_success_guard_candidate_repairs'])
+    assert agent.success_guard_memory['ceilings']==initial['ceilings']
+    batch,groups=cohort.cohort_batch(agent);values,correct=cohort.metrics(agent,batch,groups)
+    assert cohort.within_ceilings(values,correct,agent.success_guard_memory,agent.actor_success_guard_config)
+    assert report['actor_success_guard_parameter_delta_norm']<=.03+1e-6

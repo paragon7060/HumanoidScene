@@ -59,7 +59,7 @@ def recorded_held_box_anchor(prior, rows, start):
     return prior.coordinates.box_anchor(raw)
 
 
-def restored_agent(state):
+def restored_agent(state, device='cpu'):
     from kuavo_isaaclab_scene.rl.multi_box.observations.task_timing import resolve_critic_episode_clock
     if resolve_critic_episode_clock(state) != state['goal_contract'].get('critic_episode_clock'):
         raise ValueError('Saved critic episode clock and feature contract differ')
@@ -171,7 +171,7 @@ def restored_agent(state):
         raise ValueError('Unknown actual-flap controller for Q video restoration')
     snapshot = state['body_anchor_state']
     nominal_snapshot = snapshot['nominal_body_anchor'] if reanchored else snapshot
-    prior = PoseStudent(state['frozen_warm_start']['bc_prior'], 'cpu')
+    prior = PoseStudent(state['frozen_warm_start']['bc_prior'], device)
     nominal_width = contract['actor_dim'] - 38
     prefix = nominal_width - 6
     if prefix != prior.agent.actor_obs_dim + 2:
@@ -183,9 +183,10 @@ def restored_agent(state):
         actor_normalizer=ObservationNormalizer(nominal_width),
     ))
     anchor.load_state_dict(nominal_snapshot['model'])
+    anchor.to(device)
     anchor.requires_grad_(False)
-    actual_anchor = actual_actor_snapshot(snapshot, 'cpu') if reanchored else None
-    regional_source = frozen_regional_source(state['URDF_regional_source'], 'cpu') if urdf else None
+    actual_anchor = actual_actor_snapshot(snapshot, device) if reanchored else None
+    regional_source = frozen_regional_source(state['URDF_regional_source'], device) if urdf else None
 
     @torch.no_grad()
     def body_anchor(raw):
@@ -205,7 +206,7 @@ def restored_agent(state):
     agent_class=(UprightServoGuardSAC if upright_contact else StrongSuccessFullArmSAC if strong_success else FullArmServoGuardSAC if full_arm else
                  ServoGuardCorrectionSAC if guard else SupportConservativeHybridSAC if support else
                  ServoRetainedCorrectionSAC if retained else BoundedCorrectionHybridSAC)
-    agent = agent_class(518, critic_dim, 21, SACConfig(**state['config']), 'cpu',
+    agent = agent_class(518, critic_dim, 21, SACConfig(**state['config']), device,
         action_projector=AbsoluteGoalJawProjector(),
         validated_jaw_prior_confidence=contract['validated_jaw_prior_confidence'],
         jaw_prior_residual_gain=contract['jaw_prior_residual_gain'])
@@ -235,7 +236,7 @@ def restored_agent(state):
     agent.actor_success_guard_config = state.get('actor_success_guard')
     agent.restore(state, training=False)
     agent.requires_grad_(False)
-    if not all(torch.equal(value, agent.state_dict()[key]) for key, value in state['model'].items()):
+    if not all(torch.equal(value.cpu(), agent.state_dict()[key].detach().cpu()) for key, value in state['model'].items()):
         raise ValueError('Restored model does not exactly match the evaluation checkpoint')
     return agent, prior
 
