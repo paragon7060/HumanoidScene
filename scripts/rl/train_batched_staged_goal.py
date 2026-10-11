@@ -93,6 +93,8 @@ def main():
     parser.add_argument('--learner-device', choices=('cpu','cuda:0'), default=None)
     parser.add_argument('--eval-video-env-indices', type=int, nargs='+', default=None,
         help='Record up to6 actual DEV environments before reset; complete original distribution remains evaluated')
+    parser.add_argument('--eval-video-q-values', action='store_true',
+        help='Record frozen DEV Q1/Q2 of actual held state/actions on the same frames without reading raw HDF')
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
@@ -269,6 +271,8 @@ def main():
     if args.robot_model!='s63' or args.gripper!='leju-twofinger' or not args.rack_rollers:
         parser.error('Current held-base checkpoint requires S63/Leju/rack rollers')
     from selected_scene_videos import validate_video_selection
+    if args.eval_video_q_values and (not args.eval_video_env_indices or args.cpu_workplace_probe):
+        parser.error('Q video values require selected frozen DEV videos, without a workplace probe')
     try:validate_video_selection(args.eval_video_env_indices,n,args.steps)
     except ValueError as error:parser.error(str(error))
     export_robot_model_cli(args);export_gripper_cli(args);export_rack_roller_cli(args);export_base_drive_cli(args)
@@ -871,7 +875,8 @@ def main():
                 from selected_scene_videos import SelectedSceneVideos
                 scene_videos=SelectedSceneVideos(env,output,wave_index,wave['layouts'],args.eval_video_env_indices,
                     actor_updates=pilot.actor_updates,critic_updates=pilot.critic_updates,
-                    split=wave['split'],workplace_search=bool(workplace_eval))
+                    split=wave['split'],workplace_search=bool(workplace_eval),
+                    q_pilot=pilot if args.eval_video_q_values else None)
             compute=env.termination_manager.compute
             def capture_before_reset():
                 result=compute();g=env._multi_box_privileged_grasp_step;s=env._multi_box_grasp_safety_step
@@ -920,6 +925,7 @@ def main():
                         if not torch.allclose(projection(pre['policy'],action),action,atol=1e-6,rtol=0):
                             raise ValueError('Generated and executed jaw projections differ')
                         if grasp_audit is not None:grasp_audit.prepare(step,pre['policy'],action,active,ids,previous)
+                        if scene_videos is not None:scene_videos.prepare_q(step,ids,previous)
                         if base_substep_trace is not None:
                             base_substep_trace.prepare(wave_index,step,active,stages.stages,action)
                         try:

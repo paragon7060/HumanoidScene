@@ -1,0 +1,46 @@
+{
+  "role": "optional_frozen_DEV_actual_pre_action_Q_video_trace_preparation_NOT_current_run_or_physical_performance",
+  "option": "--eval-video-q-values --eval-video-env-indices 0 3 4",
+  "default_enabled": false,
+  "restricted_to_frozen_DEV": true,
+  "not_independent_FINAL_or_frozen_TRAIN_workplace_probe": true,
+  "Q_inputs": "Actual held state/action tuple returned by the executed pilot.act; same SAC critic normalizer and physical action encoder",
+  "frame_binding": "Q(s_t,a_t) shown with measured frame after this action and before terminal autoreset",
+  "Q_value_is_estimate_not_success_or_critic_update_counter": true,
+  "approach_Q_unavailable": true,
+  "nonfinite_Q_explicitly_unavailable": true,
+  "raw_state_action_rows_stored": false,
+  "raw_replay_HDF_read_upload_delete": false,
+  "frozen_model_hash_checked_at_start_and_close": true,
+  "actor_critic_counters_must_not_change": true,
+  "CPU_tests": {
+    "passed": 13,
+    "command": "CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:scripts/rl OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 /home/seonho/miniconda3/envs/env_isaaclab_232/bin/python -m pytest -q tests/test_rl_frozen_video_q.py tests/test_rl_selected_scene_videos.py",
+    "scope": "ID/step binding, actual critic action encoder, approach/no-Q, frozen state/counters, no RNG/input mutation, nonfinite Q, terminal frame and metadata; mock video writer, not Isaac/browser rendering"
+  },
+  "closed_TRAIN_bank_CPU_check": {
+    "checkpoint_SHA256": "6a1a6f3cecf81e9dcaa61fa64b8495edf061237180586d2ae8f2bc40a17415a9",
+    "actor_updates": 1657,
+    "critic_updates": 8676,
+    "bank_rows": 9072,
+    "selected_rows": 2,
+    "synthetic_environment_ID_and_step_labels": true,
+    "actual_SAC_Q_encoding_and_predictions_exact": true,
+    "source_model_and_RNG_unchanged": true,
+    "DEV_FINAL_rows_used": false
+  },
+  "source_SHA256": {
+    "scripts/rl/frozen_video_q.py": "c31fee6397152250eb6f7e8322bbb3435b3dffd340f23a51ad7f57f7296cd1ed",
+    "scripts/rl/selected_scene_videos.py": "b9b809e7836ea8da45cbc1458446d69ea229a47b81d2f0c6d290e11a2a74ba74",
+    "scripts/rl/train_batched_staged_goal.py": "a41a57a9f373089b10d46d1d0027da708e2311d112d6c00b823287e9d329948f",
+    "tests/test_rl_frozen_video_q.py": "8b7c5edf1515b898555fd3f1a032fd85f78f9980adb96353fdc9e7ca29a7f26b"
+  },
+  "current_GPU3_writer_frozen_d32b2f6_unchanged": true,
+  "current_run_Q_trace_applied": false,
+  "actual_Isaac_CUDA_Q_video_generated": false,
+  "CPU_PhysX_GPU3_learner_contract_changed": false,
+  "reward_success_safety_randomization_or_curriculum_changed": false,
+  "user_renderer_and_record_files_preserved": true,
+  "physical_success_improvement_claimed": false,
+  "goal_not_complete": true
+}

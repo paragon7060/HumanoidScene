@@ -41,7 +41,7 @@ def validate_video_layout_split(layouts, split):
 
 class SelectedSceneVideos:
     def __init__(self,env,output,wave_index,layouts,indices,*,actor_updates,critic_updates,capture_every=10,
-                 split='validation',workplace_search=False):
+                 split='validation',workplace_search=False,q_pilot=None):
         self.scope=video_scope(split,workplace_search=workplace_search)
         validate_video_layout_split(layouts,split)
         import cv2
@@ -51,6 +51,12 @@ class SelectedSceneVideos:
         self.renderer=SceneVideo(env);self.meshes=self.renderer.meshes
         self.capture_every=capture_every;self.cv2=cv2;self.writers={};self.records=[];self.last_steps={}
         self.actor_updates,self.critic_updates=actor_updates,critic_updates
+        self.q_trace=None
+        if q_pilot is not None:
+            if split!='validation' or workplace_search:
+                raise ValueError('Q video trace is restricted to frozen DEV')
+            from frozen_video_q import FrozenVideoQ
+            self.q_trace=FrozenVideoQ(q_pilot,indices)
         for i in indices:
             region=layouts[i]['layout']['target_region']
             raw=self.output/f'eval_wave_{wave_index:04d}_env_{i:03d}_raw.mp4'
@@ -64,6 +70,9 @@ class SelectedSceneVideos:
                 not_independent_DEV_generalization_score=workplace_search,
                 simulation_device=str(env.device),capture_every_control_steps=capture_every,
                 Q_or_replay_rows_imported=False,not_inferred_robot_or_flap_animation=True))
+
+    def prepare_q(self,step,ids,previous):
+        if self.q_trace is not None:self.q_trace.prepare(step,ids,previous)
 
     def capture(self,step,active,success,unsafe,time_out,distances):
         """Called from termination compute while the true terminal bodies exist."""
@@ -84,11 +93,17 @@ class SelectedSceneVideos:
             self.renderer.meshes=meshes
             distance=float(distances[i].max())
             frame=self.renderer.frame(self.env,step,distance,bool(success[i]))
-            self.cv2.rectangle(frame,(0,0),(960,66),(23,28,36),-1)
-            title=f'{self.env.device} PhysX | {self.scope["label"]} env{i} {record["region"]} | actor{self.actor_updates} Q{self.critic_updates}'
+            self.cv2.rectangle(frame,(0,0),(960,92 if self.q_trace else 66),(23,28,36),-1)
+            title=f'{self.env.device} PhysX | {self.scope["label"]} env{i} {record["region"]} | actor{self.actor_updates} critic_steps{self.critic_updates}'
             status=f'control t={(step+1)/30:.2f}s | max hand distance={distance*100:.1f}cm | success={int(success[i])} unsafe={int(unsafe[i])}'
             self.cv2.putText(frame,title,(15,24),self.cv2.FONT_HERSHEY_SIMPLEX,.50,(240,240,240),1,self.cv2.LINE_AA)
             self.cv2.putText(frame,status,(15,50),self.cv2.FONT_HERSHEY_SIMPLEX,.50,(240,240,240),1,self.cv2.LINE_AA)
+            if self.q_trace is not None:
+                value=self.q_trace.frame(step,i)
+                record.setdefault('frame_Q_values',[]).append(value)
+                label=(f'Q1={value["q1"]:.3f} Q2={value["q2"]:.3f} min Q={value["q_min"]:.3f}'
+                       if value['q_min'] is not None else f'Q unavailable: {value["reason"]}')
+                self.cv2.putText(frame,label,(15,77),self.cv2.FONT_HERSHEY_SIMPLEX,.50,(240,240,240),1,self.cv2.LINE_AA)
             self.writers[i].write(frame);record['frames']+=1;record['last_control_step']=step+1
             self.last_steps[i]=step
             if final:
@@ -114,8 +129,10 @@ class SelectedSceneVideos:
 
     def close(self,outcomes):
         for writer in self.writers.values():writer.release()
+        q_proof=self.q_trace.close_proof() if self.q_trace is not None else None
         for record in self.records:
             i=record['environment'];record['actual_outcome']=outcomes[i]
+            if q_proof is not None:record['frozen_Q_proof']=q_proof
             self.finalize_video(record)
             if record.get('browser_file'):
                 (self.output/record['browser_file']).with_suffix('.json').write_text(json.dumps(record,indent=2)+'\n')

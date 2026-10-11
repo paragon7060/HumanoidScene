@@ -9,7 +9,7 @@ actor1657/Q8676에서 새 TRAIN 갱신 전에 측정했으므로 fallback의 학
 직전 초기10회/최선15회를 이번 초기값으로 대입하지 않는다.
 **수정판 TRAIN의 물리적 성공률 개선은 아직 확인 전이며 목표는 미달성이다.**
 
-**현재 부분 TRAIN128(step571)은 실제 양손 성공9·안전29·초기 무효1·진행89다.**
+**step571의 부분 TRAIN128은 실제 양손 성공9·안전29·초기 무효1·진행89다.**
 9건 모두 중간 왼쪽small에서 opposing two-pad pinch·양손 안정·hold0.2667초·
 proof-lift·안전을 만족했다. 같은 wave를 수집 중이며 고정 모델의 성공률이 아니다.
 
@@ -223,6 +223,39 @@ DEV의 실제 성공을 확인하고, 반복될 경우 저장 모델에서 위�
 
 [첫6개의 실제 갱신](assets/rl_v2_quantized_body_guard_first_six_actual_TRAIN_updates_20261012.json) ·
 [21개 이후 정체·위반 term·실제 norm·entropy 및 추가51개 snapshot](assets/rl_v2_quantized_body_guard_first_21_actual_TRAIN_updates_20261012.json).
+
+## 다음 평가 영상의 실제 Q값 기록 옵션
+
+다음 코드로 시작하는 실행의 기존 command에 아래 두 옵션을 추가한다.
+현재 frozen d32b2f6 실행에는 적용하지 않았다.
+
+```bash
+--eval-video-env-indices 0 3 4 --eval-video-q-values
+```
+
+기존 GPU3 UUID·single-GPU namespace·CPU PhysX/GPU3 learner 계약을 그대로 쓴다.
+학습 job 안에서도 선택한 **frozen DEV wave만** 기록하며 전체128개 평가 분모는 유지한다.
+Workplace TRAIN probe에는 이 Q 옵션을 사용할 수 없다. 기존 영상만 켜려면
+`--eval-video-q-values`를 생략한다. 사용자 수정 renderer/record 파일은 변경하지 않았다.
+
+`pilot.act`가 실제 실행한 held state/action으로 SAC의 critic normalizer와 물리 action
+encoder를 그대로 사용한다. **행동 전 Q(s_t,a_t)를 그 행동 실행 뒤·autoreset 전의 실제
+프레임에 Q1/Q2/min Q로 표시**한다. Base 접근 단계는 이 critic의 학습 범위가 아니므로
+Q를 표시하지 않는다. 비정상 Q 추정도 값 대신 이유를 기록한다. `critic_steps`는 누적
+갱신 횟수이며 Q값과 구분한다. Q는 예상 return 추정이며 실제 성공 판정은 아니다.
+
+영상 JSON의 `frame_Q_values`는 control step과 scalar만 보관한다. 원본 HDF/replay를
+읽거나 관측·행동 행을 복사하지 않는다. `frozen_Q_proof`로 평가 처음/종료 모델 tensor
+checksum과 actor/critic 갱신 횟수가 같은지 검사한다. 전체 wave 종료 뒤 이 proof·같은
+저장 모델·실제 layout/outcome·H.264 재생 검증을 대조하고 Notion에 첨부한다.
+DEV 자료를 TRAIN 또는 독립 FINAL 자료로 사용하지 않는다.
+
+CPU 최소 검사13개를 통과했다. ID/step 연결, 실제 critic action encoder, 접근 중 Q 없음,
+모델/갱신/RNG/입력 보존, 잘못된 Q, terminal frame/metadata 연결을 포함한다. 영상 writer는
+mock 검사다. 닫힌 checkpoint의 기존 **TRAIN 성공은행2행**에서도 같은 Q encoding과
+직접 critic 출력 일치를 확인했다. 이는 Isaac/CUDA 실제 영상 생성이나 물리 성공 개선
+검증이 아니다. 현재 영상의 `Q8676` 표시는 역사적 critic 갱신 횟수로 남는다.
+[코드 SHA·CPU 검사 범위·실제 모델 프로토콜 확인·미적용 상태](assets/rl_v2_frozen_DEV_actual_Q_video_preparation_20261012.json).
 
 ## 새 첫 TRAIN의 실제 양손 성공4건
 
