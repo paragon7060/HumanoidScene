@@ -192,3 +192,41 @@ phase/proximity 구분은 같은 조회 배치·같은 Q scaling을 유지하며
 [측정값·모델/replay checksum·분석 범위](assets/rl_v2_stable_success_TRAIN_servo_Q_gradients_20261011.json).
 재현 진입점은 `scripts/rl/audit_closed_train_servo_q_gradients.py`이며 반드시 빈 CUDA
 마스크·종료 run·checksum 일치 checkpoint·해당 whole DEV128 결과 JSON을 사용한다.
+
+## 이번 실행의 실제 초기 DEV128와 TRAIN 진입
+
+10/11 18:22 초기 전체128조건의 **양손 opposing pinch·hold0.25초 이상·proof-lift
+성공14/128**을 확인했다. 유효115·초기화 실패13·안전44·timeout57·수치 오류0이다.
+이 값은 이번 실제 평가이며 이전 실행의14를 대입한 값이 아니다. 성공 flag14개 모두
+실제 양손 pinch/stable·opposing flap·rack clearance8mm 이상을 만족했다.
+
+| 구역·크기 | 성공/분모 | 초기화 실패 | 안전 실패 | timeout |
+|---|---:|---:|---:|---:|
+| 중간 왼쪽 small |9/16|0|7|0|
+| 중간 오른쪽 small |0/16|3|0|13|
+| 상단 왼쪽 small |0/32|4|0|28|
+| 상단 오른쪽 small |5/32|5|17|5|
+| 중간 왼쪽 medium |0/16|0|16|0|
+| 중간 오른쪽 medium |0/16|1|4|11|
+
+안전44건은 rack43·box-drop1이다. rack은 모두 base 접근 후 held-grasp에서
+종료했고, 중간 왼쪽의 주된 몸체는왼팔4번째 링크15/23건, 상단 오른쪽은오른쪽
+gripper base12/17건이었다. rack 종료 최대힘150.14N이다. 초기화가 유효한 조건에서도
+실패하므로 초기화 실패만의 문제는 아니다. 몸체·힘은 실패 스텝의 peak이며 최초 충돌
+몸체나 접촉 이력을 의미하지 않는다.
+
+실제 초기 DEV 모델 SHA256은
+`10423e64e2ea316e5ea904616bd55ae1d9c64a60fd135bc364f93ff8fa567f84`.
+초기 입력과 actor/normalizer29개 tensor가 정확히 같고 actor/Q 갱신·TRAIN replay·
+TRAIN cohort는모두0이었다. **새 SAC 성능 개선이 아닌 이번 비교의 기준값**이다.
+같은 요청 layout128개를 확인했지만 실제 reset 물리까지 동일하다고 가정하지 않는다.
+이 초기 모델은 Drive 크기·MD5·SHA256을 재확인하고 로컬 별도 보호 폴더에도 보존했다.
+writer가 살아 있으므로 최종 로그 검증이 끝났다고 주장하지 않는다.
+
+첫 TRAIN 배치에 진입했고18:27 실제 held TRAIN16,780행·critic304회·actor0회를
+확인했다. actor는첫 완료 TRAIN 성공 cohort와 Q warmup을 기다리는 단계다.
+현재 TRAIN 성공률과 학습 후 DEV 성능은아직 미확인이다. 다음 중간 전체 DEV128에서
+초기14회 대비 lost/gained·6조건·안전 원인과 실제 body/jaw parameter 이동을 비교한다.
+300초 Drive 업로드·최근2개 보호·종료 후 같은 대화의 후속 점검은 유지한다.
+
+[이번 초기 실측·보호 모델·개별 Drive checksum 근거](assets/rl_v2_servo_tube_this_run_initial_DEV128_20261011.json).
