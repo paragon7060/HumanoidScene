@@ -103,6 +103,34 @@ timeout60, numerical failure0이었다. 유효127개를 별도 표시하되 분�
 
 [완료된 첫 TRAIN128·6조건·안전 원인·실제 새 갱신](assets/rl_v2_candidate_repair_first_TRAIN128_20261011.json).
 
+## 실패 구역에서 실제 제어 추종과 접근을 분리
+
+현재 새 초기 평가를 기다리며 직전 candidate-repair의 **학습 전 DEV128**의 닫힌 기록을
+CPU로 분석했다. 실제 출발 model counter는manifest의actor447/Q3,836으로 대조했다.
+전체128개 중 유효115경로를 읽었고, 각 경로의 종료 전60행에서만 관절 오차를 계산했다.
+Controller telemetry는절대 목표가 아니라`pending target − measured joint position`
+(raw416:436)이다. 실제 decoder와 같은 의미로 계산했고 DEV를 학습 전이나 optimizer
+진단에 넣지 않았다.
+
+| 조건·종료 종류 | 경로 수 | 팔 tracking RMS 중앙값 L/R(rad) | TCP–배정 flap 표면거리 중앙값 L/R(m) |
+|---|---:|---:|---:|
+| 중간 오른쪽small · 안전timeout |13|0.00249 /0.000435|0.238 /1.076|
+| 상단 왼쪽small · 안전timeout |28|0.000565 /0.000891|0.0854 /0.0392|
+| 중간 오른쪽medium · 안전timeout |7|0.00299 /0.000529|0.213 /0.931|
+| 중간 왼쪽medium · 충돌 |16|0.0200 /0.0224|0.0333 /0.0335|
+
+안전timeout 세 조건은 종료 전에는 명령을 잘 추종하면서도 목표 flap에서 먼 자세를
+유지했다. 따라서 이 구간은 접근 명령·탐색/학습의 문제를 점검할 근거다. 이 통계로
+초반 전체 경로·torque·중력보상·torso의 정상 상태를 증명하지는 않는다. 충돌 경로의
+오차는 접촉 반응과 함께 측정됐으므로 제어 실패의 독립적인 원인으로 해석하지 않는다.
+
+지금 실행의 보호 교정 효과와 실제 새 TRAIN을 먼저 확인한다. 이후 정체가 지속된다면
+성공 없는 구역의 실제 실행 표본에서 Q-to-goal gradient 전달·도달 거리 변화·탐색 범위를
+대조해 접근 문제에 맞는 작은 수정을 선택한다. 이미 확인한 servo clipping 진단과
+이번 추종 진단을 구분한다. 현재 learner/물리/reward/DR은 이 분석 때문에 바꾸지 않았다.
+
+[6조건·실제115경로·명령 추종·종료 거리와 분석 범위](assets/rl_v2_candidate_repair_DEV128_tracking_20261011.json).
+
 ## 실제 적용과 다음 확인
 
 10/11 21:26 KST GPU3 새 고유 실행
