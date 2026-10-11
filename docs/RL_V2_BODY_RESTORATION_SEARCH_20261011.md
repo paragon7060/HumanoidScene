@@ -1,5 +1,34 @@
 # SAC 성공 보호 후보의 내부 교정 탐색
 
+**10/12 종료 후속 점검:** 이 body-restoration 실행은 두 번째 TRAIN128의 정체를
+확인한 뒤 우리 writer만 정상 종료했다. Writer1171480·supervisor1171443가 모두
+종료했고 원래 Drive의 최종 checkpoint·닫힌 logs checksum 검증도 완료됐다.
+실제 상태는 `interrupted`/exit1이다. 오류나 OOM으로 중단됐다고 설명하지 않는다.
+
+초기 DEV는 실측10/128·무효13·unsafe57·timeout48·수치 오류0이었다.
+중간/최종 DEV는 없으므로 같은 run의 lost/gained나 학습 후 개선 수치를 계산하지 않는다.
+완료된 두 TRAIN128은 각각10/128, 합계20/256이며 정책이 학습 중 바뀐 수집 결과다.
+두 번째는 무효1·unsafe61·timeout56·수치 오류0이고, 중간 오른쪽medium의 새1회는
+탐색을 섞은 성공이다. 시작만 기록된 세 번째 배치는 완료0·실행 행0으로 분모에 넣지 않는다.
+
+두 번째 배치의 중간 왼쪽·상단 오른쪽은 새403제안 모두 실제 이동0이었다.
+상단 왼쪽은71회 이동/332회0, 아직 성공 보호 경로가 없던 중간 오른쪽은403회 이동했다.
+처음95개 snapshot의 수용률을 전체 갱신으로 일반화하지 않는다. 정체 원인에 맞춰
+준비한 몸체 분해능 교정을 적용했고,01:29 KST에 원래 모델/Q/replay/optimizer와
+은행9,072행·cohort7경로3,507행을 잇는 고유 GPU3 실행으로 순차 전환했다.
+새 run은 `batch_sac_20261012_012934_2f7181`이며 자체 초기 DEV128을 실제 측정한다.
+출발 actor1657/Q8676의 누적 counter를 새 학습량으로 세지 않는다.
+
+기존 최선15회·이번 초기10회·첫 완료 TRAIN1254/Q7062 모델과 영상은 보존한다.
+물리·DR·reward·성공·안전 기준·curriculum 없음은 유지했고 GPU1·2는 실행하지 않는다.
+Raw replay/HDF는 업로드·삭제하지 않았다. 종료 점검의 이번 재확인은 JSON·저장 모델
+identity만 사용했다. 아래10/11 진행 기록과 감시 PID는 당시 상태이며 현재 상태가 아니다.
+실제 성공률 개선과 목표 달성은 아직 확인 전이다.
+
+[두 완료 배치·6조건·갱신 정체·안전 원인](assets/rl_v2_body_restoration_two_complete_TRAIN128_20261012.json) ·
+[새 실제 GPU3 실행·모델 checksum·후속 점검](assets/rl_v2_quantized_body_guard_actual_GPU3_launch_20261012.json) ·
+[현재 수정·실제 실행·비교 기준](RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md).
+
 목표는 box/base/flap randomization과 실제 양손 opposing two-pad pinch·hold0.25초·
 proof-lift·안전 기준을 유지한 성공이다. 이전 실행과 기존 성공 모델·영상은 보존한다.
 이번 변경은 보호 표본의 갱신 정체를 다루며 물리 성공률 개선의 증거가 아니다.
