@@ -88,6 +88,22 @@ Drive 검증 후 CUDA의 같은 후보 조건에서 준비 교정을 비교하�
 
 아래는 완료 전의 진행 snapshot과 직전 실행의 기록이다.
 
+## 두 번째 TRAIN128의 중간 결과
+
+Step541에서 실제 성공9·안전 종료26·초기 무효1·진행 중92·수치 오류0이다. 성공은
+중간 왼쪽small8건과 **상단 왼쪽small1건**이며128요청 중 아직 부분 건수다.
+상단 왼쪽env106/seed67001226은step489에서 실제 opposing two-pad pinch·양손 안정·
+hold0.2667초·proof-lift·clearance9.86mm·모든 unsafe false를 만족했다. 첫 TRAIN의
+상단 왼쪽0/32와 다른 새 TRAIN 조건이며 고정 정책의 성능 비교나 DEV 개선으로 보지 않는다.
+수집 방식은 완료 wave의 metadata를 확인한 뒤 구분한다.
+
+근처 저장점actor2304/Q11264의77개 model tensor는 유한하며 SHA256
+`12a5348d5119796b7e70ce462a1f24c05b2cd6689793a4c5629832e2aa1d345c`로 별도 보존했다.
+이는 그 성공의 정확한 terminal 모델이나 frozen 평가가 성공한 모델이 아니다. 온라인
+수집 중 actor가 계속 바뀌므로 종료 DEV와 별도로 기록한다. 새 completed-episode 등록
+수정은 현재 frozen writer에 적용하지 않았고 새 성공은 기존 wave 종료 뒤 등록된다.
+[부분9건·128분모·구역·실제 물리 성공·저장점 checksum](assets/rl_v2_quantized_body_guard_second_TRAIN_partial9_20261012.json).
+
 **step691의 실제 부분 TRAIN은 성공14·안전60·초기 무효1·진행53(요청128)이다.**
 중간 왼쪽small9건과 상단 오른쪽small5건을 각각 양손 pinch·안정·opposing flap·
 hold0.2667초·proof-lift·안전으로 확인했다. 상단 오른쪽은 이번 TRAIN에서 두 번째로
