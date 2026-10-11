@@ -1,6 +1,13 @@
-# SAC 갱신 정체의 수치 원인과 다음 수정
+# SAC 갱신 정체 수정과 GPU3 실제 후속 학습
 
-GPU3의 body-restoration 실행은 계속 진행한다. **첫 전체 TRAIN128은 실제 성공10/128,
+**10/12 01:29 KST에 수정판의 새 GPU3 실행을 시작했다.** 기존 body-restoration의
+두 번째 TRAIN128에서도 실제 성공은10/128이었으나 기존 두 성공 구역의403제안이
+모두 실제 parameter 이동0이었다. 등록된 우리 writer만 정상 종료하고 원래
+supervisor 종료·Drive 최종 checksum 검증을 확인한 뒤 순차 전환했다.
+현재 새 실행은 자체 초기 DEV128을 측정 중이다. 이전 초기10회/최선15회를 새 초기값으로
+대입하지 않는다. **물리적 성공률 개선은 아직 확인 전이며 목표는 미달성이다.**
+
+직전 **첫 전체 TRAIN128은 실제 성공10/128,
 초기 유효128·무효0·unsafe69·timeout49·numerical failure0이다.** 10회 모두 현재
 정책의 greedy 수집에서 나왔으며 상단 왼쪽small에서도2회 성공했다. 양손 opposing
 two-pad pinch·hold0.2667초·proof-lift·안전을 확인한 경로만 셌다. 학습 중 actor가
@@ -52,7 +59,83 @@ cohort가 없던 중간 오른쪽·상단 왼쪽은403회 모두 움직였다. �
 actor1254/Q7062 완료 저장 모델77개 tensor는 모두 유한했고 SHA256
 `f0cb64d7ac3732043af41347c61e82bbe3fd5add3c124b06fac703d2bbc007d7`으로 별도 로컬 보존했다.
 이 모델은 새 구역 성공을 수집한 TRAIN 실행의 저장점이며 최종 DEV 개선 모델로 설명하지 않는다.
-새 구역의 실제 greedy 성공이 있어 현재 전체 학습을 유지한다. 준비한 fallback은 다음 실행용이다.
+첫 배치 당시 새 구역의 실제 greedy 성공을 확인해 두 번째 배치까지 유지했다.
+아래 fallback은10/12 새 실행부터 실제 적용됐다.
+
+## 두 번째 전체 TRAIN128과 실제 전환
+
+두 번째 배치는 **성공10/128·초기 유효127/무효1·unsafe61·timeout56·수치 오류0**이다.
+완료된 두 배치만 합치면20/256·무효1·unsafe130·timeout105·수치 오류0이다.
+시작만 기록된 세 번째 배치128개는 완료0·기록된 실행 행0이므로 성능 분모에 더하지 않는다.
+직전 run은 의도한 정상 종료 신호로 `interrupted`/exit1이며 실행 오류나 OOM으로 판단하지
+않는다. 마지막 DEV는 없으므로 초기 DEV10/128과의 최종 성능 비교도 없다.
+
+| 구역·크기 | 두 번째 성공/요청 | 초기 유효 | 안전 실패 | timeout |
+|---|---:|---:|---:|---:|
+| 중간 왼쪽small |5/16|16|11|0|
+| 중간 오른쪽small |0/16|16|1|15|
+| 상단 왼쪽small |0/32|31|6|25|
+| 상단 오른쪽small |4/32|32|14|14|
+| 중간 왼쪽medium |0/16|16|16|0|
+| 중간 오른쪽medium |1/16|16|13|2|
+
+9회는 greedy 수집98조건에서, 새 중간 오른쪽medium1회(env45/seed64001111)는
+접촉 탐색29조건에서 나왔다. 새 성공은 양손 opposing two-pad pinch·hold0.2667초·
+proof-lift·rack clearance15.07mm·안전을 만족한다. **탐색이 섞인 성공이며 greedy
+정책이 이 구역을 학습해 성공했다는 증거는 아니다.** 서로 다른 배치/수집 방식의
+성공 비율을 통제된 성능 개선으로 해석하지 않는다.
+
+새 actor403제안에서 중간 왼쪽·상단 오른쪽은 각각403회 이동0, 새 상단 왼쪽은
+71회 이동/332회0, 아직 보호 cohort 없던 중간 오른쪽은403회 이동했다.
+전체 수용403/거절0과 구역별 정체를 구분한다. 투영 제약은 늘었고 baseline 고정 한도
+초과는0이었다. 연속/이산 entropy 계수도 변했으나 적절한 탐색이나 성공 유지의 보장은 아니다.
+배치 경계 snapshot에서 actor1254→1657·Q7062→8676이다. 마지막 actor 기록의
+critic_update8673과 경계의 critic-only 갱신을 전체 actor 갱신으로 세지 않는다.
+
+안전61회는 모두 rack·held_grasp 단계다. 종료 시 최대힘251.16N이며, 최대힘 몸체는
+오른손 gripper base32·왼팔4번째link13·왼손 gripper base8·오른팔4번째link5·
+오른팔7번째link2·왼팔7번째link1이다. 첫 접촉/전체 접촉 이력이 아니다.
+상단 왼쪽의 무효1개와 별개로 유효31개에서도 성공0이고, 중간 왼쪽medium의 유효16개가
+모두 안전 실패다. 초기화와 policy 문제를 별도로 계속 점검한다.
+
+성공은행은9,072행, 영구 cohort는7경로3,507행/14그룹이다. 새medium1경로465행을
+등록했고 원래6경로의 obs/action·고정 body/servo 한도·보호 jaw 정답을 보존했다.
+현재250,000행 replay 전체를 CPU로 정확 비교하니 최초4경로는 obs518/action21의
+일치 행0이며 성공은행에서도 없어졌지만, 보호 cohort에는 그대로 남았다.
+새 상단 왼쪽2경로와medium1경로는 replay에 각각603/426/465행이 남았다.
+이는 eviction 이후 보호 데이터 보존을 확인한 것이며 물리 성공 보장은 아니다.
+닫힌 원래 run만 읽었고 새 활성 replay/HDF·독립 FINAL은 사용하지 않았다.
+
+[두 완료 배치·탐색 구분·실제 갱신·안전·replay eviction 검사](assets/rl_v2_body_restoration_two_complete_TRAIN128_20261012.json).
+
+## 현재 수정판의 실행 계약
+
+새 고유 run은 `batch_sac_20261012_012934_2f7181`, writer2352919·supervisor2352888이며
+실제 서비스가 실행 중임을 확인했다. Frozen `d32b2f6` source와 GPU3 UUID를 지정했다.
+선택 GPU만 노출한 장치 namespace의 GPU/DRM 노드는 `nvidia3`/`renderD131`이며
+다른 GPU의 그래픽 컨텍스트를 만들지 않는다. GPU1·2와 다른 사용자는 건드리지 않는다.
+
+actor1657/Q8676·replay250,000행·은행9,072행·cohort7경로3,507행과 optimizer를
+같은 계약으로 복원했다. 시작 모델 SHA256은
+`c98301697c614901708f897396c5a2acbd740067b5b6b88a5496f8768928c563`이다.
+새 TRAIN256(128개씩2배치)과 같은 DEV128의 초기/종료를 진행한다.
+현재 초기 DEV에서 actor1657/Q8676은 고정돼 있다. 결과가 나오기 전에는 초기 성공 수를 쓰지 않는다.
+새 실제 TRAIN에서 후보별 위반·fallback·parameter/body/jaw 이동·entropy와
+전체7경로 cohort 검사를 확인한 뒤 더 긴 학습 여부를 결정한다.
+
+CPU PhysX PGS(dt1/120·제어1/30)+GPU3 CUDA learner, 기존 base 접근→held base/SAC21
+계약, box/base/flap DR·reward·성공·안전 기준·curriculum 없음은 유지했다.
+기존300초 업로드·checksum·최신2개·writer 종료 후 logs 검증을 유지한다.
+Raw replay/HDF는 업로드하거나 삭제하지 않는다. CPU 완료 감시2353132가 실제 실행 중이며,
+writer/supervisor 종료와 최종 Drive 검증 뒤 같은 대화에서 다음 개선을 이어간다.
+순차 전환 worker2006098은 새 실행과 감시를 연결한 뒤 종료했다.
+
+이전 최선 DEV15회 모델·초기 DEV10회 모델·첫 TRAIN1254/Q7062 모델과 평가 자료를
+보존한다. 새 초기/종료의128개 전체·공통 initial-valid lost/gained·6조건과 안전 실패로
+판단하며 독립 FINAL을 수정/탐색 데이터로 쓰지 않는다. 이번 새 평가 영상은 기록 중이며
+닫힌 파일의 재생 검증 뒤 공유한다.
+
+[실제 새 실행·source checksum·GPU 격리·종료 후속 점검](assets/rl_v2_quantized_body_guard_actual_GPU3_launch_20261012.json).
 
 ## 원인과 비교 과정에서 발견한 오류
 
@@ -85,9 +168,9 @@ cohort 검사를 모두 적용한다. Jaw loss나 행·손별 정답을 위반�
 적용하지 않는다. 실제 이동0은 갱신으로 세지 않는다.
 
 물리·controller·reward·box/base/flap randomization·성공·안전·curriculum 없음은 유지한다.
-고정 goal/servo/jaw 예산도 늘리지 않는다. **현재 writer는 frozen758d6a3 코드를 사용하므로
-이 새 fallback이 실행 중이라고 설명하지 않는다.** 새 구역의 실제 TRAIN 성공이 나왔으므로
-현재 수집을 먼저 유지하고, 실제 전체 결과를 검토한 뒤 다음 실행의 적용을 결정한다.
+고정 goal/servo/jaw 예산도 늘리지 않는다. **아래 진단 당시 writer는 frozen758d6a3이었고
+fallback을 아직 쓰지 않았다.** 첫 배치의 새 구역 성공으로 두 번째 배치를 유지한 뒤
+정체를 확인해 위 새 실행으로 전환했다.
 
 수정 파일은 `sac.py`, `asymmetric_sac.py`, `success_cohort_guard.py`,
 `success_update_guard.py`다. Hybrid SAC의 optimizer 복원도 상속한 수정이 적용된다.
@@ -140,7 +223,7 @@ driver/context 추가 메모리는 이 수치에 포함되지 않는다. 기존 
 
 [새 실제 TRAIN10경로 provenance·6cohort·같은 critic/Adam·전체 보호 검사](assets/rl_v2_quantized_body_guard_completed_TRAIN1254_disposable_20261012.json).
 
-**실제 CPU 순차 전환 대기 PID2006098이 실행 중이다.** 두 번째 TRAIN128이 모두
+**전환 전 CPU 순차 worker PID2006098의 조건은 다음과 같았다.** 두 번째 TRAIN128이 모두
 완료됐을 때, 기존 두 보호 구역이 각각100제안 이상이고 이동0 비율75% 이상이면
 등록된 우리 writer만 정상 종료한다. PID 시작 시각·명령 hash·고유 run을 재확인하며
 감독자나 다른 사용자 프로세스에 신호를 보내지 않는다. 이 수치는 운영상의 정체
@@ -151,7 +234,8 @@ driver/context 추가 메모리는 이 수치에 포함되지 않는다. 기존 
 새 TRAIN256조건(2배치128)·동일 DEV128의 초기/종료로 물리 효과를 먼저 확인한다.
 Box/base/flap DR·reward·물리·성공·안전 기준과 curriculum 없음은 유지한다.
 Source의 최종 DEV가 없으면 있다고 말하지 않으며 새 초기 DEV를 실제로 측정한다.
-새 GPU 학습은 아직 시작하지 않았다. 파일의 존재만으로 실행을 추정하지 않는다.
+이 대기 조건은01:26 KST에 충족됐고01:29 KST에 위 새 실행을 시작했다.
+아래00:34 수치는 전환 전의 역사적 snapshot이다.
 
 00:34 KST의 두 번째 TRAIN511/900스텝에서 actor는1254→1484·critic7062→7984다.
 이230제안 중 기존 중간 왼쪽과 상단 오른쪽은 모두 실제 이동0이다. 새 상단 왼쪽은
