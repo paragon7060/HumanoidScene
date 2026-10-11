@@ -601,7 +601,7 @@
   "prepared_closed_run_output_row_comparison": {
     "helper_basename": "audit_body_output_repair_GPU3_when_closed.py",
     "SHA256": "3d517bede9499ccd5d050f2c6efac52e271025c06944ecd3650726f30dd711cf",
-    "AST_parsed_only": true,
+    "AST_parsed_only": false,
     "CUDA_diagnostic_executed": false,
     "production_patch_created": false,
     "registered_writers_and_final_Drive_close_gate": true,
@@ -611,6 +611,45 @@
     "torch_allocator_fraction_cap": 0.03,
     "free_GPU3_start_reserve_GiB": 4,
     "timeout_seconds": 180,
-    "no_training_launch_or_termination": true
+    "no_training_launch_or_termination": true,
+    "CPU_pure_corrector_protocol_checks": {
+      "role": "four_synthetic_CPU_helper_protocol_checks_NOT_closed_CUDA_or_physical_success",
+      "helper_SHA256": "3d517bede9499ccd5d050f2c6efac52e271025c06944ecd3650726f30dd711cf",
+      "checks": [
+        {
+          "check": "body_only_correction_is_finite_full_shape_with_hidden_std_jaw_rows_zero",
+          "passed": true,
+          "body_constraints": 6,
+          "nonzero_body_mean_output_elements": 153,
+          "input_parameters_memory_and_optimizer_unchanged": true
+        },
+        {
+          "check": "body_output_fallback_rejects_protected_jaw_violation",
+          "passed": true,
+          "kinds": {
+            "body": 6,
+            "jaw_loss": 2,
+            "jaw_label": 2
+          }
+        },
+        {
+          "check": "incorrect_partial_region_parameter_list_rejected",
+          "passed": true
+        },
+        {
+          "check": "already_accepted_ordinary_Adam_candidate_exactly_unchanged",
+          "passed": true,
+          "model_Adam_memory_and_report_exact_equal": true
+        }
+      ],
+      "checks_passed": 4,
+      "only_AST_function_executed": true,
+      "full_helper_module_not_executed": true,
+      "CUDA_initialized": false,
+      "raw_replay_HDF_read_upload_delete": false,
+      "DEV_FINAL_used": false,
+      "production_patch_applied": false,
+      "physical_success_improvement_not_claimed": true
+    }
   }
 }
