@@ -41,8 +41,10 @@ proof-lift·안전을 만족했고 **greedy 수집112조건에서 나왔다**. �
 모두 새 step 증가가 중간 왼쪽403·중간 오른쪽45·상단 왼쪽394·상단 오른쪽6으로 실제
 이동 제안 수와 일치했다. 이동0으로 거절된 구역의 Adam step은 늘지 않았다.
 Critic20개 parameter는 각각1,616회, 연속/jaw entropy는 각각404회 증가했다.
+Critic20개 parameter의 저장 값도 모두 바뀌었고, 두 entropy의 저장 log 값과 alpha 변화도
+함께 확인했다. 갱신 counter만 늘어난 상태로 설명하지 않는다.
 현재 frozen 코드에서도 거절 구역의 parameter와 Adam 상태를 함께 복원한다.
-이는 실제 optimizer 진행/롤백 확인이며 충분한 탐색이나 물리 성공 보존의 증명은 아니다.
+이는 실제 optimizer 진행/롤백 확인이며 Q 정확도·충분한 탐색·물리 성공 보존의 증명은 아니다.
 [초기/완료 모델 checksum·parameter별 step·critic/entropy 집계](assets/rl_v2_quantized_body_guard_first_TRAIN_Adam_counters_20261012.json).
 
 안전67회는 rack65·drop1·비정상 lift1이며 모두 held_grasp 단계다. Rack 종료 시
