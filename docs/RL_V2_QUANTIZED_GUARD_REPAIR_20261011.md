@@ -4,8 +4,10 @@
 두 번째 TRAIN128에서도 실제 성공은10/128이었으나 기존 두 성공 구역의403제안이
 모두 실제 parameter 이동0이었다. 등록된 우리 writer만 정상 종료하고 원래
 supervisor 종료·Drive 최종 checksum 검증을 확인한 뒤 순차 전환했다.
-현재 새 실행은 자체 초기 DEV128을 측정 중이다. 이전 초기10회/최선15회를 새 초기값으로
-대입하지 않는다. **물리적 성공률 개선은 아직 확인 전이며 목표는 미달성이다.**
+새 실행의 자체 초기 DEV128은 **13/128·초기 무효13·unsafe68·timeout34·수치 오류0**이다.
+actor1657/Q8676에서 새 TRAIN 갱신 전에 측정했으므로 fallback의 학습 효과가 아니다.
+직전 초기10회/최선15회를 이번 초기값으로 대입하지 않는다.
+**수정판 TRAIN의 물리적 성공률 개선은 아직 확인 전이며 목표는 미달성이다.**
 
 직전 **첫 전체 TRAIN128은 실제 성공10/128,
 초기 유효128·무효0·unsafe69·timeout49·numerical failure0이다.** 10회 모두 현재
@@ -119,7 +121,7 @@ actor1657/Q8676·replay250,000행·은행9,072행·cohort7경로3,507행과 opti
 같은 계약으로 복원했다. 시작 모델 SHA256은
 `c98301697c614901708f897396c5a2acbd740067b5b6b88a5496f8768928c563`이다.
 새 TRAIN256(128개씩2배치)과 같은 DEV128의 초기/종료를 진행한다.
-현재 초기 DEV에서 actor1657/Q8676은 고정돼 있다. 결과가 나오기 전에는 초기 성공 수를 쓰지 않는다.
+완료된 초기 DEV에서 actor1657/Q8676은 고정됐고 replay250,000행·온라인 TRAIN0행이었다.
 새 실제 TRAIN에서 후보별 위반·fallback·parameter/body/jaw 이동·entropy와
 전체7경로 cohort 검사를 확인한 뒤 더 긴 학습 여부를 결정한다.
 
@@ -132,10 +134,74 @@ writer/supervisor 종료와 최종 Drive 검증 뒤 같은 대화에서 다음 �
 
 이전 최선 DEV15회 모델·초기 DEV10회 모델·첫 TRAIN1254/Q7062 모델과 평가 자료를
 보존한다. 새 초기/종료의128개 전체·공통 initial-valid lost/gained·6조건과 안전 실패로
-판단하며 독립 FINAL을 수정/탐색 데이터로 쓰지 않는다. 이번 새 평가 영상은 기록 중이며
-닫힌 파일의 재생 검증 뒤 공유한다.
+판단하며 독립 FINAL을 수정/탐색 데이터로 쓰지 않는다. 이번 초기 평가 영상 중
+실제 성공·안전 실패 2개는 닫힌 파일의 재생과 모델·결과 대조를 마쳐 Notion에 첨부했다.
 
 [실제 새 실행·source checksum·GPU 격리·종료 후속 점검](assets/rl_v2_quantized_body_guard_actual_GPU3_launch_20261012.json).
+
+## 새 실행 자체의 초기 DEV128 확정
+
+**성공13/128(10.2%)·유효115/무효13·unsafe68·timeout34·수치 오류0**이다.
+77개 model tensor와 optimizer·은행·cohort state가 실제 출발 checkpoint와 정확히 같다.
+초기 저장 모델 SHA256은 `6a1a6f3cecf81e9dcaa61fa64b8495edf061237180586d2ae8f2bc40a17415a9`이며
+`artifacts/rl/protected_dev_models_20261012/batch_sac_20261012_012934_2f7181/`에 보존했다.
+
+| 구역·크기 | 성공/요청 | 초기 유효 | 무효 | 안전 실패 | timeout |
+|---|---:|---:|---:|---:|---:|
+| 중간 왼쪽small |7/16|16|0|9|0|
+| 중간 오른쪽small |0/16|13|3|0|13|
+| 상단 왼쪽small |0/32|28|4|13|15|
+| 상단 오른쪽small |6/32|27|5|15|6|
+| 중간 왼쪽medium |0/16|16|0|16|0|
+| 중간 오른쪽medium |0/16|15|1|15|0|
+
+직전 run 초기10/128과 같은128요청·공통 유효115에서 lost1/gained4이다.
+중간 왼쪽은lost1/gained1, 상단 오른쪽은lost0/gained3, 나머지는0이다.
+모델은 직전 두 TRAIN을 거친 출발 actor1657이며 실제 reset 물리 상태까지 같다는
+보장은 없다. **이번 fallback의 TRAIN 효과나 통제된 개선으로 설명하지 않는다.**
+이전 최선15회보다2회 적으며, 네 조건의 greedy 성공0은 여전히 해결되지 않았다.
+
+안전68은rack67·box_lift_limit1이다. Rack은 모두held_grasp 단계, 종료 시 최대힘272.63N이다.
+최대힘 몸체는 오른손 gripper base29·왼팔4번째link16·왼손 gripper base15·
+오른팔4번째link6·왼팔7번째link1이다. 첫 접촉 이력이 아니다.
+상단 왼쪽의 유효28개 중13개 rack/15개 timeout, 중간 왼쪽medium의 유효16개 모두rack으로
+초기 무효와 별개의 policy 실패가 남는다. 초기13회 성공을 종료 평가 기준으로 사용한다.
+
+6개 선택 영상의 actual outcome·layout·actor1657/Q8676과 metrics 결과를 정확히 대조했다.
+영상은 실제 측정된 body pose·reset 전 종료 장면이며 H.264/avc1/yuv420p·faststart·
+전체 디코드 검사를 통과했다. 표시의 `Q8676`은 critic 누적 갱신 횟수이며 Q value가 아니다.
+상단 오른쪽env3은 실제 안전한 양손 성공, 중간 왼쪽medium env4는 안전 실패 사례다.
+선택 영상 몇 개를 전체128 성공률의 분모로 쓰지 않는다. 초기/종료 비교는 모든128조건을 유지한다.
+
+[새 초기128개·6조건·source 동일성·모델 checksum·안전·영상 proof](assets/rl_v2_quantized_body_guard_own_initial_DEV128_20261012.json).
+
+## 새 TRAIN의 실제 갱신과 남은 정체
+
+step61의 첫6제안에서 네 구역 모두6회 실제 parameter 이동, Q24회 갱신,
+몸체2ULP fallback3시도/3수용·고정 baseline 한도 초과0을 확인했다.
+7경로/14그룹과 마지막 전체 cohort 검사를 유지했다. 마지막 상단 오른쪽의 실제
+parameter norm은1.61e-7로 매우 작다. 이것만으로 유효한 goal/jaw 출력 변화나
+충분한 탐색·물리 성공 보존을 증명하지 않는다.
+
+**step91의21제안에서는 정체가 다시 보인다.** 중간 왼쪽21회 이동/0회0,
+중간 오른쪽18/3, 상단 왼쪽20/1, 상단 오른쪽6/15다. 상단 오른쪽은 첫6개 이후
+15개 모두0이다. Q84회 갱신과 fallback24시도/5수용이 있었으나 초기 짧은 구간을
+전체 정상 갱신으로 일반화하지 않는다. stable backtrack은 실제 parameter의
+`torch.equal`로 이동 여부를 확인하므로 수용된 scale만 보고 이동0을 세지 않는 코드도 확인했다.
+
+21번째 제안의 상단 오른쪽은2ULP 교정 후에도 approach 오른팔 고정 한도가
+1.59e-5만큼 초과해 가장 작은1/1024까지 거절됐다. 이 후보에서는 보호 jaw 오답0이며
+교정 cycle1~3에서 gain0이 선택됐다. 실제 한도는 완화하지 않는다. 전체 TRAIN과 종료
+DEV의 실제 성공을 확인하고, 반복될 경우 저장 모델에서 위반 행·parameter/출력 분해능과
+몸체·jaw 출력을 대조해 다음 작은 수정을 선택한다. 활성 raw replay/HDF는 읽지 않는다.
+
+추가 step151에서는 새 actor51/Q204회다. 중간 왼쪽51이동/0정체, 중간 오른쪽34/17,
+상단 왼쪽50/1, 상단 오른쪽6/45로 상단 오른쪽의 이동0은88.2%다.
+7경로3507행/14그룹과 fallback77구역시도/14수용을 확인했다. 이 부분 구간도
+물리적 파지 성공률이나 종료 DEV 개선이 아니며, 전체 수용 횟수로 구역별 정체를 가리지 않는다.
+
+[첫6개의 실제 갱신](assets/rl_v2_quantized_body_guard_first_six_actual_TRAIN_updates_20261012.json) ·
+[21개 이후 정체·위반 term·실제 norm·entropy 및 추가51개 snapshot](assets/rl_v2_quantized_body_guard_first_21_actual_TRAIN_updates_20261012.json).
 
 ## 원인과 비교 과정에서 발견한 오류
 

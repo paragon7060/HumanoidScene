@@ -1,0 +1,666 @@
+{
+  "recorded_at": "2026-10-12T02:13:24.614492+09:00",
+  "run": "batch_sac_20261012_012934_2f7181",
+  "role": "new_run_own_initial_DEV128_before_any_new_TRAIN_update",
+  "counts": {
+    "unsafe": 68,
+    "timeout": 34,
+    "success": 13,
+    "invalid_reset": 13,
+    "numerical_failure": 0,
+    "unclassified_failure": 0,
+    "initial_valid": 115,
+    "requested": 128
+  },
+  "by_scope": {
+    "shelf_2_left/small": {
+      "requested": 16,
+      "unsafe": 9,
+      "success": 7,
+      "invalid_reset": 0,
+      "numerical_failure": 0,
+      "timeout": 0,
+      "unclassified_failure": 0,
+      "initial_valid": 16
+    },
+    "shelf_2_right/small": {
+      "requested": 16,
+      "timeout": 13,
+      "invalid_reset": 3,
+      "success": 0,
+      "unsafe": 0,
+      "numerical_failure": 0,
+      "unclassified_failure": 0,
+      "initial_valid": 13
+    },
+    "shelf_3_left/small": {
+      "requested": 32,
+      "timeout": 15,
+      "unsafe": 13,
+      "invalid_reset": 4,
+      "success": 0,
+      "numerical_failure": 0,
+      "unclassified_failure": 0,
+      "initial_valid": 28
+    },
+    "shelf_3_right/small": {
+      "requested": 32,
+      "success": 6,
+      "unsafe": 15,
+      "timeout": 6,
+      "invalid_reset": 5,
+      "numerical_failure": 0,
+      "unclassified_failure": 0,
+      "initial_valid": 27
+    },
+    "shelf_2_left/medium": {
+      "requested": 16,
+      "unsafe": 16,
+      "success": 0,
+      "invalid_reset": 0,
+      "numerical_failure": 0,
+      "timeout": 0,
+      "unclassified_failure": 0,
+      "initial_valid": 16
+    },
+    "shelf_2_right/medium": {
+      "requested": 16,
+      "unsafe": 15,
+      "invalid_reset": 1,
+      "success": 0,
+      "numerical_failure": 0,
+      "timeout": 0,
+      "unclassified_failure": 0,
+      "initial_valid": 15
+    }
+  },
+  "diagnostics": {
+    "wave": 0,
+    "split": "validation",
+    "by_region": {
+      "shelf_2_left": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 7,
+        "supported_successes": 7,
+        "unsafe": 25,
+        "timeout": 0
+      },
+      "shelf_2_right": {
+        "attempts": 32,
+        "initial_valid": 28,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 15,
+        "timeout": 13
+      },
+      "shelf_3_left": {
+        "attempts": 32,
+        "initial_valid": 28,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 13,
+        "timeout": 15
+      },
+      "shelf_3_right": {
+        "attempts": 32,
+        "initial_valid": 27,
+        "complete": 32,
+        "task_success_flags": 6,
+        "supported_successes": 6,
+        "unsafe": 15,
+        "timeout": 6
+      }
+    },
+    "supported_successes": 13,
+    "attempts": 128,
+    "initial_valid": 115,
+    "unsupported_success_environments": [],
+    "safety_causes_on_valid_completed_attempts": {
+      "robot_rack_collision": 67,
+      "box_lift_limit": 1
+    },
+    "simultaneous_safety_cause_sets": {
+      "robot_rack_collision": 67,
+      "box_lift_limit": 1
+    },
+    "rack_collision_terminal_diagnostics": {
+      "by_region": {
+        "shelf_2_left": {
+          "count": 25,
+          "phase_counts": {
+            "held_grasp": 25
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 8,
+            "zarm_l4_link": 15,
+            "l_twofinger_base": 1,
+            "zarm_r4_link": 1
+          },
+          "peak_force_n": {
+            "count": 25,
+            "mean": 54.81626167297363,
+            "median": 22.560388565063477,
+            "p90": 125.65442810058597,
+            "maximum": 272.63397216796875
+          }
+        },
+        "shelf_2_right": {
+          "count": 14,
+          "phase_counts": {
+            "held_grasp": 14
+          },
+          "peak_body_counts": {
+            "l_twofinger_base": 2,
+            "r_twofinger_base": 11,
+            "zarm_l7_link": 1
+          },
+          "peak_force_n": {
+            "count": 14,
+            "mean": 63.076623507908415,
+            "median": 67.61107635498047,
+            "p90": 98.84272079467775,
+            "maximum": 106.35738372802734
+          }
+        },
+        "shelf_3_left": {
+          "count": 13,
+          "phase_counts": {
+            "held_grasp": 13
+          },
+          "peak_body_counts": {
+            "l_twofinger_base": 12,
+            "zarm_l4_link": 1
+          },
+          "peak_force_n": {
+            "count": 13,
+            "mean": 61.814862764798676,
+            "median": 48.38228988647461,
+            "p90": 114.66378021240234,
+            "maximum": 129.60499572753906
+          }
+        },
+        "shelf_3_right": {
+          "count": 15,
+          "phase_counts": {
+            "held_grasp": 15
+          },
+          "peak_body_counts": {
+            "zarm_r4_link": 5,
+            "r_twofinger_base": 10
+          },
+          "peak_force_n": {
+            "count": 15,
+            "mean": 61.927572123209636,
+            "median": 58.60673141479492,
+            "p90": 92.94817504882812,
+            "maximum": 128.90647888183594
+          }
+        }
+      },
+      "valid_completed_unsafe_attempts_only": true,
+      "failure_step_peak_body_not_first_contact_or_contact_history": true
+    },
+    "end_pinching_hand_counts": {
+      "0": 98,
+      "2": 13,
+      "1": 4
+    },
+    "end_contact_quality": {
+      "count": 115,
+      "mean": 0.12897064105162154,
+      "median": 0.0,
+      "p90": 1.0,
+      "maximum": 1.0
+    },
+    "end_matched_flap_surface_distance_m": [
+      {
+        "count": 115,
+        "mean": 0.0919303900602719,
+        "median": 0.06328006088733673,
+        "p90": 0.22951113879680635,
+        "maximum": 0.6318112015724182
+      },
+      {
+        "count": 115,
+        "mean": 0.18203095508253445,
+        "median": 0.06861937046051025,
+        "p90": 0.978905177116394,
+        "maximum": 1.0077508687973022
+      }
+    ],
+    "end_flap_surface_distance_by_outcome_m": {
+      "supported_success": [
+        {
+          "count": 13,
+          "mean": 0.0007548741100785824,
+          "median": 0.0004959318321198225,
+          "p90": 0.001580352382734418,
+          "maximum": 0.002131997374817729
+        },
+        {
+          "count": 13,
+          "mean": 0.0008964353384306798,
+          "median": 0.0,
+          "p90": 0.0006266254466027025,
+          "maximum": 0.010694313794374466
+        }
+      ],
+      "safe_timeout": [
+        {
+          "count": 34,
+          "mean": 0.13706761298646383,
+          "median": 0.12383442744612694,
+          "p90": 0.2362315446138382,
+          "maximum": 0.24477584660053253
+        },
+        {
+          "count": 34,
+          "mean": 0.41743663525866237,
+          "median": 0.06763659045100212,
+          "p90": 1.0069212675094605,
+          "maximum": 1.0077508687973022
+        }
+      ],
+      "unsafe": [
+        {
+          "count": 68,
+          "mean": 0.08679239194059525,
+          "median": 0.05536099895834923,
+          "p90": 0.13860940784215936,
+          "maximum": 0.6318112015724182
+        },
+        {
+          "count": 68,
+          "mean": 0.09895677318084328,
+          "median": 0.07501179352402687,
+          "p90": 0.18923991322517397,
+          "maximum": 0.4532644748687744
+        }
+      ]
+    },
+    "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+    "end_contact_statistics_are_not_ever_contact_rates": true
+  },
+  "initial_actor_updates": 1657,
+  "initial_critic_updates": 8676,
+  "new_TRAIN_actor_updates": 0,
+  "new_TRAIN_critic_updates": 0,
+  "source_checkpoint_SHA256": "c98301697c614901708f897396c5a2acbd740067b5b6b88a5496f8768928c563",
+  "initial_DEV_model_SHA256": "6a1a6f3cecf81e9dcaa61fa64b8495edf061237180586d2ae8f2bc40a17415a9",
+  "protected_initial_model": "artifacts/rl/protected_dev_models_20261012/batch_sac_20261012_012934_2f7181/checkpoint_00008676.pt",
+  "all_77_model_tensors_exact_source_equal": true,
+  "all_optimizer_tensors_and_state_source_equal": true,
+  "cohort_and_success_bank_source_equal": true,
+  "replay_size_reported": 250000,
+  "success_bank": {
+    "rows": 9072,
+    "by_region": {
+      "shelf_2_right": {
+        "episodes": 1,
+        "rows": 465
+      },
+      "shelf_2_left": {
+        "episodes": 10,
+        "rows": 4010
+      },
+      "shelf_3_right": {
+        "episodes": 6,
+        "rows": 3568
+      },
+      "shelf_3_left": {
+        "episodes": 2,
+        "rows": 1029
+      }
+    },
+    "TRAIN_only": true,
+    "evaluation_rows": 0
+  },
+  "cohort": {
+    "episodes": 7,
+    "rows": 3507,
+    "groups": 14,
+    "grouping": "episode_region_size_approach_or_tail64",
+    "first_paths_survive_success_replay_eviction": true,
+    "TRAIN_only": true,
+    "evaluation_rows": 0,
+    "rollout_success_guarantee": false
+  },
+  "previous_run_initial_counts": {
+    "requested": 128,
+    "success": 10,
+    "invalid_reset": 13,
+    "unsafe": 57,
+    "timeout": 48,
+    "numerical_failure": 0
+  },
+  "paired_against_previous_run_initial": {
+    "reference_wave": 0,
+    "current_wave": 0,
+    "unmatched_environments": [],
+    "different_requested_layout_environments": [],
+    "by_region": {
+      "shelf_2_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 32,
+        "baseline_successes": 7,
+        "current_successes": 7,
+        "lost_successes": 1,
+        "gained_successes": 1
+      },
+      "shelf_2_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 28,
+        "baseline_successes": 0,
+        "current_successes": 0,
+        "lost_successes": 0,
+        "gained_successes": 0
+      },
+      "shelf_3_left": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 28,
+        "baseline_successes": 0,
+        "current_successes": 0,
+        "lost_successes": 0,
+        "gained_successes": 0
+      },
+      "shelf_3_right": {
+        "same_requested_layout_pairs": 32,
+        "common_valid_completed_pairs": 27,
+        "baseline_successes": 3,
+        "current_successes": 6,
+        "lost_successes": 0,
+        "gained_successes": 3
+      }
+    },
+    "common_valid_comparison_is_diagnostic_not_the_primary_success_rate": true,
+    "repeated_reset_physics_are_not_asserted_identical": true
+  },
+  "paired_6scopes": {
+    "shelf_2_left/small": {
+      "same_requested_pairs": 16,
+      "common_initial_valid": 16,
+      "previous_success": 7,
+      "new_initial_success": 7,
+      "lost": 1,
+      "gained": 1
+    },
+    "shelf_2_right/small": {
+      "same_requested_pairs": 16,
+      "common_initial_valid": 13,
+      "previous_success": 0,
+      "new_initial_success": 0,
+      "lost": 0,
+      "gained": 0
+    },
+    "shelf_3_left/small": {
+      "same_requested_pairs": 32,
+      "common_initial_valid": 28,
+      "previous_success": 0,
+      "new_initial_success": 0,
+      "lost": 0,
+      "gained": 0
+    },
+    "shelf_3_right/small": {
+      "same_requested_pairs": 32,
+      "common_initial_valid": 27,
+      "previous_success": 3,
+      "new_initial_success": 6,
+      "lost": 0,
+      "gained": 3
+    },
+    "shelf_2_left/medium": {
+      "same_requested_pairs": 16,
+      "common_initial_valid": 16,
+      "previous_success": 0,
+      "new_initial_success": 0,
+      "lost": 0,
+      "gained": 0
+    },
+    "shelf_2_right/medium": {
+      "same_requested_pairs": 16,
+      "common_initial_valid": 15,
+      "previous_success": 0,
+      "new_initial_success": 0,
+      "lost": 0,
+      "gained": 0
+    }
+  },
+  "previous_initial_comparison_scope": "different trained model and independently reset actual physics; not new quantized-fallback TRAIN effect",
+  "same_requested_layouts": true,
+  "actual_reset_physics_not_asserted_identical": true,
+  "source_run_final_DEV_exists": false,
+  "new_run_final_DEV_exists": false,
+  "videos": [
+    {
+      "environment": 0,
+      "region": "shelf_2_left",
+      "layout": {
+        "seed": 50001000,
+        "split": "holdout",
+        "lateral_m": -0.03287803754210472,
+        "yaw_rad": -0.0116084860637784,
+        "distractors": [
+          5,
+          6
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.18845956027507782,
+        "base_outward_m": 0.12030049413442612,
+        "base_yaw_rad": 0.2614838480949402,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "file": "eval_wave_0000_env_000_h264.mp4",
+      "SHA256": "42dda13046ca39532f7c258a0e8a2ba0debe97ac1247f47b95187c625b98ca05",
+      "frames": 65,
+      "terminal_flags": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false
+      },
+      "actual_supported_success": false,
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "display_Q_number_means_critic_update_counter_not_Q_value": true
+    },
+    {
+      "environment": 4,
+      "region": "shelf_2_left",
+      "layout": {
+        "seed": 50001001,
+        "split": "holdout",
+        "lateral_m": -0.027354001998901367,
+        "yaw_rad": 0.013670943677425385,
+        "distractors": [],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.02251460589468479,
+        "base_outward_m": 0.18220385909080505,
+        "base_yaw_rad": 0.1894439160823822,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "medium"
+      },
+      "file": "eval_wave_0000_env_004_h264.mp4",
+      "SHA256": "71295ecb5c4304d9a347f1b867de29e3e11fd618897c4f474fe294992c4dfd8b",
+      "frames": 45,
+      "terminal_flags": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false
+      },
+      "actual_supported_success": false,
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "display_Q_number_means_critic_update_counter_not_Q_value": true
+    },
+    {
+      "environment": 1,
+      "region": "shelf_2_right",
+      "layout": {
+        "seed": 50001100,
+        "split": "holdout",
+        "lateral_m": -0.022201379761099815,
+        "yaw_rad": 0.00014270174142438918,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.18918593227863312,
+        "base_outward_m": 0.10090504586696625,
+        "base_yaw_rad": 0.21876637637615204,
+        "target_region": "shelf_2_right",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "file": "eval_wave_0000_env_001_h264.mp4",
+      "SHA256": "574048e5ca8070c76fa9b7ca3e282061819b9787a92122fd827f0bda10845a77",
+      "frames": 86,
+      "terminal_flags": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true
+      },
+      "actual_supported_success": false,
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "display_Q_number_means_critic_update_counter_not_Q_value": true
+    },
+    {
+      "environment": 5,
+      "region": "shelf_2_right",
+      "layout": {
+        "seed": 50001101,
+        "split": "holdout",
+        "lateral_m": -0.03864264488220215,
+        "yaw_rad": -0.00976886972784996,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.09028726071119308,
+        "base_outward_m": 0.09406284242868423,
+        "base_yaw_rad": -0.03570521995425224,
+        "target_region": "shelf_2_right",
+        "align_initial_base_to_region": true,
+        "target_box_type": "medium"
+      },
+      "file": "eval_wave_0000_env_005_h264.mp4",
+      "SHA256": "695e27d0e6d53932d886476848d4f9652a07c57ffa86dc19a8f3d1131d31a6ca",
+      "frames": 69,
+      "terminal_flags": {
+        "success": false,
+        "unsafe": true,
+        "time_out": false
+      },
+      "actual_supported_success": false,
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "display_Q_number_means_critic_update_counter_not_Q_value": true
+    },
+    {
+      "environment": 2,
+      "region": "shelf_3_left",
+      "layout": {
+        "seed": 50001200,
+        "split": "holdout",
+        "lateral_m": -0.022848209366202354,
+        "yaw_rad": 0.007952157407999039,
+        "distractors": [],
+        "depth_m": 0.005969026125967503,
+        "base_lateral_m": -0.03684212639927864,
+        "base_outward_m": 0.0625489130616188,
+        "base_yaw_rad": 0.01538927387446165,
+        "target_region": "shelf_3_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "file": "eval_wave_0000_env_002_h264.mp4",
+      "SHA256": "dd025ed675cb63efa65b4069122c8979831cb550493273594ffb89ed0a30323b",
+      "frames": 86,
+      "terminal_flags": {
+        "success": false,
+        "unsafe": false,
+        "time_out": true
+      },
+      "actual_supported_success": false,
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "display_Q_number_means_critic_update_counter_not_Q_value": true
+    },
+    {
+      "environment": 3,
+      "region": "shelf_3_right",
+      "layout": {
+        "seed": 50001300,
+        "split": "holdout",
+        "lateral_m": -0.03782520443201065,
+        "yaw_rad": 0.005450219381600618,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0021114142145961523,
+        "base_lateral_m": -0.015032071620225906,
+        "base_outward_m": 0.08165990561246872,
+        "base_yaw_rad": -0.056030962616205215,
+        "target_region": "shelf_3_right",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "file": "eval_wave_0000_env_003_h264.mp4",
+      "SHA256": "1b169c4226fe8d2a4bd9f78276c93cfb25a6dd9ec2946b9e30c1507c24afd1d8",
+      "frames": 69,
+      "terminal_flags": {
+        "success": true,
+        "unsafe": false,
+        "time_out": false
+      },
+      "actual_supported_success": true,
+      "browser_encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "display_Q_number_means_critic_update_counter_not_Q_value": true
+    }
+  ],
+  "raw_replay_HDF_read_or_upload_or_delete": false,
+  "independent_FINAL_read_or_used": false,
+  "goal_not_complete": true,
+  "quantized_fallback_physical_success_effect_not_yet_measured": true
+}
