@@ -49,6 +49,32 @@ def verified_input(plan):
     return code, initial
 
 
+def verified_runtime_environment(plan):
+    """Optional owned user-space libraries; never install or reload a driver."""
+    environment = plan.get('runtime_environment', {})
+    allowed = {'LD_LIBRARY_PATH', 'VK_ICD_FILENAMES', '__EGL_VENDOR_LIBRARY_FILENAMES'}
+    if not isinstance(environment, dict) or environment.keys()-allowed:
+        raise ValueError('Only explicit CUDA/graphics library selection is supported')
+    files = plan.get('runtime_files_SHA256', {})
+    if environment and not files:
+        raise ValueError('Runtime library hashes are required')
+    for name, digest in files.items():
+        path = Path(name)
+        if not path.is_absolute() or path.is_symlink() or not path.is_file() \
+                or path.stat().st_uid != os.getuid() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            raise ValueError('Owned runtime library input changed')
+    for key, value in environment.items():
+        if not isinstance(value, str) or '\n' in value:
+            raise ValueError('Invalid runtime library path')
+        for name in value.split(':'):
+            path = Path(name)
+            if not path.is_absolute() or path.is_symlink() or path.stat().st_uid != os.getuid() \
+                    or (key == 'LD_LIBRARY_PATH' and not path.is_dir()) \
+                    or (key != 'LD_LIBRARY_PATH' and name not in files):
+                raise ValueError('Runtime selection must use owned verified paths')
+    return environment
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument('--plan', type=Path, required=True)
@@ -60,6 +86,8 @@ def main():
     if plan['format'] != 'owned_staged_SAC_comparison_queue_v1' or args.plan.stat().st_uid != os.getuid():
         raise ValueError('Explicit owned comparison plan required')
     code, initial = verified_input(plan)
+    runtime_environment = verified_runtime_environment(plan)
+    os.environ.update(runtime_environment)
     pointer = Path(plan['predecessor_launch']); launch_output = Path(plan['launch_output'])
     if launch_output.exists(): raise ValueError('Never launch a duplicate experiment')
     def status(phase, **details):
@@ -98,6 +126,7 @@ def main():
             time.sleep(30); continue
         break
     verified_input(plan)
+    verified_runtime_environment(plan)
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     output = Path(plan['run_root'])/(plan['label']+'_'+stamp)
     unit = 'humanoid-rl-'+plan['label'].lower().replace('_','-')+'-'+stamp+'.service'
@@ -109,7 +138,8 @@ def main():
     subprocess.run(['systemd-run','--user','--unit='+unit,'--property=WorkingDirectory='+str(ROOT),
         '--setenv=CUDA_VISIBLE_DEVICES='+str(plan['gpu']), '--setenv=OMP_NUM_THREADS=1',
         '--setenv=MKL_NUM_THREADS=1','--setenv=OPENBLAS_NUM_THREADS=1',
-        '--setenv=PYTHONPATH='+str(ROOT/'src')+':'+str(ROOT/'scripts/rl'), *command],
+        '--setenv=PYTHONPATH='+str(ROOT/'src')+':'+str(ROOT/'scripts/rl'),
+        *['--setenv='+key+'='+value for key,value in runtime_environment.items()], *command],
         check=True, capture_output=True, text=True)
     for _ in range(90):
         if (output/'status.json').exists() and (output/'launch.json').exists():
@@ -127,6 +157,8 @@ def main():
         gpu=plan['gpu'], CUDA_VISIBLE_DEVICES=actual_mask, source_commit=plan['source_commit'],
         initial_checkpoint_SHA256=plan['initial_checkpoint_SHA256'],
         backup_scope=actual['backup_scope'], original_randomization_success_safety_preserved=True,
+        runtime_environment=runtime_environment,
+        runtime_files_SHA256=plan.get('runtime_files_SHA256', {}),
         fresh_TRAIN_requested=plan['fresh_TRAIN_requested'], independent_FINAL_unused=True,
         no_process_signals=True, goal_not_complete=True)
     atomic_json(launch_output, receipt)

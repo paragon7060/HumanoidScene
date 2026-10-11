@@ -21,7 +21,7 @@ from kuavo_isaaclab_scene.rl.algorithms.success_update_guard import success_upda
 from kuavo_isaaclab_scene.rl.multi_box.experiments.staged_train_success import TrainSuccessBank
 
 
-def audit(run, checkpoint, output, batches=2):
+def audit(run, checkpoint, output, batches=2, servo_tube=False):
     if os.environ.get('CUDA_VISIBLE_DEVICES') != '' or output.exists() or not 1 <= batches <= 4:
         raise ValueError('Empty CUDA mask, unique output and 1..4 batches required')
     torch.set_num_threads(1)
@@ -52,7 +52,9 @@ def audit(run, checkpoint, output, batches=2):
         batch, mixed=bank.mix({k:v[rows].clone() for k,v in replay.items()},.2,'cpu')
         success=bank.sample_actor(64,'cpu')
         rng=torch.get_rng_state()
-        for variant in (cohort.VARIANT,cohort.STABLE_VARIANT):
+        variants = ((cohort.STABLE_VARIANT, cohort.TUBE_VARIANT) if servo_tube else
+                    (cohort.VARIANT, cohort.STABLE_VARIANT))
+        for variant in variants:
             agent,_=restored_agent(state)
             agent.restore(state,training=True)
             agent.actor.requires_grad_(True)
@@ -61,7 +63,7 @@ def audit(run, checkpoint, output, batches=2):
             for name in ('jaw_saturation','body_saturation','success_jaw_balance'):
                 setattr(agent,name+'_config',deepcopy(state.get(name)))
             agent.actor_success_guard_config=success_update_guard_config(variant)
-            if variant==cohort.STABLE_VARIANT:
+            if cohort.stable(agent):
                 # Same original safe TRAIN paths; no DEV/FINAL labels used.
                 paths={}
                 for e in entries:
@@ -118,4 +120,5 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     for name in ('run','checkpoint','output'):p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--batches',type=int,default=2)
-    a=p.parse_args();audit(a.run.resolve(),a.checkpoint.resolve(),a.output,a.batches)
+    p.add_argument('--servo-tube',action='store_true')
+    a=p.parse_args();audit(a.run.resolve(),a.checkpoint.resolve(),a.output,a.batches,a.servo_tube)

@@ -113,7 +113,7 @@ def test_one_arm_improvement_cannot_pay_for_the_other_arms_regression():
     assert not cohort.within_ceilings(candidate, correct, memory, a.actor_success_guard_config)
 
 
-@pytest.mark.parametrize('variant',[cohort.VARIANT,cohort.STABLE_VARIANT])
+@pytest.mark.parametrize('variant',[cohort.VARIANT,cohort.STABLE_VARIANT,cohort.TUBE_VARIANT])
 def test_persistent_paths_and_counters_round_trip_with_the_actual_optimizer(variant):
     a, _ = sample(variant)
     accepted, report = guarded_actor_step(a, a.actor.network[-1].bias[19], None)
@@ -196,3 +196,36 @@ def test_stable_guard_fixed_path_forward_does_not_change_when_cohort_grows():
     assert cohort.within_ceilings(values,correct,a.success_guard_memory,a.actor_success_guard_config)
     losses,_=cohort.losses_and_jaws(a,batch,groups)
     assert all(v.dtype==torch.float64 for terms in losses.values() for v in terms.values())
+
+
+def test_servo_tube_accepts_small_physical_corrections_but_rejects_one_bad_row():
+    a,_=sample(cohort.TUBE_VARIANT)
+    before=deepcopy(a.success_guard_memory)
+    bias=a.actor.network[-1].bias
+    accepted,report=guarded_actor_step(a,-bias[1],None)
+    assert accepted and report['actor_success_guard_parameter_delta_norm']>0
+    assert a.success_guard_memory['ceilings']==before['ceilings']
+    batch,groups=cohort.cohort_batch(a)
+    values,correct=cohort.metrics(a,batch,groups)
+    assert cohort.within_ceilings(values,correct,a.success_guard_memory,a.actor_success_guard_config)
+    with torch.no_grad():bias[1]+=0.1
+    # Only one row fails: an aggregate mean would hide this violation.
+    batch['goal_error_limits'][1:,1]=100.
+    values,correct=cohort.metrics(a,batch,groups)
+    key=next(iter(values))
+    assert values[key]['left_arm']>1
+    assert not cohort.within_ceilings(values,correct,a.success_guard_memory,a.actor_success_guard_config)
+
+
+def test_servo_tube_cannot_accumulate_slack_or_lose_a_correct_jaw():
+    a,_=sample(cohort.TUBE_VARIANT)
+    batch,groups=cohort.cohort_batch(a)
+    values,correct=cohort.metrics(a,batch,groups)
+    old=deepcopy(a.success_guard_memory['ceilings'])
+    cohort.tighten(a.success_guard_memory,values,correct,fixed=True)
+    assert a.success_guard_memory['ceilings']==old
+    wrong=correct.clone();wrong[0,0]=False
+    assert not cohort.within_ceilings(values,wrong,a.success_guard_memory,a.actor_success_guard_config)
+    saved=a.checkpoint();saved['success_guard_memory']['entries'][0]['servo_error_limits'][0,0]=float('nan')
+    b,_=sample(cohort.TUBE_VARIANT)
+    with pytest.raises(ValueError,match='physical command tube'):b.restore(saved)

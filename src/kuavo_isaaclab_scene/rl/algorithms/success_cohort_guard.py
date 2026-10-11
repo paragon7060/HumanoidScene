@@ -9,6 +9,7 @@ from torch.nn import functional as F
 
 VARIANT = 'train-success-cohort-Adam-backtrack'
 STABLE_VARIANT = 'train-success-cohort-stable-Adam-backtrack'
+TUBE_VARIANT = 'train-success-cohort-servo-tube-Adam-backtrack'
 BODY_GROUPS = {'left_arm': list(range(1, 8)), 'right_arm': list(range(8, 15)),
                'rest': [0, 15, 16, 17, 18]}
 
@@ -18,21 +19,29 @@ def empty_memory():
 
 
 def enabled(agent):
-    return (getattr(agent, 'actor_success_guard_config', None) or {}).get('name') in (VARIANT, STABLE_VARIANT)
+    return (getattr(agent, 'actor_success_guard_config', None) or {}).get('name') in (VARIANT, STABLE_VARIANT, TUBE_VARIANT)
 
 
 def stable(agent):
-    return (getattr(agent, 'actor_success_guard_config', None) or {}).get('name') == STABLE_VARIANT
+    return (getattr(agent, 'actor_success_guard_config', None) or {}).get('name') in (STABLE_VARIANT, TUBE_VARIANT)
+
+
+def tube(agent):
+    return (getattr(agent, 'actor_success_guard_config', None) or {}).get('name') == TUBE_VARIANT
 
 
 def cohort_batch(agent):
     memory = agent.success_guard_memory
     device = next(agent.actor.parameters()).device
     raw, actions, groups = [], [], {}
+    goal_limits, servo_limits = [], []
     offset = 0
     for entry in memory['entries']:
         n = len(entry['action'])
         raw.append(entry['actor_obs']); actions.append(entry['action'])
+        if tube(agent):
+            goal_limits.append(entry['goal_error_limits'])
+            servo_limits.append(entry['servo_error_limits'])
         start_tail = max(0, n-64)
         for name, first, last in (('approach', 0, start_tail), ('tail64', start_tail, n)):
             if first < last:
@@ -40,7 +49,11 @@ def cohort_batch(agent):
         offset += n
     if not raw:
         raise ValueError('Persistent guard has no completed safe TRAIN paths')
-    return dict(actor_obs=torch.cat(raw).to(device), action=torch.cat(actions).to(device)), groups
+    batch = dict(actor_obs=torch.cat(raw).to(device), action=torch.cat(actions).to(device))
+    if tube(agent):
+        batch.update(goal_error_limits=torch.cat(goal_limits).to(device),
+                     servo_error_limits=torch.cat(servo_limits).to(device))
+    return batch, groups
 
 
 def _losses_and_jaws(agent, batch, groups):
@@ -55,8 +68,16 @@ def _losses_and_jaws(agent, batch, groups):
     error = torch.where(recorded >= 1, (1-predicted).clamp_min(0),
         torch.where(recorded <= -1, (predicted+1).clamp_min(0), predicted-recorded))
     goal_difference = body-labels[:, :19]
+    if tube(agent):
+        goal_difference = body.double()-labels[:, :19].double()
     if stable(agent):
         goal_difference, error = goal_difference.double(), error.double()
+    if tube(agent):
+        # Check every recorded row/joint against fixed physical command
+        # tolerances. An improvement elsewhere cannot pay for this error.
+        bounded = encoder(raw, goals)[:, :19].double()
+        errors = torch.maximum(goal_difference.abs()/batch['goal_error_limits'],
+            (bounded-recorded.double()).abs()/batch['servo_error_limits'])
     goal_error = goal_difference.square()
     servo_error = F.smooth_l1_loss(error, torch.zeros_like(error), beta=1., reduction='none')
     near = agent.action_projector.entropy_mask(raw)[:, 19:].bool()
@@ -64,7 +85,8 @@ def _losses_and_jaws(agent, batch, groups):
     correct = executed[:, 19:] == labels[:, 19:]
     losses = {}
     for key, rows in groups.items():
-        terms = {name: (goal_error[rows][:, columns]+servo_error[rows][:, columns]).mean()
+        terms = {name: (errors[rows][:, columns].max() if tube(agent) else
+                      (goal_error[rows][:, columns]+servo_error[rows][:, columns]).mean())
                  for name, columns in BODY_GROUPS.items()}
         for hand in range(2):
             active = near[rows, hand]
@@ -133,15 +155,39 @@ def within_ceilings(values, correct, memory, config):
 
 
 @torch.no_grad()
-def tighten(memory, values, correct):
-    for key, terms in values.items():
-        memory['ceilings'][key] = {name: min(value, memory['ceilings'].get(key, {}).get(name, value))
-                                   for name, value in terms.items()}
+def tighten(memory, values, correct, fixed=False):
+    if not fixed:
+        for key, terms in values.items():
+            memory['ceilings'][key] = {name: min(value, memory['ceilings'].get(key, {}).get(name, value))
+                                       for name, value in terms.items()}
     offset = 0
     for e in memory['entries']:
         n = len(e['action'])
         e['protected_correct_jaws'] |= correct[offset:offset+n]
         offset += n
+
+
+@torch.no_grad()
+def initialize_tube_limits(agent, entry):
+    device = next(agent.actor.parameters()).device
+    raw, labels = entry['actor_obs'].to(device), entry['action'].to(device)
+    goals_limits, servo_limits = [], []
+    n = len(labels); tail = max(0, n-64)
+    config = agent.actor_success_guard_config
+    for name, start, end in (('approach', 0, tail), ('tail64', tail, n)):
+        if start == end:
+            continue
+        obs, actions = raw[start:end], labels[start:end]
+        normalized = agent.actor_normalizer(agent.actor_features(obs))
+        mean, _, _ = agent.continuous_parameters(normalized, obs)
+        body = agent.body_from_latent(normalized, mean.tanh(), obs)
+        encoder = agent.goal_servo_critic_encoder
+        recorded = encoder(obs, actions)[:, :19].double()
+        predicted = encoder(obs, torch.cat((body, actions[:, 19:]), -1))[:, :19].double()
+        goals_limits.append((body.double()-actions[:, :19].double()).abs()+config['normalized_goal_error_budget'])
+        servo_limits.append((predicted-recorded).abs()+config['normalized_servo_error_budget'][name])
+    entry['goal_error_limits'] = torch.cat(goals_limits).cpu()
+    entry['servo_error_limits'] = torch.cat(servo_limits).cpu()
 
 
 def synchronize(agent, bank):
@@ -173,6 +219,8 @@ def synchronize(agent, bank):
             memory['entries'].append(dict(identity=episode['identity'], outcome=deepcopy(o),
                 actor_obs=raw.detach().cpu().clone(), action=action.detach().cpu().clone(),
                 protected_correct_jaws=torch.zeros(n, 2, dtype=torch.bool)))
+            if tube(agent):
+                initialize_tube_limits(agent, memory['entries'][-1])
             counts[key] = counts.get(key, 0)+1; known.add(episode['identity']); added = True
     if added:
         batch, groups = cohort_batch(agent)
@@ -180,15 +228,17 @@ def synchronize(agent, bank):
         # New groups get their present policy ceiling. Existing ceilings are
         # never relaxed when another path arrives or replay evicts an old path.
         for key, terms in values.items():
-            memory['ceilings'].setdefault(key, terms)
-        tighten(memory, values, correct)
+            limits = ({name: (1. if name in BODY_GROUPS else value+agent.actor_success_guard_config['jaw_loss_budget'])
+                       for name, value in terms.items()} if tube(agent) else terms)
+            memory['ceilings'].setdefault(key, limits)
+        tighten(memory, values, correct, fixed=tube(agent))
 
 
 def gradient_constraints(agent, batch, groups, parameters):
     losses, _ = losses_and_jaws(agent, batch, groups)
     gradients = []
-    for terms in losses.values():
-        for loss in terms.values():
+    for key, terms in losses.items():
+        for name, loss in terms.items():
             if not loss.requires_grad:
                 continue
             parts = torch.autograd.grad(loss, parameters, allow_unused=True, retain_graph=True)
@@ -197,7 +247,8 @@ def gradient_constraints(agent, batch, groups, parameters):
             if not torch.isfinite(g).all():
                 raise FloatingPointError('Non-finite persistent TRAIN retention gradient')
             if g.square().sum() > 1e-20:
-                gradients.append(g)
+                headroom = max(0., agent.success_guard_memory['ceilings'][key][name]-float(loss.detach()))
+                gradients.append((g, headroom) if tube(agent) else g)
     return gradients
 
 
@@ -231,6 +282,13 @@ def restore_memory(agent, state):
         for name in ('actor_obs', 'action', 'protected_correct_jaws'):
             e[name] = e[name].detach().cpu().clone()
         raw, action = e['actor_obs'], e['action']; n = len(action)
+        if tube(agent):
+            for name in ('goal_error_limits', 'servo_error_limits'):
+                limits = e.get(name)
+                if not isinstance(limits, torch.Tensor) or limits.shape != (n, 19) \
+                        or limits.dtype != torch.float64 or not torch.isfinite(limits).all() or (limits <= 0).any():
+                    raise ValueError('Malformed fixed physical command tube')
+                e[name] = limits.detach().cpu().clone()
         if not 1 <= n <= 900 or raw.shape != (n, 518) or action.shape != (n, 21) \
                 or e['protected_correct_jaws'].shape != (n, 2) or e['protected_correct_jaws'].dtype != torch.bool \
                 or not torch.isfinite(raw).all() or not torch.isfinite(action).all() \
@@ -245,4 +303,7 @@ def restore_memory(agent, state):
                 type(v) not in (float, int) or not torch.isfinite(torch.tensor(v)) or v < 0 for v in terms.values())
             for terms in memory['ceilings'].values()):
         raise ValueError('Persistent guard loss ceilings differ')
+    if tube(agent) and any(any(terms[name] != 1. for name in BODY_GROUPS)
+                          for terms in memory['ceilings'].values()):
+        raise ValueError('Fixed physical command tube cannot accumulate slack')
     agent.success_guard_memory = memory

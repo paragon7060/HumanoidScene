@@ -17,8 +17,8 @@ VARIANT = 'train-success-Adam-backtrack'
 def success_update_guard_config(variant):
     if variant is None:
         return None
-    from .success_cohort_guard import VARIANT as COHORT_VARIANT, STABLE_VARIANT
-    if variant not in (VARIANT, COHORT_VARIANT, STABLE_VARIANT):
+    from .success_cohort_guard import VARIANT as COHORT_VARIANT, STABLE_VARIANT, TUBE_VARIANT
+    if variant not in (VARIANT, COHORT_VARIANT, STABLE_VARIANT, TUBE_VARIANT):
         raise ValueError('Unknown successful TRAIN update guard')
     result = dict(name=VARIANT, format_version=1,
         source='same_completed_safe_TRAIN_actor_batch_only',
@@ -38,7 +38,7 @@ def success_update_guard_config(variant):
         absent_success_batch='ordinary_actor_update',
         pilot_waits_for_first_completed_safe_TRAIN_success=True,
         local_batch_protection_is_not_rollout_success_guarantee=True)
-    if variant in (COHORT_VARIANT, STABLE_VARIANT):
+    if variant in (COHORT_VARIANT, STABLE_VARIANT, TUBE_VARIANT):
         result.update(name=variant, format_version=2,
             source='persistent_first_two_safe_TRAIN_paths_per_region_and_size',
             grouping='each_episode_approach_and_tail64_with_separate_arms_and_jaws',
@@ -48,7 +48,7 @@ def success_update_guard_config(variant):
             first_success_paths_survive_replay_eviction=True,
             actor_training_minibatch_and_Q_replay_unchanged=True,
             absent_success_batch='pilot_waits_for_first_completed_safe_TRAIN_success')
-    if variant == STABLE_VARIANT:
+    if variant in (STABLE_VARIANT, TUBE_VARIANT):
         result.update(format_version=3,
             guard_forward_batch='fixed_each_episode_phase_independent_of_added_cohort_paths',
             loss_reduction='float64_from_unchanged_float32_production_outputs',
@@ -59,6 +59,16 @@ def success_update_guard_config(variant):
             rejected_region_restores_its_Adam_moments=True,
             final_whole_cohort_check_required=True,
             parameter_scale_statistic='minimum_nonzero_accepted_region_scale')
+    if variant == TUBE_VARIANT:
+        result.update(format_version=4, guard_loss_tolerances_unchanged=False,
+            loss_ceiling='fixed_per_row_joint_executed_TRAIN_command_error_limits',
+            normalized_goal_error_budget=.001,
+            normalized_servo_error_budget=dict(approach=.02, tail64=.01),
+            jaw_loss_budget=.002,
+            scalar_body_metric='maximum_row_joint_goal_or_bounded_servo_error_ratio',
+            projection='actual_Adam_displacement_with_remaining_fixed_constraint_headroom',
+            budgets_do_not_accumulate_or_tighten=True,
+            task_success_safety_and_randomization_unchanged=True)
     return result
 
 
@@ -158,10 +168,11 @@ def guarded_actor_step(agent, loss, successful):
         delta = torch.cat([(new-old).flatten() for new, old in zip(proposal, previous)])
         projected = 0
         for _ in range(config['projection_cycles']):
-            for gradient in constraints:
+            for constraint in constraints:
+                gradient, headroom = constraint if isinstance(constraint, tuple) else (constraint, 0.)
                 ascent = torch.dot(gradient, delta)
-                if ascent > 0:
-                    delta = delta - ascent / gradient.square().sum() * gradient
+                if ascent > headroom:
+                    delta = delta - (ascent-headroom) / gradient.square().sum() * gradient
                     projected += 1
         # Remove float32 projection residue, not a policy/logit deadband.
         # This is below 1e-6 of the production actor learning rate.
@@ -220,7 +231,7 @@ def guarded_actor_step(agent, loss, successful):
             after,correct=cohort.metrics(agent,successful,groups)
             if not cohort.within_ceilings(after,correct,agent.success_guard_memory,config):
                 accepted_scale=0.
-            else:cohort.tighten(agent.success_guard_memory,after,correct)
+            else:cohort.tighten(agent.success_guard_memory,after,correct,fixed=cohort.tube(agent))
     finally:
         if not accepted_scale:
             with torch.no_grad():
