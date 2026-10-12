@@ -82,6 +82,22 @@ base를 유지하고 SAC는21개 비base 목표를 학습한다. Medium의 팔�
 
 [전체128 비교·TRAIN·모델·GPU 후보 근거](assets/rl_v2_quantized_guard_final_DEV128_and_postscale_GPU3_20261012.json)
 
+**19:04 KST에 다음 GPU3 학습을 실제 시작했다.** 고유 실행
+`GPU3_URDF_postscale_body_SAC512_20261012_190449/batch_sac_20261012_190449_fec06e`의
+writer3331156/supervisor3331118를 확인했다. Frozen source는main4b4e233이며
+GPU3 UUID 단일 namespace에서 nvidia3/renderD131만 보인다. 실제 CPU PGS 물리 계약도
+로그에서 확인했다. source2462/Q11896·닫힌 replay·모든 optimizer·성공은행/cohort를
+재개하며 새로운 TRAIN512(128환경 ×4배치)와 같은 DEV128 초기/중간/종료를 수행한다.
+이번 자체 초기 DEV 성공 수는 아직 측정 중이며 직전14를 대신 넣지 않는다.
+
+300초 checksum 백업·각 형식 최근2 checkpoint·종료 로그 검증을 유지한다.
+Raw replay/HDF는 다음 TRAIN의 resume 입력으로만 읽으며 진단/업로드/삭제하지 않는다.
+같은 대화의 완료 후속 점검 CPU watcher 한 개도 등록했고 다른 GPU/사용자 process는
+건드리지 않았다. 종료 DEV 성공/실패 영상2개를 Notion native로 추가했고 기존107native주소와
+표5개는 모두 유지했다(현재image59/video51/native109).
+[실제 시작·source·장치·후속 점검 근거](assets/rl_v2_postscale_body_actual_GPU3_launch_20261012.json)
+
+
 ## 10/12 수정판 첫 전체 TRAIN128 확정
 
 **실제 양손 성공15/128·초기 유효127/무효1·안전67·timeout45·수치 오류0이다.**
