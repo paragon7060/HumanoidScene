@@ -139,6 +139,40 @@ outcome/layout·행동 전 Q1/Q2/minQ·전reset 종료 frame·H264 전체 decode
 
 [자체 초기128·91tensor/optimizer·실제 성공/안전·Q영상·첫4갱신 근거](assets/rl_v2_region_size_own_initial_DEV128_and_first_TRAIN_20261013.json)
 
+### 실제 성공 시점 정책 보관 확인 · TRAIN 진행 중
+
+첫 후보는 중간 왼쪽small env32/seed69000008의 step457에서 저장됐다.
+양손 opposing two-pad pinch·stable·hold0.2667초·proof-lift·clearance16.31mm와 모든
+안전 항목을 확인했다. 해당 마지막 행동의 모델을 `learner.observe` 전에 저장한
+actor4257/critic19194이며 출발점 대비 actor202/Q808이다. 이 숫자는 누적 갱신
+counter이며 Q value가 아니다. 전체 episode는 online 모델이 바뀌므로 고정 모델의
+처음부터 끝까지 성공 재현이나 DEV 성능 개선으로 설명하지 않는다.
+
+모델 SHA256 `ac049232c764699c7cf4cc6091938e5a50a00c8166c67d314fa4ee55d6e37278`,
+91개 model tensor·174개 optimizer tensor 유한성과 원래 관측 정규화/goal 계약을
+CPU에서 확인했다. 모델·불변 증거 JSON의 Drive 크기/MD5도 실제 대조해 일치했다.
+다음 후보는 step497의 env112/120 두 성공을 한 모델로 보관했다. SHA256
+`5d9f640128e82a1db386bc2eef947e66c5d8d5194188881b6bf229d35b70f485`이며
+두 후보의 기존7경로 관측·동작·고정 한도·보호 jaw를 정확히 대조했다. 같은 구역의
+저장 간격은411.3초다. 후보2의 모델/증거 JSON도06:06 기존 Drive의 크기/MD5가
+일치함을 읽기 전용으로 확인했다.
+최대12개·미관측 구역 자리 예약·검증 후 형식별 최근2개 유지를 적용한다.
+
+step511의 실제 완료 성공은7건이며 모두 중간 왼쪽small이다. 분모128 중 진행96·
+랙 안전 종료24·초기 무효1이며 전체 TRAIN 성공률이나 고정 DEV 결과가 아니다.
+모든7건의 양손 pinch/hold/proof/안전과 terminal step의 즉시 은행 등록을 대조했다.
+각 환경의 실제 랙 좌표계로 변환한 초기 base 차이는 좌우26.35cm·앞뒤12.51cm·
+yaw21.80도다. 환경 tile 이동은 제외했으며 기존 고정 base 접근 뒤 SAC21개 비base
+목표의 결과다. Base 접근까지 SAC가 학습한 것은 아니다. 초기 유효 판정은 현재
+`valid_original_layout`과 실제 footprint/shelf 상태로 확인했고 누적 footprint
+실패 counter를 이번 reset 실패로 세지 않았다.
+
+현재 고유 실행을 유지한다. 후보는 matching replay가 없어 직접 TRAIN 재개할 수
+없으며 종료·Drive 검증 후 같은 전체 DEV128의 고정 정책 평가로 사용 여부를 판단한다.
+현재 자체 초기11/128·이전 최선15 모델/영상과 구분하고 독립 FINAL은 조정에 쓰지 않는다.
+
+[후보2개·파일/모델 checksum·Drive·실제7성공·같은 step 등록·base 좌표 근거](assets/rl_v2_region_size_actual_TRAIN_success_candidates_20261013.json)
+
 ### 그리퍼 출력만 교정하는 후보 준비 · 현재 학습에는 미적용
 
 실제 step151의 마지막 상단 왼쪽 후보는 팔 한도 초과0이어도 보호 jaw 정답1개가
