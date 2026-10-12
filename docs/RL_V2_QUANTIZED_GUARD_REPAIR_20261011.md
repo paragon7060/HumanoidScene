@@ -140,6 +140,16 @@ cohort 검사 실행을 확인했다. 기존7경로3507행도 유지됐다. 첫2
 즉시 등록과 중간/최종 DEV128 결과를 함께 확인한다.
 [실제 신규 갱신·구역별 이동·고정 전체 검사](assets/rl_v2_postscale_body_first_actual_TRAIN_updates_20261012.json)
 
+첫 닫힌 TRAIN 저장점actor2560/Q12288에서는 새 actor98/critic392회다. 저장된 네 head의
+각6개 parameter Adam step도 중간 왼쪽98·중간 오른쪽98·상단 왼쪽98·상단 오른쪽95 증가로
+실제 이동 수와 맞았다. 상단 오른쪽 거절3회의 Adam은 늘지 않았다. 네 head의 실제 parameter
+값과critic20개 parameter·두 entropy의 저장 값이 바뀌었고 모든77model/optimizer tensor는
+유한했다. CPU에서 같은 고정 TRAIN14phase를 비교해 body mean·팔 목표·jaw logit 변화도
+확인했다. Actor normalizer는 동일하며 CUDA 판정·현재 실패 상태·물리 성공 개선의 재현은 아니다.
+기존7경로3507행·고정 obs/action·goal/servo 한도·ceilings·기존 jaw 보호를 유지했고 jaw 보호2개는
+추가됐다. 새 성공을 등록한 모델이나 전체 완료 TRAIN/DEV 성능으로 설명하지 않는다.
+[첫 저장점 SHA256·실제 Adam·고정 TRAIN CPU 출력](assets/rl_v2_postscale_body_first_saved_TRAIN_Adam_CPU_outputs_20261012.json)
+
 
 ## 10/12 수정판 첫 전체 TRAIN128 확정
 
