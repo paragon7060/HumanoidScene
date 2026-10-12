@@ -270,6 +270,21 @@ actor4359/Q19602 모델 SHA256은
 
 [후보3개·checksum/Drive·최근2개 보관·실제 부분 성공/등록/갱신 근거](assets/rl_v2_region_size_actual_TRAIN_success_candidates_20261013.json)
 
+두 번째 TRAIN의 step511 부분 결과는 실제 양손 성공11·랙 종료22·초기 무효1·진행94다.
+중간 왼쪽small10건·상단 왼쪽small1건이며 모두 hold0.2667초·proof clearance8mm 이상·
+양손 opposing pinch/stable·안전과 같은 control step 등록을 확인했다. 분모128의 아직
+미완료 배치이며 이번 초기 DEV11/128이나 첫 배치13/128의 성능 개선으로 세지 않는다.
+
+후보4는 step464의 중간 왼쪽small env64, 후보5는 step489의 상단 왼쪽small env90이다.
+각 종료 행동은 greedy이며 모델91개·optimizer174개 유한성과 원래 고정 cohort/한도를
+대조했다.08:07에는 두 모델과 증거 JSON의 Drive 크기/MD5도 실제 일치했고 기존 uploader가
+검증 후 정리해 로컬 모델은 후보4/5만 남았다. 전체 online episode의 고정 모델 재현은 미확인이다.
+후보5의 상단 왼쪽head6개 tensor와 Adam 저장값은 자체 초기 모델과 정확히 같고 새 step은0이다.
+따라서 상단 왼쪽 성공을 새 head 학습 효과로 설명하지 않는다. 기존 모델의 성공 후보와
+새로운 SAC 갱신 효과를 구분해 보존하고 최종 DEV128/구역별 갱신을 함께 판단한다.
+
+[두 번째 배치 부분11·후보4/5·Drive 검증·상단 왼쪽 head/Adam 비교](assets/rl_v2_region_size_second_TRAIN_partial_success_candidates_20261013.json)
+
 ### 저장 후보의 동일 계약 고정 평가 경로
 
 기존 관리자와 child runner는 CPU 물리·별도 CUDA 정책을 `--cpu-physics-training`에서만
