@@ -88,7 +88,7 @@ writer3331156/supervisor3331118를 확인했다. Frozen source는main4b4e233이�
 GPU3 UUID 단일 namespace에서 nvidia3/renderD131만 보인다. 실제 CPU PGS 물리 계약도
 로그에서 확인했다. source2462/Q11896·닫힌 replay·모든 optimizer·성공은행/cohort를
 재개하며 새로운 TRAIN512(128환경 ×4배치)와 같은 DEV128 초기/중간/종료를 수행한다.
-이번 자체 초기 DEV 성공 수는 아직 측정 중이며 직전14를 대신 넣지 않는다.
+이번 자체 초기 DEV 성공 수는 아직 측정 중이며 직전14를 대신 넣지 않는다. 19:11 첫 실제 control step은wave0/DEV step1·active115이며 actor2462/Q11896·replay250000·online TRAIN0·bank9366/cohort7경로3507행을 확인했다. 오류 파일은 없고 같은 등록 writer가 살아 있다. 초기128평가의 성공 수는 아직 확정하지 않는다.
 
 300초 checksum 백업·각 형식 최근2 checkpoint·종료 로그 검증을 유지한다.
 Raw replay/HDF는 다음 TRAIN의 resume 입력으로만 읽으며 진단/업로드/삭제하지 않는다.
