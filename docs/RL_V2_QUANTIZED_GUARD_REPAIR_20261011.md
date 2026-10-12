@@ -53,7 +53,8 @@ head의 탐색 회복을 검증하지 않았다. Production 혼합 replay/MCaux/
 닫힌 source actor4055/Q18386·replay250000·모든 optimizer·은행12091행·cohort를
 이어받아 새 TRAIN256조건(2배치128)과 동일 DEV128의 초기/종료를 진행한다.
 TRAIN 배치는 seed69000000 계열로 기존 DR 생성기를 다시 사용했다.
-**새 실행 자체 초기 성공 수는 아직 측정 중이며 source 최종13을 대입하지 않는다.**
+**새 실행 자체 초기 성공은11/128로 실측했다. 아래 초기 평가를 이후 종료 비교의 기준으로
+사용하며 source 최종13이나 이전 실행의 초기11을 대입하지 않는다.**
 현행 CPU PhysX PGS+GPU3 CUDA learner, 기존 박스 기준 고정 접근 후 base 유지·
 SAC21개 비base 목표, box/base/flap DR·reward·양손 성공·안전·curriculum0을 유지한다.
 Base 접근까지 SAC가 학습한 결과로 설명하지 않는다.
@@ -68,7 +69,8 @@ Drive checksum 검증 뒤 오래된 후보만 정리하고 로컬 후보 최근2
 
 학습 전 새 manifest/progress에서6head artifact·후보 저장 enabled·source counter
 4055/Q18386·replay250000·online rows0을 확인했다. 현재 후보0은 초기 DEV 단계의
-값이며 성공 모델이 이미 저장됐다는 주장이 아니다. 손별 접근·정렬·닫힘/lift gate
+값이며 성공 모델이 이미 저장됐다는 주장이 아니다. 초기 평가 뒤 TRAIN 수집을 시작했다.
+손별 접근·정렬·닫힘/lift gate
 진단도 frozen 소스에 포함했다. GPU3 UUID·nvidia3/renderD131만,300초 checksum·
 일반 checkpoint/성공 후보 각각 최근2개·종료 로그 검증을 유지한다. 기존 큐의 같은
 대화 메시지를 보존하는 CPU 종료 감시1825456 하나로 다음 완료 점검을 이어간다.
@@ -81,6 +83,44 @@ GPU1·2, 다른 사용자 파일/프로세스, 원본 replay/HDF 진단·업로�
 두 선택 영상이나 보상 상승을 전체 성공률로 설명하지 않는다.
 
 [실제 DEV128·lost/gained·안전·모델/영상·닫힌 GPU3 비교·새 실행 근거](assets/rl_v2_postscale_final_DEV128_and_region_size_GPU3_20261013.json)
+
+### 새 V10 자체 초기 DEV128와 첫 실제 TRAIN 갱신
+
+전체 초기 평가를 닫힌 모델·metrics·Q 영상6개의 proof로 CPU 대조했다.
+**성공11/128·초기 유효115/무효13·랙 안전 종료65·timeout39·수치0**이다.
+새 TRAIN 갱신 전 actor4055/Q18386의91개 model tensor·모든 optimizer·성공은행/cohort가
+변환한 출발 모델과 정확히 같다. 이번 자체 초기 모델 SHA256은
+`4e9bd01670b7cd4d0808bfb64bcac4e102ca1fba75e1ea6e3b852174ecfc0c86`이며
+`artifacts/rl/protected_dev_models_20261013/batch_sac_20261013_034912_9211ec/`에 보존했다.
+
+| 조건 | 초기 성공/요청 | 안전 | timeout | 무효 |
+|---|---:|---:|---:|---:|
+| 중간 왼쪽 small |6/16|10|0|0|
+| 중간 오른쪽 small |0/16|0|13|3|
+| 상단 왼쪽 small |2/32|6|20|4|
+| 상단 오른쪽 small |3/32|18|6|5|
+| 중간 왼쪽 medium |0/16|16|0|0|
+| 중간 오른쪽 medium |0/16|15|0|1|
+
+이전 source 최종13과 새 초기11의 공통 유효115에서는11→11, lost4/gained4다.
+동일 요청 layout이지만 독립 reset이며 아직 새 TRAIN 전 값이다. 상단 왼쪽2회를
+새 학습 효과로 설명하지 않는다. 두 medium은 초기 유효31조건에서도 모두 랙 충돌로
+종료돼 초기 무효와 policy/진입 경로 문제를 구분한다.
+
+첫 실제 TRAIN step61에서는 상속값을 뺀 새 actor4/critic18회다.4제안 모두 수용했지만
+실제 이동은 중간 왼쪽small0·중간 오른쪽medium1·상단 왼쪽small0·상단 오른쪽small4다.
+**분리한 중간 오른쪽small·중간 왼쪽medium은 각각4/4회 실제 이동**했다. 고정 baseline
+초과0·마지막 uncached 전체 검사 실행을 확인했다. 이 짧은 구간은 새 두 head의
+갱신 가능성 확인이며 지속적 탐색 회복·파지 성공률 개선이나 저장 Adam step 대조가 아니다.
+기존 보호 head의 정체도 남아 TRAIN256/동일 DEV128 종료까지 계속 확인한다.
+
+이번 초기 actor4055/Q18386 영상은 같은91tensor checksum·optimizer 갱신0·실제
+outcome/layout·행동 전 Q1/Q2/minQ·전reset 종료 frame·H264 전체 decode와 맞는다.
+상단 오른쪽small env3는 실제 양손 성공(hold0.2667초·clearance33.87mm),
+중간 왼쪽medium env4는 왼팔4link–랙15.64N 실패·종료 양손 pinch0이다.
+기존4head 종료 영상이나 새 TRAIN에서 학습한 성공 영상으로 설명하지 않는다.
+
+[자체 초기128·91tensor/optimizer·실제 성공/안전·Q영상·첫4갱신 근거](assets/rl_v2_region_size_own_initial_DEV128_and_first_TRAIN_20261013.json)
 
 아래는 각 시점에 기록한 이전 실행·준비 내용이다. 현행 실행 여부는 위 새 고유 실행의
 실제 상태를 기준으로 확인한다. **목표는 아직 미달성이다.**
