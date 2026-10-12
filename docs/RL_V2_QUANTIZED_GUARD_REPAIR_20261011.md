@@ -150,6 +150,21 @@ cohort 검사 실행을 확인했다. 기존7경로3507행도 유지됐다. 첫2
 추가됐다. 새 성공을 등록한 모델이나 전체 완료 TRAIN/DEV 성능으로 설명하지 않는다.
 [첫 저장점 SHA256·실제 Adam·고정 TRAIN CPU 출력](assets/rl_v2_postscale_body_first_saved_TRAIN_Adam_CPU_outputs_20261012.json)
 
+20:21 KST의TRAIN wave1 step481에서 실제 양손 성공3·안전20·진행105/128을 확인했다.
+초기 무효·timeout·수치 오류는0이고 전체 배치 결과는 아니다. 성공env40/64/88 모두
+중간 왼쪽small이며 opposing two-pad pinch·양손 안정·hold0.2667초·proof-lift·안전을 만족한다.
+완료 control step457/475/471에 각각 즉시 등록돼 등록 지연은 모두0이다. 기록 actor/Q counter는
+현재 step의 learner 처리 후 값이며 정확한 terminal 행동 모델로 세지 않는다. 은행9340행·
+cohort7경로3507행이며 기존 두 보호 경로가 채워진 조건이라 신규 cohort 경로는 늘지 않았다.
+배치 종료 중복 방지와 개별 greedy/explorer 모드는 전체 wave metadata가 닫힌 뒤 확인한다.
+
+갱신 정체도 일부 남았다. 새158제안에서는 중간 오른쪽125move/33zero였고 초반83제안
+모두 이동을 전체 구간으로 일반화하지 않는다. 실제step451의 한 거절 후보는 마지막 오른팔
+접근 한도 ratio를1.86009e-5 넘겼고 jaw 정답 회귀는0이었다. Postscale12교정도 수용되지 않았다.
+이는 무차원 보호 ratio이며 힘/거리가 아니고 전체 거절이나 물리 충돌의 유일한 원인은 아니다.
+현재 파일럿을 유지하고 전체 TRAIN/중간·종료 DEV128로 이번 초기11 기준의 효과를 확인한다.
+[첫 실제 성공·지연0 등록 이벤트·부분 거절 근거](assets/rl_v2_postscale_body_first_actual_TRAIN_success_registration_20261012.json)
+
 
 ## 10/12 수정판 첫 전체 TRAIN128 확정
 

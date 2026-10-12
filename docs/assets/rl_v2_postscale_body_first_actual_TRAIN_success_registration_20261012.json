@@ -1,0 +1,374 @@
+{
+  "role": "partial_online_TRAIN_safe_success_and_completed_episode_registration_NOT_frozen_DEV_improvement",
+  "observed_at": "2026-10-12T20:21:47.828632+09:00",
+  "run": "batch_sac_20261012_190449_fec06e",
+  "wave": 1,
+  "step": 481,
+  "denominator": 128,
+  "counts": {
+    "success": 3,
+    "unsafe": 20,
+    "invalid_reset": 0,
+    "time_out": 0,
+    "numerical_failure": 0
+  },
+  "active": 105,
+  "new_actor_at_snapshot": 218,
+  "new_critic_at_snapshot": 872,
+  "registration": {
+    "mode": "completed-episode",
+    "registered_completed_TRAIN_episodes": 3,
+    "events": [
+      {
+        "environment": 40,
+        "wave": 1,
+        "seed": 68000010,
+        "region": "shelf_2_left",
+        "box_type": "small",
+        "terminal_control_step": 457,
+        "registration_control_step": 457,
+        "actor_updates": 2668,
+        "critic_updates": 12720,
+        "boundary": "completed_episode"
+      },
+      {
+        "environment": 88,
+        "wave": 1,
+        "seed": 68000022,
+        "region": "shelf_2_left",
+        "box_type": "small",
+        "terminal_control_step": 471,
+        "registration_control_step": 471,
+        "actor_updates": 2675,
+        "critic_updates": 12748,
+        "boundary": "completed_episode"
+      },
+      {
+        "environment": 64,
+        "wave": 1,
+        "seed": 68000016,
+        "region": "shelf_2_left",
+        "box_type": "small",
+        "terminal_control_step": 475,
+        "registration_control_step": 475,
+        "actor_updates": 2677,
+        "critic_updates": 12756,
+        "boundary": "completed_episode"
+      }
+    ],
+    "registration_after_current_step_learner_observation": true,
+    "remaining_environment_resets_or_physics_changed": false,
+    "rewards_labels_success_safety_and_bank_capacity_unchanged": true,
+    "DEV_FINAL_import_allowed": false
+  },
+  "actual_successes": [
+    {
+      "environment": 40,
+      "result": {
+        "steps": 457,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.015091052278876305,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 64,
+      "result": {
+        "steps": 475,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.008702030405402184,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 88,
+      "result": {
+        "steps": 471,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "proof_lift": true,
+        "opposing_flaps": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.019499531015753746,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    }
+  ],
+  "all_three_successes": "shelf_2_left/small",
+  "bank_rows": 9340,
+  "cohort": {
+    "episodes": 7,
+    "rows": 3507,
+    "groups": 14,
+    "grouping": "episode_region_size_approach_or_tail64",
+    "first_paths_survive_success_replay_eviction": true,
+    "TRAIN_only": true,
+    "evaluation_rows": 0,
+    "rollout_success_guarantee": false
+  },
+  "registration_control_step_lag": [
+    0,
+    0,
+    0
+  ],
+  "registration_counters_are_after_current_step_learner_NOT_exact_terminal_action_model": true,
+  "individual_greedy_explorer_mode_pending_complete_wave_metadata": true,
+  "footer_duplicate_prevention_runtime_not_yet_verified": true,
+  "middle_right_single_actual_rejected_candidate": {
+    "wave": 1,
+    "step": 451,
+    "new_actor": 203,
+    "actual_parameter_norm": 0.0,
+    "projected_Adam_norm": 0.0005272666458040476,
+    "last_check": {
+      "region": "shelf_2_right",
+      "scale": 0.0009765625,
+      "allowed": false,
+      "internal_body_reserve_ULPs": 2,
+      "exceeded_terms": 1,
+      "protected_jaw_regressions": 0,
+      "worst_term": {
+        "group": "batch_sac_20261011_212605_6a2d4a/wave2/env45/seed64001111/approach",
+        "term": "right_arm",
+        "excess": 1.8600876868557966e-05
+      }
+    },
+    "postscale": {
+      "attempted": true,
+      "accepted": false,
+      "trials": [
+        {
+          "origin_scale": 0.015625,
+          "cycle": 0,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.015625,
+          "cycle": 1,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.015625,
+          "cycle": 2,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.015625,
+          "cycle": 3,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.00390625,
+          "cycle": 0,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.00390625,
+          "cycle": 1,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.00390625,
+          "cycle": 2,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.00390625,
+          "cycle": 3,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.0009765625,
+          "cycle": 0,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.0009765625,
+          "cycle": 1,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.0009765625,
+          "cycle": 2,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        },
+        {
+          "origin_scale": 0.0009765625,
+          "cycle": 3,
+          "selected_gain": 0.0,
+          "restoration_score": [
+            0,
+            1.8600876868557966e-05,
+            1.8600876868557966e-05
+          ],
+          "body": 1,
+          "jaw_loss": 0,
+          "jaw_label": 0
+        }
+      ],
+      "candidate_origin_scales": [
+        0.015625,
+        0.00390625,
+        0.0009765625
+      ]
+    },
+    "dimensionless_guard_ratio_excess_NOT_force_or_distance": true,
+    "single_candidate_NOT_cause_of_all_rejections_or_physical_failures": true
+  },
+  "raw_replay_HDF_or_independent_FINAL_read": false,
+  "physics_reward_DR_success_safety_curriculum_unchanged": true,
+  "goal_not_complete": true
+}
