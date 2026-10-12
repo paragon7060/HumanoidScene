@@ -350,6 +350,38 @@ def quantized_body_correction(agent, batch, groups, parameters):
     return correction, kinds
 
 
+def quantized_body_output_correction(agent, batch, groups, parameters):
+    """Repair body violations through one region's final mean outputs only.
+
+    Hidden layers, Gaussian std and jaw output rows receive no correction.
+    This is a fallback on a rejected candidate, not a replacement SAC update.
+    """
+    correction, kinds = quantized_body_correction(agent, batch, groups, parameters)
+    if correction is None:
+        return None, kinds
+    from ..multi_box.experiments.regional_actor_servo import RegionRoutedNetwork
+    if type(agent.actor.network) is not RegionRoutedNetwork:
+        raise ValueError('Output repair requires exact independent regional heads')
+    identity = {id(p) for p in parameters}
+    heads = [h for h in agent.actor.network.heads if {id(p) for p in h.parameters()} == identity]
+    if len(heads) != 1 or not isinstance(heads[0][-1], torch.nn.Linear):
+        raise ValueError('Output repair requires one complete regional parameter partition')
+    final = heads[0][-1]
+    selected = [final.weight, final.bias]
+    restricted, kinds = _violation_correction(agent, batch, groups, selected, reserve_ULPs=2)
+    if restricted is None:
+        return None, kinds
+    if kinds['jaw_loss'] or kinds['jaw_label']:
+        raise ValueError('Body output correction cannot repair protected jaw violations')
+    parts = {}; offset = 0
+    for p in selected:
+        count = p.numel(); value = restricted[offset:offset+count].reshape_as(p); offset += count
+        if bool((value[19:] != 0).any()):
+            raise ValueError('Body output correction touched Gaussian std or jaw output rows')
+        parts[id(p)] = value
+    return torch.cat([parts.get(id(p), torch.zeros_like(p)).flatten() for p in parameters]), kinds
+
+
 def _violation_correction(agent, batch, groups, parameters, *, reserve_ULPs=0):
     """Repair current violations while keeping the original hard checks.
 

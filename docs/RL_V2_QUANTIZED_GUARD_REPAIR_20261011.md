@@ -7,7 +7,80 @@ supervisor 종료·Drive 최종 checksum 검증을 확인한 뒤 순차 전환�
 새 실행의 자체 초기 DEV128은 **13/128·초기 무효13·unsafe68·timeout34·수치 오류0**이다.
 actor1657/Q8676에서 새 TRAIN 갱신 전에 측정했으므로 fallback의 학습 효과가 아니다.
 직전 초기10회/최선15회를 이번 초기값으로 대입하지 않는다.
-**수정판 TRAIN의 물리적 성공률 개선은 아직 확인 전이며 목표는 미달성이다.**
+**10/12 종료 DEV는14/128로 뚜렷한 개선은 없으며, 아래 원인별 수정으로 계속 진행한다. 목표는 미달성이다.**
+
+## 10/12 종료 결과와 원인별 다음 수정
+
+기존 writer/supervisor와 완료 감시가 종료했고 10:50 KST에 종료 로그·checkpoint의
+Drive checksum 검증을 마쳤다. 종료 자체가 학습 성공은 아니다.
+**이번 초기 DEV13/128 → 최종 DEV14/128로, 뚜렷한 개선은 확인하지 못했다.**
+최종 유효128/무효0·안전63(rack62/비정상lift1)·timeout51·수치0이다.
+초기에는 유효115/무효13·안전68·timeout34·수치0이었다. 요청한128분모를 유지한다.
+
+| 조건 | 자체 초기 성공 | 최종 성공 | 최종 안전/timeout/무효 |
+|---|---:|---:|---:|
+| 중간 왼쪽 small |7/16|7/16|9/0/0|
+| 중간 오른쪽 small |0/16|0/16|0/16/0|
+| 상단 왼쪽 small |0/32|3/32|5/24/0|
+| 상단 오른쪽 small |6/32|4/32|17/11/0|
+| 중간 왼쪽 medium |0/16|0/16|16/0/0|
+| 중간 오른쪽 medium |0/16|0/16|16/0/0|
+
+공통 초기 유효115조건에서는 성공13→12, lost5/gained4다. 같은 요청 layout이지만
+반복 reset의 실제 물리 상태가 완전히 같다고 주장하지 않는다. 상단 왼쪽에서는 성공이
+생겼으나 상단 오른쪽을 포함한 기존 성공을 잃었다. 이전 별도 최선 DEV15/128 모델과
+영상도 보존하며 이번14가 이전 최선보다 좋다고 설명하지 않는다.
+최종 rack62건 모두 held_grasp이며 종료 최대힘367.98N이다. 최대힘 몸체는
+오른손 gripper base30·왼팔4번째 link15·왼손 gripper base8·오른팔7번째 link7·
+오른팔4번째 link1·왼팔7번째 link1이다. 이는 최초 접촉 이력이 아니다.
+Medium32조건은 모두 초기 유효하지만 모두 안전 실패했다. 초기화 문제만으로 설명하지 않는다.
+
+두 번째 TRAIN128은 성공11·안전60·timeout56·무효1·수치0이다. 중간 왼쪽 small8,
+상단 왼쪽 small1, 상단 오른쪽 small2이며 모두 greedy98조건에서 나왔다. 접촉 탐색29조건은
+성공0·안전18·timeout11이다. 서로 다른 수집 조건·학습 중 바뀐 actor이므로 통제 비교가 아니다.
+두 TRAIN 합계는26/256이며 frozen DEV 성공률과 구분한다.
+
+실제 새 actor805제안/critic3220갱신이다(source1657/Q8676 → final2462/Q11896).
+중간 왼쪽799move/6zero·중간 오른쪽45/760·상단 왼쪽791/14·상단 오른쪽6/799로
+오른쪽 이동0이94.4%/99.3%다. 첫 성공 대기 상태는false이다.
+은행9366행·cohort7경로3507행/14그룹과 기존 obs/action/고정 goal·servo 한도/보호 jaw를
+대조했다. 새26성공 중17경로는 현재 은행에 있고9경로는 용량 제한으로 빠졌으며 기존 cohort는
+유지됐다. 표본 보존은 실제 물리 성공 보존의 보장이 아니다. Raw replay eviction을 검사하지 않았다.
+최종 모델77tensor/optimizer는 유한하며 SHA256
+`fbf5a8443fbf8fae717ba10063d3dfd478668bdde0fd864e49c80b14af3eff82`로 별도 보존했다.
+
+### 갱신 정체 수정: 축소된 실제 후보에서 body 출력 교정
+
+닫힌 TRAIN bank/cohort만 사용한 GPU3 두 후보에서 기존 full-proposal 교정과
+출력층만 교정하는 첫 prototype은 모두 오른쪽 이동0이었다. 고정 body 한도에서 아주 작은
+팔 목표 변화가 걸렸고 jaw 회귀는0이었다. **축소 후 실제 float32 후보를 다시 교정하는 방식은
+두 후보 모두 중간 오른쪽과 상단 오른쪽의 실제 이동을 복구했다.** 일반 후보가 이미 수용되면
+그대로 유지하며, 일반·기존 quantized backtrack이 모두 실패한 구역에만 적용한다.
+
+출발 축소값1/64·1/256·1/1024에서 최대4교정 cycle/gain1·2·4·8을 검사한다.
+추가 교정은 해당 독립 head의 마지막 body mean 출력 weight/bias만 사용하고
+hidden/std/jaw 출력 row는 교정하지 않는다. 원래 SAC 제안 자체에는 std/jaw 변화가 남을 수 있다.
+원래 projected Adam norm·고정 ceiling/tube·행/손별 greedy jaw·마지막 uncached 전체 cohort
+검사는 유지한다. 기록된 scale은 교정 전 출발 scale이며 실제 이동은 delta norm으로 확인한다.
+거절 시 parameter·Adam 복원과 성공 없는 구역의 기존 갱신을 유지한다.
+
+Production 두 후보의 중간 오른쪽 norm은0→1.2172e-5/1.2589e-5,
+상단 오른쪽0→2.7439e-6/2.7487e-6이다. 같은 고정 TRAIN phase에서 body mean·normalized goal·
+physical goal·jaw logit의 실제 출력 변화와 고정 전체 검사 통과도 확인했다.
+Critic·entropy·projected Adam budget은 두 변형에서 같고 입력 checkpoint/optimizer는 불변이다.
+이는 production 혼합 replay/Q/MC auxiliary/RNG 재현이나 물리 성공 개선이 아니다.
+
+별도 cache CUDA 비교2개에서는 모든 model tensor·Adam·보호 결정·실제 norm·entropy가
+원래 계산과 같고 마지막 전체 검사가 실행됐다. 후보당 일회26.1/26.4초→7.1/7.3초였으나
+전체 학습 속도 개선으로 확대 해석하지 않는다. 최소 CPU34+신규 경계4검사도 통과했다.
+
+다음 GPU3 source에는 이 원인별 수정과 이미 준비한 완료 episode 즉시 성공 등록,
+캐시, `--rack-contact-summary`, `--eval-video-q-values`를 포함한다. 중력·물리·보상·
+box/base/flap DR·양손 성공·안전·curriculum0 계약은 그대로다. 기존 고정 controller로 접근한 뒤
+base를 유지하고 SAC는21개 비base 목표를 학습한다. Medium의 팔–랙 진입 문제와 작은 오른쪽
+갱신이 실제로 탐색을 회복하는지는 새 TRAIN/DEV에서 계속 확인한다.
+
+[전체128 비교·TRAIN·모델·GPU 후보 근거](assets/rl_v2_quantized_guard_final_DEV128_and_postscale_GPU3_20261012.json)
 
 ## 10/12 수정판 첫 전체 TRAIN128 확정
 

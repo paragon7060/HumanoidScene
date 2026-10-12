@@ -133,6 +133,65 @@ def acceptable(before, after, config):
     return True
 
 
+def repair_scaled_body_candidate(agent, batch, groups, parameters, previous, proposal,
+                                 trust_norm, candidate_metrics):
+    """Repair the actual rounded, scaled candidate without scaling away repair.
+
+    Called only after ordinary and full-proposal quantized backtracking fail.
+    Acceptance retains every original hard predicate and projected Adam budget.
+    """
+    from . import success_cohort_guard as cohort
+    details = dict(attempted=False, accepted=False, trials=[],
+                   candidate_origin_scales=[2.**-6, 2.**-8, 2.**-10])
+    if not cohort.tube(agent) or not bool(trust_norm > 0):
+        return 0., details
+    for scale in details['candidate_origin_scales']:
+        with torch.no_grad():
+            for p, old, new in zip(parameters, previous, proposal):
+                p.copy_(old + scale*(new-old))
+        for cycle in range(4):
+            values, jaws = candidate_metrics()
+            if cohort.within_ceilings(values, jaws, agent.success_guard_memory, agent.actor_success_guard_config):
+                break
+            correction, kinds = cohort.quantized_body_output_correction(agent, batch, groups, parameters)
+            if correction is None:
+                break
+            details['attempted'] = True
+            current = torch.cat([(p.detach()-old).flatten() for p, old in zip(parameters, previous)])
+            best_score = cohort.restoration_score(values, jaws, agent.success_guard_memory, agent.actor_success_guard_config)
+            best = [p.detach().clone() for p in parameters]; selected_gain = 0.
+            for gain in (1., 2., 4., 8.):
+                adjusted = current + gain*correction
+                adjusted *= torch.minimum(adjusted.new_tensor(1.), trust_norm/adjusted.norm().clamp_min(1e-30))
+                offset = 0
+                with torch.no_grad():
+                    for p, old in zip(parameters, previous):
+                        count = old.numel(); p.copy_(old+adjusted[offset:offset+count].reshape_as(old)); offset += count
+                trial, correct = candidate_metrics()
+                score = cohort.restoration_score(trial, correct, agent.success_guard_memory, agent.actor_success_guard_config)
+                if score < best_score:
+                    best_score = score; best = [p.detach().clone() for p in parameters]; selected_gain = gain
+                if cohort.within_ceilings(trial, correct, agent.success_guard_memory, agent.actor_success_guard_config):
+                    break
+            with torch.no_grad():
+                for p, value in zip(parameters, best):
+                    p.copy_(value)
+            details['trials'].append(dict(origin_scale=scale, cycle=cycle, selected_gain=selected_gain,
+                                         restoration_score=list(best_score), **kinds))
+        values, correct = candidate_metrics()
+        moved = any(not torch.equal(p.detach(), old) for p, old in zip(parameters, previous))
+        actual_norm = torch.cat([(p.detach()-old).flatten() for p, old in zip(parameters, previous)]).norm()
+        in_budget = bool(actual_norm <= trust_norm*(1+1e-5)+1e-10)
+        if moved and in_budget and cohort.within_ceilings(values, correct, agent.success_guard_memory, agent.actor_success_guard_config):
+            details.update(accepted=True, origin_scale=scale, actual_delta_norm=float(actual_norm),
+                           original_projected_Adam_norm=float(trust_norm))
+            return scale, details
+    with torch.no_grad():
+        for p, old in zip(parameters, previous):
+            p.copy_(old)
+    return 0., details
+
+
 def guarded_actor_step(agent, loss, successful):
     config = getattr(agent, 'actor_success_guard_config', None)
     from . import success_cohort_guard as cohort
@@ -163,6 +222,7 @@ def guarded_actor_step(agent, loss, successful):
     region_trust_norms={}
     repairs=[]
     quantum_fallback_regions={}
+    postscale_fallback_regions={}
     final_cohort_check_executed=False
     baseline_allowed=(cohort.within_ceilings(before,before_correct,agent.success_guard_memory,config)
                       if cohort.stable(agent) else None)
@@ -300,6 +360,14 @@ def guarded_actor_step(agent, loss, successful):
                     local_scale,checked=backtrack_candidate(reserve_ULPs=2)
                     if checked is not None:after=checked
                 quantum_fallback_regions[region]=dict(attempted=attempted,accepted=bool(local_scale))
+            if not local_scale and cohort.tube(agent) and baseline_allowed and trust_norm > 0:
+                local_scale,details=repair_scaled_body_candidate(agent,successful,
+                    metric_cache.groups[region] if metric_cache is not None else groups,
+                    [parameters[i] for i in indices],[previous[i] for i in indices],
+                    [proposal[i] for i in indices],trust_norm,candidate_metrics)
+                postscale_fallback_regions[region]=details
+                if local_scale:
+                    after,_=candidate_metrics()
             region_scales[region]=local_scale
             if not local_scale:
                 with torch.no_grad():
@@ -371,6 +439,14 @@ def guarded_actor_step(agent, loss, successful):
             local=counts.setdefault(region,{})
             key=str(scale);local[key]=local.get(key,0)+1
     if cohort.tube(agent):
+        stats['actor_success_guard_postscale_body_fallback_regions']={
+            region:dict(value,accepted=value['accepted'] and bool(accepted_scale))
+            for region,value in postscale_fallback_regions.items()}
+        stats['actor_success_guard_repaired_scale_semantics']='origin scale before internal correction; use actual_delta_norm for displacement'
+        for name in ('attempted','accepted'):
+            key='postscale_body_fallback_regions_'+name
+            counters[key]=counters.get(key,0)+sum(value[name] for value in
+                stats['actor_success_guard_postscale_body_fallback_regions'].values())
         stats['actor_success_guard_candidate_repairs']=repairs
         stats['actor_success_guard_quantized_body_fallback_regions']={
             region:dict(attempted=value['attempted'],accepted=value['accepted'] and bool(accepted_scale))
