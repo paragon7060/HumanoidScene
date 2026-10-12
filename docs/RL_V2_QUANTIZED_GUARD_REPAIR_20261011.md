@@ -139,6 +139,32 @@ outcome/layout·행동 전 Q1/Q2/minQ·전reset 종료 frame·H264 전체 decode
 
 [자체 초기128·91tensor/optimizer·실제 성공/안전·Q영상·첫4갱신 근거](assets/rl_v2_region_size_own_initial_DEV128_and_first_TRAIN_20261013.json)
 
+### 그리퍼 출력만 교정하는 후보 준비 · 현재 학습에는 미적용
+
+실제 step151의 마지막 상단 왼쪽 후보는 팔 한도 초과0이어도 보호 jaw 정답1개가
+바뀌어 거절됐다. 팔 위반만 교정하는 기존 fallback과 구분해 `jaw_output_repair.py`를
+준비했다. 팔 위반이 있으면 사용하지 않고 마지막 출력층의 jaw mean19:21만 교정한다.
+몸체 mean0:19·std21:42·hidden layer·관측·물리·reward·성공/안전 조건은 바꾸지 않는다.
+Caller는 원래 projected Adam norm, 고정 한도와 행·손별 jaw 정답, 거절 Adam 복원,
+마지막 uncached 전체 cohort 검사를 그대로 적용해야 한다.
+
+4/6head CPU fixture5검사(2.62초)는 jaw 교정·body/std/hidden0·입력 parameter/Adam/
+메모리/RNG 불변, 팔 위반과 잘못된 partition 거부를 확인했다. **Production guard에는
+아직 연결하지 않았으며 실제 SAC 갱신·GPU 수치 비교·물리 파지 성공 확인이 아니다.**
+종료 후 비교 helper는 이번 writer1756756/supervisor1756723 종료·exit0·최종 Drive·
+writers_stopped를 요구하고 현재 살아 있는 실행에서 Torch/CUDA 이전 거부를 확인했다.
+닫힌 TRAIN 은행/cohort의 같은2후보로 기존/준비판을 비교한 뒤 실제 이동이 복구됐는지
+판단한다. 원본 replay/HDF·DEV/독립 FINAL은 비교 입력이 아니다.
+
+현재 TRAIN step301의 새 actor124/Q498에서는 분리한 두 head124/124이동, 기존
+중간 왼쪽small4/124·중간 오른쪽medium41/124·상단 오른쪽small4/124·상단 왼쪽small0/124다.
+탐색 진단은 front192/contact51행으로 전환됐으나 두 손 위치 ready0·닫힘/lift0이다.
+이는 전환 단계의 부분 기록이며 실제 접촉·완료 성공률이나 준비 교정의 효과가 아니다.
+표면거리 기록과22cm 중간점 handoff 기준은 구분한다. 기존 고유 실행과 완료 감시를
+유지해 전체 TRAIN256/자체 초기11 대비 종료 DEV128을 먼저 확인한다.
+
+[실제 마지막 후보·CPU 범위·source SHA·종료 후 비교 gate와 현재 TRAIN 근거](assets/rl_v2_jaw_output_repair_preparation_20261013.json)
+
 아래는 각 시점에 기록한 이전 실행·준비 내용이다. 현행 실행 여부는 위 새 고유 실행의
 실제 상태를 기준으로 확인한다. **목표는 아직 미달성이다.**
 
