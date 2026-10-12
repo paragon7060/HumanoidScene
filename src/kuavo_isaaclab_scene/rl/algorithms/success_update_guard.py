@@ -247,21 +247,13 @@ def guarded_actor_step(agent, loss, successful):
             proposal[index] = old + delta[offset:offset+count].reshape_as(old)
             offset += count
         if cohort.stable(agent) and hasattr(agent.actor.network, 'heads'):
-            from ..multi_box.experiments.staged_train_success import REGIONS
-            named=list(agent.actor.named_parameters())
-            if len(agent.actor.network.heads)!=len(REGIONS) or any(
-                    not name.startswith('network.heads.') for name,_ in named):
-                raise ValueError('Regional backtracking requires exactly independent region heads')
-            partitions={region:[j for j,(name,_) in enumerate(named)
-                                if name.startswith('network.heads.'+str(i)+'.')]
-                        for i,region in enumerate(REGIONS)}
+            from ..multi_box.experiments.independent_actor_heads import parameter_partitions
+            partitions=parameter_partitions(agent.actor)
         else:
             partitions={'all':list(range(len(parameters)))}
         metric_cache=None
         if cohort.stable(agent) and 'all' not in partitions:
-            from ..multi_box.experiments.regional_actor_servo import RegionRoutedNetwork
-            if type(agent.actor.network) is RegionRoutedNetwork:
-                metric_cache=cohort.RegionalMetricCache(agent,successful,groups,before,before_correct)
+            metric_cache=cohort.RegionalMetricCache(agent,successful,groups,before,before_correct)
         with torch.no_grad():
             for p,old in zip(parameters,previous):p.copy_(old)
         for region,indices in partitions.items():

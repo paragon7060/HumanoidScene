@@ -1,9 +1,10 @@
-"""Prepared six-scope actor component, not yet wired to the guarded learner.
+"""Prepared six-scope actor and independent Adam migration.
 
 Clone existing region networks before separating supported box sizes. The
 normalizer, observations, physical action mapping and existing heads' outputs
-stay unchanged. Production use also requires explicit guard/checkpoint/Adam
-migration and closed CUDA checks; installing this component alone is invalid.
+stay unchanged. The whole-cohort guard supports these independent heads.
+Production resume still requires an explicit checkpoint/replay contract
+migration and closed CUDA checks; this helper does not start a learner.
 """
 from copy import deepcopy
 
@@ -66,3 +67,38 @@ class RegionSizeRoutedNetwork(nn.Module):
                 output = torch.zeros_like(prediction)
             output = torch.where((indices == scope)[:, None], prediction, output)
         return output
+
+
+def split_region_size_actor_and_Adam(agent):
+    """Prepare a disposable or next learner; do not alter any source tensors.
+
+    Clone all six parameter groups' moments, including CPU Adam step tensors.
+    Critic, entropy, frozen anchors, successful TRAIN bank/cohort and normalizer
+    are untouched. This is not a checkpoint/replay contract migration.
+    """
+    source, old = agent.actor.network, agent.actor_optimizer
+    if not agent.config.freeze_actor_normalizer or agent.config.actor_feature_mode != 'flat' \
+            or type(source) is not RegionRoutedNetwork or type(old) is not torch.optim.Adam:
+        raise ValueError('Size split requires the original frozen-normalizer regional Adam actor')
+    source_parameters = list(source.parameters())
+    if len(old.param_groups) != 1 or [id(p) for p in old.param_groups[0]['params']] \
+            != [id(p) for p in source_parameters] \
+            or [id(p) for p in agent.actor.parameters()] != [id(p) for p in source_parameters]:
+        raise ValueError('Size split requires one complete original actor Adam group')
+    if any(not torch.isfinite(p).all() for p in source_parameters) or any(
+            isinstance(v, torch.Tensor) and not torch.isfinite(v).all()
+            for state in old.state.values() for v in state.values()):
+        raise ValueError('Size split requires finite original actor and Adam state')
+    network = RegionSizeRoutedNetwork(source, agent.actor_normalizer)
+    optimizer = torch.optim.Adam(network.parameters(), **deepcopy(old.defaults))
+    optimizer.param_groups[0].update(deepcopy({k: v for k, v in old.param_groups[0].items()
+                                             if k != 'params'}))
+    for destination, source_index in zip(network.heads, SOURCE_HEADS):
+        for new_parameter, original in zip(destination.parameters(), source.heads[source_index].parameters()):
+            if original in old.state:
+                optimizer.state[new_parameter] = deepcopy(old.state[original])
+    # Install only after every validation and clone completed successfully.
+    agent.actor.network, agent.actor_optimizer = network, optimizer
+    return dict(scopes=[list(s) for s in SCOPES], source_head_indices=list(SOURCE_HEADS),
+                cloned_independent_Adam_moments=True, critic_entropy_cohort_unchanged=True,
+                checkpoint_replay_contract_migration_required=True)

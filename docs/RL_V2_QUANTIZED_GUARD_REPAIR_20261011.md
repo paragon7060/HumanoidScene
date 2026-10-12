@@ -376,11 +376,50 @@ cohort 출력 전체는 동일했다. Medium 입력을 만든 synthetic fixture�
 다른 크기 출력/Adam 격리 등 최소 CPU15검사를 통과했고 source 모델·optimizer·cohort·파일·RNG는
 그대로다. CUDA/물리 성공·실제 production SAC 갱신 검사는 아니다.
 
-**현재 학습에 연결하지 않았다.** Guard의6개 partition/cache·고정 전체 검사, 저장 모델/Adam/계약의
-명시적 migration과 닫힌 GPU3 수치 비교가 아직 필요하다. Component를 단독 설치하면 현재4head
-guard가 거부하므로 직접 다음 학습에 쓰지 않는다. 현재 TRAIN512/최종 DEV128과 종료 Drive 검증을
-끝낸 뒤 정체와 실제 성공 결과에 따라 적용 여부를 선택한다. 성공/안전/DR·현행 물리·curriculum0은 유지한다.
+**현재 학습에 연결하지 않았다.** 최초 component 준비 시에는4head guard가 거부했다.
+10/13에는 아래와 같이6개 partition/cache·고정 전체 검사와 독립 Adam 복사를 연결했다.
+명시적 checkpoint/replay 계약 migration과 닫힌 GPU3 수치 비교는 아직 필요하므로 직접 다음
+학습에 쓰지 않는다. 현재 TRAIN512/최종 DEV128과 종료 Drive 검증을 끝낸 뒤 정체와 실제 성공
+결과에 따라 적용 여부를 선택한다. 성공/안전/DR·현행 물리·curriculum0은 유지한다.
 [닫힌 TRAIN 출력 보존·구역/크기·부분 제약·최소 검사 범위](assets/rl_v2_region_size_actor_preparation_20261012.json)
+
+### 10/13 크기별 분리를 위한 갱신 보호와 Adam 보존 준비
+
+6개 구역/크기 head를 기존 갱신 보호에 연결했다. 각 head의 후보만 검사·축소·거절하고,
+거절된 head의 Adam을 복원한다. 기존 고정 approach/tail64 forward shape·손별 jaw 정답·
+행별 goal/servo 한도·원래 projected Adam norm을 유지한다. Cache는 해당 head의 phase만
+재계산하며 마지막 **uncached 전체 cohort 검사**를 계속 통과해야 수용한다. 최종 검사가 실패하면
+모든 head와 Adam을 원복한다. 기존4head의 분기·cache 방식은 그대로다.
+
+`split_region_size_actor_and_Adam()`은4개 원본을6개로 복사하면서 step·1/2차 moment도
+독립 복사한다. 중간 오른쪽small은 기존 오른쪽head, 중간 왼쪽medium은 기존 왼쪽head를
+출발점으로 삼는다. 공유 CPU Adam step tensor를 만들지 않는다. Q/entropy/normalizer·
+고정 source/anchor·성공 cohort는 변경하지 않는다. 이 함수는 checkpoint/replay 계약 migration이나
+새 학습 시작 기능이 아니다.
+
+닫힌 TRAIN 모델 actor3274/Q15142의77개 tensor와 실제4개 optimizer를 정확히 불러와
+36개 새 parameter의 Adam state 복사·108개 tensor의 storage 독립성을 확인했다. 초기
+11,240개 실제 성공은행 입력과14개 고정 phase/3,507행의42개 mean/jaw/std 출력은 동일했다.
+Q/entropy tensor·나머지3개 optimizer·cohort의 명령 한도/보호 jaw·원본 파일/전체 state/RNG가
+변하지 않았고 이 실제 저장점 진단에서는 optimizer 갱신0·CUDA 초기화0이다.
+
+최소 CPU64검사는 크기별 수용/거절과 mature Adam 복원, cache/전체 계산의 동일 결정,
+최종 전체 실패 시 완전 rollback, body 교정의 hidden/std/jaw 제외, 원래4head 동작을 포함한다.
+거절 복원 fixture에는 후보가 통과할 수 없는 합성 조건을 사용했으며 실제 물리 성공의 증거가 아니다.
+CPU의 source 보호 baseline을 CUDA와 같다고 가정하거나 예산을 완화하지 않았다.
+
+**현재 frozen4b4e233 학습에는 모두 미적용**이다. 명시적 새 architecture/artifact·checkpoint/replay
+복원 계약과 실제 닫힌 GPU3 비교가 남았다. 기존 closed-only 비교 helper의 준비 source SHA도
+검토해 갱신해야 한다. 현재 writer/supervisor 종료와 최종 Drive 검증 전에는 GPU 비교/다음 학습을
+시작하지 않는다. 원본 replay/HDF나 DEV/FINAL episode를 이번 진단의 입력으로 읽지 않았다.
+
+같은 기존 실행의 세 번째 TRAIN128은 step571에 **부분 성공9·안전26·진행중93**이었다.
+9건 모두 실제 양손 opposing pinch·안정·hold.2667초·proof-lift·안전을 만족한다. 조건은 중간
+왼쪽small8·상단 왼쪽small1이다. 온라인 학습 중 모델이 바뀌므로 이 숫자는 고정 DEV 성공률이나
+새 크기 분리 수정의 효과가 아니다. 자체 중간 DEV14/128·이전 최선15 모델/영상은 보존한다.
+기존 writer/supervisor/CPU 완료감시·GPU3 UUID/renderD131 단일 namespace·300초 Drive 검증을
+그대로 유지했고 신규 GPU job/hotpatch/추가 완료감시는 없다.
+[독립 Adam·초기 출력·원본 불변·64검사·실제 부분 TRAIN 근거](assets/rl_v2_region_size_guard_Adam_preparation_20261013.json)
 
 ## 10/12 수정판 첫 전체 TRAIN128 확정
 

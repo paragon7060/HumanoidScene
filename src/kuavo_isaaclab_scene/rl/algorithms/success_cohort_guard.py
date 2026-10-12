@@ -184,19 +184,19 @@ class RegionalMetricCache:
     still run the original uncached whole-cohort acceptance check at the end.
     """
     def __init__(self, agent, batch, groups, values, correct):
-        from ..multi_box.experiments.staged_train_success import REGIONS
-        from ..multi_box.experiments.regional_actor_servo import RegionRoutedNetwork
-        if not stable(agent) or type(agent.actor.network) is not RegionRoutedNetwork:
+        from ..multi_box.experiments.independent_actor_heads import head_labels, raw_head_indices
+        if not stable(agent):
             raise ValueError('Regional metric caching requires independent stable actor heads')
+        labels = head_labels(agent.actor.network)
         self.agent, self.batch = agent, batch
         self.values, self.correct = deepcopy(values), correct.clone()
-        self.groups = {region: {} for region in REGIONS}
+        self.groups = {region: {} for region in labels}
         covered = torch.zeros(len(batch['action']), dtype=torch.bool)
         for key, rows in groups.items():
-            indices = batch['actor_obs'][rows, 94:98].argmax(-1).unique()
+            indices = raw_head_indices(agent, batch['actor_obs'][rows]).unique()
             if len(indices) != 1:
                 raise ValueError('A fixed TRAIN phase cannot span regional heads')
-            self.groups[REGIONS[int(indices.item())]][key] = rows
+            self.groups[labels[int(indices.item())]][key] = rows
             covered[rows] = True
         if not covered.all() or set(values) != set(groups) or correct.shape != (len(covered), 2):
             raise ValueError('Regional cache must cover the whole fixed TRAIN cohort')
@@ -359,9 +359,8 @@ def quantized_body_output_correction(agent, batch, groups, parameters):
     correction, kinds = quantized_body_correction(agent, batch, groups, parameters)
     if correction is None:
         return None, kinds
-    from ..multi_box.experiments.regional_actor_servo import RegionRoutedNetwork
-    if type(agent.actor.network) is not RegionRoutedNetwork:
-        raise ValueError('Output repair requires exact independent regional heads')
+    from ..multi_box.experiments.independent_actor_heads import head_labels
+    head_labels(agent.actor.network)
     identity = {id(p) for p in parameters}
     heads = [h for h in agent.actor.network.heads if {id(p) for p in h.parameters()} == identity]
     if len(heads) != 1 or not isinstance(heads[0][-1], torch.nn.Linear):
