@@ -1,5 +1,90 @@
 # SAC 갱신 정체 수정과 GPU3 실제 후속 학습
 
+## 10/13 최종 평가와 구역·크기 분리 SAC 시작
+
+Postscale 실행의 writer3331156/supervisor3331118가 종료했고03:29 KST에 종료
+checkpoint·로그의 기존 Drive 검증을 완료했다. **자체 초기11/128 → 중간14/128 →
+최종13/128로 뚜렷한 개선은 없다.** 최종 유효128/무효0·안전71(rack69/drop2)·
+timeout44·수치0이다. 초기 유효115/무효13과 구분하며 전체 요청128분모를 유지한다.
+
+| 조건 | 초기 | 중간 | 최종 | 최종 안전/timeout/무효 |
+|---|---:|---:|---:|---:|
+| 중간 왼쪽 small |8/16|8/16|8/16|8/0/0|
+| 중간 오른쪽 small |0/16|0/16|0/16|0/16/0|
+| 상단 왼쪽 small |0/32|1/32|1/32|9/22/0|
+| 상단 오른쪽 small |3/32|5/32|4/32|23/5/0|
+| 중간 왼쪽 medium |0/16|0/16|0/16|16/0/0|
+| 중간 오른쪽 medium |0/16|0/16|0/16|15/1/0|
+
+![실제 초기·중간·최종 DEV128 양손 성공 수. 같은 요청·독립 물리 reset](assets/rl_v2_postscale_final_DEV128_and_region_size_GPU3_20261013.png)
+
+공통 초기 유효115조건은11→11, lost3/gained3이다. 중간과 최종의 공통 유효128은
+14→13, lost6/gained5다. 같은 요청 layout이지만 실제 reset 물리가 완전히 같다고
+주장하지 않는다. 모든13건에서 opposing two-pad pinch·양손 안정·hold0.2667초·
+proof-lift·안전을 확인했다. 최종 rack69건 모두 held_grasp, 종료 최대힘274.16N이며
+최대힘 몸체는 오른손 gripper32·왼팔4link19·왼손 gripper8·오른팔4link5·
+오른팔7link5다. 최초 접촉 이력은 아니다. 두 medium과 오른쪽 small의 실패를
+초기화 실패로 설명하지 않는다. 이전 최선15·중간14·이번 종료13 모델과 영상을 보존했다.
+
+네 TRAIN 배치의 성공16/12/13/11, 합계52/512는 online 수집 결과이며 고정 모델의
+성능이 아니다. 마지막 배치 새 actor378/critic1628회 중407제안의 실제 head 이동은
+중간 왼쪽5·중간 오른쪽66·상단 왼쪽0·상단 오른쪽367회다. 각 head의6개 Adam step과
+실제 parameter 차이가 일치했다. Critic20개와 두 entropy도 갱신됐지만 세 head의
+정체는 남았다. 고정7경로3507행의 관측/동작/goal·servo 한도/보호 jaw는 유지됐으며
+그 표본 보호가 실제 성공 보존을 보장하지는 않았다.
+
+### 원인별 다음 실행 · 같은 구역의 다른 크기 분리
+
+Small 성공 보호가 같은 head의 실패 medium 탐색까지 제한하는 결합을 줄이기 위해
+4개 구역 head를6개 구역·크기 head로 분리했다. 관측·normalizer·실행 목표·Q·entropy와
+기존 고정 보호 한도는 그대로다. 원래4head를 필요한 두 크기에 독립 복사하며
+Adam step·moment도 각각 복사한다. 상단 두 head 자체의 정체나 실제 팔–랙 진입
+문제를 해결했다는 뜻은 아니다.
+
+Source 모든 writer 종료·최종 Drive 검증 뒤 같은 GPU3에서 닫힌 TRAIN bank/cohort로
+최소 수치 비교를 했다. 초기 실행 목표/jaw·보호 metric이 정확히 같고 원래 hard
+baseline도 유효했다. 두 임시 후보에서 cached/uncached의 전체 모델·Adam·Q·entropy·
+보호 결정이 같고 마지막 uncached 전체 검사를 통과했다. 실제 이동은 상단 오른쪽
+small의 약6.42e-7/6.45e-7뿐이다. 성공 bank에 실패 크기 표본이 없는 이 비교로 새
+head의 탐색 회복을 검증하지 않았다. Production 혼합 replay/MCaux/RNG·물리 성공
+재현이 아니며 CPU 경계에 맞춰 예산을 늘리지 않았다.
+
+03:49 KST에 GPU3 고유 실행 `batch_sac_20261013_034912_9211ec`를 시작했다.
+닫힌 source actor4055/Q18386·replay250000·모든 optimizer·은행12091행·cohort를
+이어받아 새 TRAIN256조건(2배치128)과 동일 DEV128의 초기/종료를 진행한다.
+TRAIN 배치는 seed69000000 계열로 기존 DR 생성기를 다시 사용했다.
+**새 실행 자체 초기 성공 수는 아직 측정 중이며 source 최종13을 대입하지 않는다.**
+현행 CPU PhysX PGS+GPU3 CUDA learner, 기존 박스 기준 고정 접근 후 base 유지·
+SAC21개 비base 목표, box/base/flap DR·reward·양손 성공·안전·curriculum0을 유지한다.
+Base 접근까지 SAC가 학습한 결과로 설명하지 않는다.
+
+새 실행에서 **성공 순간 모델 저장도 활성화**했다. 실제 안전한 TRAIN 성공의 마지막
+행동을 만든 정책을 그 step learner 갱신 전에 별도 후보로 저장한다. 새 구역·크기의
+자리를 예약하고 반복 조건은300초 이상 간격·실행당 최대12개다. 해당 episode 전체가
+한 고정 모델로 실행됐다는 뜻은 아니다. 고정 DEV128에서 재평가한 뒤 평가·재생에
+사용하며 대응 replay 없는 후보의 직접 학습 재개는 거부한다. 모델+증거 JSON의
+Drive checksum 검증 뒤 오래된 후보만 정리하고 로컬 후보 최근2개를 유지한다.
+실제 성공 경로는 기존 성공은행/cohort에 종료 step 즉시 등록한다.
+
+학습 전 새 manifest/progress에서6head artifact·후보 저장 enabled·source counter
+4055/Q18386·replay250000·online rows0을 확인했다. 현재 후보0은 초기 DEV 단계의
+값이며 성공 모델이 이미 저장됐다는 주장이 아니다. 손별 접근·정렬·닫힘/lift gate
+진단도 frozen 소스에 포함했다. GPU3 UUID·nvidia3/renderD131만,300초 checksum·
+일반 checkpoint/성공 후보 각각 최근2개·종료 로그 검증을 유지한다. 기존 큐의 같은
+대화 메시지를 보존하는 CPU 종료 감시1825456 하나로 다음 완료 점검을 이어간다.
+GPU1·2, 다른 사용자 파일/프로세스, 원본 replay/HDF 진단·업로드·삭제는 건드리지 않는다.
+
+종료 DEV의 실제 Q 영상6개는 같은 actor4055/Q18386·model checksum·갱신0·종료
+직전 frame·실제 결과·H264 전체 decode를 대조했다. Notion에 env0 실제 양손 성공
+(hold0.2667초·clearance41.09mm)과 env4 medium 실패(왼팔4link–랙29.55N·종료 pinch0)
+영상을 native 첨부한다. Q1/Q2/minQ는 critic 추정값이고 Q18386은 누적 갱신 횟수다.
+두 선택 영상이나 보상 상승을 전체 성공률로 설명하지 않는다.
+
+[실제 DEV128·lost/gained·안전·모델/영상·닫힌 GPU3 비교·새 실행 근거](assets/rl_v2_postscale_final_DEV128_and_region_size_GPU3_20261013.json)
+
+아래는 각 시점에 기록한 이전 실행·준비 내용이다. 현행 실행 여부는 위 새 고유 실행의
+실제 상태를 기준으로 확인한다. **목표는 아직 미달성이다.**
+
 **10/12 01:29 KST에 수정판의 새 GPU3 실행을 시작했다.** 기존 body-restoration의
 두 번째 TRAIN128에서도 실제 성공은10/128이었으나 기존 두 성공 구역의403제안이
 모두 실제 parameter 이동0이었다. 등록된 우리 writer만 정상 종료하고 원래
