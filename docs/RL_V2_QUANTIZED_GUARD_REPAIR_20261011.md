@@ -470,7 +470,14 @@ allocator3%·free4GiB 시작/3GiB 중단·180초 상한을 사용한다. Math se
 생산 writer의 미기록 설정을 재현했다고 주장하지 않는다. **AST 확인만 했고 아직 GPU 실행은 없다.**
 준비 source SHA가 달라지면 먼저 거부한다. 현재 frozen4b4e233 job·기존 완료감시 하나를 유지하고
 TRAIN512·최종 DEV128을 끝내기 전 hotpatch/새 학습/추가 완료감시를 만들지 않았다.
-[실제 frozen 복원·85검사·종료 gate·원본 불변·GPU 비교의 준비 범위](assets/rl_v2_region_size_resume_preparation_20261013.json)
+추가로 세 번째 완료 저장점 actor3677/Q16758을 변환해 실제 **training=True 생성자**를
+CPU에서 확인했다. 닫힌 TRAIN 성공은행의8행만 사용한 임시 protocol 입력이며 원본 raw
+replay와 실제 measured-return bank를 읽지 않았다. 임시 return bank는 비어 있다. 모델91개·
+모든 optimizer·성공은행·cohort와 해당8행을 정확히 복원했고 원본/RNG가 변하지 않았다.
+이는 전체250000행의 실제 학습 재개나 optimizer 갱신·CUDA·물리 평가가 아니다. 원본 전체
+재개는 writer 종료·최종 Drive 검증 뒤에만 진행한다.
+
+[실제 frozen 복원·85검사·종료 gate·8행 생성자 protocol·원본 불변·GPU 비교의 준비 범위](assets/rl_v2_region_size_resume_preparation_20261013.json)
 
 ### 10/13 Postscale 수정판의 세 번째 전체 TRAIN128
 
@@ -490,6 +497,12 @@ TRAIN512·최종 DEV128을 끝내기 전 hotpatch/새 학습/추가 완료감시
 
 Greedy102조건의 성공13, 접촉 탐색26조건의 성공0·안전10·timeout16이다.
 서로 다른 수집 조건이며 학습 중 actor가 바뀌므로 통제 비교나 고정 DEV 성능이 아니다.
+직전 완료 배치와의 실제 cumulative 통계를 빼면 탐색26개 모두 handoff됐고 guided8410행,
+양손 projected 닫힘17행·새 lift 시도0·안내 시간 만료20개다. 손별 닫힘67/89행과
+한손만 닫힘122행에서도 양손 닫힘17행이 정확히 계산된다. 닫힘은 명령이며 실제 pinch가
+아니다. 현재 frozen 코드에는 손별 위치/축/projector/settling gate 실패 기록이 없어서
+어느 조건이 각 환경을 막았는지 단정하지 않는다. 다음 실행에 준비한 gate 진단을 써서
+실제 원인을 확인하며 이 집계만으로 닫힘·성공·안전 임계값을 낮추지 않는다.
 첫 세 TRAIN의 합계41/384도 자체 초기 DEV11/128·중간14/128을 대체하지 않는다.
 네 번째 TRAIN과 최종 고정 DEV128을 계속 진행하며, 역사적 최선15 모델도 보존한다.
 
