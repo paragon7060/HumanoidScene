@@ -104,7 +104,12 @@ def restored_agent(state, device='cpu'):
         URDFWholeArmClearanceSACPilot, validate_whole_arm_clearance_state,
         URDFIndependentHandCloseSACPilot, validate_independent_hand_close_state,
     )
-    independent_hand_close = state.get("artifact_type") == URDFIndependentHandCloseSACPilot.artifact_type
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.region_size_sac import (
+        RegionSizeIndependentHandCloseSACPilot, validate_region_size_state,
+    )
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.region_size_actor import split_region_size_actor_and_Adam
+    region_size = state.get('artifact_type') == RegionSizeIndependentHandCloseSACPilot.artifact_type
+    independent_hand_close = region_size or state.get("artifact_type") == URDFIndependentHandCloseSACPilot.artifact_type
     whole_arm_clearance = independent_hand_close or state.get("artifact_type") == URDFWholeArmClearanceSACPilot.artifact_type
     predictive_contact = whole_arm_clearance or state.get('artifact_type') == URDFPredictiveContactSACPilot.artifact_type
     interior_contact = state.get('artifact_type') == URDFInteriorContactSACPilot.artifact_type
@@ -117,7 +122,9 @@ def restored_agent(state, device='cpu'):
     full_arm = strong_success or state.get('artifact_type') == URDFFullArmSACPilot.artifact_type
     guard = full_arm or state.get('artifact_type') == URDFServoGuardSACPilot.artifact_type
     urdf = guard or state.get('artifact_type') == URDFRegionalGoalSACPilot.artifact_type
-    if independent_hand_close:
+    if region_size:
+        validate_region_size_state(state)
+    elif independent_hand_close:
         validate_independent_hand_close_state(state)
     elif whole_arm_clearance:
         validate_whole_arm_clearance_state(state)
@@ -231,6 +238,8 @@ def restored_agent(state, device='cpu'):
         agent.actor_normalizer.load_state_dict({k.removeprefix('actor_normalizer.'):v
             for k,v in state['model'].items() if k.startswith('actor_normalizer.')})
         install_regional_actor(agent)
+        if region_size:
+            split_region_size_actor_and_Adam(agent)
     from kuavo_isaaclab_scene.rl.algorithms.success_update_guard import validate_success_update_guard_state
     validate_success_update_guard_state(state)
     agent.actor_success_guard_config = state.get('actor_success_guard')

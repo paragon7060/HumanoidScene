@@ -378,8 +378,8 @@ cohort 출력 전체는 동일했다. Medium 입력을 만든 synthetic fixture�
 
 **현재 학습에 연결하지 않았다.** 최초 component 준비 시에는4head guard가 거부했다.
 10/13에는 아래와 같이6개 partition/cache·고정 전체 검사와 독립 Adam 복사를 연결했다.
-명시적 checkpoint/replay 계약 migration과 닫힌 GPU3 수치 비교는 아직 필요하므로 직접 다음
-학습에 쓰지 않는다. 현재 TRAIN512/최종 DEV128과 종료 Drive 검증을 끝낸 뒤 정체와 실제 성공
+이후 아래와 같이 명시적 checkpoint/replay 계약 migration도 준비했으나 닫힌 GPU3 수치 비교는
+아직 필요하므로 직접 다음 학습에 쓰지 않는다. 현재 TRAIN512/최종 DEV128과 종료 Drive 검증을 끝낸 뒤 정체와 실제 성공
 결과에 따라 적용 여부를 선택한다. 성공/안전/DR·현행 물리·curriculum0은 유지한다.
 [닫힌 TRAIN 출력 보존·구역/크기·부분 제약·최소 검사 범위](assets/rl_v2_region_size_actor_preparation_20261012.json)
 
@@ -420,6 +420,57 @@ CPU의 source 보호 baseline을 CUDA와 같다고 가정하거나 예산을 완
 기존 writer/supervisor/CPU 완료감시·GPU3 UUID/renderD131 단일 namespace·300초 Drive 검증을
 그대로 유지했고 신규 GPU job/hotpatch/추가 완료감시는 없다.
 [독립 Adam·초기 출력·원본 불변·64검사·실제 부분 TRAIN 근거](assets/rl_v2_region_size_guard_Adam_preparation_20261013.json)
+
+### 10/13 크기별 SAC의 명시적 체크포인트 복원 준비
+
+새 learner artifact `staged_actual_flap_URDF_upright_region_size_independent_hand_close_sac_v10`을
+기존 staged runner와 frozen/Q 영상 모델 복원에 연결했다. V9의 실제 모델·Q·normalizer·
+모든 optimizer·성공은행/cohort·누적 counter를 이어받으며 head4/5의 원본과 Adam 복사를 명시한다.
+누적 actor/Q를 새 학습량으로 세지 않도록 출발 counter와 기존 보호 통계를 provenance에 저장한다.
+새 architecture metadata 이외의 물리·보상·DR·동작 좌표·success/safety·curriculum0 계약은 그대로다.
+
+`prepare_region_size_resume.py`는 원래 systemd unit의 실제 terminal 상태·지정 supervisor·
+writer 종료·최종 Drive 검증을 확인한 뒤에만 Torch와 실제 replay를 읽는다. 기존 source는 그대로 두고
+고유한 폴더에 원자적으로 새 resume 입력을 쓴다. 행/label/보상을 고치지 않으며 모든 실제 전이를
+다음 학습의 재개 입력으로만 사용한다. 다른 사용자의 파일/프로세스·원본 HDF/replay 업로드/삭제는 없다.
+공간이 복사본과 reserve에 부족하면 먼저 거부한다. 현재 살아 있는 unit에서 실행한 gate도
+**Torch/raw 접근과 출력 폴더 생성 전에 정상 거부**했다. 이는 현재 학습 오류가 아니다.
+
+```bash
+conda activate env_isaaclab_232
+CUDA_VISIBLE_DEVICES='' PYTHONPATH="$PWD/src:$PWD/scripts/rl" \
+python scripts/rl/prepare_region_size_resume.py \
+  --unit <종료와-백업이-완료된-우리-unit> \
+  --launch-record /absolute/path/to/launch_receipt.json \
+  --checkpoint /absolute/path/to/closed-run/checkpoint_<critic-counter>.pt \
+  --destination /absolute/path/to/new-unique-resume-input-directory
+```
+
+이 명령은 학습을 시작하지 않는다. 다음 source 선택은 전체 최종 DEV128과 실제 TRAIN 결과를
+검토한 뒤 하며, source checkpoint와 종료 replay의 실제 성공은행/계약이 맞아야 한다.
+Terminal 성공 후보에는 대응하는 replay가 없으므로 이 명령의 TRAIN 재개 입력으로 사용하지 않는다.
+후보는 먼저 고정 DEV에서 재평가한다. 다음 runner는 새 `.pt`를 `--checkpoint`로 받으며,
+기존 물리 manifest/waypoint·GPU3 namespace·Drive300초/최근2개/종료 로그 검증을 유지한다.
+
+실제 닫힌 TRAIN actor3274/Q15142를 변환해 V10 전체 frozen pilot에서91개 model tensor와
+정확한 goal contract를 복원했다. V9의77개와 비교해11,240개 성공 입력의 **실행 목표와 binary jaw**,
+고정14phase/3,507행의 보호 metrics·jaw 정답이 bit 단위로 같았다. Q 영상의 모델 복원 factory도
+V10과 모든4개 optimizer를 정상 복원했다. 원본 state/file/RNG가 그대로이며 optimizer 갱신0·
+replay import0·CUDA 초기화0이다. Native seed/HDF/replay/DEV/FINAL episode를 읽지 않았다.
+
+CPU baseline은 두 구조 모두 기존 한도를 일부 넘었다. 실제 writer의 CUDA baseline과 동일하다고
+가정하지 않으며 한도를 재설정/완화하지 않았다. 최소 CPU85검사·compile·diff check를 통과했다.
+원래 validator의 임시 CPU actor 생성이 RNG를 소비할 수 있어 새 변환/검증은 fork_rng로 격리한다.
+현재 writer에는 영향이 없으며 검사를 실제 물리 성공 개선으로 설명하지 않는다.
+
+현재 writer/supervisor 종료와 최종 Drive 검증 뒤에만 사용할 GPU3 비교 helper도 준비했다.
+실제 TRAIN bank/cohort만으로 최초 실행 목표·고정 전체 한도와 두 폐기 가능한 SAC 후보의
+cache/전체 계산·model/Q/Adam/entropy/보호 결정 동일성을 비교한다. GPU3 UUID/renderD131,
+allocator3%·free4GiB 시작/3GiB 중단·180초 상한을 사용한다. Math setting은 기록하고 바꾸지 않으며
+생산 writer의 미기록 설정을 재현했다고 주장하지 않는다. **AST 확인만 했고 아직 GPU 실행은 없다.**
+준비 source SHA가 달라지면 먼저 거부한다. 현재 frozen4b4e233 job·기존 완료감시 하나를 유지하고
+TRAIN512·최종 DEV128을 끝내기 전 hotpatch/새 학습/추가 완료감시를 만들지 않았다.
+[실제 frozen 복원·85검사·종료 gate·원본 불변·GPU 비교의 준비 범위](assets/rl_v2_region_size_resume_preparation_20261013.json)
 
 ## 10/12 수정판 첫 전체 TRAIN128 확정
 

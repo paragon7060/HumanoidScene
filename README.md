@@ -57,6 +57,7 @@ PD 설정은 `configs/s63_servo.json`에서 관리한다. [중력 보상과 PD �
 | Base 접근·정지 후 21개 목표 SAC | [새 Q/replay 계약·독립 gripper 탐색·Drive 실행 사용법](docs/RL_V2_STAGED_GOAL_SAC.md) |
 | Base hold + binary gripper hybrid SAC | [19개 연속 목표·양손 categorical Q·상관 탐색 설정](docs/RL_V2_STAGED_GOAL_SAC.md#binary-gripper를-직접-학습하는-hybrid-sac) |
 | SAC에서 실제 성공 경험을 유지 | [TRAIN 성공 replay·actor 보조 손실·DEV 분리](docs/RL_V2_STAGED_GOAL_SAC.md#실제-train-성공-경험-유지) |
+| 구역·박스 크기별 SAC를 분리해 재개하는 준비 | [기존 모델/Q/Adam 보존·종료 백업 gate·미적용 상태](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#1013-크기별-sac의-명시적-체크포인트-복원-준비) |
 | Frozen SAC로 정확한 TRAIN 목표 전이 수집 | [실제 21개 목표·Q 문맥 보존·평가 데이터 제외](docs/RL_V2_STAGED_GOAL_SAC.md#frozen-sac의-train-목표-전이-수집) |
 | 실제 제어명령 좌표의 SAC | [새 Q·네 영역 TRAIN 성공 복원·GPU0 비교·frozen 영상 재생](docs/RL_V2_PHYSICAL_BODY_SAC.md) |
 | 파지 중 관측·닫힘·접촉 진단 | [고정 정책 DEV 재생·실제 flap 비교·Q 데이터 제외](docs/RL_V2_STAGED_GOAL_SAC.md#파지-중-관측닫힘접촉-진단) |
