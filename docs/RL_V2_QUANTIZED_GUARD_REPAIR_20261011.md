@@ -114,6 +114,18 @@ GPU1·2, 다른 사용자 파일/프로세스, 원본 replay/HDF 진단·업로�
 갱신 가능성 확인이며 지속적 탐색 회복·파지 성공률 개선이나 저장 Adam step 대조가 아니다.
 기존 보호 head의 정체도 남아 TRAIN256/동일 DEV128 종료까지 계속 확인한다.
 
+후속 step121의34제안에서도 새 두 head는 각각34/34회 이동했다. 반면 기존 중간
+왼쪽small·상단 왼쪽small은0/34, 중간 오른쪽medium8/34·상단 오른쪽small4/34다.
+최초4수용을 보호된 모든 구역의 지속적 회복으로 일반화하지 않는다.
+실제 닫힌 TRAIN 저장점18432(actor4066)의 CPU 대조에서는 새 actor11/critic46,
+각 head의6개 Adam step 증분이 실제 이동0/4/11 횟수와 정확히 맞았다. Critic20개와
+두 entropy의 step·실제 값 변화, 기존7경로3507행/14phase·고정 한도·jaw 보존도 확인했다.
+새 두 head의 parameter는 실제 변했지만 이 구역은 기존 성공 cohort에 없으므로 해당
+구역의 기능적 출력/물리 성공 개선은 이 대조로 확인하지 않았다. CPU 고정 TRAIN
+출력 비교는 live CUDA/Q/RNG/혼합 replay나 실제 물리 재현이 아니다.
+저장점 SHA256 `111966a6baa9863a1761cf447300443c93d9fc0761e85b6f3e7aa163bbe3463e`는
+`artifacts/rl/protected_train_models_20261013/batch_sac_20261013_034912_9211ec/`에 보존했다.
+
 이번 초기 actor4055/Q18386 영상은 같은91tensor checksum·optimizer 갱신0·실제
 outcome/layout·행동 전 Q1/Q2/minQ·전reset 종료 frame·H264 전체 decode와 맞는다.
 상단 오른쪽small env3는 실제 양손 성공(hold0.2667초·clearance33.87mm),
