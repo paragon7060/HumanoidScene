@@ -165,6 +165,11 @@ cohort7경로3507행이며 기존 두 보호 경로가 채워진 조건이라 �
 현재 파일럿을 유지하고 전체 TRAIN/중간·종료 DEV128로 이번 초기11 기준의 효과를 확인한다.
 [첫 실제 성공·지연0 등록 이벤트·부분 거절 근거](assets/rl_v2_postscale_body_first_actual_TRAIN_success_registration_20261012.json)
 
+20:32 KST step601에서는실제 성공9(중간 왼쪽small8·상단 왼쪽small1)·안전30·진행89/128이다.
+무효/timeout/수치0이며9건 모두 양손·hold·proof-lift·안전을 다시 대조했고 종료 control step의
+즉시 등록도 확인했다. 다른4조건이나 frozen DEV의 개선으로 세지 않는다. 위 JSON의
+`later_partial_registered_successes`에 후속9건을 보존했고 초기3건의 기록은 그대로 유지했다.
+
 
 ## 10/12 수정판 첫 전체 TRAIN128 확정
 
