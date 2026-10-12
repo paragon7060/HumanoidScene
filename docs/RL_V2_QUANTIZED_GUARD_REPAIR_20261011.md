@@ -285,6 +285,19 @@ actor4359/Q19602 모델 SHA256은
 
 [두 번째 배치 부분11·후보4/5·Drive 검증·상단 왼쪽 head/Adam 비교](assets/rl_v2_region_size_second_TRAIN_partial_success_candidates_20261013.json)
 
+08:33의 step691 부분 결과는 실제 양손 성공16·랙 종료54·무효1·진행57/128이다.
+중간 왼쪽small10·상단 왼쪽small2·상단 오른쪽small4이며 모두 안전한 양손 hold/proof-lift와
+같은 step 등록을 대조했다. 첫 배치 끝 모델을 빼면 새 actor323/critic1292회이며,
+이 온라인 부분 결과를 초기 DEV11/128보다 개선된 고정 성공률로 설명하지 않는다.
+
+여섯 번째 후보는 step656의 상단 왼쪽small env62/seed69001215이며 hold0.2667초·
+proof clearance70.12mm·안전·greedy 종료 행동을 확인했다. 모델91개/optimizer174개 유한성과
+고정 보호 한도를 CPU로 대조했고, 모델/증거 JSON의 기존 Drive 크기·MD5도 실제 일치했다.
+기존 uploader가 검증 후 정리해 로컬에는 후보5/6만 남았다. 모델/Q/optimizer를 보존한
+성공 순간 후보이며 전체 동작의 고정 재현이나 직접 TRAIN 재개를 허용하는 자료는 아니다.
+현재 두 번째 TRAIN·종료 DEV128을 끝까지 유지하고, 종료·최종 Drive 검증 뒤 같은 DEV128에서
+후보의 실제 재현성과 전체 성능을 확인한다. 기존 물리·randomization·보상·안전 기준은 유지한다.
+
 ### 저장 후보의 동일 계약 고정 평가 경로
 
 기존 관리자와 child runner는 CPU 물리·별도 CUDA 정책을 `--cpu-physics-training`에서만
