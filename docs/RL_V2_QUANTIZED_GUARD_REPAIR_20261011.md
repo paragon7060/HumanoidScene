@@ -348,6 +348,40 @@ greedy 후보 성공과 구분하며, 탐색 override가 포함된 마지막 행
 Drive 검증 실패 시 모든 형식의 로컬 보존을 포함한다. 물리 성공 개선 검증은 아니다.
 [모델 저장 시점·원본 SHA·최소 검사 범위](assets/rl_v2_success_terminal_policy_candidates_preparation_20261012.json)
 
+### 남은 정체: 같은 구역의 다른 크기가 같은 actor를 공유한다
+
+중간 DEV14/128 뒤 세 번째 TRAIN 배치의 첫111제안에서는 실제 이동이 중간 왼쪽32회·
+중간 오른쪽4회·상단 왼쪽27회·상단 오른쪽109회였다. 이동0은 각각71.2%/96.4%/75.7%/1.8%다.
+이것은 step271의 **부분 갱신 통계**이며 전체 배치의 성공률이나 갱신 정체의 영구 해소가 아니다.
+고정 baseline 한도 초과는0이고 첫 성공 대기 상태도 아니다. 마지막 단일 후보의 중간 오른쪽은
+기존 medium 성공 경로의 approach 오른팔 한도, 중간 왼쪽은 small 성공 경로의 approach 오른팔
+한도에 막혔다. 이 두 구역의 실제 parameter 이동은0이다. Loss ratio 초과를 거리나 힘으로 해석하지 않는다.
+
+현재 actor는4개 구역별 네트워크이며 한 구역의 small/medium은 같은 parameter를 쓴다.
+보호 cohort는 중간 왼쪽small2·상단 오른쪽small2·상단 왼쪽small2·중간 오른쪽medium1 경로다.
+중간 왼쪽medium과 중간 오른쪽small에는 보호 성공 경로가 없지만 **같은 구역의 다른 크기 경로**가
+공유 parameter의 변경을 제약한다. 이는 구조적으로 확인한 결합이다. 모든 실패가 이 때문이라거나
+분리만 하면 물리 성공한다는 증거는 아니다. 양손 진입과 팔·랙 여유 문제도 남아 있다.
+
+다음 후보로 `region_size_actor.py`의 **구역·크기별6개 독립 네트워크 component**를 준비했다.
+기존4개를 복사해 중간 오른쪽small과 중간 왼쪽medium만 별도로 학습할 수 있게 하는 구조다.
+초기화 직후 실제 닫힌 TRAIN 성공은행11,240행과 고정14phase/3,507행의42개 mean/jaw/std
+출력이 원래와 bit 단위로 같았다. 성공이 없는 두 크기의 body 출력 bias를 임시로 변경해도 기존
+cohort 출력 전체는 동일했다. Medium 입력을 만든 synthetic fixture는 물리 전이·replay·학습 label이 아니다.
+
+현재 frozen normalizer는 type token에서 small을[0,0], medium을[-10,10]으로 구분한다.
+클리핑된 값을 역정규화해 argmax하면 medium을 잘못 고를 수 있어, 준비 component는 알려진
+정규화 one-hot 두 pattern과 비교한다. **기존 actor가 크기 정보를 잃었다거나 현재 routing 버그가
+있다는 뜻은 아니다.** Observation/normalizer를 바꾸지 않았다. Component 연속성·6조건 분기·
+다른 크기 출력/Adam 격리 등 최소 CPU15검사를 통과했고 source 모델·optimizer·cohort·파일·RNG는
+그대로다. CUDA/물리 성공·실제 production SAC 갱신 검사는 아니다.
+
+**현재 학습에 연결하지 않았다.** Guard의6개 partition/cache·고정 전체 검사, 저장 모델/Adam/계약의
+명시적 migration과 닫힌 GPU3 수치 비교가 아직 필요하다. Component를 단독 설치하면 현재4head
+guard가 거부하므로 직접 다음 학습에 쓰지 않는다. 현재 TRAIN512/최종 DEV128과 종료 Drive 검증을
+끝낸 뒤 정체와 실제 성공 결과에 따라 적용 여부를 선택한다. 성공/안전/DR·현행 물리·curriculum0은 유지한다.
+[닫힌 TRAIN 출력 보존·구역/크기·부분 제약·최소 검사 범위](assets/rl_v2_region_size_actor_preparation_20261012.json)
+
 ## 10/12 수정판 첫 전체 TRAIN128 확정
 
 **실제 양손 성공15/128·초기 유효127/무효1·안전67·timeout45·수치 오류0이다.**
