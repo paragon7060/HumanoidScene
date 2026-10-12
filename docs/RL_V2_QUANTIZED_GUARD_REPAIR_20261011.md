@@ -171,7 +171,24 @@ yaw21.80도다. 환경 tile 이동은 제외했으며 기존 고정 base 접근 
 없으며 종료·Drive 검증 후 같은 전체 DEV128의 고정 정책 평가로 사용 여부를 판단한다.
 현재 자체 초기11/128·이전 최선15 모델/영상과 구분하고 독립 FINAL은 조정에 쓰지 않는다.
 
-[후보2개·파일/모델 checksum·Drive·실제7성공·같은 step 등록·base 좌표 근거](assets/rl_v2_region_size_actual_TRAIN_success_candidates_20261013.json)
+후속 step661에서 상단 오른쪽small env127/seed69000331도 양손 hold0.2667초·
+proof-lift·clearance48.40mm·안전을 만족해 세 번째 후보를 저장했다. 마지막 행동의
+actor4359/Q19602 모델 SHA256은
+`f17200c48c2c98b5a9821d3c5cc046a99f325019ffcb8e847711ddc1ea2d785f`다.
+91개 model·174개 optimizer 유한성과 기존7경로 고정 한도/보호 jaw를 대조했으며,
+06:25 모델과 증거 JSON의 Drive 크기/MD5도 일치했다. 기존 uploader는 검증된
+후보1만 정리해 로컬 모델은 최근2개, 증거 JSON은3개를 유지했다.
+
+이때 첫 TRAIN128은 성공10(중간 왼쪽small9·상단 오른쪽small1), 랙 종료50·
+초기 무효1·진행67이었다. 상단 오른쪽은 자체 초기 DEV에서도3회 성공했던 구역이다.
+전체 TRAIN/고정 DEV 개선이나 새로운 구역 학습의 증거로 세지 않는다. 새304제안에서
+실제 이동은 중간 오른쪽medium85·중간 왼쪽small95·상단 오른쪽small5·상단 왼쪽small0이며,
+새 중간 오른쪽small/중간 왼쪽medium head는 각각304회다. 고정 baseline 초과0이지만
+보호된 head의 정체는 남는다. 접촉 탐색의 이 부분 구간에서는 양손 동시 geometry
+준비0·양손 닫힘 명령0·lift0이며 손별 projector 차단은2/1건이다. 겹치는 gate/명령
+통계이므로 실제 pinch나 모든 탐색 실패의 원인으로 설명하지 않는다.
+
+[후보3개·checksum/Drive·최근2개 보관·실제 부분 성공/등록/갱신 근거](assets/rl_v2_region_size_actual_TRAIN_success_candidates_20261013.json)
 
 ### 그리퍼 출력만 교정하는 후보 준비 · 현재 학습에는 미적용
 
