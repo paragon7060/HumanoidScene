@@ -207,6 +207,9 @@ class StagedGoalSACPilot:
         self.latest_actor = {}
         self.history = []
         saved = torch.load(checkpoint,map_location=device,weights_only=True) if checkpoint else None
+        if training and saved and 'TRAIN_success_candidate' in saved:
+            raise ValueError('Online terminal candidates require frozen DEV evaluation; '
+                             'they have no matching continuation replay snapshot')
         self.episode_arm_behavior_initialization=deepcopy(
             saved.get('episode_arm_behavior_initialization')) if saved else None
         self.source_experience_collection_contract=None
@@ -604,23 +607,28 @@ class StagedGoalSACPilot:
                 report['actor_success_guard_cohort'] = cohort.report(self.agent)
         return report
 
+    def checkpoint_state(self):
+        """The same learner state for periodic and pre-update candidate saves."""
+        state = self.agent.checkpoint() | dict(artifact_type=self.artifact_type,
+            goal_contract=self.contract, frozen_warm_start=self.frozen_warm_start,
+            actor_updates=self.actor_updates, critic_updates=self.critic_updates,
+            latest_actor_metrics=self.latest_actor,
+            prior_schedule_actor_origin=self.prior_schedule_actor_origin,
+            reference_runtime_dependency=False,**self.checkpoint_extras())
+        if self.frozen_actor_prior is not None:
+            state['frozen_actor_prior']=self.frozen_actor_prior.state_dict()
+        if self.success_bank is not None:
+            state.update(successful_train_transitions=self.success_bank.state(),
+                success_schedule_actor_origin=self.success_schedule_actor_origin)
+        if self.episode_arm_behavior_initialization is not None:
+            state['episode_arm_behavior_initialization']=self.episode_arm_behavior_initialization
+        return state
+
     def save(self, final=False):
         if not final and getattr(self, '_last_saved', None) == self.critic_updates:
             return
         if getattr(self, '_last_saved', None) != self.critic_updates:
-            state = self.agent.checkpoint() | dict(artifact_type=self.artifact_type,
-                goal_contract=self.contract, frozen_warm_start=self.frozen_warm_start,
-                actor_updates=self.actor_updates, critic_updates=self.critic_updates,
-                latest_actor_metrics=self.latest_actor,
-                prior_schedule_actor_origin=self.prior_schedule_actor_origin,
-                reference_runtime_dependency=False,**self.checkpoint_extras())
-            if self.frozen_actor_prior is not None:
-                state['frozen_actor_prior']=self.frozen_actor_prior.state_dict()
-            if self.success_bank is not None:
-                state.update(successful_train_transitions=self.success_bank.state(),
-                    success_schedule_actor_origin=self.success_schedule_actor_origin)
-            if self.episode_arm_behavior_initialization is not None:
-                state['episode_arm_behavior_initialization']=self.episode_arm_behavior_initialization
+            state = self.checkpoint_state()
             # A closed evaluation wave must not rewrite an already uploaded
             # checkpoint with the same critic counter and remote filename.
             save_checkpoint(self.directory, state, self.critic_updates, keep=None)

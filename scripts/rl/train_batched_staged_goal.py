@@ -31,6 +31,10 @@ def main():
     parser.add_argument('--train-success-registration', choices=('completed-episode','wave'),
         default='completed-episode',
         help='Register complete safe TRAIN paths before the next control step; wave preserves legacy timing')
+    parser.add_argument('--save-train-success-candidates', action='store_true',
+        help='Save bounded safe terminal model candidates before learner updates; frozen DEV required')
+    parser.add_argument('--train-success-candidate-limit', type=int, default=12,
+        help='At most12 full model candidates per unique run by default; no raw replay snapshots')
     parser.add_argument('--measured-train-credit',
                         choices=('one-step', 'measured-nstep16', 'measured-nstep16-terminal25',
                                  'measured-episode-return', 'measured-episode-return-balanced50'), default=None,
@@ -697,6 +701,10 @@ def main():
             'TRAIN_actor_body_regularization':actor_body_regularization,
             'TRAIN_actor_jaw_regularization':actor_jaw_regularization,
             'TRAIN_successful_jaw_balance':successful_jaw_balance,
+            'TRAIN_success_candidate_archive':dict(enabled=args.save_train_success_candidates,
+                maximum_per_run=args.train_success_candidate_limit,repeated_scope_interval_seconds=300,
+                capture_boundary='after_env_step_before_learner_observe',
+                fixed_DEV_required=True,direct_training_resume_allowed=False),
             'controller_coordinate_safety':coordinate_safety,
             'initialized_physics':initialized_physics,
             'startup_world_frame_probe':world_frame_audit,
@@ -744,6 +752,15 @@ def main():
             drive_probe=GripperDriveProbe(env.scene['robot'])
         drive_audits=[]
         outcomes=[];pilot=None;start=time.monotonic();total_rows=0;completed_wave_count=0
+        success_candidates=None
+        if args.save_train_success_candidates:
+            if not args.training or backend_eval or workplace_eval:
+                raise ValueError('Online success candidates require ordinary TRAIN, without a probe')
+            from kuavo_isaaclab_scene.rl.multi_box.experiments.train_success_candidates import TrainSuccessCandidates
+            requested_scopes={(row['layout']['target_region'],row['layout'].get('target_box_type'))
+                for w in waves if w['split']=='train' for row in w['layouts']}
+            success_candidates=TrainSuccessCandidates(output,maximum=args.train_success_candidate_limit,
+                expected_scopes=requested_scopes)
         guard=DevelopmentSuccessGuard(args.minimum_validation_region_success_rate,
             regression_significance=args.validation_regression_significance) if args.stop_on_validation_regression else None
         development_checks=[]
@@ -942,6 +959,7 @@ def main():
                         if scene_videos is not None:scene_videos.prepare_q(step,ids,previous)
                         if base_substep_trace is not None:
                             base_substep_trace.prepare(wave_index,step,active,stages.stages,action)
+                        action_counters=(pilot.actor_updates,pilot.critic_updates)
                         try:
                             observation,reward,terminated,truncated,info=env.step(action)
                         finally:
@@ -951,12 +969,6 @@ def main():
                         terminal=info['transition_next_observations']
                         if not torch.allclose(reward[active],env._multi_box_grasp_reward_breakdown.total[active],atol=1e-5,rtol=1e-5):
                             raise ValueError('Actual vector reward differs from current breakdown')
-                        if previous is not None:
-                            added=observe_measured_held_rows(pilot,stages,ids,previous,terminal,
-                                reward,learning_termination_mask(contract['reward_profile'],terminated,truncated),clocks,active)
-                            if added and pilot.training and (pilot.success_bank is not None
-                                    or getattr(pilot, 'measured_credit_bank', None) is not None):
-                                measured_goal_batches.append((ids[active[ids]].detach().cpu(),pilot.history[-1]))
                         # One transfer per field, rather than per environment.
                         # Scene collection remains exactly the executed tensor.
                         pc={k:v.cpu().numpy() for k,v in pre.items()}
@@ -1000,6 +1012,17 @@ def main():
                                 ended_successes.append(dict(wave=wave_index,split=wave['split'],
                                     environment=i,layout=wave['layouts'][i]['layout'],result=last[i],
                                     complete=True,initial_layout_valid=bool(valid_layout[i])))
+                        # The model still matches the terminal action: no learner
+                        # observation/update has occurred since pilot.act above.
+                        if success_candidates is not None and pilot.training and ended_successes:
+                            success_candidates.capture(pilot,ended_successes,control_step=step+1,
+                                action_counters=action_counters)
+                        if previous is not None:
+                            added=observe_measured_held_rows(pilot,stages,ids,previous,terminal,
+                                reward,learning_termination_mask(contract['reward_profile'],terminated,truncated),clocks,active)
+                            if added and pilot.training and (pilot.success_bank is not None
+                                    or getattr(pilot, 'measured_credit_bank', None) is not None):
+                                measured_goal_batches.append((ids[active[ids]].detach().cpu(),pilot.history[-1]))
                         if success_registration is not None and ended_successes:
                             success_registration.register(wave,ended_successes,measured_goal_batches,
                                 control_step=step+1,actor_updates=pilot.actor_updates,
@@ -1014,6 +1037,8 @@ def main():
                                 progress['policy_servo_diagnostics']=policy_servo_diagnostics[-1]
                             if success_registration is not None:
                                 progress['TRAIN_success_registration']=success_registration.report()
+                            if success_candidates is not None:
+                                progress['TRAIN_success_candidates']=success_candidates.report()
                             (output/'progress.json').write_text(json.dumps(progress)+'\n')
                             print('[BATCHED SAC] '+json.dumps({k:v for k,v in progress.items() if k not in ('learner','last')})+
                                 f' actor={pilot.actor_updates} critic={pilot.critic_updates}',flush=True)
@@ -1101,6 +1126,7 @@ def main():
                 frozen_physics_backend_evaluation=backend_eval,
                 CPU_workplace_probe=workplace_eval,
                 learner=pilot.report(),actual_rows=total_rows,seconds=time.monotonic()-start,
+                TRAIN_success_candidates=success_candidates.report() if success_candidates else None,
                 development_checks=development_checks),indent=2)+'\n')
             status=('interrupted' if stopped['value'] else
                 'physical_reproducibility_failed' if regression and check['regression_cause']=='physical_reproducibility_loss_without_actor_update' else

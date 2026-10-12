@@ -17,6 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CHECKPOINT = re.compile(r"(model|checkpoint)_(\d+)\.pt$")
+CANDIDATE = re.compile(r"(success_candidate)_(\d+)\.pt$")
 METADATA = ("manifest.json", "env.yaml", "agent.yaml", "verification.json")
 
 
@@ -92,14 +93,32 @@ def backup_once(source, destination, remote, keep=2, min_age=120, finished=False
         if path.exists():
             archive_file(path, destination, remote)
     checkpoints = sorted(
-        (p for p in source.iterdir() if CHECKPOINT.fullmatch(p.name)
+        (p for p in source.iterdir() if (CHECKPOINT.fullmatch(p.name) or CANDIDATE.fullmatch(p.name))
          and p.is_file() and not p.is_symlink()),
-        key=lambda p: (CHECKPOINT.fullmatch(p.name)[1], int(CHECKPOINT.fullmatch(p.name)[2])),
+        key=lambda p: ((CHECKPOINT.fullmatch(p.name) or CANDIDATE.fullmatch(p.name))[1],
+                       int((CHECKPOINT.fullmatch(p.name) or CANDIDATE.fullmatch(p.name))[2])),
     )
     verified = {}
     for path in checkpoints:
         if time.time() - path.stat().st_mtime >= min_age:
+            if CANDIDATE.fullmatch(path.name):
+                # Immutable evidence is paired with the exact model bytes.
+                # Missing/mismatched evidence aborts before any local pruning.
+                evidence = path.with_suffix('.json')
+                if evidence.is_symlink() or not evidence.is_file():
+                    raise ValueError('Success candidate lacks a regular evidence sidecar')
+                candidate_signature = signature(path)
+                record = json.loads(evidence.read_text())
+                digest = hashlib.sha256()
+                with path.open('rb') as stream:
+                    for block in iter(lambda: stream.read(1024 * 1024), b''):
+                        digest.update(block)
+                if record.get('checkpoint') != path.name or record.get('SHA256') != digest.hexdigest():
+                    raise ValueError('Success candidate evidence/model checksum differs')
+                archive_file(evidence, destination, remote)
             verified[path] = archive_file(path, destination, remote)
+            if CANDIDATE.fullmatch(path.name) and signature(path) != candidate_signature:
+                raise RuntimeError('Candidate changed after its evidence check; no pruning')
     if finished:
         for path in sorted(source.iterdir()):
             if (path.name.startswith("events.out.tfevents.")
@@ -108,8 +127,9 @@ def backup_once(source, destination, remote, keep=2, min_age=120, finished=False
                 archive_file(path, destination, remote)
     # A failed copy or verification above exits before ANY local pruning.
     removed = []
-    for family in ("model", "checkpoint"):
-        members = [p for p in checkpoints if CHECKPOINT.fullmatch(p.name)[1] == family]
+    for family in ("model", "checkpoint", "success_candidate"):
+        members = [p for p in checkpoints
+                   if (CHECKPOINT.fullmatch(p.name) or CANDIDATE.fullmatch(p.name))[1] == family]
         protected = set([p for p in members if p in verified][-keep:])
         for path in members[:-keep]:
             if (path in verified and path not in protected and not path.is_symlink()

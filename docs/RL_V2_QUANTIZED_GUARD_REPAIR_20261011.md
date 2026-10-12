@@ -279,6 +279,75 @@ handoff와9799개 guided row를 확인했다. 양손 closed-command row는42개 
 유지한다. Hotpatch·추가 GPU 학습/감시·물리/보상/DR/성공/안전 기준 완화는 하지 않았다.
 [두 번째128·실제 갱신·성공은행·탐색 통계·닫힘 조건 및 다음 진단 근거](assets/rl_v2_postscale_body_second_full_TRAIN128_and_contact_gate_20261012.json)
 
+### Postscale 수정판 중간 고정 DEV128과 성공 모델 보존
+
+**이번 실행 자체 초기11/128 → 중간14/128**이다. 중간 평가의128조건 모두 초기 유효하며
+무효0·랙 안전 실패65·timeout49·수치 오류0이다. 초기에는 무효13·안전68·timeout36이었다.
+같은 요청의 공통 초기 유효115조건도11→14, lost2(env3/112)·gained5(env51/79/115/120/122)다.
+반복 reset의 실제 물리 상태가 같다는 통제 비교는 아니며, 작은 증가를 강한 개선으로 단정하지 않는다.
+
+| 조건 | 자체 초기 성공 | 중간 성공 | 중간 안전/timeout/무효 |
+|---|---:|---:|---:|
+| 중간 왼쪽 small |8/16|8/16|8/0/0|
+| 중간 오른쪽 small |0/16|0/16|0/16/0|
+| 상단 왼쪽 small |0/32|1/32|7/24/0|
+| 상단 오른쪽 small |3/32|5/32|19/8/0|
+| 중간 왼쪽 medium |0/16|0/16|16/0/0|
+| 중간 오른쪽 medium |0/16|0/16|15/1/0|
+
+모든14건에서 실제 opposing two-pad 양손 pinch·안정·hold≥.25초·proof-lift·안전을 확인했다.
+고정 actor3274/critic15142와77개 유한 model tensor, 모델 불변·optimizer 갱신0의 영상 proof를
+대조했다. SHA256 `7186d8911fb399b3f4edccd937f1027210acbf34f6baa377baa51afabfa4d781`의
+모델을 `artifacts/rl/protected_dev_models_20261012/batch_sac_20261012_190449_fec06e/checkpoint_00015142.pt`에
+보존했다. 두 번째 완료 TRAIN 저장점과 같은 bytes지만 전체 고정 DEV14와 online TRAIN12는 구분한다.
+이전 최선15 모델과 영상도 계속 보존한다. 세 조건은 성공0으로 목표는 미달성이다.
+
+중간 rack65건 모두 held_grasp이며 종료 최대힘205.12N, peak body는 오른손 gripper36·왼팔4link16·
+왼손 gripper9·오른팔7link3·오른팔4link1이다. 이는 첫 접촉 이력이 아니다.
+두 번째 완료 TRAIN의 왼쪽 medium16건 모두 유효해도 rack 실패했고 최초 관측1N 경고 당시
+양손 pinch는0, 가까운/먼 손 거리 중앙값1.98/4.79cm, 왼팔4link 경고11건이었다.
+오른쪽 medium은 rack14/timeout2, 가까운/먼 손6.34/18.74cm였다. Drop3건은 모두
+중간 오른쪽 **small** 탐색 조건으로 medium 초기화 실패와 혼동하지 않는다. 왼쪽 팔 여유와
+오른쪽 미완성 양손 접근을 다음 원인별 수정에서 구분한다. 종료 JSON만으로 전체 궤적 원인을 단정하지 않는다.
+
+같은 고정 모델의 env0 양손 성공, env4 medium 랙 실패, env1 small timeout 영상3개를 Notion에
+native 첨부했다. H264/avc1/yuv420p/faststart와 전체 decode, 모델 checksum·layout·실제 결과를
+확인했다. Q1/Q2/minQ는 행동 전의 critic 추정치이며 성공 증거가 아니다. Q15142는 누적 critic
+갱신 횟수다. 상단 왼쪽 새 성공 env122는 선택 영상에 없으므로 env2 timeout 영상으로 설명하지 않는다.
+남은 TRAIN256과 최종 DEV128을 현재 단일 GPU3 실행에서 계속 진행한다.
+[전체128·공통 유효·6조건·모델·실제 Q 영상·종료 접촉 근거](assets/rl_v2_postscale_body_own_mid_DEV128_actual_Q_20261012.json)
+
+### 학습 중 실제 성공 시점의 모델 후보 보관
+
+사용자 요청에 따라 다음 고유 실행용 선택형 저장을 구현했다. 기존 명령에
+`--save-train-success-candidates --train-success-candidate-limit 12`를 추가한다. 실제 유효한 TRAIN
+양손 opposing pinch·hold≥.25초·proof-lift·안전 성공만 받는다. 종료 행동 후 **learner.observe 전**에
+모델/normalizer/Q/optimizer와 기존 성공은행/cohort를 저장해 해당 terminal 행동을 만든 모델을 남긴다.
+새 실제 경로 등록은 그대로 learner 관측 후·다음 step 전에 수행한다. Replay/HDF snapshot은 추가하지 않는다.
+
+각각 `success_candidate_00000001.pt`와 불변 증거 `.json`으로 저장한다. 동시 성공들은 모델 하나에
+묶고 행동 당시 actor/critic counter·구역/크기/seed·실제 성공 조건·greedy/탐색 수집 방식을 기록한다.
+같은 조건의 반복 저장은 최소300초 간격이며 실행당 최대12개다. 새로운 구역/크기의 첫 성공을 위해
+자리를 예약하므로 쉬운 조건의 반복 성공이 모두 소진하지 못한다. 저장은 원자적인 pending→rename이며
+학습기가 미검증 후보를 삭제하지 않는다. 기존300초 Drive 업로더가 SHA256 증거 대조·모델과 JSON의
+크기/MD5 검증 후 후보 모델도 최근2개를 별도로 보존한다. 일반 재개 checkpoint 최근2개와 분리한다.
+
+후보는 기존 batched runner의 나머지 같은 조건을 유지하고 `--checkpoint <후보 절대경로>
+--no-training --waves-json <같은 전체 DEV128>`로 고정 평가할 수 있다. 독립 FINAL은 선택에 사용하지 않는다.
+Online episode에서는 모델이 계속 바뀌므로 terminal 후보 한 개가 전체 동작을 재현한다고 주장하지 않는다.
+고정 평가를 확인하기 전 metadata의 `fixed_DEV_success_verified`는false다. 탐색이 섞인 성공도
+greedy 후보 성공과 구분하며, 탐색 override가 포함된 마지막 행동을 모델 단독 출력이라고 표시하지 않는다.
+저장이 제어 동작·보상·randomization·성공/안전을 바꾸지는 않는다.
+
+후보에는 그 시점에 맞춘 continuation replay가 없으므로 직접 TRAIN 재개는 거부한다. 고정 평가·재생에
+사용하고, 이후 재개 출발점은 전체 평가와 대응하는 닫힌 모델/실제 replay의 계약을 확인해 선정한다.
+성공 **경로**는 이미 현재 TRAIN 성공은행과 cohort를 통해 SAC 갱신에 사용한다. 새로운 저장은 그와 별도로
+학습 중 유용했던 **모델**을 잃지 않기 위한 기능이다. 현재 frozen4b4e233 writer에는 미적용이며 hotpatch나
+중복 GPU 실행을 하지 않았다. 최소 CPU 확인은 저장 시 모델/Adam/RNG 불변, 사후 모델 변경과 저장본 독립,
+물리 성공 evidence gate, 새 조건 자리 예약·간격·하드 상한, 후보 frozen 평가와 직접 TRAIN 재개 거부,
+Drive 검증 실패 시 모든 형식의 로컬 보존을 포함한다. 물리 성공 개선 검증은 아니다.
+[모델 저장 시점·원본 SHA·최소 검사 범위](assets/rl_v2_success_terminal_policy_candidates_preparation_20261012.json)
+
 ## 10/12 수정판 첫 전체 TRAIN128 확정
 
 **실제 양손 성공15/128·초기 유효127/무효1·안전67·timeout45·수치 오류0이다.**

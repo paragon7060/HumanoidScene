@@ -125,6 +125,26 @@ def test_held_phase_critic_warmup_and_actual_replay_survive_a_new_trial(tmp_path
     for key,value in pilot.agent.q1.state_dict().items():
         torch.testing.assert_close(restored.agent.q1.state_dict()[key],value)
     state=torch.load(checkpoint,weights_only=True)
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.actor_train_memory import structure_sha256
+    # Periodic saves and terminal candidates share an identical complete state.
+    def same_state(a,b):
+        if isinstance(a,torch.Tensor):assert torch.equal(a,b)
+        elif isinstance(a,dict):
+            assert a.keys()==b.keys()
+            for key in a:same_state(a[key],b[key])
+        elif isinstance(a,(tuple,list)):
+            assert type(a)==type(b) and len(a)==len(b)
+            for x,y in zip(a,b):same_state(x,y)
+        else:assert a==b
+    same_state(pilot.checkpoint_state(),{k:v for k,v in state.items() if k not in ('format_version','iteration')})
+    candidate=tmp_path/'success_candidate_00000001.pt'
+    torch.save(state|dict(TRAIN_success_candidate={'direct_training_resume_allowed':False}),candidate)
+    with pytest.raises(ValueError,match='no matching continuation replay'):
+        StagedGoalSACPilot(warm,contract,tmp_path/'invalid_candidate_resume',stage,checkpoint=candidate)
+    frozen_candidate=StagedGoalSACPilot(warm,contract,tmp_path/'frozen_candidate_eval',stage,
+        checkpoint=candidate,training=False)
+    assert structure_sha256(frozen_candidate.agent.state_dict())==structure_sha256(pilot.agent.state_dict())
+    assert frozen_candidate.replay.size==0
     assert state['frozen_warm_start']['format_version']==1
     assert state['goal_contract']['old_Q_or_replay_imported'] is False
     # The last update in a two-critic tick is critic-only. Do not lose the

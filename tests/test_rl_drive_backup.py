@@ -143,3 +143,36 @@ def test_real_rclone_local_backend_roundtrip_and_pruning(tmp_path):
     assert backup.backup_once(run, str(destination), backup.Rclone(wrapper), min_age=0) == ["model_0.pt"]
     assert (destination / "model_0.pt").read_bytes() == bytes(1024)
     assert len(list(run.glob("*.pt"))) == 2
+
+
+def candidates(run):
+    import hashlib
+    import json
+    for i in range(4):
+        path=run/f'success_candidate_{i:08d}.pt'
+        path.write_bytes(bytes([i])*32)
+        path.with_suffix('.json').write_text(json.dumps(dict(checkpoint=path.name,
+            SHA256=hashlib.sha256(path.read_bytes()).hexdigest())))
+
+
+def test_success_candidates_are_paired_verified_and_keep_two_separately(run):
+    candidates(run);remote=Remote()
+    removed=backup.backup_once(run,'drive:run',remote,min_age=0)
+    assert set(removed)=={'model_0.pt','model_9.pt','success_candidate_00000000.pt','success_candidate_00000001.pt'}
+    assert len(list(run.glob('success_candidate_*.pt')))==2
+    assert len([name for name in remote.files if 'success_candidate_' in name])==8
+    assert len(list(run.glob('success_candidate_*.json')))==4  # Immutable small evidence stays.
+
+
+@pytest.mark.parametrize('failure', ['sidecar_checksum','model_checksum','mismatched_SHA','missing_sidecar'])
+def test_candidate_failure_cannot_prune_any_checkpoint_family(run,failure):
+    candidates(run)
+    sidecar=run/'success_candidate_00000003.json'
+    failed=None
+    if failure=='sidecar_checksum':failed=sidecar.name
+    if failure=='model_checksum':failed='success_candidate_00000003.pt'
+    if failure=='mismatched_SHA':sidecar.write_text('{"SHA256":"wrong"}')
+    if failure=='missing_sidecar':sidecar.unlink()
+    with pytest.raises((RuntimeError,ValueError)):
+        backup.backup_once(run,'drive:run',Remote(fail=failed),min_age=0)
+    assert len(list(run.glob('*.pt')))==8
