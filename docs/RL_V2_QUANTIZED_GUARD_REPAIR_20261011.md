@@ -211,6 +211,16 @@ outcome/layout·행동 전 Q1/Q2/minQ·전reset 종료 frame·H264 전체 decode
 
 ### 실제 성공 시점 정책 보관 확인 · TRAIN 진행 중
 
+보존 중인 후보2/3을 실제 frozen actor/Q 복원 함수로 CPU에서 읽어91개 모델 tensor가
+정확히 같은지 확인했다. 각 후보의 checkpoint 안에 있는 실제 TRAIN 성공 경로2행에서
+반복 호출한21D greedy 목표가 같고 이진jaw·critic 입력과 Q1/Q2가 유한했으며, 모델·전체 입력
+state·optimizer·파일·RNG는 변하지 않았다. 이는 복원 경로 확인이며 같은 모델이
+처음부터 episode를 성공시킨다는 증거나 현재 CUDA의 Q값 재현은 아니다.
+현재 실행 종료/전체 DEV128 감사/최종 Drive 검증 이후 평가할 같은128요청 layout도
+별도로 준비했다. 실제 평가 job은 시작하지 않았고 기존 학습·완료 감시를 유지했다.
+후보를 평가·재생에 쓰되 대응 replay가 없는 직접 TRAIN 재개는 계속 금지한다.
+[실제 후보 복원·TRAIN2행·불변성·평가 범위](assets/rl_v2_success_candidates_actual_frozen_restore_CPU_20261013.json)
+
 첫 후보는 중간 왼쪽small env32/seed69000008의 step457에서 저장됐다.
 양손 opposing two-pad pinch·stable·hold0.2667초·proof-lift·clearance16.31mm와 모든
 안전 항목을 확인했다. 해당 마지막 행동의 모델을 `learner.observe` 전에 저장한
