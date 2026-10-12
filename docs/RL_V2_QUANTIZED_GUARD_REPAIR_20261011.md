@@ -1,5 +1,75 @@
 # SAC 갱신 정체 수정과 GPU3 실제 후속 학습
 
+## 10/13 구역·크기 분리판 첫 전체 TRAIN128 완료
+
+새 실행 `batch_sac_20261013_034912_9211ec`의 첫 TRAIN은 **실제 양손 성공13/128**,
+초기 유효127/무효1·랙 안전 종료60·timeout54·수치0으로 완료됐다. 성공13건 모두
+opposing two-pad pinch·양손 안정·hold0.2667초·proof clearance≥8mm·안전을 만족했다.
+Online 수집 중 actor가 바뀌므로 자체 초기 고정 DEV11/128보다 성능이 좋아졌다는
+뜻이 아니다. 두 번째 TRAIN과 종료 DEV128을 계속 진행하며 이번 초기11과 비교한다.
+
+| 조건 | 실제 성공/요청 | 랙 안전 종료 | timeout | 무효 |
+|---|---:|---:|---:|---:|
+| 중간 왼쪽 small |9/16|7|0|0|
+| 중간 오른쪽 small |0/16|1|15|0|
+| 상단 왼쪽 small |0/32|5|27|0|
+| 상단 오른쪽 small |4/32|18|9|1|
+| 중간 왼쪽 medium |0/16|16|0|0|
+| 중간 오른쪽 medium |0/16|13|3|0|
+
+Greedy110조건의 성공13이며 접촉 탐색17조건은 성공0·안전8·timeout9다.
+수집 조건이 달라 탐색 방식의 통제 비교는 아니다. 성공13경로 모두 종료 controlstep에
+즉시 등록됐고 배치 종료 중복0·닫힌 성공은행에도13경로 모두 남았다. 은행12020행,
+기존 cohort7경로3507행/14phase와 고정 관측·동작·goal/servo 한도·jaw 정답을 유지했다.
+보호 표본이 미래의 물리 성공을 보장하는 것은 아니다.
+
+완료 모델 actor4457/Q19996은 출발4055/Q18386 대비 **새 actor402/critic1610회**다.
+각 head의6개 Adam step과 실제 parameter 변화, critic20개와 두 entropy 변화·유한성을
+닫힌 checkpoint에서 대조했다. 다음은 각 구역의 실제 parameter 이동 횟수다.
+
+| head | 이동/제안402 | 이동0 비율 |
+|---|---:|---:|
+| 중간 왼쪽 small |193|52.0%|
+| 중간 오른쪽 medium |85|78.9%|
+| 상단 왼쪽 small |0|100%|
+| 상단 오른쪽 small |19|95.3%|
+| 새 중간 오른쪽 small |402|0%|
+| 새 중간 왼쪽 medium |402|0%|
+
+전역402수용을 모든 구역의 정상 갱신으로 세지 않는다. Postscale 교정943시도/34수용,
+고정 baseline 초과0·마지막 uncached 전체 cohort 검사 실행을 확인했다. 분리한 두
+head의 갱신은 가능해졌지만 파지는 아직0이다. Actor learning rate1e-6은 기존
+`retained_servo_actor_lr_tenth_v1`의 의도된 보수적 설정이며 복원 오류가 아니다.
+작은 parameter norm만으로 기능적 학습 정체나 단일 원인을 확정하지 않는다.
+
+실제 접촉 탐색10499행 중 handoff 대기5038·앞 진입2243·정밀접근2552행이다.
+양손 기하 gate 동시 만족3행·양손 닫힘 명령7행·실측 closure/settled hold/lift 전환0이다.
+앞선 부분 구간의 양손 gate0을 전체 배치에 대입하지 않는다. 명령 횟수는 실제 pinch가
+아니고 겹치는 gate 통계를 배타적 실패 원인으로 세지 않는다.
+
+랙60건 모두 held_grasp 종료, 최대힘212.90N이며 최대힘 몸체는 오른손 gripper33·
+왼팔4link15·왼손 gripper8·오른팔7link2·오른팔4link2다. 첫 처리1N 경고53건은
+종료 frame과 같고7건만 먼저 나타났다(최대17 controlframes). 최초 PhysX 접촉 이력이
+아니다. 초기 유효한 중간 왼쪽medium16개는 모두 랙 충돌·종료 양손 pinch0이며
+가까운/먼 손 거리 중앙값2.20/3.36cm다. 중간 오른쪽small16개는15timeout/1rack,
+먼 손 거리 중앙값98.97cm로 정밀 접촉 이전의 접근 실패와 구분한다.
+
+같은 **학습 전 고정 actor4055/Q18386**의 오른쪽small env1 실제 timeout Q 영상도
+모델·layout·전reset 종료·whole-wave proof·H264 전체 decode를 대조해 Notion에
+첨부한다. 표시상 약21.6cm까지 접근했다가 팔을 위로 올리며 약101cm로 멀어진다.
+이는 완료 TRAIN 모델4457의 영상이 아니며 Q 추정값이나 일부 frame으로 중력보상·
+critic 오류·실패의 단일 원인을 확정하지 않는다.
+
+완료 모델 SHA256 `fd209716b124f589df301994bc3351e99175cdfa8bfc192831351020c410c212`를
+`artifacts/rl/protected_train_models_20261013/batch_sac_20261013_034912_9211ec/`에 보존했다.
+실제 성공 시점 후보3개는 별도 모델·증거 JSON의 기존 Drive checksum을 확인했고
+로컬 후보 최근2개를 유지한다. 후보의 고정 DEV 재현성은 아직 평가 전이다.
+기존 GPU3 실행·CPU 완료감시 하나와300초 백업을 유지하고 종료/최종 Drive 검증 뒤
+전체 DEV128 비교·닫힌 CUDA 후보 확인을 거쳐 작은 원인별 수정을 선택한다.
+Raw replay/HDF·독립 FINAL을 진단에 쓰지 않으며 물리·DR·보상·성공·안전은 유지한다.
+
+[전체128·Adam·은행/보호·gate·랙 진단·별도 초기 영상의 실제 근거](assets/rl_v2_region_size_first_full_TRAIN128_20261013.json)
+
 ## 10/13 최종 평가와 구역·크기 분리 SAC 시작
 
 Postscale 실행의 writer3331156/supervisor3331118가 종료했고03:29 KST에 종료
