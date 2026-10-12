@@ -1,0 +1,899 @@
+{
+  "recorded_at": "2026-10-12T19:43:22.848356+09:00",
+  "role": "own_initial_full_DEV128_before_new_TRAIN",
+  "run": "batch_sac_20261012_190449_fec06e",
+  "denominator": 128,
+  "counts": {
+    "success": 11,
+    "timeout": 36,
+    "unsafe": 68,
+    "invalid_reset": 13,
+    "numerical_failure": 0
+  },
+  "six_scopes": {
+    "shelf_2_left/small": {
+      "requested": 16,
+      "success": 8,
+      "unsafe": 8,
+      "invalid_reset": 0,
+      "numerical_failure": 0,
+      "timeout": 0
+    },
+    "shelf_2_right/small": {
+      "requested": 16,
+      "timeout": 13,
+      "invalid_reset": 3,
+      "success": 0,
+      "unsafe": 0,
+      "numerical_failure": 0
+    },
+    "shelf_3_left/small": {
+      "requested": 32,
+      "timeout": 17,
+      "unsafe": 11,
+      "invalid_reset": 4,
+      "success": 0,
+      "numerical_failure": 0
+    },
+    "shelf_3_right/small": {
+      "requested": 32,
+      "success": 3,
+      "timeout": 6,
+      "unsafe": 18,
+      "invalid_reset": 5,
+      "numerical_failure": 0
+    },
+    "shelf_2_left/medium": {
+      "requested": 16,
+      "unsafe": 16,
+      "success": 0,
+      "invalid_reset": 0,
+      "numerical_failure": 0,
+      "timeout": 0
+    },
+    "shelf_2_right/medium": {
+      "requested": 16,
+      "unsafe": 15,
+      "invalid_reset": 1,
+      "success": 0,
+      "numerical_failure": 0,
+      "timeout": 0
+    }
+  },
+  "actual_success_safety_diagnostics": {
+    "wave": 0,
+    "split": "validation",
+    "by_region": {
+      "shelf_2_left": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 8,
+        "supported_successes": 8,
+        "unsafe": 24,
+        "timeout": 0
+      },
+      "shelf_2_right": {
+        "attempts": 32,
+        "initial_valid": 28,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 15,
+        "timeout": 13
+      },
+      "shelf_3_left": {
+        "attempts": 32,
+        "initial_valid": 28,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 11,
+        "timeout": 17
+      },
+      "shelf_3_right": {
+        "attempts": 32,
+        "initial_valid": 27,
+        "complete": 32,
+        "task_success_flags": 3,
+        "supported_successes": 3,
+        "unsafe": 18,
+        "timeout": 6
+      }
+    },
+    "supported_successes": 11,
+    "attempts": 128,
+    "initial_valid": 115,
+    "unsupported_success_environments": [],
+    "safety_causes_on_valid_completed_attempts": {
+      "robot_rack_collision": 67,
+      "box_lift_limit": 1
+    },
+    "simultaneous_safety_cause_sets": {
+      "robot_rack_collision": 67,
+      "box_lift_limit": 1
+    },
+    "rack_collision_terminal_diagnostics": {
+      "by_region": {
+        "shelf_2_left": {
+          "count": 24,
+          "phase_counts": {
+            "held_grasp": 24
+          },
+          "peak_body_counts": {
+            "zarm_l4_link": 15,
+            "r_twofinger_base": 8,
+            "l_twofinger_base": 1
+          },
+          "peak_force_n": {
+            "count": 24,
+            "mean": 41.197349429130554,
+            "median": 26.46164894104004,
+            "p90": 89.80565261840819,
+            "maximum": 125.20742797851562
+          }
+        },
+        "shelf_2_right": {
+          "count": 14,
+          "phase_counts": {
+            "held_grasp": 14
+          },
+          "peak_body_counts": {
+            "zarm_l7_link": 3,
+            "r_twofinger_base": 10,
+            "l_twofinger_base": 1
+          },
+          "peak_force_n": {
+            "count": 14,
+            "mean": 46.5518011365618,
+            "median": 39.086997985839844,
+            "p90": 82.2127151489258,
+            "maximum": 90.08568572998047
+          }
+        },
+        "shelf_3_left": {
+          "count": 11,
+          "phase_counts": {
+            "held_grasp": 11
+          },
+          "peak_body_counts": {
+            "l_twofinger_base": 11
+          },
+          "peak_force_n": {
+            "count": 11,
+            "mean": 60.79000316966664,
+            "median": 51.506046295166016,
+            "p90": 89.38945770263672,
+            "maximum": 129.54922485351562
+          }
+        },
+        "shelf_3_right": {
+          "count": 18,
+          "phase_counts": {
+            "held_grasp": 18
+          },
+          "peak_body_counts": {
+            "zarm_r4_link": 4,
+            "r_twofinger_base": 14
+          },
+          "peak_force_n": {
+            "count": 18,
+            "mean": 53.76125844319662,
+            "median": 50.41961097717285,
+            "p90": 85.7001663208008,
+            "maximum": 130.3540802001953
+          }
+        }
+      },
+      "valid_completed_unsafe_attempts_only": true,
+      "failure_step_peak_body_not_first_contact_or_contact_history": true
+    },
+    "end_pinching_hand_counts": {
+      "2": 11,
+      "0": 95,
+      "1": 9
+    },
+    "end_contact_quality": {
+      "count": 115,
+      "mean": 0.12068196402700698,
+      "median": 0.0,
+      "p90": 0.3106696546077735,
+      "maximum": 1.0
+    },
+    "end_matched_flap_surface_distance_m": [
+      {
+        "count": 115,
+        "mean": 0.0866843276657164,
+        "median": 0.058623041957616806,
+        "p90": 0.20871974825859071,
+        "maximum": 0.6470168828964233
+      },
+      {
+        "count": 115,
+        "mean": 0.18282941848687503,
+        "median": 0.06629183888435364,
+        "p90": 0.8876363992691059,
+        "maximum": 1.008697271347046
+      }
+    ],
+    "end_flap_surface_distance_by_outcome_m": {
+      "supported_success": [
+        {
+          "count": 11,
+          "mean": 0.0006597027055580508,
+          "median": 0.0006358486134558916,
+          "p90": 0.0012733389157801867,
+          "maximum": 0.0012905534822493792
+        },
+        {
+          "count": 11,
+          "mean": 0.00015824527310376817,
+          "median": 0.0,
+          "p90": 0.00045810150913894176,
+          "maximum": 0.0010941352229565382
+        }
+      ],
+      "safe_timeout": [
+        {
+          "count": 36,
+          "mean": 0.1303662480527742,
+          "median": 0.14741545915603638,
+          "p90": 0.2337442710995674,
+          "maximum": 0.2439717799425125
+        },
+        {
+          "count": 36,
+          "mean": 0.37861172727490255,
+          "median": 0.08135643601417542,
+          "p90": 1.0050969123840332,
+          "maximum": 1.008697271347046
+        }
+      ],
+      "unsafe": [
+        {
+          "count": 68,
+          "mean": 0.07747435326318201,
+          "median": 0.054908210411667824,
+          "p90": 0.13847886770963674,
+          "maximum": 0.6470168828964233
+        },
+        {
+          "count": 68,
+          "mean": 0.10872970950132345,
+          "median": 0.0734318345785141,
+          "p90": 0.23347291797399528,
+          "maximum": 0.40948930382728577
+        }
+      ]
+    },
+    "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+    "end_contact_statistics_are_not_ever_contact_rates": true
+  },
+  "all_77_model_tensors_exact_source_equal": true,
+  "all_optimizer_bank_cohort_state_exact_source_equal": true,
+  "model_SHA256": "ef2ad857043ace4f7f19eaaaeca3b02ed9119ce8281e4a4dcee0ecf0f453fd5e",
+  "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+  "preserved_model": "artifacts/rl/protected_dev_models_20261012/batch_sac_20261012_190449_fec06e/checkpoint_00011896.pt",
+  "source_actor": 2462,
+  "source_Q": 11896,
+  "new_TRAIN_updates_in_initial_model": 0,
+  "videos": [
+    {
+      "environment": 0,
+      "file": "eval_wave_0000_env_000_h264.mp4",
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": true,
+      "held_Q_frames": 42,
+      "nonfinite_Q_frames": 0,
+      "video_SHA256": "281608a20c86ed47eaa7a111c23adfcc3bf02e8665f66f0533cdbc8537112a59"
+    },
+    {
+      "environment": 4,
+      "file": "eval_wave_0000_env_004_h264.mp4",
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": false,
+      "held_Q_frames": 34,
+      "nonfinite_Q_frames": 0,
+      "video_SHA256": "59558d11134bb65552160047424fb9dbecbe42fdaf520223af9d068bb4b2407c"
+    },
+    {
+      "environment": 1,
+      "file": "eval_wave_0000_env_001_h264.mp4",
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": false,
+      "held_Q_frames": 76,
+      "nonfinite_Q_frames": 0,
+      "video_SHA256": "17e44d5fffebea55bd30de0c644bf9b12b316981f8132cd0b57bbf4e3340ca20"
+    },
+    {
+      "environment": 5,
+      "file": "eval_wave_0000_env_005_h264.mp4",
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": false,
+      "held_Q_frames": 62,
+      "nonfinite_Q_frames": 0,
+      "video_SHA256": "44419399a729e524e3feaee5d0ec16304065782b3819f62eacab1554f3fe57c5"
+    },
+    {
+      "environment": 2,
+      "file": "eval_wave_0000_env_002_h264.mp4",
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": false,
+      "held_Q_frames": 79,
+      "nonfinite_Q_frames": 0,
+      "video_SHA256": "ade2d122da378deef08969f450f290185786aa998c01a6e73264d60486cbfb94"
+    },
+    {
+      "environment": 3,
+      "file": "eval_wave_0000_env_003_h264.mp4",
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": true,
+      "held_Q_frames": 61,
+      "nonfinite_Q_frames": 0,
+      "video_SHA256": "9e7963140306928299e6e82cf7489589bce2cc45225332ecfa8c65007af5f7d8"
+    }
+  ],
+  "raw_replay_HDF_read_upload_delete": false,
+  "independent_FINAL_not_read_or_used": true,
+  "Q_values_are_estimates_not_success_evidence": true,
+  "goal_not_complete": true,
+  "actual_Q_video_records": [
+    {
+      "environment": 0,
+      "browser_file": "eval_wave_0000_env_000_h264.mp4",
+      "actual_supported_success": true,
+      "minQ_range": [
+        -5.341029644012451,
+        1.0302956104278564
+      ],
+      "held_Q_frames": 42,
+      "whole_wave_frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "preserved_video": "artifacts/rl/postscale_initial_DEV128_actual_Q_20261012/eval_wave_0000_env_000_h264.mp4",
+      "SHA256": "281608a20c86ed47eaa7a111c23adfcc3bf02e8665f66f0533cdbc8537112a59"
+    },
+    {
+      "environment": 4,
+      "browser_file": "eval_wave_0000_env_004_h264.mp4",
+      "actual_supported_success": false,
+      "minQ_range": [
+        -9.19472885131836,
+        -5.2416768074035645
+      ],
+      "held_Q_frames": 34,
+      "whole_wave_frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "preserved_video": "artifacts/rl/postscale_initial_DEV128_actual_Q_20261012/eval_wave_0000_env_004_h264.mp4",
+      "SHA256": "59558d11134bb65552160047424fb9dbecbe42fdaf520223af9d068bb4b2407c"
+    },
+    {
+      "environment": 1,
+      "browser_file": "eval_wave_0000_env_001_h264.mp4",
+      "actual_supported_success": false,
+      "minQ_range": [
+        -2.4172565937042236,
+        -0.6061345934867859
+      ],
+      "held_Q_frames": 76,
+      "whole_wave_frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      }
+    },
+    {
+      "environment": 5,
+      "browser_file": "eval_wave_0000_env_005_h264.mp4",
+      "actual_supported_success": false,
+      "minQ_range": [
+        -6.199473857879639,
+        0.6845406293869019
+      ],
+      "held_Q_frames": 62,
+      "whole_wave_frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      }
+    },
+    {
+      "environment": 2,
+      "browser_file": "eval_wave_0000_env_002_h264.mp4",
+      "actual_supported_success": false,
+      "minQ_range": [
+        -5.637432098388672,
+        -2.110079526901245
+      ],
+      "held_Q_frames": 79,
+      "whole_wave_frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      }
+    },
+    {
+      "environment": 3,
+      "browser_file": "eval_wave_0000_env_003_h264.mp4",
+      "actual_supported_success": true,
+      "minQ_range": [
+        -2.678622007369995,
+        0.2980091869831085
+      ],
+      "held_Q_frames": 61,
+      "whole_wave_frozen_Q_proof": {
+        "model_tensor_SHA256": "f86a1318f8b8f649ea14656a2094e39235e909f0708f8dd95266c20c6193b716",
+        "actor_updates": 2462,
+        "critic_updates": 11896,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "encoding": {
+        "codec": "h264",
+        "tag": "avc1",
+        "pixel_format": "yuv420p",
+        "faststart": true,
+        "full_decode_verified": true
+      },
+      "preserved_video": "artifacts/rl/postscale_initial_DEV128_actual_Q_20261012/eval_wave_0000_env_003_h264.mp4",
+      "SHA256": "9e7963140306928299e6e82cf7489589bce2cc45225332ecfa8c65007af5f7d8"
+    }
+  ],
+  "rack_processed_control_warning_summary": {
+    "counts": {
+      "rack_terminal": 67,
+      "with_first_warning": 67
+    },
+    "first_warning_body_counts": {
+      "zarm_l4_link": 14,
+      "zarm_l7_link": 3,
+      "l_twofinger_base": 14,
+      "r_twofinger_base": 33,
+      "zarm_r4_link": 3
+    },
+    "first_warning_phase_counts": {
+      "held_grasp": 67
+    },
+    "first_warning_force_n": {
+      "min": 2.03149676322937,
+      "median": 36.287296295166016,
+      "max": 130.3540802001953
+    },
+    "selected_examples": [
+      {
+        "environment": 4,
+        "region": "shelf_2_left",
+        "box_type": "medium",
+        "first_processed_warning": {
+          "control_step": 438,
+          "stage": "held_grasp",
+          "max_rack_force_n": 2.03149676322937,
+          "max_rack_force_body": "zarm_l4_link",
+          "flap_distances_m": [
+            0.022445816546678543,
+            0.05173300951719284
+          ],
+          "pinching_hands": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "opposing_flaps": false,
+          "hold_time_s": 0.0,
+          "proof_lift": false,
+          "rack_clearance_m": -0.0006076190620660782,
+          "success": false,
+          "unsafe": false
+        },
+        "first_held_warning": {
+          "control_step": 438,
+          "stage": "held_grasp",
+          "max_rack_force_n": 2.03149676322937,
+          "max_rack_force_body": "zarm_l4_link",
+          "flap_distances_m": [
+            0.022445816546678543,
+            0.05173300951719284
+          ],
+          "pinching_hands": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "opposing_flaps": false,
+          "hold_time_s": 0.0,
+          "proof_lift": false,
+          "rack_clearance_m": -0.0006076190620660782,
+          "success": false,
+          "unsafe": false
+        },
+        "largest_processed_force": {
+          "control_step": 439,
+          "stage": "held_grasp",
+          "max_rack_force_n": 26.60784339904785,
+          "max_rack_force_body": "zarm_l4_link",
+          "flap_distances_m": [
+            0.022825976833701134,
+            0.053078792989254
+          ],
+          "pinching_hands": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "opposing_flaps": false,
+          "hold_time_s": 0.0,
+          "proof_lift": false,
+          "rack_clearance_m": -0.0007528159767389297,
+          "success": false,
+          "unsafe": true
+        },
+        "terminal": {
+          "steps": 439,
+          "pinching": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "flap_distances": [
+            0.022825976833701134,
+            0.053078792989254
+          ],
+          "rack_peak_force_n": 26.60784339904785,
+          "rack_peak_body": "zarm_l4_link"
+        },
+        "terminal_phase": "held_grasp"
+      },
+      {
+        "environment": 5,
+        "region": "shelf_2_right",
+        "box_type": "medium",
+        "first_processed_warning": {
+          "control_step": 678,
+          "stage": "held_grasp",
+          "max_rack_force_n": 5.892646312713623,
+          "max_rack_force_body": "zarm_l7_link",
+          "flap_distances_m": [
+            0.12459924817085266,
+            0.3620763421058655
+          ],
+          "pinching_hands": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "opposing_flaps": false,
+          "hold_time_s": 0.0,
+          "proof_lift": false,
+          "rack_clearance_m": 7.092021405696869e-05,
+          "success": false,
+          "unsafe": false
+        },
+        "first_held_warning": {
+          "control_step": 678,
+          "stage": "held_grasp",
+          "max_rack_force_n": 5.892646312713623,
+          "max_rack_force_body": "zarm_l7_link",
+          "flap_distances_m": [
+            0.12459924817085266,
+            0.3620763421058655
+          ],
+          "pinching_hands": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "opposing_flaps": false,
+          "hold_time_s": 0.0,
+          "proof_lift": false,
+          "rack_clearance_m": 7.092021405696869e-05,
+          "success": false,
+          "unsafe": false
+        },
+        "largest_processed_force": {
+          "control_step": 679,
+          "stage": "held_grasp",
+          "max_rack_force_n": 34.788597106933594,
+          "max_rack_force_body": "zarm_l7_link",
+          "flap_distances_m": [
+            0.12303788214921951,
+            0.3654675781726837
+          ],
+          "pinching_hands": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "opposing_flaps": false,
+          "hold_time_s": 0.0,
+          "proof_lift": false,
+          "rack_clearance_m": 6.782077252864838e-05,
+          "success": false,
+          "unsafe": true
+        },
+        "terminal": {
+          "steps": 679,
+          "pinching": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "flap_distances": [
+            0.12303788214921951,
+            0.3654675781726837
+          ],
+          "rack_peak_force_n": 34.788597106933594,
+          "rack_peak_body": "zarm_l7_link"
+        },
+        "terminal_phase": "held_grasp"
+      },
+      {
+        "environment": 6,
+        "region": "shelf_3_left",
+        "box_type": "small",
+        "first_processed_warning": {
+          "control_step": 609,
+          "stage": "held_grasp",
+          "max_rack_force_n": 51.506046295166016,
+          "max_rack_force_body": "l_twofinger_base",
+          "flap_distances_m": [
+            0.11163181811571121,
+            0.08778037130832672
+          ],
+          "pinching_hands": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "opposing_flaps": false,
+          "hold_time_s": 0.0,
+          "proof_lift": false,
+          "rack_clearance_m": 5.9237703680992126e-05,
+          "success": false,
+          "unsafe": true
+        },
+        "first_held_warning": {
+          "control_step": 609,
+          "stage": "held_grasp",
+          "max_rack_force_n": 51.506046295166016,
+          "max_rack_force_body": "l_twofinger_base",
+          "flap_distances_m": [
+            0.11163181811571121,
+            0.08778037130832672
+          ],
+          "pinching_hands": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "opposing_flaps": false,
+          "hold_time_s": 0.0,
+          "proof_lift": false,
+          "rack_clearance_m": 5.9237703680992126e-05,
+          "success": false,
+          "unsafe": true
+        },
+        "largest_processed_force": {
+          "control_step": 609,
+          "stage": "held_grasp",
+          "max_rack_force_n": 51.506046295166016,
+          "max_rack_force_body": "l_twofinger_base",
+          "flap_distances_m": [
+            0.11163181811571121,
+            0.08778037130832672
+          ],
+          "pinching_hands": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "opposing_flaps": false,
+          "hold_time_s": 0.0,
+          "proof_lift": false,
+          "rack_clearance_m": 5.9237703680992126e-05,
+          "success": false,
+          "unsafe": true
+        },
+        "terminal": {
+          "steps": 609,
+          "pinching": [
+            false,
+            false
+          ],
+          "stable_hands": [
+            false,
+            false
+          ],
+          "flap_distances": [
+            0.11163181811571121,
+            0.08778037130832672
+          ],
+          "rack_peak_force_n": 51.506046295166016,
+          "rack_peak_body": "l_twofinger_base"
+        },
+        "terminal_phase": "held_grasp"
+      }
+    ],
+    "warning_1N_diagnostic_failure_10N_unchanged": true,
+    "NOT_first_PhysX_substep_or_all_contact_history": true,
+    "control_step_gap_to_rack_termination_counts": {
+      "0": 59,
+      "1": 2,
+      "3": 1,
+      "5": 1,
+      "11": 1,
+      "12": 1,
+      "15": 1,
+      "19": 1
+    },
+    "first_warning_already_above_failure_10N": 59
+  },
+  "physical_control_contract": "existing_fixed_box_relative_base_approach_then_21_non_base_SAC_goals",
+  "initial_success_is_not_new_TRAIN_improvement": true
+}

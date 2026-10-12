@@ -88,7 +88,7 @@ writer3331156/supervisor3331118를 확인했다. Frozen source는main4b4e233이�
 GPU3 UUID 단일 namespace에서 nvidia3/renderD131만 보인다. 실제 CPU PGS 물리 계약도
 로그에서 확인했다. source2462/Q11896·닫힌 replay·모든 optimizer·성공은행/cohort를
 재개하며 새로운 TRAIN512(128환경 ×4배치)와 같은 DEV128 초기/중간/종료를 수행한다.
-이번 자체 초기 DEV 성공 수는 아직 측정 중이며 직전14를 대신 넣지 않는다. 19:11 첫 실제 control step은wave0/DEV step1·active115이며 actor2462/Q11896·replay250000·online TRAIN0·bank9366/cohort7경로3507행을 확인했다. 오류 파일은 없고 같은 등록 writer가 살아 있다. 초기128평가의 성공 수는 아직 확정하지 않는다.
+19:11 첫 실제 control step은wave0/DEV step1·active115이며 actor2462/Q11896·replay250000·online TRAIN0·bank9366/cohort7경로3507행을 확인했다. 자체 초기 DEV128은 이후 아래와 같이11/128로 확정했다. 직전14를 이번 초기값으로 대신 넣지 않는다.
 
 300초 checksum 백업·각 형식 최근2 checkpoint·종료 로그 검증을 유지한다.
 Raw replay/HDF는 다음 TRAIN의 resume 입력으로만 읽으며 진단/업로드/삭제하지 않는다.
@@ -96,6 +96,49 @@ Raw replay/HDF는 다음 TRAIN의 resume 입력으로만 읽으며 진단/업로
 건드리지 않았다. 종료 DEV 성공/실패 영상2개를 Notion native로 추가했고 기존107native주소와
 표5개는 모두 유지했다(현재image59/video51/native109).
 [실제 시작·source·장치·후속 점검 근거](assets/rl_v2_postscale_body_actual_GPU3_launch_20261012.json)
+
+### 새 수정판의 자체 초기 DEV128과 실제 Q 영상
+
+**새 TRAIN 갱신 전 성공11/128·초기 유효115/무효13·안전68·timeout36·수치0이다.**
+이번 초기 모델의77개 tensor·모든 optimizer·성공은행/cohort가 source2462/Q11896과 정확히
+같음을 CPU에서 확인했다. 반복 reset의 실제 물리 상태가 같다는 뜻은 아니며 직전 종료14와의
+차이를 새 수정의 학습 효과로 설명하지 않는다. 이후 중간/종료 DEV는 이번11을 기준으로 비교한다.
+
+| 조건 | 초기 성공/요청 | 초기 무효 | 안전 | timeout |
+|---|---:|---:|---:|---:|
+| 중간 왼쪽 small |8/16|0|8|0|
+| 중간 오른쪽 small |0/16|3|0|13|
+| 상단 왼쪽 small |0/32|4|11|17|
+| 상단 오른쪽 small |3/32|5|18|6|
+| 중간 왼쪽 medium |0/16|0|16|0|
+| 중간 오른쪽 medium |0/16|1|15|0|
+
+실제11건 모두 양손 opposing two-pad pinch·hold0.2667초·proof-lift·안전을 만족한다.
+안전68건은rack67/비정상lift1이다. Rack67건의 첫 **관측 control frame** 경고도 모두
+held_grasp 단계였으며59건은 그 프레임에서 이미10N 실패 기준을 넘겼다. 이는 최초 PhysX
+접촉 이력이 아니다. Medium env4는왼팔4번째link 2.03N 경고 다음 step에26.61N으로
+종료됐고 양손 pinch는 없었다. 초기화 실패와 팔–랙 진입 실패를 구분한다.
+
+선택한6개 DEV 영상의 전체 wave 종료 모델 checksum·실제 종료 결과·Q 프레임을 대조했고
+H264/avc1/yuv420p/faststart 전체 decode도 통과했다. 실제 **Q1/Q2/minQ**가 보이는
+중간 왼쪽small 성공env0, 상단 오른쪽small 성공env3, 중간 왼쪽medium 충돌env4를 보존했다.
+Q는 해당 control step의 행동 전 추정값이며 그 행동 뒤/pre-reset 프레임에 표시한다.
+Base 접근 구간에는Q가 없고 `critic_steps11896`은 누적 갱신 횟수다. Q 상승은 성공 증거가 아니다.
+초기 모델은 SHA256 `ef2ad857043ace4f7f19eaaaeca3b02ed9119ce8281e4a4dcee0ecf0f453fd5e`로
+별도 보존했고 기존 최선15 및 초기13/종료14 모델·영상도 유지한다.
+
+GPU3의TRAIN512는 같은 실행에서 이어간다. 물리·box/base/flap DR·양손 성공·안전·reward와
+curriculum0은 그대로이며 기존 고정 base 접근 뒤 SAC21개 비base 목표의 학습 범위다.
+[초기128 결과·source 일치·실제 Q·랙 경고 근거](assets/rl_v2_postscale_body_own_initial_DEV128_actual_Q_20261012.json) ·
+[재생 가능한 영상이 있는 Notion 중간보고](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)
+
+첫 실제 TRAIN wave1 step91의 새 actor23/critic92회도 source 누적값과 분리했다.
+23제안 중 실제 parameter 이동은 중간 왼쪽23·중간 오른쪽23·상단 왼쪽23·상단 오른쪽20회다.
+새 postscale 교정은7구역 시도/4수용이며 기존 전체 고정 한도 초과0, 마지막 uncached 전체
+cohort 검사 실행을 확인했다. 기존7경로3507행도 유지됐다. 첫23제안의 관측이며 오른쪽 정체가
+계속 해소됐거나 실제 파지 성능이 개선됐다는 결론은 아니다. 앞으로 완료된 TRAIN 성공의
+즉시 등록과 중간/최종 DEV128 결과를 함께 확인한다.
+[실제 신규 갱신·구역별 이동·고정 전체 검사](assets/rl_v2_postscale_body_first_actual_TRAIN_updates_20261012.json)
 
 
 ## 10/12 수정판 첫 전체 TRAIN128 확정

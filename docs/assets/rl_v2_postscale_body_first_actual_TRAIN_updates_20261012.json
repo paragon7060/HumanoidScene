@@ -1,0 +1,160 @@
+{
+  "recorded_at": "2026-10-12T19:50:42.842326+09:00",
+  "run": "batch_sac_20261012_190449_fec06e",
+  "wave": 1,
+  "split": "train",
+  "step": 91,
+  "active": 128,
+  "source_actor": 2462,
+  "source_critic": 11896,
+  "actual_actor": 2485,
+  "actual_critic": 11988,
+  "new_actor": 23,
+  "new_critic": 92,
+  "new_guard_proposals": 23,
+  "new_guard_accepted": 23,
+  "new_guard_rejected": 0,
+  "new_baseline_outside_fixed_ceiling": 0,
+  "regional_actual_movement": {
+    "shelf_2_right": {
+      "proposals": 23,
+      "movement": 23,
+      "zero": 0,
+      "origin_scale_counts": {
+        "1.0": 0,
+        "0.5": 0,
+        "0.25": 1,
+        "0.125": 1,
+        "0.0078125": 2,
+        "0.03125": 2,
+        "0.015625": 8,
+        "0.00390625": 3,
+        "0.0009765625": 3,
+        "0.001953125": 2,
+        "0.0": 0,
+        "0.0625": 1
+      },
+      "positive_scale_only_recorded_after_actual_torch_equal_movement_check": true
+    },
+    "shelf_2_left": {
+      "proposals": 23,
+      "movement": 23,
+      "zero": 0,
+      "origin_scale_counts": {
+        "0.0625": 3,
+        "0.03125": 2,
+        "0.0078125": 1,
+        "0.001953125": 2,
+        "0.0": 0,
+        "0.0009765625": 1,
+        "1.0": 3,
+        "0.25": 6,
+        "0.015625": 0,
+        "0.5": 3,
+        "0.125": 2,
+        "0.00390625": 0
+      },
+      "positive_scale_only_recorded_after_actual_torch_equal_movement_check": true
+    },
+    "shelf_3_right": {
+      "proposals": 23,
+      "movement": 20,
+      "zero": 3,
+      "origin_scale_counts": {
+        "1.0": 3,
+        "0.25": 1,
+        "0.0625": 2,
+        "0.03125": 3,
+        "0.125": 2,
+        "0.001953125": 3,
+        "0.0009765625": 1,
+        "0.0078125": 2,
+        "0.0": 3,
+        "0.5": 0,
+        "0.00390625": 2,
+        "0.015625": 1
+      },
+      "positive_scale_only_recorded_after_actual_torch_equal_movement_check": true
+    },
+    "shelf_3_left": {
+      "proposals": 23,
+      "movement": 23,
+      "zero": 0,
+      "origin_scale_counts": {
+        "1.0": 4,
+        "0.25": 0,
+        "0.125": 1,
+        "0.0625": 1,
+        "0.0009765625": 0,
+        "0.0": 0,
+        "0.5": 1,
+        "0.0078125": 2,
+        "0.001953125": 2,
+        "0.015625": 5,
+        "0.00390625": 5,
+        "0.03125": 2
+      },
+      "positive_scale_only_recorded_after_actual_torch_equal_movement_check": true
+    }
+  },
+  "postscale_attempted": 7,
+  "postscale_accepted": 4,
+  "latest_actual_parameter_norms": {
+    "shelf_2_right": 5.632946795230964e-06,
+    "shelf_2_left": 4.695643838203978e-06,
+    "shelf_3_right": 3.235746407881379e-05,
+    "shelf_3_left": 2.1625231738653383e-07
+  },
+  "latest_projected_Adam_norms": {
+    "shelf_2_right": 0.000722450960893184,
+    "shelf_2_left": 9.393425898451824e-06,
+    "shelf_3_right": 3.234673204133287e-05,
+    "shelf_3_left": 6.563656643265858e-05
+  },
+  "latest_cache": {
+    "independent_heads_only": true,
+    "fixed_phase_forward_shapes": true,
+    "evaluations": 109,
+    "phase_forwards": 336,
+    "final_whole_cohort_check_required_for_acceptance": true,
+    "final_whole_cohort_check_executed": true
+  },
+  "successful_train_bank": {
+    "rows": 9366,
+    "by_region": {
+      "shelf_2_right": {
+        "episodes": 1,
+        "rows": 465
+      },
+      "shelf_2_left": {
+        "episodes": 10,
+        "rows": 3884
+      },
+      "shelf_3_right": {
+        "episodes": 6,
+        "rows": 3560
+      },
+      "shelf_3_left": {
+        "episodes": 3,
+        "rows": 1457
+      }
+    },
+    "TRAIN_only": true,
+    "evaluation_rows": 0
+  },
+  "cohort": {
+    "episodes": 7,
+    "rows": 3507,
+    "groups": 14,
+    "grouping": "episode_region_size_approach_or_tail64",
+    "first_paths_survive_success_replay_eviction": true,
+    "TRAIN_only": true,
+    "evaluation_rows": 0,
+    "rollout_success_guarantee": false
+  },
+  "alpha": 4.769135557580739e-06,
+  "alpha_discrete": 0.019543958827853203,
+  "waiting_first_completed_TRAIN_success": false,
+  "partial_not_physical_success_improvement": true,
+  "raw_replay_HDF_or_independent_FINAL_read": false
+}
