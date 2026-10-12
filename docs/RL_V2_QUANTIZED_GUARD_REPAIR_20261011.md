@@ -367,6 +367,14 @@ Drive 검증 실패 시 모든 형식의 로컬 보존을 포함한다. 물리 �
 고정 모델의 성공률이 아니다.
 [완료된384조건·6구역/크기·경고와 종료 frame·기록 한계](assets/rl_v2_postscale_TRAIN_rack_warning_lead_20261013.json)
 
+후속 CPU 분석에서는 실제 성공한 고정 TRAIN7경로의3,507개 기록 관절 상태를 기존 랙 proxy로
+측정했다. 측정 관절과 기존 명령 lead를 반영한 팔 목표 모두 **10mm 미만인 기록은0개**였고,
+15mm 미만은 각13개였다. 측정 TCP와 URDF FK의 최대 위치 차이는0.0157mm이며 현재 frozen
+코드·asset fingerprint와 같았다. 이 표본에서10mm 여유와 알려진 성공 상태는 양립했다.
+실제 힘·모든 randomization·미래 궤적의 안전 검증은 아니다. 현재 cost는
+선택된20% guided TRAIN IK에만 있으며 greedy 정책이나 task reward에는 추가하지 않았다.
+[성공 경로의 근사 여유·기록 수·모델/코드·적용 범위](assets/rl_v2_safe_TRAIN_rack_proxy_compatibility_20261013.json)
+
 ### 남은 정체: 같은 구역의 다른 크기가 같은 actor를 공유한다
 
 중간 DEV14/128 뒤 세 번째 TRAIN 배치의 첫111제안에서는 실제 이동이 중간 왼쪽32회·
