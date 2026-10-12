@@ -95,6 +95,8 @@ def main():
         help='Explicit frozen original DEV128/900steps CPU or GPU policy comparison; never supplies matching Q replay')
     parser.add_argument('--cpu-physics-training', action='store_true',
         help='Separate CPU PhysX PGS MDP: fresh matching Q/replay, actual TRAIN and cuda:0 learner')
+    parser.add_argument('--cpu-physics-policy-eval', action='store_true',
+        help='Frozen DEV128 only: preserve CPU PhysX PGS and cuda:0 policy/Q inference; no replay import or updates')
     parser.add_argument('--cpu-workplace-probe', action='store_true',
         help='Frozen CPU-only search of eight base waypoints on16 fresh TRAIN cases; never supplies matching Q replay')
     parser.add_argument('--learner-device', choices=('cpu','cuda:0'), default=None)
@@ -155,14 +157,20 @@ def main():
     except ValueError as error:parser.error(str(error))
     from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_physics_training import (
         INCOMPATIBLE_FLAGS as CPU_TRAIN_PROBE_FLAGS, SOURCE as CPU_TRAIN_SOURCE,
-        validate_cpu_physics_training, act_measured_held_rows)
+        FROZEN_EVAL_SOURCE as CPU_EVAL_SOURCE, frozen_eval_incompatible_flags,
+        validate_cpu_physics_training, validate_cpu_physics_policy_eval, act_measured_held_rows)
     try:
         cpu_training=validate_cpu_physics_training(waves,json.loads(args.training_manifest.read_text()),
             enabled=args.cpu_physics_training,physics_device=args.device or 'cuda:0',
             learner_device=learner_device,training=args.training,steps=args.steps,
             other_probe=any(s.split('=')[0] in CPU_TRAIN_PROBE_FLAGS for s in sys.argv[1:]))
-        if cpu_training is None and learner_device != (args.device or 'cuda:0'):
-            raise ValueError('Separate learner device requires explicit CPU physics learning')
+        cpu_policy_eval=validate_cpu_physics_policy_eval(waves,json.loads(args.training_manifest.read_text()),
+            enabled=args.cpu_physics_policy_eval,physics_device=args.device or 'cuda:0',
+            learner_device=learner_device,training=args.training,steps=args.steps,
+            explicit_frozen='--no-training' in sys.argv and '--training' not in sys.argv,
+            other_probe=any(s.split('=')[0] in frozen_eval_incompatible_flags() for s in sys.argv[1:]))
+        if cpu_training is None and cpu_policy_eval is None and learner_device != (args.device or 'cuda:0'):
+            raise ValueError('Separate learner device requires explicit CPU physics learning or frozen policy evaluation')
     except (ValueError,OSError) as error:parser.error(str(error))
     from kuavo_isaaclab_scene.rl.multi_box.experiments.physics_backend_eval import (
         SOURCE as BACKEND_EVAL_SOURCE,validate_frozen_backend_policy_eval)
@@ -177,7 +185,7 @@ def main():
                 args.rear5_support_gap_probe_m is not None,args.grasp_observation_audit,
                 args.measured_train_credit,args.jaw_behavior,args.body_behavior,args.body_saturation_penalty,
                 args.jaw_saturation_penalty,args.success_jaw_balance)))
-        if args.device=='cpu' and backend_eval is None and cpu_training is None and workplace_eval is None and (args.training or '--no-training' not in sys.argv
+        if args.device=='cpu' and backend_eval is None and cpu_training is None and cpu_policy_eval is None and workplace_eval is None and (args.training or '--no-training' not in sys.argv
                 or '--training' in sys.argv or not args.reset_failure_diagnostics or args.steps!=1):
             raise ValueError('CPU requires explicit frozen reset or full backend policy evaluation')
     except ValueError as error:parser.error(str(error))
@@ -610,7 +618,7 @@ def main():
         meta=dict(task_family='multi_box_v2',skill='grasp',robot_model='s63',gripper='leju-twofinger',
             rack_rollers=True,actor_obs_dim=464,critic_obs_dim=530,action_dim=24,
             action_terms=list(map(list,actions.items())),control_dt=env.step_dt,episode_seconds=30.,
-            collection_source=(CPU_TRAIN_SOURCE if cpu_training else BACKEND_EVAL_SOURCE if backend_eval else 'grasp_observation_audit_NOT_matching_Q_replay'
+            collection_source=(CPU_TRAIN_SOURCE if cpu_training else CPU_EVAL_SOURCE if cpu_policy_eval else BACKEND_EVAL_SOURCE if backend_eval else 'grasp_observation_audit_NOT_matching_Q_replay'
                                if args.grasp_observation_audit else 'reset_failure_diagnostic_NOT_matching_Q_replay'
                                if args.reset_failure_diagnostics else 'changed_gripper_drive_frozen_probe_NOT_matching_Q_replay'
                                if args.gripper_drive_probe else 'changed_contact_solver_frozen_probe_NOT_matching_Q_replay'
@@ -624,6 +632,7 @@ def main():
             sim_device=str(env.device),learner_device=learner_device,multi_box=asdict(cfg.multi_box),old_demo_rewards_used=False,
             frozen_physics_backend_evaluation=backend_eval,
             CPU_physics_training=cpu_training,
+            CPU_physics_policy_evaluation=cpu_policy_eval,
             CPU_workplace_probe=workplace_eval,
             current_reward_verified_against_breakdown=True,
             initial_poses='independent_neutral_layouts_from_original_demo_then_physics_settled',
@@ -689,6 +698,7 @@ def main():
             'layout_generation_contract':layout_generation_contract(),
             'frozen_physics_backend_evaluation':backend_eval,
             'CPU_physics_training':cpu_training,
+            'CPU_physics_policy_evaluation':cpu_policy_eval,
             'CPU_workplace_probe':workplace_eval,
             'workplace_reset_diagnostics':(workplace_eval or {}).get('workplace_reset_diagnostics'),
             'base_substep_trace':base_trace_contract,
@@ -875,13 +885,15 @@ def main():
             pilot.training=args.training and wave['split']=='train'
             pilot.reset_exploration(n)
             updates_before=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size)
-            if backend_eval or workplace_eval:
-                frozen_eval_contract=backend_eval or workplace_eval
+            if backend_eval or workplace_eval or cpu_policy_eval:
+                frozen_eval_contract=cpu_policy_eval or backend_eval or workplace_eval
+                if cpu_policy_eval and (pilot.replay.size or pilot.online_rows):
+                    raise ValueError('Frozen CPU policy evaluation must not import replay or collect training rows')
                 frozen_eval_contract['initial_learner_counters']=dict(
                     actor_updates=pilot.actor_updates,critic_updates=pilot.critic_updates,
                     replay_size=pilot.replay.size,online_rows=pilot.online_rows)
             frozen_integrity=None
-            if backend_eval or workplace_eval:
+            if backend_eval or workplace_eval or cpu_policy_eval:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.physics_backend_eval import (
                     frozen_network_snapshot,verify_frozen_network_snapshot)
                 frozen_integrity=frozen_network_snapshot(pilot)
@@ -1085,8 +1097,10 @@ def main():
                     outcomes[-1]['successful_jaw_balance']=pilot.success_jaw_balance
             if not pilot.training and updates_before!=(pilot.actor_updates,pilot.critic_updates,pilot.replay.size):
                 raise ValueError('Evaluation modified optimizer counters or replay')
-            if backend_eval or workplace_eval:
-                frozen_eval_contract=backend_eval or workplace_eval
+            if cpu_policy_eval and (pilot.replay.size or pilot.online_rows):
+                raise ValueError('Frozen CPU policy evaluation collected training rows')
+            if backend_eval or workplace_eval or cpu_policy_eval:
+                frozen_eval_contract=cpu_policy_eval or backend_eval or workplace_eval
                 frozen_eval_contract['frozen_network_integrity']=verify_frozen_network_snapshot(pilot,frozen_integrity)
                 frozen_eval_contract['actor_critic_updates_and_replay_size_unchanged']=True
                 frozen_eval_contract['replay_rows_imported']=pilot.replay.size
@@ -1124,6 +1138,7 @@ def main():
             if not stopped['value']:completed_wave_count+=1
             (output/'metrics.json').write_text(json.dumps(dict(policy=pilot.artifact_type,outcomes=outcomes,
                 frozen_physics_backend_evaluation=backend_eval,
+                CPU_physics_policy_evaluation=cpu_policy_eval,
                 CPU_workplace_probe=workplace_eval,
                 learner=pilot.report(),actual_rows=total_rows,seconds=time.monotonic()-start,
                 TRAIN_success_candidates=success_candidates.report() if success_candidates else None,

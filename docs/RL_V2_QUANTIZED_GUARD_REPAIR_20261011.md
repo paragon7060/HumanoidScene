@@ -270,6 +270,49 @@ actor4359/Q19602 모델 SHA256은
 
 [후보3개·checksum/Drive·최근2개 보관·실제 부분 성공/등록/갱신 근거](assets/rl_v2_region_size_actual_TRAIN_success_candidates_20261013.json)
 
+### 저장 후보의 동일 계약 고정 평가 경로
+
+기존 관리자와 child runner는 CPU 물리·별도 CUDA 정책을 `--cpu-physics-training`에서만
+허용했다. 해당 옵션은 실제 TRAIN 배치가 필요해 저장 후보의 고정 DEV 평가에 쓸 수 없다.
+평가 전용 `--cpu-physics-policy-eval`을 추가해 현재 CPU PGS·CUDA 정책/Q 추론 계약을
+그대로 사용한다. 단일 DEV128·900 control step·명시적 `--no-training`만 허용하며,
+TRAIN/독립 FINAL·replay import·optimizer 갱신·다른 물리/탐색 probe는 거부한다.
+모든 모델·정규화·frozen prior와 갱신 counter/replay size의 불변을 배치 종료 시 확인한다.
+현재 학습은 별도 frozen 소스여서 이 수정이 적용되지 않았고 후보 물리 평가도 아직 시작하지 않았다.
+
+CPU 검사59개 통과(GPU 통합1개는 의도적으로 제외)와 실제 후보3의 runner pilot 생성자
+복원을 확인했다. 모델91개·goal 계약·기존 성공 은행/cohort가 정확히 같고,
+실제 TRAIN 은행2행에서 별도 export factory의 목표/Q encoding/Q값과 bit 단위로 일치했다.
+후보 파일만 읽었고 replay0·optimizer0·CUDA 초기화0·모델/입력/파일/RNG 불변이다.
+이는 평가 연결 확인이며 실제 성공 재현이나 CUDA 수치/물리 평가 증거가 아니다.
+
+현재 실행의 writer/supervisor 종료·최종 DEV128 감사·Drive 로그 검증 후 아래 형식으로
+**고유 평가 폴더**에서 후보별 순차 실행한다. 기존 single-GPU namespace·driver 환경과
+같은 manifest/waypoint/demo reset source를 재사용한다. 아래 경로는 실제 동일 실행 입력으로
+바꿔야 한다. `--cpu-physics-training`, `--training`, TRAIN 탐색/정규화 옵션은 추가하지 않는다.
+
+```bash
+CUDA_VISIBLE_DEVICES=3 python scripts/rl/batched_staged_goal_with_drive.py \
+  --experiment-dir /absolute/path/to/unique-candidate-DEV128 \
+  --gpu 3 --physics-device cpu --learner-device cuda:0 \
+  --checkpoint-log-backup-only \
+  --checkpoint /absolute/path/to/success_candidate_00000003.pt \
+  --waves-json /absolute/path/to/one-same-DEV128-wave.json \
+  --training-manifest /absolute/path/to/same-physical-manifest.json \
+  --waypoints /absolute/path/to/same-waypoints.json \
+  --demo-dataset /absolute/path/to/same-demo-reset-source.hdf5 \
+  --native-seed /absolute/path/to/same-native-reset-source0.hdf5 \
+  --native-seed /absolute/path/to/same-native-reset-source1.hdf5 \
+  --robot-model s63 --gripper leju-twofinger --rack-rollers \
+  --no-training --cpu-physics-policy-eval --steps 900 \
+  --eval-video-env-indices 0 4 1 5 2 3 --eval-video-q-values --rack-contact-summary
+```
+
+분모128·무효/안전/수치/timeout·6구역/크기·실제 양손 hold/proof-lift를 확인해 후보를 선택한다.
+같은 요청 layout은 같은 reset 물리 상태를 보장하지 않는다. 원본 run replay/HDF는 평가에
+읽지 않으며, 새 로컬 평가 기록도 기존 checkpoint/log 전용 범위 밖으로 전송하지 않는다.
+[기존 평가 경로의 제한·전용 경로·실제 frozen pilot 복원 범위](assets/rl_v2_saved_candidate_same_contract_eval_preparation_20261013.json)
+
 ### 그리퍼 출력만 교정하는 후보 준비 · 현재 학습에는 미적용
 
 실제 step151의 마지막 상단 왼쪽 후보는 팔 한도 초과0이어도 보호 jaw 정답1개가

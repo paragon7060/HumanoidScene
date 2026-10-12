@@ -1,4 +1,4 @@
-"""A separate CPU-physics MDP with measured TRAIN and an isolated GPU learner."""
+"""CPU PhysX learning and frozen evaluation with an isolated CUDA policy."""
 from collections import Counter
 from types import SimpleNamespace
 
@@ -8,7 +8,7 @@ from .staged_physics import CPU_PHYSICS_BACKEND, staged_solver_contract
 
 SOURCE = 'CPU_PhysX_actual_held_TRAIN_v1'
 INCOMPATIBLE_FLAGS = frozenset('--' + name for name in (
-    'frozen-physics-backend-eval', 'cpu-workplace-probe', 'unmeasured-size-workplace-probe',
+    'frozen-physics-backend-eval', 'cpu-physics-policy-eval', 'cpu-workplace-probe', 'unmeasured-size-workplace-probe',
     'reset-failure-diagnostics', 'reset-world-frame-probe',
     'contact-stability-probe', 'tgs-zero-velocity-probe', 'contact-last-probe', 'pgs-probe',
     'gripper-drive-probe', 'centered-world-probe', 'packed-background-probe', 'base-waypoint-probe',
@@ -17,6 +17,44 @@ INCOMPATIBLE_FLAGS = frozenset('--' + name for name in (
     'full-distribution-grasp-observation-audit', 'reset-contact-pair-diagnostics',
     'reset-flap-contact-pair-diagnostics', 'reset-flap-contact-physical-pools',
 ))
+
+FROZEN_EVAL_SOURCE = 'CPU_PhysX_frozen_policy_DEV_v1_NOT_training_data'
+
+
+def frozen_eval_incompatible_flags():
+    from .physics_backend_eval import INCOMPATIBLE_FLAGS as backend_flags
+    return ((INCOMPATIBLE_FLAGS - {'--cpu-physics-policy-eval'}) | backend_flags
+            | {'--cpu-physics-training', '--save-train-success-candidates',
+               '--reset-failure-diagnostics', '--workplace-reset-diagnostics',
+               '--base-substep-trace-env-indices', '--base-attitude-gain-probe'})
+
+
+def validate_cpu_physics_policy_eval(waves, contract, *, enabled, physics_device,
+                                     learner_device, training, steps,
+                                     explicit_frozen, other_probe=False):
+    """Keep the CPU PGS/CUDA inference contract for one frozen DEV128 wave.
+
+    Evaluation restores the recorded policy/Q for inference only. It cannot
+    collect TRAIN/FINAL, import replay, update a model, or switch PhysX devices.
+    The existing full-distribution validator retains all requested cases;
+    matching requests do not assert identical random draws or reset physics.
+    """
+    if not enabled:
+        return None
+    if physics_device != 'cpu' or learner_device != 'cuda:0':
+        raise ValueError('Frozen CPU policy evaluation requires CPU PhysX and cuda:0 inference')
+    if contract.get('physics_dynamics') != staged_solver_contract(
+            'PGS', physics_backend=CPU_PHYSICS_BACKEND):
+        raise ValueError('Frozen CPU policy evaluation requires the unchanged CPU PGS contract')
+    from .physics_backend_eval import validate_frozen_backend_policy_eval
+    result = validate_frozen_backend_policy_eval(waves, enabled=True, device=physics_device,
+        training=training, steps=steps, explicit_frozen=explicit_frozen, other_probe=other_probe)
+    return result | dict(name='frozen_same_CPU_PGS_CUDA_policy_full_DEV128_v1',
+        source=FROZEN_EVAL_SOURCE, learner_device=learner_device,
+        physics_backend=CPU_PHYSICS_BACKEND, solver='PGS',
+        same_recorded_physics_contract=True, frozen_Q_inference_only=True,
+        optimizer_updates_allowed=False, replay_import_allowed=False,
+        success_candidate_training_resume_allowed=False)
 
 
 def validate_cpu_physics_training(waves, contract, *, enabled, physics_device,

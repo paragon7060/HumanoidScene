@@ -30,6 +30,7 @@ def validate_managed_physics_device(device, child, *, learner_device=None):
     parser.add_argument('--reset-failure-diagnostics', action='store_true')
     parser.add_argument('--frozen-physics-backend-eval', action='store_true')
     parser.add_argument('--cpu-physics-training', action='store_true')
+    parser.add_argument('--cpu-physics-policy-eval', action='store_true')
     parser.add_argument('--cpu-workplace-probe', action='store_true')
     parser.add_argument('--base-waypoint-probe', action='store_true')
     parser.add_argument('--unmeasured-size-workplace-probe', action='store_true')
@@ -40,6 +41,16 @@ def validate_managed_physics_device(device, child, *, learner_device=None):
     parser.add_argument('--waves-json', type=Path)
     parser.add_argument('--training-manifest', type=Path)
     audit, _ = parser.parse_known_args(child)
+    if audit.cpu_physics_policy_eval:
+        from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_physics_training import (
+            frozen_eval_incompatible_flags, validate_cpu_physics_policy_eval)
+        if audit.waves_json is None or audit.training_manifest is None:
+            raise ValueError('Frozen CPU policy evaluation requires DEV128 waves and its physical manifest')
+        return validate_cpu_physics_policy_eval(json.loads(audit.waves_json.read_text()),
+            json.loads(audit.training_manifest.read_text()), enabled=True, physics_device=device,
+            learner_device=learner_device, training=audit.training, steps=audit.steps,
+            explicit_frozen='--no-training' in child and '--training' not in child,
+            other_probe=any(s.split('=')[0] in frozen_eval_incompatible_flags() for s in child))
     if audit.unmeasured_size_workplace_probe and not audit.cpu_workplace_probe:
         raise ValueError('Unmeasured size candidates require the explicit frozen workplace route')
     if audit.workplace_reset_diagnostics and not audit.cpu_workplace_probe:
@@ -132,8 +143,9 @@ def main():
     if any(s.split('=')[0] in ('--output-dir','--device','--learner-device','--kit_args') for s in child):
         parser.error('Managed run owns its output/device/renderer isolation')
     learner_device=args.learner_device or args.physics_device
-    if '--cpu-physics-training' not in child and learner_device != args.physics_device:
-        parser.error('Separate learner device requires explicit CPU physics learning')
+    if not any(s.split('=')[0] in ('--cpu-physics-training', '--cpu-physics-policy-eval')
+               for s in child) and learner_device != args.physics_device:
+        parser.error('Separate learner device requires explicit CPU physics learning or frozen policy evaluation')
     try:device_audit=validate_managed_physics_device(args.physics_device,child,learner_device=learner_device)
     except (ValueError,OSError) as error:parser.error(str(error))
     if not args.remote_root:

@@ -735,7 +735,7 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 새 batched 학습의 성공은행 등록 기본값은 `--train-success-registration completed-episode`다.
 안전한 양손 성공 episode가 끝나면 그 실제 경로를 다음 control step 전에 등록한다.
 다른 환경은 계속 진행하고 초기화·보상·성공·안전 조건은 유지한다. 기존 배치 종료 시점에
-등록하려면 `--train-success-registration wave`를 사용한다. 현재 frozen 실행은 기존 방식이다.
+등록하려면 `--train-success-registration wave`를 사용한다.10/13 GPU3 실행에서는 즉시 등록을 사용한다.
 [실제 등록 지연과 수정 범위](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#완료된-train-성공의-등록-지연-수정)를 참고한다.
 
 학습 중 실제 양손 성공 시점의 모델도 보관하려면 다음 고유 실행에
@@ -743,11 +743,15 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 종료 행동을 만든 모델을 **그 step의 learner 갱신 전** 저장한다. 새 구역·박스 크기의
 첫 성공용 자리를 남기고 반복 조건은 최소300초 간격, 실행당 최대12개를 저장한다.
 기존 Drive 업로더가 모델과 증거 JSON을 checksum 검증한 뒤 후보 모델도 최근2개만
-로컬에 남긴다. 후보는 기존 runner의 `--checkpoint ... --no-training`으로 같은 DEV128에서
-고정 평가할 수 있다. 학습 중 변하던 정책의 한 성공을 고정 모델의 재현 성공으로 세지 않는다.
+로컬에 남긴다. 후보는 `--checkpoint ... --no-training`으로 같은 DEV128에서 고정 평가한다.
+현재 CPU PGS 물리·CUDA 정책 계약은 평가 전용 `--cpu-physics-policy-eval`과 관리자 옵션
+`--physics-device cpu --learner-device cuda:0`을 함께 쓴다. 학습이 종료되고 최종 Drive
+검증이 끝난 뒤 고유 평가 폴더에서 실행한다. 학습 중의 한 성공을 고정 모델의 재현 성공으로 세지 않는다.
 정확히 대응하는 continuation replay가 없어 후보의 직접 학습 재개는 거부하며, 원본 replay/HDF는
-추가 저장·전송하지 않는다. 현재 frozen GPU3 실행에는 미적용이다.
+추가 저장·전송하지 않는다.10/13 GPU3 학습에서 실제 후보 저장·Drive 검증은 확인했으며,
+새 평가 전용 경로는 아직 물리 실행 전이다.
 [저장·평가·사용 범위](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#학습-중-실제-성공-시점의-모델-후보-보관)를 참고한다.
+[같은 제어 조건의 후보 고정 평가](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#저장-후보의-동일-계약-고정-평가-경로)를 참고한다.
 
 CPU/GPU PhysX 비교와 CPU 물리·별도 GPU SAC learner, 전체 DEV128 중 선택한
 실제 자세 영상 녹화는 [CPU/GPU 중간 보고와 평가 사용법](docs/RL_V2_CPU_GPU_INTERIM_REPORT_20261006.md)에 정리했다.
