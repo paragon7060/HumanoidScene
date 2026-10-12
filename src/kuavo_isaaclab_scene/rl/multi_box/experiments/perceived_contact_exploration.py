@@ -190,6 +190,23 @@ class PerceivedContactExploration:
         self.previous_target_phase=torch.full_like(self.phase,-1)
         self.front_y=RACK_RAW_BOUNDS_M[1][1]*workcell_scale('rack')[1]+FRONT_STAGE_CLEARANCE_M
         self.statistics=contact_statistics(statistics)
+        # Per-wave diagnostics only. They never supply a control/learner input
+        # and are deliberately separate from cumulative checkpoint counters.
+        self.gate_count_names=(
+            'selected_rows','waiting_handoff_rows','expired_rows',
+            'front_stage_rows','contact_phase_rows','lift_phase_rows',
+            'left_point_ready_rows','right_point_ready_rows',
+            'left_axis_ready_rows','right_axis_ready_rows','both_geometry_ready_rows',
+            'left_requested_closed_rows','right_requested_closed_rows',
+            'left_projected_closed_rows','right_projected_closed_rows',
+            'left_projector_blocked_rows','right_projector_blocked_rows',
+            'both_projected_closed_rows','closed_hold_ready_rows',
+            'measured_closure_ready_rows','measured_settled_hold_ready_rows',
+            'lift_geometry_ready_rows','lift_transition_rows',
+            'left_returned_closed_rows','right_returned_closed_rows',
+            'both_returned_closed_rows')
+        self.gate_counts=torch.zeros(num_envs,len(self.gate_count_names),
+            dtype=torch.long,device=raw.device)
 
     @torch.no_grad()
     def step(self,pilot,raw,result,ids,supplemental,chosen,clocks):
@@ -248,6 +265,8 @@ class PerceivedContactExploration:
             ((self.phase[ids]==2)&((clocks-self.lift_started[ids])>=self.contract['max_lift_attempt_control_ticks'])))
         self.phase[ids[expired]]=3;self.statistics['expired_attempts']+=int(expired.sum())
         guided=chosen&valid&(self.phase[ids]>=0)&(self.phase[ids]<3)
+        self.gate_counts[ids,:3]+=torch.stack((chosen,
+            chosen&(self.phase[ids]==-1),chosen&(self.phase[ids]==3)),-1)
         if not guided.any():return result
         flaps=torch.stack((self.assignment[ids],1-self.assignment[ids]),-1)
         selected=relation[rows,hands,flaps]
@@ -281,7 +300,9 @@ class PerceivedContactExploration:
             requested[:,19:21]=torch.where(close_hands,1.,requested[:,19:21])
         else:
             requested[close,19:21]=1
+        requested_closed_hands=requested[:,19:21]>0
         requested=pilot.agent.action_projector(actor,requested)
+        projected_closed_hands=requested[:,19:21]>0
         if self.independent_hand_close:
             actual_closed_hands=close_hands&(requested[:,19:21]>0)
             self.hand_closing[ids]=actual_closed_hands&(self.phase[ids]==1)[:,None]
@@ -309,6 +330,24 @@ class PerceivedContactExploration:
             if not self.precise_feedback:
                 lift_ready&=(held_close-tcp[...,:3]).norm(dim=-1).amax(-1)<=.006
         lift=guided&(self.phase[ids]==1)&lift_ready
+        # Capture existing gates before the lift transition. These columns
+        # overlap; they are opportunities, not exclusive failure causes.
+        phase=self.phase[ids]
+        lift_geometry=(point_distance.amax(-1)<=.006)&(axis_error<=.25).all(-1)
+        false=torch.zeros_like(guided)
+        gates=torch.stack((phase==0,phase==1,phase==2,
+            point_distance[:,0]<=self.contract['close_point_tolerance_m'],
+            point_distance[:,1]<=self.contract['close_point_tolerance_m'],
+            axis_error[:,0]<=.25,axis_error[:,1]<=.25,ready.all(-1),
+            requested_closed_hands[:,0],requested_closed_hands[:,1],
+            projected_closed_hands[:,0],projected_closed_hands[:,1],
+            requested_closed_hands[:,0]&~projected_closed_hands[:,0],
+            requested_closed_hands[:,1]&~projected_closed_hands[:,1],closed,
+            self.closed_ticks[ids]>=self.contract['sustained_projected_closed_command_ticks_before_attempt_lift'],
+            (raw[:,46:48]>=.85).all(-1) if self.settled_close else false,
+            self.settled_ticks[ids]>=6 if self.settled_close else false,
+            lift_geometry,lift),-1)
+        self.gate_counts[ids,3:23]+=gates&guided[:,None]
         rack_tcp=(rack_R.transpose(-1,-2)[:,None]@(tcp[...,:3]-rack[:,None,:3])[...,None]).squeeze(-1)
         self.lift_targets_rack[ids[lift]]=rack_tcp[lift]
         self.lift_targets_rack[ids[lift],:,2]+=.025
@@ -374,6 +413,9 @@ class PerceivedContactExploration:
             raise ValueError('Contact exploration requires bounded full URDF arm coordinates')
         requested[guided,1:15]=arms[guided]
         requested=pilot.agent.action_projector(actor,requested)
+        returned_closed_hands=requested[:,19:21]>0
+        self.gate_counts[ids,23:]+=torch.cat((returned_closed_hands,
+            returned_closed_hands.all(-1,keepdim=True)),-1)&guided[:,None]
         decoded=held_goal_coordinates(pilot.coordinates,raw,pilot.center+pilot.scale*requested,pilot.stage)
         command=torch.where(guided[:,None],decoded,physical)
         untouched=[0,1,2,3,22,23] if self.upright_feedback else [0,1,2,3,18,19,22,23]
@@ -386,3 +428,17 @@ class PerceivedContactExploration:
         return command,(actor,critic_features,requested)
 
     def report(self):return deepcopy(self.statistics)
+
+    def gate_report(self):
+        counts=self.gate_counts.detach().cpu().tolist()
+        return dict(name='existing_perceived_contact_gates_current_wave_v1',
+            counts={name:sum(row[i] for row in counts)
+                    for i,name in enumerate(self.gate_count_names)},
+            by_environment=[dict(environment=i,counts=dict(zip(self.gate_count_names,row)))
+                            for i,row in enumerate(counts) if any(row)],
+            rows_are_pre_action_gate_observations=True,
+            projected_jaws_are_before_arm_IK=True,returned_jaws_are_after_final_projector=True,
+            overlapping_counts_NOT_exclusive_failure_causes=True,
+            closure_or_command_NOT_physical_pinch=True,
+            no_extra_sensors_physics_queries_steps_RNG_or_optimizer_inputs=True,
+            cumulative_checkpoint_statistics_unchanged=True)

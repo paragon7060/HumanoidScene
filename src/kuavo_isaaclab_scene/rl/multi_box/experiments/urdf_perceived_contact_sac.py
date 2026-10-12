@@ -85,6 +85,8 @@ class URDFPerceivedContactSACPilot(URDFStrongSuccessSACPilot):
             result['individual_close_statistics_current_wave'] = (
                 deepcopy(self.contact_explorer.individual_close_statistics)
                 if self.contact_explorer is not None else None)
+        result['perceived_contact_gate_summary_current_wave']=(
+            self.contact_explorer.gate_report() if self.contact_explorer is not None else None)
         return result
 
 

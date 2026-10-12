@@ -227,6 +227,58 @@ SHA256 `556753d026b6dab1d9c1ebd7d25bad96dea3fd37f1831077adb3f4ff4b34688c`로 별
 다음 개선을 결정한다. 이번 점검에서 hotpatch·새 학습·추가 완료 감시를 만들지 않았다.
 [전체128·성공 증거·즉시 등록·저장 은행/Adam·초기 base·랙 경고 근거](assets/rl_v2_postscale_body_first_full_TRAIN128_20261012.json)
 
+### Postscale 수정판의 두 번째 전체 TRAIN128과 탐색 진단
+
+**두 번째 배치는 실제 양손 성공12/128·초기 유효128/무효0·안전68(rack65/drop3)·
+timeout48·수치 오류0**으로 완료됐다. 첫 배치16건과 합하면28/256이다. 학습 중 정책이
+바뀌는 TRAIN 결과이며 자체 초기 DEV11이나 첫 배치와의 차이를 고정 정책 개선으로 세지 않는다.
+
+| 조건 | 두 번째 성공/요청 | 안전 실패 | timeout |
+|---|---:|---:|---:|
+| 중간 왼쪽 small |7/16|9|0|
+| 중간 오른쪽 small |0/16|7|9|
+| 상단 왼쪽 small |3/32|6|23|
+| 상단 오른쪽 small |2/32|16|14|
+| 중간 왼쪽 medium |0/16|16|0|
+| 중간 오른쪽 medium |0/16|14|2|
+
+12건 모두 실제 양손 opposing two-pad pinch·안정·hold≥0.25초·proof-lift·안전을 만족했고
+종료 step에 즉시 등록됐다. 모두 greedy97조건에서 나왔다. 접촉 탐색31조건은 성공0·
+안전18·timeout13으로, 조건이 다른 두 방식의 통제 비교가 아니다. Rack65건 모두 held_grasp이며
+종료 최대힘227.54N이다. 최대힘 몸체는 오른손 gripper34·왼팔4번째link14·왼손 gripper10·
+오른팔4번째link4·오른팔7번째link2·왼팔7번째link1이다. 최초 접촉 이력은 아니다.
+
+두 번째 배치의 **신규 actor406/critic1622회**를 저장 모델2868/Q13520 →3274/Q15142에서
+확인했다. 실제 parameter 이동은 중간 왼쪽401·중간 오른쪽95·상단 왼쪽335·상단 오른쪽361회다.
+각 head의6개 Adam step 증가와 정확히 맞으며 중간 오른쪽의 이동0은76.6%로 남는다.
+Critic20개와 두 entropy 값도 갱신됐다. Postscale445시도/84수용·고정 baseline 초과0·마지막
+uncached 전체 검사 실행을 확인했다. 성공은행11240행의24경로를 기존 validator로 검사했고
+이번12경로 모두 남았다. 두 배치28성공 중20경로는 남고8경로는 기존 용량 제한으로 빠졌다.
+고정7경로3507행/14그룹의 obs/action·한도·ceilings·기존 jaw는 유지되고 jaw 보호1개가 추가됐다.
+표본 보호가 물리 성공 보존을 보장하지는 않는다. 모델77개/optimizer138개 tensor는 유한하며
+SHA256 `7186d8911fb399b3f4edccd937f1027210acbf34f6baa377baa51afabfa4d781`로 보존했다.
+이는 TRAIN 종료 모델이며 중간 DEV의 전체 frozen proof는 별도로 확인한다.
+
+**탐색 자체가 실행되지 않은 것은 아니다.** 저장된 누적 통계 차이에서31개 episode의 실제
+handoff와9799개 guided row를 확인했다. 양손 closed-command row는42개 늘었지만 들어올리기
+시도는0개 늘었다. 이 닫힘 counter는 arm IK 전 projector 판정이며 실제 pinch가 아니다.
+저장된 성공 TRAIN24경로는 모두 측정 닫힘0.85를 넘었고21경로는24tick 닫힘 명령과6tick
+측정 안정 조건을 동시에 만족했다. 이번12경로 중11개도 만족했다. 따라서0.85가 보편적으로
+불가능하다는 추측으로 임계값을 낮추지 않았다. 이 계산은 성공 경로의 조건 충족 가능성이고,
+탐색의 내부 phase·latched point·재진입·축/위치 gate나 실패 궤적을 재현한 결과는 아니다.
+
+다음 실행용 `perceived_contact_gate_summary_current_wave`를 준비했다. 기존 계산의 stage,
+손별 위치/축 준비, 요청·projector·최종 반환 jaw, 닫힘 유지, 측정 안정, lift 전환을 환경별
+누적 count로 구분한다. 값들은 겹칠 수 있어 배타적인 실패 원인으로 합산하지 않는다.
+센서·물리 query/step·RNG·learner 입력을 추가하지 않으며 기존 checkpoint 통계 형식도 유지한다.
+같은 frozen 코드와6종 CPU fixture/360tick의 명령·목표·제어 상태·기존 통계·RNG가 정확히 같고
+관련 CPU 검사39개를 통과했다. **현재 frozen writer에는 미적용이며 물리 성공 개선의 증거가 아니다.**
+
+현재 GPU3는 이번11 기준의 중간 DEV128을 수행한다. 요청 분모128·무효/안전/timeout/수치·
+공통 유효 lost/gained·6조건과 같은 모델의 Q 영상을 확인하고, 남은 TRAIN256과 종료 DEV를
+유지한다. Hotpatch·추가 GPU 학습/감시·물리/보상/DR/성공/안전 기준 완화는 하지 않았다.
+[두 번째128·실제 갱신·성공은행·탐색 통계·닫힘 조건 및 다음 진단 근거](assets/rl_v2_postscale_body_second_full_TRAIN128_and_contact_gate_20261012.json)
+
 ## 10/12 수정판 첫 전체 TRAIN128 확정
 
 **실제 양손 성공15/128·초기 유효127/무효1·안전67·timeout45·수치 오류0이다.**
