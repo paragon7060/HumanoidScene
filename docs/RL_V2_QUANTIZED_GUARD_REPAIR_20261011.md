@@ -67,6 +67,14 @@ L2 차이는 각각0.0006013/0.0002723, 몸체 log-std 출력은0.0001098/0.0000
 Parameter 이동과 Q 신호만으로 유효한 탐색이나 성공 개선을 주장하지 않으며 이 이유로
 탐색 크기·학습률·clip·보상·물리를 바꾸지 않았다. 원본 파일/모든 optimizer/RNG 불변을
 확인했고 inference/optimizer 갱신/CUDA/raw replay/HDF/은행/DEV/FINAL 입력은0이다.
+추가로 첫 배치 끝23240의 실제 성공은행12,062행과 고정 cohort3507행을 frozen
+6-head routing으로 전부 분류했다. 두 자유 head는 성공 유지 표본·고정 보호 경로가
+각각0행이고 이전 actor memory도 없으며 실제 prior teacher 가중치는0이다. 따라서
+이 두 head의 실패를 직접적인 성공 모방/보호 한도 때문으로 설명하지 않는다.
+성공 유지의 설정 가중치는 body11.1111/jaw0.05이며 이를 기울기 지배로 해석하지 않는다.
+공유 critic·전체 gradient clipping·entropy/saturation·제어 decoder를 통한 간접 영향과
+실패 상태의 전체 목적함수 방향은 제외하지 않았고 actor/Q 추론·sampling·갱신은0이다.
+
 두 번째 TRAIN과 자체 초기14 기준의 중간/종료 DEV128을 계속 확인한다.
 [닫힌 모델별 body mean·jaw·std·내부 층 실제 변경과 진단 범위](assets/rl_v2_rounded_jaw_closed_actor_parameter_roles_20261013.json)
 
