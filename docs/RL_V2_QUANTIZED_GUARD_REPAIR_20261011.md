@@ -1,5 +1,41 @@
 # SAC 갱신 정체 수정과 GPU3 실제 후속 학습
 
+## 10/13 성공 순간 보관 후보7 · 같은 DEV128에서17건 성공
+
+학습 중 저장한 후보7을 전체 DEV128에서 고정한 결과 **성공17·초기 무효13·랙 안전
+종료59·시간초과39·수치 실패0**이었다. 중간 왼쪽small11/16·상단 왼쪽small2/32·
+상단 오른쪽small4/32이고 중간 오른쪽small과 두 medium 조건은 여전히0이다.
+기존 정상 최종 모델15/128보다 이번 수치가 높아 후보를 별도로 보존했다.
+같은 요청의 공통 유효115조건에서도 최종13→후보17이며 기존 성공3개를 잃고7개를
+얻었다. 자체 초기와는11→17·lost3/gained9이다. 독립 물리 reset 비교이므로 동일 상태의
+통제 개선이나 통계적 유의성을 주장하지 않는다. 목표는 미달성이다.
+
+![후보7·초기·최종 실제 전체 DEV128 비교](assets/rl_v2_saved_candidate7_full_DEV128_20261013.png)
+
+후보의 actor4796/critic21352·91개 모델/관측 정규화 tensor는 전체 평가 동안 그대로였고
+optimizer 갱신·replay 입력은0이었다. 실제17건의 opposing two-pad pinch·양손 안정·
+hold≥0.25초·proof clearance≥8mm·안전, 전체 평가 proof와 선택6개 실제 Q 영상의 H264
+전체 decode를 대조했다. 모델 SHA256은
+`d5cd49ed2a1e5ded17a4756abf9e35bb9f3d0a16c253e1ba294a690f434362f5`이며 기존 Drive 검증과
+별도 로컬 보호본을 유지한다. 성공 순간 snapshot의 고정 재현을 실제로 확인했지만 이
+후보에는 대응하는 continuation replay가 없어 직접 TRAIN 재개에는 쓰지 않는다.
+
+평가 writer/supervisor 종료·exit0·최종 Drive 검증 뒤 **실제 production rounded-jaw
+선택 기능**의 on/off를 같은 닫힌 TRAIN 성공은행/cohort 입력2개에서 비교했다.
+상단 왼쪽small의 실제 이동0→4.526e-7/4.648e-7을 확인했고 기존에 수용한 head의 모델/
+Adam·같은 critic·원래 projected Adam norm·고정 전체 cohort/greedy jaw·최종 uncached
+검사·거절 복원을 유지했다. 기능적 body/jaw 출력 변화도 매우 작다. 시험용 global hook이
+아닌 실제 연결판 확인이며 **이 수치 검사는 물리 성공 개선이 아니다.** 새 두 head는 이
+성공은행 비교에 표본이 없어 실제 신규 TRAIN의 Q 신호를 별도로 확인해야 한다.
+
+다음 원인별 계획은 정상 최종 checkpoint4863/Q21620에 대응하는 replay·모든 optimizer·
+성공은행/cohort에서 이어가는 새 TRAIN512와 동일 DEV128 초기/중간/종료다. Rounded-jaw
+교정과 실제 TRAIN body-Q 기울기 진단64, 성공 후보 최대12개 보관·동일 step 성공 등록·
+랙 접촉 요약·실제 Q 영상을 포함한다. 이 절의 기록 시점에는 실행 요청 전이며 실제
+시작은 실행 receipt로 구분한다. 기존 base 접근 후 SAC21개 비base 목표, CPU PGS/GPU3
+CUDA·보상·box/base/flap DR·양손 성공·안전·curriculum0을 유지한다.
+[전체128·6조건·공통 유효 lost/gained·모델·영상·실제 production CUDA 교정](assets/rl_v2_saved_candidate7_full_DEV128_and_production_jaw_GPU3_20261013.json)
+
 ## 10/13 구역·크기 분리판 종료 · 자체 초기11 → 최종15/128
 
 같은 요청의 전체 DEV128에서 **초기 성공11·무효13·rack65·timeout39·수치0 →
