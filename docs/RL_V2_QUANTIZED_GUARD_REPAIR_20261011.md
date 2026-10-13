@@ -90,6 +90,36 @@ Drive 유실로 세지 않는다. 후보3 역시 전체 online episode의 고정
 대응 replay가 없는 직접 TRAIN 재개는 허용하지 않는다. step481의4건·정상 저장점의
 5경로와 이 후속9건은 서로 다른 시점이다.
 
+13:49 step751은 실제 양손 안전 성공13(중간 왼쪽small9·상단 오른쪽small4)·랙 종료60·
+초기 무효1·진행54다. 전부 같은 terminal control step 등록을 대조했다. 부분128조건이며
+명시적인 수치 실패 field가 없어 이 snapshot의 수치 실패를0으로 단정하지 않는다.
+상단 오른쪽의 후보4(step665·actor5172/Q22854·env123)와 후보5(step687·actor5183/Q22898·
+동시 env15/31)도 learner 갱신 전에 저장됐다. 양손 hold0.2667초·proof clearance
+39.05/46.76/46.93mm·안전,91개 모델/174개 optimizer·고정 보호 한도를 CPU로 대조했고
+모델·JSON 모두 기존 Drive의 크기/MD5가 일치했다. 다섯 후보의 검증 기록과 JSON을 남기고
+로컬 모델은 최근2개인4/5를 유지한다. 고정 DEV128 재현과 대응 replay 없는 직접 재개는
+별개다. 후보5의 상단 오른쪽6개 parameter·Adam 상태·정규화/router/기존 prior는 정상
+저장점22528 이후 정확히 같았고 실제 성공 TRAIN3행의21개 greedy 목표도 같았다.
+따라서 이 후속 성공을 추가 상단 오른쪽 head 학습 효과로 세지 않는다. 전체 online
+episode가 같은 모델로 움직였거나 현재 frozen DEV가 개선됐다는 증거도 아니다.
+
+## 안전 성공 자세에서 랙 간격 후보를 다시 점검
+
+정상 저장점22528의 실제 안전 TRAIN26경로에서 첫/중간/마지막78상태만 CPU로 확인했다.
+정적 랙19개와 손바닥/팔뚝 근사 기하를 써서 기록 관절, 기존 projected pending 목표,
+실제 servo step을 더한 팔 목표, 임의의 전체 요청 팔 목표를 구분했다. **실제 안전 성공
+terminal 한 건의 왼팔 근사 간격은6.789mm**였다. 기존 pending 기준도6.789mm, 다음
+servo 팔 목표 기준은7.111mm다. 이전7개 보호 경로의10mm 미만0이라는 좁은 결과를
+모든 성공에 적용할 수 없으며, 일률적인10mm actor penalty/제한은 안전 성공도 벌줄 수
+있다. 전체 요청 목표의4.329mm를 미래 servo 상태의 실측 간격으로 설명하지 않는다.
+
+대상은 이전 TRAIN env48/seed69001012의 terminal row408이며 실제 성공은행 검증을
+통과했다.78상태 표본과 근사 기하는 힘·미래 궤적·모든 randomization의 안전이나 medium
+실패 원인을 증명하지 않는다. 원본 checkpoint·optimizer·RNG는 그대로이고 raw replay/
+HDF·DEV/독립 FINAL·현재 실패 상태는 입력으로 쓰지 않았다. 새 간격 보상·제어·waypoint는
+적용하지 않았으며 현재512조건과 자체 초기14 기준 중간/종료 전체 DEV를 유지한다.
+[표본·네 목표 기준·실제 안전 성공과 근사 간격의 한계](assets/rl_v2_safe_TRAIN_clearance_reference_review_20261013.json)
+
 ## 10/13 성공 순간 보관 후보7 · 같은 DEV128에서17건 성공
 
 학습 중 저장한 후보7을 전체 DEV128에서 고정한 결과 **성공17·초기 무효13·랙 안전

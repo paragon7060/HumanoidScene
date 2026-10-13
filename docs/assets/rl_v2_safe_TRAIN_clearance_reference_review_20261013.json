@@ -1,0 +1,190 @@
+{
+  "at": "2026-10-13T13:43:38.362104+09:00",
+  "source_run": "batch_sac_20261013_104131_27b59a",
+  "closed_source_checkpoint": "checkpoint_00022528.pt",
+  "closed_source_SHA256": "46ca09f51e75808933631131dad54aa3cf7a083698f32a7ab99a126e4d0abfe6",
+  "source_actor": 5090,
+  "source_Q": 22528,
+  "sampled_success_paths": 26,
+  "sampled_success_state_rows": 78,
+  "deterministic_first_middle_last_sampling_only": true,
+  "approximate_geometry_contract": {
+    "name": "known_static_rack_whole_palm_forearm_soft_IK_cost_v1",
+    "authored_geometry_SHA256": "2361701aa4b2c8e502cf2f64a841a9c5d284a60d655eaaac9c9f45d2afae5cd2",
+    "static_boxes": 19,
+    "palm_convex_hull_vertices_per_hand": 247,
+    "forearm_axis_samples_per_hand": 33,
+    "forearm_swept_radius_m": 0.05,
+    "rack_scale": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "margin_m": 0.01,
+    "activation_distance_m": 0.015,
+    "outward_recovery_cap_m_per_tick": 0.002,
+    "least_squares_weight": 4.0,
+    "pending_arm_target_lead_in_geometry_reference": true,
+    "geometry_linearization_at_existing_projected_pending_arm_goal": true,
+    "pending_lead_projected_through_existing_80mrad_and_URDF_goal_bounds": true,
+    "local_goal_sensitivity_zero_for_saturated_pending_joint": true,
+    "measured_joint_rack_pose_and_known_asset_geometry_only": true,
+    "torso_finite_difference_same_fixed_pitch_IK": true,
+    "approximate_geometry_NOT_physical_collision_verification": true,
+    "rollers_boxes_obstacles_self_collision_NOT_in_this_soft_cost": true,
+    "original_force_termination_limits_close_gates_DR_and_success_preserved": true,
+    "scope": "original_selected20percent_guided_TRAIN_rows_only",
+    "no_extra_RNG": true
+  },
+  "results": {
+    "recorded_measured_joints": {
+      "sampled_states": 78,
+      "static_proxy_body_distances": 312,
+      "minimum_proxy_distance_m": 0.006788935512304306,
+      "states_with_proxy_body_below_10mm": 1,
+      "states_with_proxy_body_below_15mm": 2,
+      "states_with_proxy_body_negative": 0,
+      "arm_target_coordinates_outside_packaged_URDF_bounds": 0,
+      "minimum_by_proxy_body_m": {
+        "left_closed_palm": 0.03905487060546875,
+        "right_closed_palm": 0.01971093937754631,
+        "left_forearm": 0.006788935512304306,
+        "right_forearm": 0.07978099584579468
+      },
+      "sampled_success_path_states_with_body_below10mm": [
+        {
+          "identity": "batch_sac_20261013_034912_9211ec/wave2/env48/seed69001012",
+          "row_index": 408,
+          "terminal_row": true,
+          "region": "shelf_2_left",
+          "box_type": "small",
+          "episode_safe_success": true,
+          "proxy_body_distances_m": [
+            0.07286278903484344,
+            0.18070314824581146,
+            0.006788935512304306,
+            0.12337420880794525
+          ]
+        }
+      ]
+    },
+    "existing_guided_projected_pending_80mrad_and_URDF_arm_reference": {
+      "sampled_states": 78,
+      "static_proxy_body_distances": 312,
+      "minimum_proxy_distance_m": 0.006788935512304306,
+      "states_with_proxy_body_below_10mm": 1,
+      "states_with_proxy_body_below_15mm": 2,
+      "states_with_proxy_body_negative": 0,
+      "arm_target_coordinates_outside_packaged_URDF_bounds": 0,
+      "minimum_by_proxy_body_m": {
+        "left_closed_palm": 0.03905487060546875,
+        "right_closed_palm": 0.01971093937754631,
+        "left_forearm": 0.006788935512304306,
+        "right_forearm": 0.07978099584579468
+      },
+      "sampled_success_path_states_with_body_below10mm": [
+        {
+          "identity": "batch_sac_20261013_034912_9211ec/wave2/env48/seed69001012",
+          "row_index": 408,
+          "terminal_row": true,
+          "region": "shelf_2_left",
+          "box_type": "small",
+          "episode_safe_success": true,
+          "proxy_body_distances_m": [
+            0.07286278903484344,
+            0.18070314824581146,
+            0.006788935512304306,
+            0.12337420880794525
+          ]
+        }
+      ]
+    },
+    "literal_next_pending_plus_actual_servo_step_arm_target_measured_other_joints": {
+      "sampled_states": 78,
+      "static_proxy_body_distances": 312,
+      "minimum_proxy_distance_m": 0.007110588252544403,
+      "states_with_proxy_body_below_10mm": 1,
+      "states_with_proxy_body_below_15mm": 2,
+      "states_with_proxy_body_negative": 0,
+      "arm_target_coordinates_outside_packaged_URDF_bounds": 0,
+      "minimum_by_proxy_body_m": {
+        "left_closed_palm": 0.03985491394996643,
+        "right_closed_palm": 0.020059507340192795,
+        "left_forearm": 0.007110588252544403,
+        "right_forearm": 0.08011898398399353
+      },
+      "sampled_success_path_states_with_body_below10mm": [
+        {
+          "identity": "batch_sac_20261013_034912_9211ec/wave2/env48/seed69001012",
+          "row_index": 408,
+          "terminal_row": true,
+          "region": "shelf_2_left",
+          "box_type": "small",
+          "episode_safe_success": true,
+          "proxy_body_distances_m": [
+            0.07333952188491821,
+            0.17883794009685516,
+            0.007110588252544403,
+            0.12201952934265137
+          ]
+        }
+      ]
+    },
+    "arbitrary_full_requested_arm_goal_measured_other_joints_NOT_next_servo_state": {
+      "sampled_states": 78,
+      "static_proxy_body_distances": 312,
+      "minimum_proxy_distance_m": 0.004329126328229904,
+      "states_with_proxy_body_below_10mm": 2,
+      "states_with_proxy_body_below_15mm": 2,
+      "states_with_proxy_body_negative": 0,
+      "arm_target_coordinates_outside_packaged_URDF_bounds": 0,
+      "minimum_by_proxy_body_m": {
+        "left_closed_palm": 0.03810958191752434,
+        "right_closed_palm": 0.021736083552241325,
+        "left_forearm": 0.004329126328229904,
+        "right_forearm": 0.08222873508930206
+      },
+      "sampled_success_path_states_with_body_below10mm": [
+        {
+          "identity": "batch_sac_20261013_034912_9211ec/wave2/env48/seed69001012",
+          "row_index": 408,
+          "terminal_row": true,
+          "region": "shelf_2_left",
+          "box_type": "small",
+          "episode_safe_success": true,
+          "proxy_body_distances_m": [
+            0.06964704394340515,
+            0.17078034579753876,
+            0.004329126328229904,
+            0.1171826422214508
+          ]
+        },
+        {
+          "identity": "batch_sac_20261013_104131_27b59a/wave1/env0/seed70000000",
+          "row_index": 410,
+          "terminal_row": true,
+          "region": "shelf_2_left",
+          "box_type": "small",
+          "episode_safe_success": true,
+          "proxy_body_distances_m": [
+            0.07223156094551086,
+            0.16161954402923584,
+            0.008709806948900223,
+            0.11245839297771454
+          ]
+        }
+      ]
+    }
+  },
+  "same_recorded_rack_and_measured_non_arm_joints_in_every_variant": true,
+  "no_future_torso_or_dynamic_tracking_simulation": true,
+  "no_actor_optimizer_or_sampler_updates": true,
+  "original_state_file_mtime_all_optimizer_RNG_unchanged": true,
+  "no_raw_HDF_replay_DEV_FINAL_or_current_failed_state_inputs": true,
+  "no_current_GPU_job_or_force_sensor_queries": true,
+  "compatibility_on_success_paths_NOT_failure_cause_or_all_DR_safety_or_new_policy_success": true,
+  "no_regularizer_control_reward_physics_DR_success_safety_change_implemented": true,
+  "role": "closed_safe_TRAIN_bank_sample_geometry_compatibility_NOT_failed_state_causality_or_policy_success",
+  "reviewed_implication": "One measured safe terminal sample has left-forearm approximate proxy6.789mm; historical7cohort-only no-below10mm result cannot establish universally loss-free10mm actor penalty or hard constraint.",
+  "no_new_regularizer_waypoint_control_reward_physics_or_learning_contract_change": true
+}
