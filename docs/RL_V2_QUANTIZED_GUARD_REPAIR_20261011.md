@@ -6,7 +6,8 @@
 초기 유효127/무효1·랙 안전 종료60·timeout54·수치0으로 완료됐다. 성공13건 모두
 opposing two-pad pinch·양손 안정·hold0.2667초·proof clearance≥8mm·안전을 만족했다.
 Online 수집 중 actor가 바뀌므로 자체 초기 고정 DEV11/128보다 성능이 좋아졌다는
-뜻이 아니다. 두 번째 TRAIN과 종료 DEV128을 계속 진행하며 이번 초기11과 비교한다.
+뜻이 아니다. 두 번째 TRAIN도 완료됐으며 아래에 결과를 구분했다. 현재 종료 DEV128을
+진행하고 있고 이번 초기11과 비교한다.
 
 | 조건 | 실제 성공/요청 | 랙 안전 종료 | timeout | 무효 |
 |---|---:|---:|---:|---:|
@@ -297,6 +298,26 @@ proof clearance70.12mm·안전·greedy 종료 행동을 확인했다. 모델91�
 성공 순간 후보이며 전체 동작의 고정 재현이나 직접 TRAIN 재개를 허용하는 자료는 아니다.
 현재 두 번째 TRAIN·종료 DEV128을 끝까지 유지하고, 종료·최종 Drive 검증 뒤 같은 DEV128에서
 후보의 실제 재현성과 전체 성능을 확인한다. 기존 물리·randomization·보상·안전 기준은 유지한다.
+
+### 두 번째 TRAIN128 완료 · 최종 고정 평가는 진행 중
+
+닫힌128개 결과는 **실제 양손 성공17·초기 유효127/무효1·랙 안전 종료61·timeout49·수치0**이다.
+중간 왼쪽small11/16·상단 왼쪽small2/32·상단 오른쪽small4/32이고 나머지3조건은0이다.
+Medium 왼쪽16조건은 모두 유효해도 rack 실패, 오른쪽16조건은 rack14/timeout2다.
+17건 모두 opposing two-pad pinch·hold0.2667초·proof clearance≥8mm·안전과 같은 step 등록을
+닫힌 scalar 결과에서 확인했다. Greedy98조건에서17성공, 접촉 탐색29조건은0·rack15·timeout14,
+별도 무효1은 no-held-mode다. 서로 다른 수집 조건으로 탐색 방식의 통제 비교는 아니다.
+
+첫13건과 합계 **online30/256**은 초기 DEV11/128보다 개선된 고정 정책 성공률이 아니다.
+고정 actor4863/Q21620의 종료 DEV128과 최종 Drive 검증을 진행 중이다. 완료 모델의 전체
+Adam/은행/cohort 감사는 최종 평가·writer 종료 뒤 별도로 수행한다.
+
+성공 순간 후보는7개를 저장했고 일곱 번째 상단 오른쪽small env83/step724 모델과 증거 JSON도
+기존 Drive 크기·MD5 검증을 통과했다. 후보7 SHA256은
+`d5cd49ed2a1e5ded17a4756abf9e35bb9f3d0a16c253e1ba294a690f434362f5`다.
+기존 uploader가 검증 후 정리해 로컬에는 후보6/7 모델과7개 증거 JSON이 남았다.
+해당 모델이 전체 동작을 혼자 재현하는지는 종료 후 동일 DEV128 고정 평가로 확인한다.
+[닫힌128·실제 성공·등록·수집 조건·후보7 검증](assets/rl_v2_region_size_second_TRAIN_partial_success_candidates_20261013.json)
 
 ### 저장 후보의 동일 계약 고정 평가 경로
 
