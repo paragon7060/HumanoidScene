@@ -292,6 +292,12 @@ class HybridGoalSAC(AsymmetricSAC):
                 extra_loss, extra_statistics = body_regularization
                 actor_loss = actor_loss+extra_loss
                 report.update(extra_statistics)
+            if q_diagnostics is not None:
+                q_diagnostics.complete_actor_objective(self, actor_loss,
+                    success_goal_weight*success_goal_loss+success_jaw_weight*success_jaw_loss,
+                    successful_train_rows=(len(successful_train['actor_obs'])
+                        if successful_train is not None else 0))
+                report['actor_body_Q_gradient_diagnostics'] = q_diagnostics.report(actor_proposal=True)
             from .success_update_guard import guarded_actor_step
             actor_accepted, guard_statistics = guarded_actor_step(self, actor_loss, successful_train)
             report.update(guard_statistics)

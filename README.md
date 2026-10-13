@@ -757,6 +757,9 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 `--actor-body-q-gradient-interval 64`를 추가한다(기본0은 꺼짐).
 기존 stochastic actor 표본과 네 jaw Q 분기를 그대로 사용해 손별 목표 기울기와
 actor parameter 기울기를 집계한다. 추가 샘플·센서·optimizer 갱신·원본 행 저장은 없다.
+같은 제안에서 최종 actor 손실과 가중된 실제 TRAIN 성공 유지 손실의 parameter 기울기
+크기·Q 기울기와의 cosine도 집계한다. 손실의 스칼라 크기만으로 갱신 방향을 판단하지 않는다.
+이 추가 집계는 다음 실행용이며 이미 실행 중인 frozen 학습에는 적용되지 않는다.
 진단은 actor 보호 검사 전이며, 기울기0만으로 학습 오류를 단정하거나 양수만으로
 실제 갱신·탐색·성공을 증명하지 않는다. [측정 범위와 한계](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#실제-train-body-q-기울기-진단-준비)를 참고한다.
 

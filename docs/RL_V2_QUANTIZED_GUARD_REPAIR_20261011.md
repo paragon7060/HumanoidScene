@@ -547,6 +547,27 @@ CPU 검사17개에서 실제 servo decoder의 clipped0/활성 기울기, 목표 
 적용하지 않았으며, 최종 DEV128/Drive 검증을 먼저 마친 뒤 필요한 다음 실행에서만 사용한다.
 [준비 코드 SHA와 검사 범위](assets/rl_v2_actor_body_Q_gradient_diagnostics_preparation_20261013.json)
 
+#### 12:11 실제 손실 집계와 다음 실행의 기울기 방향 진단
+
+현재 frozen561d TRAIN step301의 actor 손실23.0406 중 가중된 성공 몸체 유지 항의
+스칼라는22.3300이다. Demo/teacher/discrete-prior weight는0이며 실제 성공 경로64행을
+사용했다. 이는 **손실 크기 확인이지 기울기 지배·충돌·잘못된 보상의 증거가 아니다.**
+Critic 학습의 `q_loss`도 actor의 Q 항과 구분한다. 보호 없는 head도 Q 신호를 받았으므로
+단순 Q 단절이나 BC prior가 계속 강제된다는 설명으로 설정을 바꾸지 않는다.
+
+다음 실행의 같은 진단64에 최종 actor 손실과 가중된 실제 TRAIN 성공 유지 손실의
+parameter 기울기 크기·body-Q와의 dot/cosine을 추가했다. 동일 실제 제안에서 측정하고
+Adam/보호 검사 전 값을 구분한다. 음수 cosine도 그 손실이 잘못됐거나 실제 Adam이
+반대 방향으로 움직였다는 증거는 아니다. 새 난수/표본·센서·optimizer 갱신·원본 행
+출력 없이 기존 backward graph와 parameter `.grad`를 유지한다. 기본0은 그대로다.
+CPU9검사에서 반대 방향/0미분 구분과 성공 유지 항을 포함한 실제 hybrid on/off 갱신의
+모델·4종 Adam·entropy·RNG·입력 정확 일치를 확인했다.
+
+**현재 writer에는 미적용**이며 실제 현재 CUDA 방향 측정/파지 개선은 아직 아니다.
+실제 frozen 파일 SHA와 PYTHONPATH를 확인했다. 현재 TRAIN512와 자체 초기14 기준의
+전체 DEV128 중간/종료·Drive 검증을 끝낸 뒤 원인별 다음 수정에 사용한다.
+[실제 집계·확인 범위·준비 코드 SHA](assets/rl_v2_actor_Q_retention_gradient_alignment_preparation_20261013.json)
+
 ### 그리퍼 출력만 교정하는 후보 준비 · 현재 학습에는 미적용
 
 실제 step151의 마지막 상단 왼쪽 후보는 팔 한도 초과0이어도 보호 jaw 정답1개가

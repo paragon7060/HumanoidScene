@@ -95,6 +95,60 @@ def test_body_goal_signal_does_not_imply_actor_parameter_signal_through_a_fixed_
         assert fields['mean_body_Q_objective_parameter_gradient_L2'] == 0
 
 
+def test_opposing_retention_gradient_is_distinguished_without_mutating_original_backward():
+    agent, raw, encoder = fixture()
+    body = agent.actor.network(agent.actor_normalizer(raw))[:, :19].tanh() * .01
+    q = encoder(raw, torch.cat((body, torch.ones(len(raw), 2)), -1))[:, 1, None].expand(-1, 4)
+    probabilities = torch.full_like(q, .25)
+    objective = -(probabilities*q).sum(-1).mean()
+    retention = -3*objective
+    total = objective+retention
+    before, rng = model_and_optimizer_digest(agent), torch.get_rng_state().clone()
+    diagnostic = ActorBodyQGradientDiagnostics(64)
+    diagnostic.capture(agent, raw, body, q, probabilities, 1.)
+    measured = diagnostic.complete_actor_objective(agent, total, retention, successful_train_rows=12)
+    assert measured['successful_TRAIN_actor_rows'] == 12
+    for fields in measured['scopes'].values():
+        assert fields['nonfinite_gradient_elements'] == 0
+        if fields['body_Q_parameter_gradient_L2']:
+            assert fields['cosine_body_Q_and_total_actor_gradients'] == pytest.approx(-1.)
+            assert fields['cosine_body_Q_and_success_retention_gradients'] == pytest.approx(-1.)
+        else:
+            assert fields['cosine_body_Q_and_total_actor_gradients'] is None
+    assert diagnostic._pending is None
+    assert all(p.grad is None for p in agent.actor.parameters())
+    assert before == model_and_optimizer_digest(agent) and torch.equal(rng, torch.get_rng_state())
+    total.backward()
+    assert any(p.grad is not None for p in agent.actor.parameters())
+
+
+def test_actual_success_retention_update_is_exact_with_sampled_objective_alignment():
+    torch.manual_seed(957)
+    plain, raw, _ = fixture()
+    observed = deepcopy(plain)
+    observed.actor_body_Q_gradient_diagnostics = ActorBodyQGradientDiagnostics(2)
+    actions = plain.act(raw, True)
+    batch = dict(actor_obs=raw, critic_obs=torch.zeros(len(raw), 4), action=actions,
+        next_actor_obs=raw.clone(), next_critic_obs=torch.zeros(len(raw), 4),
+        reward=torch.linspace(-1, 1, len(raw)), terminated=torch.ones(len(raw), dtype=torch.bool))
+    success = dict(actor_obs=raw.clone(), action=actions.clone())
+    inputs = structure_sha256((batch, success))
+    for draw in range(2):
+        rng = torch.get_rng_state().clone()
+        off = plain.update(batch, successful_train=success, success_goal_weight=.3, success_jaw_weight=.2)
+        end = torch.get_rng_state().clone()
+        torch.set_rng_state(rng)
+        on = observed.update(batch, successful_train=success, success_goal_weight=.3, success_jaw_weight=.2)
+        assert torch.equal(end, torch.get_rng_state())
+        diagnostic = on.pop('actor_body_Q_gradient_diagnostics')
+        assert on == off and model_and_optimizer_digest(plain) == model_and_optimizer_digest(observed)
+        assert structure_sha256((batch, success)) == inputs
+        measurement = diagnostic['latest_measurement']['actor_objective_gradient_alignment']
+        assert measurement['proposal_attempt'] == 1 and measurement['successful_TRAIN_actor_rows'] == len(raw)
+        assert diagnostic['sampled_on_this_proposal'] == (draw == 0)
+        assert observed.actor_body_Q_gradient_diagnostics._pending is None
+
+
 @pytest.mark.parametrize('interval', [0, -1, True, 1.5])
 def test_invalid_sampling_intervals_are_rejected(interval):
     with pytest.raises(ValueError):
