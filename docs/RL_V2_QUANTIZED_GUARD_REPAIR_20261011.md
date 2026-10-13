@@ -51,6 +51,31 @@ jaw를 유지했고 새 jaw promotion은0이다. 보호 표본의 보존은 물�
 학습 오류나 재시작은 없으며 raw replay/HDF·독립 FINAL을 진단에 쓰지 않았다.
 [전체128·6조건·Adam·은행·손별 집계·실제 초기 base·안전 원인](assets/rl_v2_rounded_jaw_first_full_TRAIN128_20261013.json)
 
+## 두 번째 TRAIN의 새 성공 순간 정책 후보6
+
+Step464의 중간 왼쪽small env8/seed70001002에서 실제 양손 opposing pinch·안정
+hold0.2667초·proof clearance19.70mm·안전을 만족했고, 행동 직후 learner 갱신 전에
+후보6(actor5475/Q24066)을 저장했다. SHA256은
+`5c2eb6531a7ccdf8ccfa1e441e1be9882aa71c7e78f3258f38fb653b33626e06`이다.
+CPU에서 모델91개·optimizer174개 유한성·불변 JSON/file/model checksum·같은 목표 계약/
+관측 정규화·원래7개 TRAIN 보호 경로의 고정 한도/기존 jaw 보존을 확인했다.
+전체 online episode에서는 모델이 바뀌었으므로 이 후보의 고정 DEV128 재현은 아직이고,
+대응 replay 없는 직접 TRAIN 재개에 쓰지 않는다.
+
+15:42 step481은 실제 양손 안전 성공2·안전 종료22·진행104/128·초기 무효/timeout0이다.
+두 성공(env8 step464/env104 step476) 모두 같은 control step에 등록됐다. 등록 counter는
+현재 step의 learner 처리 후 값이며 후보의 terminal 행동 모델 counter와 구분한다.
+이 부분 결과를 자체 초기 고정 DEV14/128 또는 다른 배치의 성능 개선으로 세지 않는다.
+첫 배치 끝5268/Q23240 이후 새 actor216/critic862이고, 상단 오른쪽은216제안 모두
+실제 이동0이다. 두 자유 head가216회 모두 옮겼어도 충분한 탐색/성공 개선을 보장하지
+않는다. 현재512조건과 전체 DEV128 중간/종료를 유지한다.
+
+후보6의 모델과 증거 JSON은 기존 Drive 크기·MD5가 실제로 일치했다. 기존300초
+업로더를 재사용했고 추가 업로드·수동 정리·인증 변경은 없다. 검증 시 로컬에는5/6과
+새 미검증7 모델이 남았다. 검증된 최근2개와 미검증 새 파일의 일시 공존을 손상이나
+retention 실패로 세지 않으며 새7의 무결성/원격 검증이 끝났다고 주장하지 않는다.
+[실제 종료 증거·모델·부분128·같은 step 등록·보관 상태](assets/rl_v2_rounded_jaw_second_TRAIN_first_actual_success_candidate_20261013.json)
+
 ## 성공 없는 정책이 표준편차만 바꾸는지 확인
 
 학습 전21620·첫 저장22528·첫 배치 끝23240의 닫힌 모델만 CPU로 비교했다.
