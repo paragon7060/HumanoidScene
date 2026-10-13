@@ -43,6 +43,16 @@ Adam·같은 critic·원래 projected Adam norm·고정 전체 cohort/greedy jaw
 이는 학습 전 독립 reset 결과로 새 교정의 학습 효과가 아니다. 11:21 첫 TRAIN step1에는
 actor4863/Q21620·새 갱신0이고 실제 body-Q 기울기는 아직 측정 전이었다.
 [이번 초기128·6조건·실제 성공·모델/optimizer/영상 증거](assets/rl_v2_rounded_jaw_Qdiag_own_initial_DEV128_20261013.json)
+첫 실제 TRAIN step61에서는 **새 actor7/critic28**, 여섯 head 실제 이동이 중간 오른쪽medium0·
+중간 왼쪽small4·상단 오른쪽small7·상단 왼쪽small7·새 두 head 각각7회였다.
+Rounded-jaw 추가 교정2시도/2수용과 고정 baseline 초과0·최종 uncached 전체 검사를 확인했다.
+전역7회 수용을 모든 head의 정상 갱신으로 설명하지 않는다.
+진단 첫 제안의 실제 혼합 TRAIN256행에는 여섯 head 모두 유한하고0이 아닌 몸체 Q 목표/
+parameter 기울기가 있었지만 일부 손별 국소 미분0행도 있었다. 모두 실패로 라벨된 배치는
+아니며 첫 제안의 기울기와 마지막 제안의 보호 결과를 동일 시점으로 비교하지 않는다.
+Q 신호의 전달이나 아주 작은 상단 왼쪽 이동이 파지 성능 개선·충분한 탐색을 뜻하지 않는다.
+이번14의 중간·종료 DEV 비교와 실제 안전·접촉/성공으로 계속 판단한다.
+[실제 혼합 TRAIN Q·여섯 head 이동·그리퍼 교정·고정 보호 근거](assets/rl_v2_rounded_jaw_Qdiag_first_actual_TRAIN_Q_guard_20261013.json)
 단일 CPU 종료
 점검은 이전 대기 메시지를 재사용해 같은 대화로 순차 연결했다. 기존 base 접근 후
 SAC21개 비base 목표, CPU PGS/GPU3
