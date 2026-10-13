@@ -1,0 +1,1187 @@
+{
+  "recorded_at": "2026-10-13T11:20:26.484231+09:00",
+  "role": "own_initial_full_DEV128_V10_before_new_TRAIN",
+  "run": "batch_sac_20261013_104131_27b59a",
+  "denominator": 128,
+  "counts": {
+    "success": 14,
+    "timeout": 43,
+    "unsafe": 58,
+    "invalid_reset": 13,
+    "numerical_failure": 0
+  },
+  "six_scopes": {
+    "shelf_2_left/small": {
+      "requested": 16,
+      "success": 9,
+      "unsafe": 7,
+      "invalid_reset": 0,
+      "numerical_failure": 0,
+      "timeout": 0
+    },
+    "shelf_2_right/small": {
+      "requested": 16,
+      "timeout": 13,
+      "invalid_reset": 3,
+      "success": 0,
+      "numerical_failure": 0,
+      "unsafe": 0
+    },
+    "shelf_3_left/small": {
+      "requested": 32,
+      "timeout": 20,
+      "unsafe": 6,
+      "invalid_reset": 4,
+      "success": 2,
+      "numerical_failure": 0
+    },
+    "shelf_3_right/small": {
+      "requested": 32,
+      "timeout": 9,
+      "unsafe": 15,
+      "invalid_reset": 5,
+      "success": 3,
+      "numerical_failure": 0
+    },
+    "shelf_2_left/medium": {
+      "requested": 16,
+      "unsafe": 16,
+      "success": 0,
+      "invalid_reset": 0,
+      "numerical_failure": 0,
+      "timeout": 0
+    },
+    "shelf_2_right/medium": {
+      "requested": 16,
+      "unsafe": 14,
+      "timeout": 1,
+      "invalid_reset": 1,
+      "success": 0,
+      "numerical_failure": 0
+    }
+  },
+  "actual_success_safety_diagnostics": {
+    "wave": 0,
+    "split": "validation",
+    "by_region": {
+      "shelf_2_left": {
+        "attempts": 32,
+        "initial_valid": 32,
+        "complete": 32,
+        "task_success_flags": 9,
+        "supported_successes": 9,
+        "unsafe": 23,
+        "timeout": 0
+      },
+      "shelf_2_right": {
+        "attempts": 32,
+        "initial_valid": 28,
+        "complete": 32,
+        "task_success_flags": 0,
+        "supported_successes": 0,
+        "unsafe": 14,
+        "timeout": 14
+      },
+      "shelf_3_left": {
+        "attempts": 32,
+        "initial_valid": 28,
+        "complete": 32,
+        "task_success_flags": 2,
+        "supported_successes": 2,
+        "unsafe": 6,
+        "timeout": 20
+      },
+      "shelf_3_right": {
+        "attempts": 32,
+        "initial_valid": 27,
+        "complete": 32,
+        "task_success_flags": 3,
+        "supported_successes": 3,
+        "unsafe": 15,
+        "timeout": 9
+      }
+    },
+    "supported_successes": 14,
+    "attempts": 128,
+    "initial_valid": 115,
+    "unsupported_success_environments": [],
+    "safety_causes_on_valid_completed_attempts": {
+      "robot_rack_collision": 57,
+      "box_lift_limit": 1
+    },
+    "simultaneous_safety_cause_sets": {
+      "robot_rack_collision": 57,
+      "box_lift_limit": 1
+    },
+    "rack_collision_terminal_diagnostics": {
+      "by_region": {
+        "shelf_2_left": {
+          "count": 23,
+          "phase_counts": {
+            "held_grasp": 23
+          },
+          "peak_body_counts": {
+            "zarm_l4_link": 16,
+            "r_twofinger_base": 6,
+            "zarm_r7_link": 1
+          },
+          "peak_force_n": {
+            "count": 23,
+            "mean": 51.77611550040867,
+            "median": 21.14651870727539,
+            "p90": 134.2735824584961,
+            "maximum": 184.65367126464844
+          }
+        },
+        "shelf_2_right": {
+          "count": 13,
+          "phase_counts": {
+            "held_grasp": 13
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 9,
+            "zarm_r7_link": 2,
+            "zarm_l7_link": 1,
+            "l_twofinger_base": 1
+          },
+          "peak_force_n": {
+            "count": 13,
+            "mean": 48.942424920889046,
+            "median": 47.60823059082031,
+            "p90": 83.25303497314454,
+            "maximum": 92.91586303710938
+          }
+        },
+        "shelf_3_left": {
+          "count": 6,
+          "phase_counts": {
+            "held_grasp": 6
+          },
+          "peak_body_counts": {
+            "l_twofinger_base": 5,
+            "zarm_l4_link": 1
+          },
+          "peak_force_n": {
+            "count": 6,
+            "mean": 73.03525161743164,
+            "median": 70.24277305603027,
+            "p90": 112.01629638671875,
+            "maximum": 124.95835876464844
+          }
+        },
+        "shelf_3_right": {
+          "count": 15,
+          "phase_counts": {
+            "held_grasp": 15
+          },
+          "peak_body_counts": {
+            "r_twofinger_base": 11,
+            "zarm_r4_link": 3,
+            "zarm_r7_link": 1
+          },
+          "peak_force_n": {
+            "count": 15,
+            "mean": 59.147376950581865,
+            "median": 60.22826385498047,
+            "p90": 92.53268890380859,
+            "maximum": 98.25404357910156
+          }
+        }
+      },
+      "valid_completed_unsafe_attempts_only": true,
+      "failure_step_peak_body_not_first_contact_or_contact_history": true
+    },
+    "end_pinching_hand_counts": {
+      "2": 14,
+      "0": 95,
+      "1": 6
+    },
+    "end_contact_quality": {
+      "count": 115,
+      "mean": 0.1429353037606115,
+      "median": 0.0,
+      "p90": 1.0,
+      "maximum": 1.0
+    },
+    "end_matched_flap_surface_distance_m": [
+      {
+        "count": 115,
+        "mean": 0.08754509338683894,
+        "median": 0.058759383857250214,
+        "p90": 0.22380536198616027,
+        "maximum": 0.4168722629547119
+      },
+      {
+        "count": 115,
+        "mean": 0.19771931083144054,
+        "median": 0.06742756068706512,
+        "p90": 0.983280885219574,
+        "maximum": 1.029481291770935
+      }
+    ],
+    "end_flap_surface_distance_by_outcome_m": {
+      "supported_success": [
+        {
+          "count": 14,
+          "mean": 0.0007320578941809279,
+          "median": 0.0009049400687217712,
+          "p90": 0.001281441794708371,
+          "maximum": 0.00130196544341743
+        },
+        {
+          "count": 14,
+          "mean": 0.0007253717631101608,
+          "median": 0.0,
+          "p90": 0.001707658357918265,
+          "maximum": 0.0077156927436590195
+        }
+      ],
+      "safe_timeout": [
+        {
+          "count": 43,
+          "mean": 0.13005146743773027,
+          "median": 0.1326771378517151,
+          "p90": 0.23269545137882236,
+          "maximum": 0.24916546046733856
+        },
+        {
+          "count": 43,
+          "mean": 0.3761934148537558,
+          "median": 0.08570270240306854,
+          "p90": 1.0112667322158813,
+          "maximum": 1.029481291770935
+        }
+      ],
+      "unsafe": [
+        {
+          "count": 58,
+          "mean": 0.07698661774388868,
+          "median": 0.054584864526987076,
+          "p90": 0.1533107966184617,
+          "maximum": 0.4168722629547119
+        },
+        {
+          "count": 58,
+          "mean": 0.11295256383138998,
+          "median": 0.06903907284140587,
+          "p90": 0.22826751470565798,
+          "maximum": 0.7492676973342896
+        }
+      ]
+    },
+    "unsafe_terminal_distances_are_not_safe_approach_metrics": true,
+    "end_contact_statistics_are_not_ever_contact_rates": true
+  },
+  "actual_successes": [
+    {
+      "environment": 0,
+      "layout": {
+        "seed": 50001000,
+        "split": "holdout",
+        "lateral_m": -0.03287803754210472,
+        "yaw_rad": -0.0116084860637784,
+        "distractors": [
+          5,
+          6
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.18845956027507782,
+        "base_outward_m": 0.12030049413442612,
+        "base_yaw_rad": 0.2614838480949402,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 515,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04327081888914108,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 8,
+      "layout": {
+        "seed": 50001002,
+        "split": "holdout",
+        "lateral_m": -0.026787854731082916,
+        "yaw_rad": 0.009515990503132343,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.19022952020168304,
+        "base_outward_m": 0.1920032501220703,
+        "base_yaw_rad": 0.09436110407114029,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 487,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.017629733309149742,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 16,
+      "layout": {
+        "seed": 50001004,
+        "split": "holdout",
+        "lateral_m": -0.025925299152731895,
+        "yaw_rad": -0.014967920258641243,
+        "distractors": [
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.1956956386566162,
+        "base_outward_m": 0.1073976680636406,
+        "base_yaw_rad": -0.02305443398654461,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 467,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.016342511400580406,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 24,
+      "layout": {
+        "seed": 50001006,
+        "split": "holdout",
+        "lateral_m": -0.02136358805000782,
+        "yaw_rad": 0.01179970521479845,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.024201441556215286,
+        "base_outward_m": 0.059189729392528534,
+        "base_yaw_rad": -0.030969953164458275,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 486,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.047308556735515594,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 40,
+      "layout": {
+        "seed": 50001010,
+        "split": "holdout",
+        "lateral_m": -0.020216600969433784,
+        "yaw_rad": -0.008961813524365425,
+        "distractors": [
+          5,
+          6
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.18947120010852814,
+        "base_outward_m": 0.22467119991779327,
+        "base_yaw_rad": 0.04968004301190376,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 513,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.041154734790325165,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 51,
+      "layout": {
+        "seed": 50001312,
+        "split": "holdout",
+        "lateral_m": -0.02999930828809738,
+        "yaw_rad": 0.01733722724020481,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": -0.0006689822766929865,
+        "base_lateral_m": 0.06661709398031235,
+        "base_outward_m": 0.08279743790626526,
+        "base_yaw_rad": 0.023691220209002495,
+        "target_region": "shelf_3_right",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 671,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.03270339220762253,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 54,
+      "layout": {
+        "seed": 50001213,
+        "split": "holdout",
+        "lateral_m": -0.03078865259885788,
+        "yaw_rad": -0.005316549446433783,
+        "distractors": [
+          5,
+          6
+        ],
+        "depth_m": 0.0008864557603374124,
+        "base_lateral_m": -0.039107952266931534,
+        "base_outward_m": 0.0654066950082779,
+        "base_yaw_rad": -0.004377872683107853,
+        "target_region": "shelf_3_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 493,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.010838022455573082,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 64,
+      "layout": {
+        "seed": 50001016,
+        "split": "holdout",
+        "lateral_m": -0.03531613200902939,
+        "yaw_rad": 0.01566164381802082,
+        "distractors": [
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.13559205830097198,
+        "base_outward_m": 0.040205471217632294,
+        "base_yaw_rad": 0.11452378332614899,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 479,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.04657422751188278,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 72,
+      "layout": {
+        "seed": 50001018,
+        "split": "holdout",
+        "lateral_m": -0.03895648196339607,
+        "yaw_rad": -0.010852477513253689,
+        "distractors": [
+          5,
+          6,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": 0.12166240066289902,
+        "base_outward_m": 0.2274307906627655,
+        "base_yaw_rad": -0.014806073158979416,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 519,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.044662825763225555,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 75,
+      "layout": {
+        "seed": 50001318,
+        "split": "holdout",
+        "lateral_m": -0.033338502049446106,
+        "yaw_rad": -0.015468122437596321,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.003931351006031036,
+        "base_lateral_m": -0.07298830896615982,
+        "base_outward_m": 0.06883156299591064,
+        "base_yaw_rad": 0.06776416301727295,
+        "target_region": "shelf_3_right",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 695,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.05221962183713913,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 88,
+      "layout": {
+        "seed": 50001022,
+        "split": "holdout",
+        "lateral_m": -0.029008399695158005,
+        "yaw_rad": -0.007542149163782597,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.1358274519443512,
+        "base_outward_m": 0.17576614022254944,
+        "base_yaw_rad": 0.18358488380908966,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 479,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.018693676218390465,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 112,
+      "layout": {
+        "seed": 50001028,
+        "split": "holdout",
+        "lateral_m": -0.024299047887325287,
+        "yaw_rad": -0.006660898681730032,
+        "distractors": [],
+        "depth_m": 0.0,
+        "base_lateral_m": -0.10479617118835449,
+        "base_outward_m": 0.10775232315063477,
+        "base_yaw_rad": -0.09241460263729095,
+        "target_region": "shelf_2_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 465,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.019194236025214195,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 115,
+      "layout": {
+        "seed": 50001328,
+        "split": "holdout",
+        "lateral_m": -0.026493016630411148,
+        "yaw_rad": 0.0033081017900258303,
+        "distractors": [
+          5,
+          9
+        ],
+        "depth_m": 0.0019906489178538322,
+        "base_lateral_m": -0.019795140251517296,
+        "base_outward_m": 0.0584949254989624,
+        "base_yaw_rad": -0.040046002715826035,
+        "target_region": "shelf_3_right",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 676,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.03686045855283737,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    },
+    {
+      "environment": 122,
+      "layout": {
+        "seed": 50001230,
+        "split": "holdout",
+        "lateral_m": -0.03639618679881096,
+        "yaw_rad": 0.0017826887778937817,
+        "distractors": [
+          5,
+          6
+        ],
+        "depth_m": -0.0059237731620669365,
+        "base_lateral_m": -0.020511245355010033,
+        "base_outward_m": 0.06349154561758041,
+        "base_yaw_rad": 0.01339700073003769,
+        "target_region": "shelf_3_left",
+        "align_initial_base_to_region": true,
+        "target_box_type": "small"
+      },
+      "physical_evidence": {
+        "steps": 488,
+        "success": true,
+        "unsafe": false,
+        "pinching": [
+          true,
+          true
+        ],
+        "stable_hands": [
+          true,
+          true
+        ],
+        "opposing_flaps": true,
+        "proof_lift": true,
+        "hold_time_s": 0.2666666805744171,
+        "rack_clearance_m": 0.018240084871649742,
+        "unsafe_causes": {
+          "invalid_box_pose": false,
+          "invalid_flap_pose": false,
+          "robot_rack_collision": false,
+          "self_collision": false,
+          "obstacle_collision": false,
+          "workspace_limit": false,
+          "base_projection_invalid": false,
+          "box_drop": false,
+          "box_lift_limit": false,
+          "box_speed_limit": false
+        }
+      }
+    }
+  ],
+  "all_91_model_tensors_exact_matching_normal_source_equal": true,
+  "all_optimizer_bank_cohort_state_exact_matching_normal_source_equal": true,
+  "source_state_structure_SHA256": {
+    "optimizers": "7c18c7b34663138b3000c6c08be9123d7168d87b8afb80fccbd53aa2da10bb88",
+    "successful_train_transitions": "96ef4c7ac0f2c15ffff8380c04af60d3dda2cf529d78e2db7d53ce78a6ad6af9",
+    "success_guard_memory": "5a6174952dde30794caf51f48b444adef9f034b84c2be5ff9dcdbe1c07006cc8"
+  },
+  "initial_regional_Adam_steps": {
+    "shelf_2_right/medium": [
+      2432,
+      2432,
+      2432,
+      2432,
+      2432,
+      2432
+    ],
+    "shelf_2_left/small": [
+      2525,
+      2525,
+      2525,
+      2525,
+      2525,
+      2525
+    ],
+    "shelf_3_right/small": [
+      1640,
+      1640,
+      1640,
+      1640,
+      1640,
+      1640
+    ],
+    "shelf_3_left/small": [
+      2890,
+      2890,
+      2890,
+      2890,
+      2890,
+      2890
+    ],
+    "shelf_2_right/small": [
+      3100,
+      3100,
+      3100,
+      3100,
+      3100,
+      3100
+    ],
+    "shelf_2_left/medium": [
+      2735,
+      2735,
+      2735,
+      2735,
+      2735,
+      2735
+    ]
+  },
+  "inherited_counters_NOT_new_TRAIN_updates": true,
+  "model_SHA256": "9630e45039cef9850e856721f9007cef1d4b7bebf0cdd642555b3fe5d3035746",
+  "model_tensor_SHA256": "0a029ed0d39d89575888678af4d1845e9d68e6e99056bd24a7f81b872cd87a90",
+  "matching_normal_source_checkpoint_SHA256": "a2b2a938b58196cf56a334afb6c660f129584872aa7a238547c22df476f4a6e4",
+  "preserved_model": "artifacts/rl/protected_dev_models_20261013/batch_sac_20261013_104131_27b59a/checkpoint_00021620.pt",
+  "source_actor": 4863,
+  "source_Q": 21620,
+  "new_TRAIN_updates_in_initial_model": 0,
+  "checked_movies": [
+    {
+      "environment": 0,
+      "frames": 53,
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "0a029ed0d39d89575888678af4d1845e9d68e6e99056bd24a7f81b872cd87a90",
+        "actor_updates": 4863,
+        "critic_updates": 21620,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": true,
+      "actual_outcome_and_requested_layout_equal": true,
+      "browser_file": "eval_wave_0000_env_000_h264.mp4",
+      "video_SHA256": "e92be42d3ef49300ffc39519f0b48400343f2df10502e95cf7c9e5e84d4132a7",
+      "full_decode_verified": true,
+      "actual_frame_Q_values_count": 53,
+      "last_control_step": 515,
+      "terminal_frame_before_reset": true
+    },
+    {
+      "environment": 4,
+      "frames": 45,
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "0a029ed0d39d89575888678af4d1845e9d68e6e99056bd24a7f81b872cd87a90",
+        "actor_updates": 4863,
+        "critic_updates": 21620,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": false,
+      "actual_outcome_and_requested_layout_equal": true,
+      "browser_file": "eval_wave_0000_env_004_h264.mp4",
+      "video_SHA256": "8ec1048e9abf474d73c2a5d5aebb39a6e2a7113bd9e6e3d75138dd3fc980401b",
+      "full_decode_verified": true,
+      "actual_frame_Q_values_count": 45,
+      "last_control_step": 438,
+      "terminal_frame_before_reset": true
+    },
+    {
+      "environment": 1,
+      "frames": 86,
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "0a029ed0d39d89575888678af4d1845e9d68e6e99056bd24a7f81b872cd87a90",
+        "actor_updates": 4863,
+        "critic_updates": 21620,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": false,
+      "actual_outcome_and_requested_layout_equal": true,
+      "browser_file": "eval_wave_0000_env_001_h264.mp4",
+      "video_SHA256": "3ef353251ae124c0c37c85d20077d510b0d8239e9d88c1e4b96b09d19a49408b",
+      "full_decode_verified": true,
+      "actual_frame_Q_values_count": 86,
+      "last_control_step": 842,
+      "terminal_frame_before_reset": true
+    },
+    {
+      "environment": 5,
+      "frames": 66,
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "0a029ed0d39d89575888678af4d1845e9d68e6e99056bd24a7f81b872cd87a90",
+        "actor_updates": 4863,
+        "critic_updates": 21620,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": false,
+      "actual_outcome_and_requested_layout_equal": true,
+      "browser_file": "eval_wave_0000_env_005_h264.mp4",
+      "video_SHA256": "3000b4e8ab450dfc95b8abea12f88601ffe9db389e1c03f8cef1c5e51a577cb8",
+      "full_decode_verified": true,
+      "actual_frame_Q_values_count": 66,
+      "last_control_step": 644,
+      "terminal_frame_before_reset": true
+    },
+    {
+      "environment": 2,
+      "frames": 86,
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "0a029ed0d39d89575888678af4d1845e9d68e6e99056bd24a7f81b872cd87a90",
+        "actor_updates": 4863,
+        "critic_updates": 21620,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": false,
+      "actual_outcome_and_requested_layout_equal": true,
+      "browser_file": "eval_wave_0000_env_002_h264.mp4",
+      "video_SHA256": "b45a2c7fe2a26482bbf2b8e8b04982344caa21f921a3b0f4dd6e6f9feff59219",
+      "full_decode_verified": true,
+      "actual_frame_Q_values_count": 86,
+      "last_control_step": 842,
+      "terminal_frame_before_reset": true
+    },
+    {
+      "environment": 3,
+      "frames": 86,
+      "frozen_Q_proof": {
+        "model_tensor_SHA256": "0a029ed0d39d89575888678af4d1845e9d68e6e99056bd24a7f81b872cd87a90",
+        "actor_updates": 4863,
+        "critic_updates": 21620,
+        "frozen_model_unchanged": true,
+        "semantics": "Q(s_t,a_t) before the action, on its measured post-action frame; Q is an estimate, not success",
+        "approach_Q_unavailable": true,
+        "raw_observations_actions_stored": false,
+        "raw_replay_HDF_read": false,
+        "optimizer_updates": 0
+      },
+      "actual_supported_success": false,
+      "actual_outcome_and_requested_layout_equal": true,
+      "browser_file": "eval_wave_0000_env_003_h264.mp4",
+      "video_SHA256": "d70274202374c60df6a1d8286a3299a036d1528368dc7c5f8dd594ea72bb64da",
+      "full_decode_verified": true,
+      "actual_frame_Q_values_count": 86,
+      "last_control_step": 842,
+      "terminal_frame_before_reset": true
+    }
+  ],
+  "selected_movies_NOT_full_success_rate": true,
+  "raw_replay_HDF_read_upload_delete": false,
+  "independent_FINAL_not_read_or_used": true,
+  "optimizer_updates_by_audit": 0,
+  "CUDA_initialized": false,
+  "Q_values_are_estimates_not_success_evidence": true,
+  "source_final15_and_candidate17_NOT_substituted_as_own_initial": true,
+  "goal_not_complete": true,
+  "optional_rounded_jaw_checkpoint_version": "rejected-rounded-jaw-output-v1",
+  "actual_new_TRAIN_before_first_updates": {
+    "wave": 1,
+    "step": 1,
+    "source_actor": 4863,
+    "source_critic": 21620,
+    "new_actor": 0,
+    "new_critic": 0,
+    "latest_body_Q_gradient_measurement": null,
+    "not_stable_plateau_or_physical_success_improvement_proof": true
+  },
+  "base_control_scope": "existing fixed box-relative base approach then held base; SAC21 non-base goals",
+  "curriculum": false,
+  "same_physics_DR_reward_success_safety_contract": true
+}

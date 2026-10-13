@@ -32,8 +32,18 @@ Adam·같은 critic·원래 projected Adam norm·고정 전체 cohort/greedy jaw
 성공은행/cohort에서 이어가는 새 TRAIN512와 동일 DEV128 초기/중간/종료다. Rounded-jaw
 교정과 실제 TRAIN body-Q 기울기 진단64, 성공 후보 최대12개 보관·동일 step 성공 등록·
 랙 접촉 요약·실제 Q 영상을 포함한다. **10:41 KST 고유 GPU3 실행
-`batch_sac_20261013_104131_27b59a`를 시작했다.** 초기 DEV와 새 TRAIN 갱신량은 아직
-실측 전이며 source15/candidate17을 새 초기값으로 대입하지 않는다. 단일 CPU 종료
+`batch_sac_20261013_104131_27b59a`를 시작했다.** 이번 실행 자체의 초기 DEV128은
+**성공14·무효13·안전58(rack57/비정상 lift1)·시간초과43·수치0**, 유효115로 확정했다.
+중간 왼쪽small9/16·상단 왼쪽small2/32·상단 오른쪽small3/32이고 다른3조건은0이다.
+새 TRAIN 전91개 모델 tensor와 모든 optimizer·성공은행·7개 보호 경로가 정상 재개 원본과
+정확히 같고, 선택6개 영상의 같은 모델/실제 결과/전reset 종료 frame/Q proof/H264 decode를
+대조했다. 보호한 초기 모델 SHA256은
+`9630e45039cef9850e856721f9007cef1d4b7bebf0cdd642555b3fe5d3035746`이다.
+이번14를 중간·최종 DEV의 기준으로 사용하며 source15/candidate17을 대입하지 않는다.
+이는 학습 전 독립 reset 결과로 새 교정의 학습 효과가 아니다. 11:21 첫 TRAIN step1에는
+actor4863/Q21620·새 갱신0이고 실제 body-Q 기울기는 아직 측정 전이었다.
+[이번 초기128·6조건·실제 성공·모델/optimizer/영상 증거](assets/rl_v2_rounded_jaw_Qdiag_own_initial_DEV128_20261013.json)
+단일 CPU 종료
 점검은 이전 대기 메시지를 재사용해 같은 대화로 순차 연결했다. 기존 base 접근 후
 SAC21개 비base 목표, CPU PGS/GPU3
 CUDA·보상·box/base/flap DR·양손 성공·안전·curriculum0을 유지한다.
