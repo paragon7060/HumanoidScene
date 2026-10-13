@@ -51,7 +51,7 @@ jaw를 유지했고 새 jaw promotion은0이다. 보호 표본의 보존은 물�
 학습 오류나 재시작은 없으며 raw replay/HDF·독립 FINAL을 진단에 쓰지 않았다.
 [전체128·6조건·Adam·은행·손별 집계·실제 초기 base·안전 원인](assets/rl_v2_rounded_jaw_first_full_TRAIN128_20261013.json)
 
-## 두 번째 TRAIN의 새 성공 순간 정책 후보6
+## 두 번째 TRAIN의 새 성공 순간 정책 후보6·7·8
 
 Step464의 중간 왼쪽small env8/seed70001002에서 실제 양손 opposing pinch·안정
 hold0.2667초·proof clearance19.70mm·안전을 만족했고, 행동 직후 learner 갱신 전에
@@ -72,8 +72,27 @@ CPU에서 모델91개·optimizer174개 유한성·불변 JSON/file/model checksu
 
 후보6의 모델과 증거 JSON은 기존 Drive 크기·MD5가 실제로 일치했다. 기존300초
 업로더를 재사용했고 추가 업로드·수동 정리·인증 변경은 없다. 검증 시 로컬에는5/6과
-새 미검증7 모델이 남았다. 검증된 최근2개와 미검증 새 파일의 일시 공존을 손상이나
-retention 실패로 세지 않으며 새7의 무결성/원격 검증이 끝났다고 주장하지 않는다.
+당시 새 미검증7 모델이 남았다. 검증된 최근2개와 미검증 새 파일의 일시 공존을 손상이나
+retention 실패로 세지 않았다. 아래 후속 검증 전에는 새7을 검증 완료로 세지 않았다.
+
+16:02 후속에서 **후보7/8도 CPU 무결성과 모델·JSON의 기존 Drive 크기/MD5가 일치**했고,
+로컬에는 검증된 최근2개인7/8 모델이 남았다. 후보7은 상단 왼쪽small env42/seed70001210의
+step488(actor5487/Q24114)·양손 hold0.2667초·proof11.94mm, 후보8은 중간 왼쪽small
+env32/seed70001008의 step516(actor5501/Q24170)·proof46.00mm 안전 greedy 종료다.
+둘 모두 고정 전체 DEV 재현은 아직이며 기존7개 보호 경로/고정 한도를 보존했다.
+
+후보7의 상단 왼쪽 정책은 학습 전보다298회, 첫 배치 끝보다158회 실제 Adam을 옮겼고
+각6개 parameter의 저장 step과 값 변화를 대조했다. 후보8의 닫힌 성공은행에 남은 실제
+env42 경로 첫/중간/마지막3상태에서는 후보7의 CPU greedy 목표가 첫 배치 끝과 달랐지만
+최대 body 목표 좌표 차이는7.57e-6이고 이3행의 이진 jaw는 같았다. 이는 목표 좌표 단위이며
+거리/각도가 아니다. Parameter/출력 변화가 있었다는 근거이고 이번 실제 성공의 인과적
+개선 또는 현재 CUDA/물리 재현을 증명하지 않는다. 원본 state/optimizer/file/RNG는
+그대로이고 raw replay/HDF·DEV/FINAL 추론·optimizer 갱신·CUDA는0이었다.
+
+Step571은 실제 양손 성공6(중간 왼쪽small5·상단 왼쪽small1)·안전 종료26·진행96/128이다.
+6건 모두 같은 control step 등록을 확인했다. 첫 배치 끝 이후 새 actor261/critic1042이며,
+상단 오른쪽은261제안 모두 이동0으로 남는다. 부분6을 고정 평가 성공률로 세지 않고,
+중간/종료 DEV128을 이번 자체 초기14와 비교한다.
 [실제 종료 증거·모델·부분128·같은 step 등록·보관 상태](assets/rl_v2_rounded_jaw_second_TRAIN_first_actual_success_candidate_20261013.json)
 
 ## 성공 없는 정책이 표준편차만 바꾸는지 확인
