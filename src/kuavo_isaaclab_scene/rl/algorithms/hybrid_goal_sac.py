@@ -332,6 +332,8 @@ class HybridGoalSAC(AsymmetricSAC):
     def checkpoint(self):
         state=super().checkpoint();state['algorithm']='hybrid_goal_sac'
         state['hybrid_contract']=self.hybrid_contract
+        if getattr(self, 'actor_rounded_jaw_repair', False):
+            state['actor_rounded_jaw_repair'] = 'rejected-rounded-jaw-output-v1'
         if getattr(self, 'actor_success_guard_config', None) is not None:
             from copy import deepcopy
             state['success_guard_statistics'] = deepcopy(getattr(self, 'success_guard_statistics', {}))
@@ -354,6 +356,12 @@ class HybridGoalSAC(AsymmetricSAC):
         return result
 
     def restore(self,state,training=True):
+        repair = state.get('actor_rounded_jaw_repair')
+        if repair is not None:
+            from .success_cohort_guard import TUBE_VARIANT
+            if repair != 'rejected-rounded-jaw-output-v1' \
+                    or (state.get('hybrid_contract', {}).get('actor_success_guard') or {}).get('name') != TUBE_VARIANT:
+                raise ValueError('Unknown rounded jaw repair or missing fixed servo-tube guard')
         if state.get('algorithm')!='hybrid_goal_sac' or state.get('hybrid_contract')!=self.hybrid_contract:
             raise ValueError('Hybrid SAC cannot import a continuous-only Q/optimizer')
         if training and len(state.get('optimizers',[]))!=4:
@@ -363,3 +371,4 @@ class HybridGoalSAC(AsymmetricSAC):
         self.success_guard_statistics = deepcopy(state.get('success_guard_statistics', {})) or None
         from .success_cohort_guard import restore_memory
         restore_memory(self, state)
+        self.actor_rounded_jaw_repair = repair is not None

@@ -749,7 +749,7 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 검증이 끝난 뒤 고유 평가 폴더에서 실행한다. 학습 중의 한 성공을 고정 모델의 재현 성공으로 세지 않는다.
 정확히 대응하는 continuation replay가 없어 후보의 직접 학습 재개는 거부하며, 원본 replay/HDF는
 추가 저장·전송하지 않는다.10/13 GPU3 학습에서 실제 후보 저장·Drive 검증은 확인했으며,
-새 평가 전용 경로는 아직 물리 실행 전이다.
+후보7의 같은 DEV128 고정 평가는 GPU3에서 진행 중이다. 완료 전에는 전체 재현성을 주장하지 않는다.
 [저장·평가·사용 범위](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#학습-중-실제-성공-시점의-모델-후보-보관)를 참고한다.
 [같은 제어 조건의 후보 고정 평가](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#저장-후보의-동일-계약-고정-평가-경로)를 참고한다.
 
@@ -759,6 +759,13 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 actor parameter 기울기를 집계한다. 추가 샘플·센서·optimizer 갱신·원본 행 저장은 없다.
 진단은 actor 보호 검사 전이며, 기울기0만으로 학습 오류를 단정하거나 양수만으로
 실제 갱신·탐색·성공을 증명하지 않는다. [측정 범위와 한계](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#실제-train-body-q-기울기-진단-준비)를 참고한다.
+
+고정 성공 보호에서 몸체는 통과하지만 그리퍼 정답 때문에 거절되는 rounded 후보의
+마지막 jaw 출력만 교정하려면 다음 고유 TRAIN에 `--actor-rounded-jaw-repair`를 추가한다.
+기본은 꺼짐이며 원래 body 교정과 별도 통계로 기록한다. 수용된 일반 후보·고정 목표/servo
+한도·행별 jaw 정답·원래 projected Adam norm·마지막 전체 cohort 검사·거절 Adam 복원을 유지한다.
+켜진 상태는 checkpoint에 저장되고 복원된다. CPU 연결 검사는 실제 물리 성공 증거가 아니다.
+[교정 범위와 확인 상태](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#rounded-jaw-교정의-선택형-train-연결)를 참고한다.
 
 CPU/GPU PhysX 비교와 CPU 물리·별도 GPU SAC learner, 전체 DEV128 중 선택한
 실제 자세 영상 녹화는 [CPU/GPU 중간 보고와 평가 사용법](docs/RL_V2_CPU_GPU_INTERIM_REPORT_20261006.md)에 정리했다.

@@ -108,6 +108,8 @@ def main():
         help='TRAIN/DEV only: keep rack warnings and largest force from existing pre-reset packets; no new sensors or steps')
     parser.add_argument('--actor-body-q-gradient-interval', type=int, default=0,
         help='TRAIN only: aggregate existing sampled body-Q gradients every N actor proposals; 0 disables')
+    parser.add_argument('--actor-rounded-jaw-repair', action='store_true',
+        help='TRAIN only: repair rejected rounded jaw outputs within the existing fixed cohort and Adam budget')
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
@@ -130,6 +132,8 @@ def main():
     args=parser.parse_args()
     if args.actor_body_q_gradient_interval < 0 or (args.actor_body_q_gradient_interval and not args.training):
         parser.error('Body-Q diagnostics require a nonnegative interval and explicit TRAIN')
+    if args.actor_rounded_jaw_repair and not args.training:
+        parser.error('Rounded jaw repair requires explicit TRAIN')
     if not 1<=args.steps<=900 or args.output_dir.exists():parser.error('New output and 1..900 steps required')
     if (args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or args.pgs_probe or args.gripper_drive_probe
             or args.centered_world_probe or args.packed_background_probe) and args.training:
@@ -137,6 +141,8 @@ def main():
     waves=json.loads(args.waves_json.read_text())
     if args.actor_body_q_gradient_interval and not any(w['split'] == 'train' for w in waves):
         parser.error('Body-Q diagnostics require an actual TRAIN wave')
+    if args.actor_rounded_jaw_repair and not any(w['split'] == 'train' for w in waves):
+        parser.error('Rounded jaw repair requires an actual TRAIN wave')
     learner_device=args.learner_device or args.device or 'cuda:0'
     from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_workplace_probe import (
         INCOMPATIBLE_FLAGS as WORKPLACE_FLAGS, validate_cpu_workplace_probe)
@@ -890,6 +896,13 @@ def main():
                     head_labels(pilot.agent.actor.network)
                     pilot.agent.actor_body_Q_gradient_diagnostics = ActorBodyQGradientDiagnostics(
                         args.actor_body_q_gradient_interval)
+                if args.actor_rounded_jaw_repair:
+                    from kuavo_isaaclab_scene.rl.algorithms import success_cohort_guard as cohort
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.independent_actor_heads import head_labels
+                    if not cohort.tube(pilot.agent):
+                        raise ValueError('Rounded jaw repair requires the fixed servo-tube guard')
+                    head_labels(pilot.agent.actor.network)
+                    pilot.agent.actor_rounded_jaw_repair = True
                 (output/'agent.yaml').write_text(json.dumps(pilot.contract,indent=2)+'\n')
             if args.base_waypoint_probe:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.waypoint_probe import apply_waypoint_probe

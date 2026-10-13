@@ -1,6 +1,6 @@
-"""Prepared jaw-only correction for a rejected fixed-cohort candidate.
+"""Jaw-only correction for a rejected fixed-cohort candidate.
 
-This component is not connected to the production actor update. A caller must
+The optional rounded-jaw actor fallback uses this component. A caller must
 retain the original projected Adam norm, fixed ceilings, every protected jaw,
 rejected Adam restoration and final uncached whole-cohort acceptance test.
 """

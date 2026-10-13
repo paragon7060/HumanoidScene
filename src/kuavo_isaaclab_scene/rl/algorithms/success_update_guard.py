@@ -141,6 +141,25 @@ def repair_scaled_body_candidate(agent, batch, groups, parameters, previous, pro
     Acceptance retains every original hard predicate and projected Adam budget.
     """
     from . import success_cohort_guard as cohort
+    return _repair_scaled_output_candidate(agent, batch, groups, parameters, previous,
+        proposal, trust_norm, candidate_metrics, cohort.quantized_body_output_correction)
+
+
+def repair_scaled_jaw_candidate(agent, batch, groups, parameters, previous, proposal,
+                                trust_norm, candidate_metrics):
+    """Repair only final jaw rows of an already rejected rounded candidate.
+
+    A body violation forbids this correction. Body repair and its statistics
+    remain separate; the existing Adam budget and whole-cohort checks decide.
+    """
+    from ..multi_box.experiments.jaw_output_repair import jaw_output_correction
+    return _repair_scaled_output_candidate(agent, batch, groups, parameters, previous,
+        proposal, trust_norm, candidate_metrics, jaw_output_correction)
+
+
+def _repair_scaled_output_candidate(agent, batch, groups, parameters, previous, proposal,
+                                    trust_norm, candidate_metrics, corrector):
+    from . import success_cohort_guard as cohort
     details = dict(attempted=False, accepted=False, trials=[],
                    candidate_origin_scales=[2.**-6, 2.**-8, 2.**-10])
     if not cohort.tube(agent) or not bool(trust_norm > 0):
@@ -153,7 +172,7 @@ def repair_scaled_body_candidate(agent, batch, groups, parameters, previous, pro
             values, jaws = candidate_metrics()
             if cohort.within_ceilings(values, jaws, agent.success_guard_memory, agent.actor_success_guard_config):
                 break
-            correction, kinds = cohort.quantized_body_output_correction(agent, batch, groups, parameters)
+            correction, kinds = corrector(agent, batch, groups, parameters)
             if correction is None:
                 break
             details['attempted'] = True
@@ -223,6 +242,7 @@ def guarded_actor_step(agent, loss, successful):
     repairs=[]
     quantum_fallback_regions={}
     postscale_fallback_regions={}
+    rounded_jaw_fallback_regions={}
     final_cohort_check_executed=False
     baseline_allowed=(cohort.within_ceilings(before,before_correct,agent.success_guard_memory,config)
                       if cohort.stable(agent) else None)
@@ -360,6 +380,15 @@ def guarded_actor_step(agent, loss, successful):
                 postscale_fallback_regions[region]=details
                 if local_scale:
                     after,_=candidate_metrics()
+            if not local_scale and cohort.tube(agent) and baseline_allowed and trust_norm > 0 \
+                    and getattr(agent, 'actor_rounded_jaw_repair', False):
+                local_scale,details=repair_scaled_jaw_candidate(agent,successful,
+                    metric_cache.groups[region] if metric_cache is not None else groups,
+                    [parameters[i] for i in indices],[previous[i] for i in indices],
+                    [proposal[i] for i in indices],trust_norm,candidate_metrics)
+                rounded_jaw_fallback_regions[region]=details
+                if local_scale:
+                    after,_=candidate_metrics()
             region_scales[region]=local_scale
             if not local_scale:
                 with torch.no_grad():
@@ -431,6 +460,14 @@ def guarded_actor_step(agent, loss, successful):
             local=counts.setdefault(region,{})
             key=str(scale);local[key]=local.get(key,0)+1
     if cohort.tube(agent):
+        if getattr(agent, 'actor_rounded_jaw_repair', False):
+            stats['actor_success_guard_rounded_jaw_fallback_regions']={
+                region:dict(value,accepted=value['accepted'] and bool(accepted_scale))
+                for region,value in rounded_jaw_fallback_regions.items()}
+            for name in ('attempted','accepted'):
+                key='rounded_jaw_fallback_regions_'+name
+                counters[key]=counters.get(key,0)+sum(value[name] for value in
+                    stats['actor_success_guard_rounded_jaw_fallback_regions'].values())
         stats['actor_success_guard_postscale_body_fallback_regions']={
             region:dict(value,accepted=value['accepted'] and bool(accepted_scale))
             for region,value in postscale_fallback_regions.items()}

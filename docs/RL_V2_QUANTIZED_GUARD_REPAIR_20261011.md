@@ -41,7 +41,8 @@ jaw 출력만 교정하도록 GPU3의 닫힌 TRAIN 입력2개를 비교했다. �
 Adam·같은 critic·원래 Adam norm·고정 전체 cohort/greedy jaw를 유지했다.
 전체 제안에만 적용한 앞선 비교는 교정 호출0이었다. 초기 진단 hook이 body-only 경로에도
 섞인 오류는 helper에서 분리했고 실제 완료 writer의 오류는 아니었다. Production 연결은
-아직이며 저장 후보의 같은 DEV128 고정 평가와 다음 TRAIN 실제 Q 기울기 측정으로 이어간다.
+완료됐으나 production 연결판의 실제 CUDA/물리 확인은 아직이다. 아래 선택형 연결 범위를
+구분하며 저장 후보의 같은 DEV128 고정 평가와 다음 TRAIN 실제 Q 기울기 측정으로 이어간다.
 
 최종 env0 성공·env4 왼팔4link–rack26.41N 실패·env1 timeout의 세 실제 Q 영상을
 모델/reset/결과·전reset 종료 frame·H264 전체 decode로 대조해 로컬 보존했다.
@@ -50,6 +51,35 @@ Q1/Q2/minQ는 행동 전 critic 추정값이며 Q21620은 누적 counter다. 세
 box/base/flap DR·보상·성공·안전·curriculum0은 유지한다.
 [전체128·공통 유효 lost/gained·실제 Adam·모델·Q 영상·작은 교정 근거](assets/rl_v2_region_size_final_DEV128_and_saved_candidates_20261013.json)
 [재생 가능한 평가 자료와 중간보고](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)
+
+## Rounded jaw 교정의 선택형 TRAIN 연결
+
+`--actor-rounded-jaw-repair`는 기본 off이며 원래 일반 후보·기존 body 교정과 축소가
+모두 거절한 head에만 추가된다. 실제1/64·1/256·1/1024 rounded 후보에서 몸체 기준을
+통과하고 jaw만 틀릴 때 마지막 jaw 출력 weight/bias만 교정한다. Hidden/body/std 교정은0이며
+원래 projected Adam norm과 고정 전체 cohort/행·손별 greedy jaw 검사를 그대로 적용한다.
+Body 실패를 jaw 교정으로 숨기지 않는다. 이미 수용된 일반 후보는 동일하고, 거절 head의
+Adam 복원과 최종 uncached 검사 실패 시 전체 rollback도 유지한다.
+
+`actor_success_guard_rounded_jaw_fallback_regions`와 누적 attempted/accepted를 body 통계와
+분리했다. 기록 origin scale은 교정 전 출발 scale이므로 actual delta norm·기능적 출력과 함께
+판단한다. 켜진 checkpoint는 `actor_rounded_jaw_repair=rejected-rounded-jaw-output-v1`을 보존하고
+복원하며 알 수 없는 버전/고정 tube가 없는 상태는 모델 변경 전에 거부한다. 과거 checkpoint는 off다.
+
+새7개 CPU 검사와 관련39개 검사는 실제 rounded jaw 교정·몸체 실패 금지·ordinary Adam 동일·
+최종 전체 rollback·checkpoint 복원·잘못된 상태 거부를 확인했다. 신규 검사 fixture의 빈 guard
+통계와 실제 pilot의 top-level guard 위치를 잘못 가정한 두 부분은 검사/복원 검증에서 교정했다.
+실제 완료 학습의 오류는 아니다. 별도 frozen 구버전 비교3개에서 default off의 모델/Adam/
+cohort/report/RNG도 정확히 같았다. 이는 물리 성공이나 새 production hook의 CUDA 동등성 검사가 아니다.
+앞선 GPU3 두 draw는 disposable prototype의 작은 수치 복구이며 새 연결판의 production 검증을
+대신하지 않는다. 현재 candidate7 평가는 이미 고정된 d73adaa 코드여서 이 수정이 적용되지 않았다.
+
+**실제 후보7 평가 시작:** 저장된 checksum `d5cd49ed2a1e5ded17a4756abf9e35bb9f3d0a16c253e1ba294a690f434362f5`의
+actor4796/Q21352를 새 고유 GPU3 폴더에서 같은 DEV128/900step으로 고정 평가한다.
+학습/source raw replay 입력 없이 CPU PGS+GPU3 CUDA·기존 base 접근/양손/안전/DR 계약을 유지한다.
+UUID mask와 nvidia3/renderD131만 보이는 namespace·300초 업로드/최근2개/종료 로그 검증을 확인했고
+최종 결과는 아직 없다. 같은 대화 종료 점검을 이어가며 candidate의 직접 TRAIN 재개는 허용하지 않는다.
+[선택형 교정·CPU 검사·실제 후보 실행 범위](assets/rl_v2_rounded_jaw_TRAIN_connection_and_candidate7_GPU3_20261013.json)
 
 
 ## 10/13 구역·크기 분리판 첫 전체 TRAIN128 완료
