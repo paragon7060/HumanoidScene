@@ -51,7 +51,7 @@ jaw를 유지했고 새 jaw promotion은0이다. 보호 표본의 보존은 물�
 학습 오류나 재시작은 없으며 raw replay/HDF·독립 FINAL을 진단에 쓰지 않았다.
 [전체128·6조건·Adam·은행·손별 집계·실제 초기 base·안전 원인](assets/rl_v2_rounded_jaw_first_full_TRAIN128_20261013.json)
 
-## 두 번째 TRAIN의 새 성공 순간 정책 후보6·7·8
+## 두 번째 TRAIN의 새 성공 순간 정책 후보6·7·8·9
 
 Step464의 중간 왼쪽small env8/seed70001002에서 실제 양손 opposing pinch·안정
 hold0.2667초·proof clearance19.70mm·안전을 만족했고, 행동 직후 learner 갱신 전에
@@ -93,7 +93,33 @@ Step571은 실제 양손 성공6(중간 왼쪽small5·상단 왼쪽small1)·안�
 6건 모두 같은 control step 등록을 확인했다. 첫 배치 끝 이후 새 actor261/critic1042이며,
 상단 오른쪽은261제안 모두 이동0으로 남는다. 부분6을 고정 평가 성공률로 세지 않고,
 중간/종료 DEV128을 이번 자체 초기14와 비교한다.
+
+16:30 후속 step691은 실제 성공9·안전 종료59·진행60/128이며 여전히 부분 TRAIN이다.
+상단 오른쪽small env107/seed70001326은 step680의 안전 양손 hold0.2667초·proof28.90mm
+종료 행동 직후 후보9(actor5583/Q24498)를 저장했다. 모델91개/optimizer174개와 불변
+증거·원래 보호 한도를 CPU로 대조했고 모델·JSON의 기존 Drive 크기/MD5도 같다.
+검증 후 로컬 모델은 최근2개8/9이고 이전 후보의 작은 증거 JSON은 남았다. 상단 오른쪽은
+이번 두 번째 배치321제안에서 실제 이동0이므로 이 성공을 새 head 학습 효과로 설명하지
+않는다. 후보 전체 동작의 고정 DEV128 재현은 아직이며 대응 replay 없는 TRAIN 재개는
+금지한다. 기존512조건과 전체 DEV128 중간/종료를 그대로 유지한다.
 [실제 종료 증거·모델·부분128·같은 step 등록·보관 상태](assets/rl_v2_rounded_jaw_second_TRAIN_first_actual_success_candidate_20261013.json)
+
+## 보존한 성공 경로의 보상·종료 라벨 확인
+
+첫 완료 TRAIN의 닫힌23240 모델에 남은 성공26경로/12,062행 중 이번 실행13경로를
+CPU로 확인했다. 기존 안전 양손 성공 validator를 통과했고 각 경로의 유일한 종료 라벨은
+마지막 행이다. 관측 연결과 실제 저장 보상으로 계산한 완료 behavior return은 bootstrap이
+없고 에피소드 경계를 넘지 않았다. 현재 설정은 gamma0.999·reward scale1·entropy
+backup 없음·성공 event 가중치8이다.
+
+이번13경로의 **순 종료 보상은0.6268~0.8180**, 첫 held 행에서 기록된 행동을 따른 할인
+보상합은4.6145~6.0644다. 순 종료 보상은 potential 정산·다른 항목을 포함한 합계이며
+설정된 성공 event8 자체가 아니다. 이 합계만으로 성공 보너스 누락을 판정하지 않는다.
+과거 행동의 실제 보상합을 현재 정책의 Q와 같은 값으로 비교하지 않았고 실패/timeout
+전이 라벨은 이 성공은행 감사에서 검증하지 않았다. 모델·모든 optimizer·입력 state·
+파일·mtime·RNG는 불변이며 CUDA/optimizer 갱신/raw replay/HDF/DEV/FINAL 입력은0이다.
+이 결과로 보상·discount·물리를 바꾸거나 실제 정책 성능 개선을 선언하지 않았다.
+[실제 성공 경로별 순보상·종료·discount·진단 범위](assets/rl_v2_closed_success_reward_terminal_labels_20261013.json)
 
 ## 성공 없는 정책이 표준편차만 바꾸는지 확인
 
