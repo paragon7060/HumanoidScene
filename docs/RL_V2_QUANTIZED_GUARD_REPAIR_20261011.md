@@ -1,5 +1,52 @@
 # SAC 갱신 정체 수정과 GPU3 실제 후속 학습
 
+## TRAIN 손별 탐색 집계의 종료 보존 수정
+
+이전6head 실행의 종료 `metrics.json`을 다시 확인하니
+`learner.perceived_contact_gate_summary_current_wave`가 `null`이었다. 마지막 DEV에서
+탐색 helper를 초기화하고 최신 learner 보고서로 파일을 다시 쓰므로, 앞선 TRAIN의
+환경별 위치·축·닫힘·측정 안정·lift 집계가 종료 파일에 남지 않는 문제다. 이전에 따로
+보존한 배치1 집계는 존재하지만, 사라진 배치2 집계를 임의로 복원하거나0으로 세지 않는다.
+이 기록 누락은 policy가 탐색하지 않았거나 학습이 실패했다는 뜻이 아니다.
+
+다음 실행용 runner는 이미 `metrics.json`에 쓰는 **같은 learner 보고서**에서 TRAIN
+집계를 복사해 `TRAIN_contact_gate_history`에 배치별로 보존한다. 추가 정책 호출·센서/
+GPU transfer·원본 replay/HDF·학습 입력은 없다. `(wave, environment)`로 기존 outcome의
+구역·크기·수집 방식과 연결하고, 집계 합계와 환경별 값의 일치를 확인한다. DEV/독립 FINAL은
+포함하지 않으며 중단된 배치도 미완료임을 표시한다. 기존 checkpoint 통계·보상·제어·
+무작위화·성공·안전 조건은 유지한다. **현재 GPU3 frozen561d 실행에는 미적용이다.**
+
+두 TRAIN 이후 DEV 보고서가 비워지는 경계, 원본 집계 불변과 중복 방지·환경 ID/합계,
+실제 접촉 controller의 명령·상태·기존 통계·RNG 불변을 CPU로 확인한다.
+신규7개와 기존 접촉 집계5개, 총12개 검사를3.42초에 통과했다.
+이는 CUDA/Isaac 성능 또는 물리 성공 개선의 검사가 아니다.
+[누락 확인·기록 위치·CPU 범위·source SHA](assets/rl_v2_closed_TRAIN_contact_gate_history_preparation_20261013.json)
+
+## 새 학습의 실제 성공 순간 후보와 첫 정상 저장점
+
+현재 rounded-jaw 실행의 첫 TRAIN step481은 양손 안전 성공4·랙 안전 종료23·초기
+무효1·진행100이었다. 네 성공 모두 중간 왼쪽small이며 실제 opposing two-pad·양손 안정·
+hold0.2667초·proof clearance9.07~17.56mm와 같은 control step 성공 등록을 대조했다.
+배치128은 아직 끝나지 않았고 이번 초기 고정 DEV14/128보다 개선됐다는 뜻은 아니다.
+
+성공 순간 후보1은 step463의env24/32 두 성공을 한 모델(actor5071/Q22450)에,
+후보2는 이후 step486의env64 성공을 모델(actor5082/Q22496)에 보관했다. 둘 다 실제
+greedy 종료 행동 직후·learner 갱신 전에 저장됐다. 후보2는 step481 부분 결과에 넣지
+않는다. 각 후보91개 모델·174개 optimizer tensor·파일/불변 JSON checksum·원래7개
+보호 경로/고정 한도를 CPU로 확인했고 **모델과 증거 JSON 모두 기존 Drive 크기·MD5가
+일치했다.** 전체 episode는 online 모델이 바뀌었으므로 고정 DEV128 재현은 아직이다.
+
+첫 정상 `checkpoint_00022528.pt`(actor5090/Q22528,
+SHA256`46ca09f51e75808933631131dad54aa3cf7a083698f32a7ab99a126e4d0abfe6`)도 별도로 보존했다.
+source4863/Q21620을 뺀 새 actor227/critic908이며 여섯 head의 실제 이동38/122/12/140/
+227/227회가 각6개 parameter의 Adam step 증가와 일치했다. 전역227회 수용을 모든 head의
+정상 갱신으로 설명하지 않는다. Critic20개와 두 entropy의 실제 저장값·step도 바뀌었다.
+성공은행12,067행에 위 다섯 실제 경로가 남고518/578 관측·실제21개 목표/양수·음수 jaw·
+마지막 단일 종료·held/구역/안전 성공 검증을 통과했다. 기존7경로3507행/14phase의 목표·
+servo 한도·관측/동작·보호 jaw는 유지됐다. CPU의 고정 TRAIN 출력 비교는 현재 CUDA나
+실패 상태·물리 재현 검사가 아니고, 정상 저장점은 각 성공 순간의 정확한 모델과 별개다.
+[실제 성공·후보2개·Drive·정상 저장점/Adam/성공은행 근거](assets/rl_v2_rounded_jaw_Qdiag_first_actual_TRAIN_success_candidates_20261013.json)
+
 ## 10/13 성공 순간 보관 후보7 · 같은 DEV128에서17건 성공
 
 학습 중 저장한 후보7을 전체 DEV128에서 고정한 결과 **성공17·초기 무효13·랙 안전

@@ -738,6 +738,14 @@ GPU 1번의 512개 환경 PPO 검사를 통과했다. 공통 손가락 마찰 5.
 등록하려면 `--train-success-registration wave`를 사용한다.10/13 GPU3 실행에서는 즉시 등록을 사용한다.
 [실제 등록 지연과 수정 범위](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#완료된-train-성공의-등록-지연-수정)를 참고한다.
 
+손별 접촉 탐색 집계는 다음 실행부터 종료 `metrics.json`의
+`TRAIN_contact_gate_history`에 배치별로 남는다. 각 기록의 `summary.by_environment`를
+같은 `wave`·`environment`의 outcome과 연결하면 구역·크기별 진입·정렬·닫힘·lift
+조건을 분석할 수 있다. 겹치는 명령 통계는 실제 pinch나 배타적 실패 원인이 아니다.
+DEV/독립 FINAL은 이 TRAIN 기록에 넣지 않으며, 중단된 배치는 `complete=false`다.
+기존 frozen 실행에는 미적용이고, 기록이 없다는 사실을 탐색 횟수0으로 해석하지 않는다.
+[이전 집계가 사라지는 원인과 보존 수정](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#train-손별-탐색-집계의-종료-보존-수정)을 참고한다.
+
 학습 중 실제 양손 성공 시점의 모델도 보관하려면 다음 고유 실행에
 `--save-train-success-candidates --train-success-candidate-limit 12`를 추가한다.
 종료 행동을 만든 모델을 **그 step의 learner 갱신 전** 저장한다. 새 구역·박스 크기의

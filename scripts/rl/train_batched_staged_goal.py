@@ -774,6 +774,7 @@ def main():
             drive_probe=GripperDriveProbe(env.scene['robot'])
         drive_audits=[]
         outcomes=[];pilot=None;start=time.monotonic();total_rows=0;completed_wave_count=0
+        train_contact_gate_history=[]
         success_candidates=None
         if args.save_train_success_candidates:
             if not args.training or backend_eval or workplace_eval:
@@ -1161,11 +1162,18 @@ def main():
                 regression=check.get('regression',False)
                 baseline_failed=check.get('baseline_failed',False)
             if not stopped['value']:completed_wave_count+=1
+            # Reuse the report already needed for metrics; a later DEV reset
+            # must not erase the scalar evidence from completed TRAIN waves.
+            learner_report=pilot.report()
+            from closed_train_gate_history import archive_train_gate_summary
+            archive_train_gate_summary(train_contact_gate_history,wave_index,wave['split'],
+                learner_report.get('perceived_contact_gate_summary_current_wave'),outcomes[-n:])
             (output/'metrics.json').write_text(json.dumps(dict(policy=pilot.artifact_type,outcomes=outcomes,
                 frozen_physics_backend_evaluation=backend_eval,
                 CPU_physics_policy_evaluation=cpu_policy_eval,
                 CPU_workplace_probe=workplace_eval,
-                learner=pilot.report(),actual_rows=total_rows,seconds=time.monotonic()-start,
+                learner=learner_report,actual_rows=total_rows,seconds=time.monotonic()-start,
+                TRAIN_contact_gate_history=train_contact_gate_history,
                 TRAIN_success_candidates=success_candidates.report() if success_candidates else None,
                 development_checks=development_checks),indent=2)+'\n')
             status=('interrupted' if stopped['value'] else
