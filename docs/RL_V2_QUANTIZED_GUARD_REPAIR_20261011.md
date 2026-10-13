@@ -1,5 +1,57 @@
 # SAC 갱신 정체 수정과 GPU3 실제 후속 학습
 
+## 10/13 구역·크기 분리판 종료 · 자체 초기11 → 최종15/128
+
+같은 요청의 전체 DEV128에서 **초기 성공11·무효13·rack65·timeout39·수치0 →
+최종 성공15·무효0·rack66·timeout47·수치0**이다. 공통 초기 유효115조건은11→13,
+기존 성공4개를 잃고6개를 얻었다. 독립 물리 reset이므로 동일 물리 상태의 통제 개선으로
+설명하지 않는다. 과거 최선과 같은15건이며 세 조건은 여전히 성공0으로 목표는 미달성이다.
+
+| 구역·크기 | 자체 초기 성공/요청 | 최종 성공/요청 | 최종 rack 실패 | 최종 timeout |
+|---|---:|---:|---:|---:|
+| 중간 왼쪽 small |6/16|7/16|9|0|
+| 중간 오른쪽 small |0/16|0/16|0|16|
+| 상단 왼쪽 small |2/32|2/32|7|23|
+| 상단 오른쪽 small |3/32|6/32|19|7|
+| 중간 왼쪽 medium |0/16|0/16|16|0|
+| 중간 오른쪽 medium |0/16|0/16|15|1|
+
+![실제 초기·최종128 비교](assets/rl_v2_region_size_final_DEV128_20261013.png)
+
+모든15성공의 실제 양손 opposing two-pad pinch·hold≥0.25초·proof clearance≥8mm·안전과
+같은 고정 actor4863/Q21620의91개 model tensor·전체 영상 wave proof를 대조했다.
+출발4055/Q18386에서 새 actor808/critic3234회이며 전체 optimizer·모델은 유한했다.
+최종 모델 SHA256 `a2b2a938b58196cf56a334afb6c660f129584872aa7a238547c22df476f4a6e4`와
+기존 최선·초기 모델·성공 순간 후보7개를 보존했다. 실행은 exit0로 끝났고 writer/supervisor
+종료 및 기존 Drive의 체크포인트/종료 로그 검증을 재확인했다.
+
+**남은 원인은 서로 다르다.** 중간 오른쪽small16개는 유효해도 모두 timeout,
+왼쪽medium16개는 모두 rack 실패다. 최종 rack66건 모두 held_grasp에서 발생했고 종료 최대힘은
+224.95N이다. 종료 peak body는 최초 접촉 이력이 아니다. 두 번째 TRAIN406제안의 실제
+head 이동은 중간 오른쪽medium55·중간 왼쪽small405·상단 오른쪽small7·상단 왼쪽small0·
+새 중간 오른쪽small406·새 중간 왼쪽medium406회이며 모든6개 저장 Adam step과 맞았다.
+상단 왼쪽은 초기 정책을 그대로 유지했고 새 두 조건은 실제 갱신해도 물리 성공0이다.
+17새 성공 중16경로가 은행에 남고1개는 기존 용량 제한으로 빠졌다. 같은 step 등록·footer
+중복0·기존7cohort 경로/고정 한도/기존 jaw는 유지됐으나 미래 성공을 보장하지 않는다.
+
+**다음 작은 교정 후보:** 몸체 기준을 통과하고 jaw만 틀린 실제 rounded 후보에서 마지막
+jaw 출력만 교정하도록 GPU3의 닫힌 TRAIN 입력2개를 비교했다. 상단 왼쪽 이동0이
+4.53e-7/4.65e-7로 복구됐고 body mean·요청 관절 목표·bounded servo·jaw 출력 변화도
+확인했다. 변경은 매우 작으며 물리 성공 개선이 아니다. 이미 수용한 다른 head의 parameter/
+Adam·같은 critic·원래 Adam norm·고정 전체 cohort/greedy jaw를 유지했다.
+전체 제안에만 적용한 앞선 비교는 교정 호출0이었다. 초기 진단 hook이 body-only 경로에도
+섞인 오류는 helper에서 분리했고 실제 완료 writer의 오류는 아니었다. Production 연결은
+아직이며 저장 후보의 같은 DEV128 고정 평가와 다음 TRAIN 실제 Q 기울기 측정으로 이어간다.
+
+최종 env0 성공·env4 왼팔4link–rack26.41N 실패·env1 timeout의 세 실제 Q 영상을
+모델/reset/결과·전reset 종료 frame·H264 전체 decode로 대조해 로컬 보존했다.
+Q1/Q2/minQ는 행동 전 critic 추정값이며 Q21620은 누적 counter다. 세 선택 영상만으로
+전체 성공률을 판단하지 않는다. 기존 고정 base 접근 뒤 SAC21개 비base 목표이고
+box/base/flap DR·보상·성공·안전·curriculum0은 유지한다.
+[전체128·공통 유효 lost/gained·실제 Adam·모델·Q 영상·작은 교정 근거](assets/rl_v2_region_size_final_DEV128_and_saved_candidates_20261013.json)
+[재생 가능한 평가 자료와 중간보고](https://app.notion.com/p/3f163918d42a817aa98cec7e2114034e)
+
+
 ## 10/13 구역·크기 분리판 첫 전체 TRAIN128 완료
 
 새 실행 `batch_sac_20261013_034912_9211ec`의 첫 TRAIN은 **실제 양손 성공13/128**,
