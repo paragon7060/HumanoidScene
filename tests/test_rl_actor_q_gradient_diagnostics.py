@@ -149,6 +149,73 @@ def test_actual_success_retention_update_is_exact_with_sampled_objective_alignme
         assert observed.actor_body_Q_gradient_diagnostics._pending is None
 
 
+def test_same_sample_regularization_direction_is_separate_from_Q_and_retention():
+    agent, raw, encoder = fixture()
+    body = agent.actor.network(agent.actor_normalizer(raw))[:, :19].tanh() * .01
+    q = encoder(raw, torch.cat((body, torch.ones(len(raw), 2)), -1))[:, 1, None].expand(-1, 4)
+    probability = torch.full_like(q, .25)
+    q_loss = -(probability*q).sum(-1).mean()
+    retention, cost = 2*q_loss, -3*q_loss
+    total = q_loss+retention+cost
+    original, rng = model_and_optimizer_digest(agent), torch.get_rng_state().clone()
+    diagnostic = ActorBodyQGradientDiagnostics(1)
+    diagnostic.capture(agent, raw, body, q, probability, 1.)
+    diagnostic.complete_actor_objective(agent, total, retention,
+        successful_train_rows=12, sampled_regularization_loss=cost)
+    measured = diagnostic.latest['sampled_actor_regularization_gradient_alignment']
+    for fields in measured['scopes'].values():
+        assert fields['nonfinite_gradient_elements'] == 0
+        if fields['body_Q_parameter_gradient_L2']:
+            assert fields['weighted_sampled_regularization_parameter_gradient_L2'] == pytest.approx(
+                3*fields['body_Q_parameter_gradient_L2'])
+            assert fields['cosine_body_Q_and_sampled_regularization_gradients'] == pytest.approx(-1.)
+            assert fields['cosine_success_retention_and_sampled_regularization_gradients'] == pytest.approx(-1.)
+        else:
+            assert fields['cosine_body_Q_and_sampled_regularization_gradients'] is None
+    assert original == model_and_optimizer_digest(agent) and torch.equal(rng, torch.get_rng_state())
+    assert all(p.grad is None for p in agent.actor.parameters())
+    total.backward()  # Additional inspection has not consumed the actor graph.
+
+
+def test_actual_clearance_regularization_diagnostics_preserve_six_head_updates_and_sampling():
+    from test_rl_actor_rack_clearance_objective import SyntheticGeometry, configuration
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.actor_rack_clearance import ActorRackClearanceObjective
+    plain, raw, encoder = fixture()
+    with torch.no_grad():
+        for head in plain.actor.network.heads:
+            head[-1].weight.zero_()
+            head[-1].bias[:21].zero_()
+    objective = ActorRackClearanceObjective(encoder, configuration(), raw)
+    objective.geometry = SyntheticGeometry(objective.kinematics.columns[0][0])
+    plain.actor_rack_clearance_config = configuration()
+    plain._actor_rack_clearance_objective = objective
+    observed = deepcopy(plain)
+    observed.actor_body_Q_gradient_diagnostics = ActorBodyQGradientDiagnostics(2)
+    actions = plain.act(raw, True)
+    batch = dict(actor_obs=raw, critic_obs=torch.zeros(len(raw), 4), action=actions,
+        next_actor_obs=raw.clone(), next_critic_obs=torch.zeros(len(raw), 4),
+        reward=torch.linspace(-1, 1, len(raw)), terminated=torch.ones(len(raw), dtype=torch.bool))
+    success = dict(actor_obs=raw.clone(), action=actions.clone())
+    inputs = structure_sha256((batch, success))
+    for draw in range(2):
+        rng = torch.get_rng_state().clone()
+        off = plain.update(batch, successful_train=success, success_goal_weight=.3, success_jaw_weight=.2)
+        end = torch.get_rng_state().clone()
+        torch.set_rng_state(rng)
+        on = observed.update(batch, successful_train=success, success_goal_weight=.3, success_jaw_weight=.2)
+        diagnostic = on.pop('actor_body_Q_gradient_diagnostics')
+        assert on == off and model_and_optimizer_digest(plain) == model_and_optimizer_digest(observed)
+        assert inputs == structure_sha256((batch, success)) and torch.equal(end, torch.get_rng_state())
+        assert diagnostic['sampled_on_this_proposal'] == (draw == 0)
+        assert on['actor_rack_clearance']['positive_cost_rows'] > 0
+        measurement = diagnostic['latest_measurement']['sampled_actor_regularization_gradient_alignment']
+        assert set(measurement['scopes']) == {'/'.join(scope) for scope in SCOPES}
+        assert all(fields['nonfinite_gradient_elements'] == 0 for fields in measurement['scopes'].values())
+        assert any(fields['weighted_sampled_regularization_parameter_gradient_L2'] > 0
+                   for fields in measurement['scopes'].values())
+        assert observed.actor_body_Q_gradient_diagnostics._pending is None
+
+
 @pytest.mark.parametrize('interval', [0, -1, True, 1.5])
 def test_invalid_sampling_intervals_are_rejected(interval):
     with pytest.raises(ValueError):

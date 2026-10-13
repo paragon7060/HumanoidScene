@@ -88,7 +88,7 @@ class ActorBodyQGradientDiagnostics:
         return self.latest
 
     def complete_actor_objective(self, agent, actor_loss, success_retention_loss=None,
-                                 *, successful_train_rows=0):
+                                 *, successful_train_rows=0, sampled_regularization_loss=None):
         """Compare the sampled Q path with losses actually supplied to Adam.
 
         autograd.grad leaves parameter .grad, optimizers and the original
@@ -111,7 +111,10 @@ class ActorBodyQGradientDiagnostics:
 
         total = gradients(actor_loss)
         retention = gradients(success_retention_loss)
+        sampled_regularization = (gradients(sampled_regularization_loss)
+                                  if sampled_regularization_loss is not None else None)
         scopes = {}
+        regularization_scopes = {}
         for label, indices in pending['partitions'].items():
             vectors = [torch.cat([parts[index].double().flatten() for index in indices])
                        for parts in (pending['body_Q_gradients'], total, retention)]
@@ -131,6 +134,24 @@ class ActorBodyQGradientDiagnostics:
                     cosine_body_Q_and_success_retention_gradients=(qsuccess/(qnorm*successnorm)
                         if qnorm and successnorm else None))
             scopes[label] = fields
+            if sampled_regularization is not None:
+                cost = torch.cat([sampled_regularization[index].double().flatten()
+                                  for index in indices])
+                bad_cost = int((~torch.isfinite(cost)).sum())
+                cost_fields = dict(nonfinite_gradient_elements=bad + bad_cost)
+                if not bad and not bad_cost:
+                    costnorm = float(cost.norm())
+                    qcost, successcost = float(q@cost), float(success@cost)
+                    cost_fields.update(weighted_sampled_regularization_parameter_gradient_L2=costnorm,
+                        body_Q_parameter_gradient_L2=qnorm,
+                        weighted_success_retention_parameter_gradient_L2=successnorm,
+                        body_Q_dot_weighted_sampled_regularization_gradients=qcost,
+                        weighted_success_retention_dot_sampled_regularization_gradients=successcost,
+                        cosine_body_Q_and_sampled_regularization_gradients=(qcost/(qnorm*costnorm)
+                            if qnorm and costnorm else None),
+                        cosine_success_retention_and_sampled_regularization_gradients=(successcost/(successnorm*costnorm)
+                            if successnorm and costnorm else None))
+                regularization_scopes[label] = cost_fields
         result = dict(name='actual_actor_Q_retention_gradient_alignment_v1',
             proposal_attempt=self.attempts, successful_TRAIN_actor_rows=successful_train_rows,
             scopes=scopes, weighted_success_loss_excludes_teacher_and_entropy=True,
@@ -140,4 +161,12 @@ class ActorBodyQGradientDiagnostics:
             cosine_or_gradient_NOT_actual_Adam_direction_or_task_success=True,
             no_new_samples_optimizer_steps_raw_rows_or_parameter_grad_mutation=True)
         self.latest['actor_objective_gradient_alignment'] = result
+        if sampled_regularization is not None:
+            self.latest['sampled_actor_regularization_gradient_alignment'] = dict(
+                name='actual_same_sample_actor_regularization_gradient_alignment_v1',
+                proposal_attempt=self.attempts, scopes=regularization_scopes,
+                weighted_loss_is_actual_actor_sample_regularization=True,
+                before_Adam_projection_and_guard=True,
+                not_actual_parameter_movement_or_force_or_task_success=True,
+                no_new_samples_optimizer_steps_raw_rows_or_parameter_grad_mutation=True)
         return result

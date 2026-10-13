@@ -46,6 +46,19 @@ frozen561d 학습/중간 평가에 **미적용**이며 다음 실제 설정도 �
 
 ## 접촉 전 팔–랙 비용의 선택형 actor 학습 연결
 
+다음 실행에서 `--actor-body-q-gradient-interval 64`와 이 비용을 함께 켜면 같은 제안의
+`sampled_actor_regularization_gradient_alignment`를 구역·크기별로 기록한다. 실제 가중된
+비용의 parameter gradient norm, Q/성공 보존 기울기와의 dot/cosine을 각각 집계한다.
+비용 스칼라가 양수여도 clipping 때문에 gradient0이거나, 보호 검사 뒤 실제 이동0이면
+유용한 학습이 이뤄졌다고 하지 않는다. 비용이 꺼졌거나 해당 제안이 진단 간격 밖이면
+새 derivative 계산을 하지 않는다. 기존 진단과 같은 제안·난수·critic·모든 Adam·guard
+입력/결과를 유지한다. 이 집계 역시 현재 frozen561d에는 미적용이다.
+
+CPU22개 관련 검사를2.95초에 통과했다. 합성 반대 방향 비용과 실제 servo decoder를
+거친 양수 비용의 여섯 head에서 각 성분을 분리했고, 진단 on/off의 실제 learner 두 제안은
+model·모든4 optimizer·entropy·보고서·난수가 정확히 같았다. 이는 CUDA의 현재 실패
+표본이나 물리 성공 재현이 아니다. [동일 표본 비용·Q·보존 기울기 집계의 확인 범위](assets/rl_v2_actor_clearance_Q_retention_alignment_preparation_20261013.json)
+
 앞선 기하 계산을 실제 SAC의 **동일 stochastic body 표본**에 연결했다. 네 jaw 분기의
 몸체가 같음을 확인하고 실제 projector/servo clipping/pending 목표/URDF 한도를 거친
 팔 구동 목표에 손바닥·전완–랙 비용을 더한다. 원래 actor 목적함수와 성공 유지 손실에
