@@ -183,6 +183,34 @@ class RackEntryClearance:
         return torch.stack([p + (R @ local_points[:, i, :, None]).squeeze(-1)
                             for i, (p, R, _) in enumerate(self.frames(q))], 1)
 
+    def differentiable_distances(self, q, rack_pose):
+        """Four existing proxy distances with ordinary FK/SDF autograd.
+
+        This dormant primitive does not select a policy action or decode a
+        future joint target. A training caller must supply its reviewed joint
+        reference, including the actual controller's clipping. Gradients of
+        that clipping are not replaced. The distances are approximate geometry,
+        not force measurements or predictions of physically safe motion.
+        """
+        if rack_pose.shape != (len(q), 9) or rack_pose.device != q.device \
+                or rack_pose.dtype != q.dtype or not torch.isfinite(rack_pose).all():
+            raise ValueError('Finite matched measured rack pose required')
+        rack_R = _rotation_matrix(rack_pose[:, 3:])
+        distances = []
+        for body, (p, R, _) in enumerate(self.frames(q)):
+            h = body % 2
+            local = self.palms[h] if body < 2 else self.lines[h]
+            points = p[:, None] + torch.einsum('nij,pj->npi', R, local)
+            asset_points = torch.einsum('nij,npj->npi', rack_R.transpose(-1, -2),
+                                        points - rack_pose[:, None, :3])
+            ds, _ = box_signed_distance_gradient(asset_points, self.centers,
+                                                  self.rotations, self.halves)
+            if body >= 2:
+                ds = ds - self.radii[h]
+            # Match measure()'s deterministic first minimizer at ties.
+            distances.append(ds.flatten(1).min(-1).values)
+        return torch.stack(distances, 1)
+
     def record(self, measured, active):
         self.guided_rows += len(active); self.active_body_rows += int(active.sum())
         value = float(measured['distances'].min())
