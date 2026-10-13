@@ -317,6 +317,13 @@ Adam/은행/cohort 감사는 최종 평가·writer 종료 뒤 별도로 수행�
 `d5cd49ed2a1e5ded17a4756abf9e35bb9f3d0a16c253e1ba294a690f434362f5`다.
 기존 uploader가 검증 후 정리해 로컬에는 후보6/7 모델과7개 증거 JSON이 남았다.
 해당 모델이 전체 동작을 혼자 재현하는지는 종료 후 동일 DEV128 고정 평가로 확인한다.
+
+후보6/7을 자체 초기4055 모델과 CPU에서 비교했다. 상단 왼쪽small의6개 parameter·
+Adam 상태와 actor 정규화/routing buffer는 모두 초기값과 같아 해당 구역은 아직 갱신0이다.
+따라서 후보6의 상단 왼쪽 성공이나 두 번째 TRAIN의 같은 구역2성공을 새 SAC 갱신 효과로
+설명하지 않는다. 반면 후보7의 새 중간 오른쪽small·중간 왼쪽medium head는 각각741회
+Adam step 증가와 실제 parameter 변화를 확인했어도 완료 TRAIN의 해당 조건 성공은0이다.
+실제 갱신과 물리 성공을 구분하며, 이 CPU 비교는 현재 실패 상태의 Q 기울기를 측정한 것이 아니다.
 [닫힌128·실제 성공·등록·수집 조건·후보7 검증](assets/rl_v2_region_size_second_TRAIN_partial_success_candidates_20261013.json)
 
 ### 저장 후보의 동일 계약 고정 평가 경로
