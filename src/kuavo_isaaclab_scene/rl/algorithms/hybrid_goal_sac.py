@@ -156,6 +156,10 @@ class HybridGoalSAC(AsymmetricSAC):
         """Optional subclass objective; default adds no loss or extra forward."""
         return None
 
+    def actor_sample_regularization(self, raw, actions):
+        """Optional same-sample objective; default performs no extra work."""
+        return None
+
     def validate_critic_auxiliary(self,batch,weight):
         if batch is not None or weight:
             raise ValueError('This hybrid learner does not support auxiliary critic targets')
@@ -292,6 +296,11 @@ class HybridGoalSAC(AsymmetricSAC):
                 extra_loss, extra_statistics = body_regularization
                 actor_loss = actor_loss+extra_loss
                 report.update(extra_statistics)
+            sampled_regularization = self.actor_sample_regularization(batch['actor_obs'], actions)
+            if sampled_regularization is not None:
+                extra_loss, extra_statistics = sampled_regularization
+                actor_loss = actor_loss+extra_loss
+                report.update(extra_statistics)
             if q_diagnostics is not None:
                 q_diagnostics.complete_actor_objective(self, actor_loss,
                     success_goal_weight*success_goal_loss+success_jaw_weight*success_jaw_loss,
@@ -340,6 +349,10 @@ class HybridGoalSAC(AsymmetricSAC):
         state['hybrid_contract']=self.hybrid_contract
         if getattr(self, 'actor_rounded_jaw_repair', False):
             state['actor_rounded_jaw_repair'] = 'rejected-rounded-jaw-output-v1'
+        if getattr(self, 'actor_rack_clearance_config', None) is not None:
+            from ..multi_box.experiments.actor_rack_clearance import validate_actor_clearance_config
+            state['actor_rack_clearance_config'] = validate_actor_clearance_config(
+                self.actor_rack_clearance_config)
         if getattr(self, 'actor_success_guard_config', None) is not None:
             from copy import deepcopy
             state['success_guard_statistics'] = deepcopy(getattr(self, 'success_guard_statistics', {}))
@@ -362,6 +375,10 @@ class HybridGoalSAC(AsymmetricSAC):
         return result
 
     def restore(self,state,training=True):
+        clearance = None
+        if state.get('actor_rack_clearance_config') is not None:
+            from ..multi_box.experiments.actor_rack_clearance import validate_actor_clearance_config
+            clearance = validate_actor_clearance_config(state['actor_rack_clearance_config'])
         repair = state.get('actor_rounded_jaw_repair')
         if repair is not None:
             from .success_cohort_guard import TUBE_VARIANT
@@ -378,3 +395,5 @@ class HybridGoalSAC(AsymmetricSAC):
         from .success_cohort_guard import restore_memory
         restore_memory(self, state)
         self.actor_rounded_jaw_repair = repair is not None
+        self.actor_rack_clearance_config = clearance
+        self._actor_rack_clearance_objective = None

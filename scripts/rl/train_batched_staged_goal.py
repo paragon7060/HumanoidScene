@@ -110,6 +110,12 @@ def main():
         help='TRAIN only: aggregate existing sampled body-Q gradients every N actor proposals; 0 disables')
     parser.add_argument('--actor-rounded-jaw-repair', action='store_true',
         help='TRAIN only: repair rejected rounded jaw outputs within the existing fixed cohort and Adam budget')
+    parser.add_argument('--actor-rack-clearance-weight', type=float, default=None,
+        help='TRAIN only: explicit same-sample soft arm-rack actor cost; default disabled')
+    parser.add_argument('--actor-rack-clearance-activation-m', type=float, default=None,
+        help='Explicit soft-cost onset, not a hard distance or physical safety threshold')
+    parser.add_argument('--actor-rack-clearance-scale-m', type=float, default=None,
+        help='Explicit distance scale for the optional actor cost; all three values required')
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
@@ -143,6 +149,14 @@ def main():
         parser.error('Body-Q diagnostics require an actual TRAIN wave')
     if args.actor_rounded_jaw_repair and not any(w['split'] == 'train' for w in waves):
         parser.error('Rounded jaw repair requires an actual TRAIN wave')
+    from kuavo_isaaclab_scene.rl.multi_box.experiments.actor_rack_clearance import (
+        explicit_actor_clearance_config, validate_actor_clearance_config)
+    try:
+        requested_actor_clearance = explicit_actor_clearance_config(
+            args.actor_rack_clearance_weight, args.actor_rack_clearance_activation_m,
+            args.actor_rack_clearance_scale_m, training=args.training,
+            has_train=any(w['split'] == 'train' for w in waves))
+    except ValueError as error:parser.error(str(error))
     learner_device=args.learner_device or args.device or 'cuda:0'
     from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_workplace_probe import (
         INCOMPATIBLE_FLAGS as WORKPLACE_FLAGS, validate_cpu_workplace_probe)
@@ -338,6 +352,11 @@ def main():
             configured_reward_weights,frozen_actor_reward_contract,learning_termination_mask)
         reward_weights=configured_reward_weights(contract['reward_profile'])
         state=torch.load(args.checkpoint,map_location=learner_device,weights_only=True)
+        saved_actor_clearance = validate_actor_clearance_config(state.get('actor_rack_clearance_config'))
+        if requested_actor_clearance is not None and saved_actor_clearance is not None \
+                and requested_actor_clearance != saved_actor_clearance:
+            raise ValueError('Actor clearance continuation requires its saved objective configuration')
+        actor_clearance = requested_actor_clearance or saved_actor_clearance
         from kuavo_isaaclab_scene.rl.multi_box.observations.task_timing import (
             resolve_critic_episode_clock, TASK_TIMING_GROUP)
         critic_episode_clock=resolve_critic_episode_clock(state,args.critic_episode_clock)
@@ -721,6 +740,8 @@ def main():
             **({'TRAIN_perceived_contact_exploration':contact_collection,
                 'evaluated_policy_never_uses_contact_explorer':True} if contact_collection is not None else {}),
             'TRAIN_actor_body_regularization':actor_body_regularization,
+            **({'TRAIN_actor_rack_clearance_objective':actor_clearance}
+                if actor_clearance is not None else {}),
             'TRAIN_actor_jaw_regularization':actor_jaw_regularization,
             'TRAIN_successful_jaw_balance':successful_jaw_balance,
             'TRAIN_success_candidate_archive':dict(enabled=args.save_train_success_candidates,
@@ -904,6 +925,15 @@ def main():
                         raise ValueError('Rounded jaw repair requires the fixed servo-tube guard')
                     head_labels(pilot.agent.actor.network)
                     pilot.agent.actor_rounded_jaw_repair = True
+                if actor_clearance is not None:
+                    from kuavo_isaaclab_scene.rl.algorithms import success_cohort_guard as cohort
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.independent_actor_heads import head_labels
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.servo_critic import BodyServoCriticEncoder
+                    if not cohort.tube(pilot.agent) or type(
+                            getattr(pilot.agent, 'goal_servo_critic_encoder', None)) is not BodyServoCriticEncoder:
+                        raise ValueError('Actor clearance requires the fixed servo-tube guard and real servo encoder')
+                    head_labels(pilot.agent.actor.network)
+                    pilot.agent.actor_rack_clearance_config = actor_clearance
                 (output/'agent.yaml').write_text(json.dumps(pilot.contract,indent=2)+'\n')
             if args.base_waypoint_probe:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.waypoint_probe import apply_waypoint_probe

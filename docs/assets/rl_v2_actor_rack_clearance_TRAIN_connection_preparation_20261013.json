@@ -1,0 +1,89 @@
+{
+  "at": "2026-10-13T17:27:10.217695+09:00",
+  "role": "optional_same_sample_actor_clearance_closed_TRAIN_CPU_NOT_physical_performance",
+  "source_checkpoint_SHA256": "20fa7b837ea59245fa8092b35ba20a32ce24917394bf558cec950c451f8094b5",
+  "source_actor": 5268,
+  "source_Q_counter": 23240,
+  "safe_TRAIN_paths": 26,
+  "safe_reference_rows": 78,
+  "example_config_NOT_selected_production": {
+    "name": "sampled_clipped_arm_drive_target_rack_soft_cost_v1",
+    "weight": 0.2,
+    "activation_m": 0.003,
+    "scale_m": 0.01,
+    "geometry_SHA256": "2361701aa4b2c8e502cf2f64a841a9c5d284a60d655eaaac9c9f45d2afae5cd2",
+    "chunk_rows": 32
+  },
+  "example_actual_encoder_geometry_report": {
+    "actor_rack_clearance": {
+      "name": "sampled_clipped_arm_drive_target_rack_soft_cost_v1",
+      "weight": 0.2,
+      "activation_m": 0.003,
+      "scale_m": 0.01,
+      "rows": 78,
+      "positive_cost_rows": 0,
+      "unweighted_cost_mean": 0.0,
+      "weighted_loss": 0.0,
+      "commanded_arm_target_proxy_distance_min_m": 0.004329126328229904,
+      "sampled_same_body_four_jaw_branches": true,
+      "extra_policy_samples": 0,
+      "reference": "actual_clipped_arm_drive_goal_at_measured_torso_waist_head",
+      "physical_force_or_future_safety_certificate": false
+    }
+  },
+  "example_goal_gradient_zero_rows": 78,
+  "frozen_policy_restore_all91_model_tensors_exact": true,
+  "restored_frozen_objective_not_constructed": true,
+  "legacy_update_frozen_source_SHA256": "2bbf6dea9706cbc267c982072647c9fe04ba7102562c54c6b95e33096ee8c445",
+  "legacy_default_off_vs_new_disposable_draws": 1,
+  "legacy_default_off_models_all4_optimizers_memory_reports_and_RNG_exact": true,
+  "disposable_cpu_actor_accepted": false,
+  "disposable_CPU_guard_not_CUDA_physics_reproduction": true,
+  "disposable_CPU_baseline_outside_fixed_ceiling": null,
+  "original_source_all_state_file_mtime_and_observer_RNG_unchanged": true,
+  "raw_replay_HDF_failed_episode_DEV_FINAL_inputs": 0,
+  "CUDA_initialized": false,
+  "current_writer_applied": false,
+  "production_configuration_selected": false,
+  "source_SHA256": {
+    "src/kuavo_isaaclab_scene/rl/multi_box/experiments/actor_rack_clearance.py": "e4e3399bf6e6eed72e648e8c0f8d5f934b5e7f7f84a1bf1f61262508b722ec06",
+    "src/kuavo_isaaclab_scene/rl/multi_box/experiments/actual_flap_residual_sac.py": "ae1b5858dec6a9abb28abc4e2a8cda3e33d6750935210915e3a00192ba0bd7c7",
+    "src/kuavo_isaaclab_scene/rl/algorithms/hybrid_goal_sac.py": "12d9fed9c911527626ccdaa04209434b5848c1e3f429db3e6e0dfb5ba615a1f9",
+    "scripts/rl/train_batched_staged_goal.py": "489d8dae0460b2a4797a98bea32a1cb882bb59f989f2845ebc38b36143889a26",
+    "tests/test_rl_actor_rack_clearance_objective.py": "efaf27ff699cb2f15ad637d09a324d267c5ae90855e0a627b70bfe639f8acd6f"
+  },
+  "implementation": {
+    "same_existing_stochastic_projected_body": true,
+    "four_jaw_branches_body_equality_required": true,
+    "extra_actor_sample_or_rng": false,
+    "critic_target_replay_reward_physics_DR_success_safety_curriculum_changed": false,
+    "before_original_guard_and_last_uncached_cohort": true,
+    "preserve_rejected_regional_Adam_and_trust_norm": true,
+    "configuration_checkpoint_key": "actor_rack_clearance_config",
+    "manifest_key": "TRAIN_actor_rack_clearance_objective",
+    "TRAIN_only_explicit_positive_options": [
+      "--actor-rack-clearance-weight",
+      "--actor-rack-clearance-activation-m",
+      "--actor-rack-clearance-scale-m"
+    ],
+    "default_disabled": true,
+    "frozen_no_geometry_graph": true,
+    "config_mismatch_continuation_rejected": true,
+    "chunk_rows": 32
+  },
+  "CPU_tests": {
+    "passed": 36,
+    "elapsed_seconds": 4.65,
+    "scope": "optional objective, geometry/decoder clipping, Q gradient diagnostics and rounded jaw guard integration",
+    "new_objective_checks": 11,
+    "real_CUDA_or_physics_rollouts": 0
+  },
+  "limitations": [
+    "Current frozen GPU3 code is unchanged; no new job or hotpatch.",
+    "Success reference rows do not validate failed-state usefulness.",
+    "The legacy actual-source CPU draw rejected actor updates; it proves default-off numerical equality, not CUDA protection or physical success.",
+    "Three explicit objective numbers used in CPU checks are examples, not selected next-run hyperparameters.",
+    "Existing real clipped controller derivatives remain zero at saturation; no invented derivative is installed.",
+    "CPU PhysX PGS/GPU3 CUDA, randomization and force/success criteria remain unchanged."
+  ]
+}

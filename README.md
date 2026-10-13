@@ -778,6 +778,24 @@ actor parameter 기울기를 집계한다. 추가 샘플·센서·optimizer 갱�
 켜진 상태는 checkpoint에 저장되고 복원된다. CPU 연결 검사는 실제 물리 성공 증거가 아니다.
 [교정 범위와 확인 상태](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#rounded-jaw-교정의-선택형-train-연결)를 참고한다.
 
+접촉 전 팔–랙 진입의 선택형 actor 비용은 다음 고유 TRAIN에 아래 세 옵션을 함께 쓴다.
+값은 실제 결과를 검토해 명시적으로 정하며 **기본 설정은 꺼짐**이다.
+
+```bash
+--actor-rack-clearance-weight "$RL_ACTOR_CLEARANCE_WEIGHT" \
+--actor-rack-clearance-activation-m "$RL_ACTOR_CLEARANCE_ACTIVATION_M" \
+--actor-rack-clearance-scale-m "$RL_ACTOR_CLEARANCE_SCALE_M"
+```
+
+환경 보상/critic 목표/replay는 그대로이며 이미 샘플한 실제 clipped 팔 구동 목표에만
+기존 손바닥·전완–랙 근사 비용을 더한다. 새 샘플·IK·물리 호출·STE/clip 우회는 없다.
+원래 성공 보호/Adam 한도/최종 전체 검사를 유지하고 명시한 설정은 checkpoint/manifest에 남는다.
+평가 중에는 비용을 계산하지 않으며 저장 설정이 다른 학습 재개는 거부한다.
+근사 간격은 힘·미래 궤적의 안전 보장이 아니다. CPU 검사 예시3mm/가중치0.2는 아직
+선택한 학습 설정이 아니고 현재 GPU3 frozen 학습에도 미적용이다.
+[선택형 학습 연결과 확인 범위](docs/RL_V2_QUANTIZED_GUARD_REPAIR_20261011.md#접촉-전-팔랙-비용의-선택형-actor-학습-연결)
+를 참고한다.
+
 CPU/GPU PhysX 비교와 CPU 물리·별도 GPU SAC learner, 전체 DEV128 중 선택한
 실제 자세 영상 녹화는 [CPU/GPU 중간 보고와 평가 사용법](docs/RL_V2_CPU_GPU_INTERIM_REPORT_20261006.md)에 정리했다.
 기존 정책을 CPU에서 평가한 결과와 CPU 물리에서 새로 학습한 성과를 구분하며,

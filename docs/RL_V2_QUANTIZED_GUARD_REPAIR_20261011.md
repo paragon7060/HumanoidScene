@@ -1,5 +1,52 @@
 # SAC 갱신 정체 수정과 GPU3 실제 후속 학습
 
+## 접촉 전 팔–랙 비용의 선택형 actor 학습 연결
+
+앞선 기하 계산을 실제 SAC의 **동일 stochastic body 표본**에 연결했다. 네 jaw 분기의
+몸체가 같음을 확인하고 실제 projector/servo clipping/pending 목표/URDF 한도를 거친
+팔 구동 목표에 손바닥·전완–랙 비용을 더한다. 원래 actor 목적함수와 성공 유지 손실에
+선택형 항목만 더하며 Q/replay 보상/target·정규화·sampling/entropy 계산은 바꾸지 않는다.
+기존 guard/거절 구역 Adam 복원·원래 trust norm·최종 uncached 전체 cohort 검사를 통과해야
+갱신된다. 이 비용이 모든 거절/충돌/양손 접근을 해결한다는 뜻은 아니다.
+
+세 값을 모두 명시한 실제 TRAIN에서만 켠다. 기본은 꺼짐이다.
+
+```bash
+--actor-rack-clearance-weight "$RL_ACTOR_CLEARANCE_WEIGHT" \
+--actor-rack-clearance-activation-m "$RL_ACTOR_CLEARANCE_ACTIVATION_M" \
+--actor-rack-clearance-scale-m "$RL_ACTOR_CLEARANCE_SCALE_M"
+```
+
+세 옵션이 일부만 있거나 값이0/음수/비유한·실제 TRAIN 없는 실행이면 거부한다.
+명시한 objective version/geometry checksum/weight/activation/scale/chunk32를 checkpoint와
+manifest에 남기고 복원한다. 저장한 설정과 다른 continuation도 거부한다. Frozen 평가나
+critic-only 갱신은 비용/기하 graph를 계산하지 않고, 설정 없는 이전 모델은 동일하게 동작한다.
+
+**현재 GPU3 frozen561d writer에는 미적용이며 다음 실행의 실제 설정도 아직 정하지
+않았다.** CPU36개 검사를4.65초에 통과했다. 같은 표본/실제 clipping·비용 방향의 유한차분·
+critic target/optimizer/입력/RNG 불변·chunk 경계·frozen 복원·잘못된 설정 거부를 확인했다.
+합성 양수 비용 검사에서는 원래 actor 제안에 gradient가 더해졌지만 물리 성공 검사는 아니다.
+Fixture에서 정규화 목표 좌표의 방향을 관절 방향과 같다고 가정했던 assertion은 실제
+부호 있는 servo scale/유한차분으로 교정했다. 새 비용이 제어 부호를 바꾸거나 clipping을
+우회한 것이 아니다.
+
+닫힌 실제23240 모델의 안전 TRAIN26경로/78행에서 실제 encoder→기하→선택형 비용을
+계산했다. 예시 weight0.2/activation3mm/scale1cm는 모든78행 비용0·목표 gradient0이었다.
+이 값은 선택한 학습 설정이 아니고 실패 상태의 유용성 검증도 아니다. 같은 checkpoint의
+91개 model tensor/frozen 출력과 원본 모든 state/optimizer/file/mtime/RNG는 그대로였다.
+실제 frozen561d `HybridGoalSAC.update`의 원본 source와 새 기본 off 경로를 같은 닫힌
+TRAIN 표본/독립 optimizer/RNG로 한 제안 비교해 model·모든4 optimizer·memory·보호 판정·
+보고서가 정확히 같았다. 이 CPU 제안은 actor 거절이었으므로 CUDA 보호 수용/물리 성공
+유지를 증명하지 않는다. 원본 raw replay/HDF·실패 episode·DEV/독립 FINAL은 입력으로
+쓰지 않았고 실제 학습/감시/다른 사용자 프로세스는 바꾸지 않았다.
+
+현재 중간/종료 DEV128과 총 TRAIN512를 마친 뒤 원인별 다음 고유 실행에서 비용을
+검토한다. 다음 실제 TRAIN은 양수 비용 행/전체 목적함수 방향/guard 뒤 actual delta/
+Adam 이동과 실제 충돌·파지 성공을 함께 확인해야 한다. 힘/성공 기준을 완화하거나
+같은 정체 설정을 무조건 반복하지 않는다.
+[선택형 연결·실제 source 비교·CPU 범위·SHA](assets/rl_v2_actor_rack_clearance_TRAIN_connection_preparation_20261013.json)
+
+
 ## 최근 두 번째 TRAIN128 완료 · 실패를 세 갈래로 분리
 
 두 번째 전체 TRAIN128은 **양손 안전 성공9·초기 유효128/무효0·안전 종료64

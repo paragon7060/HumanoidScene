@@ -65,6 +65,19 @@ class BoundedCorrectionHybridSAC(HybridGoalSAC):
         active = self.anchor_and_scale(raw)[1] > 1e-8
         return body_saturation_penalty(mean, active, config)
 
+    def actor_sample_regularization(self, raw, actions):
+        config = getattr(self, 'actor_rack_clearance_config', None)
+        if config is None:
+            return super().actor_sample_regularization(raw, actions)
+        from .actor_rack_clearance import ActorRackClearanceObjective
+        objective = getattr(self, '_actor_rack_clearance_objective', None)
+        if objective is None:
+            objective = ActorRackClearanceObjective(self.goal_servo_critic_encoder, config, raw)
+            self._actor_rack_clearance_objective = objective
+        if objective.config != config or objective.encoder is not self.goal_servo_critic_encoder:
+            raise ValueError('Actor clearance objective changed without an explicit restore')
+        return objective(raw, actions)
+
     def update(self, *args, **kwargs):
         result = super().update(*args, **kwargs)
         if getattr(self, 'measured_train_credit_enabled', False):
