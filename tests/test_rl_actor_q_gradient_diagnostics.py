@@ -1,0 +1,101 @@
+"""Real servo clipping and optimizer/RNG invariance; no physics success proof."""
+from copy import deepcopy
+
+import pytest
+import torch
+
+from test_rl_servo_critic import decoder_fixture, make_agent
+from test_rl_region_size_actor import setup
+from kuavo_isaaclab_scene.rl.algorithms.actor_q_gradient_diagnostics import ActorBodyQGradientDiagnostics
+from kuavo_isaaclab_scene.rl.multi_box.experiments.region_size_actor import RegionSizeRoutedNetwork, SCOPES
+from kuavo_isaaclab_scene.rl.multi_box.experiments.actor_train_memory import structure_sha256
+
+
+def fixture():
+    norm, source, tokens = setup()
+    raw, encoder = decoder_fixture(len(tokens))
+    raw[:, 89:98] = tokens[:, 89:98]
+    agent = make_agent(encoder)
+    agent.actor_normalizer = norm
+    agent.actor.network = RegionSizeRoutedNetwork(source, norm)
+    agent.actor_optimizer = torch.optim.Adam(agent.actor.parameters(), lr=agent.config.lr)
+    return agent, raw, encoder
+
+
+def model_and_optimizer_digest(agent):
+    state = agent.checkpoint()
+    return structure_sha256(dict(model=state['model'], optimizers=state['optimizers']))
+
+
+def test_real_decoder_separates_exact_clipped_zero_from_nonzero_Q_signal_without_mutation():
+    agent, raw, encoder = fixture()
+    with torch.no_grad():
+        for i, head in enumerate(agent.actor.network.heads):
+            head[-1].weight.zero_()
+            head[-1].bias.zero_()
+            head[-1].bias[1] = torch.atanh(torch.tensor(.5 if i == 0 else .05))
+    before, rng, original = model_and_optimizer_digest(agent), torch.get_rng_state().clone(), raw.clone()
+    body = agent.actor.network(agent.actor_normalizer(raw))[:, :19].tanh()
+    goals = torch.cat((body, torch.ones(len(raw), 2)), -1)
+    q = encoder(raw, goals)[:, 1, None].expand(-1, 4)
+    report = ActorBodyQGradientDiagnostics(64).capture(agent, raw, body, q, torch.full_like(q, .25), 1.)
+    clipped = report['scopes']['/'.join(SCOPES[0])]
+    active = report['scopes']['/'.join(SCOPES[1])]
+    assert clipped['rows'] == 2 and clipped['left_arm']['exact_zero_rows'] == 2
+    assert clipped['mean_body_Q_objective_parameter_gradient_L2'] == 0
+    assert active['left_arm']['exact_zero_rows'] == 0
+    assert active['left_arm']['mean_row_gradient_L2'] == pytest.approx(5.)
+    assert active['right_arm']['exact_zero_rows'] == 2
+    assert active['mean_body_Q_objective_parameter_gradient_L2'] > 0
+    assert all(p.grad is None for p in agent.actor.parameters())
+    assert before == model_and_optimizer_digest(agent)
+    assert torch.equal(rng, torch.get_rng_state()) and torch.equal(raw, original)
+    q.mean().backward()  # The original optimization graph remains usable.
+    assert any(p.grad is not None for p in agent.actor.parameters())
+
+
+def test_actual_hybrid_update_with_diagnostics_keeps_models_all_Adam_entropy_and_RNG_exact():
+    torch.manual_seed(910)
+    plain, raw, _ = fixture()
+    observed = deepcopy(plain)
+    observed.actor_body_Q_gradient_diagnostics = ActorBodyQGradientDiagnostics(3)
+    batch = dict(actor_obs=raw, critic_obs=torch.zeros(len(raw), 4), action=plain.act(raw, True),
+        next_actor_obs=raw.clone(), next_critic_obs=torch.zeros(len(raw), 4),
+        reward=torch.linspace(-1, 1, len(raw)), terminated=torch.ones(len(raw), dtype=torch.bool))
+    before = structure_sha256(batch)
+    for draw in range(2):
+        rng = torch.get_rng_state().clone()
+        off = plain.update(batch)
+        after = torch.get_rng_state().clone()
+        torch.set_rng_state(rng)
+        on = observed.update(batch)
+        assert torch.equal(after, torch.get_rng_state())
+        assert model_and_optimizer_digest(plain) == model_and_optimizer_digest(observed)
+        assert vars(plain.config) == vars(observed.config)
+        measurement = on.pop('actor_body_Q_gradient_diagnostics', None)
+        assert measurement['sampled_on_this_proposal'] == (draw == 0)
+        assert measurement['measurements'] == 1
+        assert measurement['latest_measurement']['proposal_attempt'] == 1
+        assert on == off and structure_sha256(batch) == before
+    off = plain.update(batch, update_actor=False)
+    on = observed.update(batch, update_actor=False)
+    status = on.pop('actor_body_Q_gradient_diagnostics')
+    assert not status['actor_proposal_in_this_update'] and not status['sampled_on_this_proposal']
+    assert status['proposal_attempts'] == 2 and status['measurements'] == 1
+    assert on == off and model_and_optimizer_digest(plain) == model_and_optimizer_digest(observed)
+
+
+def test_body_goal_signal_does_not_imply_actor_parameter_signal_through_a_fixed_mapping():
+    agent, raw, encoder = fixture()
+    body = agent.actor.network(agent.actor_normalizer(raw))[:, :19].tanh() * 0
+    q = encoder(raw, torch.cat((body, torch.ones(len(raw), 2)), -1))[:, 1, None].expand(-1, 4)
+    report = ActorBodyQGradientDiagnostics(1).capture(agent, raw, body, q, torch.full_like(q, .25), 1.)
+    for fields in report['scopes'].values():
+        assert fields['left_arm']['mean_row_gradient_L2'] == pytest.approx(5.)
+        assert fields['mean_body_Q_objective_parameter_gradient_L2'] == 0
+
+
+@pytest.mark.parametrize('interval', [0, -1, True, 1.5])
+def test_invalid_sampling_intervals_are_rejected(interval):
+    with pytest.raises(ValueError):
+        ActorBodyQGradientDiagnostics(interval)

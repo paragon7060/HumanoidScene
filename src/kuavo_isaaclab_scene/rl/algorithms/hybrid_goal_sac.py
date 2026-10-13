@@ -248,6 +248,9 @@ class HybridGoalSAC(AsymmetricSAC):
             policy_gaussian_std_mean=self.continuous_parameters(ao,batch['actor_obs'])[1].exp().mean().item(),
             success_goal_loss=0.,success_jaw_loss=0.,success_goal_weight=0.,success_jaw_weight=0.)
         report.update(auxiliary_statistics)
+        q_diagnostics = getattr(self, 'actor_body_Q_gradient_diagnostics', None)
+        if q_diagnostics is not None:
+            report['actor_body_Q_gradient_diagnostics'] = q_diagnostics.report()
         if not update_actor:return report
         self.q1.requires_grad_(False);self.q2.requires_grad_(False)
         try:
@@ -256,6 +259,9 @@ class HybridGoalSAC(AsymmetricSAC):
             q=self.branch_values(co,actions,raw=batch['actor_obs'])
             scale=q.detach().abs().mean().clamp_min(1).reciprocal() if self.config.actor_q_normalize else 1.
             actor_loss=(probability*(alpha*continuous_logp[:,None]+discrete_alpha*discrete_logp-scale*q)).sum(-1).mean()
+            if q_diagnostics is not None:
+                q_diagnostics.capture(self, batch['actor_obs'], body, q, probability, scale)
+                report['actor_body_Q_gradient_diagnostics'] = q_diagnostics.report(actor_proposal=True)
             teacher_loss=torch.zeros((),device=ao.device);discrete_prior=torch.zeros_like(teacher_loss)
             success_goal_loss=torch.zeros_like(teacher_loss);success_jaw_loss=torch.zeros_like(teacher_loss)
             if teacher is not None and teacher_weight:

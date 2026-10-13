@@ -106,6 +106,8 @@ def main():
         help='Record frozen DEV Q1/Q2 of actual held state/actions on the same frames without reading raw HDF')
     parser.add_argument('--rack-contact-summary', action='store_true',
         help='TRAIN/DEV only: keep rack warnings and largest force from existing pre-reset packets; no new sensors or steps')
+    parser.add_argument('--actor-body-q-gradient-interval', type=int, default=0,
+        help='TRAIN only: aggregate existing sampled body-Q gradients every N actor proposals; 0 disables')
     parser.add_argument('--grasp-observation-audit',action='store_true',
         help='Frozen DEV1..16 cases: compare actual flap/jaw/contact geometry throughout grasp; inputs and physics unchanged')
     parser.add_argument('--full-distribution-grasp-observation-audit',action='store_true',
@@ -126,11 +128,15 @@ def main():
     add_rack_roller_cli_args(parser);add_base_drive_cli_args(parser)
     parser.set_defaults(headless=True,robot_model='s63',gripper='leju-twofinger',rack_rollers=True)
     args=parser.parse_args()
+    if args.actor_body_q_gradient_interval < 0 or (args.actor_body_q_gradient_interval and not args.training):
+        parser.error('Body-Q diagnostics require a nonnegative interval and explicit TRAIN')
     if not 1<=args.steps<=900 or args.output_dir.exists():parser.error('New output and 1..900 steps required')
     if (args.contact_stability_probe or args.tgs_zero_velocity_probe or args.contact_last_probe or args.pgs_probe or args.gripper_drive_probe
             or args.centered_world_probe or args.packed_background_probe) and args.training:
         parser.error('Contact stability probe changes solver dynamics and is frozen-only')
     waves=json.loads(args.waves_json.read_text())
+    if args.actor_body_q_gradient_interval and not any(w['split'] == 'train' for w in waves):
+        parser.error('Body-Q diagnostics require an actual TRAIN wave')
     learner_device=args.learner_device or args.device or 'cuda:0'
     from kuavo_isaaclab_scene.rl.multi_box.experiments.cpu_workplace_probe import (
         INCOMPATIBLE_FLAGS as WORKPLACE_FLAGS, validate_cpu_workplace_probe)
@@ -878,6 +884,12 @@ def main():
                     pilot_options['success_jaw_balance'] = args.success_jaw_balance
                 pilot=pilot_class(warm,contract,output,stages.stages[0],checkpoint=args.checkpoint,
                     training=args.training,device=learner_device, **pilot_options)
+                if args.actor_body_q_gradient_interval:
+                    from kuavo_isaaclab_scene.rl.algorithms.actor_q_gradient_diagnostics import ActorBodyQGradientDiagnostics
+                    from kuavo_isaaclab_scene.rl.multi_box.experiments.independent_actor_heads import head_labels
+                    head_labels(pilot.agent.actor.network)
+                    pilot.agent.actor_body_Q_gradient_diagnostics = ActorBodyQGradientDiagnostics(
+                        args.actor_body_q_gradient_interval)
                 (output/'agent.yaml').write_text(json.dumps(pilot.contract,indent=2)+'\n')
             if args.base_waypoint_probe:
                 from kuavo_isaaclab_scene.rl.multi_box.experiments.waypoint_probe import apply_waypoint_probe

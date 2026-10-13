@@ -341,6 +341,26 @@ CUDA_VISIBLE_DEVICES=3 python scripts/rl/batched_staged_goal_with_drive.py \
 읽지 않으며, 새 로컬 평가 기록도 기존 checkpoint/log 전용 범위 밖으로 전송하지 않는다.
 [기존 평가 경로의 제한·전용 경로·실제 frozen pilot 복원 범위](assets/rl_v2_saved_candidate_same_contract_eval_preparation_20261013.json)
 
+### 실제 TRAIN body-Q 기울기 진단 준비
+
+보호 한도가 없는 두 새 head도 갱신하고 있으나 아직 실제 파지 성공이 관측되지 않았다.
+현재 실패 상태의 Q 학습 신호를 저장된 성공 상태의 CPU 분석으로 대신 판단하지 않는다.
+다음 고유 TRAIN 실행에 `--actor-body-q-gradient-interval 64`를 추가하면 기존 actor 표본과
+실제 네 jaw 분기의 Q만 사용해 구역·크기별 양팔 목표 기울기와 actor parameter 기울기를 집계한다.
+Jaw 확률을 고정한 **body-Q 경로**이며 entropy·성공 모방·jaw 확률의 기울기는 제외한다.
+실제 servo clipping을 유지하고 STE나 임계값 변경은 하지 않는다.
+
+측정은 보호 검사 전 proposal 기준이다. 매64개 proposal의 측정 번호·행 수·finite/정확히0인
+행 수·기울기 크기를 남기며, 비측정 proposal/critic-only 갱신에서는 마지막 측정을 명시적으로
+유지한다. 값0은 해당 표본의 국소 미분이고, 양수도 보호 검사 이후 parameter 이동이나
+물리 성공을 증명하지 않는다. 학습률·보상·Q/replay label·물리·randomization·안전 기준은 같다.
+
+CPU 검사17개에서 실제 servo decoder의 clipped0/활성 기울기, 목표 기울기와 actor 전달의 차이,
+진단 on/off 실제 hybrid 갱신의 모델·4종 optimizer·entropy·RNG·입력 동일성을 확인했다.
+이는 현재 실패 상태의 CUDA 측정이나 파지 개선 결과가 아니다. 현재 frozen e226 실행에는
+적용하지 않았으며, 최종 DEV128/Drive 검증을 먼저 마친 뒤 필요한 다음 실행에서만 사용한다.
+[준비 코드 SHA와 검사 범위](assets/rl_v2_actor_body_Q_gradient_diagnostics_preparation_20261013.json)
+
 ### 그리퍼 출력만 교정하는 후보 준비 · 현재 학습에는 미적용
 
 실제 step151의 마지막 상단 왼쪽 후보는 팔 한도 초과0이어도 보호 jaw 정답1개가
