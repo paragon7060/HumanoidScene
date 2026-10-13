@@ -51,6 +51,25 @@ jaw를 유지했고 새 jaw promotion은0이다. 보호 표본의 보존은 물�
 학습 오류나 재시작은 없으며 raw replay/HDF·독립 FINAL을 진단에 쓰지 않았다.
 [전체128·6조건·Adam·은행·손별 집계·실제 초기 base·안전 원인](assets/rl_v2_rounded_jaw_first_full_TRAIN128_20261013.json)
 
+## 성공 없는 정책이 표준편차만 바꾸는지 확인
+
+학습 전21620·첫 저장22528·첫 배치 끝23240의 닫힌 모델만 CPU로 비교했다.
+두 자유 head(중간 오른쪽small/중간 왼쪽medium)는 표준편차뿐 아니라 몸체 평균 출력
+weight/bias와 내부 층도 실제로 바뀌었다. 첫 저장 뒤178회 갱신에서도 평균 출력 parameter
+L2 차이는 각각0.0006013/0.0002723, 몸체 log-std 출력은0.0001098/0.00003588이다.
+이는 parameter 단위의 차이이며 동작 거리/힘이나 평균 동작 출력의 변화량이 아니다.
+**표준편차만 학습한다는 설명은 이 저장점에서 지지되지 않는다.** 반면 상단 오른쪽/
+왼쪽small은22528→23240에서 몸체·jaw·std·내부 층 모두 그대로여서 보호 갱신 정체가
+남았다. 이미 첫 저장 감사에서 평균/표준편차의 변화가 보였고 이번은 이후 구간을 분리한
+확인이다.
+
+실패 상태에서의 greedy 목표/servo clipping·Q 방향·물리 궤적은 재현하지 않았다.
+Parameter 이동과 Q 신호만으로 유효한 탐색이나 성공 개선을 주장하지 않으며 이 이유로
+탐색 크기·학습률·clip·보상·물리를 바꾸지 않았다. 원본 파일/모든 optimizer/RNG 불변을
+확인했고 inference/optimizer 갱신/CUDA/raw replay/HDF/은행/DEV/FINAL 입력은0이다.
+두 번째 TRAIN과 자체 초기14 기준의 중간/종료 DEV128을 계속 확인한다.
+[닫힌 모델별 body mean·jaw·std·내부 층 실제 변경과 진단 범위](assets/rl_v2_rounded_jaw_closed_actor_parameter_roles_20261013.json)
+
 ## TRAIN 손별 탐색 집계의 종료 보존 수정
 
 이전6head 실행의 종료 `metrics.json`을 다시 확인하니
