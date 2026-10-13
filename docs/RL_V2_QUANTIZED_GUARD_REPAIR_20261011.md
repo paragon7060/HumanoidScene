@@ -31,8 +31,11 @@ Adam·같은 critic·원래 projected Adam norm·고정 전체 cohort/greedy jaw
 다음 원인별 계획은 정상 최종 checkpoint4863/Q21620에 대응하는 replay·모든 optimizer·
 성공은행/cohort에서 이어가는 새 TRAIN512와 동일 DEV128 초기/중간/종료다. Rounded-jaw
 교정과 실제 TRAIN body-Q 기울기 진단64, 성공 후보 최대12개 보관·동일 step 성공 등록·
-랙 접촉 요약·실제 Q 영상을 포함한다. 이 절의 기록 시점에는 실행 요청 전이며 실제
-시작은 실행 receipt로 구분한다. 기존 base 접근 후 SAC21개 비base 목표, CPU PGS/GPU3
+랙 접촉 요약·실제 Q 영상을 포함한다. **10:41 KST 고유 GPU3 실행
+`batch_sac_20261013_104131_27b59a`를 시작했다.** 초기 DEV와 새 TRAIN 갱신량은 아직
+실측 전이며 source15/candidate17을 새 초기값으로 대입하지 않는다. 단일 CPU 종료
+점검은 이전 대기 메시지를 재사용해 같은 대화로 순차 연결했다. 기존 base 접근 후
+SAC21개 비base 목표, CPU PGS/GPU3
 CUDA·보상·box/base/flap DR·양손 성공·안전·curriculum0을 유지한다.
 [전체128·6조건·공통 유효 lost/gained·모델·영상·실제 production CUDA 교정](assets/rl_v2_saved_candidate7_full_DEV128_and_production_jaw_GPU3_20261013.json)
 
