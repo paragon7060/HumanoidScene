@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "scenario_id": "task1_single_medium_box_right_arm14_waist16_verified_v1",
+  "description": "Verified S200062 right-hand partial extraction with waist pitch/yaw plus both arms (16DoF).",
+  "robot": {
+    "model": "s200062",
+    "gripper_preset": "s200062_integrated",
+    "tcp_frame": "endeffector_center"
+  },
+  "scene": {
+    "rack_box_poses": "configs/rack_box_poses_task1_centered.json",
+    "target_box": "medium_box_0",
+    "clear_same_shelf_boxes": true
+  },
+  "planning": {
+    "mode": "single_arm_reference_plan",
+    "include_waist": true,
+    "arm_only_baseline": false,
+    "cspace_dof": 16,
+    "cspace_joint_names": [
+      "waist_pitch_joint", "waist_yaw_joint",
+      "zarm_l1_joint", "zarm_l2_joint", "zarm_l3_joint", "zarm_l4_joint",
+      "zarm_l5_joint", "zarm_l6_joint", "zarm_l7_joint",
+      "zarm_r1_joint", "zarm_r2_joint", "zarm_r3_joint", "zarm_r4_joint",
+      "zarm_r5_joint", "zarm_r6_joint", "zarm_r7_joint"
+    ],
+    "torso_height_m": 0.25
+  },
+  "execution": {
+    "active_gripper": "right",
+    "initial_state": "meta_default",
+    "seed": 0,
+    "torso_height_m": 0.25,
+    "settle_steps": 120,
+    "approach_steps_per_waypoint": 4,
+    "close_steps": 180,
+    "closed_hold_steps": 60,
+    "retreat_steps_per_waypoint": 8,
+    "final_hold_steps": 120,
+    "capture_stride": 4,
+    "waypoint_tracking_tolerance_rad": 0.06,
+    "approach_box_motion_max_m": 0.003,
+    "retreat_box_motion_min_m": 0.03,
+    "retention_drift_max_m": 0.05,
+    "motor_obstruction_min_rad": 0.005,
+    "box_size_m": [0.32, 0.22, 0.185],
+    "rack_front_x_b_m": 0.415,
+    "partial_extraction_front_progress_min_m": 0.05,
+    "partial_extraction_front_inside_max_m": 0.05,
+    "final_hold_box_motion_max_m": 0.01,
+    "direct_approach_replay": true,
+    "kinematic_direct_approach_render": true,
+    "overwrite_video": true
+  },
+  "gripper_contract": {
+    "actuator": {
+      "effort_limit_sim": 100.0,
+      "stiffness": 4000.0,
+      "damping": 400.0
+    },
+    "finger_contact": {
+      "static_friction": 20.0,
+      "dynamic_friction": 16.0
+    }
+  },
+  "verification": {
+    "state": "verified_partial_extraction",
+    "expected_passed": true,
+    "acceptance_mode": "partial_extraction",
+    "reference_commit": null,
+    "reference_report": ".artifacts/task1_verified_smooth_default_20260914/single_arm_right/report.json",
+    "reference_report_sha256": "e9d9fa2035e3d9fc21f3fb0a550ee80f191dba818b57e9b54e04647ac64e3d90",
+    "reference_video": ".artifacts/task1_verified_smooth_default_20260914/single_arm_right/task1_single_arm_right_arm14_waist16_smooth_normal_speed.mp4",
+    "reference_video_sha256": "f22a3fdf64e26cd3b3642ae65f2bebb7b8b26f67676292ec0b48eb2ee4233b85",
+    "result": {
+      "box_robotward_front_progress_m": 0.06269335438780554,
+      "final_box_front_inside_rack_m": 0.039507684435062085,
+      "full_extraction_success": false,
+      "retreat_box_motion_m": 0.12227655947208405,
+      "final_hold_box_motion_m": 0.00023923358821775764
+    }
+  }
+}

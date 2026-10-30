@@ -23,20 +23,36 @@ def contract(env):
     names = ["robot", "rack", "button_station", "conveyor_surface", *spec.box_names]
     return {"scene_profile": cfg.scene_profile,
         "robot": resolve_robot_model().name, "gripper": resolve_gripper_settings().name,
+        "finger_contact": asdict(resolve_gripper_settings().finger_contact),
         "box_names": list(spec.box_names), "cargo_per_box": spec.cargo_per_box,
         "cargo_radius": spec.cargo_radius, "prefill_count": spec.prefill_count,
         "slot_count": spec.slot_count, "slot_pitch": spec.slot_pitch,
         "finger_bodies": list(spec.finger_bodies), "tool_bodies": list(spec.tool_bodies),
         "tool_offset": list(spec.tool_offset),
+        "endeffector_center": env.command_manager.get_term("workcell").endeffector_center.definition,
+        "pick_success_revision": 2,
+        "settling_revision": 2,
+        "reaching_revision": "flap_signed_pregrasp_progress_v2",
+        "flap_shaping_revision": "signed_alignment_lift_once_grasp_v1",
         "layout": {n: {"pos": list(getattr(cfg.scene, n).init_state.pos),
                        "rot": list(getattr(cfg.scene, n).init_state.rot),
                        "scale": list(getattr(getattr(cfg.scene, n).spawn, "scale", None) or (1, 1, 1))}
                    for n in names},
         "joints": {name: list(asset.joint_names) for name, asset in env.scene.articulations.items()},
         "geometry": {n: asdict(g) for n, g in cfg.commands.workcell.geometry.items()},
+        **({"flap_grasp_revision": 3, "flap_hold_revision": 2} if spec.grasp_mode == "flap_top" else {}),
         "grasp_definition": {name: getattr(spec, name) for name in (
-            "grasp_mode", "grasp_flaps", "flap_top_band", "flap_grasp_depth",
-            "flap_lock_degrees", "flap_contact_margin")}}
+            "grasp_mode", "grasp_hand", "required_grasp_hands", "grasp_force",
+            "grasp_flaps", "flap_top_band", "flap_grasp_depth",
+            "flap_lock_degrees", "flap_contact_margin", "obstacle_contact_force",
+            "collision_constraints_enabled",
+            "reset_settle_seconds", "reset_settle_hold_seconds", "reset_settle_timeout",
+            "prelift_position_scale", "prelift_speed_scale", "prelift_angular_scale",
+            "prelift_rotation_scale", "grasp_lift_clearance") + (("grasp_contact_grace_s",
+            "grasp_hold_slip_m", "grasp_open_tolerance_m", "flap_contact_region", "active_arm",
+            "prelift_position_deadband", "prelift_speed_deadband", "prelift_angular_deadband",
+            "prelift_rotation_deadband", "prelift_grasp_scale", "prelift_penalty_cap")
+            if spec.grasp_mode == "flap_top" else ())}}
 
 
 def signature(value):

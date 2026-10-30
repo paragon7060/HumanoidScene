@@ -1,12 +1,13 @@
 """Train or resume one selected skill with RSL-RL PPO."""
 
-from .common import parse_args, build_configs, run_directory, write_run_config, check_checkpoint
+from .common import parse_args, build_configs, run_directory, write_run_config, check_checkpoint, install_stop_handlers
 
 
 def main():
     args = parse_args("train")
     from isaaclab.app import AppLauncher
     app = AppLauncher(args).app
+    install_stop_handlers()
     env = None
     try:
         from isaaclab.envs import ManagerBasedRLEnv

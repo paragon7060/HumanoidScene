@@ -35,8 +35,8 @@ class GripperActuatorSettings:
 class FingerContactSettings:
     """Surface friction, separate from motor/joint actuator friction."""
 
-    static_friction: float = 1.0
-    dynamic_friction: float = 0.8
+    static_friction: float = 5.0
+    dynamic_friction: float = 4.0
     friction_combine_mode: str = "average"
 
 
@@ -249,8 +249,8 @@ def load_gripper_settings(
     if set(contact) - allowed_contact_keys:
         raise ValueError(f"Unknown finger_contact fields: {sorted(set(contact) - allowed_contact_keys)}")
     contact_cfg = FingerContactSettings(
-        static_friction=_number(contact.get("static_friction", 1.0), "finger_contact.static_friction", non_negative=True),
-        dynamic_friction=_number(contact.get("dynamic_friction", 0.8), "finger_contact.dynamic_friction", non_negative=True),
+        static_friction=_number(contact.get("static_friction", 5.0), "finger_contact.static_friction", non_negative=True),
+        dynamic_friction=_number(contact.get("dynamic_friction", 4.0), "finger_contact.dynamic_friction", non_negative=True),
         friction_combine_mode=contact.get("friction_combine_mode", "average"),
     )
     if contact_cfg.dynamic_friction > contact_cfg.static_friction:

@@ -86,13 +86,20 @@ STAGING_BOX_POSITIONS: dict[str, Vec3] = {
     "SmallBox_1": (2.00, 1.94, 0.02),
     "MediumBox_0": (2.40, 1.60, 0.02),
     "MediumBox_1": (2.40, 1.94, 0.02),
+    "MediumBox_2": (2.40, 2.28, 0.02),
+    "MediumBox_3": (2.40, 2.62, 0.02),
     "LargeBox_0": (2.82, 1.60, 0.02),
     "LargeBox_1": (2.82, 1.94, 0.02),
     "XLargeBox_0": (3.28, 1.60, 0.02),
     "XLargeBox_1": (3.28, 1.94, 0.02),
 }
 
-MAX_INSTANCES_PER_TYPE = 2
+BOX_INSTANCE_COUNTS: dict[str, int] = {
+    "small": 2,
+    "medium": 4,
+    "large": 2,
+    "xlarge": 2,
+}
 MAX_BOXES_PER_SHELF = 4
 # Measured directly in the authored Rack.usd root Xform. Local X runs across
 # the shelf, local Y runs along its depth, and local Z points upward.
@@ -198,10 +205,11 @@ def normalize_rack_box_layout(raw: Mapping[object, object]) -> RackBoxLayout:
 
     totals = Counter(box_type for boxes in result.values() for box_type in boxes)
     for box_type, count in totals.items():
-        if count > MAX_INSTANCES_PER_TYPE:
+        available = BOX_INSTANCE_COUNTS[box_type]
+        if count > available:
             raise ValueError(
                 f"Layout requests {count} '{box_type}' boxes, but only "
-                f"{MAX_INSTANCES_PER_TYPE} instances are spawned."
+                f"{available} instances are spawned."
             )
     return result
 
@@ -328,8 +336,8 @@ def load_captured_box_poses(path: str | Path) -> dict[str, CapturedBoxPose]:
 
     valid_names = {
         f"{label}_{index}"
-        for label in BOX_TYPE_LABELS.values()
-        for index in range(MAX_INSTANCES_PER_TYPE)
+        for box_type, label in BOX_TYPE_LABELS.items()
+        for index in range(BOX_INSTANCE_COUNTS[box_type])
     }
     poses: dict[str, CapturedBoxPose] = {}
     for instance_name, value in raw["boxes"].items():
@@ -471,7 +479,7 @@ def build_box_spawn_plan(
                 )
 
     for box_type, label in BOX_TYPE_LABELS.items():
-        for instance_index in range(MAX_INSTANCES_PER_TYPE):
+        for instance_index in range(BOX_INSTANCE_COUNTS[box_type]):
             instance_name = f"{label}_{instance_index}"
             if instance_name in plan:
                 continue

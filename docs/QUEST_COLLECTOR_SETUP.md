@@ -4,6 +4,10 @@
 `preview_quest_browser.sh`는 별도 개발용 bridge이며 여기서는 실행하지 않는다.
 아래 명령은 모두 clone한 저장소 루트에서 실행한다.
 
+RL 보상을 검사하려면 기존 연결 뒤 `./quest_collector.sh collect --rl-reward-debug`로
+실행한다. 이 모드는 데이터 저장 대신 VR에 항목별 보상을 표시한다.
+조작·제약은 [Quest reward 검사](RL_QUEST_REWARD_DEBUG.md)를 참고한다.
+
 ## 1. 처음 준비하기
 
 이미 [Isaac 설치](INSTALL.md)를 끝낸 Linux PC가 대상이다. 기준은 Python 3.11,

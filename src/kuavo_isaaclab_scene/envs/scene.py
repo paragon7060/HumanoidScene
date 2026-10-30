@@ -453,9 +453,9 @@ def build_tote_collection_cfg() -> RigidObjectCollectionCfg:
 # root beneath its prim, so these must be spawned as ArticulationCfg
 # instead of the RigidObjectCfg pattern used for the open-tote totes above.
 #
-# Two of each type are always spawned.  ``RACK_BOX_SPAWN_PLAN`` places the
-# requested subset on shelves and leaves every unused instance in a labeled
-# floor staging slot.  The shared parser/size dictionary lives in
+# Every configured instance is always spawned. ``RACK_BOX_SPAWN_PLAN`` places
+# the requested subset on shelves and leaves every unused instance in a
+# labeled floor staging slot. The shared parser/size dictionary lives in
 # ``rack_box_layout.py``.
 STAGING_BOX_TYPES = (
     ("SmallBox", SMALL_BOX_USD),
@@ -770,12 +770,14 @@ class RackToConveyorSceneCfg(InteractiveSceneCfg):
     )
     button_station: ArticulationCfg = BUTTON_STATION_CFG
 
-    # Two instances of every local box USD are always present. The shared
-    # spawn plan selects rack or floor-staging placement for each instance.
+    # Every configured local box instance is always present. The shared spawn
+    # plan selects rack or floor-staging placement for each instance.
     small_box_0: ArticulationCfg = staging_box_cfg("SmallBox", SMALL_BOX_USD, 0)
     small_box_1: ArticulationCfg = staging_box_cfg("SmallBox", SMALL_BOX_USD, 1)
     medium_box_0: ArticulationCfg = staging_box_cfg("MediumBox", MEDIUM_BOX_USD, 0)
     medium_box_1: ArticulationCfg = staging_box_cfg("MediumBox", MEDIUM_BOX_USD, 1)
+    medium_box_2: ArticulationCfg = staging_box_cfg("MediumBox", MEDIUM_BOX_USD, 2)
+    medium_box_3: ArticulationCfg = staging_box_cfg("MediumBox", MEDIUM_BOX_USD, 3)
     large_box_0: ArticulationCfg = staging_box_cfg("LargeBox", LARGE_BOX_USD, 0)
     large_box_1: ArticulationCfg = staging_box_cfg("LargeBox", LARGE_BOX_USD, 1)
     xlarge_box_0: ArticulationCfg = staging_box_cfg("XLargeBox", XLARGE_BOX_USD, 0)

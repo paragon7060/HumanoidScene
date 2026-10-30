@@ -1,0 +1,33 @@
+{
+  "model": "s200062",
+  "notes": "Explicit mechanical-interface exclusions for bundled URDF geometry; not learned from an arbitrary initial pose. All other modeled non-adjacent pairs remain checked.",
+  "allowed_pairs": [
+    {"links": ["leg_link", "waist_yaw_link"], "reason": "Waist support assembly meets torso cylinder across intermediate waist joint housing"},
+    {"links": ["zarm_l2_link", "zarm_l4_link"], "reason": "Adjacent upper-arm/elbow collision primitives meet across zero-offset shoulder-twist link"},
+    {"links": ["zarm_r2_link", "zarm_r4_link"], "reason": "Mirrored upper-arm/elbow mechanical interface"},
+    {"links": ["zarm_l4_link", "zarm_l6_link"], "reason": "Forearm cylinder overlaps its wrist-roll housing at joint interface"},
+    {"links": ["zarm_r4_link", "zarm_r6_link"], "reason": "Mirrored forearm/wrist-roll mechanical interface"},
+    {"links": ["zarm_l4_link", "zarm_l7_link"], "reason": "Forearm cylinder overlaps wrist pitch housing at its end"},
+    {"links": ["zarm_r4_link", "zarm_r7_link"], "reason": "Mirrored forearm/wrist pitch mechanical interface"},
+    {"links": ["zarm_l5_link", "zarm_l7_link"], "reason": "Nested wrist yaw/pitch joint housings"},
+    {"links": ["zarm_r5_link", "zarm_r7_link"], "reason": "Mirrored nested wrist joint housings"},
+    {"links": ["zarm_l7_link", "l_f_bar_3"], "reason": "Attached gripper linkage meets wrist mounting sphere"},
+    {"links": ["zarm_l7_link", "l_b_bar_3"], "reason": "Attached gripper linkage meets wrist mounting sphere"},
+    {"links": ["zarm_r7_link", "r_f_bar_3"], "reason": "Mirrored gripper linkage/wrist mounting interface"},
+    {"links": ["zarm_r7_link", "r_b_bar_3"], "reason": "Mirrored gripper linkage/wrist mounting interface"},
+    {"links": ["l_twofinger_base", "l_f_bar_3"], "reason": "Four-bar linkage pivot at gripper base; URDF tree opens the physical closed chain"},
+    {"links": ["l_twofinger_base", "l_b_bar_3"], "reason": "Four-bar linkage pivot at gripper base"},
+    {"links": ["r_twofinger_base", "r_f_bar_3"], "reason": "Mirrored four-bar linkage pivot at gripper base"},
+    {"links": ["r_twofinger_base", "r_b_bar_3"], "reason": "Mirrored four-bar linkage pivot at gripper base"},
+    {"links": ["l_f_bar_3", "l_f_bar_4"], "reason": "Four-bar closing linkage shared pivot; permitted mechanical near-contact"},
+    {"links": ["l_b_bar_3", "l_b_bar_4"], "reason": "Four-bar closing linkage shared pivot"},
+    {"links": ["r_f_bar_3", "r_f_bar_4"], "reason": "Mirrored four-bar closing linkage shared pivot"},
+    {"links": ["r_b_bar_3", "r_b_bar_4"], "reason": "Mirrored four-bar closing linkage shared pivot"},
+    {"links": ["l_f_finger", "l_f_bar_4"], "reason": "Finger and its closing linkage mechanically intersect in imported tree approximation"},
+    {"links": ["l_b_finger", "l_b_bar_4"], "reason": "Finger and its closing linkage mechanically intersect in imported tree approximation"},
+    {"links": ["r_f_finger", "r_f_bar_4"], "reason": "Mirrored finger/closing linkage interface"},
+    {"links": ["r_b_finger", "r_b_bar_4"], "reason": "Mirrored finger/closing linkage interface"},
+    {"links": ["l_f_finger", "l_b_finger"], "reason": "Intended opposing-fingertip contact at empty-gripper closure; cross-hand contacts remain forbidden"},
+    {"links": ["r_f_finger", "r_b_finger"], "reason": "Intended opposing-fingertip contact at empty-gripper closure; cross-hand contacts remain forbidden"}
+  ]
+}

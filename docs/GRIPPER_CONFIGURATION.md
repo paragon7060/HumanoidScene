@@ -105,15 +105,15 @@ composed running stage are not automatically written back to configuration.
 
 ### Finger surface friction
 
-The S56 `s56_twofinger` preset now uses an experimental high-friction setting:
-static **3.0**, dynamic **2.0**, versus the previous **1.0 / 0.8**. These are
-simulation tuning values, not measured real Kuavo contact coefficients.
-Adjust `presets.s56_twofinger.finger_contact` in `configs/grippers.json`:
+The global finger-contact default and both `s200062_integrated` and
+`s56_twofinger` presets use an experimental high-friction setting: static
+**5.0**, dynamic **4.0**. These are simulation tuning values, not measured
+real Kuavo contact coefficients. Adjust `finger_contact` in `configs/grippers.json`:
 
 ```json
 "finger_contact": {
-  "static_friction": 3.0,
-  "dynamic_friction": 2.0,
+  "static_friction": 5.0,
+  "dynamic_friction": 4.0,
   "friction_combine_mode": "average"
 }
 ```
@@ -122,9 +122,9 @@ Only the four `l/r_f/b_finger` collision-mesh groups use this material; it
 applies to the entire finger mesh, not a separately modeled rubber pad.
 Housing and wrist surfaces retain **1.0 / 0.8**, and joint `actuator.friction`
 remains **0.02**. Torque limits, PD gains, box materials and contact offsets
-are unchanged. The S200062 preset retains **1.0 / 0.8** by default but can use
-the same optional configuration block. Other hand types do not support this
-field and reject it instead of silently ignoring it.
+are unchanged. Other hand types do not support an explicit `finger_contact`
+field and reject it instead of silently ignoring it; if contact colliders use
+`FingerContactSettings()` directly, they receive the same **5.0 / 4.0** default.
 
 The combined contact friction also depends on the object's material and its
 combine mode; `average` retains the previous hand-side combination rule.

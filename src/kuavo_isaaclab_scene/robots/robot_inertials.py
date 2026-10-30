@@ -46,6 +46,8 @@ def _spawn_twofinger_robot(prim_path, cfg, translation=None, orientation=None,
     from .gripper_config import load_gripper_settings
     preset = "s56_twofinger" if model_label == "S56" else "s200062_integrated"
     add_hand_colliders(root, load_gripper_settings(preset).finger_contact)
+    from .end_effector import spawn_center_prims
+    spawn_center_prims(root)
     wheel_status = (f"omitted {wheel_colliders} kinematic wheel colliders"
                     if disable_wheel_contacts else "wheel contacts retained")
     print(f"[PHYSICS] Applied {model_label} two-finger simulation estimates to "

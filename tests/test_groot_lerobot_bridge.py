@@ -221,6 +221,23 @@ def test_bridge_builds_lerobot_observation_and_applies_action() -> None:
     assert torch.equal(bridge.action(torch.zeros((1, 15))).action, torch.zeros((1, 15)))
 
 
+def test_bridge_hold_action_preserves_current_manager_joint_state() -> None:
+    robot = _FakeRobot()
+    robot.data.joint_pos[0] = torch.tensor(MANAGER_ACTION_SCALES) * 0.25
+    camera = SimpleNamespace(
+        data=SimpleNamespace(output={"rgb": torch.zeros((1, 3, 4, 3), dtype=torch.uint8)})
+    )
+    env = SimpleNamespace(scene={"robot": robot, "head_sensor": camera})
+    bridge = KuavoLeRobotBridge(
+        env,
+        camera_map={"observation.images.front": "head_sensor"},
+    )
+    hold = bridge.hold_action()
+    assert hold.action.shape == (1, 15)
+    assert torch.allclose(hold.action, torch.full((1, 15), 0.25))
+    assert hold.saturation_fraction == 0.0
+
+
 class _Feature:
     shape = (15,)
 

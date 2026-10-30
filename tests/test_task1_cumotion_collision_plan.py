@@ -4,7 +4,8 @@ import numpy as np
 import pytest
 import yaml
 
-from data_collection.task1_cumotion_collision_plan import (
+from data_collection.task1.collision import (
+    DEFAULT_GRIPPER_SPHERE_CONFIG,
     GRIPPER_COLLISION_FRAMES,
     ROBOT_COLLISION_FRAMES,
     SELF_COLLISION_IGNORE,
@@ -14,6 +15,7 @@ from data_collection.task1_cumotion_collision_plan import (
     cover_cuboid,
     editor_region_geometry,
     line_goal_points,
+    paired_inner_flap_geometry,
     robot_spheres,
     rotation_error_deg,
     runtime_joint_defaults,
@@ -22,6 +24,10 @@ from data_collection.task1_cumotion_collision_plan import (
     target_flap_line_geometry,
     xrdf,
 )
+
+
+def test_default_gripper_sphere_config_survives_package_move():
+    assert DEFAULT_GRIPPER_SPHERE_CONFIG.is_file()
 
 
 def test_editor_region_geometry_accepts_live_transit_state_key():
@@ -152,6 +158,123 @@ def test_collision_world_allows_only_selected_target_flaps():
     ]
 
 
+def test_paired_inner_flap_geometry_selects_closest_opposed_pair():
+    flaps = {
+        "medium_box_0": [
+            {
+                "path": "/MediumBox_0/box/flap_left",
+                "grasp_point_b_m": [0.6, 0.00, 1.1],
+                "inward_normal_b": [0.0, 1.0, 0.0],
+            },
+            {
+                "path": "/MediumBox_0/box/flap_right",
+                "grasp_point_b_m": [0.6, 0.20, 1.1],
+                "inward_normal_b": [0.0, -1.0, 0.0],
+            },
+        ],
+        "medium_box_1": [
+            {
+                "path": "/MediumBox_1/box/flap_left",
+                "grasp_point_b_m": [0.6, -0.21, 1.1],
+                "inward_normal_b": [0.0, 1.0, 0.0],
+            },
+            {
+                "path": "/MediumBox_1/box/flap_right",
+                "grasp_point_b_m": [0.6, -0.01, 1.1],
+                "inward_normal_b": [0.0, -1.0, 0.0],
+            },
+        ],
+    }
+
+    result = paired_inner_flap_geometry(
+        flaps,
+        capture_width_m=0.055,
+        active_arm="left",
+    )
+
+    assert result["selected_flap_paths"] == [
+        "/MediumBox_0/box/flap_left",
+        "/MediumBox_1/box/flap_right",
+    ]
+    np.testing.assert_allclose(result["grasp_midpoint_b_m"], [0.6, -0.005, 1.1])
+    np.testing.assert_allclose(result["closing_axis_b"], [0.0, -1.0, 0.0])
+    assert result["grasp_point_separation_m"] == pytest.approx(0.01)
+
+
+def test_paired_inner_flap_geometry_orients_symmetric_axis_for_right_camera_up():
+    flaps = {
+        "medium_box_0": [
+            {
+                "path": "/MediumBox_0/box/flap_left",
+                "grasp_point_b_m": [0.6, 0.00, 1.1],
+                "inward_normal_b": [0.0, 1.0, 0.0],
+            },
+            {
+                "path": "/MediumBox_0/box/flap_right",
+                "grasp_point_b_m": [0.6, 0.20, 1.1],
+                "inward_normal_b": [0.0, -1.0, 0.0],
+            },
+        ],
+        "medium_box_1": [
+            {
+                "path": "/MediumBox_1/box/flap_left",
+                "grasp_point_b_m": [0.6, -0.21, 1.1],
+                "inward_normal_b": [0.0, 1.0, 0.0],
+            },
+            {
+                "path": "/MediumBox_1/box/flap_right",
+                "grasp_point_b_m": [0.6, -0.01, 1.1],
+                "inward_normal_b": [0.0, -1.0, 0.0],
+            },
+        ],
+    }
+
+    result = paired_inner_flap_geometry(
+        flaps,
+        capture_width_m=0.055,
+        active_arm="right",
+    )
+
+    np.testing.assert_allclose(result["closing_axis_b"], [0.0, 1.0, 0.0])
+
+
+def test_collision_world_pair_mode_omits_only_explicit_inner_flaps():
+    snapshot = {
+        "colliders": [
+            {"robot": False, "path": "/rack"},
+            {"robot": False, "path": "/MediumBox_0/box/flap_right"},
+            {"robot": False, "path": "/MediumBox_0/box/flap_left"},
+            {"robot": False, "path": "/MediumBox_0/box/bottom"},
+            {"robot": False, "path": "/MediumBox_1/box/flap_right"},
+            {"robot": False, "path": "/MediumBox_1/box/flap_left"},
+            {"robot": False, "path": "/MediumBox_1/box/bottom"},
+            {"robot": False, "path": "/SmallBox_0/box/flap_left"},
+        ]
+    }
+    world = {"cuboid": {f"obstacle_{index}": index for index in range(8)}}
+    selected = (
+        "/MediumBox_0/box/flap_right",
+        "/MediumBox_1/box/flap_left",
+    )
+
+    filtered, allowed = collision_world_config(
+        snapshot,
+        world,
+        allow_target_flap_contact=True,
+        allowed_target_flap_paths=selected,
+    )
+
+    assert allowed == list(selected)
+    assert filtered["cuboid"] == {
+        "obstacle_0": 0,
+        "obstacle_2": 2,
+        "obstacle_3": 3,
+        "obstacle_4": 4,
+        "obstacle_6": 6,
+        "obstacle_7": 7,
+    }
+
+
 def test_collision_sphere_cover_contains_oriented_cuboid():
     pose = [1.0, 2.0, 3.0, np.cos(.2), 0.0, 0.0, np.sin(.2)]
     dimensions = np.array([.12, .08, .15])
@@ -159,7 +282,7 @@ def test_collision_sphere_cover_contains_oriented_cuboid():
     centers = np.stack([center for center, _ in spheres])
     radii = np.asarray([radius for _, radius in spheres])
 
-    from data_collection.task1_cumotion_collision_plan import pose_matrix
+    from data_collection.task1.collision import pose_matrix
 
     transform = pose_matrix(pose)
     for corner in product(*((-dimension / 2, dimension / 2) for dimension in dimensions)):

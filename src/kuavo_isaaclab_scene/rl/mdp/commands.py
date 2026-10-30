@@ -18,6 +18,8 @@ class WorkcellCommand(CommandTerm):
         super().__init__(cfg, env)
         self.spec = cfg.task
         self.robot = env.scene["robot"]
+        from ...robots.end_effector import get_end_effector_frames
+        self.endeffector_center = get_end_effector_frames(self.robot)
         self.boxes = [env.scene[n] for n in self.spec.box_names]
         self.n = len(self.boxes)
         self.ids = torch.arange(self.num_envs, device=self.device)
@@ -33,6 +35,9 @@ class WorkcellCommand(CommandTerm):
         self.slot = self.phase.clone()
         self.done_boxes = torch.zeros(self.num_envs, self.n, dtype=torch.bool, device=self.device)
         self.initial_z = torch.zeros(self.num_envs, self.n, device=self.device)
+        self.initial_centers = torch.zeros(self.num_envs, self.n, 3, device=self.device)
+        self.initial_quats = torch.zeros(self.num_envs, self.n, 4, device=self.device)
+        self.initial_quats[..., 0] = 1
         self.dwell = torch.zeros(self.num_envs, device=self.device)
         self.belt_time = torch.zeros_like(self.dwell)
         self.belt_running = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
@@ -44,9 +49,19 @@ class WorkcellCommand(CommandTerm):
         self.metrics = {name: torch.zeros(self.num_envs, device=self.device)
                         for name in ("success", "boxes_placed", "phase", "cargo_retained")}
         self.flap_grasp = None
+        self.reach_progress = None
+        self.flap_progress = None
+        self.settling = None
+        if self.spec.reset_settle_seconds and not self.spec.reset_bank:
+            from .settling import ResetSettling
+            self.settling = ResetSettling(self.num_envs, self.device, self.spec)
         if self.spec.grasp_mode == "flap_top":
             from .flap_grasp import FlapGrasp
             self.flap_grasp = FlapGrasp(self)
+            from .reach_progress import ReachProgress
+            self.reach_progress = ReachProgress(self.num_envs, self.device)
+            from .flap_progress import FlapProgress
+            self.flap_progress = FlapProgress(self.num_envs, self.device)
             self.metrics.update({name: torch.zeros(self.num_envs, device=self.device)
                                  for name in ("grasp_left", "grasp_right", "lift_height", "hold_fraction",
                                               "left_target_distance", "right_target_distance")})
@@ -77,8 +92,14 @@ class WorkcellCommand(CommandTerm):
         self.failure[ids] = False
         self.transition[ids] = False
         self.last_step[ids] = self._env.common_step_counter
+        if self.settling is not None:
+            self.settling.reset(ids)
+        if self.flap_grasp is not None:
+            self.flap_grasp.reset(ids)
         self._measure()
         self.initial_z[ids] = self.centers[ids, :, 2] - self._env.scene.env_origins[ids, None, 2]
+        self.initial_centers[ids] = self.centers[ids] - self._env.scene.env_origins[ids, None]
+        self.initial_quats[ids] = self.poses[ids, :, 3:]
         saved = getattr(self._env, "_rl_reset_metadata", {})
         for env_id in ids.tolist():
             if env_id in saved:
@@ -93,6 +114,21 @@ class WorkcellCommand(CommandTerm):
             if not (height[ids] > self.initial_z[ids, self.active_box[ids]] + self.spec.lift_height * 0.5).all():
                 raise ValueError("Reset bank is not a lifted-box state for this task/geometry.")
         self._goals()
+        if self.reach_progress is not None:
+            self.reach_progress.reset(ids)
+            update = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+            update[ids] = True
+            enabled = self.phase == 1
+            if self.settling is not None:
+                enabled &= self.settling.ready
+            self.reach_progress.advance(self.hand_target_distance, self.active_box, enabled, update,
+                                        held=self.hand_grasp_flags)
+            self.flap_progress.reset(ids)
+            self.flap_progress.advance(self.grasp_alignment, self.hand_target_distance,
+                self.nearest_flap_index, self.hand_grasp_flags, self.grasped,
+                (self.centers[self.ids, self.active_box, 2] - self._env.scene.env_origins[:, 2]
+                 - self.initial_z[self.ids, self.active_box]) / self.spec.lift_height,
+                self.active_box, enabled, update, prime=True)
 
     def _measure(self):
         self.poses = torch.stack([b.data.root_pose_w for b in self.boxes], 1)
@@ -140,8 +176,12 @@ class WorkcellCommand(CommandTerm):
                                 & (foreign_local[:, None, 2].abs() < 0.5))
         body_pos = self.robot.data.body_link_pos_w[:, self.tool_ids]
         body_q = self.robot.data.body_link_quat_w[:, self.tool_ids]
-        tool_offset = torch.tensor(self.spec.tool_offset, device=self.device).expand_as(body_pos)
-        self.tools = body_pos + rotate(body_q, tool_offset)
+        if self.endeffector_center.definition:
+            # One stable TCP definition across IK, reward, observations and recording.
+            self.tools = self.endeffector_center.center_pose_w[..., :3]
+        else:
+            tool_offset = torch.tensor(self.spec.tool_offset, device=self.device).expand_as(body_pos)
+            self.tools = body_pos + rotate(body_q, tool_offset)
         target = self.centers[self.ids, self.active_box]
         target_q = self.poses[self.ids, self.active_box, 3:]
         half = self.half_size[self.active_box]
@@ -153,9 +193,11 @@ class WorkcellCommand(CommandTerm):
         forces = []
         for index in range(4):
             matrix = self._env.scene[f"grasp_contact_{index}"].data.force_matrix_w
-            if matrix is None or matrix.shape[2] != self.n:
+            filters_per_box = len(self.spec.grasp_flaps) if self.flap_grasp is not None else 1
+            if matrix is None or matrix.shape[2] != self.n * filters_per_box:
                 raise RuntimeError("Filtered finger→box contacts are missing; check USD Body paths and sensor filters.")
-            forces.append(matrix[self.ids, 0, self.active_box].norm(dim=-1))
+            matrix = matrix[:, 0].reshape(self.num_envs, self.n, filters_per_box, 3)
+            forces.append(matrix[self.ids, self.active_box].sum(-2).norm(dim=-1))
         self.contact_force = torch.stack(forces, -1)
         pairs = (self.contact_force > self.spec.grasp_force).reshape(self.num_envs, 2, 2).all(-1)
         nearby = (self.tools - target[:, None]).norm(dim=-1) < half.norm(dim=-1)[:, None] + self.spec.grasp_distance
@@ -163,6 +205,8 @@ class WorkcellCommand(CommandTerm):
         self.released = (self.contact_force < self.spec.grasp_force).all(-1) & ~nearby.any(-1)
         if self.flap_grasp is not None:
             self.flap_grasp.measure()
+            from .collisions import obstacle_forces
+            self.obstacle_forces = obstacle_forces(self._env)
         self.cargo_ok = torch.ones(self.num_envs, self.n, dtype=torch.bool, device=self.device)
         for box_id, name in enumerate(self.spec.box_names):
             for item in range(self.spec.cargo_per_box):
@@ -210,6 +254,23 @@ class WorkcellCommand(CommandTerm):
         self.transition[:] = False
         self._measure()
         self._goals()
+        if self.settling is not None:
+            completed = self.settling.advance(self.velocities, update, self._env.step_dt)
+            self.initial_z[completed] = (self.centers[..., 2]
+                - self._env.scene.env_origins[:, None, 2])[completed]
+            self.initial_centers[completed] = (self.centers - self._env.scene.env_origins[:, None])[completed]
+            self.initial_quats[completed] = self.poses[completed, :, 3:]
+        if self.reach_progress is not None:
+            enabled = self.reward_phase == 1
+            if self.settling is not None:
+                enabled &= self.settling.ready
+            self.reach_progress.advance(self.hand_target_distance, self.reward_box, enabled, update,
+                                        held=self.hand_grasp_flags)
+            self.flap_progress.advance(self.grasp_alignment, self.hand_target_distance,
+                self.nearest_flap_index, self.hand_grasp_flags, self.grasped,
+                (self.centers[self.ids, self.reward_box, 2] - self._env.scene.env_origins[:, 2]
+                 - self.initial_z[self.ids, self.reward_box]) / self.spec.lift_height,
+                self.reward_box, enabled, update)
         target = self.centers[self.ids, self.active_box]
         lifted = target[:, 2] - self._env.scene.env_origins[:, 2] > self.initial_z[self.ids, self.active_box] + self.spec.lift_height
         upright = self.upright[self.ids, self.active_box] > math.cos(self.spec.max_tilt)
@@ -217,18 +278,30 @@ class WorkcellCommand(CommandTerm):
         held = self.grasped & lifted & upright
         velocity = self.velocities[self.ids, self.active_box]
         settled = (velocity[:, :3].norm(dim=-1) < self.spec.settle_speed) & (velocity[:, 3:].norm(dim=-1) < self.spec.settle_angular_speed)
+        # Pick success does not require a motion/contact-residual limit. Keep
+        # the existing extra stability requirements for the later carry stage.
+        carry_held = held
         if self.flap_grasp is not None:
-            held &= settled & (self.unexpected_finger_force.amax(-1) < self.spec.unexpected_contact_limit)
+            carry_held = held & settled & (self.unexpected_finger_force.amax(-1) < self.spec.unexpected_contact_limit)
+        self.pick_checks = {
+            "grasp": self.grasped, "height": lifted, "tilt": upright,
+        }
         placed = self.supported[self.ids, self.active_box] & settled & self.released
         condition = torch.where(self.phase == 0, navigated,
                     torch.where(self.phase == 1, held,
-                    torch.where(self.phase == 2, held & navigated & self.free_slots.any(-1),
+                    torch.where(self.phase == 2, carry_held & navigated & self.free_slots.any(-1),
                     torch.where(self.phase == 3, placed,
                                 self.supported.all(-1) & self.button_pressed
                                 & ((self.tools - self.button_point[:, None]).norm(dim=-1).amin(-1)
                                    < self.spec.button_hand_distance)))))
         condition &= self.cargo_ok.all(-1)
+        if self.settling is not None:
+            condition &= self.settling.ready
+            self.pick_checks["initial_wait"] = self.settling.ready
+        if self.spec.cargo_per_box:
+            self.pick_checks["cargo"] = self.cargo_ok.all(-1)
         self.dwell[update] = torch.where(condition[update], self.dwell[update] + self._env.step_dt, 0.0)
+        self.pick_checks["hold"] = self.dwell >= self.spec.hold_seconds
         reached = (self.dwell >= self.spec.hold_seconds) & update & ~self.success
         self.transition[:] = reached & ~self.belt_running
         button_done = reached & (self.phase == 4)
@@ -251,10 +324,24 @@ class WorkcellCommand(CommandTerm):
             self.success |= reached
         floor_drop = (self.centers[..., 2] - self._env.scene.env_origins[:, None, 2] < 0.12).any(-1)
         outside = (self.robot.data.root_pos_w[:, :2] - self._env.scene.env_origins[:, :2]).abs().amax(-1) > 3.0
-        collision = self._env.scene["robot_contact"].data.net_forces_w.norm(dim=-1).amax(-1) > self.cfg.collision_force
+        if self.flap_grasp is not None:
+            collision = self.obstacle_forces.amax(-1) > self.spec.obstacle_contact_force
+        else:
+            collision = self._env.scene["robot_contact"].data.net_forces_w.norm(dim=-1).amax(-1) > self.cfg.collision_force
         grace = self._env.episode_length_buf > 3
-        self.failure |= (floor_drop | outside | ((~self.cargo_ok.all(-1) | collision) & grace)) & update
+        collision_failure = collision if self.flap_grasp is not None else collision & grace
+        collision_failure = collision_failure & self.spec.collision_constraints_enabled
+        self.failure_checks = {"floor_drop": floor_drop, "outside": outside,
+                               "cargo_lost": ~self.cargo_ok.all(-1) & grace}
+        if self.spec.collision_constraints_enabled:
+            self.failure_checks["obstacle_collision"] = collision_failure
+        if self.settling is not None and self.spec.reset_settle_timeout > 0:
+            self.failure_checks["settle_timeout"] = self.settling.failed
+        self.failure |= (floor_drop | outside | collision_failure | (~self.cargo_ok.all(-1) & grace)) & update
+        if self.settling is not None and self.spec.reset_settle_timeout > 0:
+            self.failure |= self.settling.failed & update
         self.success &= ~self.failure
+        self.transition &= ~self.failure
         self.metrics["success"][:] = self.success.float()
         self.metrics["boxes_placed"][:] = self.supported.float().sum(-1)
         self.metrics["phase"][:] = self.phase.float()

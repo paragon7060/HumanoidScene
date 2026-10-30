@@ -36,3 +36,22 @@ def test_overfilled_stopped_conveyor_rejected():
 def test_full_cannot_start_from_a_grasp_bank():
     with pytest.raises(ValueError, match="fresh rack"):
         task_spec("full", reset_bank="/example/bank").validate()
+
+
+def test_single_arm_must_match_required_grasp_hand():
+    options = dict(control_mode="arms-only", grasp_mode="flap_top", active_arm="right", grasp_hand="right")
+    task_spec("pick", **options).validate()
+    with pytest.raises(ValueError, match="Single active_arm"):
+        task_spec("pick", **{**options, "grasp_hand": "left"}).validate()
+    with pytest.raises(ValueError, match="Single active_arm"):
+        task_spec("pick", **options, required_grasp_hands=2).validate()
+
+
+def test_contact_region_and_disturbance_limits_validate():
+    options = dict(control_mode="arms-only", grasp_mode="flap_top")
+    with pytest.raises(ValueError, match="flap_contact_region"):
+        task_spec("pick", **options, flap_contact_region="anywhere").validate()
+    with pytest.raises(ValueError, match="deadbands"):
+        task_spec("pick", **options, prelift_position_deadband=-.1).validate()
+    with pytest.raises(ValueError, match="cap"):
+        task_spec("pick", **options, prelift_penalty_cap=float('inf')).validate()

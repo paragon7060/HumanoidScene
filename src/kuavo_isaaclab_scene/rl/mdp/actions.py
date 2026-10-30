@@ -9,6 +9,7 @@ from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
 from ...robots.gripper_runtime import InterpolatedJointPositionAction, InterpolatedJointPositionActionCfg
 from ...robots.gripper_action import interpolate_signed_gripper_action
 from .body_lock import FixedBody, ARM_JOINT_NAMES
+from .settling import gate_actions
 
 
 class PlanarDrive(ActionTerm):
@@ -93,16 +94,21 @@ class JointDeltaTargetsCfg(JointPositionActionCfg):
 
 
 class ArmsOnlyJointTargets(JointDeltaTargets):
-    """14 arm actions; latch the non-arm body after reset and hold at each substep."""
+    """7 or 14 arm actions; physically lock inactive joints after reset."""
 
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
         actual = tuple(self._asset.joint_names[i] for i in self._joint_ids)
-        if actual != ARM_JOINT_NAMES:
-            raise ValueError("arms-only action order must be left joints 1..7 then right joints 1..7.")
-        self.body_lock = FixedBody(self._asset, tolerance=cfg.body_lock_tolerance)
+        expected = (ARM_JOINT_NAMES if cfg.active_arm == "both" else
+                    tuple(f"zarm_{cfg.active_arm[0]}{i}_joint" for i in range(1, 8)))
+        if actual != expected:
+            raise ValueError(f"arms-only action order must be {expected}.")
+        inactive = "l" if cfg.active_arm == "right" else "r"
+        extra = () if cfg.active_arm == "both" else (rf"zarm_{inactive}[1-7]_joint", rf"{inactive}_.*_joint")
+        self.body_lock = FixedBody(self._asset, tolerance=cfg.body_lock_tolerance, extra_patterns=extra)
 
     def process_actions(self, actions):
+        actions = gate_actions(self._env, actions)
         self._raw_actions[:] = actions.clamp(-1, 1)
         self._targets += self._raw_actions * self._scale
         # VR measured poses can lie outside the softer training margin. Preserve
@@ -126,6 +132,7 @@ class ArmsOnlyJointTargets(JointDeltaTargets):
 class ArmsOnlyJointTargetsCfg(JointDeltaTargetsCfg):
     class_type: type = ArmsOnlyJointTargets
     body_lock_tolerance: float = 1e-4
+    active_arm: str = "both"
 
 
 class IncrementalGripper(InterpolatedJointPositionAction):
@@ -136,6 +143,7 @@ class IncrementalGripper(InterpolatedJointPositionAction):
         self._signed_target = torch.ones(self.num_envs, 1, device=self.device)
 
     def process_actions(self, actions):
+        actions = gate_actions(self._env, actions)
         self._raw_actions[:] = actions.clamp(-1, 1)
         self._signed_target.add_(self._raw_actions * self.cfg.delta_scale).clamp_(-1, 1)
         self._processed_actions[:] = interpolate_signed_gripper_action(
