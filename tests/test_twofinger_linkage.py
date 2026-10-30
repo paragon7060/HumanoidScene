@@ -86,6 +86,25 @@ def test_pin_constants_match_the_actual_donor_joint_frames():
             assert tuple(a-b for a,b in zip(tip, origin4)) == pytest.approx(pin_for(jaw, FOLLOWER_PIN), abs=1e-12)
 
 
+def test_s200062_tcp_tracks_the_closed_finger_contact_band():
+    root = ET.parse(ASSET_DIR / "kuavo_s200062/urdf/biped_s200062.urdf").getroot()
+    for side in "lr":
+        def joint_xyz(suffix):
+            joint = root.find(f"./joint[@name='zarm_{side}7_end_effector{suffix}_joint']")
+            return tuple(map(float, joint.find("origin").get("xyz").split()))
+
+        tcp = joint_xyz("")
+        axis_z = joint_xyz("_1")
+        axis_x = joint_xyz("_2")
+        gripper_base = root.find(f"./joint[@name='{side}_twofinger_base_joint']")
+        base_z = float(gripper_base.find("origin").get("xyz").split()[2])
+
+        assert tcp == pytest.approx((0.0, 0.0, -0.22))
+        assert tcp[2] - base_z == pytest.approx(-0.179)
+        assert tuple(a - b for a, b in zip(axis_z, tcp)) == pytest.approx((0.0, 0.0, 0.09))
+        assert tuple(a - b for a, b in zip(axis_x, tcp)) == pytest.approx((0.03, 0.0, 0.0))
+
+
 def test_packaged_usd_has_closed_hinges_and_no_passive_position_servos():
     if importlib.util.find_spec("isaacsim") is None and importlib.util.find_spec("pxr") is None:
         pytest.skip("Offline USD inspection needs pxr or Isaac Sim libraries (no simulator startup)")
